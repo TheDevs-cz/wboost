@@ -14,11 +14,11 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
-use WBoost\Web\FormData\TemplateVariantFormData;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use WBoost\Web\Entity\User;
+use WBoost\Web\Exceptions\InvalidPrintSetup;
 use WBoost\Web\Exceptions\InvalidTemplateDocumentChange;
 use WBoost\Web\Exceptions\ProjectNotFound;
 use WBoost\Web\Message\TemplateDocument\AddTemplateDocumentPage;
@@ -140,19 +140,23 @@ final readonly class TemplateDocumentWriteProcessor implements ProcessorInterfac
             ? self::optionalUuid($data->categoryId, 'categoryId')
             : $document->category?->id;
 
-        $this->dispatch(new EditTemplateDocument($document->id, $name, $categoryId));
+        $print = null;
 
         if (array_key_exists('bleedMm', $provided) || array_key_exists('cropMarks', $provided)) {
-            if (!$document->dimension->isPrintFormat()) {
-                throw new BadRequestHttpException('bleedMm / cropMarks exist only for print documents (mm / cm).');
-            }
+            // Validated BEFORE the rename is dispatched, so a refused print
+            // setup changes nothing. The raw body values are checked — the DTO
+            // would already have coerced them.
+            $print = self::printSettings(
+                $document->dimension,
+                array_key_exists('bleedMm', $provided) ? $provided['bleedMm'] : $document->dimension->bleedMm,
+                array_key_exists('cropMarks', $provided) ? $provided['cropMarks'] : $document->dimension->cropMarks,
+            );
+        }
 
-            $bleed = array_key_exists('bleedMm', $provided) ? ($data->bleedMm ?? 0.0) : $document->dimension->bleedMm;
-            $this->dispatch(new EditTemplateDocumentPrintSettings(
-                $document->id,
-                max(0.0, min((float) TemplateVariantFormData::MAX_BLEED_MM, $bleed)),
-                array_key_exists('cropMarks', $provided) ? ($data->cropMarks ?? false) : $document->dimension->cropMarks,
-            ));
+        $this->dispatch(new EditTemplateDocument($document->id, $name, $categoryId));
+
+        if ($print !== null) {
+            $this->dispatch(new EditTemplateDocumentPrintSettings($document->id, $print[0], $print[1]));
         }
 
         return $this->respond($document->id);
@@ -254,8 +258,24 @@ final readonly class TemplateDocumentWriteProcessor implements ProcessorInterfac
     {
         try {
             return DocumentWriteInput::dimension($data);
+        } catch (InvalidPrintSetup $invalid) {
+            throw new InvalidTemplateDocumentChange($invalid->getMessage(), $invalid->reason);
         } catch (\InvalidArgumentException $invalid) {
             throw new BadRequestHttpException($invalid->getMessage());
+        }
+    }
+
+    /**
+     * @return array{float, bool}
+     *
+     * @throws InvalidTemplateDocumentChange
+     */
+    private static function printSettings(TemplateDimension $dimension, mixed $bleedMm, mixed $cropMarks): array
+    {
+        try {
+            return DocumentWriteInput::printSettings($dimension, $bleedMm, $cropMarks);
+        } catch (InvalidPrintSetup $invalid) {
+            throw new InvalidTemplateDocumentChange($invalid->getMessage(), $invalid->reason);
         }
     }
 

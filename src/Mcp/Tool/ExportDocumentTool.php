@@ -74,8 +74,10 @@ readonly final class ExportDocumentTool
      *   the page variant's own (describe_variant). Pages left out export as
      *   designed (sample texts).
      * - format: "pdf-screen" (default — sRGB, light, for sending), "pdf"
-     *   (print: PDF/X-1a CMYK with bleed + crop marks; mm / cm documents only,
-     *   at most 8 pages here) or "png" (ZIP of one PNG per page, page-ordered).
+     *   (print: PDF/X-1a CMYK with the document's stored bleed + crop marks —
+     *   dimension.bleedMm / cropMarks, changed with manage_document
+     *   "set_print"; mm / cm documents only, at most 8 pages here) or "png"
+     *   (ZIP of one PNG per page, page-ordered).
      *
      * - versionId: re-export a stored version (document_history "list") —
      *   its fill is the base and `fields` / `pages` given here override it

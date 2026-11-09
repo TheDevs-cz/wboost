@@ -1121,10 +1121,22 @@ hide them from a "templates" list and present the document instead.
     `preset` accepts `"4:5"` / `"9:16"` only — `"1:1"` is retired for new
     formats (400; send `px` 1080 × 1080 instead). Existing variants still
     report `preset: "1:1"`.
+    **Print setup (mm / cm only, 2026-11-09):** `bleedMm` = bleed ("spadávka")
+    per side, a number 0–20 mm (the web form's range); `cropMarks` = boolean,
+    crop marks in a fixed 5 mm margin outside the bleed. **Omitted → 0 mm and
+    no crop marks** (unchanged default, kept for existing callers — the web
+    forms default to 3 mm + marks, so send `bleedMm: 3, cropMarks: true` for
+    the usual print setup, or ask your user). Refusals are structured
+    `400 {error, code}`: `invalid_bleed` (not a number, < 0 or > 20 — never
+    clamped), `invalid_crop_marks` (not a boolean), `print_setup_not_available`
+    (a `bleedMm > 0` or `cropMarks: true` on a px / preset document; an
+    explicit `0` / `false` there is accepted). The response's `bleedMm` /
+    `cropMarks` report what was stored.
   - `PATCH /api/template-documents/{id}` `{name?, categoryId?, bleedMm?, cropMarks?}`
     — an absent key is left untouched; `categoryId: null` removes the
-    category. `bleedMm` (0–10, clamped) / `cropMarks` apply to the document
-    AND every page; print documents only (400 otherwise).
+    category. `bleedMm` / `cropMarks` apply to the document AND every page,
+    validated like on create (same three 400 codes, `bleedMm: null` = 0); a
+    refused print setup changes nothing, not even the name in the same body.
   - `PUT /api/template-documents/{id}/pages` `{templateIds: [...]}` — the WHOLE
     ordered list: attach, detach and reorder in one call. A detached template
     returns to the listing.

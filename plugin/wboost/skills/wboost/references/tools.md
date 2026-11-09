@@ -372,7 +372,7 @@ Nothing deletes.
 The actions:
 - `create`: `projectId`, `name`, `dimension` — either `{unit: "mm"|"cm"|"px",
   unitWidth, unitHeight, bleedMm?, cropMarks?}` or `{preset}` — and
-  `templateIds?`.
+  `templateIds?`. For mm / cm include `bleedMm` + `cropMarks` (below).
 - `rename`: `documentId`, `name?`, `categoryId?` (`find_templates`
   `templates[].categoryId`; `""` removes it).
 - `set_pages`: `documentId`, `templateIds` (the whole ordered list).
@@ -386,8 +386,20 @@ The actions:
 - `duplicate_page`: `documentId`, `pageId`, `position?` (default: right
   after the original). The copy is its own template, same design and input
   ids; values stay per page.
-- `set_print`: `documentId`, `bleedMm?` (0–10), `cropMarks?` — for the
+- `set_print`: `documentId`, `bleedMm?` (0–20), `cropMarks?` — for the
   document and every page; mm / cm documents only.
+
+**Print setup (mm / cm only).** `bleedMm` ("spadávka", 0–20 mm per side) is
+how far the artwork runs past the cut; `cropMarks` adds cut marks in a fixed
+5 mm margin outside the bleed (PDF page = trim + 2 × bleed + 2 × 5 mm). When
+the user wants a print document and has not said which bleed, **ask them**
+before `create` — suggest 3 mm with crop marks, the common default. A print
+`create` without `bleedMm` gets 0 mm and no marks and answers
+`warnings: [{code: "missing_bleed", message}]`; relay it and fix it with
+`set_print` if they want a bleed. Screen formats (px, presets) have no bleed:
+a bleed > 0 or `cropMarks: true` there is refused
+(`print_setup_not_available`); out-of-range values are refused
+(`invalid_bleed`, `invalid_crop_marks`), never clamped.
 
 Every action answers the document:
 - `id`, `name`, `categoryName`, `categoryId`, `dimension`, `printFormat`
@@ -395,6 +407,8 @@ Every action answers the document:
   thumbnailUrl}`
 - `fields[]`: `{id, name, kind, bindings[], textMode}`
 - `editorUrl`, `fillUrl`
+- `warnings[]`: `{code, message}` — only `missing_bleed` after a print
+  `create` without `bleedMm`; empty otherwise
 
 Refusals name the invariant: `template_grouped`, `template_not_found`,
 `no_matching_variant`, `template_in_other_document`, `duplicate_page`,

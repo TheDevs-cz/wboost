@@ -127,11 +127,18 @@ readonly final class ExportVariantTool
      * allow them, a picture from a folder the slot does not accept.
      *
      * format "pdf" exports the PRINT PDF instead — PDF/X-1a, CMYK (Coated
-     * FOGRA39), with the variant's bleed and crop marks (describe_variant
-     * reports them under print) — and is only available for print formats
-     * (mm / cm, print.printFormat true). Design artwork that should reach the
-     * paper edge to extend into the bleed (negative coordinates / past the
-     * canvas size by print.bleedPx).
+     * FOGRA39), with the variant's STORED bleed and crop marks
+     * (describe_variant dimension.bleedMm / bleedPx / cropMarks) — and is only
+     * available for print formats (mm / cm, dimension.printFormat true). The
+     * bleed ("spadávka") is how far the artwork runs past the cut on every
+     * side; crop marks sit in a fixed 5 mm margin outside it (PDF page = trim
+     * + 2 × bleed + 2 × 5 mm). Design artwork that should reach the paper edge
+     * to extend into the bleed (negative coordinates / past the canvas size
+     * by dimension.bleedPx). This tool takes no bleed override; a document's
+     * bleed is changed with manage_document "set_print", a standalone
+     * variant's in the wboost web ("Tiskové nastavení"). If a print variant
+     * reports bleedMm 0 and the artwork reaches the edge, tell the user
+     * before exporting.
      *
      * The reply is a JSON summary followed by the PNG (or the PDF as an
      * embedded resource). Nothing about the template is changed — this only draws. A variant id this account cannot

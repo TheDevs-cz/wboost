@@ -163,6 +163,12 @@ readonly final class SetDesignTool
      * id>" (a picture) - which becomes the editor's locked "Pozadí" layer over
      * the whole canvas incl. the print bleed; never a full-canvas shape.
      *
+     * On a PRINT variant (mm / cm, describe_variant dimension.printFormat) the
+     * bleed is dimension.bleedPx canvas px past EVERY edge: artwork meant to
+     * reach the paper edge (photos, colour bands) must extend into it —
+     * negative coordinates / past the canvas size — or the cut can leave a
+     * white hairline. Canvas coordinates stay the trim's.
+     *
      * Read "saved" first. False means NOTHING was written and the variant still
      * has its previous design; "issues" then says why, and every entry carries
      * a "severity" of "error" or "warning", a "stage" and a message saying what

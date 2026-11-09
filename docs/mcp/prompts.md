@@ -244,6 +244,22 @@ the document's size), then "set_fields" binding the name input of each page
 a chat; longer ones from the web fill page). Pages never share values on their
 own — only through a shared field.
 
+**Bleed for print documents.** A mm / cm document carries a print setup:
+`bleedMm` ("spadávka", 0–20 mm — how far the artwork runs past the cut) and
+`cropMarks` (cut marks in a fixed 5 mm margin outside the bleed). The tool
+guidance tells the assistant to **ask** when you have not said which bleed you
+want, suggesting 3 mm with crop marks — so say it up front to skip the
+question:
+
+> Udělej tiskový leták A5 (spadávka 3 mm, ořezové značky) z šablon …
+
+If a print document is still created without `bleedMm`, it gets 0 mm and no
+marks (the API default), and the `create` answer carries
+`warnings: [{code: "missing_bleed"}]`; `manage_document` "set_print" with
+`bleedMm` / `cropMarks` changes it for the document and every page.
+Out-of-range values (`invalid_bleed`) and a bleed on a px document
+(`print_setup_not_available`) are refused, never silently adjusted.
+
 ## Two things to say out loud in any prompt
 
 - **The project or template name.** The account may hold dozens of projects;

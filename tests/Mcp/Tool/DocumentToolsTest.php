@@ -178,6 +178,85 @@ final class DocumentToolsTest extends WebTestCase
         return $payload;
     }
 
+    /**
+     * A print document created without bleedMm gets 0 mm + no marks (the API
+     * default) AND a `missing_bleed` warning saying so and how to change it;
+     * a given bleed, or a screen format, gets no such noise. Out-of-range
+     * values are refused (the web form's 0–20 mm), not clamped.
+     */
+    public function testPrintSetupWarningsAndValidation(): void
+    {
+        $this->makeDesigner();
+        $create = fn (array $dimension): array => $this->call('manage_document', [
+            'action' => 'create',
+            'projectId' => TestDataFixture::PROJECT_1_ID,
+            'name' => 'Leták',
+            'dimension' => $dimension,
+        ]);
+
+        $omitted = $this->payload($create(['unit' => 'mm', 'unitWidth' => 210, 'unitHeight' => 99]));
+        self::assertEquals(0, $omitted['dimension']['bleedMm']);
+        self::assertFalse($omitted['dimension']['cropMarks']);
+        self::assertSame(['missing_bleed'], array_column($omitted['warnings'], 'code'));
+        self::assertStringContainsString('set_print', $omitted['warnings'][0]['message']);
+        self::assertStringContainsString('3 mm', $omitted['warnings'][0]['message']);
+
+        $given = $this->payload($create(['unit' => 'mm', 'unitWidth' => 210, 'unitHeight' => 99, 'bleedMm' => 3, 'cropMarks' => true]));
+        self::assertEquals(3, $given['dimension']['bleedMm']);
+        self::assertSame([], $given['warnings']);
+
+        $deliberatelyNone = $this->payload($create(['unit' => 'cm', 'unitWidth' => 21, 'unitHeight' => 9.9, 'bleedMm' => 0]));
+        self::assertSame([], $deliberatelyNone['warnings'], 'An explicit 0 is the user\'s choice, not a missing bleed.');
+
+        $screen = $this->payload($create(['unit' => 'px', 'unitWidth' => 1080, 'unitHeight' => 1350]));
+        self::assertSame([], $screen['warnings'], 'Screen formats have no bleed to miss.');
+
+        $screenWithBleed = $create(['unit' => 'px', 'unitWidth' => 1080, 'unitHeight' => 1350, 'bleedMm' => 3]);
+        self::assertTrue($screenWithBleed['isError'] ?? false);
+        self::assertStringContainsString('print_setup_not_available', $screenWithBleed['content'][0]['text']);
+
+        $tooMuch = $create(['unit' => 'mm', 'unitWidth' => 210, 'unitHeight' => 99, 'bleedMm' => 25]);
+        self::assertTrue($tooMuch['isError'] ?? false);
+        self::assertStringContainsString('invalid_bleed', $tooMuch['content'][0]['text']);
+
+        $setTooMuch = $this->call('manage_document', ['action' => 'set_print', 'documentId' => $omitted['id'], 'bleedMm' => 25]);
+        self::assertTrue($setTooMuch['isError'] ?? false, 'set_print refuses instead of clamping.');
+
+        $fixed = $this->payload($this->call('manage_document', ['action' => 'set_print', 'documentId' => $omitted['id'], 'bleedMm' => 3, 'cropMarks' => true]));
+        self::assertEquals(3, $fixed['dimension']['bleedMm']);
+        self::assertSame([], $fixed['warnings'], 'Only "create" reports a missing bleed.');
+    }
+
+    public function testToolDescriptionTeachesAskingForBleed(): void
+    {
+        $browser = $this->browser();
+        $sessionId = TestingMcpClient::connect($browser, TestDataFixture::MCP_TOKEN_ACTIVE);
+        TestingMcpClient::request($browser, 'tools/list', [], $sessionId, TestDataFixture::MCP_TOKEN_ACTIVE);
+
+        /** @var array{result?: array{tools?: list<array{name: string, description: string}>}} $payload */
+        $payload = json_decode((string) $browser->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $tools = $payload['result']['tools'] ?? [];
+        $description = array_column($tools, 'description', 'name')['manage_document'] ?? '';
+
+        self::assertStringContainsString('ASK the user', $description);
+        self::assertStringContainsString('missing_bleed', $description);
+        self::assertStringContainsString('3 mm', $description);
+    }
+
+    /**
+     * @param array{isError?: bool, content: list<array{text: string, resource: array{mimeType: string, blob: string}}>} $result
+     * @return array{id: string, dimension: array{bleedMm: float|int, cropMarks: bool}, warnings: list<array{code: string, message: string}>}
+     */
+    private function payload(array $result): array
+    {
+        self::assertFalse($result['isError'] ?? false, json_encode($result, JSON_THROW_ON_ERROR));
+        $payload = json_decode($result['content'][0]['text'], true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($payload);
+
+        /** @var array{id: string, dimension: array{bleedMm: float|int, cropMarks: bool}, warnings: list<array{code: string, message: string}>} $payload */
+        return $payload;
+    }
+
     public function testRefusalsAreToolErrors(): void
     {
         $this->makeDesigner();

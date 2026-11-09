@@ -7,6 +7,8 @@ namespace WBoost\Web\Services\TemplateDocument;
 use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
 use WBoost\Web\Entity\TemplateDocument;
+use WBoost\Web\Exceptions\InvalidPrintSetup;
+use WBoost\Web\FormData\TemplateVariantFormData;
 use WBoost\Web\Value\DimensionPreset;
 use WBoost\Web\Value\DimensionUnit;
 use WBoost\Web\Value\DocumentFieldBinding;
@@ -25,7 +27,8 @@ final class DocumentWriteInput
     /** Same bounds as the add-variant form (TemplateVariantFormData). */
     private const int MIN_CANVAS_PIXELS = 16;
     private const int MAX_CANVAS_PIXELS = 10000;
-    private const float MAX_BLEED_MM = 20.0;
+    /** The web forms' range ({@see TemplateVariantFormData::MAX_BLEED_MM}). */
+    public const int MAX_BLEED_MM = TemplateVariantFormData::MAX_BLEED_MM;
 
     /**
      * `{unit, unitWidth, unitHeight, preset?, bleedMm?, cropMarks?}` — a preset
@@ -42,7 +45,10 @@ final class DocumentWriteInput
         }
 
         if ($preset !== null) {
-            return TemplateDimension::fromPreset($preset);
+            $dimension = TemplateDimension::fromPreset($preset);
+            self::printSettings($dimension, $data['bleedMm'] ?? 0.0, $data['cropMarks'] ?? false);
+
+            return $dimension;
         }
 
         $unit = is_string($data['unit'] ?? null) ? DimensionUnit::tryFrom($data['unit']) : null;
@@ -53,11 +59,13 @@ final class DocumentWriteInput
             throw new \InvalidArgumentException('"dimension" needs unit (px|mm|cm) + positive unitWidth / unitHeight, or a preset (4:5, 9:16).');
         }
 
-        $bleed = $data['bleedMm'] ?? 0;
-        $dimension = (new TemplateDimension($unit, (float) $width, (float) $height))->withPrintSettings(
-            is_numeric($bleed) ? max(0.0, min(self::MAX_BLEED_MM, (float) $bleed)) : 0.0,
-            ($data['cropMarks'] ?? false) === true,
+        $plain = new TemplateDimension($unit, (float) $width, (float) $height);
+        [$bleed, $cropMarks] = self::printSettings(
+            $plain,
+            array_key_exists('bleedMm', $data) ? $data['bleedMm'] : 0.0,
+            array_key_exists('cropMarks', $data) ? $data['cropMarks'] : false,
         );
+        $dimension = $plain->withPrintSettings($bleed, $cropMarks);
 
         foreach ([$dimension->width(), $dimension->height()] as $pixels) {
             if ($pixels < self::MIN_CANVAS_PIXELS || $pixels > self::MAX_CANVAS_PIXELS) {
@@ -66,6 +74,50 @@ final class DocumentWriteInput
         }
 
         return $dimension;
+    }
+
+    /**
+     * Validates a print setup for `$dimension` — the ONE rule both the REST
+     * API and MCP apply on create and update: `bleedMm` a number in the web
+     * form's 0–{@see MAX_BLEED_MM} mm (refused, never clamped), `cropMarks` a
+     * boolean, and a screen format (px / preset) accepts only "none"
+     * (0 / false), so a caller cannot believe a social post got a bleed.
+     * `null` means none.
+     *
+     * @return array{float, bool}
+     *
+     * @throws InvalidPrintSetup
+     */
+    public static function printSettings(TemplateDimension $dimension, mixed $bleedMm, mixed $cropMarks): array
+    {
+        if ($bleedMm !== null && (!is_int($bleedMm) && !is_float($bleedMm) || $bleedMm < 0 || $bleedMm > self::MAX_BLEED_MM)) {
+            throw new InvalidPrintSetup(sprintf('"bleedMm" must be a number of millimetres from 0 to %d (got %s).', self::MAX_BLEED_MM, json_encode($bleedMm) ?: '?'), 'invalid_bleed');
+        }
+
+        if ($cropMarks !== null && !is_bool($cropMarks)) {
+            throw new InvalidPrintSetup(sprintf('"cropMarks" must be true or false (got %s).', json_encode($cropMarks) ?: '?'), 'invalid_crop_marks');
+        }
+
+        $bleed = (float) ($bleedMm ?? 0.0);
+        $marks = $cropMarks ?? false;
+
+        if (!$dimension->isPrintFormat() && ($bleed > 0.0 || $marks)) {
+            throw new InvalidPrintSetup('Bleed and crop marks exist only for print formats (mm / cm); a screen (px / preset) format has no print PDF. Omit bleedMm / cropMarks.', 'print_setup_not_available');
+        }
+
+        return [$bleed, $marks];
+    }
+
+    /**
+     * True when a PRINT dimension was asked for without saying what bleed it
+     * wants — the case the MCP `missing_bleed` warning reports (the value
+     * applied is 0 mm, no marks: the long-standing API default).
+     *
+     * @param array<array-key, mixed> $data the raw `dimension` object
+     */
+    public static function bleedOmitted(array $data, TemplateDimension $dimension): bool
+    {
+        return $dimension->isPrintFormat() && !array_key_exists('bleedMm', $data);
     }
 
     /**

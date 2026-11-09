@@ -104,6 +104,74 @@ final class TemplateDocumentsApiTest extends ApiTestCase
         self::assertSame(TestDataFixture::GROUPED_TEMPLATE_ID, $response->toArray(false)['templateId']);
     }
 
+    /**
+     * Bleed ("spadávka") + crop marks: an omitted bleed keeps the historical
+     * API default (0 mm, no marks), a given one is validated against the web
+     * form's range (0–20 mm) instead of clamped, and a screen format refuses
+     * a real print setup — all as structured 400s.
+     */
+    public function testPrintSetupIsValidatedAndReadable(): void
+    {
+        [$client, $headers] = $this->designerClient();
+        $create = fn (array $dimension) => $client->request('POST', '/api/projects/' . TestDataFixture::PROJECT_1_ID . '/template-documents', [
+            'headers' => $headers,
+            'json' => ['name' => 'Leták', 'dimension' => $dimension],
+        ]);
+
+        $omitted = $create(['unit' => 'mm', 'unitWidth' => 210, 'unitHeight' => 99]);
+        self::assertSame(201, $omitted->getStatusCode());
+        $omittedBody = $omitted->toArray();
+        $omittedId = $omittedBody['id'];
+        self::assertIsString($omittedId);
+        self::assertEquals(0, $omittedBody['bleedMm'], 'An omitted bleed keeps the API default: none.');
+        self::assertFalse($omittedBody['cropMarks']);
+
+        $printed = $create(['unit' => 'mm', 'unitWidth' => 210, 'unitHeight' => 99, 'bleedMm' => 3, 'cropMarks' => true])->toArray();
+        self::assertEquals(3, $printed['bleedMm']);
+        self::assertTrue($printed['cropMarks']);
+        self::assertIsString($printed['id']);
+        $read = $client->request('GET', '/api/template-documents/' . $printed['id'], ['headers' => $headers])->toArray();
+        self::assertEquals(3, $read['bleedMm']);
+        self::assertTrue($read['cropMarks']);
+
+        foreach ([25, -1, 'lots'] as $bleed) {
+            $tooMuch = $create(['unit' => 'mm', 'unitWidth' => 210, 'unitHeight' => 99, 'bleedMm' => $bleed]);
+            self::assertSame(400, $tooMuch->getStatusCode(), sprintf('bleedMm %s is outside 0–20 mm.', var_export($bleed, true)));
+            self::assertSame('invalid_bleed', $tooMuch->toArray(false)['code']);
+        }
+
+        $badMarks = $create(['unit' => 'mm', 'unitWidth' => 210, 'unitHeight' => 99, 'cropMarks' => 'yes']);
+        self::assertSame(400, $badMarks->getStatusCode());
+        self::assertSame('invalid_crop_marks', $badMarks->toArray(false)['code']);
+
+        $screen = $create(['unit' => 'px', 'unitWidth' => 1080, 'unitHeight' => 1350, 'bleedMm' => 3, 'cropMarks' => true]);
+        self::assertSame(400, $screen->getStatusCode());
+        self::assertSame('print_setup_not_available', $screen->toArray(false)['code']);
+
+        $screenNone = $create(['unit' => 'px', 'unitWidth' => 1080, 'unitHeight' => 1350, 'bleedMm' => 0, 'cropMarks' => false]);
+        self::assertSame(201, $screenNone->getStatusCode(), 'An explicit "no print setup" is harmless on px.');
+        $screenId = $screenNone->toArray()['id'];
+        self::assertIsString($screenId);
+
+        $patch = fn (string $id, array $body) => $client->request('PATCH', '/api/template-documents/' . $id, [
+            'headers' => ['Content-Type' => 'application/merge-patch+json'] + $headers,
+            'json' => $body,
+        ]);
+
+        $patched = $patch($omittedId, ['bleedMm' => 20, 'cropMarks' => true]);
+        self::assertSame(200, $patched->getStatusCode());
+        self::assertEquals(20, $patched->toArray()['bleedMm']);
+
+        $refused = $patch($omittedId, ['bleedMm' => 21]);
+        self::assertSame(400, $refused->getStatusCode(), 'Out of range is refused, not clamped.');
+        self::assertSame('invalid_bleed', $refused->toArray(false)['code']);
+        self::assertEquals(20, $client->request('GET', '/api/template-documents/' . $omittedId, ['headers' => $headers])->toArray()['bleedMm']);
+
+        $screenPatch = $patch($screenId, ['bleedMm' => 3]);
+        self::assertSame(400, $screenPatch->getStatusCode());
+        self::assertSame('print_setup_not_available', $screenPatch->toArray(false)['code']);
+    }
+
     public function testExportWithSharedFieldAndPerPageValues(): void
     {
         [$client, $headers] = $this->designerClient();

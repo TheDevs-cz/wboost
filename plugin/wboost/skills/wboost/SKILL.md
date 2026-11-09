@@ -284,7 +284,11 @@ file. Each page carries its `variantId` — `describe_variant`,
 - **Preview** single pages with `render_variant` first; `export_document`
   renders every page in full.
 - **Arrange:** `manage_document(action, …)`, with these actions:
-  - `create`: projectId, name, dimension, templateIds.
+  - `create`: projectId, name, dimension, templateIds. **Print (mm / cm):
+    if the user has not said which bleed, ASK** — suggest 3 mm with crop
+    marks (`dimension.bleedMm: 3, cropMarks: true`). Without `bleedMm` the
+    document gets 0 mm, no marks, and a `missing_bleed` warning. px has no
+    bleed.
   - `rename`: name and / or category.
   - `set_pages`: the WHOLE ordered list; detaching keeps the template.
   - `add_page`: a blank page; its `variantId` is in the answer, design it with

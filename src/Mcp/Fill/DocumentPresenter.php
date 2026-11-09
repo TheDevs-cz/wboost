@@ -29,7 +29,10 @@ readonly final class DocumentPresenter
     ) {
     }
 
-    public function present(TemplateDocument $document): DocumentSummaryResponse
+    /**
+     * @param list<array{code: string, message: string}> $warnings
+     */
+    public function present(TemplateDocument $document, array $warnings = []): DocumentSummaryResponse
     {
         $pages = $document->pages();
         $pageByTemplate = [];
@@ -85,6 +88,7 @@ readonly final class DocumentPresenter
             ),
             editorUrl: $this->urlGenerator->generate('template_document', ['documentId' => $document->id->toString()], UrlGeneratorInterface::ABSOLUTE_URL),
             fillUrl: $this->urlGenerator->generate('template_document_fill', ['documentId' => $document->id->toString()], UrlGeneratorInterface::ABSOLUTE_URL),
+            warnings: $warnings,
         );
     }
 

@@ -137,3 +137,23 @@ MCP:
   - A file over 25 MB is refused and the reply points to the fill URL.
   - The file comes back as an `EmbeddedResource` blob.
 - Body parsing shared with the API: `Services/TemplateDocument/DocumentWriteInput`.
+- **Print setup validation (2026-11-09)**: `DocumentWriteInput::printSettings()`
+  is the ONE rule for API create / PATCH and MCP create / `set_print`:
+  `bleedMm` 0–`TemplateVariantFormData::MAX_BLEED_MM` (20, the web form's
+  Range) else `invalid_bleed`, `cropMarks` bool else `invalid_crop_marks`,
+  px / preset with a real setup → `print_setup_not_available`
+  (`Exceptions\InvalidPrintSetup`; the API maps it to
+  `InvalidTemplateDocumentChange` → structured 400, MCP to a tool error
+  naming the code). Out of range is REFUSED, no longer clamped (it used to
+  clamp to 20 — documented as 0–10). An omitted bleed stays 0 mm / no marks
+  on both surfaces (API compatibility); MCP `create` of a print document
+  without `dimension.bleedMm` adds `warnings: [{code: "missing_bleed",
+  message}]` to its answer (`DocumentSummaryResponse::$warnings`, empty
+  everywhere else), and the tool description + server instructions tell the
+  agent to ASK for the bleed, suggesting 3 mm + crop marks.
+- Standalone (non-document) variants have NO print-setup write over the API
+  or MCP — the API has no variant writes at all; their bleed is set by the
+  web add form (3 mm + marks default) or "Tiskové nastavení". The export
+  (`format: "pdf"`) always uses the stored setup; it takes no bleed
+  override, because the design has to reach into the bleed it is printed
+  with.

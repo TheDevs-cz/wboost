@@ -16,6 +16,7 @@ readonly final class DocumentSummaryResponse
     /**
      * @param list<DocumentPageSummaryResponse> $pages
      * @param list<DocumentFieldSummaryResponse> $fields
+     * @param list<array{code: string, message: string}> $warnings Things to act on after THIS call — today only `missing_bleed`: a print (mm / cm) document was created without bleedMm, so it got 0 mm and no crop marks. Empty otherwise (and always for screen formats).
      */
     public function __construct(
         public string $id,
@@ -31,6 +32,7 @@ readonly final class DocumentSummaryResponse
         public array $fields,
         public string $editorUrl,
         public string $fillUrl,
+        public array $warnings = [],
     ) {
     }
 }
