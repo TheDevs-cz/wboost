@@ -99,7 +99,7 @@ final class PrintPdfExportTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $response = $client->getResponse();
         self::assertSame('application/pdf', $response->headers->get('Content-Type'));
-        self::assertSame('attachment; filename="group-campaign-210-297-mm.pdf"', $response->headers->get('Content-Disposition'));
+        self::assertSame('attachment; filename="Group Campaign - 210 x 297 mm.pdf"; filename*=utf-8\'\'Group%20Campaign%20-%20210%20%C3%97%20297%20mm.pdf', $response->headers->get('Content-Disposition'));
         $this->assertPrintPdf((string) $response->getContent());
     }
 
@@ -115,7 +115,7 @@ final class PrintPdfExportTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $response = $client->getResponse();
         self::assertSame('application/zip', $response->headers->get('Content-Type'));
-        self::assertSame('attachment; filename="group-campaign-pdf.zip"', $response->headers->get('Content-Disposition'));
+        self::assertSame('attachment; filename="Group Campaign - PDF.zip"', $response->headers->get('Content-Disposition'));
 
         $path = tempnam(sys_get_temp_dir(), 'zip-test-');
         self::assertIsString($path);
@@ -133,7 +133,7 @@ final class PrintPdfExportTest extends WebTestCase
         unlink($path);
 
         // Print formats only: the 1:1 social member is left out.
-        self::assertSame(['group-campaign-210-297-mm.pdf'], $names);
+        self::assertSame(['Group Campaign - 210 × 297 mm.pdf'], $names);
     }
 
     private function assertPrintPdf(string $bytes): void

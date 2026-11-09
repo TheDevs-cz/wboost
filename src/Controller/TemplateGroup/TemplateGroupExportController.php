@@ -18,6 +18,7 @@ use WBoost\Web\Query\GetTemplateGroupMembers;
 use WBoost\Web\Services\ReleaseSessionLock;
 use WBoost\Web\Services\Security\TemplateGroupVoter;
 use WBoost\Web\Services\Template\RecordExportVersion;
+use WBoost\Web\Services\Template\TemplateExportFileNames;
 use WBoost\Web\Services\TemplateGroup\GroupExportArchive;
 use WBoost\Web\Services\TemplateGroup\GroupFillRenderer;
 use WBoost\Web\Services\Usage\RecordExportUsage;
@@ -42,6 +43,7 @@ final class TemplateGroupExportController extends AbstractController
         readonly private RecordExportVersion $recordExportVersion,
         readonly private ReleaseSessionLock $releaseSessionLock,
         readonly private GroupExportArchive $archive,
+        readonly private TemplateExportFileNames $fileNames,
     ) {
     }
 
@@ -138,18 +140,19 @@ final class TemplateGroupExportController extends AbstractController
             $this->recordExportUsage->record($variant, ExportChannel::Web, $format);
         }
 
-        $this->recordExportVersion->recordGroup($group, ExportChannel::Web, ExportFillValues::fromGroupWebForm(
+        $fill = ExportFillValues::fromGroupWebForm(
             $rawTextValues,
             $rawHiddenValues,
             $rawImages,
             $rawPlacements,
             $rawFontValues,
             $rawShapeColors,
-        ), $request->request->getString('draftVersionId'));
+        );
+        $this->recordExportVersion->recordGroup($group, ExportChannel::Web, $fill, $request->request->getString('draftVersionId'));
 
         return new Response($zipBytes, Response::HTTP_OK, [
             'Content-Type' => 'application/zip',
-            'Content-Disposition' => sprintf('attachment; filename="%s"', $this->archive->archiveName($group, $format)),
+            'Content-Disposition' => $this->fileNames->groupArchive($group, $format, $fill)->disposition(),
             'Cache-Control' => 'no-store',
         ]);
     }

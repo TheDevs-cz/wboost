@@ -32,7 +32,7 @@ final class TemplateDocumentExportControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $response = $client->getResponse();
         self::assertSame('application/pdf', $response->headers->get('Content-Type'));
-        self::assertSame('attachment; filename="cenova-nabidka.pdf"', $response->headers->get('Content-Disposition'));
+        self::assertSame('attachment; filename="Cenova nabidka.pdf"; filename*=utf-8\'\'Cenov%C3%A1%20nab%C3%ADdka.pdf', $response->headers->get('Content-Disposition'));
         $pdf = (string) $response->getContent();
         self::assertStringContainsString('/GTS_PDFXConformance (PDF/X-1a:2001)', $pdf);
         self::assertStringContainsString('/Count 2', $pdf);
@@ -65,7 +65,7 @@ final class TemplateDocumentExportControllerTest extends WebTestCase
         file_put_contents($path, (string) $client->getResponse()->getContent());
         $zip = new \ZipArchive();
         self::assertTrue($zip->open($path));
-        self::assertSame(['01-uvod.png', '02-cenik.png'], [$zip->getNameIndex(0), $zip->getNameIndex(1)]);
+        self::assertSame(['Cenová nabídka - 01 - Úvod.png', 'Cenová nabídka - 02 - Ceník.png'], [$zip->getNameIndex(0), $zip->getNameIndex(1)]);
         $zip->close();
         unlink($path);
     }

@@ -18,6 +18,7 @@ use WBoost\Web\Query\GetTemplateGroupMembers;
 use WBoost\Web\Services\ReleaseSessionLock;
 use WBoost\Web\Services\Security\TemplateGroupVoter;
 use WBoost\Web\Services\Template\RecordExportVersion;
+use WBoost\Web\Services\Template\TemplateExportFileNames;
 use WBoost\Web\Services\TemplateGroup\GroupExportArchive;
 use WBoost\Web\Services\TemplateGroup\GroupFillRenderer;
 use WBoost\Web\Services\Usage\RecordExportUsage;
@@ -41,6 +42,7 @@ final class TemplateGroupExportVariantController extends AbstractController
         readonly private RecordExportVersion $recordExportVersion,
         readonly private ReleaseSessionLock $releaseSessionLock,
         readonly private GroupExportArchive $archive,
+        readonly private TemplateExportFileNames $fileNames,
     ) {
     }
 
@@ -107,20 +109,20 @@ final class TemplateGroupExportVariantController extends AbstractController
         // The per-dimension download runs on the SAME group fill form as the
         // ZIP, so the version lands on the group (and dedupes against a later
         // ZIP export of the identical fill).
-        $this->recordExportVersion->recordGroup($group, ExportChannel::Web, ExportFillValues::fromGroupWebForm(
+        $fill = ExportFillValues::fromGroupWebForm(
             $request->request->all('textValues'),
             $request->request->all('hiddenValues'),
             $request->request->all('images'),
             $request->request->all('imagePlacements'),
             $request->request->all('fontValues'),
             $request->request->all('shapeColorValues'),
-        ), $request->request->getString('draftVersionId'));
-
-        $fileName = $this->archive->fileName($group, $variant, $format);
+        );
+        $this->recordExportVersion->recordGroup($group, ExportChannel::Web, $fill, $request->request->getString('draftVersionId'));
 
         return new Response($bytes, Response::HTTP_OK, [
             'Content-Type' => $format->contentType(),
-            'Content-Disposition' => sprintf('attachment; filename="%s"', $fileName),
+            // Exactly what this dimension's entry in the group ZIP is called.
+            'Content-Disposition' => $this->fileNames->groupMember($group, $variant, $format, $fill)->disposition(),
             'Cache-Control' => 'no-store',
         ]);
     }

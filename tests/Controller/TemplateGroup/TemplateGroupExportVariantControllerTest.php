@@ -35,7 +35,7 @@ final class TemplateGroupExportVariantControllerTest extends WebTestCase
         $response = $client->getResponse();
         self::assertSame('image/png', $response->headers->get('Content-Type'));
         // Same naming scheme as the ZIP entry for this dimension.
-        self::assertSame('attachment; filename="group-campaign-1-1.png"', $response->headers->get('Content-Disposition'));
+        self::assertSame('attachment; filename="Group Campaign - 1x1.png"', $response->headers->get('Content-Disposition'));
         self::assertStringStartsWith("\x89PNG", (string) $response->getContent());
 
         // Exactly ONE render — the sibling dimension is not touched.

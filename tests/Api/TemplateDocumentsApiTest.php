@@ -192,6 +192,11 @@ final class TemplateDocumentsApiTest extends ApiTestCase
             ]);
             self::assertSame(200, $response->getStatusCode(), $format);
             self::assertStringStartsWith($magic, $response->getContent(), $format);
+            self::assertSame(
+                $format === 'png' ? 'attachment; filename=Nabidka.zip; filename*=utf-8\'\'Nab%C3%ADdka.zip' : 'attachment; filename=Nabidka.pdf; filename*=utf-8\'\'Nab%C3%ADdka.pdf',
+                $response->getHeaders()['content-disposition'][0] ?? null,
+                $format,
+            );
         }
 
         $response = $client->request('POST', '/api/template-documents/' . $document['id'] . '/export', ['headers' => $headers, 'json' => ['format' => 'tiff']]);

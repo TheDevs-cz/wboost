@@ -110,11 +110,11 @@ final class TemplateGroupApiTest extends ApiTestCase
 
         $this->assertResponseIsSuccessful();
         $this->assertResponseHeaderSame('content-type', 'application/zip');
-        $this->assertResponseHeaderSame('content-disposition', 'attachment; filename="group-campaign.zip"');
+        $this->assertResponseHeaderSame('content-disposition', 'attachment; filename="Group Campaign.zip"');
 
         $names = $this->zipEntryNames($response->getContent());
         sort($names);
-        self::assertSame(['group-campaign-1-1.png', 'group-campaign-210-297-mm.png'], $names);
+        self::assertSame(['Group Campaign - 1x1.png', 'Group Campaign - 210 × 297 mm.png'], $names);
 
         $calls = array_slice($this->renderer()->calls, -2);
         $byVariant = [];
@@ -141,7 +141,7 @@ final class TemplateGroupApiTest extends ApiTestCase
         $single = $this->post($client, $token, '/export/' . TestDataFixture::GROUPED_PRESET_VARIANT_ID, $this->fill());
         $this->assertResponseIsSuccessful();
         $this->assertResponseHeaderSame('content-type', 'image/png');
-        $this->assertResponseHeaderSame('content-disposition', 'attachment; filename="group-campaign-1-1.png"');
+        $this->assertResponseHeaderSame('content-disposition', 'attachment; filename="Group Campaign - 1x1.png"');
         self::assertStringStartsWith("\x89PNG", $single->getContent());
 
         $bumped = $this->groupVersions();

@@ -44,8 +44,9 @@ applies to inputs with `hidable: true`.
   layering rule). Strict per dimension, error bodies add `variantId`.
   Exports record usage per member + ONE group version
   (`ExportFillValues::fromGroupApiRequest`) that dedupes with the web group
-  page's exports. ZIP/PNG naming is `Services/TemplateGroup/GroupExportArchive`,
-  shared with the web controllers. Members/ids/voters resolve through
+  page's exports. ZIP packing is `Services/TemplateGroup/GroupExportArchive`, names
+  `Services/Template/TemplateExportFileNames` (see "Download file names" in
+  `templates-render.md`), both shared with the web controllers. Members/ids/voters resolve through
   `Services/Template/ApiSubjectLoader` (group VIEW voter; non-member → 404).
 - **History** (`src/Api/ExportVersions/`): `GET
   /api/template-groups/{id}/export-versions`, `GET

@@ -17,6 +17,7 @@ use WBoost\Web\Exceptions\TemplateRenderUnavailable;
 use WBoost\Web\Services\Template\ApiExportRenderer;
 use WBoost\Web\Services\Template\ApiSubjectLoader;
 use WBoost\Web\Services\Template\RecordExportVersion;
+use WBoost\Web\Services\Template\TemplateExportFileNames;
 use WBoost\Web\Services\TemplateGroup\GroupExportArchive;
 use WBoost\Web\Services\Usage\RecordExportUsage;
 use WBoost\Web\Value\ExportChannel;
@@ -47,6 +48,7 @@ final readonly class GroupExportProcessor implements ProcessorInterface
         private GroupExportArchive $archive,
         private RecordExportUsage $recordExportUsage,
         private RecordExportVersion $recordExportVersion,
+        private TemplateExportFileNames $fileNames,
     ) {
     }
 
@@ -115,25 +117,22 @@ final readonly class GroupExportProcessor implements ProcessorInterface
             $this->recordExportUsage->record($variant, ExportChannel::Api, $format);
         }
 
-        $this->recordExportVersion->recordGroup(
-            $group,
-            ExportChannel::Api,
-            ExportFillValues::fromGroupApiRequest($data->inputs, $data->images, $data->placements, $data->shapeColors),
-        );
+        $fill = ExportFillValues::fromGroupApiRequest($data->inputs, $data->images, $data->placements, $data->shapeColors);
+        $this->recordExportVersion->recordGroup($group, ExportChannel::Api, $fill);
 
         if ($single) {
             [$variant, $bytes] = $renders[0];
 
             return new Response($bytes, Response::HTTP_OK, [
                 'Content-Type' => $format->contentType(),
-                'Content-Disposition' => sprintf('attachment; filename="%s"', $this->archive->fileName($group, $variant, $format)),
+                'Content-Disposition' => $this->fileNames->groupMember($group, $variant, $format, $fill)->disposition(),
                 'Cache-Control' => 'no-store',
             ]);
         }
 
         return new Response($this->archive->build($group, $renders, $format), Response::HTTP_OK, [
             'Content-Type' => 'application/zip',
-            'Content-Disposition' => sprintf('attachment; filename="%s"', $this->archive->archiveName($group, $format)),
+            'Content-Disposition' => $this->fileNames->groupArchive($group, $format, $fill)->disposition(),
             'Cache-Control' => 'no-store',
         ]);
     }

@@ -6,27 +6,22 @@ namespace WBoost\Web\Services\TemplateGroup;
 
 use WBoost\Web\Entity\TemplateGroup;
 use WBoost\Web\Entity\TemplateVariant;
-use WBoost\Web\Services\Slugify;
+use WBoost\Web\Services\Template\TemplateExportFileNames;
 use WBoost\Web\Value\ExportFormat;
 use ZipArchive;
 
 /**
- * File naming + ZIP packing of a group export, shared by the web fill page
- * (ZIP + per-dimension PNG) and the API group export so both hand the user
- * identically named files: `{group}.zip` holding `{group}-{dimension}.png`
- * entries, and the same `{group}-{dimension}.png` for a single dimension.
- * The print PDF export mirrors it: `{group}-pdf.zip` with `.pdf` entries.
+ * ZIP packing of a group export, shared by the web fill page and the API
+ * group export. Names come from {@see TemplateExportFileNames}, so the ZIP
+ * entry of a dimension (`{group} - {dimension}.png`) is exactly what its
+ * single-dimension download is called; the ZIP itself is `{group}.zip`, the
+ * print PDF one `{group} - PDF.zip` with `.pdf` entries.
  */
-final class GroupExportArchive
+final readonly class GroupExportArchive
 {
-    public function archiveName(TemplateGroup $group, ExportFormat $format = ExportFormat::Png): string
-    {
-        return $this->groupSlug($group) . ($format === ExportFormat::Png ? '' : '-' . $format->extension()) . '.zip';
-    }
-
-    public function fileName(TemplateGroup $group, TemplateVariant $variant, ExportFormat $format = ExportFormat::Png): string
-    {
-        return sprintf('%s-%s.%s', $this->groupSlug($group), $this->nonEmptySlug($variant->dimension->label(), 'varianta'), $format->extension());
+    public function __construct(
+        private TemplateExportFileNames $fileNames,
+    ) {
     }
 
     /**
@@ -44,16 +39,15 @@ final class GroupExportArchive
     {
         /** @var array<string, string> $files filename → file bytes */
         $files = [];
-        $extension = '.' . $format->extension();
 
         foreach ($renders as [$variant, $bytes]) {
-            $fileName = $this->fileName($group, $variant, $format);
-            $baseName = substr($fileName, 0, -strlen($extension));
+            $name = $this->fileNames->groupMember($group, $variant, $format);
+            $fileName = $name->name;
 
             // Two variants may share a dimension (e.g. two identical custom
-            // sizes) — suffix instead of silently overwriting a ZIP entry.
-            for ($suffix = 2; isset($files[$fileName]); $suffix++) {
-                $fileName = "$baseName-$suffix$extension";
+            // sizes) — number instead of silently overwriting a ZIP entry.
+            for ($counter = 2; isset($files[$fileName]); $counter++) {
+                $fileName = $name->numbered($counter)->name;
             }
 
             $files[$fileName] = $bytes;
@@ -81,7 +75,8 @@ final class GroupExportArchive
             }
 
             foreach ($files as $fileName => $bytes) {
-                $zip->addFromString($fileName, $bytes);
+                // UTF-8 flag set explicitly: Czech names unpack intact.
+                $zip->addFromString($fileName, $bytes, ZipArchive::FL_ENC_UTF_8);
             }
 
             $zip->close();
@@ -96,17 +91,5 @@ final class GroupExportArchive
         } finally {
             @unlink($path);
         }
-    }
-
-    private function groupSlug(TemplateGroup $group): string
-    {
-        return $this->nonEmptySlug($group->name, 'export');
-    }
-
-    private function nonEmptySlug(string $value, string $fallback): string
-    {
-        $slug = Slugify::string($value);
-
-        return $slug !== '' ? $slug : $fallback;
     }
 }

@@ -61,12 +61,12 @@ final class TemplateGroupExportControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $response = $client->getResponse();
         self::assertSame('application/zip', $response->headers->get('Content-Type'));
-        self::assertSame('attachment; filename="group-campaign.zip"', $response->headers->get('Content-Disposition'));
+        self::assertSame('attachment; filename="Group Campaign.zip"', $response->headers->get('Content-Disposition'));
 
         // One PNG per member variant, named by group + dimension.
         $entries = $this->readZipEntries((string) $response->getContent());
         self::assertSame(
-            ['group-campaign-1-1.png', 'group-campaign-210-297-mm.png'],
+            ['Group Campaign - 1x1.png', 'Group Campaign - 210 × 297 mm.png'],
             array_keys($entries),
         );
 

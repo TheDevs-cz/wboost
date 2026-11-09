@@ -21,6 +21,7 @@ use WBoost\Web\Mcp\Security\McpScope;
 use WBoost\Web\Mcp\Security\McpToolScope;
 use WBoost\Web\Repository\TemplateDocumentExportVersionRepository;
 use WBoost\Web\Services\TemplateDocument\DocumentApiValues;
+use WBoost\Web\Services\Template\TemplateExportFileNames;
 use WBoost\Web\Services\TemplateDocument\DocumentExportArchive;
 use WBoost\Web\Services\TemplateDocument\RecordDocumentExportVersion;
 use WBoost\Web\Services\TemplateDocument\TemplateDocumentExporter;
@@ -53,6 +54,7 @@ readonly final class ExportDocumentTool
         private VariantFill $fill,
         private TemplateDocumentExporter $exporter,
         private DocumentExportArchive $archive,
+        private TemplateExportFileNames $fileNames,
         private RecordExportUsage $recordExportUsage,
         private UrlGeneratorInterface $urlGenerator,
         private RecordDocumentExportVersion $recordExportVersion,
@@ -184,9 +186,10 @@ readonly final class ExportDocumentTool
             $this->recordExportUsage->record($page->variant, ExportChannel::Mcp, $exportFormat);
         }
 
-        $this->recordExportVersion->record($document, ExportChannel::Mcp, DocumentFillValues::fromApiPages($pageValues));
+        $fill = DocumentFillValues::fromApiPages($pageValues);
+        $this->recordExportVersion->record($document, ExportChannel::Mcp, $fill);
 
-        $fileName = $this->archive->fileName($document, $exportFormat);
+        $fileName = $this->fileNames->document($document, $exportFormat, $fill)->name;
         $contentType = $this->archive->contentType($exportFormat);
 
         return new CallToolResult([
@@ -201,7 +204,7 @@ readonly final class ExportDocumentTool
                 warnings: $warnings,
             )),
             EmbeddedResource::fromBlob(
-                sprintf('wboost://exports/documents/%s/%s', $document->id->toString(), $fileName),
+                sprintf('wboost://exports/documents/%s/%s', $document->id->toString(), rawurlencode($fileName)),
                 base64_encode($bytes),
                 $contentType,
             ),

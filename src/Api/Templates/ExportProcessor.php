@@ -14,6 +14,7 @@ use WBoost\Web\Exceptions\TemplateRenderUnavailable;
 use WBoost\Web\Services\Template\ApiExportRenderer;
 use WBoost\Web\Services\Template\ApiSubjectLoader;
 use WBoost\Web\Services\Template\RecordExportVersion;
+use WBoost\Web\Services\Template\TemplateExportFileNames;
 use WBoost\Web\Services\Usage\RecordExportUsage;
 use WBoost\Web\Value\ExportChannel;
 use WBoost\Web\Value\ExportFillValues;
@@ -34,6 +35,7 @@ final readonly class ExportProcessor implements ProcessorInterface
         private ApiExportRenderer $apiExportRenderer,
         private RecordExportUsage $recordExportUsage,
         private RecordExportVersion $recordExportVersion,
+        private TemplateExportFileNames $fileNames,
     ) {
     }
 
@@ -72,15 +74,12 @@ final readonly class ExportProcessor implements ProcessorInterface
         }
 
         $this->recordExportUsage->record($variant, ExportChannel::Api, $format);
-        $this->recordExportVersion->recordVariant(
-            $variant,
-            ExportChannel::Api,
-            ExportFillValues::fromApiRequest($data->inputs, $data->images, $data->shapeColors),
-        );
+        $fill = ExportFillValues::fromApiRequest($data->inputs, $data->images, $data->shapeColors);
+        $this->recordExportVersion->recordVariant($variant, ExportChannel::Api, $fill);
 
         return new Response($bytes, Response::HTTP_OK, [
             'Content-Type' => $format->contentType(),
-            'Content-Disposition' => sprintf('inline; filename="%s.%s"', $variant->id->toString(), $format->extension()),
+            'Content-Disposition' => $this->fileNames->variant($variant, $format, $fill)->disposition('inline'),
             'Cache-Control' => 'no-store',
         ]);
     }

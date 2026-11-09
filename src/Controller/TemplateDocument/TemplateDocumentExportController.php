@@ -15,6 +15,7 @@ use WBoost\Web\Entity\TemplateDocument;
 use WBoost\Web\Exceptions\TemplateRenderUnavailable;
 use WBoost\Web\Services\ReleaseSessionLock;
 use WBoost\Web\Services\Security\TemplateDocumentVoter;
+use WBoost\Web\Services\Template\TemplateExportFileNames;
 use WBoost\Web\Services\TemplateDocument\DocumentExportArchive;
 use WBoost\Web\Services\TemplateDocument\RecordDocumentExportVersion;
 use WBoost\Web\Services\TemplateDocument\TemplateDocumentExporter;
@@ -44,6 +45,7 @@ final class TemplateDocumentExportController extends AbstractController
         readonly private GroupFillRenderer $groupFillRenderer,
         readonly private TemplateDocumentExporter $exporter,
         readonly private DocumentExportArchive $archive,
+        readonly private TemplateExportFileNames $fileNames,
         readonly private RecordExportUsage $recordExportUsage,
         readonly private ReleaseSessionLock $releaseSessionLock,
         readonly private RecordDocumentExportVersion $recordExportVersion,
@@ -125,16 +127,12 @@ final class TemplateDocumentExportController extends AbstractController
         }
 
         // Re-loadable from "Historie exportů"; a loaded draft is promoted.
-        $this->recordExportVersion->record(
-            $document,
-            ExportChannel::Web,
-            DocumentFillValues::fromWebForm($document, $raw),
-            $request->request->getString('draftVersionId'),
-        );
+        $fill = DocumentFillValues::fromWebForm($document, $raw);
+        $this->recordExportVersion->record($document, ExportChannel::Web, $fill, $request->request->getString('draftVersionId'));
 
         return new Response($bytes, Response::HTTP_OK, [
             'Content-Type' => $this->archive->contentType($format),
-            'Content-Disposition' => sprintf('attachment; filename="%s"', $this->archive->fileName($document, $format)),
+            'Content-Disposition' => $this->fileNames->document($document, $format, $fill)->disposition(),
             'Cache-Control' => 'no-store',
         ]);
     }

@@ -15,11 +15,31 @@ use WBoost\Web\Entity\Manual;
 use WBoost\Web\Services\ConvertImage;
 use WBoost\Web\Services\SvgColorsMapper;
 use WBoost\Web\Services\SvgPortableAlpha;
+use WBoost\Web\Value\DownloadFileName;
 use WBoost\Web\Value\ImageFormat;
+use WBoost\Web\Value\LogoColorVariant;
+use WBoost\Web\Value\LogoTypeVariant;
 use WBoost\Web\Value\RgbaColor;
 
 final class DownloadLogoImageController extends AbstractController
 {
+    /** The manual's own page headings ({@see \WBoost\Web\Value\ManualPage}). */
+    private const array LOGO_LABELS = [
+        'horizontal' => 'Horizontální logotyp',
+        'vertical' => 'Vertikální logotyp',
+        'horizontalWithClaim' => 'Horizontální logotyp se sloganem',
+        'verticalWithClaim' => 'Vertikální logotyp se sloganem',
+        'symbol' => 'Symbol',
+    ];
+
+    private const array COLOR_VARIANT_LABELS = [
+        'darkBackground' => 'na tmavém pozadí',
+        'lightBackground' => 'na světlém pozadí',
+        'oneColor' => 'jednobarevné',
+        'blackBackground' => 'na černém pozadí',
+        'whiteBackground' => 'na bílém pozadí',
+    ];
+
     public function __construct(
         readonly private SvgColorsMapper $svgColorsMapper,
         readonly private SvgPortableAlpha $svgPortableAlpha,
@@ -86,19 +106,36 @@ final class DownloadLogoImageController extends AbstractController
                 );
             }
 
-            $downloadedFileName = $manual->project->slug . "-logo-" . $logo . '.' . $format->value;
-
             return [
                 'content' => $imageContent,
-                'filename' => $downloadedFileName,
                 'contentType' => $format->contentType(),
             ];
         });
 
+        // Built OUTSIDE the cached render: the name never goes stale when the
+        // manual is renamed, and one render serves every colour-variant link.
         return new Response($cachedData['content'], headers: [
             'Content-Type' => $cachedData['contentType'],
-            'Content-Disposition' => 'attachment; filename="' . $cachedData['filename'] . '"',
+            'Content-Disposition' => $this->fileName($manual, $logo, $request, $format)->disposition(),
         ]);
+    }
+
+    /**
+     * `<manual> - <logo variant>[ - <colour variant>].<ext>`. The colour
+     * variant comes from the optional `colorVariant` query parameter (a
+     * {@see LogoColorVariant} value) — the link is the only place that knows
+     * which card the user clicked; an unknown value is just left out.
+     */
+    private function fileName(Manual $manual, string $logo, Request $request, ImageFormat $format): DownloadFileName
+    {
+        $logoVariant = LogoTypeVariant::tryFrom($logo);
+        $colorVariant = LogoColorVariant::tryFrom($request->query->getString('colorVariant'));
+
+        return DownloadFileName::fromParts([
+            $manual->name,
+            $logoVariant !== null ? self::LOGO_LABELS[$logoVariant->value] : 'logo',
+            $colorVariant !== null ? self::COLOR_VARIANT_LABELS[$colorVariant->value] : null,
+        ], $format->value, 'logo');
     }
 
     /**

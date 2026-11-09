@@ -21,6 +21,7 @@ use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Services\SocialNetwork\ResolveShapeColorOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
 use WBoost\Web\Services\Template\RecordExportVersion;
+use WBoost\Web\Services\Template\TemplateExportFileNames;
 use WBoost\Web\Services\Usage\RecordExportUsage;
 use WBoost\Web\Services\Print\PrintPdfRenderer;
 use WBoost\Web\Value\ExportChannel;
@@ -46,6 +47,7 @@ final class TemplateVariantDownloadController extends AbstractController
         private readonly ReleaseSessionLock $releaseSessionLock,
         private readonly ResolveShapeColorOverrides $resolveShapeColorOverrides,
         private readonly PrintPdfRenderer $printPdfRenderer,
+        private readonly TemplateExportFileNames $fileNames,
     ) {
     }
 
@@ -140,21 +142,21 @@ final class TemplateVariantDownloadController extends AbstractController
             );
         }
 
-        $response->headers->set('Content-Type', $format->contentType());
-        $response->headers->set('Content-Disposition', sprintf(
-            'attachment; filename="%s.%s"',
-            $variant->id->toString(),
-            $format->extension(),
-        ));
-
-        $this->recordExportUsage->record($variant, ExportChannel::Web, $format);
-        $this->recordExportVersion->recordVariant($variant, ExportChannel::Web, ExportFillValues::fromVariantWebForm(
+        $fill = ExportFillValues::fromVariantWebForm(
             $rawTextValues,
             $rawHiddenValues,
             $request->request->all('images'),
             $request->request->all('fontValues'),
             $request->request->all('shapeColorValues'),
-        ), $request->request->getString('draftVersionId'));
+        );
+
+        $this->recordExportUsage->record($variant, ExportChannel::Web, $format);
+        $this->recordExportVersion->recordVariant($variant, ExportChannel::Web, $fill, $request->request->getString('draftVersionId'));
+
+        // Named after the template (+ size, page, version) — after the
+        // recording, so a named version this export landed on is known.
+        $response->headers->set('Content-Type', $format->contentType());
+        $response->headers->set('Content-Disposition', $this->fileNames->variant($variant, $format, $fill)->disposition());
 
         return $response;
     }

@@ -58,6 +58,8 @@ final class PrintPdfApiTest extends ApiTestCase
         $this->assertResponseIsSuccessful();
         $this->assertResponseHeaderSame('content-type', 'application/pdf');
         self::assertStringStartsWith('%PDF-1.3', $response->getContent());
+        // Named after the template, never its UUID; `inline` stays the endpoint's disposition type.
+        $this->assertResponseHeaderSame('content-disposition', 'inline; filename="Custom Template 1.pdf"');
         self::assertStringContainsString('/GTS_PDFXConformance (PDF/X-1a:2001)', $response->getContent());
     }
 
@@ -98,7 +100,7 @@ final class PrintPdfApiTest extends ApiTestCase
         ]);
 
         $this->assertResponseIsSuccessful();
-        $this->assertResponseHeaderSame('content-disposition', 'attachment; filename="group-campaign-pdf.zip"');
+        $this->assertResponseHeaderSame('content-disposition', 'attachment; filename="Group Campaign - PDF.zip"');
 
         $path = tempnam(sys_get_temp_dir(), 'zip-test-');
         self::assertIsString($path);
@@ -106,7 +108,7 @@ final class PrintPdfApiTest extends ApiTestCase
         $zip = new ZipArchive();
         self::assertTrue($zip->open($path));
         self::assertSame(1, $zip->numFiles);
-        self::assertSame('group-campaign-210-297-mm.pdf', $zip->getNameIndex(0));
+        self::assertSame('Group Campaign - 210 × 297 mm.pdf', $zip->getNameIndex(0));
         $zip->close();
         unlink($path);
     }

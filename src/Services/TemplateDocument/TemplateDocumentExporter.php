@@ -53,7 +53,7 @@ readonly final class TemplateDocumentExporter
                 ? $this->printPdfRenderer->renderDocument($variantPages, $document->name, $strictContainerOverflow)
                 : throw new \InvalidArgumentException('The print PDF exists for print formats (mm / cm) only.'),
             ExportFormat::PdfScreen => $this->screenPdfRenderer->renderDocument($variantPages, $document->name, $strictContainerOverflow),
-            ExportFormat::Png => $this->archive->zip(array_map(
+            ExportFormat::Png => $this->archive->zip($document, array_map(
                 fn (array $page): array => [$page[0], $this->renderer->renderToBytes(
                     $page[0]->variant,
                     $page[1],

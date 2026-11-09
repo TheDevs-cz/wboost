@@ -299,7 +299,7 @@ so what previews fine exports fine. The difference is what they ARE:
   `pdf_not_available`, any other `format` value 400 `invalid_format`. Offer
   a "PDF pro tisk" download next to the PNG only where `printFormat` is true.
   The group export (`/api/template-groups/{id}/export[/{variantId}]`) takes
-  the same `format`; its PDF ZIP (`{group}-pdf.zip`) holds the print-format
+  the same `format`; its PDF ZIP (`{group} - PDF.zip`) holds the print-format
   members only.
 - **`PATCH /api/template-variants/{id}/print-setup`** (2026-11-09) sets the
   bleed + crop marks of a **standalone** print variant — the web's
@@ -406,7 +406,33 @@ real alpha where nothing is drawn.
 
 **Response:** raw image bytes — `image/png` from `/export`, `image/webp` from
 `/preview`. **Don't JSON-parse it.**
-- **Download:** save the bytes (suggest filename `<template-name>-<dimension>.png`).
+- **Download:** save the bytes under the name WBoost sends (see "Download
+  file names" below) — never a name of your own.
+
+**Download file names (2026-11-09).** Every export response carries a
+`Content-Disposition` with a human name, UTF-8 in `filename*` (RFC 6266 /
+5987, Czech diacritics kept) plus an ASCII fallback in `filename`:
+
+```
+inline; filename="Uvodni strana - 9x16.png"; filename*=utf-8''%C3%9Avodn%C3%AD%20strana%20-%209x16.png
+```
+
+`filename*` is present only when the name is not plain ASCII, and `filename`
+is quoted only when it needs to be — parse both forms and PREFER `filename*`.
+The scheme is `<template>[ - <size>][ - <page>][ - <version>].<ext>`:
+
+| Export | Name |
+|---|---|
+| `/api/template-variants/{id}/export` (`inline`) | `<template>.png`, plus ` - <size>` when the template has several variants; a document page: `<document> - <page>.png` |
+| group dimension | `<group> - <size>.png` / `.pdf` (`1:1` → `1x1`) |
+| group ZIP | `<group>.zip` / `<group> - PDF.zip`, entries named like the dimension downloads |
+| document | `<document>.pdf` / `<document>.zip`, entries `<document> - 01 - <page>.png` |
+
+` - <version name>` is appended when the export landed on an export version
+the user NAMED (same fill as that version). Names are OS-safe (no
+`/\:*?"<>|`, no control characters) and at most 120 characters. When you
+proxy the file, forward both `filename` and `filename*` — a raw UTF-8 header
+value is not allowed in HTTP headers.
 - **Preview:** display the same bytes (see "Live preview").
 
 **Status codes:** `200` image · `400` structured error (see the code table
@@ -993,8 +1019,8 @@ pan as ratios — see "Store the pan as a fraction of the frame".
 | Endpoint | Returns | Recorded |
 |---|---|---|
 | `POST /api/template-groups/{groupId}/preview/{variantId}` | WebP of ONE member dimension | no |
-| `POST /api/template-groups/{groupId}/export` | `application/zip` `{group}.zip` with one `{group}-{dimension}.png` per member | yes — one GROUP version |
-| `POST /api/template-groups/{groupId}/export/{variantId}` | `image/png` `{group}-{dimension}.png` | yes — the same GROUP version |
+| `POST /api/template-groups/{groupId}/export` | `application/zip` `{group}.zip` with one `{group} - {dimension}.png` per member | yes — one GROUP version |
+| `POST /api/template-groups/{groupId}/export/{variantId}` | `image/png` `{group} - {dimension}.png` | yes — the same GROUP version |
 
 - Use the response's `Content-Disposition` filename for the download.
 - A `variantId` that is not a member → `404`.
@@ -1119,7 +1145,7 @@ hide them from a "templates" list and present the document instead.
     - `"pdf-screen"` (default): sRGB, ~150 ppi, for sending.
     - `"pdf"`: multi-page PDF/X-1a with bleed + crop marks. Print documents
       only (`printFormat: true`); otherwise 400 `pdf_not_available`.
-    - `"png"`: a ZIP of `{nn}-{page}.png`, in page order.
+    - `"png"`: a ZIP of `{document} - {nn} - {page}.png`, in page order.
   - Each `pages` entry is the single-variant export body of that page's
     variant. A shared field's value WINS over the page's own value for its
     bound input — but only its TEXT: a page's own `hide` / `fontFamily` for

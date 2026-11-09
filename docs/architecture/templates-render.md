@@ -101,6 +101,32 @@ the fill component degrades to "no preview this round"
 (`AbstractVariantFiller::renderUnavailable()`) rather than 503-ing the Live
 re-render, which would strand the page on its spinner.
 
+**Download file names (2026-11-09)** — the "everything downloads as
+`<uuid>.png` / `úvodní-strana`" report. ONE builder, `Value/DownloadFileName`
+(generic: also used by the manual logo download), and ONE template-module
+naming service, `Services/Template/TemplateExportFileNames`, used by every
+web controller, API processor and MCP tool that hands out a file:
+
+| Download | Name |
+|---|---|
+| single template | `<template>[ - <size>]` — size only when the template has several variants |
+| page of a document (single-variant route) | `<document> - <page>` |
+| group dimension / ZIP entry | `<group> - <size>` (`1:1` → `1x1`) |
+| group ZIP | `<group>.zip`, print `<group> - PDF.zip` |
+| document | `<document>.pdf` / `.zip`, entries `<document> - 01 - <page>.png` |
+| any of them | ` - <version name>` appended when the export landed on a NAMED export version |
+
+The version is looked up AFTER the (synchronous) recording as the exported row
+with this exact fill hash (`findDuplicate`), so a changed fill — a new,
+unnamed version — never carries a stale name. Headers go through
+`DownloadFileName::disposition()` = `HeaderUtils::makeDisposition`: UTF-8
+name with diacritics in `filename*`, transliterated ASCII in `filename`
+(reserved `/\:*?"<>|`, control/zero-width chars, `%` in the fallback and
+Windows device names handled; ≤ 120 chars cut at a word boundary). ZIP
+entries are UTF-8 with the UTF-8 flag set (`ZipArchive::FL_ENC_UTF_8`). The
+API variant export keeps its `inline` disposition type. The admin editor has
+no download of its own ("Vyplnit a exportovat" links to the fill page).
+
 **Print PDF export (2026-10-30) — `Services/Print/`**
 
 Every PRINT-format variant (mm / cm — `TemplateDimension::isPrintFormat()`;

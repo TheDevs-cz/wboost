@@ -6,21 +6,22 @@ namespace WBoost\Web\Services\TemplateDocument;
 
 use WBoost\Web\Entity\TemplateDocument;
 use WBoost\Web\Entity\TemplateDocumentPage;
-use WBoost\Web\Services\Slugify;
+use WBoost\Web\Services\Template\TemplateExportFileNames;
 use WBoost\Web\Value\ExportFormat;
 use ZipArchive;
 
 /**
- * File naming of a document export, shared by the web fill page, the API and
- * MCP: `{document}.pdf` for both PDFs, `{document}.zip` holding
- * `{nn}-{page}.png` — order-prefixed so a file browser (or an Instagram
- * carousel upload) keeps the page order.
+ * Packing of a document export, shared by the web fill page, the API and MCP.
+ * File names come from {@see TemplateExportFileNames}: `{document}.pdf` for
+ * both PDFs, `{document}.zip` holding `{document} - {nn} - {page}.png` —
+ * order-prefixed so a file browser (or an Instagram carousel upload) keeps
+ * the page order.
  */
-final class DocumentExportArchive
+final readonly class DocumentExportArchive
 {
-    public function fileName(TemplateDocument $document, ExportFormat $format): string
-    {
-        return $this->slug($document->name, 'dokument') . '.' . ($format === ExportFormat::Png ? 'zip' : $format->extension());
+    public function __construct(
+        private TemplateExportFileNames $fileNames,
+    ) {
     }
 
     public function contentType(ExportFormat $format): string
@@ -31,7 +32,7 @@ final class DocumentExportArchive
     /**
      * @param list<array{TemplateDocumentPage, string}> $renders page + its PNG, in page order
      */
-    public function zip(array $renders): string
+    public function zip(TemplateDocument $document, array $renders): string
     {
         $path = tempnam(sys_get_temp_dir(), 'document-export-');
 
@@ -46,13 +47,9 @@ final class DocumentExportArchive
                 throw new \RuntimeException('Could not open the ZIP archive for writing.');
             }
 
-            $digits = max(2, strlen((string) count($renders)));
-
             foreach ($renders as $index => [$page, $bytes]) {
-                $zip->addFromString(
-                    sprintf('%0' . $digits . 'd-%s.png', $index + 1, $this->slug($page->template->name, 'strana')),
-                    $bytes,
-                );
+                // UTF-8 flag set explicitly: Czech page names unpack intact.
+                $zip->addFromString($this->fileNames->documentPage($document, $page, $index + 1, count($renders))->name, $bytes, ZipArchive::FL_ENC_UTF_8);
             }
 
             $zip->close();
@@ -67,12 +64,5 @@ final class DocumentExportArchive
         } finally {
             @unlink($path);
         }
-    }
-
-    private function slug(string $value, string $fallback): string
-    {
-        $slug = Slugify::string($value);
-
-        return $slug !== '' ? $slug : $fallback;
     }
 }

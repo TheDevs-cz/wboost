@@ -17,6 +17,7 @@ use WBoost\Web\Exceptions\InvalidRichTextValue;
 use WBoost\Web\Exceptions\TemplateRenderUnavailable;
 use WBoost\Web\Services\Template\ApiExportRenderer;
 use WBoost\Web\Services\Template\ApiSubjectLoader;
+use WBoost\Web\Services\Template\TemplateExportFileNames;
 use WBoost\Web\Services\TemplateDocument\DocumentApiValues;
 use WBoost\Web\Services\TemplateDocument\DocumentExportArchive;
 use WBoost\Web\Services\TemplateDocument\RecordDocumentExportVersion;
@@ -45,6 +46,7 @@ final readonly class TemplateDocumentRenderProcessor implements ProcessorInterfa
         private DocumentExportArchive $archive,
         private RecordExportUsage $recordExportUsage,
         private RecordDocumentExportVersion $recordExportVersion,
+        private TemplateExportFileNames $fileNames,
     ) {
     }
 
@@ -133,11 +135,12 @@ final readonly class TemplateDocumentRenderProcessor implements ProcessorInterfa
             $this->recordExportUsage->record($page->variant, ExportChannel::Api, $format);
         }
 
-        $this->recordExportVersion->record($document, ExportChannel::Api, DocumentFillValues::fromApiPages($pageValues));
+        $fill = DocumentFillValues::fromApiPages($pageValues);
+        $this->recordExportVersion->record($document, ExportChannel::Api, $fill);
 
         return new Response($bytes, Response::HTTP_OK, [
             'Content-Type' => $this->archive->contentType($format),
-            'Content-Disposition' => sprintf('attachment; filename="%s"', $this->archive->fileName($document, $format)),
+            'Content-Disposition' => $this->fileNames->document($document, $format, $fill)->disposition(),
             'Cache-Control' => 'no-store',
         ]);
     }

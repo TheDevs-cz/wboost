@@ -202,8 +202,10 @@ the whole document from pages ALREADY resolved by the caller.
 - `ExportFormat::Pdf` → `PrintPdfRenderer::renderDocument` (multi-page
   PDF/X-1a; print formats only).
 - `PdfScreen` → `ScreenPdfRenderer::renderDocument`.
-- `Png` → ZIP of `{nn}-{page}.png`.
-- Files are named `{document}.pdf` / `{document}.zip`.
+- `Png` → ZIP of `{document} - {nn} - {page}.png`.
+- Files are named `{document}.pdf` / `{document}.zip` (+ ` - {version}` for a
+  named export version) — `Services/Template/TemplateExportFileNames`, see
+  "Download file names" in `templates-render.md`.
 
 The three callers:
 - **Web** — `TemplateDocumentExportController`, POST `format`. The form is
