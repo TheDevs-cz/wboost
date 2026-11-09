@@ -261,7 +261,7 @@ textarea.fill-popover__input { min-height: 44px; padding: 10px 12px; border-radi
 .fill-form.fill-js.fill-sheet-open .fill-popovers > .fill-popover.is-sheet-target { border-color: var(--lav); box-shadow: 0 0 0 3px var(--lav-glow); }
 
 /* ---------- Repeatable rows (container-rows P4) ---------- */
-.fill-sheet__section--row { gap: 8px; padding-top: 10px; font-size: 13px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text-2); }
+.fill-sheet__section--row { gap: 8px; margin-bottom: 4px; padding-top: 10px; font-size: 13px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text-2); }
 .fill-sheet__row-index { flex: none; display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: var(--lav-deep); color: var(--lav-ink); font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .fill-sheet__row-tools { flex: none; display: inline-flex; align-items: center; gap: 2px; margin-left: auto; }
 .fill-sheet__row-btn { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease); }
