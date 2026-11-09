@@ -688,8 +688,9 @@ width bar was already in place (JSON, see above).
 ### Manual content pages — editable intro (P1, 2026-11-09)
 
 Plan + phases: `docs/plans/2026-11-manual-content-pages.md` (P2 custom pages
-— see the next section; P3 gallery — the section after it; P4 drop
-`manual.intro_image` is still to come).
+— see the next section; P3 gallery — the section after it; P4 cleanup — the
+legacy `manual.intro_image` column and the form upload are GONE, see below).
+All phases delivered 2026-11-09.
 
 - **Model.** `ManualContentPage` (`manual_content_page`): `role`
   (`ManualContentPageRole`: `intro` | `custom`), `name` (plain title — printed
@@ -754,8 +755,8 @@ Plan + phases: `docs/plans/2026-11-manual-content-pages.md` (P2 custom pages
   template `manual_content_page_editor.html.twig` + `ManualContentPageEditor`,
   shared with custom pages since P2).
   A manual without an intro page opens with `IntroContentPageDefaults`
-  (title override or "Úvod", description override as rich text, legacy
-  `intro_image`) — nothing is written until Save.
+  (title override or "Úvod", description override as rich text, no
+  picture) — nothing is written until Save.
   `manual_content_editor_controller.js` (**lazy** Stimulus controller — the
   ProseMirror bundle loads only here): layout picker (mockup mini-grids),
   segments on white "paper" (light tokens re-scoped on `.mce-paper`, the
@@ -779,13 +780,17 @@ Plan + phases: `docs/plans/2026-11-manual-content-pages.md` (P2 custom pages
   committed esbuild ESM bundle imported by relative path (no importmap pins —
   jsDelivr `+esm` non-determinism). Versions + rebuild:
   `resources/prosemirror-bundle/README.md`.
-- **Legacy upload (until P4).** The add/edit manual form's "Úvodní obrázek"
-  still writes `manual.intro_image` AND goes through `IntroContentPageImage`:
-  no intro page → one is created from the defaults + picture; otherwise the
-  image element still showing the previous upload gets the new key (fit/alt
-  kept), or the picture is appended to the first segment when the admin had
-  removed it. The edit form's "current image" preview still shows the
-  column, which may differ from the page after editor changes.
+- **Legacy upload — removed (P4, 2026-11-09).** The add/edit manual form
+  (`ManualFormType`: name + type only) has no "Úvodní obrázek" any more; a
+  `.man-formhint` box points at the "Úvodní stránka" tab (a link on edit).
+  `IntroContentPageImage` is gone, `Manual::__construct()` / `edit()` lost
+  the `introImage` argument, and `Version20261109220000` dropped
+  `manual.intro_image` (before the drop all 18 non-empty prod values were
+  verified to be referenced by their intro page image element, by path AND
+  gallery row; its `down()` re-adds the column and backfills it from the
+  intro page's first image element). The only remaining reader of the old
+  column is the historical migration `Version20261109140100` (via
+  `IntroContentPageMigration`), which runs before the drop.
 - **Data migration** `Version20261109140100` (plan in
   `IntroContentPageMigration`, tested): every manual with `intro_image` got
   its intro page (layout-7; description override → rich text; picture,
@@ -794,7 +799,7 @@ Plan + phases: `docs/plans/2026-11-manual-content-pages.md` (P2 custom pages
   (`manual_content_page.segments`); the keys live under `manuals/{manualId}/`,
   so project deletion already removes them.
 - Pinned by `tests/Controller/Manual/ManualIntroPageTest.php`,
-  `tests/MessageHandler/Manual/IntroImageContentPageTest.php`,
+  `tests/Controller/Manual/ManualFormControllerTest.php` (P4: no upload, hint),
   `tests/Entity/ManualContentPageTest.php`,
   `tests/Value/ManualContent/ManualContentPagePayloadTest.php`,
   `tests/Services/Manual/IntroContentPageMigrationTest.php`,
@@ -894,8 +899,16 @@ gallery". In short:
 - **Koš / purge**: a picture a manual shows can't be purged (not even
   forced); a trashed one disappears for readers, editors see a stand-in
   (`_manual_image_standin.html.twig`; CSS `.manual-img-standin` in app.css).
-  Note: a content page whose only content is a trashed picture still counts
-  as "has content" (takes a page number, renders empty for readers).
+  **Reader visibility (P4):** a content page (intro or custom) whose only
+  content is an unavailable picture (Koš / gallery row gone) is empty FOR
+  READERS — skipped, no page number (`manual_content_page_shown(page,
+  can_edit)` Twig fn → `ManualContentPage::hasContentShowing()` with
+  `ManualImageAvailability`). Editors still get the page (with its
+  stand-in), so their numbering can differ from the readers'. The editor's
+  "Prázdná" badge in the page list still means "no element at all".
+- Mockup slot uploads go through `NormalizeImageFormat` like gallery
+  uploads (P4): HEIC/TIFF → JPEG/PNG, web-safe formats byte-for-byte, SVG
+  kept (`tests/Services/Manual/MockupPageSlotImagesTest.php`).
 - Pinned by `tests/Services/Manual/ManualGalleryImportTest.php`,
   `tests/MessageHandler/Image/PurgeManualReferencedFileTest.php`,
   `tests/Controller/Manual/ManualGalleryPickerTest.php`.

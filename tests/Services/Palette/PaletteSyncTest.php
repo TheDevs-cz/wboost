@@ -408,7 +408,7 @@ final class PaletteSyncTest extends KernelTestCase
     private function manual(Project $project, string $id, string $date, ManualType $type, string $name, array $logo, array $links, array $palette): void
     {
         $createdAt = new DateTimeImmutable($date);
-        $manual = new Manual(Uuid::fromString($id), $project, $createdAt, $type, $name, null);
+        $manual = new Manual(Uuid::fromString($id), $project, $createdAt, $type, $name);
         $manual->editLogo(self::logo($id, $logo));
         $this->entityManager->persist($manual);
 

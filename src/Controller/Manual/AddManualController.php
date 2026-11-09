@@ -49,7 +49,6 @@ final class AddManualController extends AbstractController
                     $project->id,
                     $data->type,
                     $data->name,
-                    $data->introImage,
                 ),
             );
 

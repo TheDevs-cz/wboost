@@ -14,7 +14,7 @@ use WBoost\Web\Value\StorageReferenceIndex;
  * the storage scan diffs the bucket against.
  *
  * Every place the app persists a path is enumerated here — plain string columns
- * (`manual.intro_image`, `*.background_image`, `*.preview_image_path`, …), JSON
+ * (`project.icon`, `*.background_image`, `*.preview_image_path`, …), JSON
  * documents holding paths (`manual.logo`, `manual_mockup_page.images`, its
  * `download_file` / `image_downloads` attachments, the image elements of
  * `manual_content_page.segments`, `font.faces`) and the canvas
@@ -115,12 +115,6 @@ readonly final class BuildStorageReferenceIndex
                 "SELECT pr.icon AS path, %s FROM project pr %s WHERE pr.icon IS NOT NULL AND pr.icon <> ''",
                 $ownerColumns,
                 sprintf($ownerJoin, 'pr.id'),
-            ),
-
-            'manual.intro_image' => sprintf(
-                "SELECT m.intro_image AS path, %s FROM manual m %s WHERE m.intro_image IS NOT NULL AND m.intro_image <> ''",
-                $ownerColumns,
-                sprintf($ownerJoin, 'm.project_id'),
             ),
 
             // manual.logo is a JSONB map of 5 slots, each `{filePath, detectedColors}` or null.

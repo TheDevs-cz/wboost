@@ -167,8 +167,9 @@ existing user root folder literally named "Manuál" is adopted.
   names the same key.
 - **Every manual upload registers**: content-editor upload
   (`UploadManualContentImageHandler`, answers `galleryImageId`), mockup
-  slot uploads (`MockupPageSlotImages`), the legacy intro upload
-  (`IntroContentPageImage`, until P4). Both manual editors also PICK from
+  slot uploads (`MockupPageSlotImages`, normalised since P4). The legacy
+  intro upload of the add/edit manual form is gone (P4, together with the
+  `manual.intro_image` column). Both manual editors also PICK from
   the gallery: `_manual_gallery_modal.html.twig` (`#manualGalleryModal`,
   rendered outside any form) mounts `Project:ImageGallery` with
   `currentDirectoryId` = the manual folder (created on editor GET via
@@ -181,8 +182,8 @@ existing user root folder literally named "Manuál" is adopted.
   no-ops (it re-plans after each manual to prove it). Attachments are not
   pictures and stay out. Run on prod 2026-11-09.
 - **Purge guard — manuals.** `GetGalleryImageManualUsage` (exact match on
-  key: mockup `images`, content `path` / `galleryImageId`, legacy
-  `manual.intro_image`; NOT project-scoped) → `PurgeFileUploadHandler`
+  key: mockup `images`, content `path` / `galleryImageId`; NOT
+  project-scoped) → `PurgeFileUploadHandler`
   refuses with `FileUploadInUse::$manualSites` **even when forced**; the cron
   skips and names the manual; the Koš tile says "V manuálu: …", hides
   "Smazat ihned", and the LiveAction shows a notice if raced.
@@ -193,7 +194,9 @@ existing user root folder literally named "Manuál" is adopted.
   (`_manual_image_standin.html.twig`, `manual_image_unavailable()` Twig fn,
   `ManualImageAvailability`, one query per manual + request, reset between
   requests). Restoring from the Koš brings it back — the object is never
-  deleted while referenced.
+  deleted while referenced. A content page left with nothing but such
+  pictures is skipped for readers and takes no page number (P4); editors
+  still see it with the stand-in.
 
 ### Upload size limit — 10 MB, decimal
 
@@ -251,3 +254,9 @@ is deliberately refused by the normalizer and stored untouched — it stays vect
 everywhere (logos, backgrounds). `AssetInliner::inlineImageWithDimensions` runs
 the same normalizer at render time, so files uploaded before this (and any other
 format Chromium can't paint) still export.
+
+The manual uploads that do not go through `UploadFileHandler` call the same
+normalizer themselves: the content-editor upload
+(`UploadManualContentImageController`) and, since content pages P4, mockup
+slot uploads (`MockupPageSlotImages`; undecodable bytes are stored as sent,
+as before).

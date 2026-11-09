@@ -123,10 +123,6 @@ class Manual
         #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
         #[Column]
         public string $name,
-
-        #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
-        #[Column(nullable: true)]
-        public null|string $introImage,
     ) {
         $this->pages = new ArrayCollection();
         $this->contentPages = new ArrayCollection();
@@ -136,10 +132,9 @@ class Manual
         $this->changeName($name);
     }
 
-    public function edit(ManualType $type, string $name, null|string $introImage): void
+    public function edit(ManualType $type, string $name): void
     {
         $this->type = $type;
-        $this->introImage = $introImage;
         $this->changeName($name);
     }
 

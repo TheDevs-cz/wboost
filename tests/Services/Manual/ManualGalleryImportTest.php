@@ -131,7 +131,7 @@ final class ManualGalleryImportTest extends KernelTestCase
     {
         $em = $this->em();
         $manual1 = $this->manual1();
-        $twin = new Manual(Uuid::uuid7(), $manual1->project, new DateTimeImmutable(), ManualType::Logo, 'Manual 1', null);
+        $twin = new Manual(Uuid::uuid7(), $manual1->project, new DateTimeImmutable(), ManualType::Logo, 'Manual 1');
         $em->persist($twin);
         $em->flush();
 

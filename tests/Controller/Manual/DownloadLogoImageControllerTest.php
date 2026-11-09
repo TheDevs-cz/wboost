@@ -65,7 +65,7 @@ final class DownloadLogoImageControllerTest extends WebTestCase
         $entityManager = self::getContainer()->get(EntityManagerInterface::class);
         $manual = $entityManager->find(Manual::class, Uuid::fromString(TestDataFixture::MANUAL_1_ID));
         self::assertInstanceOf(Manual::class, $manual);
-        $manual->edit($manual->type, $manualName, $manual->introImage);
+        $manual->edit($manual->type, $manualName);
         $manual->editLogo(new Logo(
             horizontal: new SvgImage('manuals/test/download-logo.svg', ['#123456']),
             vertical: null,

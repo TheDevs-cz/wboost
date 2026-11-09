@@ -1,5 +1,15 @@
 # Manual content pages (editable intro + custom pages) — plan 2026-11-09
 
+**Status: DELIVERED 2026-11-09 (all phases live on prod).** Current truth is
+`docs/architecture/manuals.md` (content pages P1–P4 sections) and
+`gallery-and-uploads.md`; this file is history.
+
+- P1 engine + intro — 37358497, 218f6cce, 9a3cee29
+- P2 custom pages — c8094641
+- P3 gallery migration — 63dc3f44
+- P4 cleanup — P4_COMMIT (form upload removed, `manual.intro_image` dropped,
+  trashed-only pages skipped for readers, mockup slot uploads normalised)
+
 Feature request (Jan, 2026-11-09): the manual intro (first) page can today only
 hold one image (`manual.intro_image`, uploaded in the add/edit manual form,
 rendered as page heading + italic description + `<img max-width:100%>`).

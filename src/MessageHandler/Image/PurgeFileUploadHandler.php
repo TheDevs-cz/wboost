@@ -37,8 +37,8 @@ readonly final class PurgeFileUploadHandler
      * could not even be opened for editing, 2026-09-08). The cron never
      * forces; the bin's "Smazat ihned" does, after naming the templates.
      *
-     * A picture a MANUAL still shows (mockup slot, content page element,
-     * legacy `intro_image` — content pages P3) is refused EVEN WHEN FORCED:
+     * A picture a MANUAL still shows (mockup slot, content page element —
+     * content pages P3) is refused EVEN WHEN FORCED:
      * a public manual has no stand-in for a vanished object, and the manual
      * keys predate the gallery (the import made rows over them).
      *

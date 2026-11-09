@@ -14,6 +14,7 @@ use Symfony\Component\DomCrawler\Field\FileFormField;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use WBoost\Web\Entity\FileDirectory;
 use WBoost\Web\Entity\FileUpload;
+use WBoost\Web\Entity\Manual;
 use WBoost\Web\Entity\ManualContentPage;
 use WBoost\Web\Entity\ManualMockupPage;
 use WBoost\Web\Entity\Project;
@@ -22,6 +23,10 @@ use WBoost\Web\Services\Manual\ManualGalleryFolders;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Tests\TestingLogin;
 use WBoost\Web\Value\FileSource;
+use WBoost\Web\Value\ManualContent\ContentImageFit;
+use WBoost\Web\Value\ManualContent\ContentSegment;
+use WBoost\Web\Value\ManualContent\ImageElement;
+use WBoost\Web\Value\ManualContent\ManualContentPageRole;
 use WBoost\Web\Value\MockupPageLayout;
 
 /**
@@ -164,6 +169,67 @@ final class ManualGalleryPickerTest extends WebTestCase
         $crawler = $browser->request('GET', self::PREVIEW_URL);
         self::assertCount(0, $crawler->filter('.mcp-img img'));
         self::assertCount(0, $crawler->filter('.manual-img-standin'));
+    }
+
+    /**
+     * Content pages P4: a page whose ONLY content is an unavailable picture
+     * (Koš, or its gallery row gone) renders nothing for readers, so it is
+     * skipped and takes no page number. Editors keep it, with the stand-in.
+     */
+    public function testAPageWhoseOnlyPictureIsUnavailableIsSkippedForReaders(): void
+    {
+        $browser = self::createClient();
+        TestingLogin::logInAsUser($browser, TestDataFixture::USER_1_EMAIL);
+        $file = $this->galleryFile(TestDataFixture::PROJECT_1_ID);
+        $this->save($browser, [['id' => 'i', 'type' => 'image', 'path' => $file->path, 'galleryImageId' => $file->id->toString(), 'fit' => 'natural']]);
+        self::assertResponseIsSuccessful();
+
+        $this->em()->getConnection()->executeStatement('UPDATE file_upload SET deleted_at = NOW() WHERE id = ?', [$file->id->toString()]);
+
+        $crawler = $browser->request('GET', self::PREVIEW_URL);
+        self::assertCount(1, $crawler->filter('#page-1 .mcp-page .manual-img-standin'));
+        $editorPages = $crawler->filter('.manual-page')->count();
+
+        $browser->getCookieJar()->clear();
+        $crawler = $browser->request('GET', self::PREVIEW_URL);
+        self::assertCount(0, $crawler->filter('.mcp-page'));
+        self::assertCount($editorPages - 1, $crawler->filter('.manual-page'));
+        self::assertCount(0, $crawler->filter('#page-' . $editorPages));
+
+        // A heading next to the same picture is reader content again.
+        TestingLogin::logInAsUser($browser, TestDataFixture::USER_1_EMAIL);
+        $this->save($browser, [
+            ['id' => 'h', 'type' => 'heading', 'level' => 1, 'text' => 'Vítejte'],
+            ['id' => 'i', 'type' => 'image', 'path' => $file->path, 'galleryImageId' => $file->id->toString(), 'fit' => 'natural'],
+        ]);
+        self::assertResponseIsSuccessful();
+        $browser->getCookieJar()->clear();
+        $crawler = $browser->request('GET', self::PREVIEW_URL);
+        self::assertCount(1, $crawler->filter('#page-1 .mcp-page'));
+        self::assertCount(0, $crawler->filter('.manual-img-standin'));
+    }
+
+    public function testACustomPageWhoseOnlyPictureLostItsGalleryRowIsSkippedForReaders(): void
+    {
+        $browser = self::createClient();
+        $manual = $this->em()->find(Manual::class, Uuid::fromString(TestDataFixture::MANUAL_1_ID));
+        self::assertNotNull($manual);
+        $page = new ManualContentPage(Uuid::uuid7(), $manual, ManualContentPageRole::Custom, 'Ztracený obrázek', MockupPageLayout::Layout7, [
+            new ContentSegment(elements: [
+                new ImageElement('i', 'manuals/' . TestDataFixture::MANUAL_1_ID . '/content/gone.png', ContentImageFit::Natural, '', Uuid::uuid7()->toString()),
+            ]),
+        ], 1000, new DateTimeImmutable());
+        $this->em()->persist($page);
+        $this->em()->flush();
+
+        $browser->request('GET', self::PREVIEW_URL);
+        self::assertResponseIsSuccessful();
+        self::assertStringNotContainsString('Ztracený obrázek', (string) $browser->getResponse()->getContent());
+
+        TestingLogin::logInAsUser($browser, TestDataFixture::USER_1_EMAIL);
+        $crawler = $browser->request('GET', self::PREVIEW_URL);
+        self::assertStringContainsString('Ztracený obrázek', $crawler->filter('.manual-page')->last()->text());
+        self::assertCount(1, $crawler->filter('.manual-page')->last()->filter('.manual-img-standin'));
     }
 
     public function testAMockupSlotTakesAGalleryPickOfItsOwnProjectOnly(): void

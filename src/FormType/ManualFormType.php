@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace WBoost\Web\FormType;
 
 use Symfony\Component\Form\Extension\Core\Type\EnumType;
-use Symfony\Component\Form\Extension\Core\Type\FileType;
-use Symfony\Component\Validator\Constraints\Image;
 use WBoost\Web\FormData\ManualFormData;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
@@ -35,16 +33,6 @@ final class ManualFormType extends AbstractType
             'class' => ManualType::class,
             'required' => true,
             'placeholder' => '- vyberte -',
-        ]);
-
-        $builder->add('introImage', FileType::class, [
-            'label' => 'Úvodní obrázek',
-            'required' => false,
-            'constraints' => [
-                new Image(
-                    maxSize: '10m',
-                ),
-            ],
         ]);
     }
 

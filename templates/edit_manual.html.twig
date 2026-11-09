@@ -14,6 +14,6 @@
     {{ include('_manual_form.html.twig', {
         'submit_label': 'Uložit',
         'cancel_url': path('manual_dashboard', {'id': manual.id}),
-        'current_image': manual.introImage ? uploaded_asset(manual.introImage) : null,
+        'intro_url': path('manual_intro_page', {'id': manual.id}),
     }) }}
 {% endblock %}

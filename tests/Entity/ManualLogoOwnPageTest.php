@@ -102,7 +102,7 @@ final class ManualLogoOwnPageTest extends TestCase
             'Project 1',
         );
 
-        $manual = new Manual(Uuid::uuid4(), $project, $date, ManualType::Logo, 'Manual 1', null);
+        $manual = new Manual(Uuid::uuid4(), $project, $date, ManualType::Logo, 'Manual 1');
 
         $manual->editLogo(new Logo(
             horizontal: new SvgImage('m/horizontal.svg', [], []),

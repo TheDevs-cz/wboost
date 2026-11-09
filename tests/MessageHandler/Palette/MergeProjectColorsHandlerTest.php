@@ -212,7 +212,7 @@ final class MergeProjectColorsHandlerTest extends KernelTestCase
         $entityManager = self::getContainer()->get(EntityManagerInterface::class);
         $project = $entityManager->find(Project::class, Uuid::fromString(TestDataFixture::PROJECT_1_ID));
         self::assertInstanceOf(Project::class, $project);
-        $manual = new Manual(Uuid::fromString(self::MANUAL_B_ID), $project, new DateTimeImmutable('2024-02-01'), ManualType::Brand, 'Manual B', null);
+        $manual = new Manual(Uuid::fromString(self::MANUAL_B_ID), $project, new DateTimeImmutable('2024-02-01'), ManualType::Brand, 'Manual B');
         $entityManager->persist($manual);
         $entityManager->flush();
 

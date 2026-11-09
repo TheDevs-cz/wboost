@@ -74,7 +74,7 @@ final class ManualFontTest extends TestCase
 
     private function manualFont(Project $project, Font $font): ManualFont
     {
-        $manual = new Manual(Uuid::uuid4(), $project, new DateTimeImmutable(), ManualType::Brand, 'Manual 1', null);
+        $manual = new Manual(Uuid::uuid4(), $project, new DateTimeImmutable(), ManualType::Brand, 'Manual 1');
 
         return new ManualFont(Uuid::uuid4(), $manual, $font, ManualFontType::Primary, null, 0, new DateTimeImmutable());
     }

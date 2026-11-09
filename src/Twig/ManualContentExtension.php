@@ -6,8 +6,10 @@ namespace WBoost\Web\Twig;
 
 use Twig\Attribute\AsTwigFunction;
 use WBoost\Web\Entity\Manual;
+use WBoost\Web\Entity\ManualContentPage;
 use WBoost\Web\Services\Manual\ManualImageAvailability;
 use WBoost\Web\Services\Manual\RichTextHtmlRenderer;
+use WBoost\Web\Value\ManualContent\ImageElement;
 use WBoost\Web\Value\ManualContent\ManualContentStyles;
 use WBoost\Web\Value\ManualContent\RichTextDoc;
 
@@ -32,6 +34,25 @@ readonly final class ManualContentExtension
     public function imageUnavailable(Manual $manual, string $path, null|string $galleryImageId = null): null|string
     {
         return $this->availability->state($manual, $path, $galleryImageId);
+    }
+
+    /**
+     * Whether the manual shows this content page at all (and numbers it).
+     * Editors see every page with content — an unavailable picture as a
+     * stand-in; readers only pages with something they can actually see, so
+     * a page whose only content is a trashed / missing picture is skipped
+     * for them instead of rendering an empty numbered page (content pages P4).
+     */
+    #[AsTwigFunction('manual_content_page_shown')]
+    public function contentPageShown(ManualContentPage $page, bool $editor): bool
+    {
+        if ($editor) {
+            return $page->hasContent();
+        }
+
+        return $page->hasContentShowing(
+            fn (ImageElement $image): bool => $this->availability->state($page->manual, $image->path, $image->galleryImageId) === null,
+        );
     }
 
     /**

@@ -255,8 +255,10 @@
     .man-editor .mockup-editor-savebar { border-radius: 18px; flex-wrap: wrap; }
 }
 .man-drop.man-drop-sm { min-height: 150px; }
-.man-intro .man-drop img:not([hidden]) { max-height: 110px; }
-.man-intro .man-picked { margin-top: 0; }
+/* Add / edit manual form: where the intro picture went (content pages P4). */
+.man-formhint { display: flex; align-items: flex-start; gap: 8px; margin: 2px 0 16px; padding: 10px 12px; border-radius: 12px; background: var(--lav-deep); color: var(--text-2); font-size: 13px; line-height: 1.5; }
+.man-formhint > .i { flex: none; margin-top: 3px; color: var(--lav-ink); }
+.man-formhint a { color: var(--lav-ink); font-weight: 600; text-underline-offset: 3px; }
 /* A missing file (local storage) must not print its alt text over the card. */
 .man-pg .mockup-slot img { color: transparent; font-size: 0; }
 

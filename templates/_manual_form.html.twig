@@ -1,6 +1,7 @@
-{# Add / edit manual (ManualFormType: type, name, introImage) as one settings
-   box with a styled image drop zone. Expects `form`, `submit_label`,
-   `cancel_url`; optional `current_image` (URL of the stored intro image). #}
+{# Add / edit manual (ManualFormType: type, name) as one settings box.
+   Expects `form`, `submit_label`, `cancel_url`; optional `intro_url`
+   (edit: link to the intro page editor). The intro picture is no longer
+   uploaded here (content pages P4) — it lives on the intro page. #}
 {{ form_start(form, {'attr': {'class': 'man-sec man-formbox'}}) }}
     {{ form_errors(form) }}
     <div class="man-formgrid">
@@ -8,23 +9,16 @@
         {{ form_row(form.type) }}
     </div>
 
-    <div class="field man-intro" data-controller="file-drop">
-        <span>{{ form.introImage.vars.label }} <small>nepovinné</small></span>
-        <label class="man-drop man-drop-sm" for="{{ form.introImage.vars.id }}" data-file-drop-target="zone">
-            <img alt="" data-file-drop-target="preview"{% if current_image|default(null) %} src="{{ current_image }}" onerror="this.hidden = true"{% else %} hidden{% endif %}>
-            {{ icon('upload') }}
-            <b>Přetáhněte obrázek sem</b>
-            <span class="cap">nebo <u>vyberte soubor</u> · obálka manuálu v přehledu · max. 10 MB</span>
-        </label>
-        {{ form_widget(form.introImage, {'attr': {
-            'class': 'sr',
-            'accept': 'image/*',
-            'data-file-drop-target': 'input',
-            'data-action': 'change->file-drop#changed',
-        }}) }}
-        <div class="man-picked" data-file-drop-target="name" hidden></div>
-        {{ form_errors(form.introImage) }}
-    </div>
+    <p class="man-formhint">
+        {{ icon('info', 's14') }}
+        <span>
+            {% if intro_url|default(null) %}
+                Úvodní stránku (nadpis, text a obrázky) upravíte v záložce <a href="{{ intro_url }}">Úvodní stránka</a>.
+            {% else %}
+                Úvodní stránku (nadpis, text a obrázky) upravíte po vytvoření v záložce Úvodní stránka.
+            {% endif %}
+        </span>
+    </p>
 
     {{ form_rest(form) }}
     <div class="man-formfoot">

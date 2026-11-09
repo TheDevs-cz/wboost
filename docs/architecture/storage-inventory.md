@@ -35,7 +35,9 @@ survives purely for the untouched `social-networks/…` keys and historical rows
 
 - `ScanStorage` (`src/Services/Storage/`) lists the bucket and cross-references
   `BuildStorageReferenceIndex`, which enumerates **every** column that stores a
-  path: plain strings, the JSON documents (`manual.logo`,
+  path: plain strings (the legacy `manual.intro_image` is gone since content
+  pages P4 — the intro picture is a content page image element), the JSON
+  documents (`manual.logo`,
   `manual_mockup_page.images`, the image elements of
   `manual_content_page.segments`, `font.faces`), the canvas JSONB **and the e-mail
   signature `code`** — the last two EMBED paths inside full public URLs rather

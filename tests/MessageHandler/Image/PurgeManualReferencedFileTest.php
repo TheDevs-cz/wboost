@@ -83,14 +83,6 @@ final class PurgeManualReferencedFileTest extends KernelTestCase
         $this->assertForcedPurgeRefused($file);
     }
 
-    public function testTheLegacyIntroImageKeepsItsPicture(): void
-    {
-        $file = $this->trashedManualFile();
-        $this->em()->getConnection()->executeStatement('UPDATE manual SET intro_image = ? WHERE id = ?', [$file->path, TestDataFixture::MANUAL_1_ID]);
-
-        $this->assertForcedPurgeRefused($file);
-    }
-
     public function testTheCronSkipsAManualPictureAndNamesTheManual(): void
     {
         $file = $this->trashedManualFile('-30 days');

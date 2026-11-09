@@ -18,11 +18,12 @@ use WBoost\Web\Value\MockupPageLayout;
  * rendered: the page heading (`ManualPage::Intro` title, admin override
  * first) becomes the page NAME, which the heading row prints exactly where
  * the old title stood; the description override (the default is empty)
- * becomes a rich-text element; the legacy `intro_image` an image element at
- * its natural size. One full-width segment (layout-7).
+ * becomes a rich-text element; a picture (only the P1 data migration still
+ * passes one — the legacy `manual.intro_image` column was dropped in P4) an
+ * image element at its natural size. One full-width segment (layout-7).
  *
- * Pure on purpose: the data migration, the add/edit manual handlers and the
- * editor (a manual that never had an intro page) all build the same thing.
+ * Pure on purpose: the P1 data migration and the editor (a manual that never
+ * had an intro page) build the same thing.
  */
 final class IntroContentPageDefaults
 {

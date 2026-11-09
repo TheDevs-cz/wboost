@@ -39,7 +39,7 @@ readonly final class ManualContentEditorState
             $manual,
             IntroContentPageDefaults::name($manual->pageTextTitleOverride(ManualPage::Intro)),
             IntroContentPageDefaults::LAYOUT->value,
-            IntroContentPageDefaults::segments($manual->pageDescriptionOverride(ManualPage::Intro), $manual->introImage),
+            IntroContentPageDefaults::segments($manual->pageDescriptionOverride(ManualPage::Intro), null),
         );
     }
 

@@ -76,7 +76,7 @@ final class ResolveEditorFontDefaultsTest extends TestCase
 
     private function manual(Project $project): Manual
     {
-        return new Manual(Uuid::uuid4(), $project, new \DateTimeImmutable(), ManualType::Brand, 'Manual', null);
+        return new Manual(Uuid::uuid4(), $project, new \DateTimeImmutable(), ManualType::Brand, 'Manual');
     }
 
     private function project(): Project

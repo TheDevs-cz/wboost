@@ -129,10 +129,26 @@ class ManualContentPage
      */
     public function hasContent(): bool
     {
+        return $this->hasContentShowing(static fn (ImageElement $image): bool => true);
+    }
+
+    /**
+     * Same, but an image counts only when $imageShows says so — readers get
+     * nothing for a picture in the gallery Koš / without its gallery row, so
+     * a page holding only such pictures is empty FOR THEM (content pages P4).
+     *
+     * @param callable(ImageElement): bool $imageShows
+     */
+    public function hasContentShowing(callable $imageShows): bool
+    {
         foreach ($this->segments as $segment) {
             foreach ($segment->elements as $element) {
                 if ($element instanceof ImageElement) {
-                    return true;
+                    if ($imageShows($element)) {
+                        return true;
+                    }
+
+                    continue;
                 }
 
                 if ($element instanceof HeadingElement && $element->text !== '') {

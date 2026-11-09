@@ -11,6 +11,7 @@ use Ramsey\Uuid\UuidInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use WBoost\Web\Entity\Manual;
 use WBoost\Web\Repository\FileUploadRepository;
+use WBoost\Web\Services\Image\NormalizeImageFormat;
 
 /**
  * What a mockup page slot ends up showing when the editor sent something
@@ -19,6 +20,11 @@ use WBoost\Web\Repository\FileUploadRepository;
  * else a GALLERY PICK (the row must be a live picture of the manual's own
  * project — a typed id must not pull another client's file into a public
  * manual; anything else is ignored). Null = nothing new for the slot.
+ *
+ * An upload goes through {@see NormalizeImageFormat} like every gallery
+ * upload (content pages P4): HEIC & co. are stored as JPEG/PNG the browser
+ * and the PDF render can read; PNG/JPEG/GIF/WebP pass byte-for-byte; an SVG
+ * (or bytes ImageMagick cannot decode) is stored as sent, as before.
  */
 readonly final class MockupPageSlotImages
 {
@@ -26,6 +32,7 @@ readonly final class MockupPageSlotImages
         private Filesystem $filesystem,
         private FileUploadRepository $fileUploadRepository,
         private ManualGalleryImages $galleryImages,
+        private NormalizeImageFormat $normalizeImageFormat,
     ) {
     }
 
@@ -43,13 +50,24 @@ readonly final class MockupPageSlotImages
     ): null|string {
         if ($upload !== null) {
             $imageNumber = $index + 1;
-            $extension = $upload->guessExtension();
+            $contents = $upload->getContent();
+            $normalized = $this->normalizeImageFormat->normalize($contents);
+            $pixelSize = null;
+
+            if ($normalized !== null) {
+                $contents = $normalized['contents'];
+                $extension = $normalized['extension'];
+                $pixelSize = ['width' => $normalized['width'], 'height' => $normalized['height']];
+            } else {
+                $extension = $upload->guessExtension();
+            }
+
             $path = "manuals/$manual->id/pages/$pageId/image-$imageNumber-$timestamp.$extension";
 
-            $this->filesystem->write($path, $upload->getContent());
+            $this->filesystem->write($path, $contents);
 
             $label = pathinfo($upload->getClientOriginalName(), PATHINFO_FILENAME);
-            $this->galleryImages->register($manual, $path, $label !== '' ? $label : sprintf('%s – obrázek %d', $pageName, $imageNumber));
+            $this->galleryImages->register($manual, $path, $label !== '' ? $label : sprintf('%s – obrázek %d', $pageName, $imageNumber), null, $pixelSize);
 
             return $path;
         }

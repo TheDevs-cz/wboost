@@ -11,7 +11,7 @@ namespace WBoost\Web\Value;
 readonly final class StorageReference
 {
     public function __construct(
-        /** The `table.column` holding the path, e.g. `manual.intro_image`. */
+        /** The `table.column` holding the path, e.g. `project.icon`. */
         public string $referencedBy,
         public StorageOwner $owner,
     ) {

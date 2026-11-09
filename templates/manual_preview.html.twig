@@ -47,8 +47,10 @@
 
             {# The intro is a content page (P1, `_manual_content_page.html.twig`):
                no content → no page, so a manual that never had an intro image
-               does not gain an empty page 01. #}
-            {% if intro_page and intro_page.hasContent %}
+               does not gain an empty page 01. For readers a picture in the
+               gallery Koš is no content (P4): editors still get the page with
+               its stand-in, readers skip it. #}
+            {% if intro_page and manual_content_page_shown(intro_page, can_edit_manual) %}
                 {% set page = page+1 %}
                 <div class="manual-page border-bottom border-2" id="page-{{ page }}">
                     {{ include('_manual_content_page_heading.html.twig', {'content_page': intro_page, 'number': page, 'edit_url': can_edit_manual ? path('manual_intro_page', {'id': manual.id}) : null}) }}
@@ -621,7 +623,7 @@
                             </div>
                         </div>
                     </div>
-                {% elseif item.contentPage.hasContent %}
+                {% elseif manual_content_page_shown(item.contentPage, can_edit_manual) %}
                     {% set page = page+1 %}
 
                     <div class="manual-page border-bottom border-2" id="page-{{ page }}">

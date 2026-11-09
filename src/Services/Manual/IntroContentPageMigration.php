@@ -12,7 +12,8 @@ use WBoost\Web\Value\ManualPage;
  * The row `Version20261109140100` inserts for one legacy manual, from its raw
  * columns (`intro_image`, `page_texts` JSON) — kept out of the migration so
  * it can be tested. Builds through {@see IntroContentPageDefaults}, i.e. the
- * same page the add / edit manual handlers create.
+ * same page the editor starts from. (`manual.intro_image` itself was dropped
+ * in content pages P4; this only serves that historical migration.)
  */
 final class IntroContentPageMigration
 {

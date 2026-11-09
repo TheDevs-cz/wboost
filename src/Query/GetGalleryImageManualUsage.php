@@ -13,7 +13,7 @@ use WBoost\Web\Value\GalleryImageManualSite;
 /**
  * Which manuals still show a gallery image — the manual half of the purge
  * guard (content pages P3). A manual references a picture by its storage
- * KEY (mockup `images`, content image `path`, legacy `intro_image`) and a
+ * KEY (mockup `images`, content image `path`) and a
  * content image element also by `galleryImageId`; both are matched exactly.
  *
  * Deliberately NOT scoped to the file's project: the guard protects a
@@ -42,13 +42,7 @@ readonly final class GetGalleryImageManualUsage
         /** @var list<array{manual_id: string, manual_name: string, ref_path: null|string, ref_id: null|string}> $rows */
         $rows = $this->entityManager->getConnection()->fetchAllAssociative(
             <<<'SQL'
-                SELECT m.id AS manual_id, m.name AS manual_name, m.intro_image AS ref_path, NULL AS ref_id
-                FROM manual m
-                WHERE m.intro_image IN (:paths)
-
-                UNION ALL
-
-                SELECT m.id, m.name, img.value #>> '{}', NULL
+                SELECT m.id AS manual_id, m.name AS manual_name, img.value #>> '{}' AS ref_path, NULL AS ref_id
                 FROM manual_mockup_page mp
                 JOIN manual m ON m.id = mp.manual_id
                 CROSS JOIN LATERAL json_array_elements(
