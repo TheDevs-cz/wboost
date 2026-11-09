@@ -710,6 +710,22 @@ images are not fillable and are NOT listed in `memberInputIds`, so a
 client-side mirror cannot account for them exactly — the rendered PNG is the
 authoritative preview (it is the server render).
 
+**Image slots in containers (2026-11).** A FILLABLE image slot can flow in a
+container too (e.g. a club logo per result row). Such a slot is listed in the
+container's `memberImageInputIds` (NOT in `memberInputIds`, which stays
+text-only) and its `imageInputs[]` entry carries `containerId`. It behaves
+like the decorative images above: a FIXED box (its `frame`) that moves down
+when a text above it wraps, rides along with a text it overlaps, and closes
+its gap when hidden (`images[<id>] = {"hide": true}` on a hidable slot — or
+when its container / the text it rides with is hidden). Nothing about filling
+it changes: `scale` / `offsetX|Y` / `rotation` are relative to the frame, so
+the picture keeps its place INSIDE the moved frame. `frame` in the listing
+stays the DESIGNED box — draw the slot from your preview render if you need
+its final position. `y` of a container counts slot frames too; a container
+holding only slots is a normal flow item of its parent. Both new fields are
+additive: older containers report `memberImageInputIds: []` and free-standing
+slots `containerId: null`.
+
 **Hiding a whole container (`hidable: true`).** The designer can let the user
 hide a container as ONE unit — e.g. a quote text together with its speech
 bubble. Render a toggle per hidable container (label = `name`, fallback

@@ -104,6 +104,115 @@ final class ContainerFixtures
         return $variant;
     }
 
+    // Image slot in a container (plan P2a) — a synthetic 600×900 design.
+    public const string SLOT_CONTAINER = 'slot-box';
+    public const string SLOT_TITLE = '0193a001-0000-7000-8000-000000000001';
+    public const string SLOT_CAPTION = '0193a001-0000-7000-8000-000000000002';
+    public const string SLOT_IMAGE = '0193a001-0000-7000-8000-000000000003';
+    /** One title line at fontSize 50 / lineHeight 1: 50 × 1.13 (Fabric's _fontSizeMult). */
+    public const float SLOT_LINE = 56.5;
+
+    /**
+     * A container over three members, top to bottom: a TITLE text (x 320, y
+     * 40), a fillable image SLOT (x 40, y 140, 200×200 — vertically clear of
+     * both texts, so a standalone flow item) and a CAPTION text (x 320, y
+     * 380). Fonts are 50 px at lineHeight 1, so every extra title line is a
+     * whole SLOT_LINE × 2 = 113 px for two — an integer shift that keeps
+     * pixel crops comparable. The slot's stand-in is an inline PNG
+     * (`$standInDataUri`).
+     *
+     * `$slotTop` moves the slot (e.g. onto the caption's band to make it the
+     * caption's ATTACHMENT); `$withSlot: false` leaves the slot out entirely
+     * (object, image input and membership) — the "absent" twin of a hidden
+     * slot. `$gap` sets the container's uniform gap (null = designed gaps),
+     * `$captionTop` the caption's designed top.
+     */
+    public static function slotVariant(Template $template, string $standInDataUri, float $slotTop = 140.0, bool $withSlot = true, null|float $gap = null, float $captionTop = 380.0): TemplateVariant
+    {
+        $text = static fn (string $id, float $top, string $value): array => [
+            'type' => 'Textbox',
+            'version' => '7.3.1',
+            'originX' => 'left',
+            'originY' => 'top',
+            'left' => 320,
+            'top' => $top,
+            'width' => 240,
+            'height' => self::SLOT_LINE,
+            'fontSize' => 50,
+            'lineHeight' => 1,
+            'fontFamily' => 'Arial',
+            'fill' => '#000000',
+            'text' => $value,
+            'inputId' => $id,
+        ];
+
+        $objects = [$text(self::SLOT_TITLE, 40.0, 'A')];
+        if ($withSlot) {
+            $objects[] = [
+                'type' => 'Image',
+                'version' => '7.3.1',
+                'originX' => 'left',
+                'originY' => 'top',
+                'left' => 40,
+                'top' => $slotTop,
+                'width' => 100,
+                'height' => 100,
+                'scaleX' => 2,
+                'scaleY' => 2,
+                'src' => $standInDataUri,
+                'crossOrigin' => null,
+                'imagePlaceholder' => true,
+                'inputId' => self::SLOT_IMAGE,
+            ];
+        }
+        $objects[] = $text(self::SLOT_CAPTION, $captionTop, 'B');
+
+        $canvas = [
+            'version' => '7.3.1',
+            'background' => '#ffffff',
+            'objects' => $objects,
+            'containers' => [[
+                'id' => self::SLOT_CONTAINER,
+                'maxHeight' => 800,
+                'memberInputIds' => $withSlot
+                    ? [self::SLOT_TITLE, self::SLOT_IMAGE, self::SLOT_CAPTION]
+                    : [self::SLOT_TITLE, self::SLOT_CAPTION],
+                'memberContainerIds' => [],
+            ] + ($gap !== null ? ['gap' => $gap] : [])],
+        ];
+
+        $variant = new TemplateVariant(
+            Uuid::uuid7(),
+            $template,
+            new TemplateDimension(DimensionUnit::Px, 600, 900),
+            null,
+            new \DateTimeImmutable('2026-11-09 12:00:00'),
+        );
+        $variant->editCanvas(
+            json_encode($canvas, JSON_THROW_ON_ERROR),
+            [
+                self::textInput(self::SLOT_TITLE, 'Nadpis', 'A', hidable: false),
+                self::textInput(self::SLOT_CAPTION, 'Popisek', 'B', hidable: true),
+            ],
+            null,
+            $withSlot
+                ? [EditorImageInput::fromArray(['inputId' => self::SLOT_IMAGE, 'name' => 'Logo', 'allowMove' => true, 'allowResize' => true, 'hidable' => true])]
+                : [],
+        );
+
+        return $variant;
+    }
+
+    private static function textInput(string $inputId, string $name, string $sample, bool $hidable): EditorTextInput
+    {
+        return EditorTextInput::fromArray([
+            'inputId' => $inputId, 'name' => $name, 'description' => '', 'sampleValue' => $sample,
+            'locked' => false, 'hidable' => $hidable, 'uppercase' => false, 'maxLength' => null,
+            'richText' => false, 'lists' => false, 'checklist' => false, 'fontChoice' => false,
+            'allowedFonts' => [], 'allowedColors' => null,
+        ]);
+    }
+
     /**
      * The fixture as if one nested container had never been designed: its
      * definition, its parent's reference and its members' objects AND

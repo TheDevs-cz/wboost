@@ -273,6 +273,60 @@ abstract class AbstractVariantFiller extends AbstractController
         foreach ($this->fillContainerHides->placeholders([$variant], []) as $container) {
             $this->hiddenValues[$container['id']] ??= false;
         }
+
+        // Hidable image slots that FLOW in a container: their hide moves the
+        // texts around them, which the server backdrop must render — so the
+        // Live component tracks it too (an unnamed mirror; the POST keeps
+        // carrying `images[<id>][hide]`). Seeded from a loaded version.
+        foreach ($this->flowingSlotHideIds() as $inputId) {
+            $this->hiddenValues[$inputId] ??= (($this->seedImageValues[$inputId]['hide'] ?? false) === true);
+        }
+    }
+
+    /**
+     * Fillable (non-background) image slots that are container members —
+     * since 2026-11 (plan P2a) they flow like any member.
+     *
+     * @return list<string>
+     */
+    public function flowingSlotIds(): array
+    {
+        $variant = $this->variantEntity();
+        $decoded = json_decode($variant->canvas, true);
+        $members = [];
+        foreach (CanvasContainer::collectionFromCanvas(is_array($decoded) ? $decoded : []) as $container) {
+            foreach ($container->memberInputIds as $memberInputId) {
+                $members[$memberInputId] = true;
+            }
+        }
+
+        $ids = [];
+        foreach ($variant->imageInputs as $input) {
+            if (!$input->isBackground && isset($members[$input->inputId])) {
+                $ids[] = $input->inputId;
+            }
+        }
+
+        return $ids;
+    }
+
+    /**
+     * The flowing slots the user may hide — each gets a Live-bound
+     * `hiddenValues[<id>]` mirror (VariantFiller.html.twig).
+     *
+     * @return list<string>
+     */
+    public function flowingSlotHideIds(): array
+    {
+        $flowing = array_flip($this->flowingSlotIds());
+        $ids = [];
+        foreach ($this->variantEntity()->imageInputs as $input) {
+            if ($input->hidable && isset($flowing[$input->inputId])) {
+                $ids[] = $input->inputId;
+            }
+        }
+
+        return $ids;
     }
 
     /**
@@ -438,11 +492,24 @@ abstract class AbstractVariantFiller extends AbstractController
         return false;
     }
 
+    /**
+     * The image state of the backdrop + overlay slices. Every placeholder sits
+     * OUTSIDE every slice (the slices cut around them), so it paints nothing
+     * either way; what matters is its LAYOUT influence. A slot that is not a
+     * container member is hidden, as it always was. A slot that FLOWS in a
+     * container (plan P2a) keeps its box — the texts around it must sit
+     * exactly where the export puts them — unless the user hid it
+     * (`hiddenValues`, mirrored from the image eye), in which case it
+     * collapses like the export's.
+     */
     private function allPlaceholdersHidden(): ResolvedImageOverrides
     {
+        $flowing = array_flip($this->flowingSlotIds());
         $hidden = [];
         foreach ($this->variantEntity()->imageInputs as $input) {
-            $hidden[$input->inputId] = true;
+            if (!isset($flowing[$input->inputId]) || ($this->hiddenValues[$input->inputId] ?? false) === true) {
+                $hidden[$input->inputId] = true;
+            }
         }
 
         return new ResolvedImageOverrides([], $hidden);

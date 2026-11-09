@@ -1453,8 +1453,8 @@ readonly final class DesignDecompiler
      * {@see DslParser} will accept.
      *
      * The sanitization is not defensive politeness: the round trip re-PARSES
-     * this document, and the parser rejects a member that is a fillable
-     * placeholder, a member no element declares, a child with two parents, a
+     * this document, and the parser rejects a member that is the background
+     * layer, a member no element declares, a child with two parents, a
      * cycle, and a container holding fewer than two items. Emitting any of
      * them would turn "this design contains something the DSL cannot express"
      * into "get_design produced a document that will not parse", which is a
@@ -1549,12 +1549,11 @@ readonly final class DesignDecompiler
                     continue;
                 }
 
-                if ($element instanceof BackgroundElement || ($element instanceof ImageElement && $element->isPlaceholder())) {
+                if ($element instanceof BackgroundElement) {
                     $losses[] = new DesignLoss($path, DesignLossCode::InputFeatureDropped, sprintf(
-                        '%s flows "%s", which is %s. Only texts and decorative images can be container members, so the membership is dropped.',
+                        '%s flows "%s", which is the background layer. It covers the whole canvas and never flows in a container, so the membership is dropped.',
                         $path,
                         $slug,
-                        $element instanceof BackgroundElement ? 'the background layer' : 'a fillable image placeholder',
                     ));
 
                     continue;

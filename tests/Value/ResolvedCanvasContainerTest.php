@@ -50,4 +50,49 @@ final class ResolvedCanvasContainerTest extends TestCase
         // Without decoration tops (old callers) nothing new appears.
         self::assertCount(1, ResolvedCanvasContainer::collection($containers, $frames, $inputs));
     }
+
+    /**
+     * Plan P2a: fillable image slots are container members. They are listed
+     * in their own `memberImageInputIds` (never mixed into `memberInputIds`,
+     * which consumers read as TEXT inputs), their frames count for the
+     * anchor, and a container whose tree holds only slots is publishable —
+     * a real flow item, so its parent references it.
+     */
+    public function testImageSlotMembersAreListedSeparatelyAndAnchorTheContainer(): void
+    {
+        $containers = CanvasContainer::collectionFromCanvas(['containers' => [
+            ['id' => 'page', 'maxHeight' => 900, 'memberInputIds' => ['t1', 's1'], 'memberContainerIds' => ['logos']],
+            ['id' => 'logos', 'maxHeight' => 900, 'memberInputIds' => ['s2', 'deco', 's3']],
+        ]]);
+        $frames = ['t1' => new PlaceholderFrame(0, 300, 100, 20)];
+        $imageFrames = [
+            's1' => new PlaceholderFrame(0, 120, 80, 80),
+            's2' => new PlaceholderFrame(0, 500, 80, 80),
+            's3' => new PlaceholderFrame(100, 500, 80, 80),
+        ];
+        $inputs = [new EditorTextInput('t1', 'Text', null, false, false, null, false)];
+
+        $resolved = [];
+        foreach (ResolvedCanvasContainer::collection($containers, $frames, $inputs, [], $imageFrames) as $container) {
+            $resolved[$container->id] = $container;
+        }
+
+        self::assertSame(['page', 'logos'], array_keys($resolved));
+        self::assertSame(['t1'], $resolved['page']->memberInputIds);
+        self::assertSame(['s1'], $resolved['page']->memberImageInputIds);
+        self::assertSame(120.0, $resolved['page']->y, 'the slot above the text anchors the zone');
+        self::assertSame(['logos'], $resolved['page']->memberContainerIds);
+        self::assertSame([], $resolved['logos']->memberInputIds);
+        self::assertSame(['s2', 's3'], $resolved['logos']->memberImageInputIds);
+        self::assertSame(500.0, $resolved['logos']->y);
+
+        // Old callers (no slot frames): exactly the pre-P2a view.
+        $old = [];
+        foreach (ResolvedCanvasContainer::collection($containers, $frames, $inputs) as $container) {
+            $old[$container->id] = $container;
+        }
+        self::assertSame(['page'], array_keys($old));
+        self::assertSame(300.0, $old['page']->y);
+        self::assertSame([], $old['page']->memberImageInputIds);
+    }
 }

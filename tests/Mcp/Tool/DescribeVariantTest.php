@@ -202,6 +202,7 @@ final class DescribeVariantTest extends WebTestCase
                 'nested' => false,
                 'hidable' => false,
                 'name' => null,
+                'memberImageInputIds' => [],
             ],
             $containers[TestDataFixture::ORIENTATION_ROOT_CONTAINER_ID],
         );
@@ -221,6 +222,7 @@ final class DescribeVariantTest extends WebTestCase
                 'nested' => true,
                 'hidable' => false,
                 'name' => null,
+                'memberImageInputIds' => [],
             ],
             $containers[TestDataFixture::ORIENTATION_NESTED_CONTAINER_ID],
         );

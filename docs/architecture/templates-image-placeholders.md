@@ -153,3 +153,33 @@ response's `directoryId` is null for root uploads.
   Live-updated elements via `MutationObserver`. The export is **always** the full
   (un-sliced) server render, so the PNG is authoritative regardless of the live
   preview.
+
+### Image slots inside containers (2026-11-09, container-rows plan P2a)
+
+A fillable slot can be a container member (`canvas.containers[].memberInputIds`
+names its `inputId`; the background slot never can). It is a FIXED box in the
+vertical flow — moved by a wrapping text above it, pushing what is below,
+collapsing when hidden — exactly like a decorative image member. Full contract
+in templates-containers.md "Image slots as members"; what it means for the
+slot machinery here:
+
+- **The FRAME moves, the placement does not change.** `scale` /
+  `offsetX|Y(Ratio)` / `rotation` are relative to the frame (offset from its
+  centre, scale of its contain fit), so a moved frame carries the picture
+  along and nothing stored is rewritten. Render: the template's frame proxy
+  translates the baked picture AND its `absolutePositioned` clip by the same
+  delta. Single fill page: `variant_image_fill_controller._frame()` = designed
+  frame + the overlay's flow shift (`slotsLaidOut`), used for every placement
+  computation (pick, stand-in, seed, adjust panel, handles, crop ghost,
+  history) — objects remember the shift they carry (`_flowDy`) and translate
+  with their clip when it changes. Group / document page: the ghost and the
+  placement toolbar use `group_fill_controller._frame(variantId, inputId)`.
+- **Hide.** A user-hidden member slot collapses at fill time (renderer:
+  `hiddenMemberSlots` → template `hidden_overrides`, after phase A). A slot
+  the FLOW collapses (hidden container, hidden host text it is attached to)
+  is hidden on the fill page without touching its own hide field
+  (`collapsed` in `slotsLaidOut`). On the single page a hidable flowing slot
+  also has an unnamed Live mirror `hiddenValues[<id>]` so the server backdrop
+  re-renders the texts around it.
+- **API.** `imageInputs[].containerId`, `containers[].memberImageInputIds`;
+  `frame` stays the DESIGNED box (the preview render is where it lands).

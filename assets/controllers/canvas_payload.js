@@ -347,9 +347,9 @@ function normalizeUserMove(entry) {
 }
 
 /**
- * Container sanitization: stale members pruned (texts + decorative images —
- * fillable placeholders and the background layer are never members), flow
- * order re-derived from tops, child references validated (existing ids only,
+ * Container sanitization: stale members pruned (texts, shapes, decorative
+ * images and fillable image slots — the background layer is never a member),
+ * flow order re-derived from tops, child references validated (existing ids only,
  * no self-refs, no cycles, one parent per child — first wins in list order),
  * `gap` normalized (finite ≥ 0 or absent), and inert containers dropped —
  * iterated to a fixpoint because dropping a degenerate child can strip its

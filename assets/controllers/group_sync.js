@@ -93,8 +93,8 @@ function isTextboxObject(obj) {
 }
 
 /**
- * Objects that can be CONTAINER members: texts + decorative images (mirrors
- * the shared layout engine's isMemberCandidate — fillable placeholders and
+ * Objects that can be CONTAINER members: texts, shapes, decorative images and
+ * fillable image slots (mirrors the shared layout engine's isMemberCandidate —
  * background layers never join a flow).
  */
 function isContainerMemberObject(obj) {

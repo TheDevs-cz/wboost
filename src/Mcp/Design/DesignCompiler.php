@@ -947,8 +947,9 @@ readonly final class DesignCompiler
      * a single pass.
      *
      *  1. members → the `inputId`s of objects that are member CANDIDATES
-     *     (textboxes and decorative images; §4.4-18 keeps fillable placeholders
-     *     and the background out, exactly as `isMemberCandidate()` does);
+     *     (textboxes, shapes, decorative images and — since 2026-11, plan
+     *     P2a — fillable image slots; §4.4-18 keeps the background out,
+     *     exactly as `isMemberCandidate()` does);
      *  2. flow order re-derived from the designed `top` (§4.4-16) — the DSL's
      *     member order is not consulted, because an author who moves an element
      *     up must not have to remember to reorder a list as well;
@@ -1063,9 +1064,10 @@ readonly final class DesignCompiler
 
     /**
      * Mirrors `isMemberCandidate()` in `assets/editor/container_layout.js`:
-     * textboxes, images that are neither fillable placeholders nor the
-     * background layer (§4.4-18 — their frames are load-bearing elsewhere),
-     * and vector shapes (always decorative, so nothing to exclude).
+     * textboxes, vector shapes, and every image except the background layer
+     * (§4.4-18 — it covers the whole canvas). Decorative images AND fillable
+     * image slots flow as a fixed box (the slot by its frame; plan P2a,
+     * 2026-11 — before that placeholders were refused here too).
      *
      * @param array<string, mixed> $object
      */
@@ -1082,7 +1084,6 @@ readonly final class DesignCompiler
         }
 
         return $type === 'image'
-            && ($object['imagePlaceholder'] ?? false) !== true
             && ($object['isBackground'] ?? false) !== true;
     }
 

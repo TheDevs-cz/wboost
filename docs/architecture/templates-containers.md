@@ -8,13 +8,15 @@ collapse (take no space), and the flow of a TOP-LEVEL container is bounded by
 a designer-set `maxHeight` (from the first item's designed top downward). Each
 member stays an ordinary independent input. Since the 2026-08 nesting rework:
 
-- **Members** are texts, DECORATIVE images and CHILD CONTAINERS. A decorative
-  image (never a fillable placeholder / the background layer) that vertically
+- **Members** are texts, DECORATIVE images, shapes, FILLABLE IMAGE SLOTS
+  (since 2026-11, plan P2a — see "Image slots as members" below) and CHILD
+  CONTAINERS. A non-text member (never the background layer) that vertically
   overlaps a text/child item becomes its ATTACHMENT — fixed offset, rides
-  along, force-hidden when the item collapses (checklist icon ↔ its line);
-  a non-overlapping image flows standalone (separator). Texts/children are
-  each their own flow item — designed gaps between items are preserved
-  (negative ones included: overlapping texts keep their designed overlap).
+  along, force-hidden when the item collapses (checklist icon ↔ its line,
+  club logo ↔ its row); a non-overlapping one flows standalone (separator,
+  photo). Texts/children are each their own flow item — designed gaps
+  between items are preserved (negative ones included: overlapping texts
+  keep their designed overlap).
 - **Nesting**: `memberContainerIds` on the parent (one parent per child, no
   cycles — enforced at save + defensively in the engine). A child is laid out
   first (bottom-up) and flows in the parent as ONE item; a nested container's
@@ -73,7 +75,7 @@ member stays an ordinary independent input. Since the 2026-08 nesting rework:
   public contract — OpenAPI + consumer-prompt.md). Web fill preview/download
   render LENIENT (overflow shown, fill page blocks the Export button instead).
 - **Editor UX** (`canvas_container_controller.js`): "Vytvořit kontejner" on the
-  multi-select bar accepts 2+ texts/decorative images — and selected objects
+  multi-select bar accepts 2+ texts/images (decorative or fillable slots)/shapes — and selected objects
   that ALREADY belong to a container bring their whole ROOT container in as a
   nested child (that is how nesting is authored: build sections, select them,
   group). Dashed DOM zones in the unscaled stage layer (never on the canvas
@@ -143,6 +145,66 @@ member stays an ordinary independent input. Since the 2026-08 nesting rework:
   server preview is authoritative for them); `frame` stays the DESIGNED
   position. The mfkfm backoffice consumes this (zones + structured-400
   highlighting, no client reflow — its preview IS the server render).
+
+**Image slots as members (2026-11-09, container-rows plan P2a)** — a fillable
+image placeholder can join a container (Jan: a club logo per result row, the
+prerequisite of repeatable rows). It flows exactly like a decorative image:
+a FIXED box (the designer's frame), attachment of the text it overlaps or a
+standalone item, collapsing when hidden. The ONLY engine change is the type
+filter (`isImageSlotObject` joins `isDecorationObject` → `isMemberCandidate`;
+the background slot stays out). No stored design had a slot member (checked
+local + prod: before P2a the editor sanitizer and the MCP compiler stripped
+them), so every existing layout is unchanged — the P0 goldens did not move.
+Per surface:
+
+- **Render** (`template_variant_render.html.twig`): a FILLED slot's object is
+  the picture (ImagePlacement: centre origin, the user's zoom/pan/rotation)
+  with the frame as an `absolutePositioned` clipPath. The engine is handed a
+  **frame proxy** instead (`slotFrameProxy`: geometry = the clip rect; a top
+  write translates picture AND clip by the same delta — the placement is
+  frame-relative, so the picture stays where the user put it inside the
+  moved frame; `visible` reads/writes the picture). Stand-ins need nothing.
+- **Hidden member slot = fill-time collapse.** A pre-load `visible: false`
+  reads as DESIGN-hidden to the engine (no anchor, no gap = "absent"), which
+  differs from a hidden text under designed gaps. So for a slot that is a
+  container member `applyImagePlaceholders` keeps the designed box with a
+  transparent stub src and the renderer adds it to `hidden_overrides`
+  (`hiddenMemberSlots`) — hidden after phase A, like a text. Non-member slots
+  keep the old `visible: false`.
+- **Overlay / echo / harness** get the slot through `layoutData().decorations`
+  with `slot: true` (only on slot entries — designs without slot members ship
+  byte-identical data). The overlay feeds them as POJOs, reads back the final
+  top / visibility and publishes per surface `{dy, collapsed}` to the page's
+  picture owner (`slotsLaidOut()`): the single page's
+  `variant_image_fill_controller` translates the live picture + its clip and
+  places everything against the LIVE frame (`_frame()`); the group / document
+  page's `group_fill_controller` shifts its ghost + toolbar frame
+  (`_frame(variantId, inputId)`; a collapsed slot has no ghost). Stored
+  placement fields are frame-relative and never rewritten by a move.
+- **Single-page backdrop**: the slices hide every placeholder by opacity
+  anyway; a FLOWING slot is no longer `hidden` there (that collapsed the
+  texts around it), unless the user hid it — mirrored into Live by an
+  UNNAMED `hiddenValues[<slotId>]` checkbox (`data-slot-hide-mirror`,
+  `flowingSlotHideIds()`; the POST still carries `images[<id>][hide]`, so
+  ExportFillValues / version hashes see nothing new; toggleHide and undo/redo
+  flip it with the picture checkbox).
+- **Echo**: a tree holding a slot is not "clean" (`EchoCapableTextInputs`
+  container guard — the slot is not an echo-capable text), so its texts stay
+  settle-rendered; no echo change.
+- **Editor**: automatic via `isMemberCandidate` — "Vytvořit kontejner" accepts
+  slots (a text is still required), the image popover shows the "Kontejner"
+  section, `sanitizedContainers` keeps them, group sync / ⧉ duplicate /
+  nesting / normalize treat them like decorative images.
+- **API / MCP**: `containers[].memberImageInputIds` (direct slot members;
+  `memberInputIds` stays text-only), slot frames count for `y`, a slot-only
+  tree is a publishable flow item; `imageInputs[].containerId`. DSL:
+  `members` may name a placeholder image (parser, compiler, decompiler,
+  linter all mirror the engine filter).
+- Tests: `ContainerImageSlotLayoutTest` (engine via `layout-harness.cjs`
+  `reportObjects`), `ContainerImageSlotRenderTest` (Gotenberg: moved filled
+  slot keeps its picture window, stand-in moves, hidden ≡ absent under a
+  uniform gap and ≡ a hidden text under designed gaps), API
+  `TemplateContainerImageSlotTest`, `ResolvedCanvasContainerTest`.
 
 **Whole-container hide (2026-11-09)** — opt-in per container, the
 "bubble + its text" request: the designer ticks "Lze skrýt celý kontejner"

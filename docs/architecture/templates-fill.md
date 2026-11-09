@@ -137,7 +137,17 @@ pages instead of a pencil per member. Contracts:
   while "Zobrazit oblasti" is on and "Náhled" is off — are clickable: the
   click opens the sheet scrolled to that field and focuses it
   (`_fill_sheet_member_attrs.html.twig`). The container box itself never
-  takes pointer events (a picture under it stays draggable).
+  takes pointer events (a picture under it stays draggable) — and neither
+  does an IMAGE-slot member box (`.fill-box--image.fill-box--sheet-member`,
+  2026-11-09 with plan P2a, when slots became container members: the box
+  lies over the picture, which owns the pointer for drag / the adjust panel
+  / the group ghost; the sheet is reached through the container pencil).
+- **Image slots in a container move with the flow** (plan P2a): the overlay
+  lays them out with the texts (`decorations[*].slot`) and hands every
+  surface's `{dy, collapsed}` to the picture owner (`slotsLaidOut` on
+  `variant-image-fill` / `group-fill`); the box follows the live frame,
+  collapses to a zero-height line when hidden. Contract in
+  templates-containers.md "Image slots as members".
 - **The sheet is the `panel` element in a THIRD presentation**
   (`fill-sheet-open` on the form, after floating popovers and the docked
   "Všechna pole"): `_fill_container_sheets.html.twig` renders, inside

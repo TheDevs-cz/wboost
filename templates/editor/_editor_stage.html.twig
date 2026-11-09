@@ -543,13 +543,13 @@
 
             {{ include('editor/_user_move_section.html.twig', {surface: 'image'}) }}
 
-            {# Container membership for a DECORATIVE image member — mirrors the
-               textbox popover's section (both are plural `section` targets):
-               only the element-specific action, the container is configured
-               in its zone's ⚙ popover. #}
+            {# Container membership for an image member — decorative OR a
+               fillable slot (plan P2a): mirrors the textbox popover's section
+               (both are plural `section` targets): only the element-specific
+               action, the container is configured in its zone's ⚙ popover. #}
             <div class="d-none" data-canvas-container-target="section">
                 <h3 class="ed-sec-h">Kontejner</h3>
-                <p class="text-muted small my-2">Obrázek se posouvá spolu s textem, který překrývá (ikona řádku); obrázek mimo texty tvoří vlastní řádek toku. Nastavení kontejneru najdete pod ⚙ na jeho rámečku.</p>
+                <p class="text-muted small my-2">Obrázek se posouvá spolu s textem, který překrývá (ikona či logo u řádku); obrázek mimo texty tvoří vlastní řádek toku. U pole pro obrázek se posouvá celý rámeček — obrázek, který vybere klient, v něm zůstane tak, jak si ho umístil. Nastavení kontejneru najdete pod ⚙ na jeho rámečku.</p>
                 <button type="button" class="btn btn-sm btn-outline-secondary w-100" data-action="canvas-container#removeActiveFromContainer">Odebrat z kontejneru</button>
             </div>
             <div class="ed-acts">

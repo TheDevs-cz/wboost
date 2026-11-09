@@ -1145,14 +1145,21 @@ export default class extends Controller {
         if (!inputId) return;
 
         // Text hide is a server re-render (show the spinner); image hide is a
-        // client-side Fabric op (instant, no spinner).
+        // client-side Fabric op (instant, no spinner). An image slot that
+        // FLOWS in a container has both: its picture checkbox AND a Live
+        // mirror (the backdrop texts around it move) — flipped together.
         const textMirror = this.element.querySelector(`[data-hide-mirror="${inputId}"]`);
-        const checkbox = textMirror || this.element.querySelector(`[data-image-hide="${inputId}"]`);
-        if (!checkbox) return;
+        const imageBox = this.element.querySelector(`[data-image-hide="${inputId}"]`);
+        const primary = imageBox || textMirror;
+        if (!primary) return;
 
-        checkbox.checked = !checkbox.checked;
-        checkbox.dispatchEvent(new Event("change", { bubbles: true }));
-        this._reflectHide(inputId, checkbox.checked);
+        const hidden = !primary.checked;
+        [imageBox, textMirror].forEach((checkbox) => {
+            if (!checkbox || checkbox.checked === hidden) return;
+            checkbox.checked = hidden;
+            checkbox.dispatchEvent(new Event("change", { bubbles: true }));
+        });
+        this._reflectHide(inputId, hidden);
         // Hidden container members collapse — reflow the boxes right away.
         this._scheduleRecompute();
 
@@ -1411,7 +1418,16 @@ export default class extends Controller {
             await imageSource.applyHistoryState(state.images);
         }
         this.element.querySelectorAll("[data-image-hide]").forEach((checkbox) => {
-            this._reflectHide(checkbox.getAttribute("data-image-hide"), checkbox.checked);
+            const inputId = checkbox.getAttribute("data-image-hide");
+            this._reflectHide(inputId, checkbox.checked);
+            // A flowing slot's Live mirror is unnamed (not in the history):
+            // it follows the restored picture checkbox.
+            const mirror = this.element.querySelector(`[data-slot-hide-mirror="${inputId}"]`);
+            if (mirror && mirror.checked !== checkbox.checked) {
+                mirror.checked = checkbox.checked;
+                mirror.dispatchEvent(new Event("change", { bubbles: true }));
+                serverEdit = true;
+            }
         });
 
         this._reanchorOpenPopover();
@@ -1722,7 +1738,33 @@ export default class extends Controller {
         });
 
         this._setOverflowState(worstOverflow);
+        this._publishSlots();
         this.reposition();
+    }
+
+    /**
+     * Hand every surface's laid-out image SLOTS (container members, plan
+     * P2a) to the page's picture owner — the single page's Fabric controller
+     * moves the live picture + its frame clip, the group / document page's
+     * placement controller its ghost + toolbar frame. Per surface (by
+     * `data-variant-id`): inputId → `{ dy, collapsed }`, the frame's shift
+     * from its designed top and whether the flow collapsed it (a hidden
+     * container, a hidden host text — NOT the slot's own hide, which its
+     * owner already knows). Sent only when something changed.
+     */
+    _publishSlots() {
+        const surfaces = {};
+        (this._surfaces || []).forEach((surface) => {
+            const variantId = surface.el.dataset.variantId || "";
+            if (surface.slots && Object.keys(surface.slots).length > 0) surfaces[variantId] = surface.slots;
+        });
+        const signature = JSON.stringify(surfaces);
+        if (signature === this._slotsSignature) return;
+        this._slotsSignature = signature;
+        for (const identifier of ["variant-image-fill", "group-fill"]) {
+            const controller = this.application.getControllerForElementAndIdentifier(this.element, identifier);
+            if (controller && typeof controller.slotsLaidOut === "function") controller.slotsLaidOut(surfaces);
+        }
     }
 
     /** One surface's reflow pass; returns its worst container overflow in
@@ -1754,6 +1796,7 @@ export default class extends Controller {
             const pojo = {
                 type: 'textbox',
                 inputId,
+                _designedTop: def.frame.y,
                 top: def.frame.y,
                 left: def.frame.x,
                 width: def.frame.width,
@@ -1765,12 +1808,18 @@ export default class extends Controller {
             textPojos[inputId] = pojo;
             pojos.push(pojo);
         });
+        // Fillable image SLOTS ride along as fixed boxes too (`slot: true`,
+        // plan P2a) — their final top / visibility is read back below.
+        const slotPojos = {};
         Object.keys(data.decorations || {}).forEach((inputId) => {
             const decoration = data.decorations[inputId];
             if (!decoration || !decoration.frame) return;
-            pojos.push({
+            const isSlot = decoration.slot === true;
+            const pojo = {
                 type: 'image',
+                imagePlaceholder: isSlot,
                 inputId,
+                _designedTop: decoration.frame.y,
                 top: decoration.frame.y,
                 left: decoration.frame.x,
                 width: decoration.frame.width,
@@ -1779,7 +1828,9 @@ export default class extends Controller {
                 scaleY: 1,
                 visible: true,
                 _containerHidden: containerHidden.has(inputId),
-            });
+            };
+            pojos.push(pojo);
+            if (isSlot) slotPojos[inputId] = { pojo, frame: decoration.frame };
         });
 
         const prepared = layoutModule.prepareFabricContainers(pojos, data.containers || [], {
@@ -1796,9 +1847,14 @@ export default class extends Controller {
             }
         });
         // Decorations hide AFTER phase A too (a fill-time hide, not a design
-        // one) — the render applies the same expansion to them.
+        // one) — the render applies the same expansion to them; a slot also
+        // by its own eye (the render collapses a hidden member slot the same
+        // way, after its designed-geometry snapshot).
         pojos.forEach((pojo) => {
             if (pojo._containerHidden) pojo.visible = false;
+        });
+        Object.keys(slotPojos).forEach((inputId) => {
+            if (this._isImageHidden(inputId)) slotPojos[inputId].pojo.visible = false;
         });
 
         const results = layoutModule.applyFabricLayout(prepared);
@@ -1830,6 +1886,23 @@ export default class extends Controller {
                 }
             }
         });
+
+        // Slots: the box follows the moved frame; a collapsed slot (its own
+        // hide, a hidden container, a hidden host text) becomes a zero-height
+        // line where the flow closed over it, like a hidden text's box.
+        const slots = {};
+        Object.keys(slotPojos).forEach((inputId) => {
+            const { pojo, frame } = slotPojos[inputId];
+            const visible = pojo.visible !== false;
+            slots[inputId] = {
+                dy: visible ? pojo.top - frame.y : 0,
+                collapsed: !visible && !this._isImageHidden(inputId),
+            };
+            computed[inputId] = visible
+                ? { x: frame.x, y: pojo.top, width: frame.width, height: frame.height }
+                : { x: frame.x, y: this._collapsedSlotTop(inputId, frame, pojos, data.containers || [], layoutModule), width: frame.width, height: 0 };
+        });
+        surface.slots = slots;
 
         surface.computed = computed;
         surface.boxes.forEach((box) => {
@@ -1906,6 +1979,38 @@ export default class extends Controller {
     _isHidden(inputId) {
         const mirror = this.element.querySelector(`[data-hide-mirror="${inputId}"]`);
         return Boolean(mirror && mirror.checked);
+    }
+
+    /** An image slot's own eye (the picture checkbox — every fill page has
+     *  one per hidable slot). */
+    _isImageHidden(inputId) {
+        const checkbox = this.element.querySelector(`[data-image-hide="${inputId}"]`);
+        return Boolean(checkbox && checkbox.checked);
+    }
+
+    /** Where a collapsed slot's zero-height box sits: the top of the first
+     *  still-visible member laid out at or below its designed top (texts and
+     *  other non-text members alike — the item that closed the gap), else
+     *  its designed top. Approximate by design: it only parks the eye. */
+    _collapsedSlotTop(inputId, frame, pojos, containers, layoutModule) {
+        const owner = containers.find((c) => Array.isArray(c.memberInputIds) && c.memberInputIds.includes(inputId));
+        const root = owner ? layoutModule.rootOf(containers, owner.id) : null;
+        if (!root) return frame.y;
+        const treeIds = new Set();
+        const walk = (container, seen) => {
+            if (!container || seen.has(container.id)) return;
+            seen.add(container.id);
+            (container.memberInputIds || []).forEach((id) => treeIds.add(id));
+            layoutModule.childContainersOf(containers, container).forEach((child) => walk(child, seen));
+        };
+        walk(root, new Set());
+
+        let best = null;
+        pojos.forEach((pojo) => {
+            if (pojo.visible === false || !treeIds.has(pojo.inputId) || pojo._designedTop < frame.y) return;
+            if (best === null || pojo._designedTop < best.designedTop) best = { designedTop: pojo._designedTop, top: pojo.top };
+        });
+        return best ? best.top : frame.y;
     }
 
     /** Member inputIds of every hidden container of one surface — the

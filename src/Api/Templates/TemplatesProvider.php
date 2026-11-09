@@ -178,8 +178,8 @@ final readonly class TemplatesProvider implements ProviderInterface
                 UrlGeneratorInterface::ABSOLUTE_URL,
             ),
             inputs: $this->buildTextInputs($variant, $canvas, $containers),
-            imageInputs: $this->buildImageInputs($variant),
-            containers: $this->buildContainers($containers, $frames, $variant->inputs, FillTextPlaceholders::decorativeMemberTops($canvas, $containers)),
+            imageInputs: $this->buildImageInputs($variant, $containers),
+            containers: $this->buildContainers($containers, $frames, $variant->inputs, FillTextPlaceholders::decorativeMemberTops($canvas, $containers), $this->placeholderGeometry->slotFramesByInputId($canvas)),
             richTextOptions: $this->buildRichTextOptions($variant),
             groupMember: $variant->group !== null,
             shapeInputs: $this->buildShapeInputs($canvas),
@@ -398,9 +398,10 @@ final readonly class TemplatesProvider implements ProviderInterface
      * @param array<string, \WBoost\Web\Value\PlaceholderFrame> $frames
      * @param array<EditorTextInput> $inputs
      * @param array<string, float> $decorationTops decorative member tops (hidable decoration-only containers)
+     * @param array<string, PlaceholderFrame> $imageFrames fillable image-slot frames (plan P2a)
      * @return list<TemplateVariantContainerResponse>
      */
-    private function buildContainers(array $containers, array $frames, array $inputs, array $decorationTops = []): array
+    private function buildContainers(array $containers, array $frames, array $inputs, array $decorationTops = [], array $imageFrames = []): array
     {
         return array_map(
             static fn (ResolvedCanvasContainer $container): TemplateVariantContainerResponse => new TemplateVariantContainerResponse(
@@ -414,15 +415,17 @@ final readonly class TemplatesProvider implements ProviderInterface
                 nested: $container->nested,
                 hidable: $container->hidable,
                 name: $container->name,
+                memberImageInputIds: $container->memberImageInputIds,
             ),
-            ResolvedCanvasContainer::collection($containers, $frames, $inputs, $decorationTops),
+            ResolvedCanvasContainer::collection($containers, $frames, $inputs, $decorationTops, $imageFrames),
         );
     }
 
     /**
+     * @param list<CanvasContainer> $containers
      * @return list<TemplateVariantImageInputResponse>
      */
-    private function buildImageInputs(TemplateVariant $variant): array
+    private function buildImageInputs(TemplateVariant $variant, array $containers = []): array
     {
         $decoded = json_decode($variant->canvas, true);
         $canvas = is_array($decoded) ? $decoded : [];
@@ -430,8 +433,16 @@ final readonly class TemplatesProvider implements ProviderInterface
         $layerIndexes = $this->placeholderGeometry->placeholderObjectIndexesByInputId($canvas);
         $projectId = $variant->template->project->id;
 
+        // The container a slot flows in (plan P2a), like inputs[].containerId.
+        $containerIdByInputId = [];
+        foreach ($containers as $container) {
+            foreach ($container->memberInputIds as $memberInputId) {
+                $containerIdByInputId[$memberInputId] ??= $container->id;
+            }
+        }
+
         return array_values(array_map(
-            function (EditorImageInput $input) use ($objects, $layerIndexes, $projectId, $variant): TemplateVariantImageInputResponse {
+            function (EditorImageInput $input) use ($objects, $layerIndexes, $projectId, $variant, $containerIdByInputId): TemplateVariantImageInputResponse {
                 $object = $objects[$input->inputId] ?? null;
 
                 $frame = null;
@@ -486,6 +497,7 @@ final readonly class TemplatesProvider implements ProviderInterface
                     defaultImageUrl: $defaultImageUrl,
                     layerIndex: $layerIndexes[$input->inputId] ?? null,
                     isBackground: $input->isBackground,
+                    containerId: $input->isBackground ? null : ($containerIdByInputId[$input->inputId] ?? null),
                 );
             },
             $variant->imageInputs,

@@ -56,6 +56,15 @@ final readonly class TemplateVariantImageInputResponse
          * rect for these slots.
          */
         public bool $isBackground = false,
+        /**
+         * The container this slot FLOWS in (plan P2a, 2026-11), null when it
+         * is free-standing. A slot in a container is a fixed box in the
+         * vertical flow: it moves when a text above it wraps, and collapses
+         * (takes no space) when hidden — `frame` stays the DESIGNED box, the
+         * preview render is where it really lands. Listed in that
+         * container's `memberImageInputIds`.
+         */
+        public null|string $containerId = null,
     ) {
     }
 }

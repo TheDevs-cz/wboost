@@ -1516,14 +1516,6 @@ final class DslParser
 
                 continue;
             }
-
-            if ($member instanceof ImageElement && $member->isPlaceholder()) {
-                $this->violation($memberPath, DslErrorCode::InvalidStructure, sprintf(
-                    '%s.members references "%s", which is a fillable image placeholder. Only texts, shapes and DECORATIVE images can flow in a container; drop its "input" block or move it out of the container.',
-                    $path,
-                    $memberId,
-                ));
-            }
         }
     }
 

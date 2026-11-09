@@ -19,14 +19,22 @@
  *    parent shifts it as a whole. A nested container's own maxHeight is NOT a
  *    bound — it grows freely with content; only the outermost (root)
  *    container's maxHeight gates overflow.
- *  - DECORATIVE IMAGES (non-placeholder, non-background) can be members too.
- *    An image whose designed vertical interval overlaps a text/child item
- *    becomes that item's ATTACHMENT: it rides along with the item (fixed
- *    offset from the item's designed geometry) and is hidden when the item
- *    collapses — the "checkbox icon next to the checklist line" case. An
- *    image overlapping no item is a STANDALONE flow item (a divider between
- *    sections): it flows like a text but never changes height and never
- *    hides.
+ *  - DECORATIVE IMAGES (non-placeholder, non-background), SHAPES and — since
+ *    2026-11 (container-rows plan P2a) — FILLABLE IMAGE SLOTS (image
+ *    placeholders, never the background slot) can be members too. All three
+ *    are a FIXED box in the flow: an object whose designed vertical interval
+ *    overlaps a text/child item becomes that item's ATTACHMENT: it rides
+ *    along with the item (fixed offset from the item's designed geometry)
+ *    and is hidden when the item collapses — the "checkbox icon next to the
+ *    checklist line" / "club logo next to its row" case. One overlapping no
+ *    item is a STANDALONE flow item (a divider, a photo between paragraphs):
+ *    it flows like a text but never changes height; it collapses only when
+ *    its own object is hidden (fill-time hide).
+ *    An image slot is laid out by its FRAME (the designer's box). The
+ *    surfaces whose live slot object is NOT the frame (the render template
+ *    after ImagePlacement baked the picture's own transform + an
+ *    absolutePositioned frame clip) hand the engine a frame proxy instead —
+ *    the engine itself only ever sees plain left/top/width/height boxes.
  *  - `gap` (nullable, canvas px): when set on a container, it replaces every
  *    designed inter-item gap of THAT container with a uniform spacing —
  *    vertical member positions then only determine flow ORDER. When null,
@@ -132,14 +140,26 @@
 
     /**
      * Decorative canvas image: a member candidate that rides the flow.
-     * Fillable image placeholders and the background layer are deliberately
-     * NOT container material — their frames are load-bearing elsewhere
-     * (fill-page live objects, clipPath rects, API contracts).
+     * (Fillable placeholders are {@see isImageSlotObject}; the background
+     * layer is never container material — it covers the whole canvas.)
      */
     function isImageObject(candidate) {
         return Boolean(candidate)
             && String(candidate.type || '').toLowerCase() === 'image'
             && candidate.imagePlaceholder !== true
+            && candidate.isBackground !== true;
+    }
+
+    /**
+     * Fillable image slot (an image placeholder the user picks a picture
+     * for) — a container member since 2026-11 (P2a): it flows exactly like a
+     * decorative image, as a FIXED box (the designer's frame). The background
+     * slot stays out (it is the whole canvas, not a box in a flow).
+     */
+    function isImageSlotObject(candidate) {
+        return Boolean(candidate)
+            && String(candidate.type || '').toLowerCase() === 'image'
+            && candidate.imagePlaceholder === true
             && candidate.isBackground !== true;
     }
 
@@ -162,13 +182,14 @@
     }
 
     /**
-     * Non-text flow material: a decorative image or a shape. Both behave
-     * identically in the flow — riding along as an ATTACHMENT of the text they
-     * vertically overlap (a bullet icon next to its line, a rule under a
-     * heading) or standing alone as their own flow item (a separator).
+     * Non-text flow material: a decorative image, a fillable image slot or a
+     * shape. All behave identically in the flow — riding along as an
+     * ATTACHMENT of the text they vertically overlap (a bullet icon next to
+     * its line, a logo next to its row, a rule under a heading) or standing
+     * alone as their own fixed-height flow item (a separator, a photo).
      */
     function isDecorationObject(candidate) {
-        return isImageObject(candidate) || isShapeObject(candidate);
+        return isImageObject(candidate) || isImageSlotObject(candidate) || isShapeObject(candidate);
     }
 
     function isMemberCandidate(candidate) {
@@ -241,7 +262,7 @@
     }
 
     /**
-     * Resolve a container's DIRECT input members (texts + decorative images,
+     * Resolve a container's DIRECT input members (texts + images + shapes,
      * by inputId) from a flat object list, preserving the persisted order.
      * Members that no longer exist are skipped.
      *
@@ -512,7 +533,7 @@
      *
      * Hidden rules: a text item is hidden when its object is (fill-time hide);
      * a container item is hidden when ALL of its own items are hidden; a
-     * standalone image item is only hidden when its object is. Attachments
+     * standalone image / slot / shape item is only hidden when its object is. Attachments
      * never keep an item alive — they collapse with their host.
      */
     function measureNode(node) {
@@ -731,6 +752,7 @@
         isMemberCandidate,
         isTextboxObject,
         isImageObject,
+        isImageSlotObject,
         isShapeObject,
         isDecorationObject,
         prepareFabricContainers,

@@ -126,6 +126,31 @@ readonly final class CanvasPlaceholderGeometry
     }
 
     /**
+     * Frames of the fillable image SLOTS that can flow in a container (plan
+     * P2a) — every placeholder except the background layer, keyed by
+     * `inputId`.
+     *
+     * @param array<array-key, mixed> $canvas decoded canvas JSON
+     * @return array<string, PlaceholderFrame>
+     */
+    public function slotFramesByInputId(array $canvas): array
+    {
+        $frames = [];
+
+        foreach ($this->placeholderObjectsByInputId($canvas) as $inputId => $object) {
+            if (($object['isBackground'] ?? false) === true) {
+                continue;
+            }
+            $frame = $this->frameFromObject($object);
+            if ($frame !== null) {
+                $frames[$inputId] = $frame;
+            }
+        }
+
+        return $frames;
+    }
+
+    /**
      * Displayed bounding box of a single Fabric object, honoring its
      * origin + scale. Returns null when the object has no usable size.
      *

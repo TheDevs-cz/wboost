@@ -37,6 +37,14 @@ const HISTORY_FIELDS = ['imageId', 'scale', 'offsetX', 'offsetY', 'rotation', 'h
  * instead of the designed frame (a contain-fitted or user-moved image can sit
  * far from the frame's corner).
  *
+ * Slots in a CONTAINER (plan P2a, 2026-11) flow with it: the overlay's
+ * reflow (the same shared engine the render runs) hands over each slot's
+ * frame shift + collapse via slotsLaidOut(). Every placement here is computed
+ * against the LIVE frame (`_frame()` = designed frame + shift); the stored
+ * fields stay frame-relative (offset from the frame centre, scale of the
+ * contain fit), so a moved frame never rewrites them — the picture and its
+ * clip just translate together, exactly like the render's frame proxy.
+ *
  * Image adjust (2026-11-08): selecting a picked picture opens its
  * `[data-image-adjust]` panel (`_fill_image_adjust.html.twig` — zoom slider,
  * width/height/X/Y in the variant's unit, rotation, Vyplnit / Přizpůsobit /
@@ -63,6 +71,8 @@ export default class extends Controller {
         // it to reload a picture the fields only know by id.
         this._urls = {};
         this.overlayObjects = {};
+        // Container flow (slotsLaidOut): inputId → { dy, collapsed }.
+        this._slotFlow = {};
         this.placeholdersById = {};
         (this.placeholdersValue || []).forEach((ph) => { this.placeholdersById[ph.inputId] = ph; });
 
@@ -328,7 +338,7 @@ export default class extends Controller {
         if (!placeholder.frame || !placeholder.defaultImageUrl) return;
         try {
             const img = await FabricImage.fromURL(placeholder.defaultImageUrl, { crossOrigin: 'anonymous' });
-            const frame = placeholder.frame;
+            const frame = this._frame(placeholder.inputId);
             const naturalWidth = img.width || 1;
             const naturalHeight = img.height || 1;
             if (placeholder.isBackground) {
@@ -354,8 +364,9 @@ export default class extends Controller {
                 });
             }
             img._placeholderId = placeholder.inputId;
+            this._adoptFlow(placeholder.inputId, img);
             this._replaceObject(placeholder.inputId, img);
-            this._broadcastFrame(placeholder.inputId, img, frame);
+            this._broadcastFrame(placeholder.inputId, img.visible === false ? null : img, frame);
         } catch (error) { /* a missing stand-in just leaves the slot empty */ }
     }
 
@@ -380,6 +391,64 @@ export default class extends Controller {
         this._refreshAdjustTools();
     }
 
+    /**
+     * The slot's LIVE frame: the designed frame shifted by the container
+     * flow (plan P2a). The background slot never flows.
+     */
+    _frame(inputId) {
+        const placeholder = this.placeholdersById[inputId];
+        if (!placeholder || !placeholder.frame) return null;
+        const flow = this._slotFlow[inputId];
+        if (!flow || placeholder.isBackground || !flow.dy) return placeholder.frame;
+        return { ...placeholder.frame, y: placeholder.frame.y + flow.dy };
+    }
+
+    /** Called by variant-fill-overlay after every reflow with the laid-out
+     *  slots of its surface(s) — the single page has exactly one. Moves each
+     *  slot's picture (stand-in or pick) AND its frame clip by the change of
+     *  shift, and hides a picture the flow collapsed (a hidden container or
+     *  host text — never touching the slot's own hide field). */
+    slotsLaidOut(surfaces) {
+        const slots = Object.values(surfaces || {})[0] || {};
+        Object.keys(this.placeholdersById).forEach((inputId) => {
+            const previous = this._slotFlow[inputId] || { dy: 0, collapsed: false };
+            const next = slots[inputId] || { dy: 0, collapsed: false };
+            this._slotFlow[inputId] = next;
+            const object = this.objects[inputId] && this.objects[inputId].object;
+            if (!object) return;
+            this._shiftObject(object, next.dy);
+            if (previous.collapsed !== next.collapsed) {
+                object.set('visible', !next.collapsed);
+                if (next.collapsed && this._adjustId === inputId) this.closeAdjust();
+            }
+            object.setCoords();
+            this._broadcastFrame(inputId, next.collapsed ? null : object, this._frame(inputId));
+        });
+        this._refreshAdjustTools();
+        this.canvas.requestRenderAll();
+    }
+
+    /** Translate a slot object (and its absolute frame clip) so it sits at
+     *  flow shift `dy` — idempotent: it remembers the shift it carries. */
+    _shiftObject(object, dy) {
+        const delta = dy - (object._flowDy || 0);
+        if (!delta) return;
+        object.set('top', object.top + delta);
+        if (object.clipPath && object.clipPath.absolutePositioned) {
+            object.clipPath.set('top', object.clipPath.top + delta);
+            object.set('dirty', true);
+        }
+        object._flowDy = dy;
+    }
+
+    /** A freshly built slot object is placed against the live frame: it
+     *  already carries the current shift (and the current collapse). */
+    _adoptFlow(inputId, object) {
+        const flow = this._slotFlow[inputId];
+        object._flowDy = flow && !this.placeholdersById[inputId]?.isBackground ? (flow.dy || 0) : 0;
+        if (flow && flow.collapsed) object.set('visible', false);
+    }
+
     async pickImage(event) {
         const { inputid, imageid, url } = event.params;
         await this._fillPlaceholder(inputid, imageid, url);
@@ -397,7 +466,7 @@ export default class extends Controller {
         if (!filled || placeholder.isBackground) return;
 
         const img = this.objects[placeholder.inputId] && this.objects[placeholder.inputId].object;
-        const frame = placeholder.frame;
+        const frame = this._frame(placeholder.inputId);
         if (!img || !frame) return;
 
         const containScale = img._containScale || 1;
@@ -411,7 +480,7 @@ export default class extends Controller {
         });
         img.setCoords();
         this.canvas.requestRenderAll();
-        this._broadcastFrame(placeholder.inputId, img, frame);
+        this._broadcastFrame(placeholder.inputId, img.visible === false ? null : img, frame);
     }
 
     async _fillPlaceholder(inputId, imageId, url, { activate = true, writeFields = true } = {}) {
@@ -425,7 +494,7 @@ export default class extends Controller {
             return false;
         }
 
-        const frame = placeholder.frame;
+        const frame = this._frame(inputId);
         const naturalWidth = img.width || 1;
         const naturalHeight = img.height || 1;
 
@@ -484,6 +553,7 @@ export default class extends Controller {
         });
         img._placeholderId = inputId;
         img._containScale = containScale;
+        this._adoptFlow(inputId, img);
 
         // Scaling must stay UNIFORM: the placement contract (and the hidden
         // form fields) carry a single `scale`, so a distorted preview could
@@ -493,12 +563,12 @@ export default class extends Controller {
         img.setControlsVisibility({ ml: false, mt: false, mr: false, mb: false });
 
         this._replaceObject(inputId, img);
-        if (adjustable && activate) {
+        if (adjustable && activate && img.visible !== false) {
             this.canvas.setActiveObject(img);
             this._openAdjust(inputId);
         }
         this.canvas.requestRenderAll();
-        this._broadcastFrame(inputId, img, frame);
+        this._broadcastFrame(inputId, img.visible === false ? null : img, frame);
 
         if (writeFields) {
             this._setField(inputId, 'hide', '');
@@ -725,7 +795,7 @@ export default class extends Controller {
         const placeholder = this.placeholdersById[inputId];
         const object = this.objects[inputId] && this.objects[inputId].object;
         if (!placeholder || !placeholder.frame || !object || !object._containScale) return null;
-        const frame = placeholder.frame;
+        const frame = this._frame(inputId);
         const center = object.getCenterPoint();
 
         return {
@@ -748,7 +818,7 @@ export default class extends Controller {
         const placeholder = inputId && this.placeholdersById[inputId];
         const object = inputId && this.objects[inputId] && this.objects[inputId].object;
         if (!placeholder || !placeholder.frame || !object || !object._containScale) return;
-        const frame = placeholder.frame;
+        const frame = this._frame(inputId);
         const changes = {};
 
         if (placeholder.allowResize && Number.isFinite(patch.scale)) {
@@ -879,7 +949,7 @@ export default class extends Controller {
         const object = this.objects[this._adjustId] && this.objects[this._adjustId].object;
         const element = object && typeof object.getElement === 'function' ? object.getElement() : null;
         if (!placeholder || !placeholder.frame || !element) return;
-        const frame = placeholder.frame;
+        const frame = this._frame(this._adjustId);
         const vpt = this.canvas.viewportTransform;
         const retina = typeof this.canvas.getRetinaScaling === 'function' ? this.canvas.getRetinaScaling() : 1;
         const center = object.getCenterPoint();
@@ -907,8 +977,9 @@ export default class extends Controller {
         if (!object || !object._placeholderId || !object._containScale) return;
         const placeholder = this.placeholdersById[object._placeholderId];
         if (!placeholder || !placeholder.frame) return;
-        this._writeTransform(object._placeholderId, object, placeholder.frame);
-        this._broadcastFrame(object._placeholderId, object, placeholder.frame);
+        const frame = this._frame(object._placeholderId);
+        this._writeTransform(object._placeholderId, object, frame);
+        this._broadcastFrame(object._placeholderId, object, frame);
         this._syncAdjust(object);
     }
 
@@ -952,7 +1023,7 @@ export default class extends Controller {
         if (!object || !object._placeholderId) return;
         const placeholder = this.placeholdersById[object._placeholderId];
         if (!placeholder || !placeholder.frame) return;
-        this._broadcastFrame(object._placeholderId, object, placeholder.frame);
+        this._broadcastFrame(object._placeholderId, object, this._frame(object._placeholderId));
     }
 
     /**
@@ -1031,7 +1102,7 @@ export default class extends Controller {
                     await this._fillPlaceholder(inputId, want.imageId, want.url, { activate: false, writeFields: false });
                 }
                 const img = this.objects[inputId] && this.objects[inputId].object;
-                const frame = placeholder.frame;
+                const frame = this._frame(inputId);
                 if (img && frame && img._containScale && !placeholder.isBackground) {
                     img.set({
                         scaleX: img._containScale * (Number(want.scale) || 1),
@@ -1042,7 +1113,7 @@ export default class extends Controller {
                     });
                     img.setCoords();
                     this.canvas.requestRenderAll();
-                    this._broadcastFrame(inputId, img, frame);
+                    this._broadcastFrame(inputId, img.visible === false ? null : img, frame);
                     this._syncAdjust(img);
                 }
             } else {

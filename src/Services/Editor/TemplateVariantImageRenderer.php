@@ -566,8 +566,12 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
                 // Inputs' own hides + the deep members of every requested
                 // HIDABLE container — a hidden container is nothing but its
                 // members hidden, so the template's existing hide loop and the
-                // layout engine's collapse rules handle it unchanged.
-                'hidden_overrides' => $overrides->effectiveHidden($containers),
+                // layout engine's collapse rules handle it unchanged. Plus the
+                // hidden image slots that are container MEMBERS: they must
+                // collapse at fill time, AFTER the designed geometry snapshot
+                // (see applyImagePlaceholders), exactly like a hidden text.
+                'hidden_overrides' => $overrides->effectiveHidden($containers)
+                    + self::hiddenMemberSlots($imageOverrides, $containers),
                 'containers' => array_map(
                     static fn (CanvasContainer $container): array => $container->toArray(),
                     $containers,
@@ -632,6 +636,50 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         }
 
         return $builder;
+    }
+
+    /**
+     * Ids of every DIRECT container member (texts, decorations, image slots,
+     * whatever the definitions name) — the slots among them flow, so their
+     * hide is a fill-time collapse rather than a pre-load visibility flag.
+     *
+     * @param list<CanvasContainer> $containers
+     * @return array<string, true>
+     */
+    private static function containerMemberIds(array $containers): array
+    {
+        $ids = [];
+        foreach ($containers as $container) {
+            foreach ($container->memberInputIds as $memberInputId) {
+                $ids[$memberInputId] = true;
+            }
+        }
+
+        return $ids;
+    }
+
+    /**
+     * The user-hidden image slots that are container members, as template
+     * hide overrides (applied after phase A — a fill-time collapse).
+     *
+     * @param list<CanvasContainer> $containers
+     * @return array<string, bool>
+     */
+    private static function hiddenMemberSlots(null|ResolvedImageOverrides $imageOverrides, array $containers): array
+    {
+        if ($imageOverrides === null || $imageOverrides->hidden === [] || $containers === []) {
+            return [];
+        }
+
+        $members = self::containerMemberIds($containers);
+        $hidden = [];
+        foreach ($imageOverrides->hidden as $inputId => $hide) {
+            if ($hide === true && isset($members[$inputId])) {
+                $hidden[$inputId] = true;
+            }
+        }
+
+        return $hidden;
     }
 
     /**
@@ -728,6 +776,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
             $canvas,
             $imageOverrides ?? ResolvedImageOverrides::none(),
             PlaceholderFrame::backgroundCover($variant->dimension),
+            self::containerMemberIds(CanvasContainer::collectionFromCanvas($canvas)),
         );
 
         return json_encode($canvas, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
@@ -776,7 +825,12 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
      * headless Fabric runtime needs no image-specific logic (it just loads the
      * finished document). For every image object we:
      *
-     *  - hide it when the user blanked a hidable slot;
+     *  - hide it when the user blanked a hidable slot — EXCEPT a slot that is
+     *    a container member: a pre-load `visible: false` reads as DESIGN-hidden
+     *    to the layout engine (no anchor, no gap — "absent"), while a user hide
+     *    must collapse like a hidden text. Such a slot keeps its designed box
+     *    with a transparent stub src, and the template hides it after phase A
+     *    ({@see hiddenMemberSlots()} feeds `hidden_overrides`);
      *  - replace it with the chosen picture (inlined) at the computed
      *    object-contain + transform placement, clipped to the designer's frame,
      *    when the slot was filled;
@@ -785,9 +839,10 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
      *    that forces the background to be inlined.
      *
      * @param array<string, mixed> $canvas
+     * @param array<string, true> $containerMemberIds see {@see containerMemberIds()}
      * @return array<string, mixed>
      */
-    private function applyImagePlaceholders(array $canvas, ResolvedImageOverrides $imageOverrides, PlaceholderFrame $backgroundFrame): array
+    private function applyImagePlaceholders(array $canvas, ResolvedImageOverrides $imageOverrides, PlaceholderFrame $backgroundFrame, array $containerMemberIds = []): array
     {
         if (!isset($canvas['objects']) || !is_array($canvas['objects'])) {
             return $canvas;
@@ -809,7 +864,15 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
 
             // Hidden placeholder → render nothing for this slot.
             if ($inputId !== null && ($imageOverrides->hidden[$inputId] ?? false) === true) {
-                $object['visible'] = false;
+                if (isset($containerMemberIds[$inputId])) {
+                    // A flowing slot: keep the designed box (phase A must see
+                    // it), paint nothing, collapse after phase A.
+                    $object['src'] = self::TRANSPARENT_PIXEL;
+                    $object['crossOrigin'] = null;
+                    unset($object['assetPath']);
+                } else {
+                    $object['visible'] = false;
+                }
                 $objects[$index] = $object;
                 continue;
             }

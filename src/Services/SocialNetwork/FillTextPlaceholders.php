@@ -228,7 +228,7 @@ final readonly class FillTextPlaceholders
      *         lists: bool,
      *         listStyle: null|array{bullet: string, bulletImage: null|string, indent: float, itemSpacing: float, blockSpacing: float, checkboxes: bool, checkboxImage: null|string, checkboxCheckedImage: null|string}
      *     }>,
-     *     decorations: array<string, array{frame: array{x: float, y: float, width: float, height: float}}>,
+     *     decorations: array<string, array{frame: array{x: float, y: float, width: float, height: float}, slot?: true}>,
      *     containers: list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap: null|float, spaceAfter: null|float, hidable?: true, name?: string}>,
      *     containerHides: array<string, list<string>>,
      *     canvasHeight: int
@@ -385,16 +385,21 @@ final readonly class FillTextPlaceholders
     }
 
     /**
-     * Designed frames of DECORATIVE members — images (checklist icons,
-     * separators) and vector shapes (rules, bullets, colour blocks) — which the
-     * overlay feeds to the shared layout engine as geometry POJOs so its
-     * client-side reflow sees exactly the members the server render does.
-     * Fillable placeholders and the background layer are never container
-     * members; design-hidden objects are skipped like the engine skips them.
+     * Designed frames of the NON-TEXT members — decorative images (checklist
+     * icons, separators), vector shapes (rules, bullets, colour blocks) and,
+     * since 2026-11 (container-rows plan P2a), fillable image SLOTS — which
+     * the overlay and the echo feed to the shared layout engine as geometry
+     * POJOs so their client-side reflow sees exactly the members the server
+     * render does. All of them are a FIXED box in the flow. A slot entry
+     * carries `slot: true` (only then, so a design without slot members
+     * ships byte-identical data): the single fill page moves the live
+     * picture with it, the group page its ghost / toolbar, and both overlays
+     * its box. The background layer is never a member; design-hidden objects
+     * are skipped like the engine skips them.
      *
      * @param array<array-key, mixed> $canvas
      * @param list<CanvasContainer> $containers
-     * @return array<string, array{frame: array{x: float, y: float, width: float, height: float}}>
+     * @return array<string, array{frame: array{x: float, y: float, width: float, height: float}, slot?: true}>
      */
     public static function decorativeMemberFrames(array $canvas, array $containers): array
     {
@@ -423,18 +428,17 @@ final readonly class FillTextPlaceholders
             if (!is_string($inputId) || !isset($memberIds[$inputId]) || !is_string($type)) {
                 continue;
             }
-            // Decorative container members: images and vector shapes. Shapes are
-            // decorative by definition, so only the image branch has anything to
-            // exclude (see isDecorationObject in container_layout.js).
+            // Non-text container members: images (decorative or fillable slots)
+            // and vector shapes. Only the background layer is excluded (see
+            // isDecorationObject in container_layout.js).
             $isShape = CanvasShape::isShapeType($type);
             if (!$isShape && strtolower($type) !== 'image') {
                 continue;
             }
-            if (!$isShape
-                && (($object['imagePlaceholder'] ?? false) === true || ($object['isBackground'] ?? false) === true)
-            ) {
+            if (!$isShape && ($object['isBackground'] ?? false) === true) {
                 continue;
             }
+            $isSlot = !$isShape && ($object['imagePlaceholder'] ?? false) === true;
             if (($object['visible'] ?? true) === false) {
                 continue;
             }
@@ -457,6 +461,9 @@ final readonly class FillTextPlaceholders
                     'height' => (float) $height * $scaleY,
                 ],
             ];
+            if ($isSlot) {
+                $decorations[$inputId]['slot'] = true;
+            }
         }
 
         return $decorations;

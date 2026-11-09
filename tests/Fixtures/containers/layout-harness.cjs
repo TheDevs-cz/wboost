@@ -11,8 +11,12 @@
  *   { engine: "<path to container_layout.js>",
  *     layout: <FillTextPlaceholders::layoutData()>,
  *     heights: { inputId: px },   // measured heights (missing = designed)
- *     hidden: [inputId, …] }      // fill-time hides (texts + decorations)
- * Output (stdout, JSON): applyFabricLayout's results, rounded to 1/1000 px.
+ *     hidden: [inputId, …],       // fill-time hides (texts + decorations)
+ *     reportObjects: bool }        // optional, see below
+ * Output (stdout, JSON): applyFabricLayout's results, rounded to 1/1000 px —
+ * or, with `reportObjects`, `{results, objects}` where `objects` maps every
+ * NON-text member POJO (decorations + image slots) to its final
+ * `{top, visible}`: what the fill page moves a live picture / ghost by.
  */
 'use strict';
 
@@ -42,8 +46,11 @@ Object.keys(layout.inputs).forEach((inputId) => {
 });
 Object.keys(layout.decorations || {}).forEach((inputId) => {
     const frame = layout.decorations[inputId].frame;
+    // Every non-text member flows as a fixed box; an image SLOT (`slot:
+    // true`) is fed exactly like the fill overlay feeds it.
     pojos.push({
         type: 'image', inputId,
+        imagePlaceholder: layout.decorations[inputId].slot === true,
         top: frame.y, left: frame.x, width: frame.width, height: frame.height,
         scaleX: 1, scaleY: 1, visible: true,
     });
@@ -71,4 +78,13 @@ const results = engine.applyFabricLayout(prepared).map((result) => ({
         : undefined,
 }));
 
-process.stdout.write(JSON.stringify(results));
+if (input.reportObjects) {
+    const objects = {};
+    pojos.forEach((pojo) => {
+        if (texts[pojo.inputId]) return;
+        objects[pojo.inputId] = { top: round(pojo.top), visible: pojo.visible !== false };
+    });
+    process.stdout.write(JSON.stringify({ results, objects }));
+} else {
+    process.stdout.write(JSON.stringify(results));
+}

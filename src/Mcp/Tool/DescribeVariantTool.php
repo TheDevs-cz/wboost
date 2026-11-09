@@ -179,8 +179,8 @@ readonly final class DescribeVariantTool
                 cropMarks: $variant->dimension->cropMarks,
             ),
             inputs: $this->buildTextInputs($variant, $frames, $definitions),
-            imageInputs: $this->buildImageInputs($variant, $canvas),
-            containers: self::buildContainers($definitions, $frames, $variant->inputs, FillTextPlaceholders::decorativeMemberTops($canvas, $definitions)),
+            imageInputs: $this->buildImageInputs($variant, $canvas, $definitions),
+            containers: self::buildContainers($definitions, $frames, $variant->inputs, FillTextPlaceholders::decorativeMemberTops($canvas, $definitions), $this->placeholderGeometry->slotFramesByInputId($canvas)),
             richTextOptions: $this->buildRichTextOptions($variant),
             shapeInputs: $this->buildShapeInputs($canvas),
         );
@@ -356,16 +356,25 @@ readonly final class DescribeVariantTool
 
     /**
      * @param array<string, mixed> $canvas
+     * @param list<CanvasContainer> $definitions
      *
      * @return list<VariantImageInputResponse>
      */
-    private function buildImageInputs(TemplateVariant $variant, array $canvas): array
+    private function buildImageInputs(TemplateVariant $variant, array $canvas, array $definitions = []): array
     {
         $objects = $this->placeholderGeometry->placeholderObjectsByInputId($canvas);
         $projectId = $variant->template->project->id;
 
+        // The container a slot flows in (plan P2a), like inputs[].containerId.
+        $containerIdByInputId = [];
+        foreach ($definitions as $container) {
+            foreach ($container->memberInputIds as $memberInputId) {
+                $containerIdByInputId[$memberInputId] ??= $container->id;
+            }
+        }
+
         return array_values(array_map(
-            function (EditorImageInput $input) use ($objects, $projectId, $variant): VariantImageInputResponse {
+            function (EditorImageInput $input) use ($objects, $projectId, $variant, $containerIdByInputId): VariantImageInputResponse {
                 $object = $objects[$input->inputId] ?? null;
                 $frame = null;
 
@@ -402,6 +411,7 @@ readonly final class DescribeVariantTool
                     ),
                     includesRoot: $this->allowedDirectories->includesRoot($input),
                     frame: self::frame($frame),
+                    containerId: $input->isBackground ? null : ($containerIdByInputId[$input->inputId] ?? null),
                 );
             },
             $variant->imageInputs,
@@ -414,9 +424,10 @@ readonly final class DescribeVariantTool
      * @param array<EditorTextInput> $inputs
      *
      * @param array<string, float> $decorationTops decorative member tops (hidable decoration-only containers)
+     * @param array<string, PlaceholderFrame> $imageFrames fillable image-slot frames (plan P2a)
      * @return list<VariantContainerResponse>
      */
-    private static function buildContainers(array $definitions, array $frames, array $inputs, array $decorationTops = []): array
+    private static function buildContainers(array $definitions, array $frames, array $inputs, array $decorationTops = [], array $imageFrames = []): array
     {
         return array_map(
             static fn (ResolvedCanvasContainer $container): VariantContainerResponse => new VariantContainerResponse(
@@ -430,8 +441,9 @@ readonly final class DescribeVariantTool
                 nested: $container->nested,
                 hidable: $container->hidable,
                 name: $container->name,
+                memberImageInputIds: $container->memberImageInputIds,
             ),
-            ResolvedCanvasContainer::collection($definitions, $frames, $inputs, $decorationTops),
+            ResolvedCanvasContainer::collection($definitions, $frames, $inputs, $decorationTops, $imageFrames),
         );
     }
 

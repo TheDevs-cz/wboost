@@ -211,6 +211,27 @@
             >
         {% endfor %}
 
+        {# Hidable image slots that FLOW in a container (plan P2a): hiding one
+           moves the texts around it, which the server backdrop must render,
+           so the Live component tracks the hide too. Deliberately UNNAMED —
+           the download / draft POST keeps carrying `images[<id>][hide]`
+           (the image controller's field), so ExportFillValues and the
+           version hashes see nothing new. variant-fill-overlay#toggleHide
+           flips it together with the slot's `data-image-hide` checkbox. #}
+        {% for slotId in this.flowingSlotHideIds %}
+            <input
+                type="checkbox"
+                class="visually-hidden"
+                tabindex="-1"
+                aria-hidden="true"
+                value="1"
+                data-hide-mirror="{{ slotId }}"
+                data-slot-hide-mirror="{{ slotId }}"
+                data-model="on(change)|hiddenValues[{{ slotId }}]"
+                {% if this.hiddenValues[slotId] ?? false %}checked{% endif %}
+            >
+        {% endfor %}
+
         {# Recolourable shapes: one Live-bound colour mirror each ("" = the
            designed colour), written by the shape popover's swatches
            (variant-fill-overlay#pickShapeColor). A short debounce coalesces a

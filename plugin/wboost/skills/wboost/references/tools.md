@@ -152,7 +152,8 @@ of the canvas size a design must be authored at.
     "hidable",
     "directories": [{ "id", "name" }],   // folders this slot accepts
     "includesRoot",                       // gallery root also accepted
-    "frame": { "x", "y", "width", "height" }
+    "frame": { "x", "y", "width", "height" },  // the DESIGNED box
+    "containerId"          // nullable — the flow this slot moves in
   }],
 
   "containers": [{
@@ -160,6 +161,7 @@ of the canvas size a design must be authored at.
     "maxHeight",           // px of content allowed
     "y",                   // top of the highest designed member in the tree
     "memberInputIds", "memberContainerIds",
+    "memberImageInputIds", // image slots flowing in it (texts stay in memberInputIds)
     "gap", "spaceAfter",   // nullable px
     "nested",              // true = it flows inside another container
     "hidable",             // true = the WHOLE container may be hidden (see below)
@@ -206,6 +208,11 @@ entry accepts only `hide`, and hiding one without `hidable` is refused
 (`container_not_hidable`). It is the cheapest fix for a container overflow when
 the designer offered it. A hidable container may list `memberInputIds: []` —
 it holds only decorative images / shapes; hiding it still works.
+
+An image slot with a `containerId` flows like a text box of fixed height: a
+long text above it pushes it down (its picture keeps its place inside the
+frame) and hiding it closes the gap. Its `frame` is where it was DESIGNED —
+check the render for where it lands.
 
 ---
 
@@ -652,10 +659,11 @@ within the document. Slugs carry input identity across saves.
   (lint `background_drawn_as_element`); a design with no background at all
   exports transparent (lint `missing_background`).
 - **`container`**: needs at least 2 referenced items counting `members` and
-  `children` together. `members` are texts, shapes and **decorative** images — never
-  a
-  fillable image placeholder, never the background, never another container
-  (nest via `children`). A container has exactly one parent and the graph must be
+  `children` together. `members` are texts, shapes and images — decorative ones
+  AND fillable image placeholders (a slot flows as a fixed box: a wrapping text
+  above moves it, the picture keeps its place inside the frame, hiding it
+  closes the gap) — never the background, never another container (nest via
+  `children`). A container has exactly one parent and the graph must be
   a tree. **A top-level container must carry `maxHeight`**; a nested one may omit
   it, because only the root's bound gates overflow. `gap` replaces every designed
   inter-item gap with a uniform spacing; `spaceAfter` is guaranteed clearance

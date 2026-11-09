@@ -1065,17 +1065,18 @@ final class DesignCompilerTest extends TestCase
     }
 
     /**
-     * §4.4-18: fillable image placeholders and the background layer are never
-     * container members — their frames are load-bearing elsewhere (the fill
-     * page's live objects, the clipPath rect, the API contract). Decorative
-     * images may be, and are: a checklist icon riding along with its line is the
-     * whole point of image members.
+     * §4.4-18: the background layer is never a container member — it covers
+     * the whole canvas. Decorative images are (a checklist icon riding along
+     * with its line is the whole point of image members), and so are fillable
+     * image slots since 2026-11 (plan P2a: a club logo per result row; the
+     * slot flows as a fixed box by its frame).
      *
-     * Hand-built for the same reason as §4.4-17: the parser refuses these
-     * members by slug, so only a VO document reaches the sanitizer's own guard
-     * — which mirrors `isMemberCandidate()` in `assets/editor/container_layout.js`.
+     * Hand-built for the same reason as §4.4-17: the parser refuses the
+     * background by slug, so only a VO document reaches the sanitizer's own
+     * guard — which mirrors `isMemberCandidate()` in
+     * `assets/editor/container_layout.js`.
      */
-    public function testInvariant18PlaceholdersAndTheBackgroundAreNeverContainerMembers(): void
+    public function testInvariant18TheBackgroundIsNeverAContainerMemberButImageSlotsAre(): void
     {
         $document = new DesignDocument(
             new CanvasSpec(self::CANVAS, self::CANVAS),
@@ -1103,7 +1104,7 @@ final class DesignCompilerTest extends TestCase
             $compiled->canvas['containers'][0]['memberInputIds'],
         );
 
-        self::assertSame(['headline', 'icon', 'subhead'], $members);
+        self::assertSame(['headline', 'icon', 'photo', 'subhead'], $members);
     }
 
     /**

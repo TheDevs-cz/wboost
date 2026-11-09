@@ -23,9 +23,11 @@ namespace WBoost\Web\Mcp\Response;
  * id reported is that outermost container.
  *
  * `memberInputIds` are in flow order (top to bottom) and list only the
- * FILLABLE members: containers may also carry decorative images that ride the
- * flow server-side, and design-hidden members that are not fillable at all.
- * The rendered image is the authority on how it ends up looking.
+ * FILLABLE TEXT members; `memberImageInputIds` the fillable IMAGE slots that
+ * flow in it (a fixed box each — moved by the texts above, collapsing when
+ * hidden). Containers may also carry decorative images that ride the flow
+ * server-side, and design-hidden members that are not fillable at all. The
+ * rendered image is the authority on how it ends up looking.
  *
  * `hidable: true` → the whole container may be hidden: pass
  * `inputs[<container id>] = {"hide": true}` to render_variant / export_variant
@@ -37,6 +39,7 @@ readonly final class VariantContainerResponse
     /**
      * @param list<string> $memberInputIds
      * @param list<string> $memberContainerIds
+     * @param list<string> $memberImageInputIds
      */
     public function __construct(
         public string $id,
@@ -49,6 +52,7 @@ readonly final class VariantContainerResponse
         public bool $nested,
         public bool $hidable = false,
         public null|string $name = null,
+        public array $memberImageInputIds = [],
     ) {
     }
 }

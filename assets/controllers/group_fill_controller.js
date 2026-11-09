@@ -998,6 +998,29 @@ export default class extends Controller {
         return this.slotsValue.find((slot) => slot.inputId === inputId) || null;
     }
 
+    /**
+     * A slot's LIVE frame in one dimension: the designed frame shifted by
+     * that dimension's container flow (plan P2a — the overlay's reflow hands
+     * it over through slotsLaidOut), or null when the flow collapsed the slot
+     * there (a hidden container / host text) — no ghost, no toolbar. The
+     * server render moves the frame the same way, and the stored pan is a
+     * fraction of the frame, so nothing stored changes with the shift.
+     */
+    _frame(variantId, inputId) {
+        const frame = this._variant(variantId)?.frames?.[inputId];
+        if (!frame) return null;
+        const flow = this._slotFlow?.[variantId]?.[inputId];
+        if (!flow) return frame;
+        if (flow.collapsed) return null;
+        return flow.dy ? { ...frame, y: frame.y + flow.dy } : frame;
+    }
+
+    /** variant-fill-overlay → every surface's laid-out slots, by variantId. */
+    slotsLaidOut(surfaces) {
+        this._slotFlow = surfaces || {};
+        this.renderGhosts();
+    }
+
     _variant(variantId) {
         return this.variantsValue.find((variant) => variant.variantId === variantId) || null;
     }
@@ -1063,7 +1086,7 @@ export default class extends Controller {
             const k = displayWidth > 0 && variant.width > 0 ? displayWidth / variant.width : 0;
 
             this.slotsValue.forEach((slot) => {
-                const frame = variant.frames?.[slot.inputId];
+                const frame = this._frame(variantId, slot.inputId);
                 const picture = this.pictures[slot.inputId];
                 const existing = layer.querySelector(`[data-ghost="${slot.inputId}"]`);
 
@@ -1165,7 +1188,7 @@ export default class extends Controller {
         }
 
         const variant = this._variant(variantId);
-        const frame = variant?.frames?.[slot.inputId];
+        const frame = this._frame(variantId, slot.inputId);
         const preview = this.previewTargets.find((img) => img.dataset.variantId === variantId);
         if (!frame || !preview || preview.clientWidth <= 0) {
             return;
@@ -1268,7 +1291,7 @@ export default class extends Controller {
             return;
         }
 
-        const frame = this._variant(variantId)?.frames?.[slot.inputId];
+        const frame = this._frame(variantId, slot.inputId);
         if (!frame || !(frame.width > 0) || !(frame.height > 0)) {
             return;
         }
@@ -1412,7 +1435,7 @@ export default class extends Controller {
     }
 
     _adjustState(variantId, inputId) {
-        const frame = this._variant(variantId)?.frames?.[inputId];
+        const frame = this._frame(variantId, inputId);
         const natural = this.pictures[inputId]?.natural;
         const slot = this._slot(inputId);
         if (!frame || !natural || !slot) {
@@ -1432,14 +1455,14 @@ export default class extends Controller {
     }
 
     _scaleMax(variantId, inputId) {
-        const frame = this._variant(variantId)?.frames?.[inputId];
+        const frame = this._frame(variantId, inputId);
         const natural = this.pictures[inputId]?.natural;
 
         return frame && natural ? adjustScaleMax(frame, natural) : 4;
     }
 
     _applyAdjust(variantId, inputId, patch) {
-        const frame = this._variant(variantId)?.frames?.[inputId];
+        const frame = this._frame(variantId, inputId);
         const slot = this._slot(inputId);
         if (!frame || !slot) {
             return;

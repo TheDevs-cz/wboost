@@ -349,13 +349,11 @@ final class DesignLinterTest extends KernelTestCase
     }
 
     /**
-     * A fillable image placeholder is never a container member (§4.4-18 — its
-     * frame is load-bearing for the API and the fill page), so it does not
-     * count towards the two items a container needs. `DslParser` refuses such a
-     * member outright; this is the decompiled-canvas path, where the definition
-     * is real and inert.
+     * A fillable image slot is a container member since 2026-11 (plan P2a —
+     * it flows as a fixed box by its frame), so it counts towards the two
+     * items a container needs, exactly like a decorative image.
      */
-    public function testAFillablePlaceholderDoesNotCountAsAContainerMember(): void
+    public function testAFillableImageSlotCountsAsAContainerMember(): void
     {
         $report = $this->lint(self::document([
             self::text('headline', 80.0, 200.0, 920.0),
@@ -363,8 +361,7 @@ final class DesignLinterTest extends KernelTestCase
             self::container('body', ['headline', 'photo']),
         ]));
 
-        self::assertCount(1, $report->withCode(LintCode::ContainerTooFewItems));
-        self::assertStringContainsString('groups 1 item(s)', $report->withCode(LintCode::ContainerTooFewItems)[0]->message);
+        self::assertCount(0, $report->withCode(LintCode::ContainerTooFewItems));
     }
 
     // -----------------------------------------------------------------

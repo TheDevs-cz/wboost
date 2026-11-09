@@ -1177,20 +1177,14 @@ readonly final class DesignLinter
 
     /**
      * Mirrors `isDecorationObject()` in `assets/editor/container_layout.js`:
-     * the non-text flow material is a DECORATIVE image or a shape. A fillable
-     * placeholder never flows (§4.4-18 — its frame is load-bearing for the API
-     * and the fill page); a shape has nothing to exclude, being decorative by
-     * definition. `DslParser` refuses a placeholder member outright, so the
-     * image half only ever bites on a document built without it — the
-     * decompiler's.
+     * the non-text flow material is an image — decorative or a fillable slot
+     * (a fixed box by its frame since 2026-11, plan P2a) — or a shape. The
+     * background is a {@see \WBoost\Web\Mcp\Design\Dsl\BackgroundElement},
+     * never an image element, so there is nothing left to exclude.
      */
     private static function isDecorationMember(null|DesignElement $element): bool
     {
-        if ($element instanceof ShapeElement) {
-            return true;
-        }
-
-        return $element instanceof ImageElement && !$element->isPlaceholder();
+        return $element instanceof ShapeElement || $element instanceof ImageElement;
     }
 
     /**

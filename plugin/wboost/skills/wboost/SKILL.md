@@ -407,8 +407,8 @@ with a flat colour or a gradient (2–8 stops, each with its own opacity — e.g
 a white 0 → 100 % fade as an overlay over a photo); it is decorative unless you give it a
 `userColor` block, which lets whoever fills the template recolour it (it then
 shows up in `describe_variant` `shapeInputs[]`). Shapes are how you author panels,
-rules and scrims rather than uploading a picture of one. A `container` groups `members` (texts, shapes and decorative
-images) and `children` (nested containers) into one vertical flow — a **top-level
+rules and scrims rather than uploading a picture of one. A `container` groups `members` (texts, shapes and images —
+decorative ones and fillable image slots alike) and `children` (nested containers) into one vertical flow — a **top-level
 container must carry `maxHeight`**, a nested one must not need it.
 
 **Every design should have exactly one `background` element** — the editor's

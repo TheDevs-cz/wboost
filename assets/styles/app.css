@@ -1703,6 +1703,15 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     cursor: pointer;
 }
 
+/* …except an IMAGE slot member (plan P2a): its box lies over the picture,
+   and the picture owns the pointer — drag / select for the adjust panel on
+   the single page, the ghost on the group page. The sheet stays reachable
+   through the container's pencil. */
+.fill-form.fill-js.fill-highlight-on:not(.fill-preview-on) .fill-box--image.fill-box--sheet-member {
+    pointer-events: none;
+    cursor: auto;
+}
+
 .fill-image-card__thumb {
     flex: 0 0 auto;
     width: 56px;

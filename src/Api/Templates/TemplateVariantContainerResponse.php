@@ -33,10 +33,14 @@ namespace WBoost\Web\Api\Templates;
  *
  * `memberInputIds` lists the FILLABLE member text inputs in flow order (top
  * to bottom); each listed input also carries this container's id as its
- * `containerId`. A container may additionally hold decorative images (icons /
- * separators) that ride the flow server-side but are not fillable and are
- * therefore not listed here — a consumer mirroring the reflow approximately
- * should treat the server-rendered preview as authoritative.
+ * `containerId`. `memberImageInputIds` (2026-11) lists the fillable IMAGE
+ * slots that flow in it — a fixed box each (their `imageInputs[].frame`),
+ * moved by the texts above, collapsing when hidden; each such image input
+ * carries this container's id as its `containerId`. A container may
+ * additionally hold decorative images (icons / separators) that ride the flow
+ * server-side but are not fillable and are therefore not listed here — a
+ * consumer mirroring the reflow approximately should treat the
+ * server-rendered preview as authoritative.
  * The reflow algorithm is documented in docs/api/consumer-prompt.md.
  *
  * `hidable: true` → the designer allows hiding the WHOLE container: offer a
@@ -55,6 +59,7 @@ final readonly class TemplateVariantContainerResponse
     /**
      * @param list<string> $memberInputIds
      * @param list<string> $memberContainerIds
+     * @param list<string> $memberImageInputIds
      */
     public function __construct(
         public string $id,
@@ -67,6 +72,7 @@ final readonly class TemplateVariantContainerResponse
         public bool $nested = false,
         public bool $hidable = false,
         public null|string $name = null,
+        public array $memberImageInputIds = [],
     ) {
     }
 }

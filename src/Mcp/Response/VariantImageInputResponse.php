@@ -30,6 +30,10 @@ namespace WBoost\Web\Mcp\Response;
  * (which is why the three allow flags are always false there) — and its
  * `frame` is the full canvas, not the designed object's box. Leave it unfilled
  * and the designed background renders.
+ *
+ * `containerId` names the container the slot FLOWS in (null = free-standing):
+ * a text above it that wraps moves the whole slot down, and hiding it closes
+ * the gap — `frame` stays the designed box.
  */
 readonly final class VariantImageInputResponse
 {
@@ -48,6 +52,7 @@ readonly final class VariantImageInputResponse
         public array $directories,
         public bool $includesRoot,
         public null|VariantInputFrameResponse $frame,
+        public null|string $containerId = null,
     ) {
     }
 }

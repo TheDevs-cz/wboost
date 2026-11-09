@@ -159,8 +159,8 @@
                     'inputId', 'name', 'maxLength',
                     'locked', 'uppercase', 'description', 'hidable', 'richText',
                     // Container membership resolution needs these: decorative
-                    // images can be members, fillable placeholders and the
-                    // background layer never are (the engine filters on them).
+                    // images and fillable slots can be members, the background
+                    // layer never is (the engine filters on them).
                     'imagePlaceholder', 'isBackground',
                 ];
                 const sourceObjects = Array.isArray(canvasJson.objects) ? canvasJson.objects : [];
@@ -180,7 +180,56 @@
                 // geometry (anchor top + inter-member gaps) the reflow is
                 // computed against. Must run after the custom-prop restore
                 // above (members are resolved by inputId).
-                const preparedContainers = WBoostContainerLayout.prepareFabricContainers(liveObjects, containers, {
+                // FILLED image slots flow by their FRAME (container-rows plan
+                // P2a). ImagePlacement baked the PICTURE's own transform onto
+                // the object (centre origin, the user's zoom / pan /
+                // rotation) and pinned the designer's frame as an
+                // absolutePositioned clipPath — so the engine gets a proxy
+                // whose designed geometry IS that clip rect. A top write
+                // translates picture AND clip by the same delta: the
+                // placement is relative to the frame, so the picture stays
+                // exactly where the user put it inside the moved frame.
+                // Visibility reads / writes the picture (the hide loop below
+                // and the engine's attachment collapse). Unfilled stand-ins
+                // and hidden slots keep their designed box and need nothing.
+                const slotFrameProxy = (picture) => {
+                    const clip = picture.clipPath;
+                    const clipWidth = clip.width * (clip.scaleX || 1);
+                    const clipHeight = clip.height * (clip.scaleY || 1);
+                    const originOffset = (origin, size, far) => (origin === 'center' ? size / 2 : (origin === far ? size : 0));
+                    return {
+                        type: 'image',
+                        imagePlaceholder: true,
+                        inputId: picture.inputId,
+                        left: clip.left - originOffset(clip.originX, clipWidth, 'right'),
+                        top: clip.top - originOffset(clip.originY, clipHeight, 'bottom'),
+                        width: clipWidth,
+                        height: clipHeight,
+                        scaleX: 1,
+                        scaleY: 1,
+                        get visible() { return picture.visible; },
+                        set(props) {
+                            if (typeof props.top === 'number' && props.top !== this.top) {
+                                const delta = props.top - this.top;
+                                this.top = props.top;
+                                picture.set({ top: picture.top + delta });
+                                clip.set({ top: clip.top + delta });
+                                picture.setCoords();
+                                picture.set({ dirty: true });
+                            }
+                            if (props.visible !== undefined) {
+                                picture.set({ visible: props.visible });
+                            }
+                        },
+                    };
+                };
+                const layoutObjects = liveObjects.map((obj) => (
+                    obj.imagePlaceholder === true && obj.isBackground !== true
+                        && obj.clipPath && obj.clipPath.absolutePositioned === true
+                        ? slotFrameProxy(obj)
+                        : obj
+                ));
+                const preparedContainers = WBoostContainerLayout.prepareFabricContainers(layoutObjects, containers, {
                     // Gates the page-bottom overflow: a container pushed past
                     // the canvas bottom (minus its spaceAfter) must fail the
                     // strict export the same way a maxHeight excess does.

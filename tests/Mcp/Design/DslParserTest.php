@@ -352,6 +352,24 @@ final class DslParserTest extends TestCase
         self::assertSame(['title', 'rule'], $container->memberIds);
     }
 
+    /**
+     * Container-rows plan P2a (2026-11): a fillable image slot flows in a
+     * container as a fixed box (by its frame) — e.g. a club logo per result
+     * row. Before that the parser refused it.
+     */
+    public function testAFillableImageSlotMayBeAContainerMember(): void
+    {
+        $document = DslParser::parse(self::documentWith(
+            self::textElement(['id' => 'a']),
+            self::imageElement(['id' => 'slot', 'input' => ['name' => 'Logo']]),
+            ['kind' => 'container', 'id' => 'body', 'members' => ['a', 'slot'], 'maxHeight' => 400],
+        ));
+
+        $container = $document->element('body');
+        self::assertInstanceOf(ContainerElement::class, $container);
+        self::assertSame(['a', 'slot'], $container->memberIds);
+    }
+
     public function testParsesAContainerElementWithEveryField(): void
     {
         $container = DslParser::parse(self::fullDocument())->element('body');
@@ -1198,16 +1216,6 @@ final class DslParserTest extends TestCase
             'elements[2].members[1]',
             DslErrorCode::InvalidStructure,
             'lists "a" twice',
-        ];
-        yield 'container member that is a fillable image placeholder' => [
-            self::documentWith(
-                self::textElement(['id' => 'a']),
-                self::imageElement(['id' => 'slot', 'input' => ['name' => 'Foto']]),
-                ['kind' => 'container', 'id' => 'body', 'members' => ['a', 'slot'], 'maxHeight' => 400],
-            ),
-            'elements[2].members[1]',
-            DslErrorCode::InvalidStructure,
-            'is a fillable image placeholder',
         ];
         yield 'container member that is the background layer' => [
             self::documentWith(

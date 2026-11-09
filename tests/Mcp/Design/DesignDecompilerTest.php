@@ -574,8 +574,8 @@ final class DesignDecompilerTest extends TestCase
                 self::image(['inputId' => 'img', 'imagePlaceholder' => true, 'top' => 200]),
             ],
             'containers' => [
-                // A fillable placeholder may never flow in a container
-                // (§4.4-18) and the parser refuses one by slug.
+                // A fillable image slot flows in a container since 2026-11
+                // (plan P2a) — it survives the round trip like a text.
                 ['id' => 'body', 'maxHeight' => 400, 'memberInputIds' => ['t1', 't2', 'img']],
                 // Left with one member once the unknown one is dropped.
                 ['id' => 'stray', 'maxHeight' => 200, 'memberInputIds' => ['t1', 'nobody']],
@@ -587,7 +587,7 @@ final class DesignDecompilerTest extends TestCase
 
         self::assertCount(1, $containers);
         self::assertSame('body', $containers[0]->id);
-        self::assertSame(['nadpis', 'popisek'], $containers[0]->memberIds);
+        self::assertSame(['nadpis', 'popisek', 'foto'], $containers[0]->memberIds);
         self::assertSame([DesignLossCode::InputFeatureDropped], self::codes($decompiled));
 
         // And the whole document must still parse — a container the parser

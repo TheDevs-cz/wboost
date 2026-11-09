@@ -27,12 +27,20 @@ namespace WBoost\Web\Value;
  * anchored at its highest decorative member, with empty `memberInputIds`, and
  * deliberately NOT added to its parent's `memberContainerIds` — the parent's
  * published reflow tree stays exactly what it was before (2026-11-09).
+ *
+ * Fillable IMAGE SLOTS are container members since 2026-11 (container-rows
+ * plan P2a — they flow as a fixed box, their frame). They are published in
+ * their own `memberImageInputIds` (never mixed into `memberInputIds`, which
+ * consumers read as text inputs), their frames anchor the container like
+ * text frames, and a tree holding only slots is a real flow item (listed by
+ * its parent). Callers that pass no slot frames get the pre-P2a view.
  */
 readonly final class ResolvedCanvasContainer
 {
     /**
      * @param list<string> $memberInputIds
      * @param list<string> $memberContainerIds
+     * @param list<string> $memberImageInputIds
      */
     public function __construct(
         public string $id,
@@ -47,6 +55,8 @@ readonly final class ResolvedCanvasContainer
         public bool $hidable = false,
         /** Designer label — the hide toggle's caption. */
         public null|string $name = null,
+        /** Direct fillable image-slot members, in stored flow order. */
+        public array $memberImageInputIds = [],
     ) {
     }
 
@@ -71,10 +81,12 @@ readonly final class ResolvedCanvasContainer
      * @param array<string, float> $decorationTops designed top of every
      *   decorative member (inputId → y), the anchor of a hidable
      *   decoration-only container; empty = such containers stay omitted
+     * @param array<string, PlaceholderFrame> $imageFrames frames of the
+     *   variant's fillable (non-background) image slots, keyed by inputId
      *
      * @return list<self>
      */
-    public static function collection(array $containers, array $frames, array $inputs, array $decorationTops = []): array
+    public static function collection(array $containers, array $frames, array $inputs, array $decorationTops = [], array $imageFrames = []): array
     {
         $inputIds = [];
         foreach ($inputs as $input) {
@@ -88,7 +100,7 @@ readonly final class ResolvedCanvasContainer
 
         /** @var array<string, null|float> $anchors */
         $anchors = [];
-        $resolveAnchor = function (CanvasContainer $container) use (&$resolveAnchor, &$anchors, $byId, $frames): null|float {
+        $resolveAnchor = function (CanvasContainer $container) use (&$resolveAnchor, &$anchors, $byId, $frames, $imageFrames): null|float {
             if (array_key_exists($container->id, $anchors)) {
                 return $anchors[$container->id];
             }
@@ -98,6 +110,8 @@ readonly final class ResolvedCanvasContainer
             foreach ($container->memberInputIds as $memberInputId) {
                 if (isset($frames[$memberInputId])) {
                     $candidates[] = $frames[$memberInputId]->y;
+                } elseif (isset($imageFrames[$memberInputId])) {
+                    $candidates[] = $imageFrames[$memberInputId]->y;
                 }
             }
             foreach ($container->memberContainerIds as $childId) {
@@ -163,6 +177,10 @@ readonly final class ResolvedCanvasContainer
                 $container->memberContainerIds,
                 static fn (string $id): bool => isset($resolvable[$id]),
             ));
+            $memberImageInputIds = array_values(array_filter(
+                $container->memberInputIds,
+                static fn (string $id): bool => isset($imageFrames[$id]) && !isset($inputIds[$id]),
+            ));
 
             $result[] = new self(
                 id: $container->id,
@@ -175,6 +193,7 @@ readonly final class ResolvedCanvasContainer
                 nested: $container->isNestedIn($containers),
                 hidable: $container->hidable,
                 name: $container->name,
+                memberImageInputIds: $memberImageInputIds,
             );
         }
 
