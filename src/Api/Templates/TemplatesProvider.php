@@ -29,6 +29,7 @@ use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Services\SocialNetwork\FillMovableElements;
 use WBoost\Web\Services\SocialNetwork\FillTextPlaceholders;
 use WBoost\Web\Services\Template\RepeatableRows;
+use WBoost\Web\Services\Template\ApiRepeatableRows;
 use WBoost\Web\Value\CanvasContainer;
 use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
@@ -123,6 +124,11 @@ final readonly class TemplatesProvider implements ProviderInterface
 
     private function buildTemplate(Template $template, null|TemplateDocumentPage $page = null): TemplateResponse
     {
+        $variants = array_values(array_map(
+            fn (TemplateVariant $variant): TemplateVariantResponse => $this->buildVariant($variant),
+            $template->variants(),
+        ));
+
         return new TemplateResponse(
             id: $template->id->toString(),
             name: $template->name,
@@ -130,12 +136,9 @@ final readonly class TemplatesProvider implements ProviderInterface
             categoryId: $template->category?->id->toString(),
             categoryName: $template->category?->name,
             createdAt: $template->createdAt,
-            variants: array_values(array_map(
-                fn (TemplateVariant $variant): TemplateVariantResponse => $this->buildVariant($variant),
-                $template->variants(),
-            )),
+            variants: $variants,
             group: $template->group !== null
-                ? new TemplateGroupRefResponse($template->group->id->toString(), $template->group->name)
+                ? new TemplateGroupRefResponse($template->group->id->toString(), $template->group->name, self::groupRepeatableRows($variants))
                 : null,
             document: $page !== null
                 ? new TemplateDocumentRefResponse($page->document->id->toString(), $page->document->name, $page->position, $page->id->toString())
@@ -154,6 +157,15 @@ final readonly class TemplatesProvider implements ProviderInterface
         $canvas = is_array($decoded) ? $decoded : [];
         $frames = $this->textInputObjectBinder->framesByInputId($canvas, $variant->inputs);
         $containers = CanvasContainer::collectionFromCanvas($canvas);
+
+        // Repeatable rows of the AUTHORED design: how many fit by designed
+        // geometry — computed once, shown on the container and the row.
+        $fitsRows = [];
+        foreach ($containers as $container) {
+            if ($container->repeat !== null) {
+                $fitsRows[$container->id] = RepeatableRows::designedCapacity($variant, $container->id);
+            }
+        }
 
         return new TemplateVariantResponse(
             id: $variant->id->toString(),
@@ -182,7 +194,7 @@ final readonly class TemplatesProvider implements ProviderInterface
             ),
             inputs: $this->buildTextInputs($variant, $canvas, $containers),
             imageInputs: $this->buildImageInputs($variant, $containers),
-            containers: $this->buildContainers($containers, $frames, $variant->inputs, FillTextPlaceholders::decorativeMemberTops($canvas, $containers), $this->placeholderGeometry->slotFramesByInputId($canvas)),
+            containers: $this->buildContainers($containers, $frames, $variant->inputs, FillTextPlaceholders::decorativeMemberTops($canvas, $containers), $this->placeholderGeometry->slotFramesByInputId($canvas), $fitsRows),
             richTextOptions: $this->buildRichTextOptions($variant),
             groupMember: $variant->group !== null,
             shapeInputs: $this->buildShapeInputs($canvas),
@@ -190,7 +202,79 @@ final readonly class TemplatesProvider implements ProviderInterface
             bleedMm: $variant->dimension->bleedMm,
             cropMarks: $variant->dimension->cropMarks,
             movableElements: $this->buildMovableElements($variant),
+            repeatableRows: self::buildRepeatableRows($variant, $fitsRows),
         );
+    }
+
+    /**
+     * The repeatable rows of the variant ({@see ApiRepeatableRows::describe()}
+     * — fillable members + every row's ids, read off the EXPANDED design,
+     * exactly what the `rows` bodies are applied against).
+     *
+     * @param array<string, null|int> $fitsRows row id → designed capacity
+     * @return list<TemplateVariantRepeatableRowResponse>
+     */
+    private static function buildRepeatableRows(TemplateVariant $variant, array $fitsRows): array
+    {
+        $result = [];
+
+        foreach (ApiRepeatableRows::describe($variant) as $row) {
+            $repeat = $row['row']->repeat;
+            \assert($repeat !== null);
+
+            $result[] = new TemplateVariantRepeatableRowResponse(
+                containerId: $row['row']->id,
+                parentContainerId: $row['parentId'],
+                name: $row['row']->name,
+                repeat: $repeat->toArray(),
+                fitsRows: $fitsRows[$row['row']->id] ?? null,
+                members: array_map(
+                    static fn (array $member): TemplateVariantRepeatableRowMemberResponse => new TemplateVariantRepeatableRowMemberResponse($member['id'], $member['kind'], $member['name']),
+                    $row['members'],
+                ),
+                slots: array_map(
+                    static fn (array $slot): TemplateVariantRepeatableRowSlotResponse => new TemplateVariantRepeatableRowSlotResponse($slot['index'], $slot['containerId'], $slot['ids']),
+                    $row['slots'],
+                ),
+            );
+        }
+
+        return $result;
+    }
+
+    /**
+     * The group fill's rows: ONE shared count per row across the member
+     * dimensions — `fitsRows` is the SMALLEST member's estimate (Jan,
+     * 2026-11-09: the smallest size decides).
+     *
+     * @param list<TemplateVariantResponse> $variants
+     * @return list<TemplateGroupRepeatableRowResponse>
+     */
+    private static function groupRepeatableRows(array $variants): array
+    {
+        /** @var array<string, array{repeat: array{max: int, min: int, default: int}, fitsRows: null|int}> $rows */
+        $rows = [];
+
+        foreach ($variants as $variant) {
+            if (!$variant->groupMember) {
+                continue;
+            }
+
+            foreach ($variant->repeatableRows as $row) {
+                $known = $rows[$row->containerId] ?? null;
+                $fits = $known === null
+                    ? $row->fitsRows
+                    : ($known['fitsRows'] === null ? $row->fitsRows : ($row->fitsRows === null ? $known['fitsRows'] : min($known['fitsRows'], $row->fitsRows)));
+                $rows[$row->containerId] = ['repeat' => $known['repeat'] ?? $row->repeat, 'fitsRows' => $fits];
+            }
+        }
+
+        $result = [];
+        foreach ($rows as $containerId => $row) {
+            $result[] = new TemplateGroupRepeatableRowResponse((string) $containerId, $row['repeat'], $row['fitsRows']);
+        }
+
+        return $result;
     }
 
     /**
@@ -443,10 +527,18 @@ final readonly class TemplatesProvider implements ProviderInterface
      * @param array<EditorTextInput> $inputs
      * @param array<string, float> $decorationTops decorative member tops (hidable decoration-only containers)
      * @param array<string, PlaceholderFrame> $imageFrames fillable image-slot frames (plan P2a)
+     * @param array<string, null|int> $fitsRows repeatable row id → designed capacity
      * @return list<TemplateVariantContainerResponse>
      */
-    private function buildContainers(array $containers, array $frames, array $inputs, array $decorationTops = [], array $imageFrames = []): array
+    private function buildContainers(array $containers, array $frames, array $inputs, array $decorationTops = [], array $imageFrames = [], array $fitsRows = []): array
     {
+        $repeats = [];
+        foreach ($containers as $container) {
+            if ($container->repeat !== null) {
+                $repeats[$container->id] = $container->repeat->toArray();
+            }
+        }
+
         return array_map(
             static fn (ResolvedCanvasContainer $container): TemplateVariantContainerResponse => new TemplateVariantContainerResponse(
                 id: $container->id,
@@ -460,6 +552,8 @@ final readonly class TemplatesProvider implements ProviderInterface
                 hidable: $container->hidable,
                 name: $container->name,
                 memberImageInputIds: $container->memberImageInputIds,
+                repeat: $repeats[$container->id] ?? null,
+                fitsRows: isset($repeats[$container->id]) ? ($fitsRows[$container->id] ?? null) : null,
             ),
             ResolvedCanvasContainer::collection($containers, $frames, $inputs, $decorationTops, $imageFrames),
         );

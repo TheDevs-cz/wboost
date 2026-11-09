@@ -99,28 +99,32 @@ final class DescribeVariantTest extends WebTestCase
      */
     public function testContainersAgreeWithTheRestApiListing(): void
     {
+        // One variant carries a repeatable row, so `repeat` / `fitsRows` are
+        // compared on a real value, not only on nulls.
+        $this->browser();
+        $variant = self::getContainer()->get(\WBoost\Web\Repository\TemplateVariantRepository::class)
+            ->get(\Ramsey\Uuid\Uuid::fromString(TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID));
+        \WBoost\Web\Tests\ContainerFixtures::applyRaw($variant, \WBoost\Web\Tests\ContainerFixtures::turnajRepeatableRaw(max: 8, default: 2));
+        self::getContainer()->get(\Doctrine\ORM\EntityManagerInterface::class)->flush();
+
+        $sawRow = false;
         foreach ($this->apiVariantsById(TestDataFixture::PROJECT_1_ID) as $variantId => $apiVariant) {
             $mcp = $this->describe(TestDataFixture::MCP_TOKEN_ACTIVE, $variantId);
 
-            // `repeat` / `fitsRows` are MCP-only until the API listing gains
-            // its repeatable-row field (container-rows P5).
-            $mcpContainers = is_array($mcp['containers'] ?? null) ? $mcp['containers'] : null;
-            if ($mcpContainers !== null) {
-                $mcpContainers = array_map(static function (mixed $container): mixed {
-                    if (is_array($container)) {
-                        unset($container['repeat'], $container['fitsRows']);
-                    }
-
-                    return $container;
-                }, $mcpContainers);
-            }
-
+            // `repeat` / `fitsRows` included: the REST listing reports them
+            // since container-rows P5.
             self::assertSame(
                 self::numbersAsFloats($apiVariant['containers'] ?? null),
-                self::numbersAsFloats($mcpContainers),
+                self::numbersAsFloats($mcp['containers'] ?? null),
                 'Containers disagree with the REST listing for variant ' . $variantId,
             );
+
+            foreach (is_array($apiVariant['containers'] ?? null) ? $apiVariant['containers'] : [] as $container) {
+                $sawRow = $sawRow || (is_array($container) && ($container['repeat'] ?? null) !== null);
+            }
         }
+
+        self::assertTrue($sawRow, 'a repeatable row was compared');
     }
 
     /**

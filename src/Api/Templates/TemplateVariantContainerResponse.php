@@ -53,6 +53,12 @@ namespace WBoost\Web\Api\Templates;
  * hidable container holding only decorative images / shapes is listed too
  * (toggle only): empty `memberInputIds`, `y` = its highest decorative member,
  * never referenced from a parent's `memberContainerIds`.
+ *
+ * `repeat: {max, min, default}` (null on a plain container) marks a
+ * repeatable ROW — a nested container the user may repeat; `fitsRows` is
+ * how many fit by designed geometry. Only the template row is listed here;
+ * `variants[].repeatableRows[]` names its fillable members and the ids of
+ * every row, and the render bodies fill it through `rows`.
  */
 final readonly class TemplateVariantContainerResponse
 {
@@ -73,6 +79,11 @@ final readonly class TemplateVariantContainerResponse
         public bool $hidable = false,
         public null|string $name = null,
         public array $memberImageInputIds = [],
+        /**
+         * @var null|array{max: int, min: int, default: int}
+         */
+        public null|array $repeat = null,
+        public null|int $fitsRows = null,
     ) {
     }
 }

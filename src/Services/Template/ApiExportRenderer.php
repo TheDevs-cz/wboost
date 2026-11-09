@@ -6,6 +6,7 @@ namespace WBoost\Web\Services\Template;
 
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Exceptions\InvalidExportValue;
+use WBoost\Web\Exceptions\InvalidRichTextValue;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Services\Print\PrintPdfRenderer;
 use WBoost\Web\Services\SocialNetwork\ResolveElementOffsets;
@@ -14,6 +15,7 @@ use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Services\SocialNetwork\ResolveShapeColorOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
 use WBoost\Web\Services\SocialNetwork\ValidateContainerHides;
+use WBoost\Web\Value\AppliedApiRows;
 use WBoost\Web\Value\ExportFormat;
 use WBoost\Web\Value\RenderImageFormat;
 use WBoost\Web\Value\ResolvedImageOverrides;
@@ -37,6 +39,17 @@ use WBoost\Web\Value\ResolvedInputOverrides;
  * by {@see ResolveElementOffsets} (`unknown_element`, `move_not_allowed`,
  * `offset_out_of_range`) against the EXPANDED variant, then baked by the
  * renderer.
+ *
+ * Repeatable container rows arrive as `rows` (row container id → list of
+ * row objects keyed by the TEMPLATE row's member ids, the list length is the
+ * count) and are folded into the value maps by {@see ApiRepeatableRows::apply()}
+ * (strict: `not_repeatable`, `too_many_rows`, `too_few_rows`,
+ * `unknown_row_input`, `ambiguous_row_value`) before anything else; a value
+ * refused further down is reported with its `rowContainerId` + `rowIndex`.
+ * A caller that needs the applied maps itself (to record the version, or
+ * to layer a group dimension's placements over a row's picture) applies
+ * them first and passes the {@see AppliedApiRows} as `$rows`; the value maps
+ * it passes alongside are then taken as already applied.
  */
 readonly final class ApiExportRenderer
 {
@@ -61,6 +74,7 @@ readonly final class ApiExportRenderer
      * @param array<array-key, mixed> $images
      * @param array<array-key, mixed> $shapeColors
      * @param array<array-key, mixed> $offsets element id → `{x, y}` (this variant's own map)
+     * @param array<array-key, mixed>|AppliedApiRows $rows the body's `rows`, or already applied
      */
     public function renderExport(
         ExportFormat $exportFormat,
@@ -70,18 +84,19 @@ readonly final class ApiExportRenderer
         array $images,
         array $shapeColors = [],
         array $offsets = [],
+        array|AppliedApiRows $rows = [],
     ): string {
         $variant = RepeatableRows::expand($variant);
 
         if ($exportFormat === ExportFormat::Png) {
-            return $this->render($variant, $inputs, $images, shapeColors: $shapeColors, offsets: $offsets);
+            return $this->render($variant, $inputs, $images, shapeColors: $shapeColors, offsets: $offsets, rows: $rows);
         }
 
         if ($exportFormat !== ExportFormat::Pdf) {
             throw new \InvalidArgumentException(sprintf('A single variant cannot be exported as "%s".', $exportFormat->value));
         }
 
-        [$overrides, $imageOverrides] = $this->resolve($variant, $inputs, $images, $shapeColors, $offsets);
+        [$overrides, $imageOverrides] = $this->resolve($variant, $inputs, $images, $shapeColors, $offsets, $rows);
 
         return $this->printPdfRenderer->render($variant, $overrides, $imageOverrides, $title, strictContainerOverflow: true);
     }
@@ -91,6 +106,7 @@ readonly final class ApiExportRenderer
      * @param array<array-key, mixed> $images
      * @param array<array-key, mixed> $shapeColors shape inputId → `#rrggbb`
      * @param array<array-key, mixed> $offsets element id → `{x, y}`
+     * @param array<array-key, mixed>|AppliedApiRows $rows the body's `rows`, or already applied
      *
      * @throws \WBoost\Web\Exceptions\InvalidRichTextValue
      * @throws InvalidExportValue
@@ -104,9 +120,10 @@ readonly final class ApiExportRenderer
         RenderImageFormat $format = RenderImageFormat::Png,
         array $shapeColors = [],
         array $offsets = [],
+        array|AppliedApiRows $rows = [],
     ): string {
         $variant = RepeatableRows::expand($variant);
-        [$overrides, $imageOverrides] = $this->resolve($variant, $inputs, $images, $shapeColors, $offsets);
+        [$overrides, $imageOverrides] = $this->resolve($variant, $inputs, $images, $shapeColors, $offsets, $rows);
 
         return $this->renderer->renderToBytes(
             $variant,
@@ -126,6 +143,7 @@ readonly final class ApiExportRenderer
      * @param array<array-key, mixed> $placements variantId → imageInputId → transform
      * @param array<array-key, mixed> $shapeColors shared by every dimension (members share shape ids)
      * @param array<array-key, mixed> $offsets variantId → element id → `{x, y}` (per dimension)
+     * @param array<array-key, mixed> $rows the shared `rows` (one count per row for every dimension)
      */
     public function renderGroupMember(
         TemplateVariant $variant,
@@ -135,15 +153,41 @@ readonly final class ApiExportRenderer
         RenderImageFormat $format = RenderImageFormat::Png,
         array $shapeColors = [],
         array $offsets = [],
+        array $rows = [],
     ): string {
+        $applied = self::groupMemberValues($variant, $inputs, $images, $placements, $shapeColors, $rows);
+
         return $this->render(
             $variant,
-            $inputs,
-            self::imagesForVariant($images, $placements, $variant->id->toString()),
+            $applied->inputs,
+            $applied->images,
             $format,
-            $shapeColors,
+            $applied->shapeColors,
             self::offsetsForVariant($offsets, $variant->id->toString()),
+            $applied,
         );
+    }
+
+    /**
+     * One group dimension's values: the shared body with its `rows` applied
+     * on THIS member (a row id the member does not carry is skipped; the
+     * group-wide check refuses ids no member knows), then the dimension's
+     * `placements` layered over the picks — so a placement may address a
+     * row's slot id (`repeatableRows[].slots[].ids`).
+     *
+     * @param array<array-key, mixed> $inputs
+     * @param array<array-key, mixed> $images
+     * @param array<array-key, mixed> $placements
+     * @param array<array-key, mixed> $shapeColors
+     * @param array<array-key, mixed> $rows
+     *
+     * @throws InvalidExportValue
+     */
+    public static function groupMemberValues(TemplateVariant $variant, array $inputs, array $images, array $placements, array $shapeColors, array $rows): AppliedApiRows
+    {
+        $applied = ApiRepeatableRows::apply(RepeatableRows::expand($variant), $rows, $inputs, $images, $shapeColors, groupMember: true);
+
+        return $applied->withImages(self::imagesForVariant($applied->images, $placements, $variant->id->toString()));
     }
 
     /**
@@ -272,36 +316,52 @@ readonly final class ApiExportRenderer
      * @param array<array-key, mixed> $images
      * @param array<array-key, mixed> $shapeColors
      * @param array<array-key, mixed> $offsets element id → `{x, y}` of THIS variant
+     * @param array<array-key, mixed>|AppliedApiRows $rows the body's `rows`, or already applied (then
+     *   `$inputs` / `$images` / `$shapeColors` are its maps)
      * @return array{ResolvedInputOverrides, ResolvedImageOverrides}
      *
      * Public (STRICT, like every API render) for multi-page documents: all
      * pages are resolved before any is rendered, so a 400 on the last page
      * never arrives after minutes of renders.
+     *
+     * @throws InvalidExportValue
+     * @throws InvalidRichTextValue
      */
-    public function resolve(TemplateVariant $variant, array $inputs, array $images, array $shapeColors, array $offsets = []): array
+    public function resolve(TemplateVariant $variant, array $inputs, array $images, array $shapeColors, array $offsets = [], array|AppliedApiRows $rows = []): array
     {
         // Repeatable rows: resolve against the EXPANDED variant (idempotent —
-        // the render methods above already hand it over). Row counts are not
-        // part of the API body yet (P5 `rows`): every row shows its default.
+        // the render methods above already hand it over). The body's `rows`
+        // land on the rows' slot ids; without them every row shows its
+        // default count.
         $variant = RepeatableRows::expand($variant);
 
-        // `inputs[<containerId>] = {hide: true}` hides a whole container:
-        // refuse a malformed entry / a non-hidable container up front (the
-        // resolver below only collects the requests, the renderer expands).
-        ValidateContainerHides::strictForCanvas($variant->canvas, $variant->inputs, $inputs);
+        if (!$rows instanceof AppliedApiRows) {
+            $rows = ApiRepeatableRows::apply($variant, $rows, $inputs, $images, $shapeColors);
+            [$inputs, $images, $shapeColors] = [$rows->inputs, $rows->images, $rows->shapeColors];
+        }
 
-        $overrides = $this->resolveTextOverrides->resolve(
-            $variant->inputs,
-            self::stringKeyed($inputs),
-            richTextOptions: $this->resolveRichTextOptions->forVariant($variant),
-        )->withShapeColors($this->resolveShapeColorOverrides->forVariant($variant, self::stringKeyed($shapeColors), lenient: false))
-            ->withOffsets(self::resolveOffsets($variant, $offsets));
+        try {
+            // `inputs[<containerId>] = {hide: true}` hides a whole container:
+            // refuse a malformed entry / a non-hidable container up front (the
+            // resolver below only collects the requests, the renderer expands).
+            ValidateContainerHides::strictForCanvas($variant->canvas, $variant->inputs, $inputs);
 
-        $imageOverrides = $this->resolveImageOverrides->resolve(
-            $variant->imageInputs,
-            $variant->template->project->id,
-            self::stringKeyed($images),
-        );
+            $overrides = $this->resolveTextOverrides->resolve(
+                $variant->inputs,
+                self::stringKeyed($inputs),
+                richTextOptions: $this->resolveRichTextOptions->forVariant($variant),
+            )->withShapeColors($this->resolveShapeColorOverrides->forVariant($variant, self::stringKeyed($shapeColors), lenient: false))
+                ->withOffsets(self::resolveOffsets($variant, $offsets))
+                ->withRowCounts($rows->counts);
+
+            $imageOverrides = $this->resolveImageOverrides->resolve(
+                $variant->imageInputs,
+                $variant->template->project->id,
+                self::stringKeyed($images),
+            );
+        } catch (InvalidExportValue|InvalidRichTextValue $invalid) {
+            throw $rows->tag($invalid);
+        }
 
         return [$overrides, $imageOverrides];
     }

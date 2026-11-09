@@ -40,6 +40,17 @@ final class InvalidRichTextValue extends \Exception
         return new self($this->errorCode, $this->getMessage(), [...$this->context, 'inputId' => $inputId]);
     }
 
+    /**
+     * The same violation with extra / replaced context fields (a value that
+     * arrived through the API's `rows` is re-tagged with its row).
+     *
+     * @param array<string, mixed> $context
+     */
+    public function withContext(array $context): self
+    {
+        return new self($this->errorCode, $this->getMessage(), [...$this->context, ...$context]);
+    }
+
     public static function richTextNotAllowed(string $inputLabel): self
     {
         return new self(

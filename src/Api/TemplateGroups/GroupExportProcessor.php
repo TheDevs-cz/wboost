@@ -15,8 +15,10 @@ use WBoost\Web\Exceptions\InvalidExportValue;
 use WBoost\Web\Exceptions\InvalidRichTextValue;
 use WBoost\Web\Exceptions\TemplateRenderUnavailable;
 use WBoost\Web\Services\Template\ApiExportRenderer;
+use WBoost\Web\Services\Template\ApiRepeatableRows;
 use WBoost\Web\Services\Template\ApiSubjectLoader;
 use WBoost\Web\Services\Template\RecordExportVersion;
+use WBoost\Web\Services\Template\RepeatableRows;
 use WBoost\Web\Services\Template\TemplateExportFileNames;
 use WBoost\Web\Services\TemplateGroup\GroupExportArchive;
 use WBoost\Web\Services\Usage\RecordExportUsage;
@@ -95,10 +97,15 @@ final readonly class GroupExportProcessor implements ProcessorInterface
             }
         }
 
-        // Every member's moves, strictly, before any render: the version
-        // records the whole group's fill, also dimensions not rendered here.
+        $members = $this->subjectLoader->members($group);
+
+        // Every member's moves and rows, strictly, before any render: the
+        // version records the whole group's fill, also dimensions not
+        // rendered here. The rows are ONE shared set for every dimension.
         try {
-            $offsets = ApiExportRenderer::resolveGroupOffsets($this->subjectLoader->members($group), $data->offsets);
+            $offsets = ApiExportRenderer::resolveGroupOffsets($members, $data->offsets);
+            $rows = ApiRepeatableRows::raw($data->rows);
+            $groupRows = ApiRepeatableRows::applyToGroup($members, $rows, $data->inputs, $data->images, $data->shapeColors);
         } catch (InvalidExportValue $error) {
             return ExportErrorResponse::fromThrowable($error) ?? throw $error;
         }
@@ -108,14 +115,16 @@ final readonly class GroupExportProcessor implements ProcessorInterface
 
         foreach ($variants as $variant) {
             try {
+                $values = ApiExportRenderer::groupMemberValues($variant, $data->inputs, $data->images, $data->placements, $data->shapeColors, $rows);
                 $renders[] = [$variant, $this->apiExportRenderer->renderExport(
                     $format,
                     $variant,
                     $this->archive->documentTitle($group, $variant),
-                    $data->inputs,
-                    ApiExportRenderer::imagesForVariant($data->images, $data->placements, $variant->id->toString()),
-                    $data->shapeColors,
+                    $values->inputs,
+                    $values->images,
+                    $values->shapeColors,
                     $offsets[$variant->id->toString()] ?? [],
+                    $values,
                 )];
             } catch (InvalidRichTextValue|InvalidExportValue|ContainerOverflow|TemplateRenderUnavailable $error) {
                 return ExportErrorResponse::fromThrowable($error, $variant->id->toString()) ?? throw $error;
@@ -126,7 +135,8 @@ final readonly class GroupExportProcessor implements ProcessorInterface
             $this->recordExportUsage->record($variant, ExportChannel::Api, $format);
         }
 
-        $fill = ExportFillValues::fromGroupApiRequest($data->inputs, $data->images, $data->placements, $data->shapeColors)
+        $fill = ExportFillValues::fromGroupApiRequest($groupRows->inputs, $groupRows->images, $data->placements, $groupRows->shapeColors)
+            ->withRows(RepeatableRows::normalizeCounts($members, $groupRows->counts))
             ->withOffsets($offsets);
         $this->recordExportVersion->recordGroup($group, ExportChannel::Api, $fill);
 

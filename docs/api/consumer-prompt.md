@@ -216,7 +216,29 @@ Returns a **plain JSON array** (no pagination; null fields are kept on purpose):
             "spaceAfter": null,                          // guaranteed clearance below (push landing distance + canvas-bottom margin); null = 0
             "nested": false,                             // true → this container flows inside a parent; its own maxHeight is NOT enforced
             "hidable": true,                             // true → offer ONE toggle that hides the WHOLE container (send inputs[<this id>] = { "hide": true })
-            "name": "Bublina s citací"                   // label for that toggle; absent/null = unnamed (fall back to "Skupina prvků N")
+            "name": "Bublina s citací",                  // label for that toggle; absent/null = unnamed (fall back to "Skupina prvků N")
+            "memberImageInputIds": [],                   // fillable IMAGE slots flowing in it
+            "repeat": null,                              // non-null { "max": 8, "min": 1, "default": 2 } → a REPEATABLE ROW (see "Repeatable rows")
+            "fitsRows": null                             // repeatable rows only: how many rows fit by designed geometry (within min…max)
+          }
+        ],
+        "repeatableRows": [                              // rows the user may REPEAT (may be empty) — see "Repeatable rows"
+          {
+            "containerId": "7a221de8-…",                 // the row container → the KEY you send in `rows`
+            "parentContainerId": "de5f8b49-…",           // the container the rows flow in (its maxHeight bounds them)
+            "name": "Zápas",                             // nullable designer name
+            "repeat": { "max": 5, "min": 1, "default": 2 }, // user may show min…max rows; `default` on a fresh fill
+            "fitsRows": 5,                               // designed estimate of how many fit (real texts may wrap)
+            "members": [                                 // the TEMPLATE row's fillable members → the keys of one row object
+              { "id": "7a221de8-…", "kind": "container", "name": "Zápas" },  // a hidable container of the row (the row itself) → { "hide": true }
+              { "id": "5a191f3b-…", "kind": "text",      "name": "Skóre" },  // also in inputs[] (same id) — read its limits there
+              { "id": "aa3dc632-…", "kind": "text",      "name": "Soupeř" },
+              { "id": "0193a0c5-…", "kind": "image",     "name": "Erb" }     // also in imageInputs[]; "shape" → in shapeInputs[]
+            ],
+            "slots": [                                   // every row up to max: the id each member carries in that row
+              { "index": 0, "containerId": "7a221de8-…", "ids": { "7a221de8-…": "7a221de8-…", "aa3dc632-…": "aa3dc632-…", … } },
+              { "index": 1, "containerId": "3c0f…",      "ids": { "7a221de8-…": "3c0f…",      "aa3dc632-…": "9e41…",      … } }
+            ]
           }
         ],
         "imageInputs": [                                 // fillable IMAGE slots (may be empty)
@@ -358,6 +380,13 @@ so what previews fine exports fine. The difference is what they ARE:
   },
   "offsets": {                                                        // optional — moved elements (variant.movableElements)
     "a1249eae-…": { "x": -24, "y": 0 }                               // canvas px from the designed position, +x right, +y down
+  },
+  "rows": {                                                           // optional — repeatable rows (variant.repeatableRows)
+    "7a221de8-…": [                                                   // ONE object per row, in order; the list length IS the row count
+      { "5a191f3b-…": "4 - 4", "aa3dc632-…": "TJ Kelč" },             // keyed by the TEMPLATE row's member ids
+      { "aa3dc632-…": { "value": "FK Nový Jičín" }, "0193a0c5-…": "<galleryImageId>" },
+      {}                                                              // a row left at the template row's sample
+    ]
   }
 }
 ```
@@ -479,6 +508,12 @@ retry) · `500` render backend failure.
 | `move_not_allowed` | An `offsets` entry on an element (or along an axis) the user may not move. `reason`: `not_allowed` (no allowance / axis off), `in_container` (a container member — move the container), `hidden` (design-hidden). | `elementId`, `reason`, `axis` (`x` / `y`, when only that axis is refused) |
 | `offset_out_of_range` | An offset outside the element's `range`. | `elementId`, `axis`, `min`, `max`, `value` (canvas px) |
 | `invalid_value` (offsets) | An `offsets` entry that is not `{x: number, y: number}`. | `elementId` |
+| `not_repeatable` | A `rows` key that is no repeatable row of the variant (a group: of any member). | `containerId` |
+| `too_many_rows` / `too_few_rows` | A `rows` list longer than the row's `repeat.max` / shorter than `repeat.min`. | `containerId`, `count`, `min`, `max` |
+| `unknown_row_input` | A key in a row object that is no `repeatableRows[].members[].id` of that row. | `containerId`, `rowIndex`, `inputId` |
+| `ambiguous_row_value` | A member of a row you send in `rows` is ALSO addressed in `inputs` / `images` / `shapeColors` — by its template id (row 1) or a row's slot id. Send row values in `rows` only. | `containerId`, `rowIndex`, `inputId` |
+| `invalid_value` (rows) | `rows` is not an object of lists, or a row entry is not an object. | `containerId`, `rowIndex` (when known) |
+| any value code inside `rows` | A row's VALUE refused with its usual code (`value_too_long`, `image_not_allowed`, …): the id field holds the template member id you sent. | + `rowContainerId`, `rowIndex` (0-based) |
 | rich-text codes | See "Rich-text 400s" below. | `inputId` (+ `allowedFonts` / `allowedColors`) |
 
 Group renders (see "Template groups") add the `variantId` of the dimension
@@ -924,6 +959,60 @@ the block below it down.
   `movableElements[].range` (the designer's limits scale with the format).
 - **Documents:** per page, inside `pages[<pageId>].offsets` (never shared).
 
+### Repeatable rows (`variant.repeatableRows`)
+
+A designer can draw ONE row of a list — "Skóre + Soupeř", a scorer line, a
+row with an opponent's crest — and let the user repeat it: between
+`repeat.min` and `repeat.max` rows, `repeat.default` on a fresh fill, each new
+row flowing below the previous one inside `parentContainerId`.
+
+- Render the row group as a list: one block per row with the TEMPLATE row's
+  fields (`members` — `text` ids are also in `inputs[]`, `image` ids in
+  `imageInputs[]`, `shape` ids in `shapeInputs[]`, so read labels / limits /
+  options there), a "+ Přidat řádek" button (disabled at `max`) and a remove
+  ✕ per row (disabled at `min`). A `container` member is a hidable container
+  of the row (usually the row itself) — offer its eye per row.
+- Send `rows: { "<containerId>": [ {…row 1…}, {…row 2…}, … ] }` on `/preview`
+  and `/export`. The LIST LENGTH IS THE COUNT. Each row object is keyed by
+  the template row's member ids — never by slot ids — with the value shapes
+  of `inputs` (texts, `{hide: true}` for a container), `images` (pictures:
+  `imageId`, `{imageId, scale, …}`, `{hide: true}`) and `shapeColors`
+  (`"#rrggbb"`). A member you leave out shows the template row's SAMPLE
+  (exactly like a fresh row on the WBoost fill page); `{}` is a whole sample
+  row. Removing row 2 of 4 = send the list without it (later rows shift up).
+- **Without `rows`** every row shows its `default` count and row 1 keeps
+  taking its values from `inputs` / `images` like before (backward
+  compatible). Once you send `rows` for a row, send ALL of that row's values
+  there: the same member also in `inputs` / `images` / `shapeColors` is a
+  `400 ambiguous_row_value`.
+- **Height.** `max` is the hard cap; the rows must also FIT the parent
+  container's `maxHeight`. `fitsRows` is the designed-geometry estimate
+  (sample texts) — use it to warn ("vejde se ~5 řádků"), not as a hard
+  limit: real texts may wrap. A body whose rows do not fit answers the usual
+  `400 container_overflow` (on the ROOT container). Gate "+ Přidat řádek"
+  on the last preview's success if you want the WBoost page's behaviour.
+- Errors: `not_repeatable`, `too_many_rows`, `too_few_rows`,
+  `unknown_row_input`, `ambiguous_row_value`, `invalid_value` (see the 400
+  table); a refused value inside a row carries `rowContainerId` + `rowIndex`.
+- `slots` lists the id every member has in every row (index 0 = the
+  template row's own ids; a row merged from hand-numbered copies keeps their
+  OLD ids). You do not need them for `rows`; use them for a group
+  dimension's `placements` of a row's picture, and to draw per-row boxes if
+  you mirror the layout. There are no per-row `frame`s — a row k sits below
+  row k−1; the server-rendered preview is authoritative.
+- Prefill by name (`inputs[].name`) still only reaches the TEMPLATE row (row
+  1); fill further rows through `rows`.
+- **Groups:** ONE shared count for every dimension (the same `rows` goes to
+  every member). `template.group.repeatableRows[]` lists the group's rows with
+  the SMALLEST member's `fitsRows` — the smallest size decides whether
+  another row fits; a too-tall row list answers `container_overflow` with
+  that dimension's `variantId`.
+- **Documents:** per page, inside `pages[<pageId>].rows` (never shared; a
+  row member can never be bound to a shared field).
+- **History:** a version's `fill.rows` comes back in exactly this shape
+  (and those values are NOT repeated in `fill.inputs` / `images` /
+  `shapeColors`), so a loaded fill posts back as-is.
+
 ### Image placeholders (`variant.imageInputs`)
 
 For each image slot, let the user pick a picture (and, if allowed, position it):
@@ -1129,9 +1218,17 @@ POST {API_BASE}/api/template-groups/{groupId}/export
   "shapeColors": { "<shapeInputId>": "#c8102e" },             // shared, exactly as the variant export
   "offsets": {                                                 // per dimension — moved elements (see "Movable elements")
     "<variantId 9:16>": { "<elementId>": { "x": 0, "y": 40 } }
+  },
+  "rows": {                                                    // shared — ONE row count for every dimension (see "Repeatable rows")
+    "<rowContainerId>": [ { "<memberId>": "Domácí" }, { "<memberId>": "Hosté" } ]
   }
 }
 ```
+
+**Rows are shared.** `rows` (see "Repeatable rows") is one list for the whole
+group — every dimension renders the same rows; `template.group.repeatableRows[]`
+carries the smallest dimension's `fitsRows`. A dimension's `placements` may
+address a row's picture by its slot id (`variants[].repeatableRows[].slots[].ids`).
 
 **Moves are per dimension too.** `offsets` is keyed by variantId like
 `placements`; each dimension's moves are validated against ITS
@@ -1202,9 +1299,16 @@ shape**, ready to put back into your form and send again:
   "images": { "<imageInputId>": { "imageId": "…", "url": "<public store url>", "scale": 1.4, "offsetXRatio": 0.1 } | { "hide": true } },
   "placements": { "<variantId>": { "<imageInputId>": { … } } },  // group versions only; {} otherwise
   "shapeColors": { "<shapeInputId>": "#c8102e" },                 // {} when no shape was recoloured
-  "offsets": { "<elementId>": { "x": 0, "y": 40 } }               // moved elements; a group version: { "<variantId>": { "<elementId>": {…} } }; {} when nothing moved
+  "offsets": { "<elementId>": { "x": 0, "y": 40 } },              // moved elements; a group version: { "<variantId>": { "<elementId>": {…} } }; {} when nothing moved
+  "rows": { "<rowContainerId>": [ { "<memberId>": "4 - 4" }, {} ] } // repeatable rows as the bodies send them (one object per shown row); {} for a design without rows
 }
 ```
+
+Repeatable rows come back in `rows` (every row of the design, at its stored
+count — the default for a version recorded before the row existed); their
+values are NOT also in `inputs` / `images` / `shapeColors`, so the fill posts
+back without `ambiguous_row_value`. A group version's `placements` of a row's
+picture stay keyed by its slot id.
 
 The fill is seeded **leniently against the current design**: inputs that no
 longer exist or got locked are dropped, a rich value on a now-plain input
@@ -1272,7 +1376,7 @@ hide them from a "templates" list and present the document instead.
     "format": "pdf-screen",
     "fields": { "<fieldId>": "Lucie Svobodová" },
     "pages": {
-      "<pageId>": { "inputs": { "<inputId>": "…" }, "images": { … }, "shapeColors": { … }, "offsets": { "<elementId>": { "x": 0, "y": 40 } } }
+      "<pageId>": { "inputs": { "<inputId>": "…" }, "images": { … }, "shapeColors": { … }, "offsets": { "<elementId>": { "x": 0, "y": 40 } }, "rows": { "<rowContainerId>": [ { … }, { … } ] } }
     }
   }
   ```
@@ -1291,6 +1395,8 @@ hide them from a "templates" list and present the document instead.
     (`images[inputId] = {scale, …}`); the shared pick supplies the `imageId`.
     `offsets` (the page's moved elements, keyed by its variant's
     `movableElements[].id`) is page-only — never shared, never a field.
+    So is `rows` (the page's repeatable rows, see "Repeatable rows" — a
+    row member is never bindable to a shared field).
   - Strict like every API render: every page is resolved before any renders.
     400 bodies are the usual `{error, code, …}` plus `pageId` (and
     `variantId`).
@@ -1359,7 +1465,7 @@ hide them from a "templates" list and present the document instead.
   "fill": {
     "fields": { "<fieldId>": "Lucie Svobodová" },          // text: string | {value|runs, …}; image: {imageId, url} | {hide: true}
     "pages": {
-      "<pageId>": { "inputs": { … }, "images": { … }, "shapeColors": { … }, "offsets": { … } }
+      "<pageId>": { "inputs": { … }, "images": { … }, "shapeColors": { … }, "offsets": { … }, "rows": { … } }
     }
   }
   ```

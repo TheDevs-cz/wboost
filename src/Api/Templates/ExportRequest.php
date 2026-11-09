@@ -86,6 +86,32 @@ final class ExportRequest
     public array $offsets = [];
 
     /**
+     * Repeatable container rows ("Opakovatelný řádek"): row container id →
+     * a LIST of row objects, one per row, in order — the list length IS the
+     * row count (`repeatableRows[].repeat.min` … `max`). Each row object is
+     * keyed by the TEMPLATE row's member ids (`repeatableRows[].members[].id`)
+     * and takes the value shapes of the maps above: a text → what `inputs`
+     * takes (string | `{value, hide, fontFamily}` | `{runs, lines, …}`), an
+     * image slot → what `images` takes (`imageId` | `{imageId, scale, …}` |
+     * `{hide: true}`), a recolourable shape → `"#rrggbb"`, a hidable
+     * container of the row → `{hide: true}`. A member left out of a row
+     * object shows the template row's sample. Without `rows` every row shows
+     * its designed default count.
+     *
+     * Strict: an id that is no repeatable row → 400 `not_repeatable`; a list
+     * outside `[min, max]` → `too_few_rows` / `too_many_rows` (`count`, `min`,
+     * `max`); an unknown key in a row object → `unknown_row_input`
+     * (`rowIndex`, `inputId`); a member of a sent row ALSO addressed in
+     * `inputs` / `images` / `shapeColors` (row 1's own ids included) →
+     * `ambiguous_row_value`; a malformed `rows` → `invalid_value`. All carry
+     * `containerId`. A refused VALUE inside a row answers its usual code with
+     * `rowContainerId` + `rowIndex` (0-based) and the member id you sent. Rows
+     * that do not fit the parent container's height answer the usual
+     * `container_overflow` (on the root container).
+     */
+    public mixed $rows = [];
+
+    /**
      * `"png"` (default — the lossless image) or `"pdf"`: the print PDF —
      * PDF/X-1a:2001, CMYK (Coated FOGRA39), the variant's bleed + crop marks.
      * PDF exists only for print formats (`variants[].printFormat`); a screen

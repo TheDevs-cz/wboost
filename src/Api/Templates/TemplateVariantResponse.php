@@ -20,6 +20,7 @@ final readonly class TemplateVariantResponse
      * @param list<TemplateVariantContainerResponse> $containers
      * @param list<TemplateVariantShapeInputResponse> $shapeInputs
      * @param list<TemplateVariantMovableElementResponse> $movableElements
+     * @param list<TemplateVariantRepeatableRowResponse> $repeatableRows
      */
     public function __construct(
         public string $id,
@@ -63,6 +64,9 @@ final readonly class TemplateVariantResponse
         // Elements the user may move ("Uživatel může posunout") — send
         // `offsets` on preview / export. Empty when the designer allowed none.
         public array $movableElements = [],
+        // Repeatable container rows ("Opakovatelný řádek") — send `rows` on
+        // preview / export. Empty when the design has none.
+        public array $repeatableRows = [],
     ) {
     }
 }

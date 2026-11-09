@@ -11,7 +11,7 @@ use WBoost\Web\Value\DocumentFieldKind;
 
 /**
  * A stored document version in the document EXPORT body's own shape —
- * `{fields: {fieldId: value}, pages: {pageId: {inputs, images, shapeColors, offsets}}}`
+ * `{fields: {fieldId: value}, pages: {pageId: {inputs, images, shapeColors, offsets, rows}}}`
  * — ready to send back to `POST /api/template-documents/{id}/export` or MCP
  * `export_document`. Each page is seeded like a variant version
  * ({@see ExportVersionApiView::variantFillValues()}: lenient against the
@@ -41,12 +41,17 @@ final readonly class DocumentExportVersionApiView
     }
 
     /**
+     * `$foldRows` (the REST API): each page's repeatable rows come back as
+     * `rows` (row container id → one object per shown row, keyed by the
+     * template row's member ids) instead of slot ids in the flat maps — the
+     * MCP tools, which do not take `rows` yet, keep the flat form.
+     *
      * @return array{fields: array<string, mixed>|\ArrayObject<string, mixed>, pages: array<string, mixed>|\ArrayObject<string, mixed>}
      */
-    public function fill(TemplateDocumentExportVersion $version, TemplateDocument $document): array
+    public function fill(TemplateDocumentExportVersion $version, TemplateDocument $document, bool $foldRows = false): array
     {
         $stored = $version->fill();
-        /** @var array<string, array{inputs: array<string, mixed>, images: array<string, mixed>, shapeColors: array<string, string>, offsets: array<string, mixed>}> $pages */
+        /** @var array<string, array{inputs: array<string, mixed>, images: array<string, mixed>, shapeColors: array<string, mixed>, offsets: array<string, mixed>, rows: array<string, list<array<string, mixed>>>}> $pages */
         $pages = [];
         $pageIdByTemplate = [];
 
@@ -58,8 +63,8 @@ final readonly class DocumentExportVersionApiView
                 continue;
             }
 
-            $fill = $this->variantView->variantFillValues($values, $page->variant);
-            $pages[$page->id->toString()] = ['inputs' => $fill['inputs'], 'images' => $fill['images'], 'shapeColors' => $fill['shapeColors'], 'offsets' => $fill['offsets']];
+            $fill = $this->variantView->variantFillValues($values, $page->variant, $foldRows);
+            $pages[$page->id->toString()] = ['inputs' => $fill['inputs'], 'images' => $fill['images'], 'shapeColors' => $fill['shapeColors'], 'offsets' => $fill['offsets'], 'rows' => $fill['rows']];
             $pageIdByTemplate[$templateId] = $page->id->toString();
         }
 
@@ -103,10 +108,24 @@ final readonly class DocumentExportVersionApiView
                     'images' => self::map($page['images']),
                     'shapeColors' => self::map($page['shapeColors']),
                     'offsets' => self::map($page['offsets']),
-                ],
+                ] + ($foldRows ? ['rows' => self::map(self::rowObjects($page['rows']))] : []),
                 $pages,
             )),
         ];
+    }
+
+    /**
+     * Empty row objects as `{}` too.
+     *
+     * @param array<string, list<array<string, mixed>>> $rows
+     * @return array<string, mixed>
+     */
+    private static function rowObjects(array $rows): array
+    {
+        return array_map(
+            static fn (array $entries): array => array_map(self::map(...), $entries),
+            $rows,
+        );
     }
 
     /**

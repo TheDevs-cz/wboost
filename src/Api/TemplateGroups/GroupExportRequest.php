@@ -60,6 +60,19 @@ final class GroupExportRequest
     public array $offsets = [];
 
     /**
+     * Repeatable container rows, shared by every dimension: the
+     * single-variant export's `rows` (row container id → list of row objects
+     * keyed by the template row's member ids). The count is ONE for the whole
+     * group — each dimension renders the same rows, and the SMALLEST
+     * dimension decides whether they fit (`container_overflow` with that
+     * dimension's `variantId`; the listing's `group.repeatableRows[].fitsRows`
+     * is the designed estimate). A row id no member carries is a 400
+     * `not_repeatable`. A dimension's `placements` may address a row's
+     * picture by its slot id (`repeatableRows[].slots[].ids`).
+     */
+    public mixed $rows = [];
+
+    /**
      * `"png"` (default — the lossless image) or `"pdf"`: the print PDF —
      * PDF/X-1a:2001, CMYK (Coated FOGRA39), the variant's bleed + crop marks.
      * PDF exists only for print formats (`variants[].printFormat`); a screen

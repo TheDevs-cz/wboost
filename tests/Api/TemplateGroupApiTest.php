@@ -53,7 +53,7 @@ final class TemplateGroupApiTest extends ApiTestCase
         }
 
         self::assertIsArray($grouped);
-        self::assertSame(['id' => TestDataFixture::TEMPLATE_GROUP_1_ID, 'name' => 'Group Campaign'], $grouped['group']);
+        self::assertSame(['id' => TestDataFixture::TEMPLATE_GROUP_1_ID, 'name' => 'Group Campaign', 'repeatableRows' => []], $grouped['group']);
 
         $membership = [];
         self::assertIsArray($grouped['variants']);

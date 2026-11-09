@@ -12,8 +12,10 @@ use WBoost\Web\Exceptions\InvalidExportValue;
 use WBoost\Web\Exceptions\InvalidRichTextValue;
 use WBoost\Web\Exceptions\TemplateRenderUnavailable;
 use WBoost\Web\Services\Template\ApiExportRenderer;
+use WBoost\Web\Services\Template\ApiRepeatableRows;
 use WBoost\Web\Services\Template\ApiSubjectLoader;
 use WBoost\Web\Services\Template\RecordExportVersion;
+use WBoost\Web\Services\Template\RepeatableRows;
 use WBoost\Web\Services\Template\TemplateExportFileNames;
 use WBoost\Web\Services\Usage\RecordExportUsage;
 use WBoost\Web\Value\ExportChannel;
@@ -61,14 +63,19 @@ final readonly class ExportProcessor implements ProcessorInterface
         }
 
         try {
+            // Repeatable rows folded into the maps up front: the version
+            // stores them like the web fill does (values under the rows'
+            // slot ids + the counts).
+            $applied = ApiRepeatableRows::apply(RepeatableRows::expand($variant), $data->rows, $data->inputs, $data->images, $data->shapeColors);
             $bytes = $this->apiExportRenderer->renderExport(
                 $format,
                 $variant,
                 sprintf('%s – %s', $variant->template->name, $variant->dimension->label()),
-                $data->inputs,
-                $data->images,
-                $data->shapeColors,
+                $applied->inputs,
+                $applied->images,
+                $applied->shapeColors,
                 $data->offsets,
+                $applied,
             );
         } catch (InvalidRichTextValue|InvalidExportValue|ContainerOverflow|TemplateRenderUnavailable $error) {
             return ExportErrorResponse::fromThrowable($error) ?? throw $error;
@@ -77,7 +84,10 @@ final readonly class ExportProcessor implements ProcessorInterface
         $this->recordExportUsage->record($variant, ExportChannel::Api, $format);
         // The moves as rendered — strict-resolved (already accepted above),
         // canonical, under the variant's id like the web fill stores them.
-        $fill = ExportFillValues::fromApiRequest($data->inputs, $data->images, $data->shapeColors)
+        // Row counts: every row of the design (defaults for rows the body
+        // left out) — the web fill's shape; none for a design without rows.
+        $fill = ExportFillValues::fromApiRequest($applied->inputs, $applied->images, $applied->shapeColors)
+            ->withRows(RepeatableRows::normalizeCounts([$variant], $applied->counts))
             ->withOffsets([$variant->id->toString() => ApiExportRenderer::resolveOffsets($variant, $data->offsets)]);
         $this->recordExportVersion->recordVariant($variant, ExportChannel::Api, $fill);
 

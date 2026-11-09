@@ -13,6 +13,7 @@ use WBoost\Web\Exceptions\InvalidExportValue;
 use WBoost\Web\Exceptions\InvalidRichTextValue;
 use WBoost\Web\Exceptions\TemplateRenderUnavailable;
 use WBoost\Web\Services\Template\ApiExportRenderer;
+use WBoost\Web\Services\Template\ApiRepeatableRows;
 use WBoost\Web\Services\Template\ApiSubjectLoader;
 use WBoost\Web\Value\RenderImageFormat;
 
@@ -42,7 +43,9 @@ final readonly class GroupPreviewProcessor implements ProcessorInterface
         $variant = $this->subjectLoader->member($group, $uriVariables['variantId'] ?? null);
 
         try {
-            $bytes = $this->apiExportRenderer->renderGroupMember($variant, $data->inputs, $data->images, $data->placements, RenderImageFormat::Webp, $data->shapeColors, $data->offsets);
+            // `rows` is shared: an id no member of the group carries is refused.
+            ApiRepeatableRows::assertKnownInGroup($this->subjectLoader->members($group), $data->rows);
+            $bytes = $this->apiExportRenderer->renderGroupMember($variant, $data->inputs, $data->images, $data->placements, RenderImageFormat::Webp, $data->shapeColors, $data->offsets, ApiRepeatableRows::raw($data->rows));
         } catch (InvalidRichTextValue|InvalidExportValue|ContainerOverflow|TemplateRenderUnavailable $error) {
             return ExportErrorResponse::fromThrowable($error, $variant->id->toString()) ?? throw $error;
         }

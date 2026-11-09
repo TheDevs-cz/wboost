@@ -125,6 +125,56 @@ group: variantId → id → xy; `{}` when empty) and document versions
 (tools' `offsets`, `describe_variant.movableElements`) is still to do —
 `ElementOffsetsEntryPointsTest` lists those tools as delegates.
 
+### Repeatable rows over the API (container-rows P5, 2026-11-09)
+
+REST half only — MCP (`describe_variant` already has `repeat` / `fitsRows`;
+`render_variant` / `export_variant` / `export_document` `rows`) and mfkfm
+follow. One service, `Services/Template/ApiRepeatableRows`:
+
+- **`describe(variant)`** — every repeatable row of the EXPANDED variant:
+  parent, fillable members of the TEMPLATE row (unlocked texts,
+  non-background image slots, recolourable shapes, hidable containers of the
+  row tree — the row itself included; `kind` text|image|shape|container) and
+  per slot (0 = template row) the id each member carries. Slot ids are READ
+  off the expanded design by pairing the template row's tree with slot k's
+  tree positionally (slot definitions keep the template's member order) —
+  never re-derived — so a P6-merged row's legacy ids (`repeat.slots`) show
+  through. Listing: `variants[].repeatableRows[]`
+  (`TemplateVariantRepeatableRow{,Member,Slot}Response`), `containers[].repeat`
+  + `fitsRows` (same values + key order as MCP `describe_variant` —
+  `DescribeVariantTest` compares them, a repeatable fixture included) and
+  `TemplateResponse.group.repeatableRows[]` (`TemplateGroupRepeatableRowResponse`:
+  the smallest member's `fitsRows`). Document pages get it via `buildVariant`.
+- **`apply(variant, rows, inputs, images, shapeColors)`** →
+  `Value\AppliedApiRows` — the body's `rows` (row id → LIST of row objects
+  keyed by template member ids, length = count) moved onto the slot ids in
+  the ordinary maps + `counts` + `origins` (slot id → row / index / template
+  id). Strict 400s: `not_repeatable`, `too_many_rows` / `too_few_rows`
+  (`count`, `min`, `max`), `unknown_row_input`, `ambiguous_row_value` (any
+  slot id of a SENT row also present in the matching map — Jan's decision
+  11), `invalid_value`; all `containerId`. `ApiExportRenderer::resolve()`
+  applies it unless handed an `AppliedApiRows` (callers that record the
+  version apply first), feeds `withRowCounts($counts)` and re-tags resolver
+  refusals through `AppliedApiRows::tag()` (id → the template id sent, +
+  `rowContainerId`, `rowIndex`). No `rows` → maps untouched, every row at
+  its default (backward compatible).
+- **Groups:** `assertKnownInGroup()` (a key no member carries →
+  `not_repeatable`), each member applies with `groupMember: true` (skips row
+  ids it does not carry at all), `ApiExportRenderer::groupMemberValues()`
+  layers `placements` AFTER the rows so a placement may address a row
+  picture's slot id; `applyToGroup()` unions every member for the version.
+- **Documents:** `pages[pageId].rows` (page-only; `DocumentApiValues` passes
+  it raw), applied per page before the strict resolve.
+- **Versions:** the processors record the APPLIED maps (slot-id space, like
+  the web fill) + `withRows(RepeatableRows::normalizeCounts(...))` (every row,
+  defaults included — the web forms' shape; empty for a design without rows,
+  so old hashes hold). `ExportVersionApiView` folds them back
+  (`ApiRepeatableRows::fold()`, the inverse of `apply`): `fill.rows` (row id →
+  one object per shown row; slot values removed from the flat maps, unused
+  slots dropped) so a loaded fill posts back as-is. Document versions fold
+  only on the REST path (`DocumentExportVersionApiView::fill(foldRows: true)`)
+  — the MCP document tools still re-send the flat maps until the MCP phase.
+
 ### Print PDF over the API + MCP (2026-10-30)
 
 `ExportRequest` / `GroupExportRequest` carry an optional `format`

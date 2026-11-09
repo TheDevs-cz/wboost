@@ -36,8 +36,19 @@ use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
  *   `not_allowed` | `in_container` | `hidden`, and `axis` for a disallowed axis)
  * - `offset_out_of_range` — an offset past the element's allowed range
  *   (context: `elementId`, `axis`, `min`, `max`, `value` — canvas px)
+ * - `not_repeatable` — `rows` keyed by an id that is no repeatable row of
+ *   the variant (context: `containerId`)
+ * - `too_many_rows` / `too_few_rows` — a `rows` list longer than the row's
+ *   `max` / shorter than its `min` (context: `containerId`, `count`, `min`, `max`)
+ * - `unknown_row_input` — a row entry keyed by an id that is no fillable
+ *   member of the row (context: `containerId`, `rowIndex`, `inputId`)
+ * - `ambiguous_row_value` — a member of a row sent in `rows` is ALSO
+ *   addressed directly in `inputs` / `images` / `shapeColors` (context:
+ *   `containerId`, `rowIndex`, `inputId`)
  *
- * The resolvers add `inputId` / `imageInputId` / `shapeInputId` to the context.
+ * The resolvers add `inputId` / `imageInputId` / `shapeInputId` to the context;
+ * a value that arrived through `rows` additionally carries `rowContainerId` +
+ * `rowIndex`, and its id is the TEMPLATE row's id the caller sent.
  */
 final class InvalidExportValue extends BadRequestHttpException
 {
@@ -156,6 +167,51 @@ final class InvalidExportValue extends BadRequestHttpException
             'offset_out_of_range',
             sprintf('Offset %s = %s of element "%s" is outside the allowed range [%s, %s].', $axis, $value, $elementId, $min, $max),
             ['elementId' => $elementId, 'axis' => $axis, 'min' => $min, 'max' => $max, 'value' => $value],
+        );
+    }
+
+    public static function notRepeatable(string $containerId): self
+    {
+        return new self(
+            'not_repeatable',
+            sprintf('"%s" is not a repeatable row of this variant — `rows` is keyed by the row container ids the listing reports in `repeatableRows[].containerId`.', $containerId),
+            ['containerId' => $containerId],
+        );
+    }
+
+    public static function tooManyRows(string $containerId, int $count, int $min, int $max): self
+    {
+        return new self(
+            'too_many_rows',
+            sprintf('Row "%s" takes at most %d rows, %d given.', $containerId, $max, $count),
+            ['containerId' => $containerId, 'count' => $count, 'min' => $min, 'max' => $max],
+        );
+    }
+
+    public static function tooFewRows(string $containerId, int $count, int $min, int $max): self
+    {
+        return new self(
+            'too_few_rows',
+            sprintf('Row "%s" needs at least %d rows, %d given.', $containerId, $min, $count),
+            ['containerId' => $containerId, 'count' => $count, 'min' => $min, 'max' => $max],
+        );
+    }
+
+    public static function unknownRowInput(string $containerId, int $rowIndex, string $inputId): self
+    {
+        return new self(
+            'unknown_row_input',
+            sprintf('Row "%s" has no fillable member "%s" (row %d) — key row entries by `repeatableRows[].members[].id`.', $containerId, $inputId, $rowIndex),
+            ['containerId' => $containerId, 'rowIndex' => $rowIndex, 'inputId' => $inputId],
+        );
+    }
+
+    public static function ambiguousRowValue(string $containerId, int $rowIndex, string $inputId): self
+    {
+        return new self(
+            'ambiguous_row_value',
+            sprintf('"%s" belongs to row %d of "%s", which is sent in `rows` — send its value inside `rows` only, not also in inputs / images / shapeColors.', $inputId, $rowIndex, $containerId),
+            ['containerId' => $containerId, 'rowIndex' => $rowIndex, 'inputId' => $inputId],
         );
     }
 

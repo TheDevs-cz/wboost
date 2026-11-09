@@ -18,16 +18,17 @@ use WBoost\Web\Value\DocumentFieldKind;
  * page only, set its face per page); an image
  * field's pick (`imageId` | `{imageId, hide}`) is merged UNDER the page's own
  * `images[inputId]` entry, so a page may carry only its transform for a
- * shared picture. `offsets` (the page's element moves) are page-only and
- * pass through untouched.
+ * shared picture. `offsets` (the page's element moves) and `rows` (the
+ * page's repeatable rows — a row member is never bindable to a shared field)
+ * are page-only and pass through untouched.
  */
 final readonly class DocumentApiValues
 {
     /**
      * @param array<array-key, mixed> $fields fieldId → value
-     * @param array<array-key, mixed> $pageEntry `{inputs?, images?, shapeColors?, offsets?}` of this page
+     * @param array<array-key, mixed> $pageEntry `{inputs?, images?, shapeColors?, offsets?, rows?}` of this page
      *
-     * @return array{inputs: array<array-key, mixed>, images: array<array-key, mixed>, shapeColors: array<array-key, mixed>, offsets: array<array-key, mixed>}
+     * @return array{inputs: array<array-key, mixed>, images: array<array-key, mixed>, shapeColors: array<array-key, mixed>, offsets: array<array-key, mixed>, rows: mixed}
      */
     public static function forPage(TemplateDocument $document, TemplateDocumentPage $page, array $fields, array $pageEntry): array
     {
@@ -35,6 +36,8 @@ final readonly class DocumentApiValues
         $images = is_array($pageEntry['images'] ?? null) ? $pageEntry['images'] : [];
         $shapeColors = is_array($pageEntry['shapeColors'] ?? null) ? $pageEntry['shapeColors'] : [];
         $offsets = is_array($pageEntry['offsets'] ?? null) ? $pageEntry['offsets'] : [];
+        // Raw: the strict `rows` validation reports a malformed value.
+        $rows = $pageEntry['rows'] ?? [];
         $templateId = $page->template->id->toString();
 
         foreach ($document->fields() as $field) {
@@ -67,7 +70,7 @@ final readonly class DocumentApiValues
             $images[$binding->inputId] = is_array($own) ? array_merge($pick, $own, ['imageId' => $pick['imageId'] ?? null]) : $pick;
         }
 
-        return ['inputs' => $inputs, 'images' => $images, 'shapeColors' => $shapeColors, 'offsets' => $offsets];
+        return ['inputs' => $inputs, 'images' => $images, 'shapeColors' => $shapeColors, 'offsets' => $offsets, 'rows' => $rows];
     }
 
     /**

@@ -12,6 +12,7 @@ use WBoost\Web\Exceptions\InvalidExportValue;
 use WBoost\Web\Exceptions\InvalidRichTextValue;
 use WBoost\Web\Exceptions\TemplateRenderUnavailable;
 use WBoost\Web\Services\Template\ApiExportRenderer;
+use WBoost\Web\Services\Template\ApiRepeatableRows;
 use WBoost\Web\Services\Template\ApiSubjectLoader;
 use WBoost\Web\Value\RenderImageFormat;
 
@@ -42,7 +43,7 @@ final readonly class PreviewProcessor implements ProcessorInterface
         $variant = $this->subjectLoader->variant($uriVariables['id'] ?? null);
 
         try {
-            $bytes = $this->apiExportRenderer->render($variant, $data->inputs, $data->images, RenderImageFormat::Webp, $data->shapeColors, $data->offsets);
+            $bytes = $this->apiExportRenderer->render($variant, $data->inputs, $data->images, RenderImageFormat::Webp, $data->shapeColors, $data->offsets, ApiRepeatableRows::raw($data->rows));
         } catch (InvalidRichTextValue|InvalidExportValue|ContainerOverflow|TemplateRenderUnavailable $error) {
             return ExportErrorResponse::fromThrowable($error) ?? throw $error;
         }

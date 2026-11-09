@@ -79,7 +79,7 @@ final readonly class TemplateDocumentExportVersionProvider implements ProviderIn
             exportCount: $base->exportCount,
             channel: $base->channel,
             summary: $base->summary,
-            fill: $this->view->fill($version, $document),
+            fill: $this->view->fill($version, $document, foldRows: true),
         );
     }
 }

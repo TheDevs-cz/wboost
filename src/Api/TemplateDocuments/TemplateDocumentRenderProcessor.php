@@ -16,7 +16,9 @@ use WBoost\Web\Exceptions\InvalidExportValue;
 use WBoost\Web\Exceptions\InvalidRichTextValue;
 use WBoost\Web\Exceptions\TemplateRenderUnavailable;
 use WBoost\Web\Services\Template\ApiExportRenderer;
+use WBoost\Web\Services\Template\ApiRepeatableRows;
 use WBoost\Web\Services\Template\ApiSubjectLoader;
+use WBoost\Web\Services\Template\RepeatableRows;
 use WBoost\Web\Services\Template\TemplateExportFileNames;
 use WBoost\Web\Services\TemplateDocument\DocumentApiValues;
 use WBoost\Web\Services\TemplateDocument\DocumentExportArchive;
@@ -71,7 +73,7 @@ final readonly class TemplateDocumentRenderProcessor implements ProcessorInterfa
         $values = DocumentApiValues::forPage($document, $page, $data->fields, $this->pageEntry($page, $data->pages));
 
         try {
-            $bytes = $this->apiExportRenderer->render($page->variant, $values['inputs'], $values['images'], RenderImageFormat::Webp, $values['shapeColors'], $values['offsets']);
+            $bytes = $this->apiExportRenderer->render($page->variant, $values['inputs'], $values['images'], RenderImageFormat::Webp, $values['shapeColors'], $values['offsets'], ApiRepeatableRows::raw($values['rows']));
         } catch (InvalidRichTextValue|InvalidExportValue|ContainerOverflow|TemplateRenderUnavailable $error) {
             return self::error($error, $page);
         }
@@ -113,15 +115,22 @@ final readonly class TemplateDocumentRenderProcessor implements ProcessorInterfa
         $resolved = [];
         $pageValues = [];
         $pageOffsets = [];
+        $pageRowCounts = [];
         foreach ($pages as $page) {
             $values = DocumentApiValues::forPage($document, $page, $data->fields, $this->pageEntry($page, $data->pages));
-            $pageValues[$page->template->id->toString()] = $values;
+            $templateId = $page->template->id->toString();
 
             try {
-                [$overrides, $imageOverrides] = $this->apiExportRenderer->resolve($page->variant, $values['inputs'], $values['images'], $values['shapeColors'], $values['offsets']);
+                // The page's rows folded into its maps first — the version
+                // stores the values under the rows' slot ids + the counts.
+                $applied = ApiRepeatableRows::apply(RepeatableRows::expand($page->variant), $values['rows'], $values['inputs'], $values['images'], $values['shapeColors']);
+                [$overrides, $imageOverrides] = $this->apiExportRenderer->resolve($page->variant, $applied->inputs, $applied->images, $applied->shapeColors, $values['offsets'], $applied);
             } catch (InvalidRichTextValue|InvalidExportValue $error) {
                 return self::error($error, $page);
             }
+
+            $pageValues[$templateId] = ['inputs' => $applied->inputs, 'images' => $applied->images, 'shapeColors' => $applied->shapeColors];
+            $pageRowCounts[$templateId] = RepeatableRows::normalizeCounts([$page->variant], $applied->counts);
 
             $resolved[] = [$page, $overrides, $imageOverrides];
             // The page's moves as rendered (strict, canonical) — stored per
@@ -139,7 +148,7 @@ final readonly class TemplateDocumentRenderProcessor implements ProcessorInterfa
             $this->recordExportUsage->record($page->variant, ExportChannel::Api, $format);
         }
 
-        $fill = DocumentFillValues::fromApiPages($pageValues, $pageOffsets);
+        $fill = DocumentFillValues::fromApiPages($pageValues, $pageOffsets, $pageRowCounts);
         $this->recordExportVersion->record($document, ExportChannel::Api, $fill);
 
         return new Response($bytes, Response::HTTP_OK, [

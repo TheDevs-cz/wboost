@@ -15,6 +15,12 @@ use WBoost\Web\Value\RichText;
  * lists show, and the version's fill seeded ({@see ExportVersionSeeder},
  * lenient against the current design) and converted from the web wire shape
  * the snapshot is stored in back into the API export request shape.
+ *
+ * Repeatable rows: the stored values sit under the rows' slot ids; the API
+ * shape moves them into `rows` (row container id → one object per shown row,
+ * keyed by the template row's member ids — {@see ApiRepeatableRows::fold()}),
+ * so a loaded fill posts back as-is. `rows` is `{}` for a design without
+ * rows.
  */
 readonly final class ExportVersionApiView
 {
@@ -35,40 +41,55 @@ readonly final class ExportVersionApiView
     }
 
     /**
-     * @return array{inputs: array<string, mixed>, images: array<string, mixed>, placements: array<string, array<string, array<string, float>>>, shapeColors: array<string, string>, offsets: array<string, mixed>}
+     * @return array{inputs: array<string, mixed>, images: array<string, mixed>, placements: array<string, array<string, array<string, float>>>, shapeColors: array<string, mixed>, offsets: array<string, mixed>, rows: array<string, list<array<string, mixed>>>}
      */
     public function variantFill(TemplateExportVersion $version, TemplateVariant $variant): array
     {
-        return $this->variantFillValues($version->fillValues, $variant);
+        return $this->variantFillValues($version->fillValues, $variant, foldRows: true);
     }
 
     /**
-     * @return array{inputs: array<string, mixed>, images: array<string, mixed>, placements: array<string, array<string, array<string, float>>>, shapeColors: array<string, string>, offsets: array<string, mixed>}
+     * @return array{inputs: array<string, mixed>, images: array<string, mixed>, placements: array<string, array<string, array<string, float>>>, shapeColors: array<string, mixed>, offsets: array<string, mixed>, rows: array<string, list<array<string, mixed>>>}
      */
-    public function variantFillValues(ExportFillValues $values, TemplateVariant $variant): array
+    /**
+     * `$foldRows: false` keeps the rows' values in the flat maps under their
+     * slot ids (`rows` empty) — the MCP document tools, which do not take
+     * `rows` yet, re-send the maps verbatim.
+     */
+    public function variantFillValues(ExportFillValues $values, TemplateVariant $variant, bool $foldRows = false): array
     {
         $seed = $this->seeder->forVariantValues($values, $variant);
+        $inputs = $this->inputs($seed['textValues'], $seed['hiddenValues'], $seed['fontValues']);
+        $images = $seed['imageValues'];
+        $shapeColors = $seed['shapeColorValues'];
+        $rows = [];
+
+        if ($foldRows) {
+            ['inputs' => $inputs, 'images' => $images, 'shapeColors' => $shapeColors, 'rows' => $rows]
+                = ApiRepeatableRows::fold([$variant], $inputs, $images, $shapeColors, $seed['rowCounts']);
+        }
 
         return [
-            'inputs' => $this->inputs($seed['textValues'], $seed['hiddenValues'], $seed['fontValues']),
-            'images' => $seed['imageValues'],
+            'inputs' => $inputs,
+            'images' => $images,
             'placements' => [],
-            'shapeColors' => $seed['shapeColorValues'],
+            'shapeColors' => $shapeColors,
             // element id → {x, y}, re-clamped to the CURRENT allowance.
             'offsets' => $seed['offsetValues'],
+            'rows' => $rows,
         ];
     }
 
     /**
      * @param list<TemplateVariant> $members
-     * @return array{inputs: array<string, mixed>, images: array<string, mixed>, placements: array<string, array<string, array<string, float>>>, shapeColors: array<string, string>, offsets: array<string, mixed>}
+     * @return array{inputs: array<string, mixed>, images: array<string, mixed>, placements: array<string, array<string, array<string, float>>>, shapeColors: array<string, mixed>, offsets: array<string, mixed>, rows: array<string, list<array<string, mixed>>>}
      */
     public function groupFill(TemplateExportVersion $version, array $members): array
     {
         $group = $version->group;
 
         if ($group === null) {
-            return ['inputs' => [], 'images' => [], 'placements' => [], 'shapeColors' => [], 'offsets' => []];
+            return ['inputs' => [], 'images' => [], 'placements' => [], 'shapeColors' => [], 'offsets' => [], 'rows' => []];
         }
 
         /** @var array<string, \WBoost\Web\Value\EditorTextInput> $textInputs */
@@ -108,13 +129,17 @@ readonly final class ExportVersionApiView
             $images[$inputId] = ['hide' => true];
         }
 
+        // ONE shared row count per row for every dimension.
+        $folded = ApiRepeatableRows::fold($members, $this->inputs($seed['texts'], $seed['hidden'], $seed['fonts']), $images, $seed['shapeColors'], $seed['rowCounts']);
+
         return [
-            'inputs' => $this->inputs($seed['texts'], $seed['hidden'], $seed['fonts']),
-            'images' => $images,
+            'inputs' => $folded['inputs'],
+            'images' => $folded['images'],
             'placements' => $seed['placements'],
-            'shapeColors' => $seed['shapeColors'],
+            'shapeColors' => $folded['shapeColors'],
             // variantId → element id → {x, y} (per dimension), re-clamped.
             'offsets' => $seed['offsets'],
+            'rows' => $folded['rows'],
         ];
     }
 

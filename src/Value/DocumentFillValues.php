@@ -60,15 +60,22 @@ final readonly class DocumentFillValues
      * the page variant's id → element id → `{x, y}`) — stored like the web
      * document page stores them (per page, under the page's variant).
      *
-     * @param array<string, array{inputs: array<array-key, mixed>, images: array<array-key, mixed>, shapeColors: array<array-key, mixed>, offsets?: array<array-key, mixed>}> $pageValues templateId → resolved page body
+     * `$rowCounts` carries each page's repeatable-row counts (templateId →
+     * row container id → count; the REST API records every row of the page,
+     * defaults included — the web document page's shape); the pages' row
+     * VALUES are already in their maps under the rows' slot ids.
+     *
+     * @param array<string, array{inputs: array<array-key, mixed>, images: array<array-key, mixed>, shapeColors: array<array-key, mixed>, offsets?: array<array-key, mixed>, rows?: mixed}> $pageValues templateId → resolved page body
      * @param array<string, array<string, array<string, array{x: float, y: float}>>> $offsets
+     * @param array<string, array<string, int>> $rowCounts
      */
-    public static function fromApiPages(array $pageValues, array $offsets = []): self
+    public static function fromApiPages(array $pageValues, array $offsets = [], array $rowCounts = []): self
     {
         $pages = [];
 
         foreach ($pageValues as $templateId => $values) {
             $pages[$templateId] = ExportFillValues::fromApiRequest($values['inputs'], $values['images'], $values['shapeColors'])
+                ->withRows($rowCounts[$templateId] ?? [])
                 ->withOffsets($offsets[$templateId] ?? []);
         }
 

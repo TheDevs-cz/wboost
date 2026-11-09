@@ -35,7 +35,7 @@ final class ExportVersionMapper
 
     /**
      * @param array{texts: list<array{label: string, value: string}>, pictures: int, hidden: int} $summary
-     * @param array{inputs: array<string, mixed>, images: array<string, mixed>, placements: array<string, array<string, array<string, float>>>, shapeColors: array<string, string>, offsets: array<string, mixed>} $fill
+     * @param array{inputs: array<string, mixed>, images: array<string, mixed>, placements: array<string, array<string, array<string, float>>>, shapeColors: array<string, mixed>, offsets: array<string, mixed>, rows: array<string, list<array<string, mixed>>>} $fill
      */
     public static function detail(TemplateExportVersion $version, array $summary, array $fill): ExportVersionDetailResponse
     {
@@ -61,6 +61,14 @@ final class ExportVersionMapper
                 'placements' => $fill['placements'] === [] ? self::emptyMap() : $fill['placements'],
                 'shapeColors' => $fill['shapeColors'] === [] ? self::emptyMap() : $fill['shapeColors'],
                 'offsets' => $fill['offsets'] === [] ? self::emptyMap() : $fill['offsets'],
+                // Row container id → one object per shown row ({} when empty).
+                'rows' => $fill['rows'] === [] ? self::emptyMap() : array_map(
+                    static fn (array $entries): array => array_map(
+                        static fn (array $entry): array|\ArrayObject => $entry === [] ? self::emptyMap() : $entry,
+                        $entries,
+                    ),
+                    $fill['rows'],
+                ),
             ],
         );
     }

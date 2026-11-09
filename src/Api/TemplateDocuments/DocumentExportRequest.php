@@ -9,7 +9,8 @@ namespace WBoost\Web\Api\TemplateDocuments;
  * the single-variant export body of that page: `inputs`, `images` — a
  * transform may ride on a slot bound to a shared image field —,
  * `shapeColors`, `offsets` — the page's own element moves, keyed by its
- * variant's element ids, never shared) + `format`.
+ * variant's element ids, never shared —, `rows` — the page's repeatable
+ * rows, the single-variant export's `rows`, per page) + `format`.
  */
 final class DocumentExportRequest
 {

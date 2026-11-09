@@ -20,7 +20,11 @@ use DateTimeImmutable;
  * `placements` (variantId → imageInputId → transform), plus `shapeColors`
  * (shape inputId → `#rrggbb`, the export's own map) and `offsets` — the
  * user's element moves: a variant version element id → `{x, y}`, a group
- * version variantId → element id → `{x, y}` (the export bodies' own shapes).
+ * version variantId → element id → `{x, y}` (the export bodies' own shapes),
+ * and `rows` — the repeatable rows as the bodies send them: row container
+ * id → one object per shown row (its length is the count), keyed by the
+ * template row's member ids (`{}` for a design without rows; the rows'
+ * values are NOT repeated in `inputs` / `images` / `shapeColors`).
  * It is seeded
  * LENIENTLY against the CURRENT design: inputs that no longer exist or got
  * locked are dropped, a rich value on a now-plain input degrades to its text,
@@ -61,7 +65,7 @@ final readonly class ExportVersionDetailResponse
     /**
      * Empty maps arrive as `ArrayObject` so they serialize as JSON objects (`{}`), never `[]`.
      *
-     * @param array{inputs: array<string, mixed>|\ArrayObject<string, mixed>, images: array<string, mixed>|\ArrayObject<string, mixed>, placements: array<string, array<string, array<string, float>>>|\ArrayObject<string, mixed>, shapeColors: array<string, string>|\ArrayObject<string, mixed>, offsets: array<string, mixed>|\ArrayObject<string, mixed>} $fill
+     * @param array{inputs: array<string, mixed>|\ArrayObject<string, mixed>, images: array<string, mixed>|\ArrayObject<string, mixed>, placements: array<string, array<string, array<string, float>>>|\ArrayObject<string, mixed>, shapeColors: array<string, mixed>|\ArrayObject<string, mixed>, offsets: array<string, mixed>|\ArrayObject<string, mixed>, rows: array<string, mixed>|\ArrayObject<string, mixed>} $fill
      */
     public function __construct(
         public string $id,

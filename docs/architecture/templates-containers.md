@@ -514,7 +514,8 @@ action P6.
   WARNING `repeat_max_overflows` (the linter's flow estimate: root flow +
   (max−1) × (row flow + gap) vs maxHeight / page, message says how many fit).
   `describe_variant` containers gain `repeat` + `fitsRows`
-  (`designedCapacity`, within [min, max]); the REST listing does not yet (P5).
+  (`designedCapacity`, within [min, max]); the REST listing has them too
+  since P5 (see api-templates.md "Repeatable rows over the API").
 - **P5–P6 notes**: the editor never materialises slots, so no clone can leak into
   a save; the editor's `fits` is unclamped (prefill), the server's
   `designedCapacity` is clamped to [min, max].
