@@ -1,8 +1,16 @@
 {# The admin pencil for a manual page's heading + description. Renders nothing
-   for a reader, so the same markup serves the public manual. #}
+   for a reader, so the same markup serves the public manual.
+
+   The form is Turbo-enabled (`data-turbo="true"`, the site is
+   `<html data-turbo="false">`): EditManualPageTextController answers with a
+   stream replacing the title + description (and this modal's BODY — never
+   the modal itself, see ManualPreviewTurboStream); `modal` closes the modal
+   on a successful `turbo:submit-end`. The form wraps `.modal-content`, inside
+   `.modal-dialog`, so the submit button is its descendant. #}
 {% if is_granted('manual_edit', manual) %}
     {% set page = this.manualPage %}
     {% set modalId = 'manualPageTextModal-' ~ page.value %}
+    {% set form = this.form %}
 
     <span {{ attributes }}>
         <button type="button"
@@ -15,13 +23,7 @@
 
         <div class="modal fade" id="{{ modalId }}" tabindex="-1" data-controller="modal">
             <div class="modal-dialog">
-                {{ form_start(form, {
-                    attr: {
-                        'data-action': 'live#action:prevent',
-                        'data-live-action-param': 'save',
-                        'data-bs-dismiss': isSuccessful ? 'modal' : ''
-                    }
-                }) }}
+                {{ form_start(form, {attr: {'data-turbo': 'true'}}) }}
 
                 <div class="modal-content">
                     <div class="modal-header">
@@ -29,15 +31,7 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
 
-                    <div class="modal-body text-start">
-                        <p class="text-muted">
-                            Prázdné pole znamená výchozí text — ten je vidět jako nápověda v poli.
-                        </p>
-
-                        {{ form_row(form.title) }}
-                        {{ form_row(form.description) }}
-                        {{ form_widget(form) }}
-                    </div>
+                    {{ include('_manual_page_text_form_body.html.twig') }}
 
                     <div class="modal-footer">
                         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Zavřít</button>
@@ -45,7 +39,7 @@
                     </div>
                 </div>
 
-                {{ form_end(form) }}
+                {{ form_end(form, {render_rest: false}) }}
             </div>
         </div>
     </span>

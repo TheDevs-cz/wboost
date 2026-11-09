@@ -1,0 +1,16 @@
+{# The body of a page-texts modal (`components/ManualPageText.html.twig`) —
+   the part a Turbo Stream re-renders (ManualPreviewTurboStream): with the
+   errors after an invalid submit, fresh after a save. It carries the rest of
+   the form (the CSRF field), so the re-rendered body brings its own token.
+
+   Params: page (ManualPage), form (FormView). #}
+<div class="modal-body text-start" id="manual-page-text-form-{{ page.value }}">
+    <p class="text-muted">
+        Prázdné pole znamená výchozí text — ten je vidět jako nápověda v poli.
+    </p>
+
+    {{ form_errors(form) }}
+    {{ form_row(form.title) }}
+    {{ form_row(form.description) }}
+    {{ form_rest(form) }}
+</div>

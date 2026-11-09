@@ -40,7 +40,8 @@
                     {% set colorsMapping = manual.logoColorMapping(variant.value, color_variant) %}
 
                     <div class="col-6">
-                        <div class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper {{ wrapper_class }} d-flex align-items-center justify-content-center" style="background: {{ '#' ~ manual.logoBackground(variant.value, color_variant) }};">
+                        {# The id is what a colour-mapping save's Turbo Stream replaces (LogoColorsEditForm::cardId). #}
+                        <div id="logo-card-{{ variant.value }}-{{ color_variant }}" class="border border-1 p-5 rounded-4 mb-4 manual-image-wrapper {{ wrapper_class }} d-flex align-items-center justify-content-center" style="background: {{ '#' ~ manual.logoBackground(variant.value, color_variant) }};">
                             <twig:LogoColorsMapping manual="{{ manual }}" logoVariant="{{ variant.value }}" colorVariant="{{ color_variant }}" />
                             <twig:DownloadManualImage logoVariant="{{ variant.value }}" background="{{ manual.logoBackground(variant.value, color_variant) }}" colorsMapping="{{ colorsMapping }}" manualId="{{ manual.id }}" />
                             {{ include('_manual_logo_image.html.twig', {

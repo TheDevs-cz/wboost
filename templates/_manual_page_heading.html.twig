@@ -6,7 +6,8 @@
 <div class="page-heading py-3 border-bottom">
     <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(number) }}</span>
     <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
-    <span class="d-inline-block pe-4 fs-4 fw-bold">{{ manual.pageTitle(page) }}</span>
+    {# The id is the target of a page-texts save's Turbo Stream (ManualPreviewTurboStream) and the no-JS redirect's anchor. #}
+    <span class="d-inline-block pe-4 fs-4 fw-bold" id="manual-page-title-{{ page.value }}">{{ manual.pageTitle(page) }}</span>
     <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
     <twig:ManualPageText manual="{{ manual }}" page="{{ page.value }}" class="float-end me-3" />
 </div>

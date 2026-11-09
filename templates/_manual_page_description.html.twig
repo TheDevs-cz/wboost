@@ -10,7 +10,7 @@
 {% set default_description = page.defaultDescription %}
 
 {% if override is not null or default_description is not empty %}
-    <div class="page-description {{ class|default('col-3 fs-5 fst-italic') }}">
+    <div class="page-description {{ class|default('col-3 fs-5 fst-italic') }}" id="manual-page-description-{{ page.value }}">
         {% if override is not null %}
             {% for paragraph in override|split("\n\n") %}
                 {% if paragraph|trim is not empty %}
@@ -21,4 +21,8 @@
             {{ default_description|raw }}
         {% endif %}
     </div>
+{% elseif is_granted('manual_edit', manual) %}
+    {# Nothing to show (the intro page ships no default text), but a page-texts
+       save's Turbo Stream needs a target to replace with the new column. #}
+    <div class="d-none" id="manual-page-description-{{ page.value }}"></div>
 {% endif %}

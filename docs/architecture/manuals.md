@@ -102,8 +102,9 @@ cascade.
 
 ### Logo colour mapping — "Mapování barev loga" + Krytí (opacity, 2026-11-08)
 
-Per logo type × `LogoColorVariant` the pencil modal (`LogoColorsMapping` Live
-component) maps each colour the SVG contains (FROM = the SVG's literal, no `#`
+Per logo type × `LogoColorVariant` the pencil modal (`LogoColorsMappingModal`,
+opened by the `LogoColorsMapping` pencil on the card — saved in place, see
+**Pencil modals save in place** below) maps each colour the SVG contains (FROM = the SVG's literal, no `#`
 — the palette's `logo_hex`, see below) to a target HEX, plus one "Pozadí"
 (card background). Stored in the `manual.logo` JSONB as
 `colorsMapping.<colorVariant> = {background, colors: {FROM: HEX}, opacities: {FROM: percent}}`
@@ -346,7 +347,7 @@ of Paleta barev (D6, mirrors "Písma v manuálech").
   for good) to `project_palette#manual-colors-{id}`. The old form stack
   (`ManualColorsFormType` / `ManualColorFormType` / FormData, the template,
   `colors_dragula_controller.js`) is deleted; `custom_color_controller.js`
-  only paints the live swatch of `LogoColorsMapping` now.
+  only paints the live swatch of `LogoColorsMappingModal` now.
 - Pinned by `tests/Controller/Palette/ManualPaletteColorsControllerTest.php`.
 
 ### Paleta barev — template usage + "Sloučit" duplicates (F7 P4, 2026-11-06)
@@ -568,8 +569,8 @@ nothing in it is dropped rather than stored.
   HTML sanitizer in this project — do not "unify" the two branches by rendering
   an override raw.
 - **Editing** = `Twig/Components/ManualPageTextComponent` (`ManualPageText`),
-  a pencil + Bootstrap modal Live component modelled on `LogoColorsMapping`
-  (the pattern already on the logo cards of the same page). It renders NOTHING
+  a pencil + Bootstrap modal (plain Twig component since 2026-11-09, saved in
+  place — see **Pencil modals save in place** below). It renders NOTHING
   unless `manual_edit` is granted, which is what lets the public manual use
   the same markup. The textarea is pre-filled via
   `defaultDescriptionAsPlainText()`, so an admin tweaks the stock wording
@@ -579,3 +580,58 @@ nothing in it is dropped rather than stored.
   wording kept verbatim so no live manual changed appearance on deploy; it
   reads like a copy/paste slip and an admin can now fix it per manual, which
   is precisely the point of the feature.
+
+### Pencil modals save in place — Turbo Streams (2026-11-09)
+
+Both pencil modals of the preview used to be Live components whose save
+REDIRECTED to `manual_preview` — every edit threw the admin back to the top of
+a manual dozens of screens long (Jan's feedback, sagena). They are now plain
+Twig components with ordinary Symfony forms posting through Turbo; the logo
+width bar was already in place (JSON, see above).
+
+- **Endpoints**: `EditManualPageTextController`
+  (`POST /manual/{manualId}/texty-stranky/{page}`, `manual_page_text_edit`) and
+  `EditManualLogoColorsMappingController`
+  (`POST /manual/{manualId}/mapovani-barev-loga/{logoVariant}/{colorVariant}`,
+  `manual_logo_colors_mapping_edit`, 404 for a logo variant without image),
+  both `ManualVoter::EDIT`. The forms come from `Services/Manual/ManualEditForms`
+  (shared by the components that render them and the controllers that handle
+  them), NAMED per page / per variant pair (`manual_page_text_<page>`,
+  `logo_colors_<variant>_<colorVariant>`) so dozens of modals don't share
+  field ids. CSRF = the forms' own stateless `_token`; the modal body partials
+  carry `form_rest`, so a re-rendered body brings its own token.
+- **Opt-in**: the `<form>` has `data-turbo="true"` (site is
+  `<html data-turbo="false">`); the submit button is inside it, so the
+  submitter is navigatable too. Turbo POSTs with the stream type in `Accept`.
+- **Answer** (`Services/Manual/ManualPreviewTurboStream`,
+  `_manual_preview_regions.stream.html.twig`): `replace` actions with
+  `targets="#id"`. Regions OUTSIDE the modal are cut out of a full render of
+  `manual_preview.html.twig` (PHP 8.4 `Dom\HTMLDocument`, `regions()`), NOT
+  re-rendered from partials — the ~30 logo cards are inlined with per-page
+  wrapper classes and the description's column class comes from the caller,
+  so the page is the only source of their exact markup (quirks included, e.g.
+  the horizontalWithClaim light/oneColor cards reading the HORIZONTAL
+  background). The modal BODY is rendered from its partial
+  (`_manual_page_text_form_body`, `_manual_logo_colors_form_body`): fresh after
+  a save, with errors + status 422 on a validation failure. Targets: page texts
+  → `#manual-page-title-<page>`, `#manual-page-description-<page>` (a `d-none`
+  placeholder when the page has no text — intro — so there is always a
+  target), `#manual-page-text-form-<page>`; colours →
+  `#logo-card-<variant>-<colorVariant>` (whole card: background, recoloured
+  logo, download links, pencils), `#logo-colors-form-<variant>-<colorVariant>`.
+- **The modal itself is never streamed.** Replacing an open Bootstrap modal
+  leaves its backdrop and `body.modal-open` behind. So the colour modals are
+  rendered OUTSIDE the cards, once, at the end of the preview
+  (`_manual_logo_colors_modals.html.twig`, 5 colour variants × every logo with
+  an image), the card only holds the pencil (`components/LogoColorsMapping` —
+  anonymous, button only). `#logo-card-*` must never contain a `.modal`
+  (pinned). The page-text modal stays in the heading — only the title span and
+  the description are replaced. `modal_controller.js` hides the modal on
+  `turbo:submit-end` with `detail.success` (2xx); a 422 keeps it open.
+- **No-JS fallback**: plain POST → redirect to the preview anchored on the
+  edited element (`#manual-page-title-<page>` / `#logo-card-…`).
+- Pinned by `tests/Controller/Manual/ManualPreviewInPlaceEditTest.php`.
+  Browser-verified 2026-11-09 (puppeteer, 1440 + 390 px, both theme
+  preferences — the preview is always light): scroll and the edited element's
+  viewport position unchanged, no backdrop left, reopen + save again, 422 keeps
+  the modal open, Escape closes it.

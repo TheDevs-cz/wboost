@@ -1,0 +1,12 @@
+{# Every "Mapování barev loga" modal of the manual, rendered ONCE at the end
+   of the preview — outside the logo cards whose pencils open them, so the
+   Turbo Stream answering a save can replace a whole card while its modal is
+   open (ManualPreviewTurboStream). One per logo type the manual has an image
+   for × colour variant; the component renders nothing for a missing image.
+
+   Params: manual. #}
+{% for logo_variant in ['horizontal', 'horizontalWithClaim', 'vertical', 'verticalWithClaim', 'symbol'] %}
+    {% for color_variant in ['darkBackground', 'lightBackground', 'oneColor', 'whiteBackground', 'blackBackground'] %}
+        <twig:LogoColorsMappingModal manual="{{ manual }}" logoVariant="{{ logo_variant }}" colorVariant="{{ color_variant }}" />
+    {% endfor %}
+{% endfor %}

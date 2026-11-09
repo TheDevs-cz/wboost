@@ -1,0 +1,39 @@
+{# The "Mapování barev loga" modal of one logo type × colour variant, opened by
+   the card's pencil (components/LogoColorsMapping.html.twig). Rendered OUTSIDE
+   the cards (`_manual_logo_colors_modals.html.twig`, end of the preview) on
+   purpose: a save's Turbo Stream replaces the whole card, and a replaced open
+   modal would leave its backdrop behind — see ManualPreviewTurboStream.
+
+   The form is Turbo-enabled (`data-turbo="true"`, the site is
+   `<html data-turbo="false">`) and wraps `.modal-content`, so the submit
+   button is its descendant; `modal` closes the modal on a successful
+   `turbo:submit-end`. #}
+{% if is_granted('manual_edit', manual) %}
+    {% set edit = this.edit %}
+
+    {% if edit %}
+        {% set form = edit.form.createView %}
+
+        <div {{ attributes.defaults({class: 'modal fade'}) }} id="logoColorsModal-{{ logoVariant }}-{{ colorVariant }}" tabindex="-1" data-controller="modal">
+            <div class="modal-dialog">
+                {{ form_start(form, {attr: {'data-turbo': 'true'}}) }}
+
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Mapování barev loga - {{ logoVariant }} {{ colorVariant }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+
+                    {{ include('_manual_logo_colors_form_body.html.twig') }}
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Zavřít</button>
+                        <button type="submit" class="btn btn-primary">Uložit</button>
+                    </div>
+                </div>
+
+                {{ form_end(form, {render_rest: false}) }}
+            </div>
+        </div>
+    {% endif %}
+{% endif %}

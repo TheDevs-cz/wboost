@@ -1,0 +1,12 @@
+{# Turbo Stream answer to a pencil-modal save on the manual preview — see
+   Services/Manual/ManualPreviewTurboStream. Every region is an element the
+   page already renders with that id, so each action is a `replace`;
+   `targets="#id"` (a selector, not `target`) so a repeated id — two fonts of
+   the same type share their page texts — updates every copy.
+
+   Expects: regions (element id => its new outer HTML, already rendered). #}
+{% for id, html in regions %}
+    <turbo-stream action="replace" targets="#{{ id }}">
+        <template>{{ html|raw }}</template>
+    </turbo-stream>
+{% endfor %}
