@@ -56,8 +56,8 @@ final class RepeatableRowsFillUiTest extends WebTestCase
 
         // The client payload: every role's id in every slot + the count.
         $payload = $this->payload($crawler);
-        self::assertSame(2, $payload[self::ROW]['count'] ?? null);
-        self::assertSame(5, $payload[self::ROW]['max'] ?? null);
+        self::assertSame(2, $payload[self::ROW]['count']);
+        self::assertSame(5, $payload[self::ROW]['max']);
         self::assertSame(RepeatableRows::slotId(self::ROW, self::SOUPER, 4), $payload[self::ROW]['roles'][self::SOUPER][4] ?? null);
 
         // "Všechna pole" keeps a row's cards together, row by row.
@@ -72,7 +72,7 @@ final class RepeatableRowsFillUiTest extends WebTestCase
         self::assertContains(RepeatableRows::slotId(self::ROW, self::SOUPER, 3), $component->echoCapableIds());
         $echo = $component->echoPayload();
         self::assertNotNull($echo);
-        self::assertSame(5, count($echo['repeatRows'][self::ROW]['slots'] ?? []));
+        self::assertCount(5, $echo['repeatRows'][self::ROW]['slots'] ?? []);
     }
 
     public function testADesignWithoutRowsRendersNoRowChrome(): void

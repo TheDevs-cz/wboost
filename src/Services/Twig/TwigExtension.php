@@ -77,7 +77,7 @@ final class TwigExtension extends AbstractExtension
     /**
      * @param list<array{inputId: string}> $fields
      * @param list<string> $order
-     * @param array<string, array{id: string, roles: array<string, list<string>>}> $rows the page's
+     * @param array<string, array{id: string, roles: array<string, list<string>>, ...}> $rows the page's
      *   repeatable rows ({@see FillRepeatableRows::forVariants()}) — keeps a row's fields together
      *
      * @return list<array{inputId: string}>

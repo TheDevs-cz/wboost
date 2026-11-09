@@ -126,7 +126,7 @@ final class FillRepeatableRows
      * Every id of the rows → its row, role and slot (`slot` 0-based) — what
      * the "Všechna pole" arrangement and the version labels need.
      *
-     * @param array<string, array{id: string, roles: array<string, list<string>>}> $rows {@see forVariants()}
+     * @param array<string, array{id: string, roles: array<string, list<string>>, ...}> $rows {@see forVariants()}
      * @return array<string, array{row: string, role: string, slot: int}>
      */
     public static function slotIndex(array $rows): array
