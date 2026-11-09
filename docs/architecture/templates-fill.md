@@ -209,7 +209,9 @@ scrollbar at fit. Contracts:
   page never grows.
 - **Followers**: no scroll event fires on a pan, so every view change calls
   `_reanchorOpenPopover` and dispatches `fill-viewport:change` (the image
-  adjust panel re-anchors on it); `image_adjust_handles.js` follows by its own
+  adjust panel only CLAMPS itself into the window on it — it is anchored once
+  per selection and never follows the picture, see
+  templates-image-placeholders.md "Image adjust"); `image_adjust_handles.js` follows by its own
   per-frame read. Thin position bars (`.fill-viewport__bar`) fade in only while
   panning an axis that can pan.
 - Belt: the echo canvas stays `display: none` until the painter has fitted it

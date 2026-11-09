@@ -583,6 +583,11 @@ export default class extends Controller {
         };
         document.addEventListener('pointerdown', this._boundAdjustOutside, true);
 
+        // The panel is a palette: anchored ONCE per selection (_openAdjust),
+        // then it stays put. A window resize / scroll or a view pan only
+        // keeps it inside the window — never re-anchors it to the picture,
+        // whose box changes under every slider step, typed value or drag
+        // (re-anchoring there made the panel jump away from the pointer).
         this._boundAdjustReposition = () => this._positionAdjust();
         window.addEventListener('resize', this._boundAdjustReposition);
         window.addEventListener('scroll', this._boundAdjustReposition, true);
@@ -676,7 +681,10 @@ export default class extends Controller {
         const object = this.objects[inputId] && this.objects[inputId].object;
         if (!placeholder || !object || !object._containScale) return;
 
-        if (this._adjustId !== inputId) this._closeAdjust();
+        // Anchor only when the panel (re)opens for this picture — a repeated
+        // select of the already-open picture must not move it.
+        const anchor = this._adjustId !== inputId;
+        if (anchor) this._closeAdjust();
         this._adjustId = inputId;
 
         Object.entries(this._adjustToolbars).forEach(([id, toolbar]) => {
@@ -686,12 +694,16 @@ export default class extends Controller {
         if (toolbar) toolbar.sync();
         this._handles.show(object, { allowResize: placeholder.allowResize, allowRotate: placeholder.allowRotate });
         this.element.classList.add('fill-adjust-open');
-        this._positionAdjust();
+        this._positionAdjust({ anchor });
     }
 
     _closeAdjust() {
         if (this._adjustId === null || this._adjustId === undefined) return;
-        Object.values(this._adjustToolbars).forEach((toolbar) => { toolbar.element.hidden = true; });
+        Object.values(this._adjustToolbars).forEach((toolbar) => {
+            toolbar.element.hidden = true;
+            toolbar.element.style.left = '';
+            toolbar.element.style.top = '';
+        });
         this._adjustId = null;
         this._adjustTrigger = null;
         if (this._handles) this._handles.hide();
@@ -764,7 +776,8 @@ export default class extends Controller {
         if (!object || object._placeholderId !== this._adjustId) return;
         const toolbar = this._adjustToolbars[this._adjustId];
         if (toolbar) toolbar.sync();
-        this._positionAdjust();
+        // Deliberately NO re-anchor: the panel stays where it opened while
+        // the picture is scaled / typed / dragged under it.
     }
 
     /** Show the box tool "Upravit velikost a polohu" only for slots holding
@@ -778,12 +791,16 @@ export default class extends Controller {
     }
 
     /**
-     * Float the panel next to the picture's VISIBLE box (the overlay's image
-     * box follows it): below, else above, else pinned inside the window —
-     * position:fixed like the text popovers, so no zoom/overflow clips it.
+     * Place the panel. With `anchor` (the panel just opened for a picture)
+     * it floats next to the picture's VISIBLE box: below, else above, else
+     * beside, else pinned inside the window — position:fixed like the text
+     * popovers, so no zoom/overflow clips it. Without `anchor` (window
+     * resize / scroll, view pan) it keeps its spot and is only clamped back
+     * inside the window; it is never re-anchored mid-session, because the
+     * picture's box changes under every slider step, typed size and drag.
      * Phones dock it to the bottom edge via CSS instead.
      */
-    _positionAdjust() {
+    _positionAdjust({ anchor = false } = {}) {
         const toolbar = this._adjustId && this._adjustToolbars[this._adjustId];
         if (!toolbar || toolbar.element.hidden) return;
         const panel = toolbar.element;
@@ -796,11 +813,28 @@ export default class extends Controller {
             return;
         }
         document.body.style.paddingBottom = '';
+        const gap = 12;
+        const margin = 8;
+        const width = panel.offsetWidth;
+        const height = panel.offsetHeight;
+        const clampLeft = (value) => Math.min(Math.max(value, margin), window.innerWidth - width - margin);
+        const clampTop = (value) => Math.min(Math.max(value, margin), window.innerHeight - height - margin);
+
+        const currentLeft = parseFloat(panel.style.left);
+        const currentTop = parseFloat(panel.style.top);
+        if (!anchor && Number.isFinite(currentLeft) && Number.isFinite(currentTop)) {
+            const left = Math.round(clampLeft(currentLeft));
+            const top = Math.round(clampTop(currentTop));
+            if (left !== currentLeft) panel.style.left = `${left}px`;
+            if (top !== currentTop) panel.style.top = `${top}px`;
+            return;
+        }
+
         const box = this.element.querySelector(`.fill-box--image[data-inputid="${this._adjustId}"]`);
         const viewport = this.element.querySelector('.fill-viewport');
-        const anchor = (box && box.offsetParent !== null ? box : viewport);
-        if (!anchor) return;
-        const visible = anchor.getBoundingClientRect();
+        const target = (box && box.offsetParent !== null ? box : viewport);
+        if (!target) return;
+        const visible = target.getBoundingClientRect();
         const area = viewport ? viewport.getBoundingClientRect() : visible;
         // Anchor to the part of the box that is actually on screen.
         const rect = {
@@ -809,13 +843,6 @@ export default class extends Controller {
             top: Math.max(visible.top, area.top),
             bottom: Math.min(visible.bottom, area.bottom),
         };
-        const gap = 12;
-        const margin = 8;
-        const width = panel.offsetWidth;
-        const height = panel.offsetHeight;
-
-        const clampLeft = (value) => Math.min(Math.max(value, margin), window.innerWidth - width - margin);
-        const clampTop = (value) => Math.min(Math.max(value, margin), window.innerHeight - height - margin);
         const centredLeft = clampLeft((rect.left + rect.right) / 2 - width / 2);
         const sideTop = clampTop(rect.top);
         // Below → above → right → left of the picture; only when none fits

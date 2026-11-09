@@ -68,7 +68,12 @@ response's `directoryId` is null for root uploads.
   box's "Upravit velikost a polohu" tool for keyboard/touch) opens a panel —
   the shared `_fill_image_adjust.html.twig` body driven by
   `image_adjust_toolbar.js` on BOTH fill pages (single: fixed `.fill-adjust`
-  next to the picture's visible box, a bottom sheet under 768 px; group /
+  next to the picture's visible box, a bottom sheet under 768 px — anchored
+  ONCE when it opens for a picture, then a palette that never re-anchors:
+  slider steps, typed values, picture / handle drags, view pans, scroll and
+  window resize only clamp it back inside the window (2026-11-09 fix: it
+  re-anchored on every `object:modified`, so a growing picture pushed the
+  panel — and the slider thumb — away from under the pointer); group /
   document: inside `.group-fill-placement-toolbar`, now window-aware so it may
   hang outside the small card instead of covering the picture). Controls:
   gallery-style zoom slider (`.sz-ctl`, 100 % = contain = "Přizpůsobit",
