@@ -745,6 +745,12 @@ Semantics:
 - If you mirror the reflow client-side: treat every input in the hidden
   container's tree (its `memberInputIds` plus those of each
   `memberContainerIds` child, recursively) as hidden.
+- A hidable container may hold NO fillable text at all (only decorative
+  images / shapes — e.g. a badge you may drop). It is still listed so you can
+  render its toggle: `memberInputIds: []`, `y` = its highest decorative
+  member, and it is NOT referenced from its parent's `memberContainerIds`
+  (the parent's reflow tree stays as it was). Treat such an entry as a toggle
+  only — it has nothing to reflow on your side.
 
 Note: a layer the DESIGNER hid in the admin editor (per-layer eye toggle) is
 not part of the template's fillable surface at all — it never appears in

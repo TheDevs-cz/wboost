@@ -204,7 +204,8 @@ A container with `hidable: true` can be hidden as a unit: put
 the members' own `hide` values are kept for when it is shown again. A container
 entry accepts only `hide`, and hiding one without `hidable` is refused
 (`container_not_hidable`). It is the cheapest fix for a container overflow when
-the designer offered it.
+the designer offered it. A hidable container may list `memberInputIds: []` —
+it holds only decorative images / shapes; hiding it still works.
 
 ---
 

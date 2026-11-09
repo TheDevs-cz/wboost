@@ -33,6 +33,9 @@ final class TemplateContainerHideTest extends ApiTestCase
     private const string FIXED = 'aaaaaaaa-0000-4000-8000-0000000000b3';
     private const string BUBBLE_IMAGE = 'aaaaaaaa-0000-4000-8000-0000000000d1';
     private const string CHILD_SHAPE = 'aaaaaaaa-0000-4000-8000-0000000000d2';
+    private const string DECOR_ONLY = 'aaaaaaaa-0000-4000-8000-0000000000b4';
+    private const string DECOR_A = 'aaaaaaaa-0000-4000-8000-0000000000d3';
+    private const string DECOR_B = 'aaaaaaaa-0000-4000-8000-0000000000d4';
 
     public function testListingExposesHidableAndName(): void
     {
@@ -65,6 +68,28 @@ final class TemplateContainerHideTest extends ApiTestCase
         self::assertSame('Bublina', $containers[self::BUBBLE]['name'] ?? null);
         self::assertFalse($containers[self::FIXED]['hidable'] ?? null);
         self::assertNull($containers[self::FIXED]['name'] ?? null);
+
+        // A hidable container holding ONLY decorative images / shapes is
+        // listed too (its toggle must be offerable), anchored at its highest
+        // decorative member, with no fillable members.
+        self::assertArrayHasKey(self::DECOR_ONLY, $containers);
+        self::assertTrue($containers[self::DECOR_ONLY]['hidable'] ?? null);
+        self::assertSame('Ozdoby', $containers[self::DECOR_ONLY]['name'] ?? null);
+        self::assertSame([], $containers[self::DECOR_ONLY]['memberInputIds'] ?? null);
+        self::assertEquals(700, $containers[self::DECOR_ONLY]['y'] ?? null);
+    }
+
+    public function testExportHidesADecorationOnlyContainer(): void
+    {
+        $client = self::createClient();
+        $token = $this->token($client);
+        $this->addContainers(TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID);
+
+        $this->post($client, $token, 'export', [self::DECOR_ONLY => ['hide' => true]]);
+        $this->assertResponseIsSuccessful();
+        $hidden = $this->lastCall($client)['effectiveHidden'];
+        self::assertTrue($hidden[self::DECOR_A] ?? false);
+        self::assertTrue($hidden[self::DECOR_B] ?? false);
     }
 
     public function testExportHidesTheWholeTreeAndRecordsTheHide(): void
@@ -253,8 +278,19 @@ final class TemplateContainerHideTest extends ApiTestCase
             'left' => 80, 'top' => 280, 'width' => 300, 'height' => 4,
             'originX' => 'left', 'originY' => 'top', 'fill' => '#112233',
         ];
+        $objects[] = [
+            'type' => 'Rect', 'inputId' => self::DECOR_A, 'shapeKind' => 'rectangle',
+            'left' => 700, 'top' => 700, 'width' => 100, 'height' => 20,
+            'originX' => 'left', 'originY' => 'top', 'fill' => '#445566',
+        ];
+        $objects[] = [
+            'type' => 'Image', 'inputId' => self::DECOR_B,
+            'left' => 700, 'top' => 760, 'width' => 100, 'height' => 40,
+            'scaleX' => 1, 'scaleY' => 1, 'originX' => 'left', 'originY' => 'top',
+        ];
         $canvas['objects'] = $objects;
         $canvas['containers'] = [
+            ['id' => self::DECOR_ONLY, 'maxHeight' => 200, 'name' => 'Ozdoby', 'hidable' => true, 'memberInputIds' => [self::DECOR_A, self::DECOR_B]],
             [
                 'id' => self::BUBBLE, 'maxHeight' => 400, 'name' => 'Bublina', 'hidable' => true,
                 'memberInputIds' => [TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_INPUT_HEADLINE_ID, self::BUBBLE_IMAGE],

@@ -177,7 +177,10 @@ them. Contract, in order of the pipeline:
 - **Documents:** a hidable container is a per-page FILL KEY
   (`DocumentFillKeys::pageInputIds`, `DocumentPageView` re-keys container
   `id` + `memberContainerIds`), never a shared field.
-- Not covered: a container whose tree has no listed text input is omitted
-  from the API listing (`ResolvedCanvasContainer` needs an anchor), so a
-  consumer cannot show its toggle — the fill pages and the strict API still
-  accept its hide.
+- **Decoration-only hidable containers** (only images / shapes, no fillable
+  text) are published by `ResolvedCanvasContainer::collection()` (REST
+  listing + MCP describe_variant) for their toggle: anchored at the highest
+  decorative member (`FillTextPlaceholders::decorativeMemberTops`), empty
+  `memberInputIds`, and NOT added to the parent's `memberContainerIds` — so
+  every non-hidable container and every parent tree publishes exactly what it
+  did before. A container with no locatable member at all stays omitted.

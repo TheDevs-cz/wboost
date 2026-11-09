@@ -29,6 +29,7 @@ use WBoost\Web\Services\SocialNetwork\CanvasPlaceholderGeometry;
 use WBoost\Web\Services\SocialNetwork\PlaceholderAllowedDirectories;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Services\SocialNetwork\TextInputObjectBinder;
+use WBoost\Web\Services\SocialNetwork\FillTextPlaceholders;
 use WBoost\Web\Value\CanvasContainer;
 use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
@@ -179,7 +180,7 @@ readonly final class DescribeVariantTool
             ),
             inputs: $this->buildTextInputs($variant, $frames, $definitions),
             imageInputs: $this->buildImageInputs($variant, $canvas),
-            containers: self::buildContainers($definitions, $frames, $variant->inputs),
+            containers: self::buildContainers($definitions, $frames, $variant->inputs, FillTextPlaceholders::decorativeMemberTops($canvas, $definitions)),
             richTextOptions: $this->buildRichTextOptions($variant),
             shapeInputs: $this->buildShapeInputs($canvas),
         );
@@ -412,9 +413,10 @@ readonly final class DescribeVariantTool
      * @param array<string, PlaceholderFrame> $frames
      * @param array<EditorTextInput> $inputs
      *
+     * @param array<string, float> $decorationTops decorative member tops (hidable decoration-only containers)
      * @return list<VariantContainerResponse>
      */
-    private static function buildContainers(array $definitions, array $frames, array $inputs): array
+    private static function buildContainers(array $definitions, array $frames, array $inputs, array $decorationTops = []): array
     {
         return array_map(
             static fn (ResolvedCanvasContainer $container): VariantContainerResponse => new VariantContainerResponse(
@@ -429,7 +431,7 @@ readonly final class DescribeVariantTool
                 hidable: $container->hidable,
                 name: $container->name,
             ),
-            ResolvedCanvasContainer::collection($definitions, $frames, $inputs),
+            ResolvedCanvasContainer::collection($definitions, $frames, $inputs, $decorationTops),
         );
     }
 

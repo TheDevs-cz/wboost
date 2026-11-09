@@ -368,6 +368,23 @@ final readonly class FillTextPlaceholders
     }
 
     /**
+     * Designed TOP of every decorative container member, keyed by inputId —
+     * the anchor of a hidable container that holds no fillable text (see
+     * {@see \WBoost\Web\Value\ResolvedCanvasContainer::collection()}).
+     *
+     * @param array<array-key, mixed> $canvas
+     * @param list<CanvasContainer> $containers
+     * @return array<string, float>
+     */
+    public static function decorativeMemberTops(array $canvas, array $containers): array
+    {
+        return array_map(
+            static fn (array $decoration): float => $decoration['frame']['y'],
+            self::decorativeMemberFrames($canvas, $containers),
+        );
+    }
+
+    /**
      * Designed frames of DECORATIVE members — images (checklist icons,
      * separators) and vector shapes (rules, bullets, colour blocks) — which the
      * overlay feeds to the shared layout engine as geometry POJOs so its
@@ -379,7 +396,7 @@ final readonly class FillTextPlaceholders
      * @param list<CanvasContainer> $containers
      * @return array<string, array{frame: array{x: float, y: float, width: float, height: float}}>
      */
-    private static function decorativeMemberFrames(array $canvas, array $containers): array
+    public static function decorativeMemberFrames(array $canvas, array $containers): array
     {
         $memberIds = [];
         foreach ($containers as $container) {

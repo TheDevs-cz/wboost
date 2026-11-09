@@ -21,6 +21,12 @@ namespace WBoost\Web\Value;
  * the coordinate a consumer draws the zone from. `maxHeight` bounds the flow
  * from there downward, and only for a container that is not itself
  * {@see $nested} (a child grows freely with its content).
+ *
+ * A HIDABLE container whose tree holds no fillable text (only decorative
+ * images / shapes) is published too, so a consumer can offer its hide toggle:
+ * anchored at its highest decorative member, with empty `memberInputIds`, and
+ * deliberately NOT added to its parent's `memberContainerIds` — the parent's
+ * published reflow tree stays exactly what it was before (2026-11-09).
  */
 readonly final class ResolvedCanvasContainer
 {
@@ -62,10 +68,13 @@ readonly final class ResolvedCanvasContainer
      * @param list<CanvasContainer> $containers
      * @param array<string, PlaceholderFrame> $frames text-input frames, keyed by inputId
      * @param array<EditorTextInput> $inputs the variant's listed text inputs
+     * @param array<string, float> $decorationTops designed top of every
+     *   decorative member (inputId → y), the anchor of a hidable
+     *   decoration-only container; empty = such containers stay omitted
      *
      * @return list<self>
      */
-    public static function collection(array $containers, array $frames, array $inputs): array
+    public static function collection(array $containers, array $frames, array $inputs, array $decorationTops = []): array
     {
         $inputIds = [];
         foreach ($inputs as $input) {
@@ -112,9 +121,36 @@ readonly final class ResolvedCanvasContainer
             }
         }
 
+        // Hidable containers without any fillable text: anchored at their
+        // highest decorative member (deep), published for the toggle only.
+        $deepDecorationTop = function (CanvasContainer $container, array $seen) use (&$deepDecorationTop, $byId, $decorationTops): null|float {
+            if (isset($seen[$container->id])) {
+                return null;
+            }
+            $seen[$container->id] = true;
+            $candidates = [];
+            foreach ($container->memberInputIds as $memberInputId) {
+                if (isset($decorationTops[$memberInputId])) {
+                    $candidates[] = $decorationTops[$memberInputId];
+                }
+            }
+            foreach ($container->memberContainerIds as $childId) {
+                $child = $byId[$childId] ?? null;
+                $childTop = $child === null ? null : $deepDecorationTop($child, $seen);
+                if ($childTop !== null) {
+                    $candidates[] = $childTop;
+                }
+            }
+
+            return $candidates === [] ? null : min($candidates);
+        };
+
         $result = [];
         foreach ($containers as $container) {
             $y = $anchors[$container->id] ?? null;
+            if ($y === null && $container->hidable && $decorationTops !== []) {
+                $y = $deepDecorationTop($container, []);
+            }
             if ($y === null) {
                 continue;
             }

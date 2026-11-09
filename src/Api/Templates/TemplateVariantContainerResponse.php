@@ -45,7 +45,10 @@ namespace WBoost\Web\Api\Templates;
  * and every member of its tree (texts, decorative images, shapes, nested
  * containers) then disappear and collapse like hidden members; the members'
  * own hide states are kept and apply again once the container is shown.
- * Hiding a non-hidable container is a 400 `container_not_hidable`.
+ * Hiding a non-hidable container is a 400 `container_not_hidable`. A
+ * hidable container holding only decorative images / shapes is listed too
+ * (toggle only): empty `memberInputIds`, `y` = its highest decorative member,
+ * never referenced from a parent's `memberContainerIds`.
  */
 final readonly class TemplateVariantContainerResponse
 {
