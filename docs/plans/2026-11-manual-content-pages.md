@@ -7,8 +7,9 @@
 - P1 engine + intro — 37358497, 218f6cce, 9a3cee29
 - P2 custom pages — c8094641
 - P3 gallery migration — 63dc3f44
-- P4 cleanup — P4_COMMIT (form upload removed, `manual.intro_image` dropped,
-  trashed-only pages skipped for readers, mockup slot uploads normalised)
+- P4 cleanup — c6d64df6 (form upload removed, `manual.intro_image` dropped,
+  trashed-only pages skipped for readers, mockup slot uploads normalised);
+  WEB-4W S3-429 hardening of `ReadStoredImagePixelSize` alongside
 
 Feature request (Jan, 2026-11-09): the manual intro (first) page can today only
 hold one image (`manual.intro_image`, uploaded in the add/edit manual form,
