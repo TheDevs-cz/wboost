@@ -71,12 +71,9 @@ final class ContainerRowMergeTest extends KernelTestCase
         self::assertSame(['max' => 5, 'min' => 1, 'default' => 5], array_diff_key($repeat, ['slots' => true]));
         $stored = $repeat['slots'] ?? null;
         self::assertIsArray($stored);
-        self::assertEqualsCanonicalizing($slots, array_map(static function (mixed $slot): array {
-            self::assertIsArray($slot);
-            ksort($slot);
-
-            return $slot;
-        }, $stored));
+        // Slot k ↔ row k+1 — the ORDER is the contract (assertEquals
+        // compares each map by key, regardless of key order).
+        self::assertEquals($slots, $stored);
 
         // The stored design holds row 1 only.
         self::assertCount(13 - 8, $raw['inputs']);

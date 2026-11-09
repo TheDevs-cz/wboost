@@ -74,7 +74,7 @@ final class RepeatableRowsLegacySlotsTest extends TestCase
 
         $ids = $this->objectIds($expanded['canvas']);
         self::assertSame([self::HEAD, self::A, RepeatableRows::slotId(self::ROW, self::A, 1), self::OLD_A3, self::FOOT], $ids);
-        self::assertSame(count($ids), count(array_unique($ids)));
+        self::assertCount(count($ids), array_unique($ids), 'no id twice');
         self::assertNotContains('whatever', $ids, 'only ids of the row tree are mapped');
     }
 

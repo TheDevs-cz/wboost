@@ -641,6 +641,7 @@ final readonly class RepeatableRows
     private static function idsInDesign(array $objects, array $containers): array
     {
         $ids = [];
+        /** @param array<array-key, mixed> $list */
         $walk = static function (array $list) use (&$walk, &$ids): void {
             foreach ($list as $object) {
                 if (!is_array($object)) {

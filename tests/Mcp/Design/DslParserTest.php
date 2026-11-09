@@ -502,7 +502,7 @@ final class DslParserTest extends TestCase
         $row = $document->element('row');
         self::assertInstanceOf(ContainerElement::class, $row);
         self::assertSame($slots, $row->repeat?->slots);
-        self::assertSame(['max' => 6, 'min' => 1, 'default' => 3], $row->repeat?->toArray(), 'the limits view stays slot-free');
+        self::assertSame(['max' => 6, 'min' => 1, 'default' => 3], $row->repeat->toArray(), 'the limits view stays slot-free');
         self::assertSame(['max' => 6, 'min' => 1, 'default' => 3, 'slots' => $slots], $document->toArray()['elements'][1]['repeat'] ?? null);
         self::assertSame($document->toArray(), DslParser::parse($document->toArray())->toArray());
 
