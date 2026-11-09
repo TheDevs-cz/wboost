@@ -82,7 +82,15 @@ export default class extends Controller {
             }
         };
         this._onChange = (event) => {
-            if (event.target && event.target.matches && event.target.matches("[data-hide-mirror]")) {
+            if (!event.target || !event.target.matches) return;
+            // A whole-container hide also hides decorative members the echo
+            // cannot draw — the settle render owns that change; just keep an
+            // already-active echo in step (its texts vanish with it).
+            if (event.target.matches("[data-container-hide]")) {
+                if (this._active) this._scheduleRepaint();
+                return;
+            }
+            if (event.target.matches("[data-hide-mirror]")) {
                 this._edited();
             }
         };
@@ -192,13 +200,21 @@ export default class extends Controller {
         const module = window.WBoostFillTextEcho;
         const rules = this.payloadValue.inputs || {};
         const values = {};
+        // Texts inside a hidden container are hidden with it (the render's
+        // expansion, shipped as container id → deep member ids).
+        const containerHidden = new Set();
+        const containerHides = this.payloadValue.containerHides || {};
+        Object.keys(containerHides).forEach((containerId) => {
+            const box = this.element.querySelector(`[data-hide-mirror="${containerId}"]`);
+            if (box && box.checked) (containerHides[containerId] || []).forEach((id) => containerHidden.add(id));
+        });
         Object.keys(rules).forEach((inputId) => {
             const mirror = this.element.querySelector(`[data-text-mirror="${inputId}"]`);
             const hideMirror = this.element.querySelector(`[data-hide-mirror="${inputId}"]`);
             const fontMirror = this.element.querySelector(`[data-font-mirror="${inputId}"]`);
             values[inputId] = {
                 resolved: module.resolveValue(mirror ? mirror.value : "", rules[inputId]),
-                hidden: Boolean(hideMirror && hideMirror.checked),
+                hidden: Boolean(hideMirror && hideMirror.checked) || containerHidden.has(inputId),
                 fontFamily: fontMirror ? fontMirror.value : "",
             };
         });

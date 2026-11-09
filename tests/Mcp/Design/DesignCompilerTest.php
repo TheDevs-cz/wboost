@@ -880,6 +880,29 @@ final class DesignCompilerTest extends TestCase
         );
     }
 
+    public function testAHidableContainerCompilesItsFlagAndLabelLikeTheEditor(): void
+    {
+        $design = self::containerDesign();
+        self::assertIsArray($design['elements']);
+        $element = $design['elements'][3];
+        self::assertIsArray($element);
+        $design['elements'][3] = [...$element, 'hidable' => true, 'name' => '  Bublina  '];
+
+        $container = $this->compile($design)->canvas['containers'][0];
+
+        self::assertTrue($container['hidable'] ?? null);
+        self::assertSame('Bublina', $container['name'] ?? null);
+
+        // …and the PHP side reads it back as a hidable container.
+        $parsed = \WBoost\Web\Value\CanvasContainer::fromArray($container);
+        self::assertNotNull($parsed);
+        self::assertTrue($parsed->hidable);
+        self::assertSame('Bublina', $parsed->name);
+
+        // Absent when not set (the editor's sanitizedContainers() shape).
+        self::assertArrayNotHasKey('hidable', $this->compile(self::containerDesign())->canvas['containers'][0]);
+    }
+
     /**
      * §4.4-16: `memberInputIds` is in FLOW order — ascending designed `top`,
      * re-derived by the compiler, never trusted from the document. An author who

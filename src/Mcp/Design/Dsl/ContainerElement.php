@@ -62,6 +62,14 @@ readonly final class ContainerElement implements DesignElement
         public null|float $gap,
         /** Guaranteed clearance below the container in px. Null = 0. */
         public null|float $spaceAfter,
+        /**
+         * The WHOLE container may be hidden at fill time / through the API
+         * (`inputs[<container id>] = {"hide": true}`) — it and everything in
+         * its tree disappear and collapse.
+         */
+        public bool $hidable = false,
+        /** Label of the hide toggle on the fill pages. Null = unnamed. */
+        public null|string $name = null,
     ) {
     }
 
@@ -93,6 +101,8 @@ readonly final class ContainerElement implements DesignElement
             'maxHeight' => $this->maxHeight,
             'gap' => $this->gap,
             'spaceAfter' => $this->spaceAfter,
+            'hidable' => $this->hidable,
+            'name' => $this->name,
         ];
     }
 }

@@ -773,11 +773,15 @@ export default class extends Controller {
             const gapBadge = (typeof container.gap === 'number' && isFinite(container.gap))
                 ? ` · mezery ${Math.round(container.gap)} px`
                 : '';
+            // A hidable container says so (and shows its fill-page label).
+            const hideBadge = container.hidable === true
+                ? ` · lze skrýt${typeof container.name === 'string' && container.name !== '' ? ` („${container.name}“)` : ''}`
+                : '';
             const text = nested
-                ? `Vnořený kontejner${gapBadge}`
+                ? `Vnořený kontejner${gapBadge}${hideBadge}`
                 : (overflowing
                     ? `Kontejner · obsah přesahuje o ${Math.ceil(overflowPx)} px`
-                    : `Kontejner · max ${Math.round(container.maxHeight)} px${gapBadge}`);
+                    : `Kontejner · max ${Math.round(container.maxHeight)} px${gapBadge}${hideBadge}`);
 
             // Skip the DOM writes when nothing changed — this runs on EVERY
             // Fabric render frame via after:render.
@@ -1065,6 +1069,8 @@ export default class extends Controller {
             };
             if (typeof def.gap === 'number' && isFinite(def.gap)) copy.gap = def.gap;
             if (typeof def.spaceAfter === 'number' && isFinite(def.spaceAfter)) copy.spaceAfter = def.spaceAfter;
+            if (def.hidable === true) copy.hidable = true;
+            if (typeof def.name === 'string' && def.name !== '') copy.name = def.name;
             containers.push(copy);
         });
 
@@ -1279,6 +1285,65 @@ export default class extends Controller {
         afterHint.className = 'form-text small mb-2';
         afterHint.textContent = 'Minimální odstup od dalšího kontejneru pod ním a od spodního okraje plátna.';
         el.appendChild(afterHint);
+
+        // Whole-container hide ("Lze skrýt"): the fill pages + API then offer
+        // ONE toggle that hides the container with everything inside it
+        // (texts, images, shapes, nested containers). The label is what the
+        // fill page's toggle row says.
+        const hideRow = document.createElement('div');
+        hideRow.className = 'form-check mb-1';
+        const hideInput = document.createElement('input');
+        hideInput.type = 'checkbox';
+        hideInput.className = 'form-check-input';
+        hideInput.id = `container-hidable-${container.id}`;
+        hideInput.checked = container.hidable === true;
+        const hideLabel = document.createElement('label');
+        hideLabel.className = 'form-check-label small';
+        hideLabel.htmlFor = hideInput.id;
+        hideLabel.textContent = 'Lze skrýt celý kontejner';
+        hideRow.appendChild(hideInput);
+        hideRow.appendChild(hideLabel);
+        el.appendChild(hideRow);
+
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.maxLength = 80;
+        nameInput.placeholder = 'Popisek přepínače, např. „Bublina s citací“';
+        nameInput.className = 'form-control form-control-sm mb-1';
+        nameInput.setAttribute('aria-label', 'Popisek přepínače pro skrytí kontejneru');
+        nameInput.value = typeof container.name === 'string' ? container.name : '';
+        nameInput.hidden = !hideInput.checked;
+        el.appendChild(nameInput);
+
+        const hideHint = document.createElement('div');
+        hideHint.className = 'form-text small mb-2';
+        hideHint.textContent = 'Při vyplňování a v API půjde kontejner skrýt jedním přepínačem — zmizí se vším, co obsahuje.';
+        el.appendChild(hideHint);
+
+        hideInput.addEventListener('change', () => {
+            if (hideInput.checked) {
+                container.hidable = true;
+            } else {
+                delete container.hidable;
+            }
+            nameInput.hidden = !hideInput.checked;
+            this.canvasEditorOutlet.markUnsaved();
+            const canvas = this._canvas();
+            if (canvas) canvas.fire('object:modified', {});
+        });
+        nameInput.addEventListener('input', () => {
+            const value = nameInput.value.trim();
+            if (value === '') {
+                delete container.name;
+            } else {
+                container.name = value;
+            }
+            this.canvasEditorOutlet.markUnsaved();
+        });
+        nameInput.addEventListener('change', () => {
+            const canvas = this._canvas();
+            if (canvas) canvas.fire('object:modified', {});
+        });
 
         // Explicit nesting control — the discoverable counterpart of
         // "select members of two containers → Vytvořit kontejner".

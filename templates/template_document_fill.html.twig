@@ -181,6 +181,18 @@
                 {% endif %}
             {% endfor %}
 
+            {# Whole-container hides — one checkbox per page's HIDABLE container
+               (fill key = re-keyed container id), the group page's pattern. #}
+            {% for container in fill.container_hides|default([]) %}
+                <input type="checkbox" class="visually-hidden" tabindex="-1" aria-hidden="true"
+                       name="hiddenValues[{{ container.id }}]"
+                       value="1"
+                       data-hide-mirror="{{ container.id }}"
+                       data-container-hide="{{ container.id }}"
+                       {{ container.hidden ? 'checked' }}
+                       data-action="change->group-fill#changed">
+            {% endfor %}
+
             {% for ph in fill.shape_placeholders %}
                 <input type="hidden"
                        name="shapeColorValues[{{ ph.inputId }}]"
@@ -309,7 +321,9 @@
                         </h6>
                     {% endif %}
                     {% for field in section.fields %}
-                      {% if field.kind == 'text' %}
+                      {% if field.kind == 'container' %}
+                        {{ include('_fill_container_hide_card.html.twig', { container: field.ph, arrangeable: false }) }}
+                      {% elseif field.kind == 'text' %}
                         {{ include('_fill_text_popover.html.twig', { ph: field.ph, richToolbar: fill.rich_toolbar, arrangeable: false }) }}
                       {% elseif field.kind == 'shape' %}
                         {{ include('_fill_shape_popover.html.twig', { ph: field.ph, arrangeable: false }) }}

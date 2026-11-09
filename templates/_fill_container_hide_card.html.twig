@@ -1,0 +1,34 @@
+{#
+    "Všechna pole" panel row of one HIDABLE container — shared by the single,
+    group and document fill pages. Panel-only chrome like the image cards (the
+    `fill-popover--image` class gives it exactly their show-in-panel /
+    hide-in-floating-mode rules); the eye flips the container's
+    `hiddenValues[<id>]` mirror via variant-fill-overlay#toggleHide, which
+    hides the container and EVERY member of its tree in the preview and the
+    export. Members' own hide toggles are kept and apply again once the
+    container is shown.
+
+    Params: container {id, name, hidden, memberCount}; arrangeable (bool).
+#}
+{% set hidden = container.hidden %}
+<div class="fill-popover fill-popover--image fill-popover--container card" data-inputid="{{ container.id }}">
+    <div class="card-body">
+        <div class="fill-popover__head">
+            <span class="fill-popover__lead">
+                {% if arrangeable|default(false) %}{{ include('_fill_field_reorder_handle.html.twig') }}{% endif %}
+                {{ icon('layers', 's14') }}
+                <span class="fill-popover__name">{{ container.name }}</span>
+            </span>
+            <button type="button"
+                class="fill-popover__eye{{ hidden ? ' is-active' : '' }}"
+                data-hide-toggle="{{ container.id }}"
+                aria-pressed="{{ hidden ? 'true' : 'false' }}"
+                title="{{ hidden ? 'Zobrazit prvek' : 'Schovat prvek' }}"
+                aria-label="{{ hidden ? 'Zobrazit prvek' : 'Schovat prvek' }}"
+                data-action="variant-fill-overlay#toggleHide"
+                data-variant-fill-overlay-inputid-param="{{ container.id }}"
+            >{{ icon(hidden ? 'eye-off' : 'eye', 's14') }}</button>
+        </div>
+        <p class="cap fill-popover__desc mb-0">Skupina prvků ({{ container.memberCount }}) — skrytím zmizí celá včetně všeho uvnitř.</p>
+    </div>
+</div>

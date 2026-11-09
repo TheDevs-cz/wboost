@@ -175,6 +175,16 @@ the listing so a consumer can mirror the reflow client-side; containers may
 also hold decorative images that ride the flow server-side without being
 listed as inputs, so treat the rendered preview as authoritative (see
 docs/api/consumer-prompt.md).
+
+**Hiding a whole container.** A container listed with `hidable: true` may be
+hidden as a unit: send `{ "hide": true }` keyed by the CONTAINER id in the
+same `inputs` map (`"inputs": { "<containerId>": { "hide": true } }`). The
+container and every member of its tree — texts, decorative images, shapes,
+nested containers — disappear and collapse exactly like hidden members; the
+members' own `hide` values are kept and apply again when the container is
+shown. A container entry accepts only `hide` (anything else is a 400
+`invalid_value`), and `hide: true` on a container without `hidable` is a
+**400** `container_not_hidable` (`containerId` in the body).
 MD,
                 requestBody: new RequestBody(
                     description: 'Map of inputId UUID → value (string, `{ value, hide }`, or `{ runs, hide }` for richText inputs).',
@@ -297,7 +307,7 @@ MD,
                                     'type' => 'object',
                                     'properties' => [
                                         'error' => ['type' => 'string'],
-                                        'code' => ['type' => 'string', 'enum' => ['container_overflow', 'value_too_long', 'invalid_value', 'rich_text_not_allowed', 'invalid_rich_text', 'font_not_allowed', 'color_not_allowed', 'invalid_color', 'lists_not_allowed', 'checkbox_lists_not_allowed', 'invalid_image_value', 'image_transform_not_allowed', 'image_not_allowed', 'image_unreadable']],
+                                        'code' => ['type' => 'string', 'enum' => ['container_overflow', 'value_too_long', 'invalid_value', 'rich_text_not_allowed', 'invalid_rich_text', 'font_not_allowed', 'color_not_allowed', 'invalid_color', 'lists_not_allowed', 'checkbox_lists_not_allowed', 'invalid_image_value', 'image_transform_not_allowed', 'image_not_allowed', 'image_unreadable', 'container_not_hidable']],
                                         'inputId' => ['type' => 'string'],
                                         'imageInputId' => ['type' => 'string'],
                                         'containerId' => ['type' => 'string', 'nullable' => true],

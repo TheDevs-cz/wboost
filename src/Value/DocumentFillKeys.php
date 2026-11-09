@@ -129,8 +129,9 @@ final readonly class DocumentFillKeys
     }
 
     /**
-     * Every input id of a variant: text inputs, image slots and recolourable
-     * shapes.
+     * Every input id of a variant: text inputs, image slots, recolourable
+     * shapes and HIDABLE containers (their `hiddenValues[<id>]` toggle is a
+     * per-page fill key like any input's hide).
      *
      * @return list<string>
      */
@@ -148,6 +149,13 @@ final readonly class DocumentFillKeys
 
         foreach (ShapeColorInput::collectionFromCanvasJson($variant->canvas) as $input) {
             $ids[] = $input->inputId;
+        }
+
+        $decoded = json_decode($variant->canvas, true);
+        foreach (is_array($decoded) ? CanvasContainer::collectionFromCanvas($decoded) : [] as $container) {
+            if ($container->hidable) {
+                $ids[] = $container->id;
+            }
         }
 
         return array_values(array_unique($ids));

@@ -27,6 +27,8 @@ use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
  * - `invalid_shape_color` — a shape colour that is not a `#rgb` / `#rrggbb` hex
  * - `shape_color_not_allowed` — a colour outside the shape's list while the
  *   admin did not allow any colour (context: `allowedColors`)
+ * - `container_not_hidable` — `{hide: true}` addressed to a container the
+ *   designer did not mark hidable (context: `containerId`)
  *
  * The resolvers add `inputId` / `imageInputId` / `shapeInputId` to the context.
  */
@@ -94,6 +96,15 @@ final class InvalidExportValue extends BadRequestHttpException
             'shape_color_not_allowed',
             sprintf('Colour %s is not allowed for shape "%s".', $color, $shapeLabel),
             ['allowedColors' => $allowedColors],
+        );
+    }
+
+    public static function containerNotHidable(string $containerLabel, string $containerId): self
+    {
+        return new self(
+            'container_not_hidable',
+            sprintf('Container "%s" cannot be hidden — the designer did not mark it hidable.', $containerLabel),
+            ['containerId' => $containerId],
         );
     }
 

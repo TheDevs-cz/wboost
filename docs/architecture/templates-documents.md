@@ -281,3 +281,10 @@ without bleed answers a `missing_bleed` warning). Still no MCP delete (the
 **Shared text vs page-level switches** (`DocumentApiValues::sharedText`): a
 shared value replaces only the TEXT of the bound input; the page's own
 `hide` / `fontFamily` survive unless the shared value sets them.
+
+**Hidable containers (2026-11-09)** are per-page fill keys:
+`DocumentFillKeys::pageInputIds()` lists them, `DocumentPageView` re-keys the
+clone's container `id` + `memberContainerIds` (uuid5 like any input), so the
+page's `hiddenValues[<key>]` toggle translates back to the real container id
+in `valuesForPage()`; the API takes `pages[].inputs[<containerId>] =
+{hide: true}`. Never a shared field (see templates-containers.md).

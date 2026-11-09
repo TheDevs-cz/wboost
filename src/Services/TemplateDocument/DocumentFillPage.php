@@ -8,6 +8,7 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use WBoost\Web\Entity\TemplateDocument;
 use WBoost\Web\Entity\TemplateDocumentField;
 use WBoost\Web\Entity\TemplateDocumentPage;
+use WBoost\Web\Services\SocialNetwork\FillContainerHides;
 use WBoost\Web\Services\SocialNetwork\FillShapePlaceholders;
 use WBoost\Web\Services\Template\FillFieldOrder;
 use WBoost\Web\Services\TemplateGroup\GroupFillPlaceholders;
@@ -51,6 +52,7 @@ readonly final class DocumentFillPage
     public function __construct(
         private GroupFillPlaceholders $placeholders,
         private FillShapePlaceholders $shapePlaceholders,
+        private FillContainerHides $containerHides,
         private FillFieldOrder $fillFieldOrder,
         private UrlGeneratorInterface $urlGenerator,
     ) {
@@ -61,6 +63,7 @@ readonly final class DocumentFillPage
      *     pages: list<array<string, mixed>>,
      *     text_placeholders: list<array<string, mixed>>,
      *     shape_placeholders: list<array<string, mixed>>,
+     *     container_hides: list<array{id: string, name: string, hidden: bool, memberCount: int}>,
      *     image_inputs: list<array<string, mixed>>,
      *     sections: list<array{title: string, shared: bool, fields: list<array<string, mixed>>}>,
      *     rich_toolbar: null|array<string, mixed>,
@@ -104,6 +107,8 @@ readonly final class DocumentFillPage
         $images = [];
         /** @var list<array{page: TemplateDocumentPage, number: int, keys: list<string>}> $sectionSources */
         $sectionSources = [];
+        /** @var array<string, array{id: string, name: string, hidden: bool, memberCount: int}> $containerRows fill key → hide toggle */
+        $containerRows = [];
 
         foreach ($document->pages() as $index => $page) {
             $templateId = $page->template->id->toString();
@@ -146,6 +151,13 @@ readonly final class DocumentFillPage
             foreach ($this->shapePlaceholders->placeholders([$clone], $seed['shapeColors']) as $shape) {
                 $shapes[$shape['inputId']] ??= $shape;
                 $pageKeys[] = $shape['inputId'];
+            }
+
+            // Hidable containers: per-page fill keys (the clone's container
+            // ids are re-keyed), one panel toggle each.
+            foreach ($this->containerHides->placeholders([$clone], $seed['hidden']) as $containerRow) {
+                $containerRows[$containerRow['id']] ??= $containerRow;
+                $pageKeys[] = $containerRow['id'];
             }
 
             $layout = $this->placeholders->layoutData($clone);
@@ -284,8 +296,9 @@ readonly final class DocumentFillPage
             'pages' => $pages,
             'text_placeholders' => array_values($texts),
             'shape_placeholders' => array_values($shapes),
+            'container_hides' => array_values($containerRows),
             'image_inputs' => array_values($imageSlots),
-            'sections' => $this->sections($document, $fieldsById, $sectionSources, $texts, $imageSlots, $shapes),
+            'sections' => $this->sections($document, $fieldsById, $sectionSources, $texts, $imageSlots, $shapes, $containerRows),
             'rich_toolbar' => $this->placeholders->richTextToolbar($clones),
             'placement_slots' => array_values($placementSlots),
             'placement_variants' => $placementVariants,
@@ -303,12 +316,16 @@ readonly final class DocumentFillPage
      * @param array<string, array<string, mixed>> $texts
      * @param array<string, array<string, mixed>> $imageSlots
      * @param array<string, array<string, mixed>> $shapes
+     * @param array<string, array<string, mixed>> $containerRows
      *
      * @return list<array{title: string, shared: bool, fields: list<array<string, mixed>>}>
      */
-    private function sections(TemplateDocument $document, array $fieldsById, array $sources, array $texts, array $imageSlots, array $shapes): array
+    private function sections(TemplateDocument $document, array $fieldsById, array $sources, array $texts, array $imageSlots, array $shapes, array $containerRows = []): array
     {
-        $entry = static function (string $key) use ($texts, $imageSlots, $shapes): null|array {
+        $entry = static function (string $key) use ($texts, $imageSlots, $shapes, $containerRows): null|array {
+            if (isset($containerRows[$key])) {
+                return ['inputId' => $key, 'kind' => 'container', 'ph' => $containerRows[$key]];
+            }
             if (isset($texts[$key])) {
                 return ['inputId' => $key, 'kind' => 'text', 'ph' => $texts[$key]];
             }

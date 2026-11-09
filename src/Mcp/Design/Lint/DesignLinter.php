@@ -838,6 +838,19 @@ readonly final class DesignLinter
                 continue;
             }
 
+            if ($container->hidable && $container->name === null) {
+                $findings[] = new LintFinding(
+                    LintCode::ContainerHidableWithoutName,
+                    $container->id,
+                    $path,
+                    sprintf(
+                        '%s ("%s") is hidable but has no "name"; the fill page labels its hide toggle with a generic "Skupina prvků N", so the user cannot tell what disappears. Give it a short name such as "Bublina s citací".',
+                        $path,
+                        $container->id,
+                    ),
+                );
+            }
+
             if (isset($parentOf[$container->id])) {
                 // Only a ROOT gates overflow: a nested container grows with its
                 // content and its maxHeight is inert, which is why the strict

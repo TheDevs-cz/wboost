@@ -112,7 +112,7 @@ final class DslParser
     public const array BACKGROUND_KEYS = ['kind', 'id', 'asset', 'fill', 'fillable'];
 
     /** @var list<string> */
-    public const array CONTAINER_KEYS = ['kind', 'id', 'members', 'children', 'maxHeight', 'gap', 'spaceAfter'];
+    public const array CONTAINER_KEYS = ['kind', 'id', 'members', 'children', 'maxHeight', 'gap', 'spaceAfter', 'hidable', 'name'];
 
     /**
      * Slug shape: lowercase only, so two ids can never differ by case alone —
@@ -863,12 +863,15 @@ final class DslParser
         $maxHeight = $this->readPositiveNumber($path, $raw, 'maxHeight');
         $gap = $this->readNonNegativeNumber($path, $raw, 'gap');
         $spaceAfter = $this->readNonNegativeNumber($path, $raw, 'spaceAfter');
+        $hidable = $this->readBool($path, $raw, 'hidable', false);
+        $name = $this->readString($path, $raw, 'name');
+        $name = $name === null || trim($name) === '' ? null : trim($name);
 
         if ($id === null) {
             return null;
         }
 
-        return new ContainerElement($id, $members, $children, $maxHeight, $gap, $spaceAfter);
+        return new ContainerElement($id, $members, $children, $maxHeight, $gap, $spaceAfter, $hidable, $name);
     }
 
     // -----------------------------------------------------------------

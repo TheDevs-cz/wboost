@@ -772,6 +772,13 @@ export class GroupSync {
                 const childIds = (container.memberContainerIds || [])
                     .filter((id) => currentIds.has(id) && id !== container.id);
 
+                // Whole-container hide flag + its label are METADATA, not
+                // geometry: they follow the active canvas absolutely in every
+                // dimension (one shared toggle on the group fill page / API).
+                const hideMeta = {};
+                if (container.hidable === true) hideMeta.hidable = true;
+                if (typeof container.name === 'string' && container.name !== '') hideMeta.name = container.name;
+
                 if (!existing) {
                     // New container → absolute projection of maxHeight/spacing.
                     next.push({
@@ -781,6 +788,7 @@ export class GroupSync {
                         spaceAfter: projectedSpacing(container.spaceAfter, ry),
                         memberInputIds: memberIds,
                         memberContainerIds: childIds,
+                        ...hideMeta,
                     });
                     return;
                 }
@@ -812,6 +820,7 @@ export class GroupSync {
                     spaceAfter: followSpacing('spaceAfter'),
                     memberInputIds: memberIds,
                     memberContainerIds: childIds,
+                    ...hideMeta,
                 });
             });
 

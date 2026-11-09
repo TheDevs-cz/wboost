@@ -29,6 +29,14 @@ readonly final class ResolvedInputOverrides
      *   already validated by
      *   {@see \WBoost\Web\Services\SocialNetwork\ResolveShapeColorOverrides}.
      *   Baked into the canvas JSON server-side before the render.
+     * @param list<string> $hiddenContainerIds container-hide REQUESTS: ids a
+     *   caller asked to hide (`{hide: true}` / a `hiddenValues[…]` checkbox)
+     *   that name no input of the variant — candidate CONTAINER ids. Not
+     *   validated here: the renderer honours only those naming a HIDABLE
+     *   container of the variant it renders and expands them into the
+     *   members' hide overrides ({@see CanvasContainer::hiddenMemberInputIds()});
+     *   the strict API path refuses a non-hidable container up front
+     *   ({@see \WBoost\Web\Services\SocialNetwork\ValidateContainerHides}).
      */
     public function __construct(
         public array $texts,
@@ -36,6 +44,7 @@ readonly final class ResolvedInputOverrides
         public array $richTexts = [],
         public array $fonts = [],
         public array $shapeColors = [],
+        public array $hiddenContainerIds = [],
     ) {
     }
 
@@ -44,6 +53,26 @@ readonly final class ResolvedInputOverrides
      */
     public function withShapeColors(array $shapeColors): self
     {
-        return new self($this->texts, $this->hidden, $this->richTexts, $this->fonts, $shapeColors);
+        return new self($this->texts, $this->hidden, $this->richTexts, $this->fonts, $shapeColors, $this->hiddenContainerIds);
+    }
+
+    /**
+     * The per-object hide map the render applies: the inputs' own hides plus
+     * every deep member of each requested HIDABLE container. A container hide
+     * WINS over a member's own "shown" state, and leaves that state untouched
+     * (un-hiding the container restores it).
+     *
+     * @param list<CanvasContainer> $containers the rendered variant's containers
+     * @return array<string, bool>
+     */
+    public function effectiveHidden(array $containers): array
+    {
+        $hidden = $this->hidden;
+
+        foreach (CanvasContainer::hiddenMemberInputIds($containers, $this->hiddenContainerIds) as $inputId) {
+            $hidden[$inputId] = true;
+        }
+
+        return $hidden;
     }
 }

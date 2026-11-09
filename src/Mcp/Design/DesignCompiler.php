@@ -940,7 +940,7 @@ readonly final class DesignCompiler
      *
      * @param array<string, string> $inputIds
      * @param array<string, array<string, mixed>> $objectByInputId
-     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float}>
+     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string}>
      */
     private function compileContainers(
         DesignDocument $document,
@@ -960,7 +960,7 @@ readonly final class DesignCompiler
             $containerIds[$container->id] = true;
         }
 
-        /** @var list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float}> $result */
+        /** @var list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string}> $result */
         $result = [];
 
         foreach ($containers as $container) {
@@ -1009,6 +1009,16 @@ readonly final class DesignCompiler
 
             if ($spaceAfter !== null) {
                 $entry['spaceAfter'] = $spaceAfter;
+            }
+
+            // Whole-container hide — emitted only when set, exactly like the
+            // editor's sanitizedContainers() (canvas_payload.js).
+            if ($container->hidable) {
+                $entry['hidable'] = true;
+            }
+
+            if ($container->name !== null) {
+                $entry['name'] = $container->name;
             }
 
             if ($entry['id'] !== '' && $entry['maxHeight'] > 0) {
@@ -1087,8 +1097,8 @@ readonly final class DesignCompiler
      * itself, and must have exactly one parent — the first that claims them in
      * list order.
      *
-     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float}> $containers
-     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float}>
+     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string}> $containers
+     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string}>
      */
     private static function pruneChildReferences(array $containers): array
     {
@@ -1133,8 +1143,8 @@ readonly final class DesignCompiler
      * editor matters more than symmetry — a design saved from the browser and
      * the same design compiled here must produce the same `containers`.
      *
-     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float}> $containers
-     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float}>
+     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string}> $containers
+     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string}>
      */
     private static function dropCyclicChildReferences(array $containers): array
     {
@@ -1195,8 +1205,8 @@ readonly final class DesignCompiler
      * definitions behind, which `CanvasContainer` would then drop silently and
      * asymmetrically from the design the agent was shown.
      *
-     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float}> $containers
-     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float}>
+     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string}> $containers
+     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string}>
      */
     private static function dropDegenerateToFixpoint(array $containers): array
     {

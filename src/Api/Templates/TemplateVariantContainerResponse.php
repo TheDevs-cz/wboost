@@ -38,6 +38,14 @@ namespace WBoost\Web\Api\Templates;
  * therefore not listed here — a consumer mirroring the reflow approximately
  * should treat the server-rendered preview as authoritative.
  * The reflow algorithm is documented in docs/api/consumer-prompt.md.
+ *
+ * `hidable: true` → the designer allows hiding the WHOLE container: offer a
+ * toggle (captioned with `name`, null = unnamed) and send
+ * `inputs[<container id>] = { "hide": true }` on export/preview. The container
+ * and every member of its tree (texts, decorative images, shapes, nested
+ * containers) then disappear and collapse like hidden members; the members'
+ * own hide states are kept and apply again once the container is shown.
+ * Hiding a non-hidable container is a 400 `container_not_hidable`.
  */
 final readonly class TemplateVariantContainerResponse
 {
@@ -54,6 +62,8 @@ final readonly class TemplateVariantContainerResponse
         public null|float $gap = null,
         public null|float $spaceAfter = null,
         public bool $nested = false,
+        public bool $hidable = false,
+        public null|string $name = null,
     ) {
     }
 }

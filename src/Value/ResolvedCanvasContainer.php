@@ -37,6 +37,10 @@ readonly final class ResolvedCanvasContainer
         public null|float $gap,
         public null|float $spaceAfter,
         public bool $nested,
+        /** The designer opted the WHOLE container into hiding (see {@see CanvasContainer::$hidable}). */
+        public bool $hidable = false,
+        /** Designer label — the hide toggle's caption. */
+        public null|string $name = null,
     ) {
     }
 
@@ -133,6 +137,8 @@ readonly final class ResolvedCanvasContainer
                 gap: $container->gap,
                 spaceAfter: $container->spaceAfter,
                 nested: $container->isNestedIn($containers),
+                hidable: $container->hidable,
+                name: $container->name,
             );
         }
 

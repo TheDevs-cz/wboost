@@ -119,7 +119,8 @@ readonly final class ExportVariantTool
      *
      * Text that overflows its container is REFUSED here rather than drawn: the
      * error names the inputs sharing that container and by how many pixels the
-     * content is too long. Shorten one of those texts (or hide a hidable one)
+     * content is too long. Shorten one of those texts (or hide a hidable one —
+     * or a whole hidable container: {"<container id>": {"hide": true}} in inputs)
      * and call again — render_variant shows you the overflow while you work.
      * Values that break the input contract are refused the same way, naming
      * what is wrong: an over-long value, a font outside the variant's palette,

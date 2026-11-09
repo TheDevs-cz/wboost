@@ -312,12 +312,16 @@ export default class extends Controller {
 
         const target = event ? event.target : null;
         const inputId = target && target.getAttribute ? target.getAttribute('data-input-id') : null;
-        const hiddenFor = target && typeof target.name === 'string' && target.name.startsWith('hiddenValues[')
+        // A whole-container hide is NOT an echo edit: it also hides decorative
+        // members drawn into the base, so it falls through to the "pixels
+        // under the echo changed" branch below (bases invalidated).
+        const containerHide = target && target.dataset ? (target.dataset.containerHide || null) : null;
+        const hiddenFor = !containerHide && target && typeof target.name === 'string' && target.name.startsWith('hiddenValues[')
             ? target.name.slice('hiddenValues['.length, -1)
             : null;
         // Which input changed — narrows the re-render to the pages carrying
         // it where the variants declare their keys (document page).
-        const key = inputId || hiddenFor || keyHint
+        const key = inputId || hiddenFor || keyHint || containerHide
             || (target && target.dataset ? (target.dataset.imageHide || target.dataset.shapeColorMirror || null) : null);
         const scope = this._scopeForKey(key);
 
@@ -804,6 +808,14 @@ export default class extends Controller {
         this._echo.forEach((entry) => {
             if (!entry.active || !entry.painter) return;
             const values = {};
+            // Texts inside a hidden container hide with it (the render's
+            // expansion: container id → deep member ids, per dimension).
+            const containerHidden = new Set();
+            const containerHides = entry.payload.containerHides || {};
+            Object.keys(containerHides).forEach((containerId) => {
+                const box = this.element.querySelector(`[data-hide-mirror="${containerId}"]`);
+                if (box && box.checked) (containerHides[containerId] || []).forEach((id) => containerHidden.add(id));
+            });
             Object.keys(entry.payload.inputs).forEach((inputId) => {
                 const def = entry.payload.inputs[inputId];
                 // The popovers' mirrors ARE the form fields here (hidden
@@ -813,7 +825,7 @@ export default class extends Controller {
                 const field = this.element.querySelector(`[name="textValues[${inputId}]"]`);
                 const raw = field ? field.value : '';
                 const hideBox = this.element.querySelector(`[name="hiddenValues[${inputId}]"]`);
-                const hidden = Boolean(hideBox && hideBox.checked);
+                const hidden = Boolean(hideBox && hideBox.checked) || containerHidden.has(inputId);
                 // The whole-text font choice ("" = designed font).
                 const fontField = this.element.querySelector(`[name="fontValues[${inputId}]"]`);
                 const fontFamily = fontField ? fontField.value : '';

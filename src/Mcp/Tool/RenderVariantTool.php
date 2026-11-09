@@ -140,7 +140,10 @@ readonly final class RenderVariantTool
      * send an empty string and nothing renders for it. Locked inputs cannot be
      * written. maxLength, the allowed fonts and the list permissions are
      * enforced exactly as export_variant enforces them, so a value that is
-     * refused here would have been refused there.
+     * refused here would have been refused there. A container describe_variant
+     * marks hidable is hidden WHOLE by keying {"hide": true} with its id in the
+     * same map — it and everything inside it (texts, images, shapes, nested
+     * containers) disappear.
      *
      * images maps an image slot id to a gallery image id from list_gallery, or
      * to {"imageId": "...", "scale": 1, "offsetX": 0, "offsetY": 0,

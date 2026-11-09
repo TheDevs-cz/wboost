@@ -18,6 +18,7 @@ use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Query\GetTemplateGroupMembers;
 use WBoost\Web\Repository\TemplateExportVersionRepository;
 use WBoost\Web\Services\Security\TemplateGroupVoter;
+use WBoost\Web\Services\SocialNetwork\FillContainerHides;
 use WBoost\Web\Services\SocialNetwork\FillShapePlaceholders;
 use WBoost\Web\Services\Template\ExportVersionSeeder;
 use WBoost\Web\Services\TemplateGroup\GroupFillPlaceholders;
@@ -40,6 +41,7 @@ final class TemplateGroupFillController extends AbstractController
         readonly private TemplateExportVersionRepository $versionRepository,
         readonly private ExportVersionSeeder $versionSeeder,
         readonly private FillShapePlaceholders $shapePlaceholders,
+        readonly private FillContainerHides $containerHides,
     ) {
     }
 
@@ -130,6 +132,9 @@ final class TemplateGroupFillController extends AbstractController
             // Recolourable shapes, one popover per distinct shape (members
             // share the id), seeded from the loaded version.
             'shape_placeholders' => $this->shapePlaceholders->placeholders($memberVariants, $seed['shapeColors']),
+            // Hidable containers (shared ids across dimensions) — one panel
+            // toggle + one `hiddenValues[<containerId>]` checkbox each.
+            'container_hides' => $this->containerHides->placeholders($memberVariants, $seed['hidden']),
             'export_history' => $this->getExportVersions->forGroup($group->id),
             'loaded_version' => $loadedVersion,
             'seed' => $seed,

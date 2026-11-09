@@ -507,6 +507,52 @@ Item", $resolved->texts[self::INPUT_ID]);
         );
     }
 
+    public function testHideRequestsForNonInputIdsAreCollectedAsContainerHides(): void
+    {
+        $result = (new ResolveTextOverrides())->resolve(
+            [$this->input()],
+            [
+                // The input itself (not hidable → its hide is ignored, and
+                // it is never mistaken for a container).
+                self::INPUT_ID => ['value' => 'Ahoj', 'hide' => true],
+                // Web checkbox (bool) and form-POST string shapes both count.
+                'container-a' => ['hide' => true],
+                'container-b' => ['hide' => '1'],
+                // Shown / malformed / non-hide entries are not requests.
+                'container-c' => ['hide' => false],
+                'container-d' => 'text',
+                'container-e' => ['value' => 'x'],
+            ],
+        );
+
+        self::assertSame([], $result->hidden);
+        self::assertSame(['container-a', 'container-b'], $result->hiddenContainerIds);
+        // Carried through the shape-colour wither.
+        self::assertSame(['container-a', 'container-b'], $result->withShapeColors([])->hiddenContainerIds);
+    }
+
+    public function testEffectiveHiddenExpandsOnlyHidableContainersAndKeepsOwnHides(): void
+    {
+        $containers = \WBoost\Web\Value\CanvasContainer::collectionFromCanvas(['containers' => [
+            ['id' => 'bubble', 'maxHeight' => 100, 'memberInputIds' => ['text', 'img'], 'hidable' => true],
+            ['id' => 'fixed', 'maxHeight' => 100, 'memberInputIds' => ['x', 'y']],
+        ]]);
+
+        $overrides = new \WBoost\Web\Value\ResolvedInputOverrides(
+            texts: [],
+            hidden: ['text' => false, 'other' => true],
+            hiddenContainerIds: ['bubble', 'fixed', 'unknown'],
+        );
+
+        self::assertSame(
+            ['text' => true, 'other' => true, 'img' => true],
+            $overrides->effectiveHidden($containers),
+        );
+        // Un-hiding the container restores the members' own states.
+        $shown = new \WBoost\Web\Value\ResolvedInputOverrides(texts: [], hidden: ['text' => false]);
+        self::assertSame(['text' => false], $shown->effectiveHidden($containers));
+    }
+
     private function input(null|int $maxLength = null, bool $uppercase = false, null|string $sampleValue = null): EditorTextInput
     {
         return new EditorTextInput(

@@ -410,6 +410,8 @@ final readonly class TemplatesProvider implements ProviderInterface
                 gap: $container->gap,
                 spaceAfter: $container->spaceAfter,
                 nested: $container->nested,
+                hidable: $container->hidable,
+                name: $container->name,
             ),
             ResolvedCanvasContainer::collection($containers, $frames, $inputs),
         );

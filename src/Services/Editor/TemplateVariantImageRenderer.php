@@ -552,6 +552,8 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
             $listConfigs[$input->inputId] = $config;
         }
 
+        $containers = $this->extractContainers($variant);
+
         $builder = $this->gotenberg->html()
             ->content('api/template_variant_render.html.twig', [
                 'variant' => $variant,
@@ -561,10 +563,14 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
                 'rich_text_overrides' => $richTextOverrides,
                 'font_overrides' => $overrides->fonts,
                 'list_configs' => $listConfigs,
-                'hidden_overrides' => $overrides->hidden,
+                // Inputs' own hides + the deep members of every requested
+                // HIDABLE container — a hidden container is nothing but its
+                // members hidden, so the template's existing hide loop and the
+                // layout engine's collapse rules handle it unchanged.
+                'hidden_overrides' => $overrides->effectiveHidden($containers),
                 'containers' => array_map(
                     static fn (CanvasContainer $container): array => $container->toArray(),
-                    $this->extractContainers($variant),
+                    $containers,
                 ),
                 'strict_container_overflow' => $strictContainerOverflow,
                 'fabric_inline_script' => $this->getInlineScript($this->fabricUmdBundlePath),

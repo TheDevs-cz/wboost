@@ -26,6 +26,11 @@ namespace WBoost\Web\Mcp\Response;
  * FILLABLE members: containers may also carry decorative images that ride the
  * flow server-side, and design-hidden members that are not fillable at all.
  * The rendered image is the authority on how it ends up looking.
+ *
+ * `hidable: true` → the whole container may be hidden: pass
+ * `inputs[<container id>] = {"hide": true}` to render_variant / export_variant
+ * and the container with everything inside it (texts, decorative images,
+ * shapes, nested containers) disappears and collapses. `name` is its label.
  */
 readonly final class VariantContainerResponse
 {
@@ -42,6 +47,8 @@ readonly final class VariantContainerResponse
         public null|float $gap,
         public null|float $spaceAfter,
         public bool $nested,
+        public bool $hidable = false,
+        public null|string $name = null,
     ) {
     }
 }

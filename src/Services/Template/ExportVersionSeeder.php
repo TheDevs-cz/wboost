@@ -16,6 +16,7 @@ use WBoost\Web\Services\SocialNetwork\PlaceholderAllowedDirectories;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Services\SocialNetwork\ResolveShapeColorOverrides;
 use WBoost\Web\Services\UploaderHelper;
+use WBoost\Web\Value\CanvasContainer;
 use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\RichText;
@@ -101,6 +102,14 @@ readonly final class ExportVersionSeeder
             $storedFont = $values->fonts[$input->inputId] ?? null;
             if ($fontOptions !== null && is_string($storedFont) && in_array($storedFont, $fontOptions->allowedFamiliesFor($input->inputId), true)) {
                 $fontValues[$input->inputId] = $storedFont;
+            }
+        }
+
+        // Whole-container hides ride the same `hidden` list, keyed by the
+        // container id — re-seeded while that container is still hidable.
+        foreach (self::hidableContainerIds([$variant]) as $containerId) {
+            if (isset($hiddenIds[$containerId])) {
+                $hiddenValues[$containerId] = true;
             }
         }
 
@@ -220,6 +229,12 @@ readonly final class ExportVersionSeeder
             }
         }
 
+        foreach (self::hidableContainerIds($memberVariants) as $containerId) {
+            if (isset($hiddenIds[$containerId])) {
+                $hidden[$containerId] = true;
+            }
+        }
+
         $images = [];
         $imageHidden = [];
         $slotsById = [];
@@ -301,6 +316,33 @@ readonly final class ExportVersionSeeder
             'imageHidden' => $imageHidden,
             'placements' => $placements,
         ];
+    }
+
+    /**
+     * Ids of the HIDABLE containers across the given variants (group members
+     * share container ids, so a group seeds each id once).
+     *
+     * @param list<TemplateVariant> $variants
+     * @return list<string>
+     */
+    private static function hidableContainerIds(array $variants): array
+    {
+        $ids = [];
+
+        foreach ($variants as $variant) {
+            $decoded = json_decode($variant->canvas, true);
+            if (!is_array($decoded)) {
+                continue;
+            }
+
+            foreach (CanvasContainer::collectionFromCanvas($decoded) as $container) {
+                if ($container->hidable) {
+                    $ids[$container->id] = true;
+                }
+            }
+        }
+
+        return array_map(strval(...), array_keys($ids));
     }
 
     /**

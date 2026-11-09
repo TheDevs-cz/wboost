@@ -229,7 +229,8 @@ final readonly class FillTextPlaceholders
      *         listStyle: null|array{bullet: string, bulletImage: null|string, indent: float, itemSpacing: float, blockSpacing: float, checkboxes: bool, checkboxImage: null|string, checkboxCheckedImage: null|string}
      *     }>,
      *     decorations: array<string, array{frame: array{x: float, y: float, width: float, height: float}}>,
-     *     containers: list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap: null|float, spaceAfter: null|float}>,
+     *     containers: list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap: null|float, spaceAfter: null|float, hidable?: true, name?: string}>,
+     *     containerHides: array<string, list<string>>,
      *     canvasHeight: int
      * }
      */
@@ -279,6 +280,10 @@ final readonly class FillTextPlaceholders
                 static fn (CanvasContainer $container): array => $container->toArray(),
                 $containers,
             ),
+            // Hidable container → deep member inputIds: a checked container
+            // hide mirror hides these in the overlay's reflow, exactly like
+            // the render's expansion ({@see CanvasContainer::hiddenMemberInputIds()}).
+            'containerHides' => CanvasContainer::hidableMemberMap($containers),
             'canvasHeight' => $variant->dimension->height(),
         ];
     }

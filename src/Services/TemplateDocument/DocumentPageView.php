@@ -28,7 +28,10 @@ use WBoost\Web\Value\EditorTextInput;
  *   is POSITIONAL), `imageInputs[]`, the canvas objects' `inputId` (texts,
  *   image placeholders, shapes — nested group objects included) and the
  *   canvas `containers[].memberInputIds` (a stale member id makes the
- *   container drop out and the overlay reflow diverge from the render).
+ *   container drop out and the overlay reflow diverge from the render) —
+ *   and the containers' own `id` + `memberContainerIds`, because a HIDABLE
+ *   container is a fill key too (its `hiddenValues[…]` toggle must be per
+ *   page; {@see DocumentFillKeys::pageInputIds()}).
  * - The clone is for VIEW DATA ONLY: never hand it to a renderer, a resolver
  *   or a message — rendering always uses the real variant +
  *   {@see DocumentFillKeys::valuesForPage()}.
@@ -89,6 +92,15 @@ final readonly class DocumentPageView
                     static fn (mixed $id): mixed => is_string($id) && $id !== '' ? $key($id) : $id,
                     $container['memberInputIds'],
                 );
+                if (is_string($container['id'] ?? null) && $container['id'] !== '') {
+                    $container['id'] = $key($container['id']);
+                }
+                if (is_array($container['memberContainerIds'] ?? null)) {
+                    $container['memberContainerIds'] = array_map(
+                        static fn (mixed $id): mixed => is_string($id) && $id !== '' ? $key($id) : $id,
+                        $container['memberContainerIds'],
+                    );
+                }
                 $containers[$index] = $container;
             }
             $decoded['containers'] = $containers;

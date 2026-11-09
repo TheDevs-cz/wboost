@@ -62,15 +62,32 @@ readonly final class CanvasContainer
          * following gap when nested, and its page-bottom margin. Null = 0.
          */
         public null|float $spaceAfter = null,
+        /**
+         * Opt-in WHOLE-container hide (2026-11): the fill pages offer a toggle
+         * and the API accepts `inputs[<containerId>] = {hide: true}`. Hiding
+         * hides the container and every member of its tree (texts, decorative
+         * images, shapes, nested containers) — at render time it expands into
+         * the members' own hide overrides ({@see self::hiddenMemberInputIds()}),
+         * so the layout treats it exactly like hidden members (collapse).
+         */
+        public bool $hidable = false,
+        /**
+         * Designer label of the container — the fill pages' toggle caption and
+         * the API's `containers[].name`. Null = unnamed.
+         */
+        public null|string $name = null,
     ) {
     }
 
     /**
-     * @return array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap: null|float, spaceAfter: null|float}
+     * `hidable` / `name` are emitted only when set, so every pre-existing
+     * definition (and every payload built from one) keeps its exact shape.
+     *
+     * @return array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap: null|float, spaceAfter: null|float, hidable?: true, name?: string}
      */
     public function toArray(): array
     {
-        return [
+        $data = [
             'id' => $this->id,
             'maxHeight' => $this->maxHeight,
             'memberInputIds' => $this->memberInputIds,
@@ -78,6 +95,16 @@ readonly final class CanvasContainer
             'gap' => $this->gap,
             'spaceAfter' => $this->spaceAfter,
         ];
+
+        if ($this->hidable) {
+            $data['hidable'] = true;
+        }
+
+        if ($this->name !== null) {
+            $data['name'] = $this->name;
+        }
+
+        return $data;
     }
 
     /**
@@ -138,7 +165,20 @@ readonly final class CanvasContainer
             $memberContainerIds,
             self::nonNegativeFloatOrNull($data['gap'] ?? null),
             self::nonNegativeFloatOrNull($data['spaceAfter'] ?? null),
+            ($data['hidable'] ?? false) === true,
+            self::nameOrNull($data['name'] ?? null),
         );
+    }
+
+    private static function nameOrNull(mixed $value): null|string
+    {
+        if (!is_string($value)) {
+            return null;
+        }
+
+        $value = trim($value);
+
+        return $value === '' ? null : $value;
     }
 
     private static function nonNegativeFloatOrNull(mixed $value): null|float
@@ -193,5 +233,119 @@ readonly final class CanvasContainer
         }
 
         return false;
+    }
+
+    /**
+     * Every member inputId of this container's TREE — its own members plus,
+     * recursively, those of its nested containers (cycle-safe). Order: own
+     * members first, then each child's tree.
+     *
+     * @param list<self> $containers the whole collection (child lookups)
+     * @return list<string>
+     */
+    public function deepMemberInputIds(array $containers): array
+    {
+        $byId = [];
+        foreach ($containers as $container) {
+            $byId[$container->id] ??= $container;
+        }
+
+        $result = [];
+        $seen = [];
+        $walk = static function (self $container) use (&$walk, &$result, &$seen, $byId): void {
+            if (isset($seen[$container->id])) {
+                return;
+            }
+            $seen[$container->id] = true;
+
+            foreach ($container->memberInputIds as $inputId) {
+                $result[$inputId] = true;
+            }
+
+            foreach ($container->memberContainerIds as $childId) {
+                $child = $byId[$childId] ?? null;
+                if ($child !== null) {
+                    $walk($child);
+                }
+            }
+        };
+        $walk($this);
+
+        return array_map(strval(...), array_keys($result));
+    }
+
+    /**
+     * The container-hide expansion — the ONE place a hidden container turns
+     * into hidden objects: the deep member inputIds of every HIDABLE
+     * container named in `$hiddenContainerIds`. Ids that name no container,
+     * or a container the designer did not mark hidable, contribute nothing
+     * (lenient — the strict API path refuses those before it gets here).
+     *
+     * The render applies the result as ordinary per-object hide overrides,
+     * which is what makes a hidden container behave exactly like hidden
+     * members in the shared layout engine: its items collapse, a nested
+     * container whose items are all hidden collapses in its parent, and a root
+     * whose items are all hidden takes no flow space. The members' OWN hide
+     * states are untouched, so showing the container again restores them.
+     *
+     * @param list<self> $containers
+     * @param iterable<string> $hiddenContainerIds
+     * @return list<string>
+     */
+    public static function hiddenMemberInputIds(array $containers, iterable $hiddenContainerIds): array
+    {
+        $byId = [];
+        foreach ($containers as $container) {
+            $byId[$container->id] ??= $container;
+        }
+
+        $result = [];
+        foreach ($hiddenContainerIds as $containerId) {
+            $container = $byId[$containerId] ?? null;
+            if ($container === null || !$container->hidable) {
+                continue;
+            }
+
+            foreach ($container->deepMemberInputIds($containers) as $inputId) {
+                $result[$inputId] = true;
+            }
+        }
+
+        return array_map(strval(...), array_keys($result));
+    }
+
+    /**
+     * Hidable container id → its deep member inputIds — what the fill pages'
+     * client-side mirrors (overlay reflow, text echo) need to hide a
+     * container's tree the way the render does, without re-deriving the
+     * expansion in JS.
+     *
+     * @param list<self> $containers
+     * @return array<string, list<string>>
+     */
+    public static function hidableMemberMap(array $containers): array
+    {
+        $map = [];
+        foreach ($containers as $container) {
+            if ($container->hidable) {
+                $map[$container->id] = $container->deepMemberInputIds($containers);
+            }
+        }
+
+        return $map;
+    }
+
+    /**
+     * @param list<self> $containers
+     */
+    public static function findById(array $containers, string $id): null|self
+    {
+        foreach ($containers as $container) {
+            if ($container->id === $id) {
+                return $container;
+            }
+        }
+
+        return null;
     }
 }

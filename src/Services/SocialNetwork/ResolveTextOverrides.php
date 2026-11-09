@@ -196,7 +196,43 @@ readonly final class ResolveTextOverrides
             }
         }
 
-        return new ResolvedInputOverrides($texts, $hidden, $richTexts, $fonts);
+        return new ResolvedInputOverrides($texts, $hidden, $richTexts, $fonts, hiddenContainerIds: self::containerHideRequests($inputs, $providedValues));
+    }
+
+    /**
+     * Hide requests addressed to an id that is NOT one of the inputs —
+     * candidate container hides (the fill pages' `hiddenValues[<containerId>]`
+     * checkbox, the API's `inputs[<containerId>] = {hide: true}`). Collected
+     * leniently and unvalidated: the renderer keeps only those naming a
+     * hidable container of the variant, and the strict API path validates the
+     * container entries before resolving
+     * ({@see ValidateContainerHides}). A truthy checkbox-ish value counts,
+     * mirroring how the web form parsers coerce `hide`.
+     *
+     * @param array<EditorTextInput> $inputs
+     * @param array<string, mixed> $providedValues
+     * @return list<string>
+     */
+    private static function containerHideRequests(array $inputs, array $providedValues): array
+    {
+        $inputIds = [];
+        foreach ($inputs as $input) {
+            $inputIds[$input->inputId] = true;
+        }
+
+        $requests = [];
+        foreach ($providedValues as $id => $value) {
+            $id = (string) $id;
+            if (isset($inputIds[$id]) || !is_array($value)) {
+                continue;
+            }
+
+            if (in_array($value['hide'] ?? null, [true, 1, '1', 'true'], true)) {
+                $requests[] = $id;
+            }
+        }
+
+        return $requests;
     }
 
     /**

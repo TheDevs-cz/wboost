@@ -177,4 +177,74 @@ final class CanvasContainerTest extends TestCase
         self::assertSame([], CanvasContainer::collectionFromCanvas(['objects' => []]));
         self::assertSame([], CanvasContainer::collectionFromCanvas(['containers' => 'nope']));
     }
+
+    public function testHidableAndNameAreParsedAndEmittedOnlyWhenSet(): void
+    {
+        $plain = CanvasContainer::fromArray(['id' => 'c', 'maxHeight' => 10, 'memberInputIds' => ['a', 'b']]);
+        self::assertNotNull($plain);
+        self::assertFalse($plain->hidable);
+        self::assertNull($plain->name);
+        self::assertArrayNotHasKey('hidable', $plain->toArray());
+        self::assertArrayNotHasKey('name', $plain->toArray());
+
+        $data = [
+            'id' => 'c',
+            'maxHeight' => 10.0,
+            'memberInputIds' => ['a', 'b'],
+            'memberContainerIds' => [],
+            'gap' => null,
+            'spaceAfter' => null,
+            'hidable' => true,
+            'name' => 'Bublina',
+        ];
+        $hidable = CanvasContainer::fromArray($data);
+        self::assertNotNull($hidable);
+        self::assertTrue($hidable->hidable);
+        self::assertSame('Bublina', $hidable->name);
+        self::assertSame($data, $hidable->toArray());
+    }
+
+    public function testNonBooleanHidableAndBlankNameAreIgnored(): void
+    {
+        $container = CanvasContainer::fromArray([
+            'id' => 'c',
+            'maxHeight' => 10,
+            'memberInputIds' => ['a', 'b'],
+            'hidable' => '1',
+            'name' => '   ',
+        ]);
+
+        self::assertNotNull($container);
+        self::assertFalse($container->hidable);
+        self::assertNull($container->name);
+    }
+
+    public function testDeepMemberInputIdsWalksTheTreeCycleSafely(): void
+    {
+        $containers = CanvasContainer::collectionFromCanvas(['containers' => [
+            ['id' => 'root', 'maxHeight' => 100, 'memberInputIds' => ['t1'], 'memberContainerIds' => ['child']],
+            ['id' => 'child', 'maxHeight' => 100, 'memberInputIds' => ['t2', 'img'], 'memberContainerIds' => ['grand', 'root']],
+            ['id' => 'grand', 'maxHeight' => 100, 'memberInputIds' => ['t3', 'shape']],
+        ]]);
+
+        $root = CanvasContainer::findById($containers, 'root');
+        self::assertNotNull($root);
+        self::assertSame(['t1', 't2', 'img', 't3', 'shape'], $root->deepMemberInputIds($containers));
+        self::assertNull(CanvasContainer::findById($containers, 'nope'));
+    }
+
+    public function testHiddenMemberInputIdsExpandsOnlyHidableContainers(): void
+    {
+        $containers = CanvasContainer::collectionFromCanvas(['containers' => [
+            ['id' => 'bubble', 'maxHeight' => 100, 'memberInputIds' => ['text', 'bubble-img'], 'hidable' => true],
+            ['id' => 'locked', 'maxHeight' => 100, 'memberInputIds' => ['x', 'y']],
+            ['id' => 'outer', 'maxHeight' => 100, 'memberInputIds' => ['z'], 'memberContainerIds' => ['locked'], 'hidable' => true],
+        ]]);
+
+        self::assertSame(['text', 'bubble-img'], CanvasContainer::hiddenMemberInputIds($containers, ['bubble']));
+        // Not hidable → nothing; unknown id → nothing.
+        self::assertSame([], CanvasContainer::hiddenMemberInputIds($containers, ['locked', 'unknown']));
+        // A hidable PARENT hides its non-hidable child's members too.
+        self::assertSame(['z', 'x', 'y'], CanvasContainer::hiddenMemberInputIds($containers, ['outer']));
+    }
 }

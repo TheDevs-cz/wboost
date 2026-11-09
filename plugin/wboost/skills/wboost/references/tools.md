@@ -161,7 +161,9 @@ of the canvas size a design must be authored at.
     "y",                   // top of the highest designed member in the tree
     "memberInputIds", "memberContainerIds",
     "gap", "spaceAfter",   // nullable px
-    "nested"               // true = it flows inside another container
+    "nested",              // true = it flows inside another container
+    "hidable",             // true = the WHOLE container may be hidden (see below)
+    "name"                 // nullable label of that hide toggle
   }],
 
   "richTextOptions": {     // null unless a fillable richText input exists
@@ -194,6 +196,15 @@ An empty allow-list is never "no folders".
 
 Only a **root** container's `maxHeight` bounds anything; a nested one grows with
 its content. An overflow is always reported against the root.
+
+A container with `hidable: true` can be hidden as a unit: put
+`"<container id>": {"hide": true}` into the same `inputs` map you send to
+`render_variant` / `export_variant`. The container and EVERYTHING in its tree
+(texts, decorative images, shapes, nested containers) disappear and collapse;
+the members' own `hide` values are kept for when it is shown again. A container
+entry accepts only `hide`, and hiding one without `hidable` is refused
+(`container_not_hidable`). It is the cheapest fix for a container overflow when
+the designer offered it.
 
 ---
 
@@ -529,7 +540,8 @@ background are both reported in one turn.
 renderer, so it stops the call before anything is drawn. Other lint codes
 (`out_of_canvas_bounds`, `text_overlap`, `color_not_in_palette`,
 `font_size_too_small`, `container_overflow_predicted`, `container_too_few_items`,
-`image_without_asset_or_placeholder`, `max_length_below_stand_in`) are warnings.
+`container_hidable_without_name`, `image_without_asset_or_placeholder`,
+`max_length_below_stand_in`) are warnings.
 
 ---
 
@@ -558,7 +570,7 @@ within the document. Slugs carry input identity across saves.
 | `shape` gradient stop | `at`, `color`, `opacity` |
 | `shape` userColor block | `target`, `colors`, `free` |
 | `background` element | `kind`, `id`, `asset`, `fill`, `fillable` |
-| `container` element | `kind`, `id`, `members`, `children`, `maxHeight`, `gap`, `spaceAfter` |
+| `container` element | `kind`, `id`, `members`, `children`, `maxHeight`, `gap`, `spaceAfter`, `hidable`, `name` |
 
 ### Enumerated values
 
@@ -644,7 +656,9 @@ within the document. Slugs carry input identity across saves.
   a tree. **A top-level container must carry `maxHeight`**; a nested one may omit
   it, because only the root's bound gates overflow. `gap` replaces every designed
   inter-item gap with a uniform spacing; `spaceAfter` is guaranteed clearance
-  below.
+  below. `hidable: true` lets the user (fill page) and API/MCP callers hide the
+  WHOLE container with one toggle — give it a `name` (the toggle's label, e.g.
+  `"Bublina s citací"`).
 - **colours**: `#rrggbb` or `#rgb` shorthand, normalized to lowercase. No alpha.
 - **`asset` / `allowedDirectories[]`**: gallery UUIDs from `list_gallery` or
   `upload_image` — never a file name or a URL.

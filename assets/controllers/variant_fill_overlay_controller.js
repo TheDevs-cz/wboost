@@ -1439,6 +1439,9 @@ export default class extends Controller {
 
         // Phase A over DESIGNED geometry (the anchor snapshot), phase B over
         // the measured heights + fill-time hides — the render's exact split.
+        // A hidden CONTAINER hides its whole tree (the server's expansion,
+        // shipped as `containerHides`), collapsing exactly like hidden members.
+        const containerHidden = this._containerHiddenIds(data);
         const textPojos = {};
         const pojos = [];
         Object.keys(inputs).forEach((inputId) => {
@@ -1471,6 +1474,7 @@ export default class extends Controller {
                 scaleX: 1,
                 scaleY: 1,
                 visible: true,
+                _containerHidden: containerHidden.has(inputId),
             });
         });
 
@@ -1483,9 +1487,14 @@ export default class extends Controller {
             if (computed[inputId]) {
                 pojo.height = computed[inputId].height;
             }
-            if (this._isHidden(inputId)) {
+            if (this._isHidden(inputId) || containerHidden.has(inputId)) {
                 pojo.visible = false;
             }
+        });
+        // Decorations hide AFTER phase A too (a fill-time hide, not a design
+        // one) — the render applies the same expansion to them.
+        pojos.forEach((pojo) => {
+            if (pojo._containerHidden) pojo.visible = false;
         });
 
         const results = layoutModule.applyFabricLayout(prepared);
@@ -1590,6 +1599,19 @@ export default class extends Controller {
     _isHidden(inputId) {
         const mirror = this.element.querySelector(`[data-hide-mirror="${inputId}"]`);
         return Boolean(mirror && mirror.checked);
+    }
+
+    /** Member inputIds of every hidden container of one surface — the
+     *  `containerHides` map (container id → deep member ids, built by the
+     *  server's expansion) filtered by the checked container mirrors. */
+    _containerHiddenIds(data) {
+        const hidden = new Set();
+        const map = (data && data.containerHides) || {};
+        Object.keys(map).forEach((containerId) => {
+            if (!this._isHidden(containerId)) return;
+            (map[containerId] || []).forEach((inputId) => hidden.add(inputId));
+        });
+        return hidden;
     }
 
     /** Wrapped height of the value in the input's designed box on ONE surface

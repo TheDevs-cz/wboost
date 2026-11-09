@@ -369,6 +369,14 @@ export function sanitizedContainers(canvas, objects) {
             if (typeof container.spaceAfter === 'number' && Number.isFinite(container.spaceAfter) && container.spaceAfter >= 0) {
                 entry.spaceAfter = Math.round(container.spaceAfter * 10) / 10;
             }
+            // Whole-container hide (opt-in) + its fill-page label; emitted
+            // only when set, so untouched containers keep their exact JSON.
+            if (container.hidable === true) {
+                entry.hidable = true;
+            }
+            if (typeof container.name === 'string' && container.name.trim() !== '') {
+                entry.name = container.name.trim();
+            }
             return entry;
         })
         .filter((container) => container.id && container.maxHeight > 0);

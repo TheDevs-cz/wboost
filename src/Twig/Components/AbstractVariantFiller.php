@@ -23,6 +23,7 @@ use WBoost\Web\Services\Image\FileUploadPixelSizeBackfill;
 use WBoost\Web\Services\Image\GalleryImageCaption;
 use WBoost\Web\Services\ReleaseSessionLock;
 use WBoost\Web\Services\SocialNetwork\CanvasPlaceholderGeometry;
+use WBoost\Web\Services\SocialNetwork\FillContainerHides;
 use WBoost\Web\Services\SocialNetwork\FillShapePlaceholders;
 use WBoost\Web\Services\SocialNetwork\FillTextPlaceholders;
 use WBoost\Web\Services\SocialNetwork\ResolveShapeColorOverrides;
@@ -162,6 +163,7 @@ abstract class AbstractVariantFiller extends AbstractController
         private readonly GalleryImageCaption $caption,
         private readonly FillShapePlaceholders $fillShapePlaceholders,
         private readonly ResolveShapeColorOverrides $resolveShapeColorOverrides,
+        private readonly FillContainerHides $fillContainerHides,
     ) {
     }
 
@@ -262,6 +264,12 @@ abstract class AbstractVariantFiller extends AbstractController
 
         foreach (ShapeColorInput::collectionFromCanvasJson($variant->canvas) as $shapeInput) {
             $this->shapeColorValues[$shapeInput->inputId] ??= '';
+        }
+
+        // Whole-container hides share the `hiddenValues` map, keyed by the
+        // container id (see {@see FillContainerHides}).
+        foreach ($this->fillContainerHides->placeholders([$variant], []) as $container) {
+            $this->hiddenValues[$container['id']] ??= false;
         }
     }
 
@@ -595,6 +603,20 @@ abstract class AbstractVariantFiller extends AbstractController
     }
 
     /**
+     * The hidable containers — one panel toggle + one Live-bound
+     * `hiddenValues[<containerId>]` mirror each ({@see FillContainerHides}).
+     *
+     * @return list<array{id: string, name: string, hidden: bool, memberCount: int}>
+     */
+    public function containerHides(): array
+    {
+        $variant = $this->variantEntity();
+        $this->denyAccessUnlessGranted($this->viewAttribute(), $variant);
+
+        return $this->fillContainerHides->placeholders([$variant], $this->hiddenValues);
+    }
+
+    /**
      * The recolourable shapes ({@see FillShapePlaceholders}) — one popover +
      * one preview box each, `frame` in canvas px (null = no box, the panel
      * still lists it).
@@ -713,7 +735,8 @@ abstract class AbstractVariantFiller extends AbstractController
      *     height: int,
      *     canvasHeight: int,
      *     objects: list<array{inputId: string, object: array<array-key, mixed>}>,
-     *     containers: list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap: null|float, spaceAfter: null|float}>,
+     *     containers: list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap: null|float, spaceAfter: null|float, hidable?: true, name?: string}>,
+     *     containerHides: array<string, list<string>>,
      *     inputs: array<string, array{richText: bool, lists: bool, maxLength: null|int, uppercase: bool}>
      * }
      */
@@ -767,6 +790,9 @@ abstract class AbstractVariantFiller extends AbstractController
                 static fn (CanvasContainer $container): array => $container->toArray(),
                 $this->echoCapableTextInputs->cleanContainers($canvas, $capable),
             ),
+            // A checked container hide mirror hides these texts in the echo
+            // too — the render hides the whole tree.
+            'containerHides' => $this->fillContainerHides->memberMap($variant),
             'inputs' => $inputRules,
         ];
     }

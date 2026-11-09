@@ -214,7 +214,9 @@ Returns a **plain JSON array** (no pagination; null fields are kept on purpose):
             "memberContainerIds": ["0193a..."],          // NESTED child containers flowing inside this one (usually [])
             "gap": null,                                 // non-null → uniform px spacing between flow items (designed gaps otherwise)
             "spaceAfter": null,                          // guaranteed clearance below (push landing distance + canvas-bottom margin); null = 0
-            "nested": false                              // true → this container flows inside a parent; its own maxHeight is NOT enforced
+            "nested": false,                             // true → this container flows inside a parent; its own maxHeight is NOT enforced
+            "hidable": true,                             // true → offer ONE toggle that hides the WHOLE container (send inputs[<this id>] = { "hide": true })
+            "name": "Bublina s citací"                   // label for that toggle; absent/null = unnamed (fall back to "Skupina prvků N")
           }
         ],
         "imageInputs": [                                 // fillable IMAGE slots (may be empty)
@@ -453,6 +455,7 @@ retry) · `500` render backend failure.
 | `image_not_allowed` | The image does not exist, is trashed, belongs to another project or sits outside the slot's folders. | `imageInputId` |
 | `image_unreadable` | The picked file is not a readable raster image. | `imageInputId` |
 | `container_overflow` | See below. | `containerId`, `overflowPx` |
+| `container_not_hidable` | `{ "hide": true }` keyed by a container id whose container has `hidable: false`. | `containerId` |
 | rich-text codes | See "Rich-text 400s" below. | `inputId` (+ `allowedFonts` / `allowedColors`) |
 
 Group renders (see "Template groups") add the `variantId` of the dimension
@@ -702,6 +705,42 @@ when that text is hidden; an image between items flows as its own item. These
 images are not fillable and are NOT listed in `memberInputIds`, so a
 client-side mirror cannot account for them exactly — the rendered PNG is the
 authoritative preview (it is the server render).
+
+**Hiding a whole container (`hidable: true`).** The designer can let the user
+hide a container as ONE unit — e.g. a quote text together with its speech
+bubble. Render a toggle per hidable container (label = `name`, fallback
+"Skupina prvků N") and, when it is on, send `{ "hide": true }` keyed by the
+CONTAINER id in the same `inputs` map you send texts in:
+
+```json
+{ "inputs": {
+    "95b0...": "Text that stays",
+    "0192f...": { "hide": true }
+} }
+```
+
+Semantics:
+
+- The container and EVERY member of its tree disappear — its texts, the
+  decorative images/shapes it carries (not listed in `memberInputIds`, the
+  server still hides them) and every nested container. In the flow they
+  collapse exactly like hidden members: a hidden nested container takes no
+  space in its parent, a hidden top-level container takes none either.
+- The container hide WINS over the members' own state, and does not touch
+  it: a member's own `{hide}` / text is kept and applies again as soon as the
+  container is shown. Keep sending the members' values as usual.
+- A container entry accepts ONLY `hide` (a `value`, `runs` or `fontFamily`
+  is a `400 invalid_value` with `containerId`); `hide: true` on a container
+  with `hidable: false` is a `400 container_not_hidable`. An id that is
+  neither an input nor a container of the variant keeps the "unknown ids are
+  ignored" rule (a group passes one map to every dimension).
+- Group exports share container ids across dimensions (one toggle hides it
+  everywhere); multi-page documents address containers per page
+  (`pages[].inputs`). Export versions record the hide and hand it back in
+  `fill.inputs[<containerId>] = { "hide": true }`.
+- If you mirror the reflow client-side: treat every input in the hidden
+  container's tree (its `memberInputIds` plus those of each
+  `memberContainerIds` child, recursively) as hidden.
 
 Note: a layer the DESIGNER hid in the admin editor (per-layer eye toggle) is
 not part of the template's fillable surface at all — it never appears in

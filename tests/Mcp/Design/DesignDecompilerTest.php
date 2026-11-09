@@ -598,6 +598,23 @@ final class DesignDecompilerTest extends TestCase
         );
     }
 
+    public function testAHidableContainerKeepsItsFlagAndLabel(): void
+    {
+        $canvas = [
+            'objects' => [self::textbox(['top' => 0]), self::textbox(['top' => 100])],
+            'containers' => [
+                ['id' => 'bubble', 'maxHeight' => 400, 'memberInputIds' => ['t1', 't2'], 'hidable' => true, 'name' => 'Bublina'],
+            ],
+        ];
+
+        $decompiled = self::decompile($canvas, [self::textInput('t1', 'Nadpis'), self::textInput('t2', 'Popisek')], []);
+        $container = $decompiled->document->containerElements()[0];
+
+        self::assertTrue($container->hidable);
+        self::assertSame('Bublina', $container->name);
+        self::assertSame([], $decompiled->losses);
+    }
+
     // -----------------------------------------------------------------
     // fit rules (the compiler's, inverted)
     // -----------------------------------------------------------------

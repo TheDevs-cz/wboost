@@ -102,6 +102,13 @@ enum LintCode: string
     case ContainerTooFewItems = 'container_too_few_items';
 
     /**
+     * A `hidable` container with no `name`: the fill pages then label its
+     * hide toggle with a generic "Skupina prvků N", which tells the user
+     * nothing about WHAT disappears. Harmless to the render — a warning.
+     */
+    case ContainerHidableWithoutName = 'container_hidable_without_name';
+
+    /**
      * An image element with neither a stand-in picture nor a fillable
      * placeholder input: it draws nothing and it fills nothing.
      */

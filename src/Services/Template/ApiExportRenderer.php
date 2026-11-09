@@ -12,6 +12,7 @@ use WBoost\Web\Services\SocialNetwork\ResolveImageOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Services\SocialNetwork\ResolveShapeColorOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
+use WBoost\Web\Services\SocialNetwork\ValidateContainerHides;
 use WBoost\Web\Value\ExportFormat;
 use WBoost\Web\Value\RenderImageFormat;
 use WBoost\Web\Value\ResolvedImageOverrides;
@@ -192,6 +193,11 @@ readonly final class ApiExportRenderer
      */
     public function resolve(TemplateVariant $variant, array $inputs, array $images, array $shapeColors): array
     {
+        // `inputs[<containerId>] = {hide: true}` hides a whole container:
+        // refuse a malformed entry / a non-hidable container up front (the
+        // resolver below only collects the requests, the renderer expands).
+        ValidateContainerHides::strictForCanvas($variant->canvas, $variant->inputs, $inputs);
+
         $overrides = $this->resolveTextOverrides->resolve(
             $variant->inputs,
             self::stringKeyed($inputs),

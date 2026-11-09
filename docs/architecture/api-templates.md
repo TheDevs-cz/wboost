@@ -29,6 +29,20 @@ Discover the available input ids via
 are silently ignored; locked inputs cannot be overridden; `hide` only
 applies to inputs with `hidable: true`.
 
+**Whole-container hide (2026-11-09).** The same `inputs` map hides a
+`hidable` container when keyed by the CONTAINER id: `{"<containerId>":
+{"hide": true}}` (listing: `variants[].containers[].hidable` + `name`).
+`Services/SocialNetwork/ValidateContainerHides::strict()` runs first in
+`ApiExportRenderer::resolve()` (+ MCP `VariantFill::texts()`): a container
+entry must be exactly `{hide: bool}` (else `invalid_value`) and `hide: true`
+needs `hidable` (else `container_not_hidable`, both with `containerId`).
+Ids naming neither an input nor a container stay silently ignored — a group
+passes ONE map to every dimension. Everything after that is the lenient
+shared path (see templates-containers.md "Whole-container hide"): the
+resolver collects the request, the renderer expands it. Versions record it
+in `hidden` like any input hide, so `fill.inputs[<containerId>]` comes back
+`{hide: true}` with no extra plumbing.
+
 ### Template groups + export history over the API (2026-09-29)
 
 - **Listing:** `TemplateResponse::$group` (`{id, name}` | null) and

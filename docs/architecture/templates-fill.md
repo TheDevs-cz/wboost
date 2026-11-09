@@ -367,3 +367,9 @@ never see any of this.
   lines after the fonts in BOTH `fillStateHash()` and `fill_state_hash.js`.
   Known v1 gap: a recolourable shape that is a CONTAINER member keeps its box
   at the designed position (the overlay reflow moves texts only).
+- **Whole-container hide (2026-11-09)** — a hidable container is one more
+  `hiddenValues[<containerId>]` checkbox (`data-container-hide`) + a
+  "Všechna pole" row on all three fill pages; full contract in
+  templates-containers.md "Whole-container hide". Same v1 gap as above: a
+  recolourable shape / image box inside a hidden container keeps its overlay
+  box (the render is authoritative).

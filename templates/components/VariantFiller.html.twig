@@ -48,6 +48,7 @@
 {% set textPlaceholders = this.textPlaceholders() %}
 {% set imagePlaceholders = hasImages ? this.imagePlaceholders() : [] %}
 {% set shapePlaceholders = this.shapePlaceholders() %}
+{% set containerHides = this.containerHides() %}
 {# Render the (slow) server preview ONCE — reused by the preview source span and
    the <img> below. Only the text-only branch has a server preview <img>.
    `src` = the settle render (the on-screen truth at rest); `baseSrc` = the
@@ -186,6 +187,27 @@
                     >
                 {% endif %}
             {% endif %}
+        {% endfor %}
+
+        {# Whole-container hides: one Live-bound checkbox per HIDABLE container,
+           in the inputs' own `hiddenValues` family (keyed by the container id)
+           so the state hash, the download POST and the export versions carry
+           it for free. Toggled by the panel row's eye
+           (variant-fill-overlay#toggleHide); `data-container-hide` tells the
+           echo + overlay it is a container, not an input. #}
+        {% for container in containerHides %}
+            <input
+                type="checkbox"
+                class="visually-hidden"
+                tabindex="-1"
+                aria-hidden="true"
+                name="hiddenValues[{{ container.id }}]"
+                value="1"
+                data-hide-mirror="{{ container.id }}"
+                data-container-hide="{{ container.id }}"
+                data-model="on(change)|hiddenValues[{{ container.id }}]"
+                {% if this.hiddenValues[container.id] ?? false %}checked{% endif %}
+            >
         {% endfor %}
 
         {# Recolourable shapes: one Live-bound colour mirror each ("" = the
@@ -438,9 +460,14 @@
             {% for ph in shapePlaceholders %}
                 {% set panelFields = panelFields|merge([{inputId: ph.inputId, kind: 'shape', ph: ph}]) %}
             {% endfor %}
+            {% for container in containerHides %}
+                {% set panelFields = panelFields|merge([{inputId: container.id, kind: 'container', ph: container}]) %}
+            {% endfor %}
             {% for field in panelFields|arrange_fill_fields(this.variant.template.fillFieldOrder) %}
               {% set ph = field.ph %}
-              {% if field.kind == 'text' %}
+              {% if field.kind == 'container' %}
+                {{ include('_fill_container_hide_card.html.twig', { container: ph, arrangeable: canArrangeFields }) }}
+              {% elseif field.kind == 'text' %}
                 {{ include('_fill_text_popover.html.twig', { ph: ph, richToolbar: richToolbar, arrangeable: canArrangeFields }) }}
               {% elseif field.kind == 'shape' %}
                 {{ include('_fill_shape_popover.html.twig', { ph: ph, arrangeable: canArrangeFields }) }}

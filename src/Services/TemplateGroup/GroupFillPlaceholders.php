@@ -77,7 +77,8 @@ readonly final class GroupFillPlaceholders
      *     height: int,
      *     canvasHeight: int,
      *     objects: list<array{inputId: string, object: array<array-key, mixed>}>,
-     *     containers: list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap: null|float, spaceAfter: null|float}>,
+     *     containers: list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap: null|float, spaceAfter: null|float, hidable?: true, name?: string}>,
+     *     containerHides: array<string, list<string>>,
      *     inputs: array<string, array{richText: bool, lists: bool, maxLength: null|int, uppercase: bool}>
      * }
      */
@@ -127,6 +128,9 @@ readonly final class GroupFillPlaceholders
                 static fn (CanvasContainer $container): array => $container->toArray(),
                 $this->echoCapableTextInputs->cleanContainers($canvas, $capable),
             ),
+            // Hidable container → deep member ids: a checked container hide
+            // hides those texts in the echo too.
+            'containerHides' => CanvasContainer::hidableMemberMap(CanvasContainer::collectionFromCanvas($canvas)),
             'inputs' => $inputRules,
         ];
     }

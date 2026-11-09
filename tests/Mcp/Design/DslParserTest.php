@@ -365,6 +365,31 @@ final class DslParserTest extends TestCase
         self::assertSame(ElementKind::Container, $container->kind());
     }
 
+    public function testParsesAHidableContainerWithItsLabel(): void
+    {
+        $document = DslParser::parse(self::documentWith(
+            self::textElement(['id' => 'a']),
+            self::textElement(['id' => 'b']),
+            ['kind' => 'container', 'id' => 'bubble', 'members' => ['a', 'b'], 'maxHeight' => 400, 'hidable' => true, 'name' => 'Bublina'],
+        ));
+
+        $container = $document->element('bubble');
+        self::assertInstanceOf(ContainerElement::class, $container);
+        self::assertTrue($container->hidable);
+        self::assertSame('Bublina', $container->name);
+        // Round-trips.
+        self::assertSame($document->toArray(), DslParser::parse($document->toArray())->toArray());
+    }
+
+    public function testAContainerHidableFlagMustBeABoolean(): void
+    {
+        self::reject(self::documentWith(
+            self::textElement(['id' => 'a']),
+            self::textElement(['id' => 'b']),
+            ['kind' => 'container', 'id' => 'bubble', 'members' => ['a', 'b'], 'maxHeight' => 400, 'hidable' => 'yes'],
+        ));
+    }
+
     public function testParsesNestedContainersAndLetsANestedOneOmitMaxHeight(): void
     {
         $document = DslParser::parse(self::documentWith(
@@ -873,7 +898,7 @@ final class DslParserTest extends TestCase
             self::documentWith(['kind' => 'container', 'id' => 'body', 'padding' => 4]),
             'elements[0].padding',
             DslErrorCode::UnknownKey,
-            'Allowed keys: kind, id, members, children, maxHeight, gap, spaceAfter.',
+            'Allowed keys: kind, id, members, children, maxHeight, gap, spaceAfter, hidable, name.',
         ];
         yield 'unknown at key (row is deliberately not v1)' => [
             self::documentWith(self::textElement(['at' => ['area' => 'top', 'row' => [1, 2]]])),

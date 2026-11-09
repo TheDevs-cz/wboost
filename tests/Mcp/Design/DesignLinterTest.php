@@ -189,6 +189,11 @@ final class DesignLinterTest extends KernelTestCase
                 // decompiler's output for an editor-authored canvas.
                 self::container('body', ['headline']),
             ]),
+            LintCode::ContainerHidableWithoutName => self::document([
+                self::text('headline', 80.0, 200.0, 920.0),
+                self::text('subhead', 80.0, 300.0, 920.0),
+                new ContainerElement('bubble', ['headline', 'subhead'], [], 600.0, null, null, true),
+            ]),
             LintCode::ImageWithoutAssetOrPlaceholder => self::document([
                 self::image('photo', 80.0, 400.0, 920.0, 400.0, placeholder: false),
             ]),
@@ -271,6 +276,25 @@ final class DesignLinterTest extends KernelTestCase
         ]));
 
         self::assertSame([], $report->toArray());
+    }
+
+    public function testAHidableContainerWithoutANameWarns(): void
+    {
+        $codes = static fn (LintReport $report): array => array_map(static fn (LintFinding $finding): string => $finding->code->value, $report->findings);
+
+        $unnamed = new ContainerElement('bubble', ['headline', 'subhead'], [], 600.0, null, null, true);
+        $named = new ContainerElement('bubble', ['headline', 'subhead'], [], 600.0, null, null, true, 'Bublina');
+
+        self::assertSame(['container_hidable_without_name'], $codes($this->lint(self::document([
+            self::text('headline', 80.0, 200.0, 920.0),
+            self::text('subhead', 80.0, 240.0, 920.0),
+            $unnamed,
+        ]))));
+        self::assertSame([], $codes($this->lint(self::document([
+            self::text('headline', 80.0, 200.0, 920.0),
+            self::text('subhead', 80.0, 240.0, 920.0),
+            $named,
+        ]))));
     }
 
     /**

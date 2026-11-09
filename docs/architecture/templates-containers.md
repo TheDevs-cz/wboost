@@ -127,3 +127,57 @@ member stays an ordinary independent input. Since the 2026-08 nesting rework:
   server preview is authoritative for them); `frame` stays the DESIGNED
   position. The mfkfm backoffice consumes this (zones + structured-400
   highlighting, no client reflow — its preview IS the server render).
+
+**Whole-container hide (2026-11-09)** — opt-in per container, the
+"bubble + its text" request: the designer ticks "Lze skrýt celý kontejner"
+(+ a label) in the ⚙ popover → `hidable: true` / `name` on the definition
+(emitted only when set — `sanitizedContainers`, `CanvasContainer::toArray`,
+the MCP compiler all omit them otherwise, so untouched JSON stays
+byte-identical). Group sync copies both as METADATA (absolute, every
+dimension); the server projector keeps unknown keys; the ⧉ duplicate copies
+them. Contract, in order of the pipeline:
+
+- **The toggle IS an input hide.** Fill pages render one
+  `hiddenValues[<containerId>]` checkbox (`data-hide-mirror` +
+  `data-container-hide`) per hidable container (`FillContainerHides`) and a
+  "Všechna pole" row (`_fill_container_hide_card.html.twig`, eye →
+  `variant-fill-overlay#toggleHide`). Riding the existing `hiddenValues`
+  family means the Live prop, the state hash (PHP + `fill_state_hash.js`),
+  the download/draft POSTs, `ExportFillValues.hidden` (dedup hash) and the
+  version seed (`ExportVersionSeeder` re-seeds it while the container is
+  still hidable) all carry it with no new field. The API/MCP use the same
+  `inputs` map (`{"<containerId>": {"hide": true}}`, strict validation in
+  `ValidateContainerHides`).
+- **Resolution:** `ResolveTextOverrides` collects every truthy hide addressed
+  to a NON-input id into `ResolvedInputOverrides::$hiddenContainerIds`
+  (unvalidated). The renderer keeps only HIDABLE containers of the rendered
+  variant and expands them deep (`CanvasContainer::hiddenMemberInputIds` —
+  own members + every nested container's) into the per-object
+  `hidden_overrides` (`ResolvedInputOverrides::effectiveHidden`). Hence NO
+  render-template and NO `container_layout.js` change: the template's
+  existing hide loop sets `visible:false` on texts, decorative images and
+  shapes alike (all carry an inputId) AFTER phase A, and the engine's
+  existing rules collapse them — a nested container whose items are all
+  hidden collapses in its parent, a root whose items are all hidden takes no
+  flow space (it still anchors at its designed top, so its `spaceAfter`
+  clearance behaves exactly like a root whose members were hidden one by
+  one). Overflow is recomputed on the collapsed flow (hiding can FIX an
+  overflow).
+- **Precedence (decided 2026-11-09):** the container hide WINS; the members'
+  own hide/text state is untouched, so showing the container restores it.
+  A hidden container hides even non-hidable / locked members (the designer
+  opted the container in, not each member).
+- **Client mirrors:** `layoutData()` and both echo payloads ship
+  `containerHides` (hidable container id → deep member ids, the server's
+  expansion); the overlay reflow, the single-page echo and the group echo
+  treat those members as hidden while the container mirror is checked. A
+  container toggle is NOT an echo edit (it also hides decorative pixels the
+  echo cannot draw): the single page just repaints an already-active echo,
+  the group page invalidates its echo bases like a picture change.
+- **Documents:** a hidable container is a per-page FILL KEY
+  (`DocumentFillKeys::pageInputIds`, `DocumentPageView` re-keys container
+  `id` + `memberContainerIds`), never a shared field.
+- Not covered: a container whose tree has no listed text input is omitted
+  from the API listing (`ResolvedCanvasContainer` needs an anchor), so a
+  consumer cannot show its toggle — the fill pages and the strict API still
+  accept its hide.

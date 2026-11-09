@@ -425,6 +425,8 @@ readonly final class DescribeVariantTool
                 gap: $container->gap,
                 spaceAfter: $container->spaceAfter,
                 nested: $container->nested,
+                hidable: $container->hidable,
+                name: $container->name,
             ),
             ResolvedCanvasContainer::collection($definitions, $frames, $inputs),
         );

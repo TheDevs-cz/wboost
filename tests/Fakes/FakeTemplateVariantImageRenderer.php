@@ -38,6 +38,9 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
     /** @var array<int, array{variantId: string, canvas: string, inputIds: list<string>, imageInputIds: list<string>, backgroundImage: null|string, slice: null|array{int, null|int, bool}, texts: array<string, string>, transparentTextInputIds: list<string>, richTexts: array<string, list<array{text: string, fontFamily: null|string, color: null|string, underline: bool}>>, fonts: array<string, string>, shapeColors: array<string, string>, hidden: array<string, bool>, images: array<string, array{scale: float, offsetX: float, offsetY: float, offsetXRatio: null|float, offsetYRatio: null|float, rotation: float, naturalWidth: int, naturalHeight: int}>, imagesHidden: list<string>, mode: string, strictContainerOverflow: bool, format: string, printLayer: null|array{bleedPx: int, suppressIndexes: list<int>, onlyIndexes: null|list<int>, whitenIndexes: list<int>}}> */
     public array $calls = [];
 
+    /** @var list<array{hiddenContainerIds: list<string>, effectiveHidden: array<string, bool>}> */
+    public array $hideCalls = [];
+
     /**
      * When set, every render call throws this — lets tests exercise the
      * container-overflow 400 contract without a real Gotenberg round-trip.
@@ -122,6 +125,18 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
 
             $imagesHidden = array_keys($imageOverrides->hidden);
         }
+
+        // Container-hide requests + the per-object map the real renderer
+        // hands the template (the expansion is pure, so it is reproduced here
+        // — tests assert what would actually disappear). Index-aligned with
+        // $calls; a separate list keeps the calls' sealed shape untouched.
+        $decodedCanvas = json_decode($variant->canvas, true);
+        $this->hideCalls[] = [
+            'hiddenContainerIds' => $overrides->hiddenContainerIds,
+            'effectiveHidden' => $overrides->effectiveHidden(
+                is_array($decodedCanvas) ? \WBoost\Web\Value\CanvasContainer::collectionFromCanvas($decodedCanvas) : [],
+            ),
+        ];
 
         $richTexts = [];
         foreach ($overrides->richTexts as $inputId => $richText) {

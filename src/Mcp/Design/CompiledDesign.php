@@ -27,7 +27,7 @@ use WBoost\Web\Value\EditorTextInput;
 readonly final class CompiledDesign
 {
     /**
-     * @param array{version: string, objects: list<array<string, mixed>>, containers: list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float}>, background?: string} $canvas
+     * @param array{version: string, objects: list<array<string, mixed>>, containers: list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string}>, background?: string} $canvas
      *        the canvas document as a decoded array — `objects` in stack order
      *        (bottom → top), `containers` sanitized, and `background` present
      *        only when the design declared a flat canvas colour

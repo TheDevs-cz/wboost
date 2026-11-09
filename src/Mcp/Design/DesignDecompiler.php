@@ -1498,7 +1498,7 @@ readonly final class DesignDecompiler
             }
         }
 
-        /** @var list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float}> $built */
+        /** @var list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string}> $built */
         $built = [];
 
         foreach ($containers as $position => $container) {
@@ -1560,6 +1560,8 @@ readonly final class DesignDecompiler
                 'maxHeight' => $container->maxHeight,
                 'gap' => $container->gap,
                 'spaceAfter' => $container->spaceAfter,
+                'hidable' => $container->hidable,
+                'name' => $container->name,
             ];
         }
 
@@ -1574,6 +1576,8 @@ readonly final class DesignDecompiler
                 $entry['maxHeight'],
                 $entry['gap'],
                 $entry['spaceAfter'],
+                $entry['hidable'],
+                $entry['name'],
             ),
             $built,
         );
@@ -1584,9 +1588,9 @@ readonly final class DesignDecompiler
      * mirroring `sanitizedContainers()` in `assets/controllers/canvas_payload.js`
      * and {@see DesignCompiler}'s own pass, because the parser enforces both.
      *
-     * @param list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float}> $containers
+     * @param list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string}> $containers
      * @param list<DesignLoss> $losses
-     * @return list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float}>
+     * @return list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string}>
      */
     private static function pruneContainerChildren(array $containers, array &$losses): array
     {
@@ -1659,9 +1663,9 @@ readonly final class DesignDecompiler
      * strip its parent below the minimum — hence the fixpoint, matching
      * {@see DesignCompiler::dropDegenerateToFixpoint()}.
      *
-     * @param list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float}> $containers
+     * @param list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string}> $containers
      * @param list<DesignLoss> $losses
-     * @return list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float}>
+     * @return list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string}>
      */
     private static function dropDegenerateContainers(array $containers, array &$losses): array
     {
@@ -1679,7 +1683,7 @@ readonly final class DesignDecompiler
                 return $containers;
             }
 
-            /** @var list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float}> $next */
+            /** @var list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string}> $next */
             $next = [];
 
             foreach ($containers as $container) {

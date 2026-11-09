@@ -200,6 +200,8 @@ final class DescribeVariantTest extends WebTestCase
                 'gap' => null,
                 'spaceAfter' => 40,
                 'nested' => false,
+                'hidable' => false,
+                'name' => null,
             ],
             $containers[TestDataFixture::ORIENTATION_ROOT_CONTAINER_ID],
         );
@@ -217,6 +219,8 @@ final class DescribeVariantTest extends WebTestCase
                 'gap' => 24,
                 'spaceAfter' => null,
                 'nested' => true,
+                'hidable' => false,
+                'name' => null,
             ],
             $containers[TestDataFixture::ORIENTATION_NESTED_CONTAINER_ID],
         );

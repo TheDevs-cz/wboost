@@ -20,6 +20,7 @@ use WBoost\Web\Services\SocialNetwork\ResolveImageOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Services\SocialNetwork\ResolveShapeColorOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
+use WBoost\Web\Services\SocialNetwork\ValidateContainerHides;
 use WBoost\Web\Value\CanvasContainer;
 use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\ResolvedImageOverrides;
@@ -101,6 +102,10 @@ readonly final class VariantFill
     public function texts(TemplateVariant $variant, array $providedInputs): ResolvedInputOverrides
     {
         try {
+            // `inputs[<containerId>] = {hide: true}` hides a hidable container
+            // (and its whole tree) — refused strictly like the REST export.
+            ValidateContainerHides::strictForCanvas($variant->canvas, $variant->inputs, $providedInputs);
+
             return $this->resolveTextOverrides->resolve(
                 $variant->inputs,
                 $providedInputs,
@@ -231,7 +236,14 @@ readonly final class VariantFill
             }
         }
 
-        $unknown = array_values(array_diff(array_keys($providedInputs), array_keys($known)));
+        // A container id is a valid `inputs` key too (whole-container hide;
+        // a non-hidable one is refused, not ignored — ValidateContainerHides).
+        $decodedCanvas = json_decode($variant->canvas, true);
+        foreach (is_array($decodedCanvas) ? CanvasContainer::collectionFromCanvas($decodedCanvas) : [] as $container) {
+            $known[$container->id] = true;
+        }
+
+        $unknown = array_values(array_diff(array_map(strval(...), array_keys($providedInputs)), array_map(strval(...), array_keys($known))));
 
         if ($unknown !== []) {
             $warnings[] = sprintf(
