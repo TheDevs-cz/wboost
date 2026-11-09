@@ -75,6 +75,19 @@ readonly final class FillFormRequestParser
     }
 
     /**
+     * User-moved elements (M2): the single fill form's
+     * `offsetValues[<elementId>][x|y]` fields, resolved leniently against
+     * the variant (pass the EXPANDED one) — clamped per direction, zero /
+     * unknown / ineligible ids dropped.
+     *
+     * @return array<string, array{x: float, y: float}>
+     */
+    public function parseOffsets(Request $request, TemplateVariant $variant): array
+    {
+        return ResolveElementOffsets::forVariant($variant, $request->request->all('offsetValues'), lenient: true);
+    }
+
+    /**
      * The fill UI writes one `images[inputId][...]` group per filled
      * placeholder; HTML form values arrive as strings, so numeric transform
      * fields are cast to float and `hide` to bool before validation.

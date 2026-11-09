@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace WBoost\Web\Value;
 
 use WBoost\Web\Services\Template\RepeatableRows;
+use WBoost\Web\Services\SocialNetwork\ResolveElementOffsets;
 use Ramsey\Uuid\Uuid;
 use WBoost\Web\Entity\TemplateDocument;
 use WBoost\Web\Entity\TemplateDocumentPage;
@@ -83,13 +84,14 @@ final readonly class DocumentFillKeys
     /**
      * The fill form's maps (fill-key space) → ONE page's maps (real inputIds).
      * Flat maps (`textValues`, `hiddenValues`, `fontValues`, `images`,
-     * `shapeColorValues`, `rowCounts`) are keyed by fill key; `imagePlacements` is
+     * `shapeColorValues`, `rowCounts`) are keyed by fill key; `imagePlacements`
+     * and `offsets` (the user's element moves — per page, never shared) are
      * `[variantId][fillKey]` (page variants are unique, so the outer key stays).
      * Keys of other pages simply don't translate and are dropped.
      *
      * @param array<string, array<array-key, mixed>> $raw
      *
-     * @return array{textValues: array<string, mixed>, hiddenValues: array<string, mixed>, fontValues: array<string, mixed>, images: array<string, mixed>, shapeColorValues: array<string, mixed>, rowCounts: array<string, mixed>, imagePlacements: array<string, array<string, mixed>>}
+     * @return array{textValues: array<string, mixed>, hiddenValues: array<string, mixed>, fontValues: array<string, mixed>, images: array<string, mixed>, shapeColorValues: array<string, mixed>, rowCounts: array<string, mixed>, imagePlacements: array<string, array<string, mixed>>, offsets: array<string, array<string, mixed>>}
      */
     public function valuesForPage(TemplateDocumentPage $page, array $raw): array
     {
@@ -102,6 +104,7 @@ final readonly class DocumentFillKeys
             'shapeColorValues' => [],
             'rowCounts' => [],
             'imagePlacements' => [],
+            'offsets' => [],
         ];
 
         foreach (['textValues', 'hiddenValues', 'fontValues', 'images', 'shapeColorValues', 'rowCounts'] as $name) {
@@ -115,14 +118,19 @@ final readonly class DocumentFillKeys
         }
 
         $variantId = $page->variant->id->toString();
-        $placements = $raw['imagePlacements'][$variantId] ?? null;
 
-        if (is_array($placements)) {
-            foreach ($placements as $key => $value) {
+        foreach (['imagePlacements', 'offsets'] as $name) {
+            $perVariant = $raw[$name][$variantId] ?? null;
+
+            if (!is_array($perVariant)) {
+                continue;
+            }
+
+            foreach ($perVariant as $key => $value) {
                 $inputId = $inverse[(string) $key] ?? null;
 
                 if ($inputId !== null) {
-                    $result['imagePlacements'][$variantId][$inputId] = $value;
+                    $result[$name][$variantId][$inputId] = $value;
                 }
             }
         }
@@ -133,7 +141,9 @@ final readonly class DocumentFillKeys
     /**
      * Every input id of a variant: text inputs, image slots, recolourable
      * shapes and HIDABLE containers (their `hiddenValues[<id>]` toggle is a
-     * per-page fill key like any input's hide).
+     * per-page fill key like any input's hide), plus every USER-MOVABLE
+     * element (a decorative image, a plain shape, a top-level container —
+     * `offsets[<variantId>][<fillKey>]` addresses them by fill key too).
      *
      * @return list<string>
      */
@@ -162,6 +172,10 @@ final readonly class DocumentFillKeys
             if ($container->hidable || $container->repeat !== null) {
                 $ids[] = $container->id;
             }
+        }
+
+        foreach (ResolveElementOffsets::movableElementsOf($variant) as $element) {
+            $ids[] = $element->id;
         }
 
         return array_values(array_unique($ids));

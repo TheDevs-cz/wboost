@@ -141,7 +141,7 @@ final class ExportVersionSeederTest extends KernelTestCase
     }
 
     /**
-     * @return array{textValues: array<string, string>, hiddenValues: array<string, bool>, fontValues: array<string, string>, shapeColorValues: array<string, string>, imageValues: array<string, array<string, mixed>>, rowCounts: array<string, int>}
+     * @return array{textValues: array<string, string>, hiddenValues: array<string, bool>, fontValues: array<string, string>, shapeColorValues: array<string, string>, imageValues: array<string, array<string, mixed>>, rowCounts: array<string, int>, offsetValues: array<string, array{x: float, y: float}>}
      */
     private function seedFor(ExportFillValues $fillValues): array
     {

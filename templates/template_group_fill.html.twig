@@ -228,6 +228,25 @@
                        data-action="input->group-fill#changed">
             {% endfor %}
 
+            {# User-movable elements ("Uživatel může posunout", M2): moves are
+               PER DIMENSION — one x / y pair per movable element of each
+               member (canvas px of that member; 0 = designed position). The
+               move UI (M4) writes them; the previews / exports / versions
+               carry them. Absent for every design without movable elements. #}
+            {% for v in variants %}
+                {% for elementId, offset in v.offsets|default([]) %}
+                    {% for axis in ['x', 'y'] %}
+                        <input type="hidden"
+                               name="offsets[{{ v.variant.id }}][{{ elementId }}][{{ axis }}]"
+                               value="{{ offset[axis] }}"
+                               data-offset-mirror="{{ elementId }}"
+                               data-offset-axis="{{ axis }}"
+                               data-variant-id="{{ v.variant.id }}"
+                               data-action="input->group-fill#changed">
+                    {% endfor %}
+                {% endfor %}
+            {% endfor %}
+
             {# Recolourable shapes: one colour field each ("" = the designed
                colour), written by the shape popover's swatches
                (variant-fill-overlay#pickShapeColor); every dimension

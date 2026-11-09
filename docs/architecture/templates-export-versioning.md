@@ -78,6 +78,16 @@ version.
   under the rows' DERIVED ids; the seeder expands the variant to find them
   and clamps the count to the row's current `[min, max]` (default when the
   version has none). See templates-containers.md "Repeatable rows".
+- **User-moved elements (2026-11-09, M2)**: `ExportFillValues::$offsets` =
+  variantId → elementId → `{x, y}` (canvas px of that variant; uniform for
+  single / group / document), emitted only when non-empty — every stored
+  offset-less fill keeps its hash (pinned in `ExportFillValuesTest`). Values
+  are canonical on construction (1/100 px, zero moves and empty variants
+  dropped, both levels sorted), so a JSONB round trip (40.0 → 40) re-hashes
+  identically. Single fills record the resolved map under their own variant
+  id; group / document forms record the posted per-size maps normalised. The
+  seeders re-clamp to the CURRENT allowance (a move since forbidden or capped
+  lower is dropped / shortened). Not in the versions API view until M5.
 - **Re-loading** (`?version=<id>` on both fill pages; invalid/foreign/pruned
   ids silently ignored): `Services/Template/ExportVersionSeeder` is LENIENT
   where the render resolvers 400 — deleted inputs drop, a rich envelope on a

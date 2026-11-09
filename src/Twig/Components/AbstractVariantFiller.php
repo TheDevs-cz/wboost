@@ -25,6 +25,7 @@ use WBoost\Web\Services\ReleaseSessionLock;
 use WBoost\Web\Services\Template\RepeatableRows;
 use WBoost\Web\Services\SocialNetwork\CanvasPlaceholderGeometry;
 use WBoost\Web\Services\SocialNetwork\FillContainerHides;
+use WBoost\Web\Services\SocialNetwork\ResolveElementOffsets;
 use WBoost\Web\Services\SocialNetwork\FillContainerSheets;
 use WBoost\Web\Services\SocialNetwork\FillShapePlaceholders;
 use WBoost\Web\Services\SocialNetwork\FillTextPlaceholders;
@@ -35,6 +36,7 @@ use WBoost\Web\Services\SocialNetwork\TextInputObjectBinder;
 use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Value\CanvasContainer;
 use WBoost\Web\Value\CanvasSlice;
+use WBoost\Web\Value\ElementMoveAllowance;
 use WBoost\Web\Value\FileSource;
 use WBoost\Web\Value\RenderImageFormat;
 use WBoost\Web\Value\ResolvedImageOverrides;
@@ -140,6 +142,23 @@ abstract class AbstractVariantFiller extends AbstractController
      */
     #[LiveProp(writable: true)]
     public array $rowCounts = [];
+
+    /**
+     * "Uživatel může posunout" (user-movable elements, M2): element id (a
+     * free text / shape / decorative image inputId, or a top-level container
+     * id) → the user's move `{x, y}` in canvas px. ONE entry per movable
+     * element of the (expanded) variant — `{x: 0, y: 0}` when unmoved, so
+     * the Live value store knows every `offsetValues[<id>][x|y]` path the
+     * mirrors bind — and none for any other design (its markup and state
+     * hash stay unchanged). Normalised after every hydration through the
+     * lenient resolver: clamped per direction, unknown / ineligible ids
+     * dropped ({@see ResolveElementOffsets}). Bound through the
+     * `data-offset-mirror` fields (M3 writes them); `O:` state-hash lines.
+     *
+     * @var array<string, array{x: float, y: float}>
+     */
+    #[LiveProp(writable: true)]
+    public array $offsetValues = [];
 
     /**
      * Image-slot seed from a loaded export version (`?version=` on the fill
@@ -331,6 +350,32 @@ abstract class AbstractVariantFiller extends AbstractController
         }
 
         $this->normalizeRowCounts();
+        $this->normalizeOffsetValues();
+    }
+
+    /**
+     * `offsetValues` back to one clamped `{x: float, y: float}` per movable
+     * element (a writable LiveProp receives the mirrors' raw strings).
+     */
+    #[PostHydrate]
+    public function normalizeOffsetValues(): void
+    {
+        if ($this->nullableVariant() === null) {
+            $this->offsetValues = [];
+
+            return;
+        }
+
+        $variant = $this->variantEntity();
+        $movable = ResolveElementOffsets::movableElementsOf($variant);
+        $resolved = $movable === [] ? [] : ResolveElementOffsets::forVariant($variant, $this->offsetValues, lenient: true);
+
+        $offsets = [];
+        foreach ($movable as $id => $_) {
+            $offsets[$id] = $resolved[$id] ?? ['x' => 0.0, 'y' => 0.0];
+        }
+
+        $this->offsetValues = $offsets;
     }
 
     /**
@@ -880,7 +925,7 @@ abstract class AbstractVariantFiller extends AbstractController
      *     height: int,
      *     canvasHeight: int,
      *     objects: list<array{inputId: string, object: array<array-key, mixed>}>,
-     *     containers: list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap: null|float, spaceAfter: null|float, hidable?: true, name?: string, repeat?: array{max: int, min: int, default: int}, repeatSlots?: list<string>, repeatSlotOf?: string}>,
+     *     containers: list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap: null|float, spaceAfter: null|float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int}, repeatSlots?: list<string>, repeatSlotOf?: string}>,
      *     containerHides: array<string, list<string>>,
      *     inputs: array<string, array{richText: bool, lists: bool, maxLength: null|int, uppercase: bool}>
      * }
@@ -993,6 +1038,20 @@ abstract class AbstractVariantFiller extends AbstractController
             $parts[] = 'R:' . $rowId . '=' . $count;
         }
 
+        // User-moved elements (M2): one `O:<id>=<x>,<y>` line per MOVED
+        // element only — an unmoved one (and every design without movable
+        // elements) hashes exactly as before. Numbers in the shared
+        // {@see self::hashNumber()} format.
+        $offsets = $this->offsetValues;
+        ksort($offsets, SORT_STRING);
+        foreach ($offsets as $id => $offset) {
+            $x = ElementMoveAllowance::round2((float) $offset['x']);
+            $y = ElementMoveAllowance::round2((float) $offset['y']);
+            if ($x != 0.0 || $y != 0.0) {
+                $parts[] = 'O:' . $id . '=' . self::hashNumber($x) . ',' . self::hashNumber($y);
+            }
+        }
+
         $canonical = implode("\n", $parts);
 
         $hash = 5381;
@@ -1001,6 +1060,20 @@ abstract class AbstractVariantFiller extends AbstractController
         }
 
         return (string) $hash;
+    }
+
+    /**
+     * An offset in the state hash: the 1/100-rounded value with two decimals,
+     * trailing zeros (and a bare ".") dropped — "12.5", "-3.33", "40". The
+     * JS twin is `hashNumber()` in fill_state_hash.js; both format the SAME
+     * double (round2 is IEEE-identical in PHP and JS), so the strings agree.
+     */
+    public static function hashNumber(float $value): string
+    {
+        $text = number_format(ElementMoveAllowance::round2($value), 2, '.', '');
+        $text = rtrim(rtrim($text, '0'), '.');
+
+        return $text === '-0' || $text === '' ? '0' : $text;
     }
 
     /**
@@ -1027,7 +1100,8 @@ abstract class AbstractVariantFiller extends AbstractController
             truncateOverflow: true,
             richTextOptions: $this->fontOptions(),
         )->withShapeColors($this->resolveShapeColorOverrides->forVariant($variant, $this->shapeColorValues, lenient: true))
-            ->withRowCounts($this->rowCounts);
+            ->withRowCounts($this->rowCounts)
+            ->withOffsets(ResolveElementOffsets::forVariant($variant, $this->offsetValues, lenient: true));
         // Background-less slices are the transparent overlay layers: flat, tiny,
         // and PNG measured FASTER for exactly that shape (0.147s vs 0.220s for
         // WebP, saving only ~7KB). Everything that paints a background is the

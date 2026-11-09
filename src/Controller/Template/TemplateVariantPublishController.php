@@ -165,7 +165,8 @@ final class TemplateVariantPublishController extends AbstractController
             $request->request->all('images'),
             $request->request->all('fontValues'),
             $request->request->all('shapeColorValues'),
-        )->withRows($this->fillFormParser->parseRowCounts($request, $variant)), $request->request->getString('draftVersionId'));
+        )->withRows($this->fillFormParser->parseRowCounts($request, $variant))
+            ->withOffsets([$variant->id->toString() => $this->fillFormParser->parseOffsets($request, RepeatableRows::expand($variant))]), $request->request->getString('draftVersionId'));
 
         return new JsonResponse(['ok' => true, 'platform' => $platform, 'postId' => $postId]);
     }
@@ -188,7 +189,8 @@ final class TemplateVariantPublishController extends AbstractController
             truncateOverflow: true,
             richTextOptions: $this->resolveRichTextOptions->forVariant($variant),
         )->withShapeColors($this->resolveShapeColorOverrides->forVariant($variant, $request->request->all('shapeColorValues'), lenient: true))
-            ->withRowCounts($rowCounts);
+            ->withRowCounts($rowCounts)
+            ->withOffsets($this->fillFormParser->parseOffsets($request, $variant));
 
         $imageOverrides = $this->resolveImageOverrides->resolve(
             $variant->imageInputs,

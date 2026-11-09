@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace WBoost\Web\Services\TemplateDocument;
 
 use WBoost\Web\Services\Template\RepeatableRows;
+use WBoost\Web\Services\SocialNetwork\ResolveElementOffsets;
+use WBoost\Web\Value\MovableElement;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use WBoost\Web\Entity\TemplateDocument;
 use WBoost\Web\Entity\TemplateDocumentField;
@@ -83,7 +85,7 @@ readonly final class DocumentFillPage
      * popovers + shapes from a loaded version; pictures + placements are
      * replayed client-side from the template's seed value.
      *
-     * @param null|array{texts: array<string, string>, hidden: array<string, bool>, fonts: array<string, string>, shapeColors: array<string, string>, images: array<string, array{imageId: string, url: string}>, imageHidden: array<string, bool>, placements: array<string, array<string, array<string, float>>>, rowCounts?: array<string, int>} $seed
+     * @param null|array{texts: array<string, string>, hidden: array<string, bool>, fonts: array<string, string>, shapeColors: array<string, string>, images: array<string, array{imageId: string, url: string}>, imageHidden: array<string, bool>, placements: array<string, array<string, array<string, float>>>, rowCounts?: array<string, int>, offsets?: array<string, array<string, array{x: float, y: float}>>} $seed
      */
     public function build(TemplateDocument $document, null|array $seed = null): array
     {
@@ -209,6 +211,12 @@ readonly final class DocumentFillPage
                 'text_frames' => $textFrames,
                 'shape_frames' => $this->shapePlaceholders->frames($clone),
                 'container_sheets' => $pageSheets,
+                // User-movable elements (M2): per page, fill-key space —
+                // one `offsets[<variantId>][<key>][x|y]` pair each.
+                'offsets' => array_map(
+                    static fn (MovableElement $element): array => $seed['offsets'][$variant->id->toString()][$element->id] ?? ['x' => 0.0, 'y' => 0.0],
+                    ResolveElementOffsets::movableElementsOf($clone),
+                ),
                 'keys' => array_values(array_unique($pageKeys)),
             ];
 

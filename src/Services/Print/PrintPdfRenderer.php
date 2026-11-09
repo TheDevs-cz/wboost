@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace WBoost\Web\Services\Print;
 
 use WBoost\Web\Services\Template\RepeatableRows;
+use WBoost\Web\Services\SocialNetwork\ResolveElementOffsets;
 use Psr\Clock\ClockInterface;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Services\Editor\TemplateVariantImageRenderer;
@@ -175,7 +176,7 @@ final readonly class PrintPdfRenderer
 
     /**
      * The canvas as the passes render it: textbox input ids bound, the user's
-     * shape colours applied.
+     * shape colours applied, the user's moves baked.
      *
      * @return array<string, mixed>
      */
@@ -201,6 +202,13 @@ final readonly class PrintPdfRenderer
 
         if ($overrides->shapeColors !== []) {
             $canvas = TemplateVariantImageRenderer::applyShapeColors($canvas, $overrides->shapeColors);
+        }
+
+        // User-moved elements: the passes render the moved geometry, so the
+        // scan sees it too (same clamp — an unlimited move stays inside the
+        // TRIM box, never in the bleed / crop-mark band).
+        if ($overrides->offsets !== []) {
+            $canvas = ResolveElementOffsets::bake($canvas, (float) $variant->dimension->width(), (float) $variant->dimension->height(), $overrides->offsets);
         }
 
         return $canvas;

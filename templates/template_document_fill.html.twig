@@ -203,6 +203,22 @@
                        data-action="input->group-fill#changed">
             {% endfor %}
 
+            {# User-movable elements (M2): per page (fill key = re-keyed id),
+               one x / y pair each; the move UI (M4) writes them. #}
+            {% for entry in fill.pages %}
+                {% for elementKey, offset in entry.offsets|default([]) %}
+                    {% for axis in ['x', 'y'] %}
+                        <input type="hidden"
+                               name="offsets[{{ entry.variant.id }}][{{ elementKey }}][{{ axis }}]"
+                               value="{{ offset[axis] }}"
+                               data-offset-mirror="{{ elementKey }}"
+                               data-offset-axis="{{ axis }}"
+                               data-variant-id="{{ entry.variant.id }}"
+                               data-action="input->group-fill#changed">
+                    {% endfor %}
+                {% endfor %}
+            {% endfor %}
+
             {% for ph in fill.shape_placeholders %}
                 <input type="hidden"
                        name="shapeColorValues[{{ ph.inputId }}]"

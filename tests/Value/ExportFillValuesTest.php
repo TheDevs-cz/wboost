@@ -211,4 +211,36 @@ final class ExportFillValuesTest extends TestCase
         // The group API shape keeps them too.
         self::assertSame([], ExportFillValues::fromGroupApiRequest([], [], [])->rows);
     }
+
+    public function testOffsetsAreEmittedOnlyWhenSetSoExistingHashesHold(): void
+    {
+        $plain = ExportFillValues::fromVariantWebForm(['a' => 'Ahoj'], ['b' => '1'], []);
+
+        self::assertArrayNotHasKey('offsets', $plain->toArray());
+        self::assertSame($plain->hash(), $plain->withOffsets([])->hash());
+        self::assertSame($plain->hash(), $plain->withOffsets(['v1' => ['el' => ['x' => '0', 'y' => 0.001]]])->hash(), 'a zero move is no move');
+        // The pre-offsets hash of this exact fill — must never change.
+        self::assertSame(hash('sha256', '{"texts":{"a":"Ahoj"},"hidden":["b"],"images":[],"placements":[]}'), $plain->hash());
+
+        $moved = $plain->withRows(['row' => 2])->withOffsets([
+            'v2' => ['z' => ['x' => '-12.345', 'y' => ''], 'a' => ['y' => 40]],
+            'v1' => ['el' => ['x' => 1e-9, 'y' => 0], 'junk' => 'x'],
+        ]);
+        self::assertSame(
+            ['v2' => ['a' => ['x' => 0.0, 'y' => 40.0], 'z' => ['x' => -12.35, 'y' => 0.0]]],
+            $moved->toArray()['offsets'] ?? null,
+            'rounded to 1/100 px, zero moves and empty variants dropped, both levels sorted',
+        );
+        self::assertSame(['row' => 2], $moved->rows, 'withOffsets keeps the rows (and vice versa)');
+        self::assertSame($moved->offsets, $moved->withRows(['row' => 3])->offsets);
+        self::assertNotSame($plain->withRows(['row' => 2])->hash(), $moved->hash());
+        self::assertFalse(ExportFillValues::fromArray([])->withOffsets(['v' => ['e' => ['x' => 1, 'y' => 0]]])->isEmpty());
+
+        // A stored snapshot round-trips — including JSONB's 40.0 → 40.
+        $stored = json_decode((string) json_encode($moved->toArray()), true);
+        self::assertIsArray($stored);
+        $roundTrip = ExportFillValues::fromArray($stored);
+        self::assertSame($moved->toArray(), $roundTrip->toArray());
+        self::assertSame($moved->hash(), $roundTrip->hash());
+    }
 }

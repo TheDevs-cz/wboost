@@ -17,6 +17,7 @@ use WBoost\Web\Exceptions\TemplateRenderUnavailable;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Services\ReleaseSessionLock;
 use WBoost\Web\Services\Security\TemplateVariantVoter;
+use WBoost\Web\Services\SocialNetwork\ResolveElementOffsets;
 use WBoost\Web\Services\SocialNetwork\ResolveImageOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Services\SocialNetwork\ResolveShapeColorOverrides;
@@ -109,6 +110,9 @@ final class TemplateVariantDownloadController extends AbstractController
         // stays the managed entity every record below is written against.
         $rowCounts = RepeatableRows::normalizeCounts([$variant], $request->request->all('rowCounts'));
         $expanded = RepeatableRows::expand($variant);
+        // User-moved elements: resolved against the EXPANDED clone (rows
+        // first, then the moves — the renderer's order).
+        $offsets = ResolveElementOffsets::forVariant($expanded, $request->request->all('offsetValues'), lenient: true);
 
         try {
             $overrides = $this->resolveTextOverrides->resolve(
@@ -117,7 +121,8 @@ final class TemplateVariantDownloadController extends AbstractController
                 truncateOverflow: true,
                 richTextOptions: $this->resolveRichTextOptions->forVariant($expanded),
             )->withShapeColors($this->resolveShapeColorOverrides->forVariant($expanded, $request->request->all('shapeColorValues'), lenient: true))
-                ->withRowCounts($rowCounts);
+                ->withRowCounts($rowCounts)
+                ->withOffsets($offsets);
             $imageOverrides = $this->resolveImageOverrides->resolve(
                 $expanded->imageInputs,
                 $expanded->template->project->id,
@@ -155,7 +160,7 @@ final class TemplateVariantDownloadController extends AbstractController
             $request->request->all('images'),
             $request->request->all('fontValues'),
             $request->request->all('shapeColorValues'),
-        )->withRows($rowCounts);
+        )->withRows($rowCounts)->withOffsets([$variant->id->toString() => $offsets]);
 
         $this->recordExportUsage->record($variant, ExportChannel::Web, $format);
         $this->recordExportVersion->recordVariant($variant, ExportChannel::Web, $fill, $request->request->getString('draftVersionId'));

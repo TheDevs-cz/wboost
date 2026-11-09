@@ -436,8 +436,11 @@ never see any of this.
   client echo: a colour is a server render (spinner). State hash: `S:<id>=`
   lines after the fonts in BOTH `fillStateHash()` and `fill_state_hash.js`.
   Repeatable rows (2026-11-09) append `R:<rowId>=<count>` lines after `S:`
-  (only for designs with rows; M2's offsets will follow as `O:`), from the
-  `rowCounts[…]` mirrors — see templates-containers.md "Repeatable rows".
+  (only for designs with rows), from the `rowCounts[…]` mirrors — see
+  templates-containers.md "Repeatable rows". User-moved elements (M2) append
+  `O:<id>=<x>,<y>` lines after `R:`, one per MOVED element, from the
+  `offsetValues[<id>][x|y]` mirrors (`data-offset-mirror` /
+  `data-offset-axis`) — see templates-data-model.md "User-moved elements".
   Known v1 gap: a recolourable shape that is a CONTAINER member keeps its box
   at the designed position (the overlay reflow moves texts only).
 - **Whole-container hide (2026-11-09)** — a hidable container is one more

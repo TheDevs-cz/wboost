@@ -12,8 +12,9 @@
  * djb2 over the canonical UTF-8 fill state of `root` (the fill form): one
  * `T:<id>=<text>` line per text mirror, then `H:<id>=<0|1>` per hide mirror,
  * then `F:<id>=<family>` per font mirror, then `S:<id>=<colour>` per shape
- * colour mirror, then `R:<rowId>=<count>` per repeatable-row count mirror —
- * each group sorted by id,
+ * colour mirror, then `R:<rowId>=<count>` per repeatable-row count mirror,
+ * then `O:<id>=<x>,<y>` per MOVED element (its two `data-offset-mirror`
+ * fields; an unmoved element has no line) — each group sorted by id,
  * joined by "\n". The PHP twin is AbstractVariantFiller::fillStateHash() and
  * the two MUST stay byte-identical: the server stamps its value as
  * `data-state-hash` on the settle source element, and the client compares.
@@ -39,6 +40,21 @@ export function fillStateHash(root) {
     // follow — the agreed order is T H F S R O.
     collect("[data-row-count-mirror]", "data-row-count-mirror", "R", (mirror) => mirror.value);
 
+    // User-moved elements ("Uživatel může posunout", M2): two mirrors per
+    // movable element (`data-offset-axis` x / y), ONE line per element that
+    // is actually moved — every other state hashes as before.
+    const offsets = new Map();
+    root.querySelectorAll("[data-offset-mirror]").forEach((mirror) => {
+        const id = mirror.getAttribute("data-offset-mirror");
+        const entry = offsets.get(id) || { x: 0, y: 0 };
+        entry[mirror.getAttribute("data-offset-axis") === "y" ? "y" : "x"] = offsetValue(mirror.value);
+        offsets.set(id, entry);
+    });
+    [...offsets.keys()].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)).forEach((id) => {
+        const { x, y } = offsets.get(id);
+        if (x !== 0 || y !== 0) parts.push(`O:${id}=${hashNumber(x)},${hashNumber(y)}`);
+    });
+
     const bytes = new TextEncoder().encode(parts.join("\n"));
     let hash = 5381;
     for (let i = 0; i < bytes.length; i += 1) {
@@ -46,6 +62,32 @@ export function fillStateHash(root) {
     }
 
     return String(hash);
+}
+
+/** Half-away-from-zero to 1/100 (≡ ElementMoveAllowance::round2, ≡ element_move.js). */
+function round2(value) {
+    if (typeof value !== "number" || !Number.isFinite(value)) return 0;
+    const rounded = Math.floor(Math.abs(value) * 100 + 0.5) / 100;
+    if (rounded === 0) return 0;
+    return value < 0 ? -rounded : rounded;
+}
+
+/** A mirror's raw value as the server reads it: numeric → round2, else 0. */
+function offsetValue(raw) {
+    const text = String(raw ?? "").trim();
+    if (text === "" || !/^[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$/.test(text)) return 0;
+    return round2(Number(text));
+}
+
+/**
+ * An offset in the state hash — the PHP twin is
+ * AbstractVariantFiller::hashNumber(): two decimals, trailing zeros and a
+ * bare "." dropped ("12.5", "-3.33", "40").
+ */
+export function hashNumber(value) {
+    let text = round2(value).toFixed(2);
+    if (text.includes(".")) text = text.replace(/0+$/, "").replace(/\.$/, "");
+    return text === "-0" || text === "" ? "0" : text;
 }
 
 /**

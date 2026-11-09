@@ -91,6 +91,7 @@ final class TemplateGroupExportVariantController extends AbstractController
                 rawFontValues: $request->request->all('fontValues'),
                 rawShapeColors: $request->request->all('shapeColorValues'),
                 rawRowCounts: $request->request->all('rowCounts'),
+                rawOffsets: $request->request->all('offsets'),
             );
         } catch (TemplateRenderUnavailable) {
             return $this->renderFailed(
@@ -117,7 +118,7 @@ final class TemplateGroupExportVariantController extends AbstractController
             $request->request->all('imagePlacements'),
             $request->request->all('fontValues'),
             $request->request->all('shapeColorValues'),
-        )->withRows($request->request->all('rowCounts'));
+        )->withRows($request->request->all('rowCounts'))->withOffsets($request->request->all('offsets'));
         $this->recordExportVersion->recordGroup($group, ExportChannel::Web, $fill, $request->request->getString('draftVersionId'));
 
         return new Response($bytes, Response::HTTP_OK, [

@@ -24,6 +24,7 @@ use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Services\SocialNetwork\AssetInliner;
 use WBoost\Web\Services\SocialNetwork\CanvasPlaceholderGeometry;
 use WBoost\Web\Services\SocialNetwork\ImagePlacement;
+use WBoost\Web\Services\SocialNetwork\ResolveElementOffsets;
 use WBoost\Web\Services\SocialNetwork\TextInputObjectBinder;
 use WBoost\Web\Services\Template\RepeatableRows;
 use WBoost\Web\Services\UploaderHelper;
@@ -147,7 +148,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         $variant = RepeatableRows::expand($variant);
 
         $cacheKey = $printLayer === null
-            ? $this->overrideIndependentCacheKey($variant, $imageOverrides, $strictContainerOverflow, $slice, $format, $transparentTextInputIds)
+            ? $this->overrideIndependentCacheKey($variant, $imageOverrides, $strictContainerOverflow, $slice, $format, $transparentTextInputIds, $overrides->offsets)
             : null;
 
         if ($cacheKey === null) {
@@ -285,7 +286,18 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
      * have already failed the per-object check. This is what makes the fill
      * page's echo BASE (full render included, `$slice === null`) cacheable.
      *
+     * **Element offsets ("Uživatel může posunout") are overrides too.** The
+     * proof above already covers them — only BOUND objects can move (the bake
+     * addresses objects by inputId; a moved container moves its members, all
+     * bound; collision-push moves other containers' members, bound as well),
+     * and a range whose bound objects are all transparent texts shows none of
+     * them. Unlike the texts, though, offsets DO enter `buildCanvasJson()`, so
+     * they are part of the key anyway (only when present — every offset-less
+     * key is unchanged): a stale moved/unmoved pixel can never be served even
+     * if a future change weakens the per-object proof.
+     *
      * @param list<string> $transparentTextInputIds
+     * @param array<string, array{x: float, y: float}> $offsets see {@see ResolvedInputOverrides::$offsets}
      */
     private function overrideIndependentCacheKey(
         TemplateVariant $variant,
@@ -294,6 +306,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         null|CanvasSlice $slice,
         RenderImageFormat $format,
         array $transparentTextInputIds = [],
+        array $offsets = [],
     ): null|string {
         if (!self::renderIsOverrideIndependent($variant->canvas, $slice, $transparentTextInputIds)) {
             return null;
@@ -306,7 +319,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         // fingerprint covers the inlined Fabric/layout scripts, which change on
         // deploy. Image overrides are included in full — they are small, and on
         // this path they are the constant "all placeholders hidden" set.
-        return 'gotenberg_slice_' . hash('xxh128', serialize([
+        $key = [
             'variant' => $variant->id->toString(),
             'canvas' => hash('xxh128', $variant->canvas),
             'background' => $variant->backgroundImage,
@@ -324,7 +337,14 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
             'transparent' => self::sortedIds($transparentTextInputIds),
             'fonts' => $this->fontFingerprint($variant),
             'assets' => $this->assetFingerprint(),
-        ]));
+        ];
+
+        if ($offsets !== []) {
+            ksort($offsets, SORT_STRING);
+            $key['offsets'] = $offsets;
+        }
+
+        return 'gotenberg_slice_' . hash('xxh128', serialize($key));
     }
 
     /**
@@ -508,7 +528,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
             }
         }
 
-        $canvasJson = $this->buildCanvasJson($variant, $imageOverrides, $slice, $transparentTextInputIds, $overrides->shapeColors, $printLayer);
+        $canvasJson = $this->buildCanvasJson($variant, $imageOverrides, $slice, $transparentTextInputIds, $overrides->shapeColors, $printLayer, $overrides->offsets);
         $bleedPx = $printLayer->bleedPx ?? 0;
 
         // Disjoint override maps for the template: a rich input's plain
@@ -715,8 +735,9 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
      *
      * @param list<string> $transparentTextInputIds
      * @param array<string, string> $shapeColors see {@see ResolvedInputOverrides::$shapeColors}
+     * @param array<string, array{x: float, y: float}> $offsets see {@see ResolvedInputOverrides::$offsets}
      */
-    private function buildCanvasJson(TemplateVariant $variant, null|ResolvedImageOverrides $imageOverrides, null|CanvasSlice $slice = null, array $transparentTextInputIds = [], array $shapeColors = [], null|PrintLayer $printLayer = null): string
+    private function buildCanvasJson(TemplateVariant $variant, null|ResolvedImageOverrides $imageOverrides, null|CanvasSlice $slice = null, array $transparentTextInputIds = [], array $shapeColors = [], null|PrintLayer $printLayer = null, array $offsets = []): string
     {
         /** @var array<string, mixed> $canvas */
         $canvas = json_decode($variant->canvas, true, 512, JSON_THROW_ON_ERROR);
@@ -769,6 +790,18 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         }
         if ($shapeColors !== []) {
             $canvas = self::applyShapeColors($canvas, $shapeColors);
+        }
+        // User-moved elements ("Uživatel může posunout", M2): a plain
+        // left/top translation of the moved objects (a container: its whole
+        // deep tree, framed image slots with their clip). The variant is
+        // already EXPANDED (renderToBytes), so materialised rows ride along;
+        // it happens BEFORE the slice and the placeholder placement (both see
+        // the moved geometry) and before the template's container layout, so
+        // a moved root takes part in collision-push and overflow like any
+        // designed position. Re-clamped against THIS canvas — the belt for a
+        // caller that skipped the resolver; idempotent otherwise.
+        if ($offsets !== []) {
+            $canvas = ResolveElementOffsets::bake($canvas, (float) $variant->dimension->width(), (float) $variant->dimension->height(), $offsets);
         }
         // Slice BEFORE placeholder processing: sliced-out image objects get a
         // stub src (and lose their assetPath), so applyImagePlaceholders never

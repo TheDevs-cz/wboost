@@ -93,6 +93,60 @@ final class TemplateVariantImageRendererCacheTest extends KernelTestCase
         );
     }
 
+    /**
+     * "Uživatel může posunout" (M2): element offsets enter buildCanvasJson(),
+     * so they are part of the key — only when present (every offset-less key
+     * is unchanged), and a moved render never gets the unmoved bytes.
+     */
+    public function testElementOffsetsKeyTheCacheOnlyWhenPresent(): void
+    {
+        self::bootKernel();
+
+        $variant = $this->fixtureVariant();
+        $slice = $this->firstOverlaySlice($variant);
+        $cache = new TagAwareAdapter(new ArrayAdapter());
+        $renderer = $this->rendererThatExplodesIfItRenders($cache);
+        $moved = ['00000000-0000-0000-0000-000000000044' => ['x' => 0.0, 'y' => 5.0]];
+
+        $unmovedKey = $this->cacheKeyFor($renderer, $variant, $slice);
+        self::assertIsString($unmovedKey);
+        self::assertSame($unmovedKey, $this->cacheKeyFor($renderer, $variant, $slice, []), 'no offsets → the pre-offsets key');
+        $movedKey = $this->cacheKeyFor($renderer, $variant, $slice, $moved);
+        self::assertIsString($movedKey);
+        self::assertNotSame($unmovedKey, $movedKey);
+
+        foreach ([$unmovedKey => 'UNMOVED', $movedKey => 'MOVED'] as $key => $bytes) {
+            $item = $cache->getItem($key);
+            $item->set($bytes);
+            $cache->save($item);
+        }
+
+        $render = fn (ResolvedInputOverrides $overrides): string => $renderer->renderToBytes($variant, $overrides, new ResolvedImageOverrides([], []), slice: $slice, format: RenderImageFormat::Png);
+        self::assertSame('UNMOVED', $render(new ResolvedInputOverrides([], [])));
+        self::assertSame('MOVED', $render((new ResolvedInputOverrides([], []))->withOffsets($moved)));
+    }
+
+    /**
+     * The must-have of the M2 plan: a moved VISIBLE element (shape, image,
+     * visible text, container member) can never be served from the slice
+     * cache — every movable element is bound (the bake addresses inputIds),
+     * and a bound visible object makes a range override-dependent. Only a
+     * moved TRANSPARENT echo text stays cacheable (it paints nothing).
+     */
+    public function testAMovedVisibleElementIsNeverACacheHit(): void
+    {
+        $move = ['vertical' => true, 'horizontal' => true];
+        $canvas = static fn (array ...$objects): string => (string) json_encode(['objects' => $objects]);
+        $shape = ['type' => 'rect', 'inputId' => 's', 'left' => 0, 'top' => 0, 'width' => 10, 'height' => 10, 'userMove' => $move];
+        $text = ['type' => 'textbox', 'inputId' => 't', 'left' => 0, 'top' => 0, 'width' => 10, 'height' => 10, 'userMove' => $move];
+        $decoImage = ['type' => 'image', 'inputId' => 'd', 'left' => 0, 'top' => 0, 'width' => 10, 'height' => 10, 'userMove' => $move];
+
+        self::assertFalse(TemplateVariantImageRenderer::renderIsOverrideIndependent($canvas($shape, $text), null, ['t']), 'a movable shape');
+        self::assertFalse(TemplateVariantImageRenderer::renderIsOverrideIndependent($canvas($decoImage, $text), null, ['t']), 'a movable decorative image');
+        self::assertFalse(TemplateVariantImageRenderer::renderIsOverrideIndependent($canvas($text), null), 'a visible movable text');
+        self::assertTrue(TemplateVariantImageRenderer::renderIsOverrideIndependent($canvas($text), null, ['t']), 'a transparent echo text paints nothing wherever it sits');
+    }
+
     private function fixtureVariant(): TemplateVariant
     {
         $repository = self::getContainer()->get(TemplateVariantRepository::class);
@@ -119,11 +173,16 @@ final class TemplateVariantImageRendererCacheTest extends KernelTestCase
         return $gaps[0]['slice'];
     }
 
-    private function cacheKeyFor(TemplateVariantImageRenderer $renderer, TemplateVariant $variant, CanvasSlice $slice): null|string
+    /**
+     * @param null|array<string, array{x: float, y: float}> $offsets null = the pre-offsets call shape
+     */
+    private function cacheKeyFor(TemplateVariantImageRenderer $renderer, TemplateVariant $variant, CanvasSlice $slice, null|array $offsets = null): null|string
     {
         $method = new ReflectionMethod($renderer, 'overrideIndependentCacheKey');
 
-        $key = $method->invoke($renderer, $variant, new ResolvedImageOverrides([], []), false, $slice, RenderImageFormat::Png);
+        $key = $offsets === null
+            ? $method->invoke($renderer, $variant, new ResolvedImageOverrides([], []), false, $slice, RenderImageFormat::Png)
+            : $method->invoke($renderer, $variant, new ResolvedImageOverrides([], []), false, $slice, RenderImageFormat::Png, [], $offsets);
         self::assertTrue($key === null || is_string($key));
 
         return $key;

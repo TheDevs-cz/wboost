@@ -34,8 +34,10 @@ monolithic Stimulus controller, Fabric v5) have been retired.
 **User-movable elements — `userMove` (2026-11-09, axis-move plan M0/M1)**
 
 "Uživatel může posunout": the designer lets the END USER move an element on
-the fill page / via the API (moving lands in M2–M5; today only the allowance is
-authored). Contract:
+the fill page / via the API. M0/M1 authored the allowance; M2 (below) is the
+server pipeline that bakes the user's moves; the fill-page move tool (M3),
+group / document UI (M4) and the API / MCP `offsets` input (M5) follow.
+Contract:
 
 ```json
 "userMove": {"vertical": true, "horizontal": false,
@@ -61,15 +63,97 @@ authored). Contract:
   Rounding is spelled out with `floor(abs·100+0.5)` on both sides (PHP's
   `round()` and `Math.round` differ on negatives); no `-0`. Parity test:
   `tests/Value/ElementMoveParityTest.php`.
-- No column, no migration. `CanvasContainer` parses it (`$userMove`) but
-  `toArray()` does NOT emit it yet — those arrays feed the fill / echo /
-  render payloads, which move nothing before M2.
+- No column, no migration. `CanvasContainer` parses it (`$userMove`) and,
+  since M2, `toArray()` emits it (only when set — every other container
+  payload keeps its exact shape).
 - Groups: stored ALREADY SCALED per variant (up/down × height ratio,
   left/right × width ratio) by `group_sync.js` and `CanvasDesignProjector`.
 - MCP DSL: `userMove` with the same keys on text / image (refused on a
   placeholder) / shape / container; a block allowing no axis, a limit on a
   disabled axis or a negative limit is refused; lint warnings
   `user_move_on_container_member`, `user_move_on_nested_container`.
+
+**User-moved elements — the server pipeline (2026-11-09, axis-move plan M2)**
+
+The user's moves are FILL STATE: element id → `{x, y}` in canvas px of the
+rendered variant, relative to the designed position. No UI yet (M3/M4), no
+API / MCP input yet (M5) — but every web surface already carries, renders and
+records them, and with no offsets everything is byte/pixel-identical.
+
+- **Eligibility + clamp — `Services/SocialNetwork/ResolveElementOffsets`**
+  (the single source; `Value/MovableElement` per element). Movable = carries
+  `userMove` AND is a free text (locked too) / free shape / free decorative
+  image, or a TOP-LEVEL container (whole deep tree). Refused (reason codes
+  of the strict mode): the background layer and image placeholders
+  (`not_allowed`), container members and nested containers — repeatable rows
+  and their slots included — (`in_container`), design-hidden objects or a
+  container with no visible member (`hidden`), no allowance (`not_allowed`).
+  **Frame** = Fabric's `getBoundingRect()` of the stored object (stroke
+  included — added before scaling, after it for `strokeUniform` —, rotated
+  about the origin anchor); a container's = the union of its design-visible
+  deep members' boxes. Measured on the canvas the render uses, i.e. the
+  EXPANDED variant: a root holding a repeatable row is framed with all `max`
+  rows, so "unlimited" keeps it on the artwork for any row count (an
+  explicit maximum allows more). The artwork is the TRIM box (`dimension`
+  w × h) — print passes are trim-relative, so an unlimited move never enters
+  the bleed / crop-mark band.
+  - **lenient** (web, previews, seeders, renderer belt): clamp per direction
+    (`ElementMoveAllowance::clamp`), disallowed axis → 0, unknown /
+    ineligible / non-numeric dropped; **strict** (M5 API/MCP): 400
+    `unknown_element` / `move_not_allowed` (`reason`, `axis`) /
+    `offset_out_of_range` (`axis`, `min`, `max`, `value`; 0.005 px
+    tolerance) via `InvalidExportValue`. Zero offsets on anything are fine.
+  - Output canonical: 1/100 px, zero moves omitted, keys sorted.
+- **Bake.** `ResolvedInputOverrides::$offsets` (`withOffsets()`) →
+  `TemplateVariantImageRenderer::buildCanvasJson()` re-clamps against the
+  canvas it draws (`ResolveElementOffsets::bake`, idempotent belt) and
+  translates (`ElementOffsets::bake`) AFTER the row expansion and the textbox
+  id stamp, BEFORE slicing / print layers / placeholder placement (a slot in a
+  moved root keeps its picture in the moved frame) and before the template's
+  container layout — a moved root collision-pushes the roots below it and can
+  overflow (`container_overflow` stays the strict signal). `PrintPdfRenderer`
+  bakes the black-ink scan canvas the same way.
+- **Fill state.** Single page: writable Live prop `offsetValues` — ONE entry
+  per movable element (`{x: 0, y: 0}` when unmoved, so Live knows every
+  `offsetValues[<id>][x|y]` path; empty for every other design), normalised in
+  `PostHydrate` through the lenient resolver; mirrors `data-offset-mirror` +
+  `data-offset-axis` in `VariantFiller.html.twig`; the download / publish /
+  draft POSTs resolve the same fields (`FillFormRequestParser::parseOffsets`).
+  Group + document pages: per SIZE (Jan) — plain hidden fields
+  `offsets[<variantId>][<elementId>][x|y]` (`input->group-fill#changed`), one
+  pair per movable element of each member / page; `GroupFillRenderer` picks
+  ITS variant's map (each member clamps against its own, group-scaled
+  allowance). Documents key elements by FILL KEY (`pageInputIds()` lists the
+  movable ids, `valuesForPage()` translates `offsets` like `imagePlacements`).
+- **State hash.** `O:<id>=<x>,<y>` lines after `R:` (order T H F S R O), one
+  per MOVED element only — unmoved / immovable states hash as before. Numbers:
+  1/100-rounded, 2 decimals, trailing zeros + bare "." dropped
+  (`AbstractVariantFiller::hashNumber` ≡ `hashNumber` in fill_state_hash.js;
+  the JS reads the mirrors like the server: numeric → round2, else 0).
+  `FillStateHashOffsetsTest` runs the real module in node over the rendered
+  mirrors.
+- **Cache.** Offsets join the slice-cache key only when present (offset-less
+  keys unchanged); the per-object proof already keeps a moved VISIBLE element
+  out of the cache (every movable element is bound) — see templates-render.md.
+- **Versions.** `ExportFillValues::$offsets` = variantId → elementId →
+  `{x, y}` (uniform for single / group / document), emitted only when
+  non-empty. Single fills record the RESOLVED map under their own variant
+  id; group / document forms record the posted per-size maps normalised
+  (rounded, zero-free — the `imagePlacements` convention, so a ZIP and a
+  per-dimension export of one form still dedupe). Seeders re-clamp to the
+  CURRENT allowance (`offsetValues` single, `offsets` group / document in
+  fill-key space). The versions API view does not expose them yet (M5).
+- **Echo / overlay (M3 work):** the client echo and the overlay boxes still
+  paint at DESIGNED positions — the fill page has no way to produce an offset
+  before M3, which must bake `element_move.js` into the echo / overlay (or
+  exempt moved texts from the echo) and draw the band from the server frames.
+- Tests: `ResolveElementOffsetsTest`, `ExportFillValuesTest`,
+  `TemplateVariantImageRendererCacheTest`, `FillStateHashOffsetsTest`,
+  `ElementOffsetsFillTest` (single / group / document, versions, re-clamped
+  seed), `ElementOffsetsEntryPointsTest` (static inventory of every
+  render / resolve call site + print + rows-before-bake),
+  `ElementOffsetsRenderTest` (Gotenberg: moved text + moved root ≡ the design
+  drawn there, the push; an allowance alone moves nothing).
 
 **Backgrounds — canvas mode vs LAYER mode (`background_mode` column)**
 

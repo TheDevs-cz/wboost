@@ -14,6 +14,7 @@ use WBoost\Web\Exceptions\FileUploadNotFound;
 use WBoost\Web\Repository\FileUploadRepository;
 use WBoost\Web\Services\SocialNetwork\PlaceholderAllowedDirectories;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
+use WBoost\Web\Services\SocialNetwork\ResolveElementOffsets;
 use WBoost\Web\Services\SocialNetwork\ResolveShapeColorOverrides;
 use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Value\CanvasContainer;
@@ -54,6 +55,7 @@ readonly final class ExportVersionSeeder
      *     shapeColorValues: array<string, string>,
      *     imageValues: array<string, array<string, mixed>>,
      *     rowCounts: array<string, int>,
+     *     offsetValues: array<string, array{x: float, y: float}>,
      * }
      */
     public function forVariant(TemplateExportVersion $version, TemplateVariant $variant): array
@@ -72,6 +74,7 @@ readonly final class ExportVersionSeeder
      *     shapeColorValues: array<string, string>,
      *     imageValues: array<string, array<string, mixed>>,
      *     rowCounts: array<string, int>,
+     *     offsetValues: array<string, array{x: float, y: float}>,
      * }
      */
     public function forVariantValues(ExportFillValues $values, TemplateVariant $variant): array
@@ -146,6 +149,10 @@ readonly final class ExportVersionSeeder
             // Clamped to the rows' CURRENT limits; the default for a row the
             // version predates (or a version recorded before rows existed).
             'rowCounts' => RepeatableRows::normalizeCounts([$variant], $values->rows),
+            // The user's element moves, re-clamped to the CURRENT allowance
+            // (a move the designer has since forbidden or capped lower is
+            // dropped / shortened, never replayed past the limit).
+            'offsetValues' => ResolveElementOffsets::forVariant($variant, $values->offsets[$variant->id->toString()] ?? [], lenient: true),
         ];
     }
 
@@ -165,6 +172,7 @@ readonly final class ExportVersionSeeder
      *     imageHidden: array<string, bool>,
      *     placements: array<string, array<string, array<string, float>>>,
      *     rowCounts: array<string, int>,
+     *     offsets: array<string, array<string, array{x: float, y: float}>>,
      * }
      */
     public function forGroup(
@@ -193,6 +201,7 @@ readonly final class ExportVersionSeeder
      *     imageHidden: array<string, bool>,
      *     placements: array<string, array<string, array<string, float>>>,
      *     rowCounts: array<string, int>,
+     *     offsets: array<string, array<string, array{x: float, y: float}>>,
      * }
      */
     public function forGroupValues(
@@ -332,7 +341,29 @@ readonly final class ExportVersionSeeder
             'placements' => $placements,
             // ONE shared count per row across the dimensions (Jan, 2026-11-09).
             'rowCounts' => RepeatableRows::normalizeCounts($memberVariants, $values->rows),
+            // Element moves are PER DIMENSION (variantId → elementId → {x, y}),
+            // each re-clamped to that member's CURRENT allowance.
+            'offsets' => self::memberOffsets($memberVariants, $values->offsets),
         ];
+    }
+
+    /**
+     * @param list<TemplateVariant> $memberVariants EXPANDED
+     * @param array<string, array<string, array{x: float, y: float}>> $stored
+     * @return array<string, array<string, array{x: float, y: float}>>
+     */
+    private static function memberOffsets(array $memberVariants, array $stored): array
+    {
+        $offsets = [];
+        foreach ($memberVariants as $memberVariant) {
+            $variantId = $memberVariant->id->toString();
+            $resolved = ResolveElementOffsets::forVariant($memberVariant, $stored[$variantId] ?? [], lenient: true);
+            if ($resolved !== []) {
+                $offsets[$variantId] = $resolved;
+            }
+        }
+
+        return $offsets;
     }
 
     /**

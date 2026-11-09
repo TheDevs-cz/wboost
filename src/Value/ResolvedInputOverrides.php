@@ -42,6 +42,12 @@ readonly final class ResolvedInputOverrides
      *   here: the hide expansion clamps each to the row's `[min, max]` and a
      *   row it does not name shows its designed default
      *   ({@see \WBoost\Web\Services\Template\CanvasContainer::inactiveRowMemberIds()}).
+     * @param array<string, array{x: float, y: float}> $offsets element id
+     *   (an object's inputId or a top-level container id) → the user's move
+     *   in canvas px ("Uživatel může posunout", M2), as resolved by
+     *   {@see \WBoost\Web\Services\SocialNetwork\ResolveElementOffsets}. The
+     *   renderer re-clamps it against the canvas it draws (a belt) and bakes
+     *   it into the canvas JSON after the row expansion, before slicing.
      */
     public function __construct(
         public array $texts,
@@ -51,6 +57,7 @@ readonly final class ResolvedInputOverrides
         public array $shapeColors = [],
         public array $hiddenContainerIds = [],
         public array $rowCounts = [],
+        public array $offsets = [],
     ) {
     }
 
@@ -59,7 +66,7 @@ readonly final class ResolvedInputOverrides
      */
     public function withShapeColors(array $shapeColors): self
     {
-        return new self($this->texts, $this->hidden, $this->richTexts, $this->fonts, $shapeColors, $this->hiddenContainerIds, $this->rowCounts);
+        return new self($this->texts, $this->hidden, $this->richTexts, $this->fonts, $shapeColors, $this->hiddenContainerIds, $this->rowCounts, $this->offsets);
     }
 
     /**
@@ -67,7 +74,15 @@ readonly final class ResolvedInputOverrides
      */
     public function withRowCounts(array $rowCounts): self
     {
-        return new self($this->texts, $this->hidden, $this->richTexts, $this->fonts, $this->shapeColors, $this->hiddenContainerIds, $rowCounts);
+        return new self($this->texts, $this->hidden, $this->richTexts, $this->fonts, $this->shapeColors, $this->hiddenContainerIds, $rowCounts, $this->offsets);
+    }
+
+    /**
+     * @param array<string, array{x: float, y: float}> $offsets
+     */
+    public function withOffsets(array $offsets): self
+    {
+        return new self($this->texts, $this->hidden, $this->richTexts, $this->fonts, $this->shapeColors, $this->hiddenContainerIds, $this->rowCounts, $offsets);
     }
 
     /**

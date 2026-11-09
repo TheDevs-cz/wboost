@@ -361,10 +361,14 @@ unchanged).
   id are fill keys (`pageInputIds`), `valuesForPage` translates `rowCounts`;
   a repeatable row's members are never bindable to a shared field
   (`TemplateDocumentRules::isBindable`, the field picker filters them).
-- **Seam for M2 (user-movable offsets):** expansion happens BEFORE anything
+- **User-movable offsets (M2, shipped):** expansion happens BEFORE anything
   in `buildCanvasJson`, so the offset bake there sees the materialised rows;
   rows are nested (never movable themselves), a moved top-level parent
-  carries every slot. Hash order: `T H F S R O`.
+  carries every slot (`ElementOffsetsEntryPointsTest`). The bake runs before
+  the template's layout, so a moved root anchors phase A at its new place,
+  collision-pushes the lower x-overlapping roots and can overflow like any
+  designed position (`ElementOffsetsRenderTest`). Hash order: `T H F S R O`.
+  Full contract: templates-data-model.md "User-moved elements".
 - **P4 notes:** `FillContainerHides` / `FillContainerSheets` currently list
   every materialised slot (a hidable row gives max toggles; the sheet shows
   max sections) — P4 groups them as rows and hides inactive ones; drop the

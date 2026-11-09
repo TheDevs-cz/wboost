@@ -36,13 +36,14 @@ readonly final class DocumentVersionSeeder
      *     imageHidden: array<string, bool>,
      *     placements: array<string, array<string, array<string, float>>>,
      *     rowCounts: array<string, int>,
+     *     offsets: array<string, array<string, array{x: float, y: float}>>,
      * }
      */
     public function seed(TemplateDocumentExportVersion $version, TemplateDocument $document): array
     {
         $keys = DocumentFillKeys::forDocument($document);
         $fill = $version->fill();
-        $seed = ['texts' => [], 'hidden' => [], 'fonts' => [], 'shapeColors' => [], 'images' => [], 'imageHidden' => [], 'placements' => [], 'rowCounts' => []];
+        $seed = ['texts' => [], 'hidden' => [], 'fonts' => [], 'shapeColors' => [], 'images' => [], 'imageHidden' => [], 'placements' => [], 'rowCounts' => [], 'offsets' => []];
 
         foreach ($document->pages() as $page) {
             $templateId = $page->template->id->toString();
@@ -68,9 +69,16 @@ readonly final class DocumentVersionSeeder
                     $seed['placements'][$variantId][$keys->keyFor($templateId, (string) $inputId)] = $placement;
                 }
             }
+
+            // User-moved elements: per page (= per page variant), fill-key space.
+            foreach ($pageSeed['offsets'] as $variantId => $elements) {
+                foreach ($elements as $elementId => $offset) {
+                    $seed['offsets'][$variantId][$keys->keyFor($templateId, (string) $elementId)] = $offset;
+                }
+            }
         }
 
-        /** @var array{texts: array<string, string>, hidden: array<string, bool>, fonts: array<string, string>, shapeColors: array<string, string>, images: array<string, array{imageId: string, url: string}>, imageHidden: array<string, bool>, placements: array<string, array<string, array<string, float>>>, rowCounts: array<string, int>} $seed */
+        /** @var array{texts: array<string, string>, hidden: array<string, bool>, fonts: array<string, string>, shapeColors: array<string, string>, images: array<string, array{imageId: string, url: string}>, imageHidden: array<string, bool>, placements: array<string, array<string, array<string, float>>>, rowCounts: array<string, int>, offsets: array<string, array<string, array{x: float, y: float}>>} $seed */
         return $seed;
     }
 }

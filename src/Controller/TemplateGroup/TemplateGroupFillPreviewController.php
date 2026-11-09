@@ -82,6 +82,7 @@ final class TemplateGroupFillPreviewController extends AbstractController
             rawFontValues: $request->request->all('fontValues'),
             rawShapeColors: $request->request->all('shapeColorValues'),
             rawRowCounts: $request->request->all('rowCounts'),
+            rawOffsets: $request->request->all('offsets'),
         );
 
         return new Response($bytes, Response::HTTP_OK, [

@@ -42,6 +42,14 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
     public array $hideCalls = [];
 
     /**
+     * The element offsets ("Uživatel může posunout") each call was handed,
+     * index-aligned with $calls — what the real renderer would bake.
+     *
+     * @var list<array<string, array{x: float, y: float}>>
+     */
+    public array $offsetCalls = [];
+
+    /**
      * When set, every render call throws this — lets tests exercise the
      * container-overflow 400 contract without a real Gotenberg round-trip.
      */
@@ -143,6 +151,8 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
                 is_array($decodedCanvas) ? \WBoost\Web\Value\CanvasContainer::collectionFromCanvas($decodedCanvas) : [],
             ),
         ];
+
+        $this->offsetCalls[] = $overrides->offsets;
 
         $richTexts = [];
         foreach ($overrides->richTexts as $inputId => $richText) {

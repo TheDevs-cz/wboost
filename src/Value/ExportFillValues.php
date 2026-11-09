@@ -25,6 +25,11 @@ namespace WBoost\Web\Value;
  * - `rows`: repeatable row container id → the row count the fill showed
  *   (`rowCounts[…]`, container-rows P2). The rows' VALUES are ordinary
  *   entries of the maps above, keyed by the rows' derived ids.
+ * - `offsets`: variantId → element id → `{x, y}` — the user's element moves
+ *   ("Uživatel může posunout", M2) in canvas px of THAT variant (per size:
+ *   a group / document stores one map per dimension / page; a single fill
+ *   one map under its own variant). Rounded to 1/100 px, zero moves dropped;
+ *   the seeders re-clamp to the CURRENT allowance.
  *
  * The array form is CANONICAL — keys sorted recursively, floats rounded to 4
  * decimals, empty entries dropped — so `hash()` is stable across field order,
@@ -33,7 +38,8 @@ namespace WBoost\Web\Value;
  * ONLY when a font was picked: it arrived after the first versions were
  * recorded, and an always-present empty key would re-hash every stored
  * font-less fill, duplicating each one on its next identical export. The
- * `shapeColors` and `rows` keys follow the same rule for the same reason.
+ * `shapeColors`, `rows` and `offsets` keys follow the same rule for the same
+ * reason.
  *
  * API / MCP exports are converted INTO this shape (rich runs re-encoded as the
  * envelope string) so one history lists every channel's exports uniformly.
@@ -50,6 +56,7 @@ final readonly class ExportFillValues
      * @param array<string, string> $fonts
      * @param array<string, string> $shapeColors
      * @param array<string, int> $rows
+     * @param array<string, array<string, array{x: float, y: float}>> $offsets
      */
     private function __construct(
         public array $texts,
@@ -59,6 +66,7 @@ final readonly class ExportFillValues
         public array $fonts = [],
         public array $shapeColors = [],
         public array $rows = [],
+        public array $offsets = [],
     ) {
     }
 
@@ -70,7 +78,19 @@ final readonly class ExportFillValues
      */
     public function withRows(array $rawRowCounts): self
     {
-        return new self($this->texts, $this->hidden, $this->images, $this->placements, $this->fonts, $this->shapeColors, self::rowEntries($rawRowCounts));
+        return new self($this->texts, $this->hidden, $this->images, $this->placements, $this->fonts, $this->shapeColors, self::rowEntries($rawRowCounts), $this->offsets);
+    }
+
+    /**
+     * The same fill with the user's element moves — `offsets[<variantId>]
+     * [<elementId>][x|y]` (group / document forms, raw strings welcome) or
+     * the resolved map of a single fill wrapped in its variant id.
+     *
+     * @param array<array-key, mixed> $rawOffsets variantId → elementId → `{x?, y?}`
+     */
+    public function withOffsets(array $rawOffsets): self
+    {
+        return new self($this->texts, $this->hidden, $this->images, $this->placements, $this->fonts, $this->shapeColors, $this->rows, self::offsetEntries($rawOffsets));
     }
 
     /**
@@ -294,6 +314,7 @@ final readonly class ExportFillValues
             self::fontEntries(is_array($data['fonts'] ?? null) ? $data['fonts'] : []),
             self::shapeColorEntries(is_array($data['shapeColors'] ?? null) ? $data['shapeColors'] : []),
             self::rowEntries(is_array($data['rows'] ?? null) ? $data['rows'] : []),
+            self::offsetEntries(is_array($data['offsets'] ?? null) ? $data['offsets'] : []),
         );
     }
 
@@ -302,7 +323,7 @@ final readonly class ExportFillValues
      * shape is fixed — except `fonts`, see the class docblock), suitable for
      * storage AND hashing.
      *
-     * @return array{texts: array<string, string>, hidden: list<string>, images: array<string, array<string, mixed>>, placements: array<string, array<string, array<string, float>>>, fonts?: array<string, string>, shapeColors?: array<string, string>, rows?: array<string, int>}
+     * @return array{texts: array<string, string>, hidden: list<string>, images: array<string, array<string, mixed>>, placements: array<string, array<string, array<string, float>>>, fonts?: array<string, string>, shapeColors?: array<string, string>, rows?: array<string, int>, offsets?: array<string, array<string, array{x: float, y: float}>>}
      */
     public function toArray(): array
     {
@@ -356,6 +377,11 @@ final readonly class ExportFillValues
             $canonical['rows'] = $rows;
         }
 
+        if ($this->offsets !== []) {
+            // Already canonical (sorted, rounded, zero-free) — see offsetEntries().
+            $canonical['offsets'] = $this->offsets;
+        }
+
         return $canonical;
     }
 
@@ -370,7 +396,7 @@ final readonly class ExportFillValues
 
     public function isEmpty(): bool
     {
-        return $this->texts === [] && $this->hidden === [] && $this->images === [] && $this->placements === [] && $this->fonts === [] && $this->shapeColors === [] && $this->rows === [];
+        return $this->texts === [] && $this->hidden === [] && $this->images === [] && $this->placements === [] && $this->fonts === [] && $this->shapeColors === [] && $this->rows === [] && $this->offsets === [];
     }
 
     /**
@@ -431,6 +457,44 @@ final readonly class ExportFillValues
         }
 
         return $rows;
+    }
+
+    /**
+     * variantId → elementId → `{x, y}`: numeric values only (form strings
+     * included), rounded to 1/100 px like the resolver, zero moves and empty
+     * variants dropped, both levels key-sorted — canonical on construction,
+     * so a stored snapshot (whose JSONB turns 12.0 into 12) re-hashes
+     * identically.
+     *
+     * @param array<array-key, mixed> $raw
+     * @return array<string, array<string, array{x: float, y: float}>>
+     */
+    private static function offsetEntries(array $raw): array
+    {
+        $offsets = [];
+        foreach ($raw as $variantId => $elements) {
+            if (!is_array($elements)) {
+                continue;
+            }
+            $entries = [];
+            foreach ($elements as $elementId => $entry) {
+                if (!is_array($entry)) {
+                    continue;
+                }
+                $x = is_numeric($entry['x'] ?? null) ? ElementMoveAllowance::round2((float) $entry['x']) : 0.0;
+                $y = is_numeric($entry['y'] ?? null) ? ElementMoveAllowance::round2((float) $entry['y']) : 0.0;
+                if ($x != 0.0 || $y != 0.0) {
+                    $entries[(string) $elementId] = ['x' => $x, 'y' => $y];
+                }
+            }
+            if ($entries !== []) {
+                ksort($entries, SORT_STRING);
+                $offsets[(string) $variantId] = $entries;
+            }
+        }
+        ksort($offsets, SORT_STRING);
+
+        return $offsets;
     }
 
     /**

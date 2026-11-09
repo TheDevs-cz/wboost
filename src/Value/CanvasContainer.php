@@ -116,14 +116,13 @@ readonly final class CanvasContainer
     /**
      * `hidable` / `name` are emitted only when set, so every pre-existing
      * definition (and every payload built from one) keeps its exact shape.
-     * `userMove` is NOT emitted yet: these arrays feed the fill pages / echo /
-     * render payloads, none of which moves anything before the M2 server
-     * phase — read {@see self::$userMove} directly until then.
+     * `userMove` follows the same rule (M2): only a container the designer
+     * let the user move carries it — the fill pages' move UI reads it.
      *
      * `repeat` / `repeatSlots` / `repeatSlotOf` follow the same rule — only a
      * repeatable row (and, on an expanded variant, its slots) carries them.
      *
-     * @return array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap: null|float, spaceAfter: null|float, hidable?: true, name?: string, repeat?: array{max: int, min: int, default: int}, repeatSlots?: list<string>, repeatSlotOf?: string}
+     * @return array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap: null|float, spaceAfter: null|float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int}, repeatSlots?: list<string>, repeatSlotOf?: string}
      */
     public function toArray(): array
     {
@@ -142,6 +141,10 @@ readonly final class CanvasContainer
 
         if ($this->name !== null) {
             $data['name'] = $this->name;
+        }
+
+        if ($this->userMove !== null) {
+            $data['userMove'] = $this->userMove->toArray();
         }
 
         if ($this->repeat !== null) {

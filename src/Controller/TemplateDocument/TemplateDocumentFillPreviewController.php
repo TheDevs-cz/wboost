@@ -71,6 +71,7 @@ final class TemplateDocumentFillPreviewController extends AbstractController
             'shapeColorValues' => $request->request->all('shapeColorValues'),
             'imagePlacements' => $request->request->all('imagePlacements'),
             'rowCounts' => $request->request->all('rowCounts'),
+            'offsets' => $request->request->all('offsets'),
         ]);
 
         // ?base=1 — the echo BASE: this page's echo-capable texts transparent
@@ -90,6 +91,7 @@ final class TemplateDocumentFillPreviewController extends AbstractController
             rawFontValues: $values['fontValues'],
             rawShapeColors: $values['shapeColorValues'],
             rawRowCounts: $values['rowCounts'],
+            rawOffsets: $values['offsets'],
         );
 
         return new Response($bytes, Response::HTTP_OK, [

@@ -29,6 +29,13 @@ use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
  *   admin did not allow any colour (context: `allowedColors`)
  * - `container_not_hidable` — `{hide: true}` addressed to a container the
  *   designer did not mark hidable (context: `containerId`)
+ * - `unknown_element` — an offset addressed to an id that is neither an
+ *   object nor a container of the variant (context: `elementId`)
+ * - `move_not_allowed` — an offset on an element the user may not move, or
+ *   on an axis it may not move along (context: `elementId`, `reason`:
+ *   `not_allowed` | `in_container` | `hidden`, and `axis` for a disallowed axis)
+ * - `offset_out_of_range` — an offset past the element's allowed range
+ *   (context: `elementId`, `axis`, `min`, `max`, `value` — canvas px)
  *
  * The resolvers add `inputId` / `imageInputId` / `shapeInputId` to the context.
  */
@@ -105,6 +112,50 @@ final class InvalidExportValue extends BadRequestHttpException
             'container_not_hidable',
             sprintf('Container "%s" cannot be hidden — the designer did not mark it hidable.', $containerLabel),
             ['containerId' => $containerId],
+        );
+    }
+
+    public static function unknownElement(string $elementId): self
+    {
+        return new self(
+            'unknown_element',
+            sprintf('The variant has no element "%s" to move.', $elementId),
+            ['elementId' => $elementId],
+        );
+    }
+
+    /**
+     * @param 'not_allowed'|'in_container'|'hidden' $reason
+     * @param null|'x'|'y' $axis set when only that axis is refused
+     */
+    public static function moveNotAllowed(string $elementId, string $reason, null|string $axis = null): self
+    {
+        $context = ['elementId' => $elementId, 'reason' => $reason];
+        if ($axis !== null) {
+            $context['axis'] = $axis;
+        }
+
+        return new self(
+            'move_not_allowed',
+            match (true) {
+                $axis !== null => sprintf('Element "%s" may not be moved %s.', $elementId, $axis === 'x' ? 'horizontally' : 'vertically'),
+                $reason === 'in_container' => sprintf('Element "%s" sits in a container — move the container instead.', $elementId),
+                $reason === 'hidden' => sprintf('Element "%s" is hidden and cannot be moved.', $elementId),
+                default => sprintf('Element "%s" may not be moved.', $elementId),
+            },
+            $context,
+        );
+    }
+
+    /**
+     * @param 'x'|'y' $axis
+     */
+    public static function offsetOutOfRange(string $elementId, string $axis, float $min, float $max, float $value): self
+    {
+        return new self(
+            'offset_out_of_range',
+            sprintf('Offset %s = %s of element "%s" is outside the allowed range [%s, %s].', $axis, $value, $elementId, $min, $max),
+            ['elementId' => $elementId, 'axis' => $axis, 'min' => $min, 'max' => $max, 'value' => $value],
         );
     }
 

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace WBoost\Web\Controller\TemplateGroup;
 
 use WBoost\Web\Services\Template\RepeatableRows;
+use WBoost\Web\Services\SocialNetwork\ResolveElementOffsets;
+use WBoost\Web\Value\MovableElement;
 use Ramsey\Uuid\Uuid;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -116,12 +118,20 @@ final class TemplateGroupFillController extends AbstractController
                 array_map(static fn (array $slot) => $slot['input'], $imageInputs),
                 $memberVariants,
             )
-            : ['texts' => [], 'hidden' => [], 'fonts' => [], 'shapeColors' => [], 'images' => [], 'imageHidden' => [], 'placements' => [], 'rowCounts' => RepeatableRows::defaultCounts($memberVariants)];
+            : ['texts' => [], 'hidden' => [], 'fonts' => [], 'shapeColors' => [], 'images' => [], 'imageHidden' => [], 'placements' => [], 'rowCounts' => RepeatableRows::defaultCounts($memberVariants), 'offsets' => []];
 
         // One pencil per container: each dimension's own boxes (membership
         // and frames are per dimension), one sheet per container id.
         foreach ($variants as $i => $entry) {
             $variants[$i]['container_sheets'] = $this->containerSheets->forVariants([$entry['variant']], $seed['hidden']);
+            // User-movable elements (M2): PER DIMENSION — one
+            // `offsets[<variantId>][<elementId>][x|y]` pair per movable
+            // element of this member, seeded from a loaded version.
+            $variantId = $entry['variant']->id->toString();
+            $variants[$i]['offsets'] = array_map(
+                static fn (MovableElement $element): array => $seed['offsets'][$variantId][$element->id] ?? ['x' => 0.0, 'y' => 0.0],
+                ResolveElementOffsets::movableElementsOf($entry['variant']),
+            );
         }
 
         // The group is 1:1 with its template, which stores the admin-arranged

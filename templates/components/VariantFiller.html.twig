@@ -266,6 +266,28 @@
             >
         {% endfor %}
 
+        {# User-movable elements ("Uživatel může posunout", M2): two Live-bound
+           fields per movable element (canvas px; 0 = designed position) —
+           the settle render bakes them, the state hash carries the moved
+           ones (`O:` lines), the download POST records them. The move UI
+           (M3) writes them. Absent for every design without movable
+           elements. #}
+        {% for elementId, offset in this.offsetValues %}
+            {% for axis in ['x', 'y'] %}
+                <input
+                    type="text"
+                    class="visually-hidden"
+                    tabindex="-1"
+                    aria-hidden="true"
+                    name="offsetValues[{{ elementId }}][{{ axis }}]"
+                    data-offset-mirror="{{ elementId }}"
+                    data-offset-axis="{{ axis }}"
+                    data-model="on(input)|offsetValues[{{ elementId }}][{{ axis }}]"
+                    value="{{ offset[axis] }}"
+                >
+            {% endfor %}
+        {% endfor %}
+
         {% if hasImages %}
             {# Live-updated backdrop source — read by variant-image-fill by id.
                data-base-src = the echo base (capable texts transparent);

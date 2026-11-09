@@ -70,7 +70,7 @@ final class SaveTemplateGroupFillDraftController extends AbstractController
                 $request->request->all('imagePlacements'),
                 $request->request->all('fontValues'),
                 $request->request->all('shapeColorValues'),
-            )->withRows($request->request->all('rowCounts')),
+            )->withRows($request->request->all('rowCounts'))->withOffsets($request->request->all('offsets')),
         ));
 
         $response = $this->turboStream->draftSaved($this->versionRepository->get($versionId));

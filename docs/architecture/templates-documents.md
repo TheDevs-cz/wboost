@@ -295,3 +295,10 @@ keys) and re-keys `repeatSlots` / `repeatSlotOf`; `pageInputIds()` lists the
 repeatable row container ids (their `rowCounts[<key>]` count) and
 `valuesForPage()` translates `rowCounts`. A row's members are never bindable
 to a shared field (`TemplateDocumentRules::isBindable`).
+
+**User-moved elements (2026-11-09, M2)** are per page as well:
+`pageInputIds()` lists every movable element of the (expanded) page, the fill
+page renders one `offsets[<page variantId>][<fill key>][x|y]` pair each, and
+`valuesForPage()` translates `offsets` like `imagePlacements`
+(`[variantId][key]` → real ids). Never shared. See templates-data-model.md
+"User-moved elements".

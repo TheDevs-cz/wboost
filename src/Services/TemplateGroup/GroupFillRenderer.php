@@ -7,6 +7,7 @@ namespace WBoost\Web\Services\TemplateGroup;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Services\SocialNetwork\ResolveImageOverrides;
+use WBoost\Web\Services\SocialNetwork\ResolveElementOffsets;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Services\SocialNetwork\ResolveShapeColorOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
@@ -63,6 +64,7 @@ readonly final class GroupFillRenderer
      * @param array<array-key, mixed> $rawFontValues
      * @param array<array-key, mixed> $rawShapeColors
      * @param array<array-key, mixed> $rawRowCounts
+     * @param array<array-key, mixed> $rawOffsets `offsets[<variantId>][<elementId>][x|y]` — per dimension
      */
     public function renderExport(
         ExportFormat $exportFormat,
@@ -75,18 +77,19 @@ readonly final class GroupFillRenderer
         array $rawFontValues = [],
         array $rawShapeColors = [],
         array $rawRowCounts = [],
+        array $rawOffsets = [],
     ): string {
         $variant = RepeatableRows::expand($variant);
 
         if ($exportFormat === ExportFormat::Png) {
-            return $this->render($variant, $rawTextValues, $rawHiddenValues, $rawImages, $rawPlacements, rawFontValues: $rawFontValues, rawShapeColors: $rawShapeColors, rawRowCounts: $rawRowCounts);
+            return $this->render($variant, $rawTextValues, $rawHiddenValues, $rawImages, $rawPlacements, rawFontValues: $rawFontValues, rawShapeColors: $rawShapeColors, rawRowCounts: $rawRowCounts, rawOffsets: $rawOffsets);
         }
 
         if ($exportFormat !== ExportFormat::Pdf) {
             throw new \InvalidArgumentException(sprintf('A group member cannot be exported as "%s".', $exportFormat->value));
         }
 
-        [$overrides, $imageOverrides] = $this->resolve($variant, $rawTextValues, $rawHiddenValues, $rawImages, $rawPlacements, $rawFontValues, $rawShapeColors, $rawRowCounts);
+        [$overrides, $imageOverrides] = $this->resolve($variant, $rawTextValues, $rawHiddenValues, $rawImages, $rawPlacements, $rawFontValues, $rawShapeColors, $rawRowCounts, $rawOffsets);
 
         return $this->printPdfRenderer->render($variant, $overrides, $imageOverrides, $title);
     }
@@ -118,6 +121,7 @@ readonly final class GroupFillRenderer
      * @param array<array-key, mixed> $rawFontValues
      * @param array<array-key, mixed> $rawShapeColors
      * @param array<array-key, mixed> $rawRowCounts
+     * @param array<array-key, mixed> $rawOffsets `offsets[<variantId>][<elementId>][x|y]` — per dimension
      */
     public function render(
         TemplateVariant $variant,
@@ -130,9 +134,10 @@ readonly final class GroupFillRenderer
         array $rawFontValues = [],
         array $rawShapeColors = [],
         array $rawRowCounts = [],
+        array $rawOffsets = [],
     ): string {
         $variant = RepeatableRows::expand($variant);
-        [$overrides, $imageOverrides] = $this->resolve($variant, $rawTextValues, $rawHiddenValues, $rawImages, $rawPlacements, $rawFontValues, $rawShapeColors, $rawRowCounts);
+        [$overrides, $imageOverrides] = $this->resolve($variant, $rawTextValues, $rawHiddenValues, $rawImages, $rawPlacements, $rawFontValues, $rawShapeColors, $rawRowCounts, $rawOffsets);
 
         return $this->renderer->renderToBytes(
             $variant,
@@ -151,6 +156,9 @@ readonly final class GroupFillRenderer
      * @param array<array-key, mixed> $rawFontValues
      * @param array<array-key, mixed> $rawShapeColors
      * @param array<array-key, mixed> $rawRowCounts `rowCounts[<rowId>]` fields (repeatable rows)
+     * @param array<array-key, mixed> $rawOffsets `offsets[<variantId>][<elementId>][x|y]` — the user's
+     *   element moves PER DIMENSION (Jan, 2026-11-09: per-size offsets, each
+     *   clamped to that member's own — group-scaled — allowance)
      * @return array{ResolvedInputOverrides, ResolvedImageOverrides}
      *
      * Public for multi-page documents, which resolve every page first and
@@ -165,6 +173,7 @@ readonly final class GroupFillRenderer
         array $rawFontValues,
         array $rawShapeColors,
         array $rawRowCounts = [],
+        array $rawOffsets = [],
     ): array {
         // Repeatable rows: resolve against the EXPANDED member (idempotent),
         // with the group's ONE shared count per row (the raw `rowCounts[…]`
@@ -212,6 +221,11 @@ readonly final class GroupFillRenderer
             richTextOptions: $this->resolveRichTextOptions->forVariant($variant),
         )->withShapeColors($this->resolveShapeColorOverrides->forVariant($variant, $rawShapeColors, lenient: true))
             ->withRowCounts(RepeatableRows::normalizeCounts([$variant], $rawRowCounts));
+
+        $variantOffsets = $rawOffsets[$variant->id->toString()] ?? [];
+        if (is_array($variantOffsets) && $variantOffsets !== []) {
+            $overrides = $overrides->withOffsets(ResolveElementOffsets::forVariant($variant, $variantOffsets, lenient: true));
+        }
 
         $variantPlacements = $rawPlacements[$variant->id->toString()] ?? [];
 

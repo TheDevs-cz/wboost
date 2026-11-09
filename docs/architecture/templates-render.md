@@ -72,7 +72,13 @@ which holds the fillable text, still re-renders — correctly.
 Key = hash of everything else that can change the pixels (canvas hash, background,
 dimension, background mode, input definitions, image overrides, slice, strict flag,
 format, a font fingerprint, and an asset fingerprint for the inlined JS bundles),
-so a stale hit is not reachable even before tag invalidation. The
+so a stale hit is not reachable even before tag invalidation. **User-moved
+elements (M2)** are baked into the canvas JSON (`ResolvedInputOverrides::$offsets`,
+after the row expansion, before slicing — templates-data-model.md), so they are
+in the key too, only when present (offset-less keys unchanged). The proof above
+already covers them: every movable element is bound (the bake addresses
+inputIds), so a range with a moved VISIBLE element is never cacheable; a moved
+transparent echo text paints nothing (`TemplateVariantImageRendererCacheTest`). The
 `template_variant_render_<id>` tag is dropped on canvas save as housekeeping.
 Entries over 1 MiB are returned but never stored.
 

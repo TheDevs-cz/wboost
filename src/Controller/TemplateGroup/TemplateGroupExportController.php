@@ -79,6 +79,8 @@ final class TemplateGroupExportController extends AbstractController
         $rawFontValues = $request->request->all('fontValues');
         $rawShapeColors = $request->request->all('shapeColorValues');
         $rawRowCounts = $request->request->all('rowCounts');
+        // User-moved elements, per dimension: `offsets[<variantId>][<id>][x|y]`.
+        $rawOffsets = $request->request->all('offsets');
 
         // One render per member variant, sequentially — the longest request
         // this app makes; it must not sit on a stale session copy throughout.
@@ -117,6 +119,7 @@ final class TemplateGroupExportController extends AbstractController
                     $rawFontValues,
                     $rawShapeColors,
                     $rawRowCounts,
+                    $rawOffsets,
                 );
             } catch (TemplateRenderUnavailable) {
                 return $this->renderFailed(
@@ -149,7 +152,7 @@ final class TemplateGroupExportController extends AbstractController
             $rawPlacements,
             $rawFontValues,
             $rawShapeColors,
-        )->withRows($rawRowCounts);
+        )->withRows($rawRowCounts)->withOffsets($rawOffsets);
         $this->recordExportVersion->recordGroup($group, ExportChannel::Web, $fill, $request->request->getString('draftVersionId'));
 
         return new Response($zipBytes, Response::HTTP_OK, [
