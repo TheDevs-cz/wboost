@@ -45,6 +45,21 @@ final class GroupExportRequest
     public array $shapeColors = [];
 
     /**
+     * Per-dimension element moves: variantId → element id → `{"x", "y"}`
+     * (canvas px of THAT dimension, relative to the designed position) — each
+     * size moves on its own, like `placements`; every dimension's
+     * `movableElements[].range` is its own (the designer's limits are scaled
+     * per format). Validated strictly per dimension like the single-variant
+     * export's `offsets` (400s carry `variantId`), for every member in the
+     * map — also those a single-dimension call does not render, because the
+     * recorded version keeps them all. Keys that are no member of the group
+     * are ignored.
+     *
+     * @var array<string, mixed>
+     */
+    public array $offsets = [];
+
+    /**
      * `"png"` (default — the lossless image) or `"pdf"`: the print PDF —
      * PDF/X-1a:2001, CMYK (Coated FOGRA39), the variant's bleed + crop marks.
      * PDF exists only for print formats (`variants[].printFormat`); a screen

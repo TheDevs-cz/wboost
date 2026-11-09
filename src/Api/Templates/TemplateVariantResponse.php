@@ -19,6 +19,7 @@ final readonly class TemplateVariantResponse
      * @param list<TemplateVariantImageInputResponse> $imageInputs
      * @param list<TemplateVariantContainerResponse> $containers
      * @param list<TemplateVariantShapeInputResponse> $shapeInputs
+     * @param list<TemplateVariantMovableElementResponse> $movableElements
      */
     public function __construct(
         public string $id,
@@ -59,6 +60,9 @@ final readonly class TemplateVariantResponse
         // trim's, so the background slot's frame starts at -bleed px.
         public float $bleedMm = 0.0,
         public bool $cropMarks = false,
+        // Elements the user may move ("Uživatel může posunout") — send
+        // `offsets` on preview / export. Empty when the designer allowed none.
+        public array $movableElements = [],
     ) {
     }
 }

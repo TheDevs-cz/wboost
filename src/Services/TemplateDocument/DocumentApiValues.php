@@ -10,7 +10,7 @@ use WBoost\Web\Value\DocumentFieldKind;
 
 /**
  * The API shape of a document fill — `{fields: {fieldId: value}, pages:
- * {pageKey: {inputs, images, shapeColors}}}` with REAL inputIds per page —
+ * {pageKey: {inputs, images, shapeColors, offsets}}}` with REAL inputIds per page —
  * turned into ONE page's single-variant export body. Shared values override
  * the bound inputs: a text field's TEXT (string, `value` or `runs`) replaces
  * the page's, while the page keeps its own `hide` / `fontFamily` for that
@@ -18,21 +18,23 @@ use WBoost\Web\Value\DocumentFieldKind;
  * page only, set its face per page); an image
  * field's pick (`imageId` | `{imageId, hide}`) is merged UNDER the page's own
  * `images[inputId]` entry, so a page may carry only its transform for a
- * shared picture.
+ * shared picture. `offsets` (the page's element moves) are page-only and
+ * pass through untouched.
  */
 final readonly class DocumentApiValues
 {
     /**
      * @param array<array-key, mixed> $fields fieldId → value
-     * @param array<array-key, mixed> $pageEntry `{inputs?, images?, shapeColors?}` of this page
+     * @param array<array-key, mixed> $pageEntry `{inputs?, images?, shapeColors?, offsets?}` of this page
      *
-     * @return array{inputs: array<array-key, mixed>, images: array<array-key, mixed>, shapeColors: array<array-key, mixed>}
+     * @return array{inputs: array<array-key, mixed>, images: array<array-key, mixed>, shapeColors: array<array-key, mixed>, offsets: array<array-key, mixed>}
      */
     public static function forPage(TemplateDocument $document, TemplateDocumentPage $page, array $fields, array $pageEntry): array
     {
         $inputs = is_array($pageEntry['inputs'] ?? null) ? $pageEntry['inputs'] : [];
         $images = is_array($pageEntry['images'] ?? null) ? $pageEntry['images'] : [];
         $shapeColors = is_array($pageEntry['shapeColors'] ?? null) ? $pageEntry['shapeColors'] : [];
+        $offsets = is_array($pageEntry['offsets'] ?? null) ? $pageEntry['offsets'] : [];
         $templateId = $page->template->id->toString();
 
         foreach ($document->fields() as $field) {
@@ -65,7 +67,7 @@ final readonly class DocumentApiValues
             $images[$binding->inputId] = is_array($own) ? array_merge($pick, $own, ['imageId' => $pick['imageId'] ?? null]) : $pick;
         }
 
-        return ['inputs' => $inputs, 'images' => $images, 'shapeColors' => $shapeColors];
+        return ['inputs' => $inputs, 'images' => $images, 'shapeColors' => $shapeColors, 'offsets' => $offsets];
     }
 
     /**

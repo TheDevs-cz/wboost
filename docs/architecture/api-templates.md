@@ -99,6 +99,32 @@ passes the same map to every member. Versions record it
 empty). MCP mirrors all of it: `describe_variant.shapeInputs[]`,
 `render_variant` / `export_variant` `shapeColors`, DSL shape `userColor`.
 
+### User-moved elements over the API (axis-move M5, 2026-11-09)
+
+`variants[].movableElements[]` (`TemplateVariantMovableElementResponse`: `id`,
+`kind` text|shape|image|container, `name` (designer's, nullable), designed
+`frame`, `vertical` / `horizontal`, `limits` up/down/left/right, `range`
+minX/maxX/minY/maxY, `memberIds`) is the fill page's
+`FillMovableElements` rows over the EXPANDED variant — the same frames and
+bounds the strict validation measures against, so a client clamping to
+`range` is never refused. Bodies: `ExportRequest.offsets` (element id →
+`{x, y}`), `GroupExportRequest.offsets` (variantId → element id → `{x, y}`,
+per dimension like `placements`), document `pages[pageId].offsets`
+(`DocumentApiValues` passes it through, page-only). `ApiExportRenderer`
+resolves them with `ResolveElementOffsets::forVariant(…, lenient: false)`
+(`resolveOffsets()`): 400 `unknown_element` / `move_not_allowed` (`reason`,
+`axis`) / `offset_out_of_range` (`axis`, `min`, `max`, `value`) /
+`invalid_value`, all with `elementId`. The group export resolves EVERY
+member's map up front (`resolveGroupOffsets()`, 400s tagged `variantId`;
+non-member keys ignored) because the version stores all dimensions.
+Versions store the canonical resolved maps (`withOffsets`, per variant /
+per page variant, absent when nothing moved → old hashes unchanged);
+`GET /api/export-versions/{id}` answers `fill.offsets` (variant: id → xy;
+group: variantId → id → xy; `{}` when empty) and document versions
+`fill.pages[pageId].offsets`, re-clamped by the seeders. The MCP half
+(tools' `offsets`, `describe_variant.movableElements`) is still to do —
+`ElementOffsetsEntryPointsTest` lists those tools as delegates.
+
 ### Print PDF over the API + MCP (2026-10-30)
 
 `ExportRequest` / `GroupExportRequest` carry an optional `format`

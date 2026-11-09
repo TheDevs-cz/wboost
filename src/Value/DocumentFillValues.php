@@ -56,14 +56,20 @@ final readonly class DocumentFillValues
      * The API / MCP body: per page the single-variant export shape, shared
      * fields applied ({@see \WBoost\Web\Services\TemplateDocument\DocumentApiValues}).
      *
-     * @param array<string, array{inputs: array<array-key, mixed>, images: array<array-key, mixed>, shapeColors: array<array-key, mixed>}> $pageValues templateId → resolved page body
+     * `$offsets` carries each page's RESOLVED element moves (templateId →
+     * the page variant's id → element id → `{x, y}`) — stored like the web
+     * document page stores them (per page, under the page's variant).
+     *
+     * @param array<string, array{inputs: array<array-key, mixed>, images: array<array-key, mixed>, shapeColors: array<array-key, mixed>, offsets?: array<array-key, mixed>}> $pageValues templateId → resolved page body
+     * @param array<string, array<string, array<string, array{x: float, y: float}>>> $offsets
      */
-    public static function fromApiPages(array $pageValues): self
+    public static function fromApiPages(array $pageValues, array $offsets = []): self
     {
         $pages = [];
 
         foreach ($pageValues as $templateId => $values) {
-            $pages[$templateId] = ExportFillValues::fromApiRequest($values['inputs'], $values['images'], $values['shapeColors']);
+            $pages[$templateId] = ExportFillValues::fromApiRequest($values['inputs'], $values['images'], $values['shapeColors'])
+                ->withOffsets($offsets[$templateId] ?? []);
         }
 
         return new self($pages);

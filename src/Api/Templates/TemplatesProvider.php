@@ -26,7 +26,9 @@ use WBoost\Web\Services\SocialNetwork\PlaceholderAllowedDirectories;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Services\SocialNetwork\TextInputObjectBinder;
 use WBoost\Web\Services\UploaderHelper;
+use WBoost\Web\Services\SocialNetwork\FillMovableElements;
 use WBoost\Web\Services\SocialNetwork\FillTextPlaceholders;
+use WBoost\Web\Services\Template\RepeatableRows;
 use WBoost\Web\Value\CanvasContainer;
 use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
@@ -51,6 +53,7 @@ final readonly class TemplatesProvider implements ProviderInterface
         private TextInputObjectBinder $textInputObjectBinder,
         private PlaceholderAllowedDirectories $allowedDirectories,
         private ResolveRichTextOptions $resolveRichTextOptions,
+        private FillMovableElements $movableElements,
     ) {
     }
 
@@ -186,7 +189,48 @@ final readonly class TemplatesProvider implements ProviderInterface
             printFormat: $variant->dimension->isPrintFormat(),
             bleedMm: $variant->dimension->bleedMm,
             cropMarks: $variant->dimension->cropMarks,
+            movableElements: $this->buildMovableElements($variant),
         );
+    }
+
+    /**
+     * The user-movable elements — the fill page's rows
+     * ({@see FillMovableElements}, the single eligibility source) measured on
+     * the EXPANDED variant, exactly what the strict `offsets` validation of
+     * preview / export measures against.
+     *
+     * @return list<TemplateVariantMovableElementResponse>
+     */
+    private function buildMovableElements(TemplateVariant $variant): array
+    {
+        return self::movableElementResponses($this->movableElements->forVariant(RepeatableRows::expand($variant), []));
+    }
+
+    /**
+     * @param array<string, array{id: string, kind: string, designerName: null|string, frame: array{x: float, y: float, width: float, height: float}, allowance: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, bounds: array{minX: float, maxX: float, minY: float, maxY: float}, members: list<string>, name: string, echo: bool, hints: array{vertical: null|string, horizontal: null|string}}> $rows
+     *
+     * @return list<TemplateVariantMovableElementResponse>
+     */
+    public static function movableElementResponses(array $rows): array
+    {
+        $result = [];
+
+        foreach ($rows as $row) {
+            $allowance = $row['allowance'];
+            $result[] = new TemplateVariantMovableElementResponse(
+                id: $row['id'],
+                kind: $row['kind'],
+                name: $row['designerName'],
+                frame: new TemplateVariantInputFrameResponse($row['frame']['x'], $row['frame']['y'], $row['frame']['width'], $row['frame']['height']),
+                vertical: $allowance['vertical'],
+                horizontal: $allowance['horizontal'],
+                limits: ['up' => $allowance['maxUp'], 'down' => $allowance['maxDown'], 'left' => $allowance['maxLeft'], 'right' => $allowance['maxRight']],
+                range: $row['bounds'],
+                memberIds: $row['members'],
+            );
+        }
+
+        return $result;
     }
 
     /**

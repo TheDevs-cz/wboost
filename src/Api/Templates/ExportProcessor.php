@@ -68,13 +68,17 @@ final readonly class ExportProcessor implements ProcessorInterface
                 $data->inputs,
                 $data->images,
                 $data->shapeColors,
+                $data->offsets,
             );
         } catch (InvalidRichTextValue|InvalidExportValue|ContainerOverflow|TemplateRenderUnavailable $error) {
             return ExportErrorResponse::fromThrowable($error) ?? throw $error;
         }
 
         $this->recordExportUsage->record($variant, ExportChannel::Api, $format);
-        $fill = ExportFillValues::fromApiRequest($data->inputs, $data->images, $data->shapeColors);
+        // The moves as rendered — strict-resolved (already accepted above),
+        // canonical, under the variant's id like the web fill stores them.
+        $fill = ExportFillValues::fromApiRequest($data->inputs, $data->images, $data->shapeColors)
+            ->withOffsets([$variant->id->toString() => ApiExportRenderer::resolveOffsets($variant, $data->offsets)]);
         $this->recordExportVersion->recordVariant($variant, ExportChannel::Api, $fill);
 
         return new Response($bytes, Response::HTTP_OK, [

@@ -252,6 +252,18 @@ Returns a **plain JSON array** (no pagination; null fields are kept on purpose):
             "layerIndex": 3                              // stacking order — same index space as inputs[] / imageInputs[]
           }
         ],
+        "movableElements": [                             // elements the user may MOVE (may be empty) — see "Movable elements"
+          {
+            "id": "a1249eae-…",                          // element id → the KEY you send in `offsets`
+            "kind": "text",                              // "text" | "shape" | "image" | "container" (a whole top-level container)
+            "name": "Nadpis",                            // nullable designer name
+            "frame": { "x": 80, "y": 120, "width": 920, "height": 140 }, // DESIGNED bounding box, canvas px
+            "vertical": false, "horizontal": true,       // allowed axes
+            "limits": { "up": null, "down": null, "left": 50, "right": 50 }, // designer's max per direction (px); null = anywhere on the artwork, 0 = not that way
+            "range": { "minX": -50, "maxX": 50, "minY": 0, "maxY": 0 },      // EFFECTIVE offset range — clamp to this
+            "memberIds": []                              // a container's member ids (move their boxes along)
+          }
+        ],
         "groupMember": false                             // true = a member dimension of the template's group (fill it through the group endpoints)
       }
     ]
@@ -343,6 +355,9 @@ so what previews fine exports fine. The difference is what they ARE:
   },
   "shapeColors": {                                                    // optional — recolourable shapes (variant.shapeInputs)
     "5f1c…": "#c8102e"                                               // "" or omitted = the designed colour
+  },
+  "offsets": {                                                        // optional — moved elements (variant.movableElements)
+    "a1249eae-…": { "x": -24, "y": 0 }                               // canvas px from the designed position, +x right, +y down
   }
 }
 ```
@@ -460,6 +475,10 @@ retry) · `500` render backend failure.
 | `image_unreadable` | The picked file is not a readable raster image. | `imageInputId` |
 | `container_overflow` | See below. | `containerId`, `overflowPx` |
 | `container_not_hidable` | `{ "hide": true }` keyed by a container id whose container has `hidable: false`. | `containerId` |
+| `unknown_element` | An `offsets` key that is no element of the variant. | `elementId` |
+| `move_not_allowed` | An `offsets` entry on an element (or along an axis) the user may not move. `reason`: `not_allowed` (no allowance / axis off), `in_container` (a container member — move the container), `hidden` (design-hidden). | `elementId`, `reason`, `axis` (`x` / `y`, when only that axis is refused) |
+| `offset_out_of_range` | An offset outside the element's `range`. | `elementId`, `axis`, `min`, `max`, `value` (canvas px) |
+| `invalid_value` (offsets) | An `offsets` entry that is not `{x: number, y: number}`. | `elementId` |
 | rich-text codes | See "Rich-text 400s" below. | `inputId` (+ `allowedFonts` / `allowedColors`) |
 
 Group renders (see "Template groups") add the `variantId` of the dimension
@@ -871,6 +890,40 @@ recolouring. Each `shapeInputs[]` entry is ONE colour field:
 - In a group, member dimensions share a shape's id, so one pick recolours the
   shape in every dimension (each validates against its own options).
 
+### Movable elements (`variant.movableElements`)
+
+The designer can let the user MOVE an element — a text (locked ones too), a
+shape, a decorative image, or a whole top-level container (moved as one block
+with all its members) — vertically and/or horizontally, each direction with its
+own optional limit. Typical use: a long headline needs room, so the user nudges
+the block below it down.
+
+- Offer a move affordance per row: a drag handle on the preview (✥ for both
+  axes, ↕ / ↔ for one) constrained to the allowed axes, and/or exact
+  "Poloha" number inputs per allowed axis with a "Vrátit" (reset to 0).
+- **Clamp every offset to `range`** (`minX ≤ x ≤ maxX`, `minY ≤ y ≤ maxY`,
+  canvas px relative to the designed position; a disabled axis is `0…0`).
+  `range` is the server's own bound — derived from `limits` and, for an
+  unlimited direction (`null`), from where the element's box would leave the
+  artwork (the trim box for print) — so a clamped value is never refused.
+  `limits` is informational ("nahoru až 15 px · dolů bez omezení").
+- `frame` is the DESIGNED box; draw the moved box at `frame.x + x`,
+  `frame.y + y`. A container's members (`memberIds` — text inputs, image
+  slots, decorations) move with it.
+- Send `offsets: { "<id>": { "x": …, "y": … } }` on `/preview` and `/export`.
+  Omit unmoved elements (`{0, 0}` is accepted too). Values are rounded to
+  1/100 px. Errors: `unknown_element`, `move_not_allowed`,
+  `offset_out_of_range`, `invalid_value` (see the 400 table).
+- A moved top-level container takes part in the container reflow: moved down
+  it may push the containers below it, and running past the canvas bottom is
+  a `400 container_overflow` like any overflow.
+- There is no client-side echo: a move needs a new `/preview` (show the
+  outline at the new place meanwhile).
+- **Groups:** offsets are PER DIMENSION (`offsets: { "<variantId>": { "<id>":
+  {x, y} } }`, see "Template groups") — each size has its own
+  `movableElements[].range` (the designer's limits scale with the format).
+- **Documents:** per page, inside `pages[<pageId>].offsets` (never shared).
+
 ### Image placeholders (`variant.imageInputs`)
 
 For each image slot, let the user pick a picture (and, if allowed, position it):
@@ -1073,9 +1126,19 @@ POST {API_BASE}/api/template-groups/{groupId}/export
     "<variantId 1:1>":  { "<imageInputId>": { "scale": 1.4, "offsetXRatio": -0.1, "offsetYRatio": 0.05 } },
     "<variantId 9:16>": { "<imageInputId>": { "scale": 1.0, "offsetXRatio": 0,    "offsetYRatio": 0.2 } }
   },
-  "shapeColors": { "<shapeInputId>": "#c8102e" }              // shared, exactly as the variant export
+  "shapeColors": { "<shapeInputId>": "#c8102e" },             // shared, exactly as the variant export
+  "offsets": {                                                 // per dimension — moved elements (see "Movable elements")
+    "<variantId 9:16>": { "<elementId>": { "x": 0, "y": 40 } }
+  }
 }
 ```
+
+**Moves are per dimension too.** `offsets` is keyed by variantId like
+`placements`; each dimension's moves are validated against ITS
+`movableElements[].range` (the designer's limits scale per format). Every
+member's entry is validated — also on a single-dimension export, because the
+recorded version keeps the whole group's fill — and keys that are no member
+are ignored.
 
 A dimension's placement REPLACES the shared pick's transform for that slot
 (never merged); a dimension without an entry renders the pick centred +
@@ -1138,14 +1201,17 @@ shape**, ready to put back into your form and send again:
   "inputs": { "<inputId>": "text" | { "value"|"runs"+"lines", "hide", "fontFamily" } },
   "images": { "<imageInputId>": { "imageId": "…", "url": "<public store url>", "scale": 1.4, "offsetXRatio": 0.1 } | { "hide": true } },
   "placements": { "<variantId>": { "<imageInputId>": { … } } },  // group versions only; {} otherwise
-  "shapeColors": { "<shapeInputId>": "#c8102e" }                  // {} when no shape was recoloured
+  "shapeColors": { "<shapeInputId>": "#c8102e" },                 // {} when no shape was recoloured
+  "offsets": { "<elementId>": { "x": 0, "y": 40 } }               // moved elements; a group version: { "<variantId>": { "<elementId>": {…} } }; {} when nothing moved
 }
 ```
 
 The fill is seeded **leniently against the current design**: inputs that no
 longer exist or got locked are dropped, a rich value on a now-plain input
-degrades to its text, and a font / picture / transform the slot no longer
-allows is dropped — a loaded version always exports again.
+degrades to its text, a font / picture / transform the slot no longer
+allows is dropped, and a move is re-clamped to the element's current `range`
+(dropped when the element may no longer move) — a loaded version always
+exports again.
 
 `PATCH` curates the shared list: `{ "name": "Finální" }` renames (trimmed; a
 blank or `null` name clears it), `{ "pinned": true|false }` pins / unpins;
@@ -1206,7 +1272,7 @@ hide them from a "templates" list and present the document instead.
     "format": "pdf-screen",
     "fields": { "<fieldId>": "Lucie Svobodová" },
     "pages": {
-      "<pageId>": { "inputs": { "<inputId>": "…" }, "images": { … }, "shapeColors": { … } }
+      "<pageId>": { "inputs": { "<inputId>": "…" }, "images": { … }, "shapeColors": { … }, "offsets": { "<elementId>": { "x": 0, "y": 40 } } }
     }
   }
   ```
@@ -1223,6 +1289,8 @@ hide them from a "templates" list and present the document instead.
     `pages[p].inputs[i] = {hide: true}` hides a shared subtitle on page `p`
     only). For a shared image field, a page may send only a transform
     (`images[inputId] = {scale, …}`); the shared pick supplies the `imageId`.
+    `offsets` (the page's moved elements, keyed by its variant's
+    `movableElements[].id`) is page-only — never shared, never a field.
   - Strict like every API render: every page is resolved before any renders.
     400 bodies are the usual `{error, code, …}` plus `pageId` (and
     `variantId`).
@@ -1291,7 +1359,7 @@ hide them from a "templates" list and present the document instead.
   "fill": {
     "fields": { "<fieldId>": "Lucie Svobodová" },          // text: string | {value|runs, …}; image: {imageId, url} | {hide: true}
     "pages": {
-      "<pageId>": { "inputs": { … }, "images": { … }, "shapeColors": { … } }
+      "<pageId>": { "inputs": { … }, "images": { … }, "shapeColors": { … }, "offsets": { … } }
     }
   }
   ```

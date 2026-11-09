@@ -15,7 +15,8 @@ use WBoost\Web\Api\ExportVersions\ExportVersionUpdateRequest;
 /**
  * One document version WITH its fill, in the document export body's own
  * shape — `{fields: {fieldId: value}, pages: {pageId: {inputs, images,
- * shapeColors}}}` — ready to put back into a form and export again. Seeded
+ * shapeColors, offsets}}}` (`offsets`: the page's element moves, element id →
+ * `{x, y}`) — ready to put back into a form and export again. Seeded
  * LENIENTLY against the current design (see
  * {@see \WBoost\Web\Services\TemplateDocument\DocumentExportVersionApiView}).
  */

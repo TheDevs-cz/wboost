@@ -95,6 +95,14 @@ final readonly class GroupExportProcessor implements ProcessorInterface
             }
         }
 
+        // Every member's moves, strictly, before any render: the version
+        // records the whole group's fill, also dimensions not rendered here.
+        try {
+            $offsets = ApiExportRenderer::resolveGroupOffsets($this->subjectLoader->members($group), $data->offsets);
+        } catch (InvalidExportValue $error) {
+            return ExportErrorResponse::fromThrowable($error) ?? throw $error;
+        }
+
         /** @var list<array{TemplateVariant, string}> $renders */
         $renders = [];
 
@@ -107,6 +115,7 @@ final readonly class GroupExportProcessor implements ProcessorInterface
                     $data->inputs,
                     ApiExportRenderer::imagesForVariant($data->images, $data->placements, $variant->id->toString()),
                     $data->shapeColors,
+                    $offsets[$variant->id->toString()] ?? [],
                 )];
             } catch (InvalidRichTextValue|InvalidExportValue|ContainerOverflow|TemplateRenderUnavailable $error) {
                 return ExportErrorResponse::fromThrowable($error, $variant->id->toString()) ?? throw $error;
@@ -117,7 +126,8 @@ final readonly class GroupExportProcessor implements ProcessorInterface
             $this->recordExportUsage->record($variant, ExportChannel::Api, $format);
         }
 
-        $fill = ExportFillValues::fromGroupApiRequest($data->inputs, $data->images, $data->placements, $data->shapeColors);
+        $fill = ExportFillValues::fromGroupApiRequest($data->inputs, $data->images, $data->placements, $data->shapeColors)
+            ->withOffsets($offsets);
         $this->recordExportVersion->recordGroup($group, ExportChannel::Api, $fill);
 
         if ($single) {

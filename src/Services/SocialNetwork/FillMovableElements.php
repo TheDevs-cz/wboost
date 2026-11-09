@@ -50,6 +50,7 @@ final readonly class FillMovableElements
      *     id: string,
      *     kind: string,
      *     name: string,
+     *     designerName: null|string,
      *     frame: array{x: float, y: float, width: float, height: float},
      *     allowance: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float},
      *     bounds: array{minX: float, maxX: float, minY: float, maxY: float},
@@ -99,10 +100,14 @@ final readonly class FillMovableElements
             }
 
             $allowance = $element->allowance;
+            $designerName = is_string($name) && trim($name) !== '' ? $name : null;
             $rows[$id] = [
                 'id' => $id,
                 'kind' => $element->kind,
-                'name' => is_string($name) && trim($name) !== '' ? $name : self::KIND_LABELS[$element->kind] ?? 'Prvek',
+                'name' => $designerName ?? self::KIND_LABELS[$element->kind] ?? 'Prvek',
+                // The API / MCP listings report the designer's own name
+                // (null = unnamed) and let the consumer pick a caption.
+                'designerName' => $designerName,
                 'frame' => [
                     'x' => $element->frame['left'],
                     'y' => $element->frame['top'],

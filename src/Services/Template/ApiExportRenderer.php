@@ -8,6 +8,7 @@ use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Exceptions\InvalidExportValue;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Services\Print\PrintPdfRenderer;
+use WBoost\Web\Services\SocialNetwork\ResolveElementOffsets;
 use WBoost\Web\Services\SocialNetwork\ResolveImageOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Services\SocialNetwork\ResolveShapeColorOverrides;
@@ -29,6 +30,13 @@ use WBoost\Web\Value\ResolvedInputOverrides;
  * UUID). A group fill passes the SAME maps to every member variant — group
  * members share their input ids, and both resolvers skip ids a variant does
  * not carry — plus per-dimension image `placements`.
+ *
+ * The user's element moves ("Uživatel může posunout") arrive as `offsets`
+ * (element id → `{x, y}` canvas px of THAT variant — a group / document
+ * caller passes the dimension's / page's own map) and are validated STRICTLY
+ * by {@see ResolveElementOffsets} (`unknown_element`, `move_not_allowed`,
+ * `offset_out_of_range`) against the EXPANDED variant, then baked by the
+ * renderer.
  */
 readonly final class ApiExportRenderer
 {
@@ -52,6 +60,7 @@ readonly final class ApiExportRenderer
      * @param array<array-key, mixed> $inputs
      * @param array<array-key, mixed> $images
      * @param array<array-key, mixed> $shapeColors
+     * @param array<array-key, mixed> $offsets element id → `{x, y}` (this variant's own map)
      */
     public function renderExport(
         ExportFormat $exportFormat,
@@ -60,18 +69,19 @@ readonly final class ApiExportRenderer
         array $inputs,
         array $images,
         array $shapeColors = [],
+        array $offsets = [],
     ): string {
         $variant = RepeatableRows::expand($variant);
 
         if ($exportFormat === ExportFormat::Png) {
-            return $this->render($variant, $inputs, $images, shapeColors: $shapeColors);
+            return $this->render($variant, $inputs, $images, shapeColors: $shapeColors, offsets: $offsets);
         }
 
         if ($exportFormat !== ExportFormat::Pdf) {
             throw new \InvalidArgumentException(sprintf('A single variant cannot be exported as "%s".', $exportFormat->value));
         }
 
-        [$overrides, $imageOverrides] = $this->resolve($variant, $inputs, $images, $shapeColors);
+        [$overrides, $imageOverrides] = $this->resolve($variant, $inputs, $images, $shapeColors, $offsets);
 
         return $this->printPdfRenderer->render($variant, $overrides, $imageOverrides, $title, strictContainerOverflow: true);
     }
@@ -80,6 +90,7 @@ readonly final class ApiExportRenderer
      * @param array<array-key, mixed> $inputs
      * @param array<array-key, mixed> $images
      * @param array<array-key, mixed> $shapeColors shape inputId → `#rrggbb`
+     * @param array<array-key, mixed> $offsets element id → `{x, y}`
      *
      * @throws \WBoost\Web\Exceptions\InvalidRichTextValue
      * @throws InvalidExportValue
@@ -92,9 +103,10 @@ readonly final class ApiExportRenderer
         array $images,
         RenderImageFormat $format = RenderImageFormat::Png,
         array $shapeColors = [],
+        array $offsets = [],
     ): string {
         $variant = RepeatableRows::expand($variant);
-        [$overrides, $imageOverrides] = $this->resolve($variant, $inputs, $images, $shapeColors);
+        [$overrides, $imageOverrides] = $this->resolve($variant, $inputs, $images, $shapeColors, $offsets);
 
         return $this->renderer->renderToBytes(
             $variant,
@@ -113,6 +125,7 @@ readonly final class ApiExportRenderer
      * @param array<array-key, mixed> $images
      * @param array<array-key, mixed> $placements variantId → imageInputId → transform
      * @param array<array-key, mixed> $shapeColors shared by every dimension (members share shape ids)
+     * @param array<array-key, mixed> $offsets variantId → element id → `{x, y}` (per dimension)
      */
     public function renderGroupMember(
         TemplateVariant $variant,
@@ -121,6 +134,7 @@ readonly final class ApiExportRenderer
         array $placements,
         RenderImageFormat $format = RenderImageFormat::Png,
         array $shapeColors = [],
+        array $offsets = [],
     ): string {
         return $this->render(
             $variant,
@@ -128,7 +142,76 @@ readonly final class ApiExportRenderer
             self::imagesForVariant($images, $placements, $variant->id->toString()),
             $format,
             $shapeColors,
+            self::offsetsForVariant($offsets, $variant->id->toString()),
         );
+    }
+
+    /**
+     * One dimension's element moves out of a group body's `offsets`
+     * (variantId → element id → `{x, y}`): each size moves on its own, like
+     * `placements`. Keys of other variants are simply not this dimension's.
+     *
+     * @param array<array-key, mixed> $offsets
+     * @return array<array-key, mixed>
+     */
+    public static function offsetsForVariant(array $offsets, string $variantId): array
+    {
+        $variantOffsets = $offsets[$variantId] ?? [];
+
+        if (!is_array($variantOffsets)) {
+            throw InvalidExportValue::invalidValue(sprintf('offsets.%s must be an object keyed by element id.', $variantId));
+        }
+
+        return $variantOffsets;
+    }
+
+    /**
+     * One variant's element moves, STRICT (the API contract) and canonical
+     * (rounded, zero moves dropped, sorted) — what the renderer bakes and
+     * what a recorded version stores under the variant's id.
+     *
+     * @param array<array-key, mixed> $offsets element id → `{x, y}`
+     * @return array<string, array{x: float, y: float}>
+     *
+     * @throws InvalidExportValue
+     */
+    public static function resolveOffsets(TemplateVariant $variant, array $offsets): array
+    {
+        return ResolveElementOffsets::forVariant(RepeatableRows::expand($variant), self::stringKeyed($offsets), lenient: false);
+    }
+
+    /**
+     * Every member's element moves of a group body, resolved STRICTLY up
+     * front — the recorded version carries all dimensions' moves, so a move
+     * on a dimension that is not rendered by this call is validated too.
+     * Returns the canonical maps (variantId → id → `{x, y}`, zero moves
+     * dropped) ready for {@see \WBoost\Web\Value\ExportFillValues::withOffsets()}.
+     *
+     * @param list<TemplateVariant> $members
+     * @param array<array-key, mixed> $offsets
+     * @return array<string, array<string, array{x: float, y: float}>>
+     *
+     * @throws InvalidExportValue with `variantId` in its context
+     */
+    public static function resolveGroupOffsets(array $members, array $offsets): array
+    {
+        $resolved = [];
+
+        foreach ($members as $member) {
+            $variantId = $member->id->toString();
+
+            try {
+                $map = self::resolveOffsets($member, self::offsetsForVariant($offsets, $variantId));
+            } catch (InvalidExportValue $invalid) {
+                throw $invalid->withContext(['variantId' => $variantId]);
+            }
+
+            if ($map !== []) {
+                $resolved[$variantId] = $map;
+            }
+        }
+
+        return $resolved;
     }
 
     /**
@@ -188,13 +271,14 @@ readonly final class ApiExportRenderer
      * @param array<array-key, mixed> $inputs
      * @param array<array-key, mixed> $images
      * @param array<array-key, mixed> $shapeColors
+     * @param array<array-key, mixed> $offsets element id → `{x, y}` of THIS variant
      * @return array{ResolvedInputOverrides, ResolvedImageOverrides}
      *
      * Public (STRICT, like every API render) for multi-page documents: all
      * pages are resolved before any is rendered, so a 400 on the last page
      * never arrives after minutes of renders.
      */
-    public function resolve(TemplateVariant $variant, array $inputs, array $images, array $shapeColors): array
+    public function resolve(TemplateVariant $variant, array $inputs, array $images, array $shapeColors, array $offsets = []): array
     {
         // Repeatable rows: resolve against the EXPANDED variant (idempotent —
         // the render methods above already hand it over). Row counts are not
@@ -210,7 +294,8 @@ readonly final class ApiExportRenderer
             $variant->inputs,
             self::stringKeyed($inputs),
             richTextOptions: $this->resolveRichTextOptions->forVariant($variant),
-        )->withShapeColors($this->resolveShapeColorOverrides->forVariant($variant, self::stringKeyed($shapeColors), lenient: false));
+        )->withShapeColors($this->resolveShapeColorOverrides->forVariant($variant, self::stringKeyed($shapeColors), lenient: false))
+            ->withOffsets(self::resolveOffsets($variant, $offsets));
 
         $imageOverrides = $this->resolveImageOverrides->resolve(
             $variant->imageInputs,

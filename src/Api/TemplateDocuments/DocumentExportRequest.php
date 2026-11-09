@@ -8,7 +8,8 @@ namespace WBoost\Web\Api\TemplateDocuments;
  * The document fill: `fields` (shared fieldId → value) + `pages` (pageId →
  * the single-variant export body of that page: `inputs`, `images` — a
  * transform may ride on a slot bound to a shared image field —,
- * `shapeColors`) + `format`.
+ * `shapeColors`, `offsets` — the page's own element moves, keyed by its
+ * variant's element ids, never shared) + `format`.
  */
 final class DocumentExportRequest
 {

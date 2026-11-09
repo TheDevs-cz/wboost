@@ -71,7 +71,7 @@ final readonly class TemplateDocumentRenderProcessor implements ProcessorInterfa
         $values = DocumentApiValues::forPage($document, $page, $data->fields, $this->pageEntry($page, $data->pages));
 
         try {
-            $bytes = $this->apiExportRenderer->render($page->variant, $values['inputs'], $values['images'], RenderImageFormat::Webp, $values['shapeColors']);
+            $bytes = $this->apiExportRenderer->render($page->variant, $values['inputs'], $values['images'], RenderImageFormat::Webp, $values['shapeColors'], $values['offsets']);
         } catch (InvalidRichTextValue|InvalidExportValue|ContainerOverflow|TemplateRenderUnavailable $error) {
             return self::error($error, $page);
         }
@@ -112,17 +112,21 @@ final readonly class TemplateDocumentRenderProcessor implements ProcessorInterfa
         // last page must not arrive after minutes of renders.
         $resolved = [];
         $pageValues = [];
+        $pageOffsets = [];
         foreach ($pages as $page) {
             $values = DocumentApiValues::forPage($document, $page, $data->fields, $this->pageEntry($page, $data->pages));
             $pageValues[$page->template->id->toString()] = $values;
 
             try {
-                [$overrides, $imageOverrides] = $this->apiExportRenderer->resolve($page->variant, $values['inputs'], $values['images'], $values['shapeColors']);
+                [$overrides, $imageOverrides] = $this->apiExportRenderer->resolve($page->variant, $values['inputs'], $values['images'], $values['shapeColors'], $values['offsets']);
             } catch (InvalidRichTextValue|InvalidExportValue $error) {
                 return self::error($error, $page);
             }
 
             $resolved[] = [$page, $overrides, $imageOverrides];
+            // The page's moves as rendered (strict, canonical) — stored per
+            // page under its variant, like the web document page does.
+            $pageOffsets[$page->template->id->toString()] = [$page->variant->id->toString() => $overrides->offsets];
         }
 
         try {
@@ -135,7 +139,7 @@ final readonly class TemplateDocumentRenderProcessor implements ProcessorInterfa
             $this->recordExportUsage->record($page->variant, ExportChannel::Api, $format);
         }
 
-        $fill = DocumentFillValues::fromApiPages($pageValues);
+        $fill = DocumentFillValues::fromApiPages($pageValues, $pageOffsets);
         $this->recordExportVersion->record($document, ExportChannel::Api, $fill);
 
         return new Response($bytes, Response::HTTP_OK, [

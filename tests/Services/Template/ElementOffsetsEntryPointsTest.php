@@ -44,21 +44,15 @@ final class ElementOffsetsEntryPointsTest extends KernelTestCase
      * Call sites that do NOT handle offsets themselves → why that is right.
      */
     private const array DELEGATES = [
-        // Phase M5 adds the API / MCP `offsets` input; until then these
-        // render every element at its designed position (= no offsets).
-        'Api/TemplateDocuments/TemplateDocumentRenderProcessor.php' => 'API: no offsets input until M5',
-        'Api/TemplateGroups/GroupExportProcessor.php' => 'API: no offsets input until M5',
-        'Api/TemplateGroups/GroupPreviewProcessor.php' => 'API: no offsets input until M5',
-        'Api/Templates/ExportProcessor.php' => 'API: no offsets input until M5',
-        'Api/Templates/PreviewProcessor.php' => 'API: no offsets input until M5',
-        'Services/Template/ApiExportRenderer.php' => 'API: no offsets input until M5',
-        'Services/Template/ExportVersionApiView.php' => 'API: `fill.offsets` in the versions view ships with the M5 API shape (like `rows`)',
+        // The REST API carries `offsets` since M5 (ApiExportRenderer, strict).
+        // The MCP fill tools' `offsets` argument is the deferred half of M5;
+        // until then they render every element at its designed position.
         'Mcp/Design/CandidateRenderer.php' => 'MCP design preview: the design itself, no fill',
-        'Mcp/Fill/VariantFill.php' => 'MCP: no offsets input until M5',
-        'Mcp/Tool/ExportDocumentTool.php' => 'MCP: no offsets input until M5',
-        'Mcp/Tool/ExportVariantTool.php' => 'MCP: no offsets input until M5',
+        'Mcp/Fill/VariantFill.php' => 'MCP: offsets argument deferred (M5 MCP half)',
+        'Mcp/Tool/ExportDocumentTool.php' => 'MCP: offsets argument deferred (M5 MCP half)',
+        'Mcp/Tool/ExportVariantTool.php' => 'MCP: offsets argument deferred (M5 MCP half)',
         'Mcp/Tool/PreviewDesignTool.php' => 'MCP design preview: the design itself, no fill',
-        'Mcp/Tool/RenderVariantTool.php' => 'MCP: no offsets input until M5',
+        'Mcp/Tool/RenderVariantTool.php' => 'MCP: offsets argument deferred (M5 MCP half)',
         'Mcp/Tool/SetDesignTool.php' => 'MCP design preview: the design itself, no fill',
         // Pages arrive RESOLVED (overrides carry the offsets) — they only forward.
         'Services/Print/ScreenPdfRenderer.php' => 'forwards resolved overrides to the renderer',
@@ -68,8 +62,8 @@ final class ElementOffsetsEntryPointsTest extends KernelTestCase
 
     private const string CALL_PATTERN = '/->renderToBytes\(|[rR]enderer->render\(|resolveTextOverrides->resolve\(|resolveImageOverrides->resolve\(|->renderExport\(|->renderGroupMember\(|groupFillRenderer->resolve\(|apiExportRenderer->resolve\(|->forGroupValues\(|->forVariantValues\(|fill->texts\(|fill->images\(/';
 
-    /** Every way a file can be offset-aware: the resolver, the override, the form keys. */
-    private const string OFFSET_PATTERN = '/ResolveElementOffsets|withOffsets\(|rawOffsets|offsetValues|parseOffsets\(|\$overrides->offsets|\'offsets\'/';
+    /** Every way a file can be offset-aware: the resolver, the override, the form keys, the API body. */
+    private const string OFFSET_PATTERN = '/ResolveElementOffsets|withOffsets\(|rawOffsets|offsetValues|parseOffsets\(|\$overrides->offsets|\$data->offsets|\'offsets\'/';
 
     public function testEveryRenderAndResolveCallSiteHandlesOffsetsOrDelegates(): void
     {

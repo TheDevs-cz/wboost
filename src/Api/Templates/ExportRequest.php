@@ -66,6 +66,26 @@ final class ExportRequest
     public array $shapeColors = [];
 
     /**
+     * Map of element id → `{"x": number, "y": number}`: the user's moves of
+     * the elements the designer allows to move (`variants[].movableElements[]`
+     * — texts, shapes, decorative images, whole top-level containers), in
+     * canvas px relative to the designed position (+x right, +y down). An
+     * axis left out is 0; `{0, 0}` (or an omitted id) keeps the designed
+     * position. Validated STRICTLY: an id that is no element of the variant
+     * is a 400 `unknown_element`; an element (or axis) that may not move a
+     * 400 `move_not_allowed` (`reason`: `not_allowed` | `in_container` |
+     * `hidden`, `axis` when only that axis is refused); a value past the
+     * element's `range` a 400 `offset_out_of_range` (`axis`, `min`, `max`,
+     * `value`); a malformed entry a 400 `invalid_value`. All carry
+     * `elementId`. A moved top-level container takes part in the container
+     * reflow — it may push the containers below it or overflow the canvas
+     * (400 `container_overflow`).
+     *
+     * @var array<string, mixed>
+     */
+    public array $offsets = [];
+
+    /**
      * `"png"` (default — the lossless image) or `"pdf"`: the print PDF —
      * PDF/X-1a:2001, CMYK (Coated FOGRA39), the variant's bleed + crop marks.
      * PDF exists only for print formats (`variants[].printFormat`); a screen

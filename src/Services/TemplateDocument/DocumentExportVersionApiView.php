@@ -11,7 +11,7 @@ use WBoost\Web\Value\DocumentFieldKind;
 
 /**
  * A stored document version in the document EXPORT body's own shape —
- * `{fields: {fieldId: value}, pages: {pageId: {inputs, images, shapeColors}}}`
+ * `{fields: {fieldId: value}, pages: {pageId: {inputs, images, shapeColors, offsets}}}`
  * — ready to send back to `POST /api/template-documents/{id}/export` or MCP
  * `export_document`. Each page is seeded like a variant version
  * ({@see ExportVersionApiView::variantFillValues()}: lenient against the
@@ -46,7 +46,7 @@ final readonly class DocumentExportVersionApiView
     public function fill(TemplateDocumentExportVersion $version, TemplateDocument $document): array
     {
         $stored = $version->fill();
-        /** @var array<string, array{inputs: array<string, mixed>, images: array<string, mixed>, shapeColors: array<string, string>}> $pages */
+        /** @var array<string, array{inputs: array<string, mixed>, images: array<string, mixed>, shapeColors: array<string, string>, offsets: array<string, mixed>}> $pages */
         $pages = [];
         $pageIdByTemplate = [];
 
@@ -59,7 +59,7 @@ final readonly class DocumentExportVersionApiView
             }
 
             $fill = $this->variantView->variantFillValues($values, $page->variant);
-            $pages[$page->id->toString()] = ['inputs' => $fill['inputs'], 'images' => $fill['images'], 'shapeColors' => $fill['shapeColors']];
+            $pages[$page->id->toString()] = ['inputs' => $fill['inputs'], 'images' => $fill['images'], 'shapeColors' => $fill['shapeColors'], 'offsets' => $fill['offsets']];
             $pageIdByTemplate[$templateId] = $page->id->toString();
         }
 
@@ -102,6 +102,7 @@ final readonly class DocumentExportVersionApiView
                     'inputs' => self::map($page['inputs']),
                     'images' => self::map($page['images']),
                     'shapeColors' => self::map($page['shapeColors']),
+                    'offsets' => self::map($page['offsets']),
                 ],
                 $pages,
             )),

@@ -35,7 +35,7 @@ readonly final class ExportVersionApiView
     }
 
     /**
-     * @return array{inputs: array<string, mixed>, images: array<string, mixed>, placements: array<string, array<string, array<string, float>>>, shapeColors: array<string, string>}
+     * @return array{inputs: array<string, mixed>, images: array<string, mixed>, placements: array<string, array<string, array<string, float>>>, shapeColors: array<string, string>, offsets: array<string, mixed>}
      */
     public function variantFill(TemplateExportVersion $version, TemplateVariant $variant): array
     {
@@ -43,7 +43,7 @@ readonly final class ExportVersionApiView
     }
 
     /**
-     * @return array{inputs: array<string, mixed>, images: array<string, mixed>, placements: array<string, array<string, array<string, float>>>, shapeColors: array<string, string>}
+     * @return array{inputs: array<string, mixed>, images: array<string, mixed>, placements: array<string, array<string, array<string, float>>>, shapeColors: array<string, string>, offsets: array<string, mixed>}
      */
     public function variantFillValues(ExportFillValues $values, TemplateVariant $variant): array
     {
@@ -54,19 +54,21 @@ readonly final class ExportVersionApiView
             'images' => $seed['imageValues'],
             'placements' => [],
             'shapeColors' => $seed['shapeColorValues'],
+            // element id → {x, y}, re-clamped to the CURRENT allowance.
+            'offsets' => $seed['offsetValues'],
         ];
     }
 
     /**
      * @param list<TemplateVariant> $members
-     * @return array{inputs: array<string, mixed>, images: array<string, mixed>, placements: array<string, array<string, array<string, float>>>, shapeColors: array<string, string>}
+     * @return array{inputs: array<string, mixed>, images: array<string, mixed>, placements: array<string, array<string, array<string, float>>>, shapeColors: array<string, string>, offsets: array<string, mixed>}
      */
     public function groupFill(TemplateExportVersion $version, array $members): array
     {
         $group = $version->group;
 
         if ($group === null) {
-            return ['inputs' => [], 'images' => [], 'placements' => [], 'shapeColors' => []];
+            return ['inputs' => [], 'images' => [], 'placements' => [], 'shapeColors' => [], 'offsets' => []];
         }
 
         /** @var array<string, \WBoost\Web\Value\EditorTextInput> $textInputs */
@@ -111,6 +113,8 @@ readonly final class ExportVersionApiView
             'images' => $images,
             'placements' => $seed['placements'],
             'shapeColors' => $seed['shapeColors'],
+            // variantId → element id → {x, y} (per dimension), re-clamped.
+            'offsets' => $seed['offsets'],
         ];
     }
 
