@@ -254,6 +254,13 @@ shape stroke, the "Vzorový text" WYSIWYG run colour) is an
   colour source of truth.
 - Krytí / Pozice of gradient stops stay separate fields; the picker only
   handles RGB.
+- **Fill pages too (2026-11-09)**: the WYSIWYG free colour
+  (`_fill_text_popover`) and a recolourable shape's free colour
+  (`_fill_shape_popover`) — single, group and document fill all include these
+  partials. `variant_fill_overlay#pickShapeColor` recognises the picker by
+  `data-shape-picker` (it used to test `type === "color"`). No other native
+  colour input exists in wboost (forms take hex as text); the only remaining
+  one is GrapesJS's own UI in the vendored e-mail-signature editor.
 
 **Floating element toolbar.** Selection-contextual editing is NOT in the left
 panel — it floats next to the selected object (Canva/Slides style).

@@ -41,8 +41,10 @@
             {% endfor %}
             {% if ph.freeColor %}
                 <label class="fill-richtext-swatch fill-richtext-swatch--custom mb-0" title="Vlastní barva">
-                    <input type="color" class="fill-richtext-swatch__input" aria-label="Vlastní barva"
+                    {# Hex picker (color_picker_controller) — Safari's native picker has no hex field. #}
+                    <input type="button" class="fill-richtext-swatch__input" aria-label="Vlastní barva"
                            value="{{ ph.current }}"
+                           data-controller="color-picker"
                            data-shape-picker="{{ ph.inputId }}"
                            data-action="input->variant-fill-overlay#pickShapeColor"
                            data-variant-fill-overlay-inputid-param="{{ ph.inputId }}">

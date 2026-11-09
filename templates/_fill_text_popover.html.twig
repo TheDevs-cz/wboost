@@ -117,7 +117,7 @@
                         {% endfor %}
                         {% if ph.colorOptions is null %}
                             <label class="fill-richtext-swatch fill-richtext-swatch--custom" title="Vlastní barva">
-                                <input type="color" class="fill-richtext-swatch__input" aria-label="Vlastní barva" data-rich-text-editor-target="colorInput" data-action="change->rich-text-editor#applyCustomColor">
+                                <input type="button" class="fill-richtext-swatch__input" aria-label="Vlastní barva" data-controller="color-picker" data-rich-text-editor-target="colorInput" data-action="change->rich-text-editor#applyCustomColor">
                             </label>
                         {% endif %}
                     </div>

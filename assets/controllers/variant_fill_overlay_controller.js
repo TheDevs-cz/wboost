@@ -936,7 +936,7 @@ export default class extends Controller {
     pickShapeColor(event) {
         const inputId = event.params?.inputid;
         if (!inputId) return;
-        const fromPicker = event.target && event.target.type === "color";
+        const fromPicker = Boolean(event.target && event.target.hasAttribute && event.target.hasAttribute("data-shape-picker"));
         const color = fromPicker ? event.target.value.toLowerCase() : (event.params?.color || "");
         const mirror = this.element.querySelector(`[data-shape-color-mirror="${inputId}"]`);
         if (!mirror || mirror.value === color) return;
