@@ -13,6 +13,12 @@
    puts it — no aspect ratio or card geometry needed here — and growing is
    clamped to the frame (`width` never exceeds 100 %).
 
+   `--logo-ratio` (width / height, read from the SVG's viewBox —
+   `LogoAspectRatio`) is for the protective-zone card: its white logo area
+   hugs the logo and the zone is 1/3 of the logo HEIGHT, which CSS cannot
+   derive from a viewBox-only SVG by itself. Emitted on every logo (cheap,
+   and the stylesheet decides where it matters).
+
    The pencil only opens the page's ONE width bar (`manual_logo_width_controller.js`,
    mounted on the manual root in manual_preview.html.twig) — the bar previews
    the width live on the `<img>` it finds by `data-logo-slot` and saves without
@@ -33,5 +39,11 @@
         <i class="mdi mdi-arrow-expand-horizontal"></i>
     </button>
 {% endif %}
-<img src="{{ remap_svg_colors(logo.filePath, colorsMapping) }}" data-logo-slot="{{ slot }}"
-     {%- if display_scale is not null %} style="--logo-scale: {{ display_scale }}"{% endif %}>
+{% set logo_src = remap_svg_colors(logo.filePath, colorsMapping) %}
+{% set logo_ratio = logo.cssAspectRatio(logo_src) %}
+{% set logo_style = [
+    display_scale is not null ? '--logo-scale: ' ~ display_scale : null,
+    logo_ratio is not null ? '--logo-ratio: ' ~ logo_ratio : null,
+]|filter(v => v is not null) %}
+<img src="{{ logo_src }}" data-logo-slot="{{ slot }}"
+     {%- if logo_style is not empty %} style="{{ logo_style|join('; ') }}"{% endif %}>

@@ -47,6 +47,52 @@ final class LogoScaleTest extends TestCase
     }
 
     /**
+     * The protective-zone card ("Ochranná zóna"): the logo's white area hugs
+     * the logo and the zone is 1/3 of the logo HEIGHT on every side. Default
+     * = the card's height cap, like every other card, but at most 2/3 of the
+     * frame's room; growing stops where logo + both side zones fill the frame.
+     *
+     * @return iterable<string, array{null|int, float, float, float, float, float}>
+     */
+    public static function protectedZones(): iterable
+    {
+        // frydlant horizontal: 1017.8 x 751.4, cap 120 px, frame 808 px
+        $wide = 1017.8 / 751.4;
+        yield 'horizontal, default = height cap' => [null, $wide, 120.0, 808.0, 120.0 * $wide, 120.0];
+        yield 'horizontal, 50 %' => [50, $wide, 120.0, 808.0, 60.0 * $wide, 60.0];
+        yield 'horizontal, 150 %' => [150, $wide, 120.0, 808.0, 180.0 * $wide, 180.0];
+        yield 'horizontal, 200 %' => [200, $wide, 120.0, 808.0, 240.0 * $wide, 240.0];
+        // frydlant symbol: 121.4 x 751.4, cap 200 px, half-width frame 319 px
+        $tall = 121.4 / 751.4;
+        yield 'tall, default' => [null, $tall, 200.0, 319.0, 200.0 * $tall, 200.0];
+        yield 'tall, 50 %' => [50, $tall, 200.0, 319.0, 100.0 * $tall, 100.0];
+        yield 'tall, 150 %' => [150, $tall, 200.0, 319.0, 300.0 * $tall, 300.0];
+        // 400 px tall would need 2 x 133 px of side zone: clamped to the frame
+        $fit = 319.0 * 3 * $tall / (3 * $tall + 2);
+        yield 'tall, 200 % clamped to the frame' => [200, $tall, 200.0, 319.0, $fit, $fit / $tall];
+        // celadna vertical: 340.5 x 225.1 in a half-width card — capped at
+        // 200 px tall it would fill the frame at 100 %, leaving nothing to grow
+        $landscape = 340.5 / 225.1;
+        $fitLandscape = 319.0 * 3 * $landscape / (3 * $landscape + 2);
+        yield 'landscape in a half card, default = 2/3 of the room' => [null, $landscape, 200.0, 319.0, $fitLandscape * 2 / 3, $fitLandscape * 2 / 3 / $landscape];
+        yield 'landscape in a half card, 150 % fills it' => [150, $landscape, 200.0, 319.0, $fitLandscape, $fitLandscape / $landscape];
+        yield 'landscape in a half card, 200 % clamped' => [200, $landscape, 200.0, 319.0, $fitLandscape, $fitLandscape / $landscape];
+        yield 'landscape in a half card, 50 %' => [50, $landscape, 200.0, 319.0, $fitLandscape / 3, $fitLandscape / 3 / $landscape];
+    }
+
+    #[DataProvider('protectedZones')]
+    public function testProtectedZoneHugsTheLogoAndIsAThirdOfItsHeight(null|int $percent, float $ratio, float $cap, float $frame, float $width, float $height): void
+    {
+        $zone = LogoScale::protectedZone($percent, $ratio, $cap, $frame);
+
+        self::assertEqualsWithDelta($width, $zone['width'], 0.01);
+        self::assertEqualsWithDelta($height, $zone['height'], 0.01);
+        self::assertEqualsWithDelta($height / 3, $zone['zone'], 0.01);
+        self::assertEqualsWithDelta($zone['width'] / $ratio, $zone['height'], 0.01, 'the white area has the logo\'s own aspect ratio');
+        self::assertLessThanOrEqual($frame + 0.01, $zone['width'] + 2 * $zone['zone'], 'logo + zones never leave the frame');
+    }
+
+    /**
      * @return iterable<string, array{null|int, null|int}>
      */
     public static function normalized(): iterable

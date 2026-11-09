@@ -101,6 +101,16 @@ final class SvgImage
         $this->colorsMapping[$colorVariant->value] = new ColorMapping($background, $colors, $opacities);
     }
 
+    /**
+     * `--logo-ratio` (width / height) for a manual card showing this logo as
+     * `$svgDataUri` (what `remap_svg_colors()` returns) — the protective-zone
+     * card sizes its zone from it. null = unknown. {@see LogoAspectRatio}
+     */
+    public function cssAspectRatio(string $svgDataUri): null|string
+    {
+        return LogoAspectRatio::cssValueOfDataUri($svgDataUri);
+    }
+
     public function updateDimensionsInfo(null|string $width, null|string $height): void
     {
         $this->widthInfo = $width;
@@ -108,8 +118,10 @@ final class SvgImage
     }
 
     /**
-     * Percentage width of the logo inside its manual-preview card (1-100).
-     * 0, null or out-of-range values reset to default (null = no override).
+     * Logo size in the manual, % of its DEFAULT size in each card
+     * ({@see LogoScale}): 10–200 %, 100 % = výchozí. null / 0 / negative =
+     * no value; out-of-range values are clamped into 10–200. 100 is stored
+     * as null — at the variant level it IS the default.
      */
     public function updateDisplayWidth(null|int $displayWidth): void
     {

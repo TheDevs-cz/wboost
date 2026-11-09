@@ -477,10 +477,32 @@ way to say "half the default" (user feedback). Rules:
   **Growing is clamped to the frame** (the width factor stops at 1) —
   `LogoScale::renderedWidth()` = min(default × scale, frame) is the contract,
   pinned by `tests/Value/LogoScaleTest.php` and verified in Chromium (50 % /
-  150 % measured 50.0 / 150.0 % of the default). The protected-zone rule and
-  the per-slug kozelsky hacks multiply their own default by the same
-  variable. Never set `max-height` on the img per card type again — set the
-  wrapper's `--logo-cap`, or the scale stops applying.
+  150 % measured 50.0 / 150.0 % of the default). Never set `max-height` on
+  the img per card type again — set the wrapper's `--logo-cap`, or the scale
+  stops applying.
+- **Protective-zone card ("Ochranná zóna", reworked 2026-11-09,
+  `LogoScale::protectedZone()` is the contract).** The white logo area hugs
+  the logo edge to edge and the grey zone is **1/3 of the logo HEIGHT on
+  every side**. Root cause of the old bugs (white bands beside the logo, a
+  fixed 72 px zone, and >100 % doing nothing): both inner divs shrink-wrapped
+  an `<img>` whose box, for a viewBox-only SVG, is the 300 px default object
+  width — the logo was a % of that same box, so it could shrink but never
+  grow. Now everything lives on the img: content box = the logo (width
+  `--pz-w`, height auto), white `content-box` background; padding = the zone
+  (`--pz-w / ratio / 3`), transparent over the grey div (whose `p-5` and the
+  white div's inline background are neutralised in app.css). `--pz-w` =
+  default × scale, clamped so logo + both side zones fit the frame
+  (`100cqw`, the frame is an inline-size container); default = `--logo-cap`
+  × ratio, at most 2/3 of that room so 150 % can always grow in the
+  half-width cards. The ratio is `--logo-ratio` on every logo `<img>`
+  (`LogoAspectRatio`, read from the SVG root's viewBox — every prod
+  protection-zone logo has one, surveyed 2026-11-09; missing = treated as
+  square). Zone labels are sized in % of the zone box (top / bottom = 20 %
+  of its height, sides = the same via `aspect-ratio: 1`); the download and
+  width pencil buttons hang just outside the box. The per-slug kozelsky
+  hacks set `--pz-w` instead of `width`. Verified in Chromium: zone / logo
+  height = 0.333, white area = drawn logo ±1 px, live preview = saved =
+  reloaded, for horizontal / vertical / symbol at 50–200 %.
 - **Legacy data** was converted by `Version20261109010000` with values
   MEASURED per card on the prod previews (the default is a layout result, not
   computable in SQL): 14 slot rows changed + 1 pinned card
@@ -509,7 +531,7 @@ History (pre-2026-11-09, "% of the frame"): the partial wrote `width: N%
 `width … !important` hacks, `max-height: none` because the 120/200 px cap
 SQUASHES an explicitly-width'd `<img>` instead of scaling it. Both are gone:
 the scale variable multiplies the cap instead of lifting it, and the hacks
-themselves multiply by `--logo-scale`.
+themselves multiply by `--logo-scale` (the protective-zone ones via `--pz-w`).
 
 **Editing a card's width — one live-preview bar, no reload (2026-10-11).**
 It began as a Live component + Bootstrap modal PER CARD whose save redirected

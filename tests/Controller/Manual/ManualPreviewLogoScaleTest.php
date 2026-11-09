@@ -17,7 +17,7 @@ use WBoost\Web\Value\SvgImage;
 /**
  * The manual preview renders "Šířka loga v manuálu" as a scale of the card's
  * DEFAULT logo size: `--logo-scale` on the `<img>`, which app.css multiplies
- * into the default width and height cap. 100 % / no value = no inline style.
+ * into the default width and height cap. 100 % / no value = no `--logo-scale`.
  *
  * @covers \WBoost\Web\Controller\Manual\ManualPreviewController
  */
@@ -42,17 +42,27 @@ final class ManualPreviewLogoScaleTest extends WebTestCase
         // a card's own value wins
         self::assertSame('--logo-scale: 1.5', $this->style($crawler, 'basic_logos.horizontal.base'));
         self::assertSame('--logo-scale: 2', $this->style($crawler, 'symbol.symbol.base'));
-        // 100 % and no value at all both mean the default: no inline style
+        // 100 % and no value at all both mean the default: no scale at all
         self::assertNull($this->style($crawler, 'symbol.symbol.darkBackground'));
         self::assertNull($this->style($crawler, 'symbol.symbol.lightBackground'));
     }
 
+    /**
+     * The `--logo-scale` declaration of a card's `<img>`, or null. The inline
+     * style also carries `--logo-ratio` (the protective-zone card's input).
+     */
     private function style(Crawler $crawler, string $slot): null|string
     {
         $img = $crawler->filter(sprintf('img[data-logo-slot="%s"]', $slot));
         self::assertCount(1, $img, $slot);
 
-        return $img->attr('style');
+        foreach (explode(';', (string) $img->attr('style')) as $declaration) {
+            if (str_starts_with(trim($declaration), '--logo-scale:')) {
+                return trim($declaration);
+            }
+        }
+
+        return null;
     }
 
     /**

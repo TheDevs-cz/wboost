@@ -1842,71 +1842,139 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     height: 416px;
 }
 
+/* Per-slug fixed logo widths in the protective zone (no such manual on prod
+   as of 2026-11-09; kept working): they set the zone's logo width variable,
+   so the white area and the 1/3 zone still follow the logo. */
 .manual-kozelsky-koupelny-logomanual .manual-image-vertical-big.protected-zone-wrapper img {
-    width: calc(400px * var(--logo-scale, 1)) !important;
+    --pz-w: calc(400px * var(--logo-scale, 1));
 }
 
 .manual-kozelsky-koupelny-logomanual .manual-image-symbol.protected-zone-wrapper img {
-    width: calc(110px * var(--logo-scale, 1)) !important;
+    --pz-w: calc(110px * var(--logo-scale, 1));
 }
 
 .manual-kozelsky-koupelny-logomanual .manual-image-vertical.protected-zone-wrapper img {
-    width: calc(400px * var(--logo-scale, 1)) !important;
+    --pz-w: calc(400px * var(--logo-scale, 1));
 }
 
 .manual-page {
     margin-bottom: 50px;
 }
 
-/* Protected zone: the default is the full frame width, uncapped — so a
-   --logo-scale above 1 is clamped to it, below 1 shrinks it. */
-.protected-zone-wrapper img {
-    width: calc(100% * min(var(--logo-scale, 1), 1)) !important;
-    max-height: unset !important;
+/* Protective zone ("Ochranná zóna", reworked 2026-11-09 — LogoScale::protectedZone()
+   is the contract). The white logo area hugs the logo edge to edge and the
+   grey zone around it is 1/3 of the logo HEIGHT on every side.
+
+   Markup (manual_preview.html.twig): frame > grey div.p-5 > white div > img.
+   Both divs used to shrink-wrap the <img>, whose box for a viewBox-only SVG
+   is the 300 px default object width — so the white area was wider than the
+   logo (white bands), the zone was a fixed 72 px, and since the logo width
+   was a % of that same shrink-wrapped box, a scale above 100 % could never
+   grow it. Now everything lives on the img itself:
+   - its CONTENT box is the logo: width --pz-w, height auto (the SVG's own
+     ratio), white background clipped to the content box;
+   - its PADDING is the zone: --pz-w / ratio / 3, transparent, so the grey
+     div shows through (its own padding and the white div's background are
+     neutralised);
+   - --pz-w = default × scale, clamped so logo + both side zones fit the
+     frame (--pz-fit, container units on the frame); default = the card's
+     height cap (--logo-cap) × ratio, at most 2/3 of --pz-fit so the
+     half-width cards can still grow to 150 %.
+   --logo-ratio (width / height) comes from the partial (LogoAspectRatio);
+   without it the zone falls back to a square logo's. */
+.protected-zone-wrapper {
+    container-type: inline-size;
 }
 
+.protected-zone-wrapper > .p-5 {
+    padding: 0 !important;
+}
+
+.protected-zone-wrapper > .p-5 > div {
+    background: transparent !important;
+}
+
+.protected-zone-wrapper img {
+    --pz-ratio: var(--logo-ratio, 1);
+    --pz-fit: calc(100cqw * 3 * var(--pz-ratio) / (3 * var(--pz-ratio) + 2));
+    --pz-default: min(calc(var(--logo-cap) * var(--pz-ratio)), calc(var(--pz-fit) * 2 / 3));
+    --pz-w: min(calc(var(--pz-default) * var(--logo-scale, 1)), var(--pz-fit));
+    display: block;
+    box-sizing: content-box;
+    width: var(--pz-w);
+    height: auto;
+    max-width: none;
+    max-height: none;
+    padding: calc(var(--pz-w) / var(--pz-ratio) / 3);
+    background: #ffffff content-box;
+}
+
+/* The card's buttons (download top-right, width pencil top-left) would land
+   on the logo now that the zone box is tight — hang them just outside it,
+   in the frame's padding. */
+.protected-zone-wrapper > .p-5 > div > .dropdown.position-absolute {
+    top: 0 !important;
+    right: auto !important;
+    left: calc(100% + 8px) !important;
+}
+
+.protected-zone-wrapper .manual-logo-width-edit {
+    top: 0;
+    left: auto;
+    right: calc(100% + 8px);
+}
+
+/* The zone labels sit in the zone, sized in % of the zone box (= the img's
+   border box): the top / bottom zone is exactly 20 % of its height (H/3 of
+   5H/3); the side zones are as wide as that (aspect-ratio 1). */
 .protected-zone-top,
 .protected-zone-bottom,
 .protected-zone-left,
 .protected-zone-right {
     position: absolute;
-    display: block;
+    display: flex;
     color: #ffffff;
     font-size: 12px;
+    line-height: 1.2;
+    white-space: nowrap;
 }
 
-.protected-zone-top {
-    border-left: 1px solid #ffffff;
-    left: 30%;
-    top: 0;
-    height: 72px;
-    line-height: 72px;
-    padding-left: 10px;
-}
-
+.protected-zone-top,
 .protected-zone-bottom {
     border-left: 1px solid #ffffff;
     left: 30%;
-    bottom: 0;
-    height: 72px;
-    line-height: 72px;
+    right: 0;
+    height: 20%;
+    align-items: center;
     padding-left: 10px;
+    /* a narrow logo's zone box is narrow — wrap rather than run off the grey */
+    white-space: normal;
+}
+
+.protected-zone-top {
+    top: 0;
+}
+
+.protected-zone-bottom {
+    bottom: 0;
+}
+
+.protected-zone-left,
+.protected-zone-right {
+    border-bottom: 1px solid #ffffff;
+    top: 30%;
+    height: 20%;
+    aspect-ratio: 1;
+    align-items: flex-end;
+    justify-content: center;
 }
 
 .protected-zone-left {
-    border-bottom: 1px solid #ffffff;
     left: 0;
-    top: 40%;
-    width: 72px;
-    text-align: center;
 }
 
 .protected-zone-right {
-    border-bottom: 1px solid #ffffff;
     right: 0;
-    top: 40%;
-    width: 72px;
-    text-align: center;
 }
 
 .with-width-info {

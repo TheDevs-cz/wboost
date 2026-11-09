@@ -23,6 +23,9 @@ final class LogoScale
     public const int MAX = 200;
     public const int DEFAULT = 100;
 
+    /** Share of the frame a protective-zone logo may take at 100 % ({@see protectedZone()}). */
+    public const float PROTECTED_ZONE_DEFAULT_FIT = 2 / 3;
+
     /**
      * null / 0 / negative = no value of its own (inherit / default); anything
      * else is clamped into MIN–MAX.
@@ -60,6 +63,31 @@ final class LogoScale
         $percent = self::normalize($percent) ?? self::DEFAULT;
 
         return min($defaultWidth * $percent / 100, $frameWidth);
+    }
+
+    /**
+     * The protective-zone card ("Ochranná zóna", since 2026-11-09): the logo's
+     * white area hugs the logo edge to edge and the zone around it is 1/3 of
+     * the logo HEIGHT on every side. Default = the card's height cap (like
+     * every other card), but never more than 2/3 of the room logo + side
+     * zones have in the frame — so 150 % can always grow, even in the
+     * half-width cards where a capped landscape logo would already fill the
+     * frame. The scale multiplies the default; growing stops where logo +
+     * both side zones fill the frame (W + 2·W/(3r) ≤ frame). This is the
+     * contract app.css implements with `--logo-ratio` (r = width / height,
+     * {@see LogoAspectRatio}), `--logo-cap` and `--logo-scale`.
+     *
+     * @return array{width: float, height: float, zone: float}
+     */
+    public static function protectedZone(null|int $percent, float $ratio, float $cap, float $frameWidth): array
+    {
+        $scale = (self::normalize($percent) ?? self::DEFAULT) / 100;
+        $fit = $frameWidth * 3 * $ratio / (3 * $ratio + 2);
+        $default = min($cap * $ratio, $fit * self::PROTECTED_ZONE_DEFAULT_FIT);
+        $width = min($default * $scale, $fit);
+        $height = $width / $ratio;
+
+        return ['width' => $width, 'height' => $height, 'zone' => $height / 3];
     }
 
     /**
