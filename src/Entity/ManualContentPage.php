@@ -38,7 +38,7 @@ use WBoost\Web\Value\MockupPageLayout;
  */
 #[Entity]
 #[Index(name: 'idx_manual_content_page_manual', columns: ['manual_id'])]
-#[UniqueConstraint(name: 'uniq_manual_content_page_intro', columns: ['manual_id'], options: ['where' => "(role = 'intro')"])]
+#[UniqueConstraint(name: 'uniq_manual_content_page_intro', columns: ['manual_id'], options: ['where' => "((role)::text = 'intro'::text)"])]
 class ManualContentPage
 {
     public const int MAX_NAME_LENGTH = 255;
