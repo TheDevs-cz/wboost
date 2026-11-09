@@ -117,7 +117,8 @@ final class ContainerRowsEditorGeometryTest extends KernelTestCase
      */
     private static function withFooter(bool $designedGaps): array
     {
-        $raw = ContainerFixtures::raw(ContainerFixtures::VYSLEDEK);
+        $fixture = ContainerFixtures::raw(ContainerFixtures::VYSLEDEK);
+        $raw = ['canvas' => $fixture['canvas'], 'inputs' => $fixture['inputs'], 'imageInputs' => $fixture['imageInputs']];
 
         return self::mapContainers($raw, static function (array $container) use ($designedGaps): array {
             if ($container['id'] !== ContainerFixtures::VYSLEDEK_DOMACI) {
