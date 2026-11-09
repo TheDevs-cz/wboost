@@ -448,37 +448,17 @@ export default class extends Controller {
 
         const popover = this._openPopoverEl();
         if (popover && !isDragged(popover)) {
-            // TEXT + SHAPE popovers: place them BESIDE the element, so the
-            // font/size/colour/gradient change previews live and the popover
-            // never covers the thing it is restyling. IMAGE popover: drop it
-            // straight down from the toolbar (placeholder settings don't change
-            // the picture, so overlapping the image is fine).
-            const previewsLive = (this.hasTextPopoverTarget && popover === this.textPopoverTarget)
-                || (this.hasShapePopoverTarget && popover === this.shapePopoverTarget);
-            if (previewsLive || !barShown) this._placePopover(popover, box, g);
-            else this._placePopoverUnder(popover, bar, g);
+            // Every popover sits BESIDE the element, so its edits (font, colour,
+            // gradient, the image's size slider / exact geometry) preview live
+            // and the popover never covers what it is changing. The image one
+            // used to drop straight down from the toolbar — fine while it held
+            // only placeholder metadata, not since it resizes the picture.
+            this._placePopover(popover, box, g);
         }
     }
 
     _openPopoverEl() {
         return this._popovers().find((popover) => !popover.classList.contains('d-none')) || null;
-    }
-
-    /** Popover dropped directly below the mini-toolbar, left-aligned to it. */
-    _placePopoverUnder(el, anchorEl, g) {
-        const GAP = 6;
-        const MARGIN = 8;
-        const eh = el.offsetHeight;
-        const ew = el.offsetWidth;
-        const b = this._chromeBounds();
-        const a = anchorEl.getBoundingClientRect();
-
-        let left = a.left;
-        let top = a.bottom + GAP;
-        left = Math.min(Math.max(left, b.left + MARGIN), b.right - ew - MARGIN);
-        top = Math.min(Math.max(top, b.top), Math.max(b.top, b.bottom - eh - MARGIN));
-
-        this._setPos(el, left, top, g);
     }
 
     /** Mini-toolbar / multi-bar: centered just above the element, flipped below

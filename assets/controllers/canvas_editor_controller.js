@@ -56,6 +56,10 @@ export default class extends Controller {
         // Print bleed per side in canvas px (the variant's "spadávka"). The
         // canvas element is rendered at the bleed box; see canvas_viewport.js.
         bleed: { type: Number, default: 0 },
+        // The variant's DimensionUnit ('px' | 'mm' | 'cm') — the unit the
+        // image popover's exact size / position fields speak (300 DPI for
+        // print). The group editor switches it per tab via setDesignSize.
+        unit: { type: String, default: 'px' },
     };
 
     connect() {
@@ -1359,7 +1363,8 @@ export default class extends Controller {
      * Switch the stage to another design size + bleed (the group editor's tab
      * switch): element at the bleed box, viewport at the trim, guide redrawn.
      */
-    setDesignSize(width, height, bleed = 0) {
+    setDesignSize(width, height, bleed = 0, unit = null) {
+        if (unit) this.unitValue = unit;
         applyBleed(this.canvas, width, height, bleed);
         this._renderStageGuides();
     }

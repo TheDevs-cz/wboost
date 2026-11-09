@@ -749,7 +749,7 @@ export default class extends Controller {
             this.activeId = variantId;
 
             // Element at the variant's bleed box, viewport at its trim.
-            editor.setDesignSize(incoming.width, incoming.height, incoming.bleed || 0);
+            editor.setDesignSize(incoming.width, incoming.height, incoming.bleed || 0, incoming.unit || 'px');
             editor.editVariantUrlValue = incoming.editVariantUrl;
             // Mode BEFORE load: loadCanvasWithoutHistory branches on it (layer
             // mode clears any leftover canvas-level background instead of
@@ -1149,7 +1149,7 @@ export default class extends Controller {
             const active = this._variant(this.activeId);
 
             if (active) {
-                editor.setDesignSize(active.width, active.height, active.bleed || 0);
+                editor.setDesignSize(active.width, active.height, active.bleed || 0, active.unit || 'px');
                 editor.editVariantUrlValue = active.editVariantUrl;
                 // Mode BEFORE load (layer mode clears any leftover canvas-level
                 // background); backgroundUrl is null for layer-mode variants,

@@ -54,6 +54,7 @@
         data-canvas-editor-brand-colors-value='{{ (brand_colors|default([]))|json_encode }}'
         data-canvas-editor-canvas-json="{{ first.variant.canvas }}"
         data-canvas-editor-bleed-value="{{ first.variant.dimension.bleedPixels }}"
+        data-canvas-editor-unit-value="{{ first.variant.dimension.unit.value }}"
         data-canvas-editor-edit-variant-url-value="{{ first.edit_variant_url }}"
         data-group-editor-save-url-value="{{ save_url }}"
         data-group-editor-csrf-value="{{ csrf_token('template_group_editor') }}"
@@ -95,6 +96,7 @@
             canvas-zoom:changed->canvas-layers#unhover
             canvas-editor:background:changed->group-editor#onBackgroundChanged
             canvas-zoom:changed->canvas-floating-toolbar#reposition
+            canvas-image-properties:geometry-live->canvas-floating-toolbar#reposition
             canvas-zoom:changed->canvas-container#repositionZones
             canvas-zoom:changed->canvas-rulers#refresh
             canvas-zoom:changed->canvas-navigator#refresh
@@ -115,6 +117,7 @@
                     "width": {{ v.variant.dimension.width }},
                     "height": {{ v.variant.dimension.height }},
                     "bleed": {{ v.variant.dimension.bleedPixels }},
+                    "unit": {{ v.variant.dimension.unit.value|json_encode|raw }},
                     "canvas": {{ v.variant.canvas|json_encode|raw }},
                     {#- backgroundUrl deliberately null for layer-mode variants: it feeds
                         the canvas-LEVEL background re-apply sites (_loadShadow/_activate/

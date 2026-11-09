@@ -74,3 +74,13 @@ export function isDragged(popover) {
 export function resetDrag(popover) {
     if (popover) popover[DRAGGED] = false;
 }
+
+/**
+ * Keep the popover where it is until it closes, as if the user had dragged
+ * it there. Used by controls that resize the very element the popover is
+ * anchored to (the editor's image size slider): re-anchoring on every tick
+ * would pull the slider out from under the pointer.
+ */
+export function pinPopover(popover) {
+    if (popover) popover[DRAGGED] = true;
+}

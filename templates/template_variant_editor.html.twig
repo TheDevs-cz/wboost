@@ -52,6 +52,7 @@
         data-canvas-editor-brand-colors-value='{{ (brand_colors|default([]))|json_encode }}'
         data-canvas-editor-canvas-json="{{ variant.canvas }}"
         data-canvas-editor-bleed-value="{{ variant.dimension.bleedPixels }}"
+        data-canvas-editor-unit-value="{{ variant.dimension.unit.value }}"
         data-canvas-editor-edit-variant-url-value="{{ edit_variant_url }}"
         data-canvas-history-canvas-editor-outlet="#canvas-container"
         data-canvas-clipboard-canvas-editor-outlet="#canvas-container"
@@ -89,6 +90,7 @@
             canvas-editor:dirty->canvas-layers#onCanvasDirty
             canvas-zoom:changed->canvas-layers#unhover
             canvas-zoom:changed->canvas-floating-toolbar#reposition
+            canvas-image-properties:geometry-live->canvas-floating-toolbar#reposition
             canvas-zoom:changed->canvas-container#repositionZones
             canvas-zoom:changed->canvas-rulers#refresh
             canvas-zoom:changed->canvas-navigator#refresh

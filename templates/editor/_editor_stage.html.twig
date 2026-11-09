@@ -400,6 +400,74 @@
                 <input type="text" id="image-name-control" class="form-control form-control-sm" placeholder="např. Fotka, Logo…" data-canvas-image-properties-target="name" data-action="input->canvas-image-properties#updateName">
             </div>
 
+            {# "Velikost a poloha" — the editor twin of the fill page's image-adjust
+               panel (_fill_image_adjust.html.twig): size slider (100 % =
+               Přizpůsobit = contained in the canvas; logarithmic), exact
+               Š / V / X / Y in the variant's unit with an aspect lock, rotation,
+               Vyplnit / Přizpůsobit / Vycentrovat. Writes the same native Fabric
+               geometry the handles do — canvas-image-properties, math in
+               canvas_geometry.js. Hidden for the background layer. Text fields
+               (not type=number) so a Czech decimal comma is accepted; Enter
+               commits and never submits the editor form. #}
+            <div class="ed-geo d-none" data-canvas-image-properties-target="geometry">
+                <h3 class="ed-sec-h">Velikost a poloha</h3>
+                <div class="ed-geo__zoom">
+                    <label class="sz-ctl ed-geo__slider" for="image-size-control" title="Velikost obrázku — 100 % = celý obrázek přizpůsobený plátnu">
+                        {{ icon('image', 's12') }}
+                        <span class="visually-hidden">Velikost obrázku</span>
+                        <input type="range" id="image-size-control" min="0" max="1000" step="1" value="500"
+                               data-canvas-image-properties-target="sizeSlider"
+                               data-action="input->canvas-image-properties#slideSize change->canvas-image-properties#commitSize">
+                        {{ icon('image', 's18') }}
+                    </label>
+                    <output class="ed-geo__value" for="image-size-control" data-canvas-image-properties-target="sizeValue">100 %</output>
+                </div>
+                <div class="ed-geo__grid">
+                    {% for field in [
+                        {key: 'width', label: 'Š', title: 'Šířka'},
+                        {key: 'lock'},
+                        {key: 'height', label: 'V', title: 'Výška'},
+                        {key: 'x', label: 'X', title: 'Levý okraj od levého okraje plátna'},
+                        {key: 'gap'},
+                        {key: 'y', label: 'Y', title: 'Horní okraj od horního okraje plátna'},
+                    ] %}
+                        {% if field.key == 'lock' %}
+                            <button type="button" class="btn btn-ghost icon xs ed-geo__lock active" aria-pressed="true"
+                                    title="Poměr stran zamčený — klikněte pro volnou změnu" aria-label="Poměr stran zamčený — klikněte pro volnou změnu"
+                                    data-canvas-image-properties-target="aspectLock" data-action="canvas-image-properties#toggleAspectLock">{{ icon('link', 's14') }}</button>
+                        {% elseif field.key == 'gap' %}
+                            <span aria-hidden="true"></span>
+                        {% else %}
+                            <label class="ed-geo__field" title="{{ field.title }}">
+                                <span class="ed-geo__key" aria-hidden="true">{{ field.label }}</span>
+                                <input type="text" class="form-control form-control-sm" inputmode="decimal" autocomplete="off"
+                                       aria-label="{{ field.title }}" data-geo="{{ field.key }}"
+                                       data-canvas-image-properties-target="geoField"
+                                       data-action="change->canvas-image-properties#commitField keydown->canvas-image-properties#fieldKeydown">
+                                <span class="ed-geo__unit" aria-hidden="true" data-canvas-image-properties-target="geoUnit">px</span>
+                            </label>
+                        {% endif %}
+                    {% endfor %}
+                    <label class="ed-geo__field" title="Otočení ve stupních (kolem středu)">
+                        <span class="ed-geo__key" aria-hidden="true">{{ icon('refresh', 's12') }}</span>
+                        <input type="text" class="form-control form-control-sm" inputmode="decimal" autocomplete="off"
+                               aria-label="Otočení ve stupních" data-geo="angle"
+                               data-canvas-image-properties-target="geoField"
+                               data-action="change->canvas-image-properties#commitField keydown->canvas-image-properties#fieldKeydown">
+                        <span class="ed-geo__unit" aria-hidden="true">°</span>
+                    </label>
+                </div>
+                <div class="ed-geo__actions">
+                    <button type="button" class="btn btn-tertiary xs" data-geo-action="cover" data-action="canvas-image-properties#fillCanvas"
+                            title="Zvětšit tak, aby obrázek pokryl celé plátno (včetně spadávky), a vycentrovat">Vyplnit</button>
+                    <button type="button" class="btn btn-tertiary xs" data-geo-action="contain" data-action="canvas-image-properties#fitCanvas"
+                            title="Celý obrázek na plátno, vycentrovaný (= 100 %)">Přizpůsobit</button>
+                    <button type="button" class="btn btn-tertiary xs" data-geo-action="center" data-action="canvas-image-properties#centerOnCanvas"
+                            title="Posunout obrázek doprostřed plátna">Vycentrovat</button>
+                </div>
+                <p class="cap ed-geo__hint d-none" data-canvas-image-properties-target="geoHint"></p>
+            </div>
+
             <div class="mb-2 form-check">
                 <input type="checkbox" id="image-editor-locked-control" class="form-check-input" data-canvas-image-properties-target="editorLocked" data-action="change->canvas-image-properties#updateEditorLock">
                 <label for="image-editor-locked-control" class="form-check-label small">Zamknout v editoru <span class="text-muted">(chrání před náhodným posunutím — kliknutí prochází skrz, prvek pak vyberete v panelu Vrstvy; neovlivní export)</span></label>

@@ -1,5 +1,13 @@
 import { Controller } from "@hotwired/stimulus";
+import { Point } from "fabric";
 import { applyEditorLock } from "./canvas_custom_properties.js";
+import { designWidth, designHeight, bleedOf } from "./canvas_viewport.js";
+import { pinPopover } from "./popover_drag.js";
+import {
+    boxOf, containFactor, coverFactor, formatPercent, moveBox, normalizeAngle,
+    percentToSlider, pxPerUnit, resizeBox, roundTo, sizePercent, sizePercentMax,
+    sizePercentMin, sliderToPercent, unitDecimals, zoomBox,
+} from "./canvas_geometry.js";
 
 /**
  * Editor-side metadata for IMAGE objects — the image counterpart of
@@ -24,10 +32,29 @@ export default class extends Controller {
         "details", "placeholder", "name", "description",
         "allowMove", "allowResize", "allowRotate", "hidable", "directory", "folderItem",
         "warning", "editorLocked", "transformLimit", "backgroundHint",
+        // "Velikost a poloha" (size slider, W/H/X/Y, aspect lock, rotation).
+        "geometry", "sizeSlider", "sizeValue", "geoField", "geoUnit", "aspectLock", "geoHint",
     ];
 
     canvasEditorOutletConnected(outlet) {
+        this._lockAspect = true;
+        // Keep the size / position fields in step with handle drags, nudges,
+        // alignment, container reflows and group re-syncs — anything that
+        // moves the active image.
+        this._onGeometryEvent = (event) => {
+            const target = event && event.target;
+            const active = outlet.canvas.getActiveObject();
+            if (!target || target === active) this._syncGeometry();
+        };
+        ['object:moving', 'object:scaling', 'object:rotating', 'object:modified']
+            .forEach((name) => outlet.canvas.on(name, this._onGeometryEvent));
         this.updateFromSelection({ detail: { activeObject: outlet.canvas.getActiveObject() } });
+    }
+
+    canvasEditorOutletDisconnected(outlet) {
+        if (!outlet.canvas || !this._onGeometryEvent) return;
+        ['object:moving', 'object:scaling', 'object:rotating', 'object:modified']
+            .forEach((name) => outlet.canvas.off(name, this._onGeometryEvent));
     }
 
     updateFromSelection(event) {
@@ -64,6 +91,15 @@ export default class extends Controller {
 
         this._toggleDetails(isPlaceholder);
         this._refreshWarning(isPlaceholder);
+
+        // A new selection starts with the aspect lock ON (images keep their
+        // proportions unless the designer deliberately unlinks them).
+        if (activeObject !== this._geometryObject) {
+            this._geometryObject = activeObject;
+            this._lockAspect = true;
+            this._slideBase = null;
+        }
+        this._syncGeometry();
     }
 
     updatePlaceholder(event) {
@@ -84,6 +120,7 @@ export default class extends Controller {
 
         this._toggleDetails(image.imagePlaceholder);
         this._refreshWarning(image.imagePlaceholder);
+        this._syncGeometry();
         this.canvasEditorOutlet.markUnsaved();
     }
 
@@ -110,6 +147,7 @@ export default class extends Controller {
         if (!image) return;
         image.editorLocked = event.target.checked;
         applyEditorLock(image);
+        this._syncGeometry();
         this.canvasEditorOutlet.canvas.renderAll();
         this.canvasEditorOutlet.markUnsaved();
     }
@@ -125,6 +163,7 @@ export default class extends Controller {
         image.editorLocked = !image.editorLocked;
         applyEditorLock(image);
         if (this.hasEditorLockedTarget) this.editorLockedTarget.checked = image.editorLocked === true;
+        this._syncGeometry();
         this.canvasEditorOutlet.canvas.renderAll();
         this.canvasEditorOutlet.markUnsaved();
     }
@@ -351,6 +390,294 @@ export default class extends Controller {
         button.setAttribute('aria-label', `${open ? 'Sbalit' : 'Rozbalit'} složku ${this._folderName(item)}`);
     }
 
+    // --- Velikost a poloha ------------------------------------------------
+    //
+    // The image counterpart of the fill page's image-adjust panel (same
+    // vocabulary: size slider with 100 % = Přizpůsobit, Š / V / X / Y in the
+    // variant's unit, Vyplnit / Přizpůsobit / Vycentrovat). Every control
+    // writes the SAME native Fabric geometry the transform handles do
+    // (scaleX / scaleY / position / angle) — nothing new is stored, so save,
+    // render, group sync, containers and the MCP decompiler see an ordinary
+    // resize. Pure math in canvas_geometry.js.
+    //
+    // Undo contract: a live slider drag only repaints (no markUnsaved — the
+    // group editor would debounce a history point per pause); the release,
+    // every typed value, every arrow-key step and every button fire ONE
+    // synthetic `object:modified` = one undo step, exactly like a handle drag.
+
+    /** Slider `input`: live zoom about the centre, from the drag's base. */
+    slideSize(event) {
+        const image = this._geometryImage();
+        if (!image) return;
+        this._pin();
+        if (!this._slideBase || this._slideBase.object !== image) {
+            const geometry = this._geometryOf(image);
+            this._slideBase = { object: image, geometry, percent: this._percentOf(image, geometry) };
+        }
+        const { min, max } = this._sliderRange(image, this._slideBase.percent);
+        const percent = sliderToPercent(Number(event.target.value), min, max);
+        this._applyGeometry(image, zoomBox(this._slideBase.geometry, percent / this._slideBase.percent));
+        // Fields follow live; the slider itself is skipped while focused.
+        this._syncGeometry();
+        if (this.hasSizeValueTarget) this.sizeValueTarget.textContent = formatPercent(percent);
+        event.target.setAttribute('aria-valuetext', formatPercent(percent));
+        this.canvasEditorOutlet.canvas.requestRenderAll();
+        this.dispatch('geometry-live');
+    }
+
+    /** Slider `change` (release / keyboard step): commit as one undo step. */
+    commitSize(event) {
+        const image = this._geometryImage();
+        if (!image) return;
+        if (!this._slideBase) this.slideSize(event);
+        this._slideBase = null;
+        this._commitGeometry(image);
+    }
+
+    /** Typed Š / V / X / Y / ° — applied on `change` (blur / Enter). */
+    commitField(event) {
+        const field = event.target;
+        const image = this._geometryImage();
+        if (!image) return;
+        const value = parseNumber(field.value);
+        if (value === null) {
+            this._syncGeometry();
+            return;
+        }
+        this._applyField(image, field.dataset.geo, value);
+    }
+
+    /**
+     * Enter commits WITHOUT submitting the editor form (= Save); ↑ / ↓ step
+     * the value (Shift = ×10), each step its own undo point.
+     */
+    fieldKeydown(event) {
+        const field = event.target;
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            this.commitField(event);
+            field.select?.();
+            return;
+        }
+        if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+        event.preventDefault();
+        const image = this._geometryImage();
+        const value = parseNumber(field.value);
+        if (!image || value === null) return;
+        const step = field.dataset.geo === 'angle' ? 1 : 10 ** -this._decimals();
+        const next = value + (event.key === 'ArrowUp' ? 1 : -1) * step * (event.shiftKey ? 10 : 1);
+        field.value = String(roundTo(next, field.dataset.geo === 'angle' ? 0 : this._decimals()));
+        this._applyField(image, field.dataset.geo, next);
+    }
+
+    toggleAspectLock() {
+        this._lockAspect = !this._lockAspect;
+        this._syncGeometry();
+    }
+
+    /** "Vyplnit": cover the whole print area (the BLEED box — a full-bleed
+     *  picture must reach the cut edge), centred. Proportions restored. */
+    fillCanvas() {
+        const image = this._geometryImage();
+        if (!image) return;
+        const canvas = this.canvasEditorOutlet.canvas;
+        const bleed = bleedOf(canvas);
+        const area = { width: designWidth(canvas) + 2 * bleed, height: designHeight(canvas) + 2 * bleed };
+        this._fitTo(image, coverFactor(this._natural(image), area));
+    }
+
+    /** "Přizpůsobit": the whole picture inside the trim, centred (= 100 %). */
+    fitCanvas() {
+        const image = this._geometryImage();
+        if (!image) return;
+        this._fitTo(image, containFactor(this._natural(image), this._design()));
+    }
+
+    /** "Vycentrovat": centre on the trim, size kept. */
+    centerOnCanvas() {
+        const image = this._geometryImage();
+        if (!image) return;
+        const design = this._design();
+        this._pin();
+        this._applyGeometry(image, { centerX: design.width / 2, centerY: design.height / 2 });
+        this._commitGeometry(image);
+    }
+
+    _fitTo(image, factor) {
+        const design = this._design();
+        this._pin();
+        this._applyGeometry(image, { scaleX: factor, scaleY: factor, centerX: design.width / 2, centerY: design.height / 2 });
+        this._commitGeometry(image);
+    }
+
+    _applyField(image, name, value) {
+        const k = pxPerUnit(this._unit());
+        const geometry = this._geometryOf(image);
+        let patch = null;
+        if (name === 'width' || name === 'height') {
+            if (!(value > 0)) {
+                this._syncGeometry();
+                return;
+            }
+            patch = resizeBox(geometry, name, value * k, this._lockAspect);
+        } else if (name === 'x' || name === 'y') {
+            patch = moveBox(geometry, name, value * k);
+        } else if (name === 'angle') {
+            patch = { angle: normalizeAngle(value) };
+        }
+        if (!patch) return;
+        this._pin();
+        this._applyGeometry(image, patch);
+        this._commitGeometry(image);
+    }
+
+    /** Write a patch {scaleX?, scaleY?, centerX?, centerY?, angle?} onto the
+     *  object, keeping its centre (rotation and scale are about the centre). */
+    _applyGeometry(image, patch) {
+        const center = image.getCenterPoint();
+        const props = {};
+        if (patch.scaleX !== undefined) props.scaleX = patch.scaleX;
+        if (patch.scaleY !== undefined) props.scaleY = patch.scaleY;
+        if (patch.angle !== undefined) props.angle = patch.angle;
+        image.set(props);
+        image.setPositionByOrigin(
+            new Point(patch.centerX ?? center.x, patch.centerY ?? center.y),
+            'center',
+            'center',
+        );
+        image.setCoords();
+    }
+
+    _commitGeometry(image) {
+        const canvas = this.canvasEditorOutlet.canvas;
+        canvas.requestRenderAll();
+        this.canvasEditorOutlet.markUnsaved();
+        canvas.fire('object:modified', { target: image });
+        this._syncGeometry();
+    }
+
+    /** Mirror the active image into every control (a focused field is left
+     *  alone so a sync never fights the designer's typing). */
+    _syncGeometry() {
+        if (!this.hasGeometryTarget || !this.hasCanvasEditorOutlet) return;
+        const image = this._activeImage();
+        const eligible = image && image.isBackground !== true;
+        this.geometryTargets.forEach((el) => el.classList.toggle('d-none', !eligible));
+        if (!eligible) return;
+
+        const locked = image.editorLocked === true;
+        const geometry = this._geometryOf(image);
+        const box = boxOf(geometry);
+        const unit = this._unit();
+        const k = pxPerUnit(unit);
+        const decimals = this._decimals();
+        const values = {
+            width: box.width / k,
+            height: box.height / k,
+            x: box.x / k,
+            y: box.y / k,
+            angle: Math.round(normalizeAngle(box.angle)),
+        };
+
+        this.geoFieldTargets.forEach((field) => {
+            field.disabled = locked;
+            field.step = field.dataset.geo === 'angle' ? '1' : String(10 ** -decimals);
+            if (document.activeElement === field) return;
+            const value = values[field.dataset.geo];
+            field.value = String(field.dataset.geo === 'angle' ? value : roundTo(value, decimals));
+        });
+        this.geoUnitTargets.forEach((el) => { el.textContent = unit; });
+
+        if (this.hasSizeSliderTarget && document.activeElement !== this.sizeSliderTarget) {
+            const percent = this._percentOf(image, geometry);
+            const { min, max } = this._sliderRange(image, percent);
+            this.sizeSliderTarget.value = String(percentToSlider(percent, min, max));
+            this.sizeSliderTarget.setAttribute('aria-valuetext', formatPercent(percent));
+            if (this.hasSizeValueTarget) this.sizeValueTarget.textContent = formatPercent(percent);
+        }
+        if (this.hasSizeSliderTarget) this.sizeSliderTarget.disabled = locked;
+        this.geometryTarget.querySelectorAll('[data-geo-action]').forEach((button) => { button.disabled = locked; });
+
+        if (this.hasAspectLockTarget) {
+            const lock = this.aspectLockTarget;
+            const label = this._lockAspect ? 'Poměr stran zamčený — klikněte pro volnou změnu' : 'Zamknout poměr stran';
+            lock.classList.toggle('active', this._lockAspect);
+            lock.setAttribute('aria-pressed', String(this._lockAspect));
+            lock.title = label;
+            lock.setAttribute('aria-label', label);
+            lock.disabled = locked;
+        }
+
+        if (this.hasGeoHintTarget) {
+            let hint = '';
+            if (locked) hint = 'Obrázek je zamčený v editoru — pro změnu velikosti a polohy ho odemkněte.';
+            else if (image.imagePlaceholder === true) hint = 'Rozměr rámečku, do kterého klient vloží svůj obrázek. Velikost obrázku v rámečku si klient nastaví při vyplňování.';
+            this.geoHintTarget.textContent = hint;
+            this.geoHintTarget.classList.toggle('d-none', hint === '');
+        }
+    }
+
+    _sliderRange(image, percent) {
+        return {
+            min: sizePercentMin(percent),
+            max: sizePercentMax(this._natural(image), this._design(), percent),
+        };
+    }
+
+    _percentOf(image, geometry) {
+        return sizePercent(boxOf(geometry).width, this._natural(image), this._design());
+    }
+
+    _geometryOf(image) {
+        const center = image.getCenterPoint();
+        return {
+            width: image.width || 1,
+            height: image.height || 1,
+            scaleX: image.scaleX || 1,
+            scaleY: image.scaleY || 1,
+            centerX: center.x,
+            centerY: center.y,
+            angle: image.angle || 0,
+        };
+    }
+
+    _natural(image) {
+        return { width: image.width || 1, height: image.height || 1 };
+    }
+
+    _design() {
+        const canvas = this.canvasEditorOutlet.canvas;
+        return { width: designWidth(canvas), height: designHeight(canvas) };
+    }
+
+    _unit() {
+        const unit = this.hasCanvasEditorOutlet ? this.canvasEditorOutlet.unitValue : 'px';
+        return unit === 'mm' || unit === 'cm' ? unit : 'px';
+    }
+
+    _decimals() {
+        return unitDecimals(this._unit());
+    }
+
+    /** Once the designer uses a size control, the popover stops following
+     *  the image (it would slide out from under the pointer). */
+    _pin() {
+        if (this.hasGeometryTarget) pinPopover(this.geometryTarget.closest('.canvas-floating-popover'));
+    }
+
+    /** The active image, if the size controls may move it right now. */
+    _geometryImage() {
+        const image = this._activeImage();
+        if (!image || image.isBackground === true || image.editorLocked === true) return null;
+        return image;
+    }
+
+    _activeImage() {
+        if (!this.hasCanvasEditorOutlet) return null;
+        const active = this.canvasEditorOutlet.canvas.getActiveObject();
+        return active && (active.type || '').toLowerCase() === 'image' ? active : null;
+    }
+
     _toggleDetails(show) {
         this.detailsTargets.forEach((element) => {
             element.style.display = show ? 'block' : 'none';
@@ -387,4 +714,10 @@ export default class extends Controller {
         if (!activeObject || (activeObject.type || '').toLowerCase() !== 'image') return null;
         return activeObject;
     }
+}
+
+/** Czech keyboards type a decimal comma. */
+function parseNumber(raw) {
+    const value = parseFloat(String(raw ?? '').replace(',', '.').trim());
+    return Number.isFinite(value) ? value : null;
 }

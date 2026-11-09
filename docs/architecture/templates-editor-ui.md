@@ -18,7 +18,7 @@ orchestrator dispatches on Fabric's selection lifecycle:
 | `canvas_navigator_controller` | Photoshop-style mini-map (always visible, fixed bottom-right): live thumbnail blit + visible-area rectangle; click/drag on the map pans the `.canvas-viewport`. The panel is MOVABLE (2026-10-22, "it is in my way"): the grip bar drags it (pointer capture, clamped inside the window), the spot persists per browser in `localStorage` (`wboost.canvasNavigator.position`, as right/bottom offsets so it keeps hugging its corner on resize; storage failures fall back to the corner), and a double-click on the grip resets it. Re-clamped on every `refresh()` because the panel's size follows the canvas aspect. |
 | `canvas_text_toolbar_controller` | Font / size / colour / alignment / decoration / max-length controls for the active textbox (populate + mutate only — visibility is owned by the floating toolbar). |
 | `canvas_input_properties_controller` | Editor-side input metadata (name, description, locked, hidable, uppercase). Persists onto the canvas object as custom properties via `CANVAS_CUSTOM_PROPERTIES`. Exposes `toggleLocked` for the mini-toolbar. |
-| `canvas_image_properties_controller` | Image-placeholder metadata (placeholder flag, name/description, allowMove/Resize/Rotate, hidable, allowedDirectoryIds). Exposes `togglePlaceholder` for the mini-toolbar. |
+| `canvas_image_properties_controller` | Image-placeholder metadata (placeholder flag, name/description, allowMove/Resize/Rotate, hidable, allowedDirectoryIds). Exposes `togglePlaceholder` for the mini-toolbar. Also the popover's **"Velikost a poloha"** section (see below). |
 | `canvas_shape_properties_controller` | Vector-shape styling — fill (solid or gradient), stroke, corner radius, opacity, editor lock. See the dedicated section below. |
 | `canvas_opacity_controller` | Admin-set **opacity** ("Průhlednost", 0–100 %) for texts and images (placeholders included) plus a compact slider in the **multi-select bar** that writes every selected member (shapes too). See "Element opacity" below. |
 | `canvas_alignment_controller` | Multi-object align ops, z-order, delete. `updateButtonStates` is `has*Target`-guarded since its buttons live in the floating chrome. |
@@ -62,6 +62,61 @@ orchestrator dispatches on Fabric's selection lifecycle:
   the compiler emits the key only when < 1 so older designs recompile
   byte-identically, the decompiler reads it back loss-free (only a background's
   opacity is still a `style_dropped` loss).
+
+**Image size & position — "Velikost a poloha" (2026-11-09)**
+
+The admin twin of the fill page's image-adjust panel (`_fill_image_adjust.html.twig`,
+templates-image-placeholders.md "Image adjust"): a section in the IMAGE popover
+(`.ed-geo`, `_editor_stage.html.twig`) driven by `canvas-image-properties`, pure
+math in `canvas_geometry.js` (node-testable; unit helpers re-exported from
+`image_placement.js`).
+
+- **Controls**: the gallery `.sz-ctl` size slider + "NN %", Š / 🔗 / V, X / Y,
+  rotation (°), Vyplnit / Přizpůsobit / Vycentrovat, plus a hint line
+  (placeholder: "rozměr rámečku…", editor-locked: "odemkněte"). Typed fields are
+  `type=text inputmode=decimal` (a Czech decimal comma works); they apply on
+  `change` / Enter (Enter `preventDefault`s — the editor sits in the save
+  form), ↑/↓ step one display unit (Shift ×10), a focused field is never
+  overwritten by a sync.
+- **Numbers = the UNROTATED displayed box** (`width × |scaleX|`, top-left =
+  centre − size/2, trim-relative scene coords) in the variant's unit — px, or
+  mm / cm at 300 DPI (`pxPerUnit`). The unit is the canvas-editor `unit` value
+  (`data-canvas-editor-unit-value`); the group editor switches it per tab via
+  `setDesignSize(w, h, bleed, unit)` from `variantsData[].unit`.
+- **Slider: 100 % = Přizpůsobit = contained in the TRIM** (the fill page's
+  100 % = contained in its frame; in the editor the frame is the canvas).
+  LOGARITHMIC (0…1000 positions) between 1 % and max(400 %, 2× cover), both
+  widened to include the current size — a logo at 5 % and a full-bleed photo
+  at 120 % live on the same canvas. Zoom is about the CENTRE, from the size at
+  drag start (no drift accumulation).
+- **Typed Š / V anchor at the TOP-LEFT** (X / Y stay true, Figma convention);
+  the 🔗 aspect lock is ON for every newly selected image and keeps the box's
+  CURRENT ratio (a stretched image stays stretched); off = one axis only.
+  Rotation is about the centre and normalised to (-180, 180].
+- **Vyplnit** covers the BLEED box (a full-bleed picture must reach the cut),
+  **Přizpůsobit** contains in the trim — both centre and restore proportions;
+  **Vycentrovat** centres on the trim. Rotation is kept.
+- **Writes only native Fabric geometry** (`scaleX/scaleY/angle` +
+  `setPositionByOrigin` centre) — the same thing the handles write, so no
+  canvas-JSON key, no MCP DSL mirror, group sync / containers / layers see an
+  ordinary resize.
+- **Undo contract**: slider `input` only repaints (+ `canvas-image-properties:geometry-live`
+  → `canvas-floating-toolbar#reposition` so the mini-toolbar follows) and calls
+  NO `markUnsaved` — the group editor turns every `dirty` into a debounced
+  history push, so a slow drag would land several undo points. Slider
+  `change`, each typed value / arrow step and each button = `markUnsaved` +
+  ONE synthetic `object:modified`. Verified: single editor undo restores the
+  exact pre-drag box; the group editor's undo too (note: group undo restores
+  the snapshot's `activeVariantId`, so after a tab switch it can jump back to
+  the tab the previous snapshot was taken on — pre-existing).
+- **Popover placement**: the image popover now sits BESIDE the element like the
+  text / shape ones (it used to drop down from the toolbar), and the first use
+  of a size control PINS it (`pinPopover`, popover_drag.js) — re-anchoring on
+  every slider tick would pull the slider out from under the pointer.
+- **Excluded**: the background layer (`isBackground` — automatic bleed cover,
+  `recoverForBleed` relies on it) hides the section; an `editorLocked` image
+  shows it disabled. Text and shapes have no exact-geometry fields (a textbox
+  resizes by width + reflow, a different contract).
 
 **Vector shapes ("Přidat tvar", 2026-08-11)**
 
