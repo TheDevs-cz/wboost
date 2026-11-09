@@ -331,6 +331,22 @@ export function sanitizedGuides(canvas) {
 }
 
 /**
+ * A container's `repeat` ({max, min?, default?}) canonicalised — the twin of
+ * PHP ContainerRepeat::fromArray: integers with 1 ≤ min ≤ default ≤ max ≤ 30
+ * (min defaults to 1, default to min); anything else is null (not
+ * repeatable).
+ */
+export function normalizeRepeat(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    const max = raw.max;
+    const min = raw.min === undefined ? 1 : raw.min;
+    const def = raw.default === undefined ? min : raw.default;
+    if (![max, min, def].every((value) => Number.isInteger(value))) return null;
+    if (min < 1 || max > 30 || min > def || def > max) return null;
+    return { max, min, default: def };
+}
+
+/**
  * Canonicalise an object's / container entry's `userMove` in place (the
  * shared WBoostElementMove.normalize, ≡ PHP ElementMoveAllowance::fromArray):
  * an allowance that allows nothing is removed.
@@ -405,6 +421,12 @@ export function sanitizedContainers(canvas, objects) {
                 entry.userMove = container.userMove;
                 normalizeUserMove(entry);
             }
+            // "Opakovatelný řádek" (container-rows P2) — ≡ PHP
+            // ContainerRepeat::fromArray; emitted only when valid.
+            const repeat = normalizeRepeat(container.repeat);
+            if (repeat) {
+                entry.repeat = repeat;
+            }
             return entry;
         })
         .filter((container) => container.id && container.maxHeight > 0);
@@ -437,11 +459,51 @@ export function sanitizedContainers(canvas, objects) {
         );
     });
 
-    // Degenerate drop to fixpoint: a container needs 2+ members in total, and
-    // dropping one can invalidate a parent that counted it.
+    // Repeat rules (≡ PHP CanvasContainer::collectionFromCanvas): only a
+    // NESTED container, one per parent (first in the parent's order), never
+    // inside another repeatable tree — otherwise `repeat` is dropped.
+    const parentOf = new Map();
+    result.forEach((container) => container.memberContainerIds.forEach((childId) => parentOf.set(childId, container.id)));
+    const repeatById = new Map(result.map((c) => [c.id, c]));
+    const claimedParents = new Set();
+    result.forEach((container) => {
+        container.memberContainerIds.forEach((childId) => {
+            const child = repeatById.get(childId);
+            if (!child || !child.repeat) return;
+            let ancestor = container.id;
+            let insideRepeat = false;
+            const seen = new Set();
+            while (ancestor && !seen.has(ancestor)) {
+                seen.add(ancestor);
+                if (repeatById.get(ancestor) && repeatById.get(ancestor).repeat) {
+                    insideRepeat = true;
+                    break;
+                }
+                ancestor = parentOf.get(ancestor);
+            }
+            if (claimedParents.has(container.id) || insideRepeat) {
+                delete child.repeat;
+                return;
+            }
+            claimedParents.add(container.id);
+            child._repeatValid = true;
+        });
+    });
+    result.forEach((container) => {
+        if (container.repeat && !container._repeatValid) delete container.repeat;
+        delete container._repeatValid;
+    });
+
+    // Degenerate drop to fixpoint: a container needs 2+ members in total (a
+    // repeatable row 1+ — the single-text rows), and dropping one can
+    // invalidate a parent that counted it.
     for (;;) {
         const valid = new Set(result
-            .filter((c) => c.memberInputIds.length + c.memberContainerIds.length >= 2)
+            .filter((c) => c.memberInputIds.length + c.memberContainerIds.length >= (
+                // A repeatable row may be one text; a parent may hold only
+                // its repeatable row (≡ PHP CanvasContainer).
+                c.repeat || c.memberContainerIds.some((id) => repeatById.get(id) && repeatById.get(id).repeat) ? 1 : 2
+            ))
             .map((c) => c.id));
         if (valid.size === result.length) {
             break;

@@ -22,6 +22,7 @@ use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Services\Image\FileUploadPixelSizeBackfill;
 use WBoost\Web\Services\Image\GalleryImageCaption;
 use WBoost\Web\Services\ReleaseSessionLock;
+use WBoost\Web\Services\Template\RepeatableRows;
 use WBoost\Web\Services\SocialNetwork\CanvasPlaceholderGeometry;
 use WBoost\Web\Services\SocialNetwork\FillContainerHides;
 use WBoost\Web\Services\SocialNetwork\FillContainerSheets;
@@ -127,6 +128,20 @@ abstract class AbstractVariantFiller extends AbstractController
     public array $hiddenValues = [];
 
     /**
+     * Repeatable rows (container-rows P2): row container id → how many of
+     * its rows the fill shows. Seeded with the designer's default for every
+     * repeatable row of the variant (empty for every other design — so its
+     * state hash and markup are unchanged) and normalised (clamped to the
+     * row's `[min, max]`, unknown ids dropped) after every hydration. Bound
+     * through the `data-row-count-mirror` fields; the row values themselves
+     * live in the existing maps under the rows' derived ids.
+     *
+     * @var array<string, int>
+     */
+    #[LiveProp(writable: true)]
+    public array $rowCounts = [];
+
+    /**
      * Image-slot seed from a loaded export version (`?version=` on the fill
      * page): inputId UUID → `{imageId, url, scale?, offsetX?, offsetY?,
      * rotation?}` or `{hide: true}`, produced (and already validated) by
@@ -221,13 +236,42 @@ abstract class AbstractVariantFiller extends AbstractController
      */
     abstract public function uploadPath(string $inputId): string;
 
+    /**
+     * The hydrated variant EXPANDED to its repeatable rows' `max` slots
+     * ({@see RepeatableRows::expand()}) — every view method, resolver and
+     * render of the fill page works on it. It is a CLONE (never persisted:
+     * the page may flush mid-request, see FileUploadPixelSizeBackfill) and
+     * the very same instance for every design without repeatable rows.
+     */
     protected function variantEntity(): TemplateVariant
     {
         $variant = $this->nullableVariant();
         assert($variant !== null);
 
-        return $variant;
+        if ($this->expandedVariant === null || $this->expandedVariant[0] !== $variant) {
+            $this->expandedVariant = [$variant, RepeatableRows::expand($variant)];
+        }
+
+        return $this->expandedVariant[1];
     }
+
+    /**
+     * The text inputs the page fills — the EXPANDED variant's, so every
+     * materialised row has its own mirror (the template's mirror loop).
+     *
+     * @return list<\WBoost\Web\Value\EditorTextInput>
+     */
+    public function fillInputs(): array
+    {
+        return array_values($this->variantEntity()->inputs);
+    }
+
+    /**
+     * Per-request memo: [the hydrated original, its expansion].
+     *
+     * @var null|array{TemplateVariant, TemplateVariant}
+     */
+    private null|array $expandedVariant = null;
 
     /**
      * Pre-populate `textValues` / `hiddenValues` with an entry per non-locked
@@ -244,6 +288,10 @@ abstract class AbstractVariantFiller extends AbstractController
         }
 
         $this->denyAccessUnlessGranted($this->viewAttribute(), $variant);
+
+        // Every derived row input gets its own seeded value — the template
+        // row's sample text (Jan, 2026-11-09).
+        $variant = $this->variantEntity();
 
         foreach ($variant->inputs as $input) {
             if ($input->locked) {
@@ -281,6 +329,20 @@ abstract class AbstractVariantFiller extends AbstractController
         foreach ($this->flowingSlotHideIds() as $inputId) {
             $this->hiddenValues[$inputId] ??= (($this->seedImageValues[$inputId]['hide'] ?? false) === true);
         }
+
+        $this->normalizeRowCounts();
+    }
+
+    /**
+     * `rowCounts` back to one clamped int per repeatable row (a writable
+     * LiveProp receives the client's raw strings); a row the client did not
+     * send shows its default.
+     */
+    #[PostHydrate]
+    public function normalizeRowCounts(): void
+    {
+        $variant = $this->nullableVariant();
+        $this->rowCounts = $variant === null ? [] : RepeatableRows::normalizeCounts([$variant], $this->rowCounts);
     }
 
     /**
@@ -818,7 +880,7 @@ abstract class AbstractVariantFiller extends AbstractController
      *     height: int,
      *     canvasHeight: int,
      *     objects: list<array{inputId: string, object: array<array-key, mixed>}>,
-     *     containers: list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap: null|float, spaceAfter: null|float, hidable?: true, name?: string}>,
+     *     containers: list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap: null|float, spaceAfter: null|float, hidable?: true, name?: string, repeat?: array{max: int, min: int, default: int}, repeatSlots?: list<string>, repeatSlotOf?: string}>,
      *     containerHides: array<string, list<string>>,
      *     inputs: array<string, array{richText: bool, lists: bool, maxLength: null|int, uppercase: bool}>
      * }
@@ -922,6 +984,15 @@ abstract class AbstractVariantFiller extends AbstractController
             $parts[] = 'S:' . $inputId . '=' . $color;
         }
 
+        // Repeatable rows: only present for a design that has them, so
+        // every other fill state hashes exactly as before. (M2's `O:`
+        // offset lines follow this group: the agreed order is T H F S R O.)
+        $rowCounts = $this->rowCounts;
+        ksort($rowCounts);
+        foreach ($rowCounts as $rowId => $count) {
+            $parts[] = 'R:' . $rowId . '=' . $count;
+        }
+
         $canonical = implode("\n", $parts);
 
         $hash = 5381;
@@ -955,7 +1026,8 @@ abstract class AbstractVariantFiller extends AbstractController
             $this->buildProvidedValues(),
             truncateOverflow: true,
             richTextOptions: $this->fontOptions(),
-        )->withShapeColors($this->resolveShapeColorOverrides->forVariant($variant, $this->shapeColorValues, lenient: true));
+        )->withShapeColors($this->resolveShapeColorOverrides->forVariant($variant, $this->shapeColorValues, lenient: true))
+            ->withRowCounts($this->rowCounts);
         // Background-less slices are the transparent overlay layers: flat, tiny,
         // and PNG measured FASTER for exactly that shape (0.147s vs 0.220s for
         // WebP, saving only ~7KB). Everything that paints a background is the

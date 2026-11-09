@@ -29,6 +29,7 @@ use WBoost\Web\Services\Meta\PublishToFacebookPage;
 use WBoost\Web\Services\Meta\PublishToInstagram;
 use WBoost\Web\Services\Security\TemplateVariantVoter;
 use WBoost\Web\Services\SocialNetwork\FillFormRequestParser;
+use WBoost\Web\Services\Template\RepeatableRows;
 use WBoost\Web\Services\SocialNetwork\ResolveImageOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Services\SocialNetwork\ResolveShapeColorOverrides;
@@ -164,7 +165,7 @@ final class TemplateVariantPublishController extends AbstractController
             $request->request->all('images'),
             $request->request->all('fontValues'),
             $request->request->all('shapeColorValues'),
-        ), $request->request->getString('draftVersionId'));
+        )->withRows($this->fillFormParser->parseRowCounts($request, $variant)), $request->request->getString('draftVersionId'));
 
         return new JsonResponse(['ok' => true, 'platform' => $platform, 'postId' => $postId]);
     }
@@ -176,12 +177,18 @@ final class TemplateVariantPublishController extends AbstractController
      */
     private function renderVariant(TemplateVariant $variant, Request $request): string
     {
+        // Resolve + render the EXPANDED clone (repeatable rows); `$variant`
+        // itself stays the managed entity the caller records against.
+        $rowCounts = $this->fillFormParser->parseRowCounts($request, $variant);
+        $variant = RepeatableRows::expand($variant);
+
         $overrides = $this->resolveTextOverrides->resolve(
             $variant->inputs,
             $this->fillFormParser->parseTextValues($request),
             truncateOverflow: true,
             richTextOptions: $this->resolveRichTextOptions->forVariant($variant),
-        )->withShapeColors($this->resolveShapeColorOverrides->forVariant($variant, $request->request->all('shapeColorValues'), lenient: true));
+        )->withShapeColors($this->resolveShapeColorOverrides->forVariant($variant, $request->request->all('shapeColorValues'), lenient: true))
+            ->withRowCounts($rowCounts);
 
         $imageOverrides = $this->resolveImageOverrides->resolve(
             $variant->imageInputs,

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Controller\TemplateGroup;
 
+use WBoost\Web\Services\Template\RepeatableRows;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -54,6 +55,10 @@ final class TemplateGroupFillPreviewController extends AbstractController
             throw $this->createNotFoundException('Variant does not belong to this group.');
         }
 
+        // Repeatable rows: the echo eligibility and the render see the
+        // EXPANDED member (a clone — nothing here writes).
+        $variant = RepeatableRows::expand($variant);
+
         // The debounced client fires one of these POSTs PER DIMENSION in
         // parallel; each is done with the session once the voter has run.
         $this->releaseSessionLock->release($request);
@@ -76,6 +81,7 @@ final class TemplateGroupFillPreviewController extends AbstractController
             transparentTextInputIds: $transparentTextInputIds,
             rawFontValues: $request->request->all('fontValues'),
             rawShapeColors: $request->request->all('shapeColorValues'),
+            rawRowCounts: $request->request->all('rowCounts'),
         );
 
         return new Response($bytes, Response::HTTP_OK, [

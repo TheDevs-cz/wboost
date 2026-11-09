@@ -239,6 +239,38 @@ final class ContainerFixtures
     }
 
     /**
+     * {@see variantWithoutContainer()} for several containers at once.
+     *
+     * @param list<string> $containerIds
+     */
+    public static function variantWithoutContainers(string $name, Template $template, array $containerIds): TemplateVariant
+    {
+        $memberIds = [];
+        /** @var list<array<string, mixed>> $containers */
+        $containers = self::raw($name)['canvas']['containers'];
+        foreach ($containers as $container) {
+            if (in_array($container['id'], $containerIds, true)) {
+                /** @var list<string> $members */
+                $members = $container['memberInputIds'];
+                array_push($memberIds, ...$members);
+            }
+        }
+
+        return self::variant(
+            $name,
+            $template,
+            static function (array $canvas) use ($containerIds): array {
+                foreach ($containerIds as $containerId) {
+                    $canvas = self::withoutContainer($canvas, $containerId);
+                }
+
+                return $canvas;
+            },
+            $memberIds,
+        );
+    }
+
+    /**
      * @param array<string, mixed> $canvas
      * @return array<string, mixed>
      */
@@ -270,5 +302,167 @@ final class ContainerFixtures
         ));
 
         return $canvas;
+    }
+
+    // --- Repeatable rows (container-rows plan P2) ---------------------------
+
+    public const string TURNAJ_ROW_1 = '7a221de8-68c3-430b-a3be-92f3fb7dac7f';
+    public const string VYSLEDEK_D_ROW = 'vysledek-d-row';
+    public const string VYSLEDEK_H_ROW = 'vysledek-h-row';
+    public const string VYSLEDEK_H_STRELEC_1 = '12cb5a4d-5258-407a-bbbd-abe7998df9f5';
+
+    /**
+     * "Výsledky turnaje" as the designer would build it WITH repeatable rows:
+     * only row 1 ("Skóre 1" + "Soupeř 1") is designed, marked `repeat` —
+     * rows 2–5 (definitions, objects, inputs) are gone.
+     *
+     * @return array{canvas: array<string, mixed>, inputs: list<array<string, mixed>>, imageInputs: list<array<string, mixed>>}
+     */
+    public static function turnajRepeatableRaw(int $max = 5, int $default = 1, int $min = 1): array
+    {
+        $data = self::raw(self::TURNAJ);
+        $canvas = $data['canvas'];
+        /** @var list<array<string, mixed>> $containers */
+        $containers = $canvas['containers'];
+
+        $dropContainers = [];
+        foreach ($containers as $container) {
+            if ($container['id'] === self::TURNAJ_ROOT) {
+                /** @var list<string> $children */
+                $children = $container['memberContainerIds'];
+                $dropContainers = array_values(array_diff($children, [self::TURNAJ_ROW_1]));
+            }
+        }
+
+        $dropMembers = [];
+        $kept = [];
+        foreach ($containers as $container) {
+            if (in_array($container['id'], $dropContainers, true)) {
+                /** @var list<string> $members */
+                $members = $container['memberInputIds'];
+                array_push($dropMembers, ...$members);
+                continue;
+            }
+            if ($container['id'] === self::TURNAJ_ROOT) {
+                $container['memberContainerIds'] = [self::TURNAJ_ROW_1];
+            }
+            if ($container['id'] === self::TURNAJ_ROW_1) {
+                $container['repeat'] = ['max' => $max, 'min' => $min, 'default' => $default];
+            }
+            $kept[] = $container;
+        }
+        $canvas['containers'] = $kept;
+
+        return self::withoutMembers($data, $canvas, $dropMembers);
+    }
+
+    /**
+     * "Výsledek" (1350) with repeatable SINGLE-TEXT rows: each column root
+     * holds one nested row of its first scorer ("Střelec 1"), marked
+     * `repeat`; scorers 2–4 are gone.
+     *
+     * @return array{canvas: array<string, mixed>, inputs: list<array<string, mixed>>, imageInputs: list<array<string, mixed>>}
+     */
+    public static function vysledekRepeatableRaw(int $max = 4, int $default = 1): array
+    {
+        $data = self::raw(self::VYSLEDEK);
+        $canvas = $data['canvas'];
+        /** @var list<array<string, mixed>> $containers */
+        $containers = $canvas['containers'];
+
+        $dropMembers = [];
+        $kept = [];
+        foreach ($containers as $container) {
+            /** @var list<string> $members */
+            $members = $container['memberInputIds'];
+            $rowId = match ($container['id']) {
+                self::VYSLEDEK_DOMACI => self::VYSLEDEK_D_ROW,
+                self::VYSLEDEK_HOSTE => self::VYSLEDEK_H_ROW,
+                default => null,
+            };
+            if ($rowId === null) {
+                $kept[] = $container;
+                continue;
+            }
+            array_push($dropMembers, ...array_slice($members, 1));
+            $kept[] = ['memberInputIds' => [], 'memberContainerIds' => [$rowId]] + $container;
+            $kept[] = [
+                'id' => $rowId,
+                'maxHeight' => 40,
+                'memberInputIds' => [$members[0]],
+                'memberContainerIds' => [],
+                'repeat' => ['max' => $max, 'min' => 1, 'default' => $default],
+            ];
+        }
+        $canvas['containers'] = $kept;
+
+        return self::withoutMembers($data, $canvas, $dropMembers);
+    }
+
+    /**
+     * A NEVER persisted variant over one of the `*RepeatableRaw()` designs.
+     *
+     * @param array{canvas: array<string, mixed>, inputs: list<array<string, mixed>>, imageInputs: list<array<string, mixed>>} $raw
+     */
+    public static function variantFromRaw(array $raw, Template $template, int $width = 1080, int $height = 1350): TemplateVariant
+    {
+        $variant = new TemplateVariant(
+            Uuid::uuid7(),
+            $template,
+            new TemplateDimension(DimensionUnit::Px, $width, $height),
+            null,
+            new \DateTimeImmutable('2026-11-09 12:00:00'),
+        );
+        self::applyRaw($variant, $raw);
+
+        return $variant;
+    }
+
+    /**
+     * Write one of the `*RepeatableRaw()` designs onto a variant (a managed
+     * fixture variant in DB-backed tests — DAMA rolls it back).
+     *
+     * @param array{canvas: array<string, mixed>, inputs: list<array<string, mixed>>, imageInputs: list<array<string, mixed>>} $raw
+     */
+    public static function applyRaw(TemplateVariant $variant, array $raw): void
+    {
+        $variant->editCanvas(
+            json_encode($raw['canvas'], JSON_THROW_ON_ERROR),
+            array_map(
+                // @phpstan-ignore argument.type (fixture rows are EditorTextInput::toArray() shapes)
+                static fn (array $row): EditorTextInput => EditorTextInput::fromArray($row),
+                $raw['inputs'],
+            ),
+            null,
+            array_map(
+                static fn (array $row): EditorImageInput => EditorImageInput::fromArray($row),
+                $raw['imageInputs'],
+            ),
+        );
+    }
+
+    /**
+     * @param array{source: string, width: int, height: int, canvas: array<string, mixed>, inputs: list<array<string, mixed>>, imageInputs: list<array<string, mixed>>} $data
+     * @param array<string, mixed> $canvas
+     * @param list<string> $dropMembers
+     * @return array{canvas: array<string, mixed>, inputs: list<array<string, mixed>>, imageInputs: list<array<string, mixed>>}
+     */
+    private static function withoutMembers(array $data, array $canvas, array $dropMembers): array
+    {
+        /** @var list<array<string, mixed>> $objects */
+        $objects = $canvas['objects'];
+        $canvas['objects'] = array_values(array_filter(
+            $objects,
+            static fn (array $object): bool => !in_array($object['inputId'] ?? null, $dropMembers, true),
+        ));
+
+        return [
+            'canvas' => $canvas,
+            'inputs' => array_values(array_filter(
+                $data['inputs'],
+                static fn (array $row): bool => !in_array($row['inputId'] ?? null, $dropMembers, true),
+            )),
+            'imageInputs' => $data['imageInputs'],
+        ];
     }
 }

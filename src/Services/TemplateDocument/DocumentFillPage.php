@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Services\TemplateDocument;
 
+use WBoost\Web\Services\Template\RepeatableRows;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use WBoost\Web\Entity\TemplateDocument;
 use WBoost\Web\Entity\TemplateDocumentField;
@@ -69,6 +70,7 @@ readonly final class DocumentFillPage
      *     shape_placeholders: list<array<string, mixed>>,
      *     container_hides: list<array{id: string, name: string, hidden: bool, memberCount: int}>,
      *     container_sheets: list<array<string, mixed>>,
+     *     row_counts: array<string, int>,
      *     image_inputs: list<array<string, mixed>>,
      *     sections: list<array{title: string, shared: bool, fields: list<array<string, mixed>>}>,
      *     rich_toolbar: null|array<string, mixed>,
@@ -81,11 +83,11 @@ readonly final class DocumentFillPage
      * popovers + shapes from a loaded version; pictures + placements are
      * replayed client-side from the template's seed value.
      *
-     * @param null|array{texts: array<string, string>, hidden: array<string, bool>, fonts: array<string, string>, shapeColors: array<string, string>, images: array<string, array{imageId: string, url: string}>, imageHidden: array<string, bool>, placements: array<string, array<string, array<string, float>>>} $seed
+     * @param null|array{texts: array<string, string>, hidden: array<string, bool>, fonts: array<string, string>, shapeColors: array<string, string>, images: array<string, array{imageId: string, url: string}>, imageHidden: array<string, bool>, placements: array<string, array<string, array<string, float>>>, rowCounts?: array<string, int>} $seed
      */
     public function build(TemplateDocument $document, null|array $seed = null): array
     {
-        $seed ??= ['texts' => [], 'hidden' => [], 'fonts' => [], 'shapeColors' => [], 'images' => [], 'imageHidden' => [], 'placements' => []];
+        $seed ??= ['texts' => [], 'hidden' => [], 'fonts' => [], 'shapeColors' => [], 'images' => [], 'imageHidden' => [], 'placements' => [], 'rowCounts' => []];
 
         $keys = DocumentFillKeys::forDocument($document);
         $projectId = $document->project->id;
@@ -116,6 +118,8 @@ readonly final class DocumentFillPage
         $containerRows = [];
         /** @var array<string, array<string, mixed>> $containerSheets fill key → one-pencil container sheet */
         $containerSheets = [];
+        /** @var array<string, int> $rowCounts repeatable row fill key → count (per page, never shared) */
+        $rowCounts = [];
 
         foreach ($document->pages() as $index => $page) {
             $templateId = $page->template->id->toString();
@@ -172,6 +176,13 @@ readonly final class DocumentFillPage
             $pageSheets = $this->containerSheets->forVariants([$clone], $seed['hidden']);
             foreach ($pageSheets as $sheet) {
                 $containerSheets[$sheet['id']] ??= $sheet;
+            }
+
+            // Repeatable rows: one count per page per row, in fill-key space
+            // (the clone's row ids are re-keyed; the seed is too).
+            foreach (RepeatableRows::normalizeCounts([$clone], $seed['rowCounts'] ?? []) as $rowKey => $count) {
+                $rowCounts[$rowKey] = $count;
+                $pageKeys[] = $rowKey;
             }
 
             $layout = $this->placeholders->layoutData($clone);
@@ -314,6 +325,7 @@ readonly final class DocumentFillPage
             'shape_placeholders' => array_values($shapes),
             'container_hides' => array_values($containerRows),
             'container_sheets' => array_values($containerSheets),
+            'row_counts' => $rowCounts,
             'image_inputs' => array_values($imageSlots),
             'sections' => $this->sections($document, $fieldsById, $sectionSources, $texts, $imageSlots, $shapes, $containerRows),
             'rich_toolbar' => $this->placeholders->richTextToolbar($clones),

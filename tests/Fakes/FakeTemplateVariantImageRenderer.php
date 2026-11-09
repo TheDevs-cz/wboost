@@ -38,7 +38,7 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
     /** @var array<int, array{variantId: string, canvas: string, inputIds: list<string>, imageInputIds: list<string>, backgroundImage: null|string, slice: null|array{int, null|int, bool}, texts: array<string, string>, transparentTextInputIds: list<string>, richTexts: array<string, list<array{text: string, fontFamily: null|string, color: null|string, underline: bool}>>, fonts: array<string, string>, shapeColors: array<string, string>, hidden: array<string, bool>, images: array<string, array{scale: float, offsetX: float, offsetY: float, offsetXRatio: null|float, offsetYRatio: null|float, rotation: float, naturalWidth: int, naturalHeight: int}>, imagesHidden: list<string>, mode: string, strictContainerOverflow: bool, format: string, printLayer: null|array{bleedPx: int, suppressIndexes: list<int>, onlyIndexes: null|list<int>, whitenIndexes: list<int>}}> */
     public array $calls = [];
 
-    /** @var list<array{hiddenContainerIds: list<string>, effectiveHidden: array<string, bool>}> */
+    /** @var list<array{hiddenContainerIds: list<string>, rowCounts: array<string, int>, effectiveHidden: array<string, bool>}> */
     public array $hideCalls = [];
 
     /**
@@ -102,6 +102,11 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
             throw $this->throwOnRender;
         }
 
+        // The real renderer's belt (repeatable rows): it renders the EXPANDED
+        // variant whatever it is handed — so does the fake, and the recorded
+        // hides are the ones that would actually apply.
+        $variant = \WBoost\Web\Services\Template\RepeatableRows::expand($variant);
+
         if ($this->throwContainerOverflow !== null && $strictContainerOverflow) {
             throw $this->throwContainerOverflow;
         }
@@ -133,6 +138,7 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
         $decodedCanvas = json_decode($variant->canvas, true);
         $this->hideCalls[] = [
             'hiddenContainerIds' => $overrides->hiddenContainerIds,
+            'rowCounts' => $overrides->rowCounts,
             'effectiveHidden' => $overrides->effectiveHidden(
                 is_array($decodedCanvas) ? \WBoost\Web\Value\CanvasContainer::collectionFromCanvas($decodedCanvas) : [],
             ),

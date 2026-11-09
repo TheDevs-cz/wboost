@@ -71,6 +71,13 @@ version.
   is not kept. The seeder re-validates picks leniently through
   `ResolveShapeColorOverrides` (`shapeColorValues` for the single page,
   `shapeColors` for the group page, first member carrying the shape wins).
+- **Repeatable rows (2026-11-09)**: `ExportFillValues::$rows` (row container
+  id → count, the `rowCounts[…]` fields) follows the same emit-only-when-set
+  rule — every stored row-less fill keeps its hash. The rows' values are
+  ordinary `texts` / `hidden` / `fonts` / `images` / `shapeColors` entries
+  under the rows' DERIVED ids; the seeder expands the variant to find them
+  and clamps the count to the row's current `[min, max]` (default when the
+  version has none). See templates-containers.md "Repeatable rows".
 - **Re-loading** (`?version=<id>` on both fill pages; invalid/foreign/pruned
   ids silently ignored): `Services/Template/ExportVersionSeeder` is LENIENT
   where the render resolvers 400 — deleted inputs drop, a rich envelope on a

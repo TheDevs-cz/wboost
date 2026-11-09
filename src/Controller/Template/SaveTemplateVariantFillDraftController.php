@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Controller\Template;
 
+use WBoost\Web\Services\Template\RepeatableRows;
 use Ramsey\Uuid\Uuid;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -68,7 +69,7 @@ final class SaveTemplateVariantFillDraftController extends AbstractController
                 $request->request->all('images'),
                 $request->request->all('fontValues'),
                 $request->request->all('shapeColorValues'),
-            ),
+            )->withRows(RepeatableRows::normalizeCounts([$variant], $request->request->all('rowCounts'))),
         ));
 
         $response = $this->turboStream->draftSaved($this->versionRepository->get($versionId));

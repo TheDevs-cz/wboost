@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Controller\TemplateGroup;
 
+use WBoost\Web\Services\Template\RepeatableRows;
 use Ramsey\Uuid\Uuid;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -54,7 +55,10 @@ final class TemplateGroupFillController extends AbstractController
         TemplateGroup $group,
         Request $request,
     ): Response {
-        $memberVariants = $this->members->variants($group->id);
+        // Repeatable rows: the whole page (boxes, popovers, mirrors, echo,
+        // seed) works on the EXPANDED members — clones; this page writes
+        // nothing.
+        $memberVariants = array_map(RepeatableRows::expand(...), $this->members->variants($group->id));
 
         $variants = [];
 
@@ -112,7 +116,7 @@ final class TemplateGroupFillController extends AbstractController
                 array_map(static fn (array $slot) => $slot['input'], $imageInputs),
                 $memberVariants,
             )
-            : ['texts' => [], 'hidden' => [], 'fonts' => [], 'shapeColors' => [], 'images' => [], 'imageHidden' => [], 'placements' => []];
+            : ['texts' => [], 'hidden' => [], 'fonts' => [], 'shapeColors' => [], 'images' => [], 'imageHidden' => [], 'placements' => [], 'rowCounts' => RepeatableRows::defaultCounts($memberVariants)];
 
         // One pencil per container: each dimension's own boxes (membership
         // and frames are per dimension), one sheet per container id.
@@ -144,6 +148,9 @@ final class TemplateGroupFillController extends AbstractController
             // toggle + one `hiddenValues[<containerId>]` checkbox each.
             'container_hides' => $this->containerHides->placeholders($memberVariants, $seed['hidden']),
             'container_sheets' => $this->containerSheets->forVariants($memberVariants, $seed['hidden']),
+            // Repeatable rows: ONE shared count per row for every dimension
+            // (Jan, 2026-11-09) — `rowCounts[<rowId>]` fields.
+            'row_counts' => $seed['rowCounts'],
             'export_history' => $this->getExportVersions->forGroup($group->id),
             'loaded_version' => $loadedVersion,
             'seed' => $seed,

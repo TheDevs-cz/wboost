@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Controller\TemplateDocument;
 
+use WBoost\Web\Services\Template\RepeatableRows;
 use Ramsey\Uuid\Uuid;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -69,12 +70,13 @@ final class TemplateDocumentFillPreviewController extends AbstractController
             'images' => $request->request->all('images'),
             'shapeColorValues' => $request->request->all('shapeColorValues'),
             'imagePlacements' => $request->request->all('imagePlacements'),
+            'rowCounts' => $request->request->all('rowCounts'),
         ]);
 
         // ?base=1 — the echo BASE: this page's echo-capable texts transparent
         // (real inputIds: the base renders the real variant).
         $transparentTextInputIds = $request->query->getBoolean('base')
-            ? $this->placeholders->echoCapableIds($page->variant)
+            ? $this->placeholders->echoCapableIds(RepeatableRows::expand($page->variant))
             : [];
 
         $bytes = $this->groupFillRenderer->render(
@@ -87,6 +89,7 @@ final class TemplateDocumentFillPreviewController extends AbstractController
             transparentTextInputIds: $transparentTextInputIds,
             rawFontValues: $values['fontValues'],
             rawShapeColors: $values['shapeColorValues'],
+            rawRowCounts: $values['rowCounts'],
         );
 
         return new Response($bytes, Response::HTTP_OK, [

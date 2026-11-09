@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Controller\Template;
 
+use WBoost\Web\Services\Template\RepeatableRows;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -104,16 +105,22 @@ final class TemplateVariantDownloadController extends AbstractController
         // session.
         $this->releaseSessionLock->release($request);
 
+        // Repeatable rows: resolve + render the EXPANDED clone; `$variant`
+        // stays the managed entity every record below is written against.
+        $rowCounts = RepeatableRows::normalizeCounts([$variant], $request->request->all('rowCounts'));
+        $expanded = RepeatableRows::expand($variant);
+
         try {
             $overrides = $this->resolveTextOverrides->resolve(
-                $variant->inputs,
+                $expanded->inputs,
                 $providedValues,
                 truncateOverflow: true,
-                richTextOptions: $this->resolveRichTextOptions->forVariant($variant),
-            )->withShapeColors($this->resolveShapeColorOverrides->forVariant($variant, $request->request->all('shapeColorValues'), lenient: true));
+                richTextOptions: $this->resolveRichTextOptions->forVariant($expanded),
+            )->withShapeColors($this->resolveShapeColorOverrides->forVariant($expanded, $request->request->all('shapeColorValues'), lenient: true))
+                ->withRowCounts($rowCounts);
             $imageOverrides = $this->resolveImageOverrides->resolve(
-                $variant->imageInputs,
-                $variant->template->project->id,
+                $expanded->imageInputs,
+                $expanded->template->project->id,
                 $this->parseImageValues($request),
             );
         } catch (BadRequestHttpException $e) {
@@ -124,9 +131,9 @@ final class TemplateVariantDownloadController extends AbstractController
 
         try {
             $response = match ($format) {
-                ExportFormat::Png => $this->renderer->render($variant, $overrides, $imageOverrides),
+                ExportFormat::Png => $this->renderer->render($expanded, $overrides, $imageOverrides),
                 ExportFormat::Pdf => new Response($this->printPdfRenderer->render(
-                    $variant,
+                    $expanded,
                     $overrides,
                     $imageOverrides,
                     sprintf('%s – %s', $variant->template->name, $variant->dimension->label()),
@@ -148,7 +155,7 @@ final class TemplateVariantDownloadController extends AbstractController
             $request->request->all('images'),
             $request->request->all('fontValues'),
             $request->request->all('shapeColorValues'),
-        );
+        )->withRows($rowCounts);
 
         $this->recordExportUsage->record($variant, ExportChannel::Web, $format);
         $this->recordExportVersion->recordVariant($variant, ExportChannel::Web, $fill, $request->request->getString('draftVersionId'));

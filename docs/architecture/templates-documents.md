@@ -288,3 +288,10 @@ clone's container `id` + `memberContainerIds` (uuid5 like any input), so the
 page's `hiddenValues[<key>]` toggle translates back to the real container id
 in `valuesForPage()`; the API takes `pages[].inputs[<containerId>] =
 {hide: true}`. Never a shared field (see templates-containers.md).
+
+**Repeatable rows (2026-11-09)** are per page too: `DocumentPageView::rekeyed`
+EXPANDS the page first (so every materialised row's derived ids get fill
+keys) and re-keys `repeatSlots` / `repeatSlotOf`; `pageInputIds()` lists the
+repeatable row container ids (their `rowCounts[<key>]` count) and
+`valuesForPage()` translates `rowCounts`. A row's members are never bindable
+to a shared field (`TemplateDocumentRules::isBindable`).

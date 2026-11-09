@@ -53,6 +53,7 @@ readonly final class ExportVersionSeeder
      *     fontValues: array<string, string>,
      *     shapeColorValues: array<string, string>,
      *     imageValues: array<string, array<string, mixed>>,
+     *     rowCounts: array<string, int>,
      * }
      */
     public function forVariant(TemplateExportVersion $version, TemplateVariant $variant): array
@@ -70,10 +71,15 @@ readonly final class ExportVersionSeeder
      *     fontValues: array<string, string>,
      *     shapeColorValues: array<string, string>,
      *     imageValues: array<string, array<string, mixed>>,
+     *     rowCounts: array<string, int>,
      * }
      */
     public function forVariantValues(ExportFillValues $values, TemplateVariant $variant): array
     {
+        // Repeatable rows: the rows' values are keyed by their derived ids,
+        // which only the expanded variant knows (a no-op without rows).
+        $variant = RepeatableRows::expand($variant);
+
         $hiddenIds = array_flip($values->hidden);
         $fontOptions = $values->fonts !== [] ? $this->resolveRichTextOptions->forVariant($variant) : null;
 
@@ -137,6 +143,9 @@ readonly final class ExportVersionSeeder
             // colour since dropped from its list, falls back to the design.
             'shapeColorValues' => $this->resolveShapeColorOverrides->forVariant($variant, $values->shapeColors, lenient: true),
             'imageValues' => $imageValues,
+            // Clamped to the rows' CURRENT limits; the default for a row the
+            // version predates (or a version recorded before rows existed).
+            'rowCounts' => RepeatableRows::normalizeCounts([$variant], $values->rows),
         ];
     }
 
@@ -155,6 +164,7 @@ readonly final class ExportVersionSeeder
      *     images: array<string, array{imageId: string, url: string}>,
      *     imageHidden: array<string, bool>,
      *     placements: array<string, array<string, array<string, float>>>,
+     *     rowCounts: array<string, int>,
      * }
      */
     public function forGroup(
@@ -182,6 +192,7 @@ readonly final class ExportVersionSeeder
      *     images: array<string, array{imageId: string, url: string}>,
      *     imageHidden: array<string, bool>,
      *     placements: array<string, array<string, array<string, float>>>,
+     *     rowCounts: array<string, int>,
      * }
      */
     public function forGroupValues(
@@ -191,6 +202,10 @@ readonly final class ExportVersionSeeder
         array $imageInputs,
         array $memberVariants,
     ): array {
+        // The callers' `$textInputs` / `$imageInputs` come from the EXPANDED
+        // members (every group / document fill path expands); the members
+        // themselves are expanded here too — idempotent.
+        $memberVariants = array_map(RepeatableRows::expand(...), $memberVariants);
         $hiddenIds = array_flip($values->hidden);
 
         $texts = [];
@@ -315,6 +330,8 @@ readonly final class ExportVersionSeeder
             'images' => $images,
             'imageHidden' => $imageHidden,
             'placements' => $placements,
+            // ONE shared count per row across the dimensions (Jan, 2026-11-09).
+            'rowCounts' => RepeatableRows::normalizeCounts($memberVariants, $values->rows),
         ];
     }
 

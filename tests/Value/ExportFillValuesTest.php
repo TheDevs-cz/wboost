@@ -184,4 +184,31 @@ final class ExportFillValuesTest extends TestCase
         self::assertSame($original->toArray(), $restored->toArray());
         self::assertSame($original->hash(), $restored->hash());
     }
+
+    /**
+     * Repeatable rows (container-rows P2): `rows` is emitted only when a
+     * count was recorded — every pre-rows fill keeps its exact canonical form
+     * and dedup hash (pinned below).
+     */
+    public function testRowsAreEmittedOnlyWhenSetSoExistingHashesHold(): void
+    {
+        $plain = ExportFillValues::fromVariantWebForm(['a' => 'Ahoj'], ['b' => '1'], []);
+
+        self::assertArrayNotHasKey('rows', $plain->toArray());
+        self::assertSame($plain->hash(), $plain->withRows([])->hash());
+        // The pre-rows hash of this exact fill — must never change.
+        self::assertSame(hash('sha256', '{"texts":{"a":"Ahoj"},"hidden":["b"],"images":[],"placements":[]}'), $plain->hash());
+
+        $rows = $plain->withRows(['row-b' => '3', 'row-a' => 2, 'junk' => 'x', 'negative' => -1]);
+        self::assertSame(['row-a' => 2, 'row-b' => 3], $rows->toArray()['rows'] ?? null);
+        self::assertNotSame($plain->hash(), $rows->hash());
+        self::assertFalse($rows->isEmpty());
+
+        $roundTrip = ExportFillValues::fromArray($rows->toArray());
+        self::assertSame($rows->toArray(), $roundTrip->toArray());
+        self::assertSame($rows->hash(), $roundTrip->hash());
+
+        // The group API shape keeps them too.
+        self::assertSame([], ExportFillValues::fromGroupApiRequest([], [], [])->rows);
+    }
 }

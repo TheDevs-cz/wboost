@@ -82,7 +82,35 @@ readonly final class CanvasContainer
          * nested). See {@see ElementMoveAllowance}.
          */
         public null|ElementMoveAllowance $userMove = null,
+        /**
+         * "Opakovatelný řádek" (container-rows plan P2): this NESTED container
+         * is a row the end user may repeat. Null on every other container —
+         * and dropped by {@see self::collectionFromCanvas()} wherever the
+         * structural rules are broken (on a root, a second repeatable child
+         * of the same parent, inside another repeatable tree).
+         */
+        public null|ContainerRepeat $repeat = null,
+        /**
+         * EXPANDED variants only ({@see \WBoost\Web\Services\Template\RepeatableRows}):
+         * the container ids of every materialised slot of this row, slot 0
+         * (= this container, original ids) first, `max` entries. Empty on a
+         * stored design — its presence is what makes expansion idempotent.
+         *
+         * @var list<string>
+         */
+        public array $repeatSlotIds = [],
+        /**
+         * EXPANDED variants only: on a materialised slot k ≥ 1 of a row, the
+         * row (template) container's id. Lets a single-member slot survive
+         * the degenerate-container rule exactly like its template row.
+         */
+        public null|string $repeatSlotOf = null,
     ) {
+    }
+
+    public function isRepeatable(): bool
+    {
+        return $this->repeat !== null;
     }
 
     /**
@@ -92,7 +120,10 @@ readonly final class CanvasContainer
      * render payloads, none of which moves anything before the M2 server
      * phase — read {@see self::$userMove} directly until then.
      *
-     * @return array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap: null|float, spaceAfter: null|float, hidable?: true, name?: string}
+     * `repeat` / `repeatSlots` / `repeatSlotOf` follow the same rule — only a
+     * repeatable row (and, on an expanded variant, its slots) carries them.
+     *
+     * @return array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap: null|float, spaceAfter: null|float, hidable?: true, name?: string, repeat?: array{max: int, min: int, default: int}, repeatSlots?: list<string>, repeatSlotOf?: string}
      */
     public function toArray(): array
     {
@@ -111,6 +142,18 @@ readonly final class CanvasContainer
 
         if ($this->name !== null) {
             $data['name'] = $this->name;
+        }
+
+        if ($this->repeat !== null) {
+            $data['repeat'] = $this->repeat->toArray();
+        }
+
+        if ($this->repeatSlotIds !== []) {
+            $data['repeatSlots'] = $this->repeatSlotIds;
+        }
+
+        if ($this->repeatSlotOf !== null) {
+            $data['repeatSlotOf'] = $this->repeatSlotOf;
         }
 
         return $data;
@@ -163,7 +206,25 @@ readonly final class CanvasContainer
             }
         }
 
-        if (count($memberInputIds) + count($memberContainerIds) < 2) {
+        $repeat = ContainerRepeat::fromArray($data['repeat'] ?? null);
+        $repeatSlotOf = is_string($data['repeatSlotOf'] ?? null) && $data['repeatSlotOf'] !== '' ? $data['repeatSlotOf'] : null;
+
+        $repeatSlotIds = [];
+        if ($repeat !== null && is_array($data['repeatSlots'] ?? null)) {
+            foreach ($data['repeatSlots'] as $slotId) {
+                if (is_string($slotId) && $slotId !== '') {
+                    $repeatSlotIds[] = $slotId;
+                }
+            }
+        }
+
+        // A repeatable row (and each of its materialised slots) may be a
+        // SINGLE text — the Výsledek scorer columns — and a parent may hold
+        // NOTHING but its repeatable row (a list of results). Every other
+        // container needs two members to reflow anything; the one-child
+        // case is settled per collection ({@see self::withValidRepeats()}).
+        $minimumMembers = ($repeat !== null || $repeatSlotOf !== null || $memberContainerIds !== []) ? 1 : 2;
+        if (count($memberInputIds) + count($memberContainerIds) < $minimumMembers) {
             return null;
         }
 
@@ -177,6 +238,9 @@ readonly final class CanvasContainer
             ($data['hidable'] ?? false) === true,
             self::nameOrNull($data['name'] ?? null),
             ElementMoveAllowance::fromCanvasObject($data),
+            $repeat,
+            $repeatSlotIds,
+            $repeatSlotOf,
         );
     }
 
@@ -225,7 +289,122 @@ readonly final class CanvasContainer
             }
         }
 
-        return $collection;
+        return self::withValidRepeats($collection);
+    }
+
+    /**
+     * The structural repeat rules (plan P2), enforced on the collection:
+     * a repeatable row must be NESTED (its parent is the flow and the bound),
+     * at most one per parent (the first in the parent's member order wins),
+     * and never inside another repeatable tree (v1). A container that breaks
+     * a rule loses `repeat` — and is dropped entirely when it then has fewer
+     * than two members (the single-text exception was repeat-only). A
+     * container whose ONLY member is a child container survives only when
+     * that child is a valid repeatable row.
+     *
+     * @param list<self> $collection
+     * @return list<self>
+     */
+    private static function withValidRepeats(array $collection): array
+    {
+        $hasRepeat = false;
+        foreach ($collection as $container) {
+            if ($container->repeat !== null) {
+                $hasRepeat = true;
+                break;
+            }
+        }
+
+        if (!$hasRepeat) {
+            // No rows anywhere: the pre-rows rule, 2+ members (a lone child
+            // container does not count).
+            return array_values(array_filter(
+                $collection,
+                static fn (self $container): bool => $container->repeatSlotOf !== null
+                    || count($container->memberInputIds) + count($container->memberContainerIds) >= 2,
+            ));
+        }
+
+        $byId = [];
+        $parentOf = [];
+        foreach ($collection as $container) {
+            $byId[$container->id] ??= $container;
+        }
+        foreach ($collection as $container) {
+            foreach ($container->memberContainerIds as $childId) {
+                $parentOf[$childId] ??= $container->id;
+            }
+        }
+
+        $valid = [];
+        $claimedParents = [];
+        foreach ($collection as $container) {
+            foreach ($container->memberContainerIds as $childId) {
+                $child = $byId[$childId] ?? null;
+                if ($child === null || $child->repeat === null || ($parentOf[$childId] ?? null) !== $container->id) {
+                    continue;
+                }
+                if (isset($claimedParents[$container->id])) {
+                    continue;
+                }
+
+                // Inside another repeatable tree (any repeatable ancestor)?
+                $ancestor = $container->id;
+                $seen = [];
+                $nestedInRepeat = false;
+                while ($ancestor !== null && !isset($seen[$ancestor])) {
+                    $seen[$ancestor] = true;
+                    if (($byId[$ancestor] ?? null)?->repeat !== null) {
+                        $nestedInRepeat = true;
+                        break;
+                    }
+                    $ancestor = $parentOf[$ancestor] ?? null;
+                }
+                if ($nestedInRepeat) {
+                    continue;
+                }
+
+                $claimedParents[$container->id] = true;
+                $valid[$childId] = true;
+            }
+        }
+
+        $result = [];
+        foreach ($collection as $container) {
+            $memberCount = count($container->memberInputIds) + count($container->memberContainerIds);
+
+            if ($container->repeat === null && $container->repeatSlotOf === null && $memberCount < 2) {
+                // A lone member is a flow only when it is a repeatable row.
+                $holdsRow = array_any($container->memberContainerIds, static fn (string $childId): bool => isset($valid[$childId]));
+                if ($holdsRow) {
+                    $result[] = $container;
+                }
+                continue;
+            }
+
+            if ($container->repeat === null || isset($valid[$container->id])) {
+                $result[] = $container;
+                continue;
+            }
+
+            if (count($container->memberInputIds) + count($container->memberContainerIds) < 2) {
+                continue;
+            }
+
+            $result[] = new self(
+                $container->id,
+                $container->maxHeight,
+                $container->memberInputIds,
+                $container->memberContainerIds,
+                $container->gap,
+                $container->spaceAfter,
+                $container->hidable,
+                $container->name,
+                $container->userMove,
+            );
+        }
+
+        return $result;
     }
 
     /**
@@ -322,6 +501,45 @@ readonly final class CanvasContainer
         }
 
         return array_map(strval(...), array_keys($result));
+    }
+
+    /**
+     * The repeatable-rows hide expansion (container-rows P2): the deep member
+     * ids of every materialised slot k ≥ count of every repeatable row of an
+     * EXPANDED collection (count = `$rowCounts[rowId]` clamped to the row's
+     * `[min, max]`, its default when absent). See
+     * {@see \WBoost\Web\Services\Template\RepeatableRows}.
+     *
+     * @param list<self> $containers
+     * @param array<string, int> $rowCounts
+     * @return list<string>
+     */
+    public static function inactiveRowMemberIds(array $containers, array $rowCounts): array
+    {
+        $byId = [];
+        foreach ($containers as $container) {
+            $byId[$container->id] ??= $container;
+        }
+
+        $hidden = [];
+        foreach ($containers as $container) {
+            if ($container->repeat === null || $container->repeatSlotIds === []) {
+                continue;
+            }
+
+            $count = $container->repeat->clamp($rowCounts[$container->id] ?? null);
+            foreach (array_slice($container->repeatSlotIds, $count) as $slotContainerId) {
+                $slot = $byId[$slotContainerId] ?? null;
+                if ($slot === null) {
+                    continue;
+                }
+                foreach ($slot->deepMemberInputIds($containers) as $memberId) {
+                    $hidden[$memberId] = true;
+                }
+            }
+        }
+
+        return array_map(strval(...), array_keys($hidden));
     }
 
     /**

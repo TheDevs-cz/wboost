@@ -167,7 +167,14 @@ readonly final class DocumentFieldsView
             $image[] = ['inputId' => $input->inputId, 'name' => self::label($input->name, sprintf('Obrázek %d', $index + 1)), 'named' => trim((string) $input->name) !== ''];
         }
 
-        return ['text' => $text, 'image' => $image, 'shape' => $shape];
+        // Repeatable-row members are per page by design — never offered.
+        $bindable = static fn (string $inputId, DocumentFieldKind $kind): bool => TemplateDocumentRules::isBindable($page->variant, $inputId, $kind);
+
+        return [
+            'text' => array_values(array_filter($text, static fn (array $option): bool => $bindable($option['inputId'], DocumentFieldKind::Text))),
+            'image' => array_values(array_filter($image, static fn (array $option): bool => $bindable($option['inputId'], DocumentFieldKind::Image))),
+            'shape' => array_values(array_filter($shape, static fn (array $option): bool => $bindable($option['inputId'], DocumentFieldKind::Shape))),
+        ];
     }
 
     private static function label(null|string $name, string $fallback): string

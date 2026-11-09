@@ -142,7 +142,7 @@
         {% for ph in textPlaceholders %}
             {% if ph.fontChoice %}{% set fontChoiceIds = fontChoiceIds|merge([ph.inputId]) %}{% endif %}
         {% endfor %}
-        {% for input in variant.inputs %}
+        {% for input in this.fillInputs %}
             {% if not input.locked %}
                 {# Echo-capable inputs settle LAZILY (the instant client echo
                    covers the gap); everything else keeps the fast debounce.
@@ -246,6 +246,23 @@
                 data-shape-color-mirror="{{ ph.inputId }}"
                 data-model="on(input)|debounce(400)|shapeColorValues[{{ ph.inputId }}]"
                 value="{{ ph.value }}"
+            >
+        {% endfor %}
+
+        {# Repeatable rows (container-rows P2): one Live-bound row count per
+           repeatable row — the overlay hides the rows beyond it like the
+           render does, the state hash carries it (`R:` lines), the download
+           POST records it. Absent for every design without repeatable rows. #}
+        {% for rowId, count in this.rowCounts %}
+            <input
+                type="text"
+                class="visually-hidden"
+                tabindex="-1"
+                aria-hidden="true"
+                name="rowCounts[{{ rowId }}]"
+                data-row-count-mirror="{{ rowId }}"
+                data-model="on(input)|rowCounts[{{ rowId }}]"
+                value="{{ count }}"
             >
         {% endfor %}
 

@@ -77,7 +77,7 @@ readonly final class GroupFillPlaceholders
      *     height: int,
      *     canvasHeight: int,
      *     objects: list<array{inputId: string, object: array<array-key, mixed>}>,
-     *     containers: list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap: null|float, spaceAfter: null|float, hidable?: true, name?: string}>,
+     *     containers: list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap: null|float, spaceAfter: null|float, hidable?: true, name?: string, repeat?: array{max: int, min: int, default: int}, repeatSlots?: list<string>, repeatSlotOf?: string}>,
      *     containerHides: array<string, list<string>>,
      *     inputs: array<string, array{richText: bool, lists: bool, maxLength: null|int, uppercase: bool}>
      * }

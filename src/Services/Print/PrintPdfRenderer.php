@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Services\Print;
 
+use WBoost\Web\Services\Template\RepeatableRows;
 use Psr\Clock\ClockInterface;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Services\Editor\TemplateVariantImageRenderer;
@@ -121,6 +122,9 @@ final readonly class PrintPdfRenderer
         bool $strictContainerOverflow = false,
         null|array $palette = null,
     ): PrintPage {
+        // Repeatable rows: the black-ink scan must see the materialised rows
+        // the renderer draws (idempotent; the callers already expanded).
+        $variant = RepeatableRows::expand($variant);
         $palette ??= $this->brandCmykPalette->forProject($variant->template->project->id);
         $canvas = $this->preparedCanvas($variant, $overrides);
 

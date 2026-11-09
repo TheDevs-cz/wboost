@@ -2023,7 +2023,29 @@ export default class extends Controller {
             if (!this._isHidden(containerId)) return;
             (map[containerId] || []).forEach((inputId) => hidden.add(inputId));
         });
+        // Repeatable rows (container-rows P2): the server materialises `max`
+        // rows and hides the unused ones — `repeatRows` (row id → {min, max,
+        // default, slots: deep member ids per slot}) + the `rowCounts[<id>]`
+        // mirror give the overlay the render's exact hide set.
+        const rows = (data && data.repeatRows) || {};
+        Object.keys(rows).forEach((rowId) => {
+            const row = rows[rowId] || {};
+            const slots = Array.isArray(row.slots) ? row.slots : [];
+            slots.slice(this._rowCount(rowId, row)).forEach((members) => {
+                (members || []).forEach((inputId) => hidden.add(inputId));
+            });
+        });
         return hidden;
+    }
+
+    /** How many rows of a repeatable row the fill shows: its `rowCounts`
+     *  mirror clamped to [min, max] (the server's normalisation), else the
+     *  designer's default. */
+    _rowCount(rowId, row) {
+        const mirror = this.element.querySelector(`[data-row-count-mirror="${rowId}"]`);
+        const parsed = mirror ? parseInt(mirror.value, 10) : NaN;
+        const count = Number.isFinite(parsed) ? parsed : row.default;
+        return Math.max(row.min || 1, Math.min(row.max || 1, count || 1));
     }
 
     /** Wrapped height of the value in the input's designed box on ONE surface

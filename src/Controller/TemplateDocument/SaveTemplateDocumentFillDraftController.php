@@ -66,6 +66,7 @@ final class SaveTemplateDocumentFillDraftController extends AbstractController
                 'images' => $request->request->all('images'),
                 'shapeColorValues' => $request->request->all('shapeColorValues'),
                 'imagePlacements' => $request->request->all('imagePlacements'),
+            'rowCounts' => $request->request->all('rowCounts'),
             ]),
         ));
 

@@ -74,7 +74,9 @@ readonly final class ExportVersionApiView
         /** @var array<string, EditorImageInput> $imageInputs */
         $imageInputs = [];
 
-        // Unified first-wins by inputId — the group fill page's rule.
+        // Unified first-wins by inputId — the group fill page's rule — over
+        // the EXPANDED members (repeatable rows' derived ids).
+        $members = array_map(RepeatableRows::expand(...), $members);
         foreach ($members as $member) {
             foreach ($member->inputs as $input) {
                 if (!$input->locked) {

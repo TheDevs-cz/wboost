@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Services\TemplateDocument;
 
+use WBoost\Web\Value\CanvasContainer;
+use WBoost\Web\Services\Template\RepeatableRows;
 use Ramsey\Uuid\UuidInterface;
 use WBoost\Web\Entity\Template;
 use WBoost\Web\Entity\TemplateDocument;
@@ -187,6 +189,13 @@ readonly final class TemplateDocumentRules
      */
     public static function isBindable(TemplateVariant $variant, string $inputId, DocumentFieldKind $kind): bool
     {
+        // A repeatable row's members exist once per row (derived ids from
+        // row 2 on): sharing only the first row's value across pages would
+        // be meaningless — rows are per page (container-rows P2).
+        if (in_array($inputId, self::repeatableRowMemberIds($variant), true)) {
+            return false;
+        }
+
         if ($kind === DocumentFieldKind::Image) {
             foreach ($variant->imageInputs as $input) {
                 if ($input->inputId === $inputId) {
@@ -208,6 +217,26 @@ readonly final class TemplateDocumentRules
         }
 
         return self::textInput($variant, $inputId) !== null;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function repeatableRowMemberIds(TemplateVariant $variant): array
+    {
+        $rows = RepeatableRows::repeatableContainers($variant);
+        if ($rows === []) {
+            return [];
+        }
+
+        $decoded = json_decode($variant->canvas, true);
+        $collection = CanvasContainer::collectionFromCanvas(is_array($decoded) ? $decoded : []);
+        $ids = [];
+        foreach ($rows as $row) {
+            array_push($ids, ...$row->deepMemberInputIds($collection));
+        }
+
+        return $ids;
     }
 
     public static function isBindableText(EditorTextInput $input): bool

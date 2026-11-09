@@ -30,7 +30,7 @@ final readonly class DocumentFillValues
     /**
      * The fill page's form (fill-key space), translated per page.
      *
-     * @param array<string, array<array-key, mixed>> $raw `textValues`, `hiddenValues`, `fontValues`, `images`, `shapeColorValues`, `imagePlacements`
+     * @param array<string, array<array-key, mixed>> $raw `textValues`, `hiddenValues`, `fontValues`, `images`, `shapeColorValues`, `imagePlacements`, `rowCounts`
      */
     public static function fromWebForm(TemplateDocument $document, array $raw): self
     {
@@ -46,7 +46,7 @@ final readonly class DocumentFillValues
                 $values['imagePlacements'],
                 $values['fontValues'],
                 $values['shapeColorValues'],
-            );
+            )->withRows($values['rowCounts']);
         }
 
         return new self($pages);

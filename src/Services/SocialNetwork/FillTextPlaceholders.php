@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace WBoost\Web\Services\SocialNetwork;
 
 use WBoost\Web\Entity\TemplateVariant;
+use WBoost\Web\Services\Template\RepeatableRows;
 use WBoost\Web\Value\CanvasContainer;
 use WBoost\Web\Value\CanvasShape;
 use WBoost\Web\Value\EditorTextInput;
@@ -229,9 +230,10 @@ final readonly class FillTextPlaceholders
      *         listStyle: null|array{bullet: string, bulletImage: null|string, indent: float, itemSpacing: float, blockSpacing: float, checkboxes: bool, checkboxImage: null|string, checkboxCheckedImage: null|string}
      *     }>,
      *     decorations: array<string, array{frame: array{x: float, y: float, width: float, height: float}, slot?: true}>,
-     *     containers: list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap: null|float, spaceAfter: null|float, hidable?: true, name?: string}>,
+     *     containers: list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap: null|float, spaceAfter: null|float, hidable?: true, name?: string, repeat?: array{max: int, min: int, default: int}, repeatSlots?: list<string>, repeatSlotOf?: string}>,
      *     containerHides: array<string, list<string>>,
-     *     canvasHeight: int
+     *     canvasHeight: int,
+     *     repeatRows?: array<string, array{min: int, max: int, default: int, slots: list<list<string>>}>
      * }
      */
     public function layoutData(TemplateVariant $variant): array
@@ -273,7 +275,7 @@ final readonly class FillTextPlaceholders
             ];
         }
 
-        return [
+        $data = [
             'inputs' => $inputs,
             'decorations' => self::decorativeMemberFrames($canvas, $containers),
             'containers' => array_map(
@@ -286,6 +288,18 @@ final readonly class FillTextPlaceholders
             'containerHides' => CanvasContainer::hidableMemberMap($containers),
             'canvasHeight' => $variant->dimension->height(),
         ];
+
+        // Repeatable rows of an EXPANDED variant: row id → limits + the deep
+        // member ids per materialised slot — the overlay hides the slots
+        // beyond the `rowCounts[<id>]` mirror like the render's expansion
+        // ({@see CanvasContainer::inactiveRowMemberIds()}). Emitted only when
+        // present, so every other design ships byte-identical data.
+        $repeatRows = RepeatableRows::slotMemberMap($containers);
+        if ($repeatRows !== []) {
+            $data['repeatRows'] = $repeatRows;
+        }
+
+        return $data;
     }
 
     /**

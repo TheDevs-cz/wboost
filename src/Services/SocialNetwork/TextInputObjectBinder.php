@@ -47,6 +47,20 @@ readonly final class TextInputObjectBinder
      */
     public function inputIdByObjectIndex(array $canvas, array $inputs): array
     {
+        return self::positionalBinding($canvas, $inputs);
+    }
+
+    /**
+     * {@see inputIdByObjectIndex()} without an instance — for the pure,
+     * static canvas transforms that must stamp the binding before they move
+     * textboxes around ({@see \WBoost\Web\Services\Template\RepeatableRows}).
+     *
+     * @param array<array-key, mixed> $canvas decoded canvas JSON
+     * @param array<EditorTextInput> $inputs
+     * @return array<int, string>
+     */
+    public static function positionalBinding(array $canvas, array $inputs): array
+    {
         $objects = $canvas['objects'] ?? null;
         if (!is_array($objects)) {
             return [];

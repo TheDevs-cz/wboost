@@ -22,6 +22,9 @@ namespace WBoost\Web\Value;
  * - `shapeColors`: shape inputId → the `#rrggbb` a recolourable shape was
  *   repainted in (`shapeColorValues[…]` / the API's `shapeColors`); "" (the
  *   designed colour) is not kept.
+ * - `rows`: repeatable row container id → the row count the fill showed
+ *   (`rowCounts[…]`, container-rows P2). The rows' VALUES are ordinary
+ *   entries of the maps above, keyed by the rows' derived ids.
  *
  * The array form is CANONICAL — keys sorted recursively, floats rounded to 4
  * decimals, empty entries dropped — so `hash()` is stable across field order,
@@ -30,7 +33,7 @@ namespace WBoost\Web\Value;
  * ONLY when a font was picked: it arrived after the first versions were
  * recorded, and an always-present empty key would re-hash every stored
  * font-less fill, duplicating each one on its next identical export. The
- * `shapeColors` key follows the same rule for the same reason.
+ * `shapeColors` and `rows` keys follow the same rule for the same reason.
  *
  * API / MCP exports are converted INTO this shape (rich runs re-encoded as the
  * envelope string) so one history lists every channel's exports uniformly.
@@ -46,6 +49,7 @@ final readonly class ExportFillValues
      * @param array<string, array<string, array<string, float>>> $placements
      * @param array<string, string> $fonts
      * @param array<string, string> $shapeColors
+     * @param array<string, int> $rows
      */
     private function __construct(
         public array $texts,
@@ -54,7 +58,19 @@ final readonly class ExportFillValues
         public array $placements,
         public array $fonts = [],
         public array $shapeColors = [],
+        public array $rows = [],
     ) {
+    }
+
+    /**
+     * The same fill with the repeatable rows' counts — set by the surfaces
+     * that have them (the fill forms' `rowCounts[…]`).
+     *
+     * @param array<array-key, mixed> $rawRowCounts
+     */
+    public function withRows(array $rawRowCounts): self
+    {
+        return new self($this->texts, $this->hidden, $this->images, $this->placements, $this->fonts, $this->shapeColors, self::rowEntries($rawRowCounts));
     }
 
     /**
@@ -216,7 +232,7 @@ final readonly class ExportFillValues
         $values = self::fromApiRequest($inputs, $images, $shapeColors);
         $group = self::fromGroupWebForm([], [], [], $placements);
 
-        return new self($values->texts, $values->hidden, $values->images, $group->placements, $values->fonts, $values->shapeColors);
+        return new self($values->texts, $values->hidden, $values->images, $group->placements, $values->fonts, $values->shapeColors, $values->rows);
     }
 
     /**
@@ -277,6 +293,7 @@ final readonly class ExportFillValues
             $placements,
             self::fontEntries(is_array($data['fonts'] ?? null) ? $data['fonts'] : []),
             self::shapeColorEntries(is_array($data['shapeColors'] ?? null) ? $data['shapeColors'] : []),
+            self::rowEntries(is_array($data['rows'] ?? null) ? $data['rows'] : []),
         );
     }
 
@@ -285,7 +302,7 @@ final readonly class ExportFillValues
      * shape is fixed — except `fonts`, see the class docblock), suitable for
      * storage AND hashing.
      *
-     * @return array{texts: array<string, string>, hidden: list<string>, images: array<string, array<string, mixed>>, placements: array<string, array<string, array<string, float>>>, fonts?: array<string, string>, shapeColors?: array<string, string>}
+     * @return array{texts: array<string, string>, hidden: list<string>, images: array<string, array<string, mixed>>, placements: array<string, array<string, array<string, float>>>, fonts?: array<string, string>, shapeColors?: array<string, string>, rows?: array<string, int>}
      */
     public function toArray(): array
     {
@@ -333,6 +350,12 @@ final readonly class ExportFillValues
             $canonical['shapeColors'] = $shapeColors;
         }
 
+        if ($this->rows !== []) {
+            $rows = $this->rows;
+            ksort($rows);
+            $canonical['rows'] = $rows;
+        }
+
         return $canonical;
     }
 
@@ -347,7 +370,7 @@ final readonly class ExportFillValues
 
     public function isEmpty(): bool
     {
-        return $this->texts === [] && $this->hidden === [] && $this->images === [] && $this->placements === [] && $this->fonts === [] && $this->shapeColors === [];
+        return $this->texts === [] && $this->hidden === [] && $this->images === [] && $this->placements === [] && $this->fonts === [] && $this->shapeColors === [] && $this->rows === [];
     }
 
     /**
@@ -387,6 +410,27 @@ final readonly class ExportFillValues
         }
 
         return $colors;
+    }
+
+    /**
+     * Whole non-negative counts only (form strings included) — the seeder
+     * clamps them to the row's CURRENT limits.
+     *
+     * @param array<array-key, mixed> $raw
+     * @return array<string, int>
+     */
+    private static function rowEntries(array $raw): array
+    {
+        $rows = [];
+        foreach ($raw as $rowId => $value) {
+            if (is_int($value) && $value >= 0) {
+                $rows[(string) $rowId] = $value;
+            } elseif (is_string($value) && preg_match('/^\d{1,3}$/', $value) === 1) {
+                $rows[(string) $rowId] = (int) $value;
+            }
+        }
+
+        return $rows;
     }
 
     /**

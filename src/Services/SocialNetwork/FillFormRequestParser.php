@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace WBoost\Web\Services\SocialNetwork;
 
 use Symfony\Component\HttpFoundation\Request;
+use WBoost\Web\Entity\TemplateVariant;
+use WBoost\Web\Services\Template\RepeatableRows;
 
 /**
  * Normalises the fill-page form POST (`textValues[]` / `hiddenValues[]` /
@@ -57,6 +59,19 @@ readonly final class FillFormRequestParser
         }
 
         return $providedValues;
+    }
+
+    /**
+     * Repeatable rows (container-rows P2): the posted `rowCounts[<rowId>]`
+     * fields, normalised against the variants' repeatable rows — one clamped
+     * count per row, its default when not posted, nothing for a design
+     * without rows.
+     *
+     * @return array<string, int>
+     */
+    public function parseRowCounts(Request $request, TemplateVariant ...$variants): array
+    {
+        return RepeatableRows::normalizeCounts($variants, $request->request->all('rowCounts'));
     }
 
     /**

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Services\TemplateDocument;
 
+use WBoost\Web\Services\Template\RepeatableRows;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Value\DocumentFillKeys;
 use WBoost\Web\Value\EditorImageInput;
@@ -40,6 +41,11 @@ final readonly class DocumentPageView
 {
     public static function rekeyed(TemplateVariant $variant, DocumentFillKeys $keys, string $templateId): TemplateVariant
     {
+        // Repeatable rows: the page's rows are materialised FIRST (a clone
+        // already when the page has rows), so their derived ids get fill
+        // keys like every other input.
+        $variant = RepeatableRows::expand($variant);
+
         // Read everything off the original first: on a lazy proxy this also
         // initialises it, so the clone carries real state.
         $canvas = $variant->canvas;
@@ -95,11 +101,16 @@ final readonly class DocumentPageView
                 if (is_string($container['id'] ?? null) && $container['id'] !== '') {
                     $container['id'] = $key($container['id']);
                 }
-                if (is_array($container['memberContainerIds'] ?? null)) {
-                    $container['memberContainerIds'] = array_map(
-                        static fn (mixed $id): mixed => is_string($id) && $id !== '' ? $key($id) : $id,
-                        $container['memberContainerIds'],
-                    );
+                foreach (['memberContainerIds', 'repeatSlots'] as $list) {
+                    if (is_array($container[$list] ?? null)) {
+                        $container[$list] = array_map(
+                            static fn (mixed $id): mixed => is_string($id) && $id !== '' ? $key($id) : $id,
+                            $container[$list],
+                        );
+                    }
+                }
+                if (is_string($container['repeatSlotOf'] ?? null) && $container['repeatSlotOf'] !== '') {
+                    $container['repeatSlotOf'] = $key($container['repeatSlotOf']);
                 }
                 $containers[$index] = $container;
             }

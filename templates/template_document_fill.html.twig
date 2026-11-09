@@ -193,6 +193,16 @@
                        data-action="change->group-fill#changed">
             {% endfor %}
 
+            {# Repeatable rows (container-rows P2): one count per page per row
+               (fill key = re-keyed row container id). #}
+            {% for rowKey, count in fill.row_counts|default([]) %}
+                <input type="hidden"
+                       name="rowCounts[{{ rowKey }}]"
+                       value="{{ count }}"
+                       data-row-count-mirror="{{ rowKey }}"
+                       data-action="input->group-fill#changed">
+            {% endfor %}
+
             {% for ph in fill.shape_placeholders %}
                 <input type="hidden"
                        name="shapeColorValues[{{ ph.inputId }}]"

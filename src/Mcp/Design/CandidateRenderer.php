@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Mcp\Design;
 
+use WBoost\Web\Services\Template\RepeatableRows;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
@@ -114,7 +115,9 @@ readonly final class CandidateRenderer
         bool $strictContainerOverflow = false,
         RenderImageFormat $format = RenderImageFormat::Png,
     ): string {
-        $candidate = self::candidate($variant, $design);
+        // Repeatable rows render at their default count, every row with the
+        // template row's sample (the candidate is a clone already).
+        $candidate = RepeatableRows::expand(self::candidate($variant, $design));
 
         // No `$slice` argument — see the class docblock: that omission is what
         // keeps the preview cache out of this path.

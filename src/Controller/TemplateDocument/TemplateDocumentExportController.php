@@ -87,6 +87,7 @@ final class TemplateDocumentExportController extends AbstractController
             'images' => $request->request->all('images'),
             'shapeColorValues' => $request->request->all('shapeColorValues'),
             'imagePlacements' => $request->request->all('imagePlacements'),
+            'rowCounts' => $request->request->all('rowCounts'),
         ];
 
         // The longest request this app makes: off the session lock, and a
@@ -109,6 +110,7 @@ final class TemplateDocumentExportController extends AbstractController
                     $values['imagePlacements'],
                     $values['fontValues'],
                     $values['shapeColorValues'],
+                    $values['rowCounts'],
                 );
                 $resolved[] = [$page, $overrides, $imageOverrides];
             }

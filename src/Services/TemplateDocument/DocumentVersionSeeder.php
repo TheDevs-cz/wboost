@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Services\TemplateDocument;
 
+use WBoost\Web\Services\Template\RepeatableRows;
 use WBoost\Web\Entity\TemplateDocument;
 use WBoost\Web\Entity\TemplateDocumentExportVersion;
 use WBoost\Web\Services\Template\ExportVersionSeeder;
@@ -34,26 +35,29 @@ readonly final class DocumentVersionSeeder
      *     images: array<string, array{imageId: string, url: string}>,
      *     imageHidden: array<string, bool>,
      *     placements: array<string, array<string, array<string, float>>>,
+     *     rowCounts: array<string, int>,
      * }
      */
     public function seed(TemplateDocumentExportVersion $version, TemplateDocument $document): array
     {
         $keys = DocumentFillKeys::forDocument($document);
         $fill = $version->fill();
-        $seed = ['texts' => [], 'hidden' => [], 'fonts' => [], 'shapeColors' => [], 'images' => [], 'imageHidden' => [], 'placements' => []];
+        $seed = ['texts' => [], 'hidden' => [], 'fonts' => [], 'shapeColors' => [], 'images' => [], 'imageHidden' => [], 'placements' => [], 'rowCounts' => []];
 
         foreach ($document->pages() as $page) {
             $templateId = $page->template->id->toString();
             $values = $fill->forTemplate($templateId) ?? ExportFillValues::fromArray([]);
+            // Repeatable rows: the rows' derived ids live on the EXPANDED page.
+            $variant = RepeatableRows::expand($page->variant);
             $pageSeed = $this->seeder->forGroupValues(
                 $values,
                 $document->project->id,
-                array_values($page->variant->inputs),
-                array_values($page->variant->imageInputs),
-                [$page->variant],
+                array_values($variant->inputs),
+                array_values($variant->imageInputs),
+                [$variant],
             );
 
-            foreach (['texts', 'hidden', 'fonts', 'shapeColors', 'images', 'imageHidden'] as $name) {
+            foreach (['texts', 'hidden', 'fonts', 'shapeColors', 'images', 'imageHidden', 'rowCounts'] as $name) {
                 foreach ($pageSeed[$name] as $inputId => $value) {
                     $seed[$name][$keys->keyFor($templateId, (string) $inputId)] ??= $value;
                 }
@@ -66,7 +70,7 @@ readonly final class DocumentVersionSeeder
             }
         }
 
-        /** @var array{texts: array<string, string>, hidden: array<string, bool>, fonts: array<string, string>, shapeColors: array<string, string>, images: array<string, array{imageId: string, url: string}>, imageHidden: array<string, bool>, placements: array<string, array<string, array<string, float>>>} $seed */
+        /** @var array{texts: array<string, string>, hidden: array<string, bool>, fonts: array<string, string>, shapeColors: array<string, string>, images: array<string, array{imageId: string, url: string}>, imageHidden: array<string, bool>, placements: array<string, array<string, array<string, float>>>, rowCounts: array<string, int>} $seed */
         return $seed;
     }
 }

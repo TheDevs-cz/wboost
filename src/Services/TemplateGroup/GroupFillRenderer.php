@@ -11,6 +11,7 @@ use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Services\SocialNetwork\ResolveShapeColorOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
 use WBoost\Web\Services\Print\PrintPdfRenderer;
+use WBoost\Web\Services\Template\RepeatableRows;
 use WBoost\Web\Value\ExportFormat;
 use WBoost\Web\Value\RenderImageFormat;
 use WBoost\Web\Value\ResolvedImageOverrides;
@@ -61,6 +62,7 @@ readonly final class GroupFillRenderer
      * @param array<array-key, mixed> $rawPlacements
      * @param array<array-key, mixed> $rawFontValues
      * @param array<array-key, mixed> $rawShapeColors
+     * @param array<array-key, mixed> $rawRowCounts
      */
     public function renderExport(
         ExportFormat $exportFormat,
@@ -72,16 +74,19 @@ readonly final class GroupFillRenderer
         array $rawPlacements = [],
         array $rawFontValues = [],
         array $rawShapeColors = [],
+        array $rawRowCounts = [],
     ): string {
+        $variant = RepeatableRows::expand($variant);
+
         if ($exportFormat === ExportFormat::Png) {
-            return $this->render($variant, $rawTextValues, $rawHiddenValues, $rawImages, $rawPlacements, rawFontValues: $rawFontValues, rawShapeColors: $rawShapeColors);
+            return $this->render($variant, $rawTextValues, $rawHiddenValues, $rawImages, $rawPlacements, rawFontValues: $rawFontValues, rawShapeColors: $rawShapeColors, rawRowCounts: $rawRowCounts);
         }
 
         if ($exportFormat !== ExportFormat::Pdf) {
             throw new \InvalidArgumentException(sprintf('A group member cannot be exported as "%s".', $exportFormat->value));
         }
 
-        [$overrides, $imageOverrides] = $this->resolve($variant, $rawTextValues, $rawHiddenValues, $rawImages, $rawPlacements, $rawFontValues, $rawShapeColors);
+        [$overrides, $imageOverrides] = $this->resolve($variant, $rawTextValues, $rawHiddenValues, $rawImages, $rawPlacements, $rawFontValues, $rawShapeColors, $rawRowCounts);
 
         return $this->printPdfRenderer->render($variant, $overrides, $imageOverrides, $title);
     }
@@ -112,6 +117,7 @@ readonly final class GroupFillRenderer
      * @param list<string> $transparentTextInputIds
      * @param array<array-key, mixed> $rawFontValues
      * @param array<array-key, mixed> $rawShapeColors
+     * @param array<array-key, mixed> $rawRowCounts
      */
     public function render(
         TemplateVariant $variant,
@@ -123,8 +129,10 @@ readonly final class GroupFillRenderer
         array $transparentTextInputIds = [],
         array $rawFontValues = [],
         array $rawShapeColors = [],
+        array $rawRowCounts = [],
     ): string {
-        [$overrides, $imageOverrides] = $this->resolve($variant, $rawTextValues, $rawHiddenValues, $rawImages, $rawPlacements, $rawFontValues, $rawShapeColors);
+        $variant = RepeatableRows::expand($variant);
+        [$overrides, $imageOverrides] = $this->resolve($variant, $rawTextValues, $rawHiddenValues, $rawImages, $rawPlacements, $rawFontValues, $rawShapeColors, $rawRowCounts);
 
         return $this->renderer->renderToBytes(
             $variant,
@@ -142,6 +150,7 @@ readonly final class GroupFillRenderer
      * @param array<array-key, mixed> $rawPlacements
      * @param array<array-key, mixed> $rawFontValues
      * @param array<array-key, mixed> $rawShapeColors
+     * @param array<array-key, mixed> $rawRowCounts `rowCounts[<rowId>]` fields (repeatable rows)
      * @return array{ResolvedInputOverrides, ResolvedImageOverrides}
      *
      * Public for multi-page documents, which resolve every page first and
@@ -155,7 +164,14 @@ readonly final class GroupFillRenderer
         array $rawPlacements,
         array $rawFontValues,
         array $rawShapeColors,
+        array $rawRowCounts = [],
     ): array {
+        // Repeatable rows: resolve against the EXPANDED member (idempotent),
+        // with the group's ONE shared count per row (the raw `rowCounts[…]`
+        // fields, clamped to THIS member's limits — group sync keeps them
+        // identical across dimensions).
+        $variant = RepeatableRows::expand($variant);
+
         /** @var array<string, array{value?: string, hide?: bool, fontFamily?: string}> $providedValues */
         $providedValues = [];
 
@@ -194,7 +210,8 @@ readonly final class GroupFillRenderer
             $providedValues,
             truncateOverflow: true,
             richTextOptions: $this->resolveRichTextOptions->forVariant($variant),
-        )->withShapeColors($this->resolveShapeColorOverrides->forVariant($variant, $rawShapeColors, lenient: true));
+        )->withShapeColors($this->resolveShapeColorOverrides->forVariant($variant, $rawShapeColors, lenient: true))
+            ->withRowCounts(RepeatableRows::normalizeCounts([$variant], $rawRowCounts));
 
         $variantPlacements = $rawPlacements[$variant->id->toString()] ?? [];
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Services\SocialNetwork;
 
+use WBoost\Web\Services\Template\RepeatableRows;
 use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -122,7 +123,9 @@ readonly final class PlaceholderImageUploader
 
     private function findImageInput(TemplateVariant $variant, string $inputId): null|EditorImageInput
     {
-        foreach ($variant->imageInputs as $input) {
+        // A slot inside a repeatable row exists per row (derived ids) — only
+        // the expanded variant knows them.
+        foreach (RepeatableRows::expand($variant)->imageInputs as $input) {
             if ($input->inputId === $inputId) {
                 return $input;
             }

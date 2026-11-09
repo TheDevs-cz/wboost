@@ -217,6 +217,17 @@
                        data-action="change->group-fill#changed">
             {% endfor %}
 
+            {# Repeatable rows (container-rows P2): ONE shared count per row
+               for every dimension — the overlay hides the rows beyond it, the
+               previews / exports / versions carry it. #}
+            {% for rowId, count in row_counts|default([]) %}
+                <input type="hidden"
+                       name="rowCounts[{{ rowId }}]"
+                       value="{{ count }}"
+                       data-row-count-mirror="{{ rowId }}"
+                       data-action="input->group-fill#changed">
+            {% endfor %}
+
             {# Recolourable shapes: one colour field each ("" = the designed
                colour), written by the shape popover's swatches
                (variant-fill-overlay#pickShapeColor); every dimension

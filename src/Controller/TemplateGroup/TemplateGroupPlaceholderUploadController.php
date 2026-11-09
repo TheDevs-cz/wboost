@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Controller\TemplateGroup;
 
+use WBoost\Web\Services\Template\RepeatableRows;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -73,7 +74,8 @@ final class TemplateGroupPlaceholderUploadController extends AbstractController
     private function resolveSlotVariant(TemplateGroup $group, string $inputId): null|TemplateVariant
     {
         foreach ($this->members->variants($group->id) as $variant) {
-            foreach ($variant->imageInputs as $input) {
+            // Row slots (repeatable rows) carry derived ids — expanded only.
+            foreach (RepeatableRows::expand($variant)->imageInputs as $input) {
                 if ($input->inputId === $inputId) {
                     return $variant;
                 }

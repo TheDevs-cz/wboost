@@ -25,6 +25,7 @@ use WBoost\Web\Services\SocialNetwork\AssetInliner;
 use WBoost\Web\Services\SocialNetwork\CanvasPlaceholderGeometry;
 use WBoost\Web\Services\SocialNetwork\ImagePlacement;
 use WBoost\Web\Services\SocialNetwork\TextInputObjectBinder;
+use WBoost\Web\Services\Template\RepeatableRows;
 use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Value\BackgroundMode;
 use WBoost\Web\Value\CanvasContainer;
@@ -139,6 +140,12 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         array $transparentTextInputIds = [],
         null|PrintLayer $printLayer = null,
     ): string {
+        // Repeatable rows (container-rows P2): every caller SHOULD hand over
+        // the expanded variant already (it resolved its overrides against
+        // it); expanding here too is the belt for a forgotten entry point —
+        // idempotent, and the same instance for every design without rows.
+        $variant = RepeatableRows::expand($variant);
+
         $cacheKey = $printLayer === null
             ? $this->overrideIndependentCacheKey($variant, $imageOverrides, $strictContainerOverflow, $slice, $format, $transparentTextInputIds)
             : null;

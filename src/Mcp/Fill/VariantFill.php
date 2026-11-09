@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Mcp\Fill;
 
+use WBoost\Web\Services\Template\RepeatableRows;
 use Mcp\Exception\ToolCallException;
 use Mcp\Schema\Content\TextContent;
 use Ramsey\Uuid\Uuid;
@@ -101,6 +102,10 @@ readonly final class VariantFill
      */
     public function texts(TemplateVariant $variant, array $providedInputs): ResolvedInputOverrides
     {
+        // Repeatable rows: resolve against the EXPANDED variant (rows at
+        // their default count until the P5 `rows` argument).
+        $variant = RepeatableRows::expand($variant);
+
         try {
             // `inputs[<containerId>] = {hide: true}` hides a hidable container
             // (and its whole tree) — refused strictly like the REST export.
@@ -131,6 +136,8 @@ readonly final class VariantFill
      */
     public function withShapeColors(TemplateVariant $variant, ResolvedInputOverrides $overrides, array $providedShapeColors): ResolvedInputOverrides
     {
+        $variant = RepeatableRows::expand($variant);
+
         try {
             return $overrides->withShapeColors(
                 $this->resolveShapeColorOverrides->forVariant($variant, $providedShapeColors, lenient: false),
@@ -148,6 +155,8 @@ readonly final class VariantFill
      */
     public function images(TemplateVariant $variant, array $providedImages): ResolvedImageOverrides
     {
+        $variant = RepeatableRows::expand($variant);
+
         try {
             return $this->resolveImageOverrides->resolve(
                 $variant->imageInputs,

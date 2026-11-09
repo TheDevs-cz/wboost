@@ -61,6 +61,8 @@ readonly final class ApiExportRenderer
         array $images,
         array $shapeColors = [],
     ): string {
+        $variant = RepeatableRows::expand($variant);
+
         if ($exportFormat === ExportFormat::Png) {
             return $this->render($variant, $inputs, $images, shapeColors: $shapeColors);
         }
@@ -91,6 +93,7 @@ readonly final class ApiExportRenderer
         RenderImageFormat $format = RenderImageFormat::Png,
         array $shapeColors = [],
     ): string {
+        $variant = RepeatableRows::expand($variant);
         [$overrides, $imageOverrides] = $this->resolve($variant, $inputs, $images, $shapeColors);
 
         return $this->renderer->renderToBytes(
@@ -193,6 +196,11 @@ readonly final class ApiExportRenderer
      */
     public function resolve(TemplateVariant $variant, array $inputs, array $images, array $shapeColors): array
     {
+        // Repeatable rows: resolve against the EXPANDED variant (idempotent —
+        // the render methods above already hand it over). Row counts are not
+        // part of the API body yet (P5 `rows`): every row shows its default.
+        $variant = RepeatableRows::expand($variant);
+
         // `inputs[<containerId>] = {hide: true}` hides a whole container:
         // refuse a malformed entry / a non-hidable container up front (the
         // resolver below only collects the requests, the renderer expands).

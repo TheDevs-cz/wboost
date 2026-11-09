@@ -262,3 +262,118 @@ them. Contract, in order of the pipeline:
   `memberInputIds`, and NOT added to the parent's `memberContainerIds` — so
   every non-hidable container and every parent tree publishes exactly what it
   did before. A container with no locatable member at all stays omitted.
+
+**Repeatable rows — the server-side row model (2026-11-09, container-rows plan P2)**
+— a NESTED container can be marked as a row the end user repeats ("Skóre +
+Soupeř" × N, a column of scorers). P2 is the model only: no editor control
+(P3), no fill +/− UI (P4), no API/MCP `rows` (P5), no merge action (P6). With
+no container marked, everything is byte/pixel-identical (all P0/P2a goldens
+unchanged).
+
+- **Data model.** `"repeat": {"max": 8, "min": 1, "default": 1}` on the ROW's
+  definition, emitted only when set (`ContainerRepeat` VO, `CanvasContainer
+  ::$repeat`, JS twin `normalizeRepeat` in `canvas_payload.js` — an editor
+  save keeps it). Rules: integers `1 ≤ min ≤ default ≤ max ≤ 30` (min
+  defaults to 1, default to min; anything else = not repeatable); the row
+  must be NESTED (its parent is the flow and the bound), at most ONE
+  repeatable child per parent (the first in member order wins), never inside
+  another repeatable tree (v1). `CanvasContainer::collectionFromCanvas` and
+  `sanitizedContainers` both enforce them by DROPPING `repeat`. A repeatable
+  row may be a SINGLE text (the Výsledek columns), and a parent may hold
+  nothing but its repeatable row (a list root) — every other container still
+  needs 2+ members (a lone child container counts only when it is a valid
+  repeatable row).
+- **Expansion** (`Services/Template/RepeatableRows::expand()`, pure,
+  idempotent, returns the SAME instance for every design without rows): a
+  CLONE of the variant with `max` materialised rows — the
+  documents' clone-first rule, never persisted (the fill page flushes
+  mid-request). Steps: stamp textbox inputIds from the positional binding;
+  per row clone its deep member objects (texts, decorations, image slots,
+  shapes, nested children) for slots 1…max−1, translated by `k × pitch`
+  (`pitch` = row extent + parent `gap` ?? the designed gap to the next item
+  below ?? 0) and inserted right after the row's last member; every item
+  below the row in its parent — and below the branch in each ancestor —
+  moves down `(max−1) × pitch` (designed order + the footer's designed gap
+  to the LAST row are kept: the engine measures a gap against the designed
+  predecessor, hidden or not); slot definitions get derived ids +
+  `repeatSlotOf: <rowId>`, join the parent's `memberContainerIds` after the
+  row; the row gets `repeatSlots: [rowId, slot1Id, …]` (the idempotency
+  marker and the hide lookup); `inputs[]` is REBUILT in textbox object order
+  (the i-th visible textbox ↔ `inputs[i]` invariant holds by construction);
+  cloned text / image inputs carry the template row's settings and SAMPLE —
+  a new row starts from the template row's sample text (Jan).
+- **Derived ids** (`RepeatableRows::slotId`): slot 0 keeps the ORIGINAL ids;
+  slot k ≥ 1 = `uuid5(RepeatableRows::SLOT_ID_NAMESPACE, "<rowId>#<k>#<originalId>")`
+  for member inputIds, image slots (their `images[<id>]` / placement keys
+  follow), shapes, decorations and container ids. Computed only in PHP (the
+  markup carries them). The namespace is a fill-state key space — never
+  change it (stored versions).
+- **Unused rows = hidden rows.** `ResolvedInputOverrides::$rowCounts`
+  (`withRowCounts()`) → `effectiveHidden()` adds the deep members of every
+  slot ≥ count (`CanvasContainer::inactiveRowMemberIds`; count clamped to
+  `[min, max]`, the default when absent — so an API / MCP render without
+  counts shows `default` rows). An unused row wins over everything. No
+  render-template or engine change: the existing hide loop + collapse rules
+  (P0: hidden row ≡ absent row) do it; the canvas is the same for every
+  count.
+- **Where expansion happens.** Design-time readers never expand (editor, API
+  listing, MCP describe/decompile, group projector, font usage). Every
+  fill / render / resolve entry point does — the filler's `variantEntity()`
+  (memoised; `fillInputs()` feeds the mirror loop), download / publish /
+  draft controllers (resolve + render the clone, RECORD against the managed
+  entity), `ApiExportRenderer`, `GroupFillRenderer`, the group fill /
+  preview / upload controllers, `DocumentPageView::rekeyed` (expands FIRST,
+  re-keys `repeatSlots` / `repeatSlotOf` too), `DocumentFillKeys::pageInputIds`,
+  `VariantFill` (MCP), `CandidateRenderer`, `PrintPdfRenderer::renderPage`,
+  `PlaceholderImageUploader`, the seeders and `ExportVersionApiView` — plus
+  the BELT in `TemplateVariantImageRenderer::renderToBytes` (and the test
+  fake). `RepeatableRowsEntryPointsTest` scans `src/` for every renderer /
+  resolver call site: it expands, or it is listed with the chokepoint it
+  delegates to — a new call site fails until reviewed.
+- **Fill state.** `rowCounts[<rowId>]` next to the value maps: a writable
+  Live prop on the single page (seeded with the defaults, normalised —
+  clamped ints, unknown ids dropped — in `PostHydrate`), plain hidden fields
+  on the group / document pages (`data-row-count-mirror`,
+  `input->group-fill#changed`), parsed by `FillFormRequestParser::parseRowCounts`
+  / `RepeatableRows::normalizeCounts`. Row values live in the EXISTING maps
+  under the derived ids. State hash: an `R:<rowId>=<count>` group after
+  `S:` in BOTH `fillStateHash()` and `fill_state_hash.js`, present only for
+  designs with rows (every existing hash unchanged). Overlay:
+  `layoutData().repeatRows` (row id → `{min, max, default, slots: [deep
+  member ids per slot]}`, only when present) + the mirror →
+  `_containerHiddenIds` hides the unused slots like the render. Echo: a tree
+  holding a repeatable row is never "clean" (`EchoCapableTextInputs`) — its
+  texts settle-render until P4 teaches the painters the row hides.
+- **Versions.** `ExportFillValues::$rows` (`withRows()`), emitted only when
+  non-empty — existing canonical forms and dedup hashes unchanged (pinned in
+  `ExportFillValuesTest`). The seeders expand and return `rowCounts`
+  clamped to the CURRENT limits (defaults for a version without counts).
+- **Groups:** ONE shared count per row for every dimension (shared ids —
+  group sync keeps `repeat` identical). "Can add a row":
+  `RepeatableRows::canAddRow($members, $rowId, $count)` — below `max` AND
+  within every member's `designedCapacity()` (the SMALLEST dimension
+  decides). Capacity is the largest count whose root neither exceeds its
+  `maxHeight` nor runs past the page bottom on DESIGNED geometry
+  (`DesignedContainerFlow`, a PHP twin of the engine without text growth,
+  parity-pinned against the node harness) — the server's estimate for P4's
+  gate and P3's "fits N" prefill; the fill page measures real wraps.
+- **Documents:** rows are PER PAGE — the row container id and every derived
+  id are fill keys (`pageInputIds`), `valuesForPage` translates `rowCounts`;
+  a repeatable row's members are never bindable to a shared field
+  (`TemplateDocumentRules::isBindable`, the field picker filters them).
+- **Seam for M2 (user-movable offsets):** expansion happens BEFORE anything
+  in `buildCanvasJson`, so the offset bake there sees the materialised rows;
+  rows are nested (never movable themselves), a moved top-level parent
+  carries every slot. Hash order: `T H F S R O`.
+- **P4 notes:** `FillContainerHides` / `FillContainerSheets` currently list
+  every materialised slot (a hidable row gives max toggles; the sheet shows
+  max sections) — P4 groups them as rows and hides inactive ones; drop the
+  echo guard once the painters read `repeatRows`.
+- Tests: `RepeatableRowsTest` (expansion, ids, inputs order with a
+  design-hidden textbox + rows mid-`objects[]`, hides, validation),
+  `ContainerRowsLayoutTest` (node engine: 1…max rows ≡ the hand-numbered
+  designs; designed-flow parity; capacity + the group gate),
+  `ContainerRowsRenderTest` (Gotenberg: 5 / 3 repeated Turnaj rows ≡ the prod
+  hand design; scorers ≡ hand columns), `RepeatableRowsFillTest` (single /
+  group / document pages, hash parity, versions, stored design untouched),
+  `RepeatableRowsEntryPointsTest`.
