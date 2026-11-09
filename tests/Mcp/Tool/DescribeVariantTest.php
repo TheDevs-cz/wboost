@@ -332,10 +332,14 @@ final class DescribeVariantTest extends WebTestCase
         self::assertSame(self::numbersAsFloats($api['repeatableRows'] ?? null), self::numbersAsFloats($mcp['repeatableRows']));
 
         self::assertIsArray($mcp['movableElements']);
-        self::assertSame(
-            [\WBoost\Web\Tests\ContainerFixtures::TURNAJ_ROOT, \WBoost\Web\Tests\ContainerFixtures::TURNAJ_HEADLINE],
-            array_values(array_intersect([\WBoost\Web\Tests\ContainerFixtures::TURNAJ_ROOT, \WBoost\Web\Tests\ContainerFixtures::TURNAJ_HEADLINE], array_column($mcp['movableElements'], 'id'))),
-        );
+        $movableIds = [];
+        foreach ($mcp['movableElements'] as $element) {
+            self::assertIsArray($element);
+            self::assertIsString($element['id']);
+            $movableIds[] = $element['id'];
+        }
+        self::assertContains(\WBoost\Web\Tests\ContainerFixtures::TURNAJ_ROOT, $movableIds);
+        self::assertContains(\WBoost\Web\Tests\ContainerFixtures::TURNAJ_HEADLINE, $movableIds);
         self::assertSame(self::numbersAsFloats($api['movableElements'] ?? null), self::numbersAsFloats($mcp['movableElements']));
 
         // A design without either reports two empty lists, not nulls.

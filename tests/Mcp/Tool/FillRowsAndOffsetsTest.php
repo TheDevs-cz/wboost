@@ -419,6 +419,9 @@ final class FillRowsAndOffsetsTest extends WebTestCase
 
     private function variant(string $variantId): TemplateVariant
     {
+        // Boot through the browser: createClient() refuses a booted kernel.
+        $this->browser();
+
         return self::getContainer()->get(TemplateVariantRepository::class)->get(Uuid::fromString($variantId));
     }
 
