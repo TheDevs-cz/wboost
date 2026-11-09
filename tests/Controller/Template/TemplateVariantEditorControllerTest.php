@@ -294,6 +294,10 @@ final class TemplateVariantEditorControllerTest extends WebTestCase
         self::assertCount(1, $crawler->filter('#fill-captions-toggle[checked][data-action="change->variant-fill-overlay#toggleCaptions"]'));
         // "Náhled" — clean-preview mode next to the switches (shared partial).
         self::assertCount(1, $crawler->filter('#fill-preview-toggle[aria-pressed="false"][data-action="variant-fill-overlay#togglePreview"]'));
+        // Zpět / Znovu (fill_history.js) — shared partial, disabled until
+        // the first edit.
+        self::assertCount(1, $crawler->filter('button[disabled][data-variant-fill-overlay-target="undoButton"][data-action="variant-fill-overlay#undo"]'));
+        self::assertCount(1, $crawler->filter('button[disabled][data-variant-fill-overlay-target="redoButton"][data-action="variant-fill-overlay#redo"]'));
     }
 
     private function loadVariant(): TemplateVariant

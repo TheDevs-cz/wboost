@@ -59,6 +59,15 @@ export default class extends Controller {
         this._redoStack = [];
         this._composing = false;
 
+        // The fill page's undo/redo (fill_history.js) restores this input by
+        // its MIRROR value. The mirror may start as something the runs model
+        // never writes back (a plain sample under a styled design), so the
+        // pristine pair is remembered: restoring the mirror's initial value
+        // restores the initial model verbatim.
+        const mirror = document.querySelector(`[data-text-mirror="${this.inputIdValue}"]`);
+        this._initialMirror = mirror ? mirror.value : null;
+        this._initialModel = JSON.stringify({ runs: this.runs, lines: this.lineTypes });
+
         this._render();
         this._updateCounter();
         this._updateToolbarState();
@@ -874,6 +883,35 @@ export default class extends Controller {
         if (snapshot === undefined) return;
         this._undoStack.push(JSON.stringify({ runs: this.runs, lines: this.lineTypes }));
         this._applySnapshot(snapshot);
+    }
+
+    /**
+     * Fill-page undo/redo: show `value` — a mirror value this editor (or the
+     * server seed) produced: a plain string or the {"runs","lines"} envelope.
+     * Re-renders WITHOUT `_sync()`: the history has already written the
+     * mirror and dispatched its input, and a re-serialization could differ
+     * byte-wise from the restored step (a phantom new step).
+     */
+    loadMirrorValue(value) {
+        let state = null;
+        if (value === this._initialMirror) {
+            state = JSON.parse(this._initialModel);
+        } else if (typeof value === "string" && value.charAt(0) === "{") {
+            try {
+                const parsed = JSON.parse(value);
+                if (parsed && Array.isArray(parsed.runs)) state = { runs: parsed.runs, lines: parsed.lines || null };
+            } catch (error) {
+                state = null;
+            }
+        }
+        if (state === null) state = { runs: value ? [{ text: String(value) }] : [], lines: null };
+
+        this._pushUndo();
+        this.runs = this._module().normalize(state.runs);
+        this.lineTypes = this._fitTypes(state.lines);
+        this._render();
+        this._updateCounter();
+        this._updateToolbarState();
     }
 
     // --- mirror sync + toolbar state -------------------------------------------

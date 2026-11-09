@@ -4,6 +4,8 @@ import { ImageAdjustToolbar } from "./image_adjust_toolbar.js";
 import { ImageAdjustHandles } from "./image_adjust_handles.js";
 import { ADJUST_SCALE_MIN, adjustScaleMax, clamp } from "./image_placement.js";
 
+const HISTORY_FIELDS = ['imageId', 'scale', 'offsetX', 'offsetY', 'rotation', 'hide'];
+
 /**
  * Interactive image-fill canvas for the user-fill page (Stage 5 hybrid).
  *
@@ -57,6 +59,9 @@ export default class extends Controller {
 
     connect() {
         this.objects = {};
+        // Picked picture URL per slot — the undo history (historyState) needs
+        // it to reload a picture the fields only know by id.
+        this._urls = {};
         this.overlayObjects = {};
         this.placeholdersById = {};
         (this.placeholdersValue || []).forEach((ph) => { this.placeholdersById[ph.inputId] = ph; });
@@ -97,6 +102,7 @@ export default class extends Controller {
                 return;
             }
             if (seed && seed.imageId && seed.url) {
+                this._urls[ph.inputId] = seed.url;
                 this._restoreSeed(ph, seed);
                 return;
             }
@@ -422,6 +428,9 @@ export default class extends Controller {
         const frame = placeholder.frame;
         const naturalWidth = img.width || 1;
         const naturalHeight = img.height || 1;
+
+        img._imageId = imageId;
+        this._urls[inputId] = url;
 
         if (placeholder.isBackground) {
             // Background slot: deterministic cover anchored top-left over the
@@ -982,6 +991,76 @@ export default class extends Controller {
         this._setField(inputId, 'offsetX', String(center.x - (frame.x + frame.width / 2)));
         this._setField(inputId, 'offsetY', String(center.y - (frame.y + frame.height / 2)));
         this._setField(inputId, 'rotation', String(object.angle || 0));
+    }
+
+    // --- Undo / redo (fill_history.js via variant-fill-overlay) ---------------
+
+    /** Per slot: the hidden fields as posted + the picked picture's URL. */
+    historyState() {
+        const state = {};
+        (this.placeholdersValue || []).forEach((ph) => {
+            const slot = {};
+            HISTORY_FIELDS.forEach((field) => { slot[field] = this._getField(ph.inputId, field); });
+            slot.url = slot.imageId ? (this._urls[ph.inputId] || '') : '';
+            state[ph.inputId] = slot;
+        });
+        return state;
+    }
+
+    /**
+     * Put the slots back to a history step: hidden, the designed stand-in,
+     * or a picked picture (reloaded only when it is a different one) with
+     * its exact transform — the hidden fields are then written verbatim, so
+     * the export posts precisely the restored step.
+     */
+    async applyHistoryState(state) {
+        const current = this.historyState();
+        const jobs = Object.entries(state || {}).map(async ([inputId, want]) => {
+            const placeholder = this.placeholdersById[inputId];
+            if (!placeholder || !want || JSON.stringify(current[inputId]) === JSON.stringify(want)) return;
+
+            const hideBox = this.element.querySelector(`[data-image-hide="${inputId}"]`);
+            if (hideBox) hideBox.checked = want.hide === '1';
+            const existing = this.objects[inputId] && this.objects[inputId].object;
+
+            if (want.hide === '1') {
+                this._replaceObject(inputId, null);
+                this._broadcastFrame(inputId, null, null);
+            } else if (want.imageId && want.url) {
+                if (!existing || existing._imageId !== want.imageId) {
+                    await this._fillPlaceholder(inputId, want.imageId, want.url, { activate: false, writeFields: false });
+                }
+                const img = this.objects[inputId] && this.objects[inputId].object;
+                const frame = placeholder.frame;
+                if (img && frame && img._containScale && !placeholder.isBackground) {
+                    img.set({
+                        scaleX: img._containScale * (Number(want.scale) || 1),
+                        scaleY: img._containScale * (Number(want.scale) || 1),
+                        left: frame.x + frame.width / 2 + (Number(want.offsetX) || 0),
+                        top: frame.y + frame.height / 2 + (Number(want.offsetY) || 0),
+                        angle: Number(want.rotation) || 0,
+                    });
+                    img.setCoords();
+                    this.canvas.requestRenderAll();
+                    this._broadcastFrame(inputId, img, frame);
+                    this._syncAdjust(img);
+                }
+            } else {
+                if (!existing || existing._imageId) await this._addStandIn(placeholder);
+                this.dispatch('picked', { detail: { inputId, url: placeholder.defaultImageUrl || '' } });
+            }
+
+            HISTORY_FIELDS.forEach((field) => this._setField(inputId, field, want[field] || ''));
+            if (want.url) this._urls[inputId] = want.url;
+        });
+        await Promise.all(jobs);
+        this._refreshAdjustTools();
+        this.canvas.requestRenderAll();
+    }
+
+    _getField(inputId, field) {
+        const element = this.element.querySelector(`input[data-placeholder="${inputId}"][data-field="${field}"]`);
+        return element ? element.value : '';
     }
 
     _setField(inputId, field, value) {

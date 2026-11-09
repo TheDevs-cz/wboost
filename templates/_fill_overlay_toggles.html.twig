@@ -1,5 +1,6 @@
 {#
-    The fill pages' overlay chrome switches + the "Všechna pole" panel button —
+    The fill pages' undo / redo pair, the overlay chrome switches + the
+    "Všechna pole" panel button —
     ONE partial for the single-variant fill component and the group fill page,
     so the two surfaces offer the identical controls.
 
@@ -12,6 +13,21 @@
     inside its <label>, the `.sw` pill next to it is pure decoration driven by
     `:has(input:checked)` in fill.css.
 #}
+{# Zpět / Znovu over the whole fill state (variant-fill-overlay →
+   fill_history.js): texts, fonts, hides, shape colours, picked pictures and
+   their placement. Per page session; ⌘/Ctrl+Z · ⌘/Ctrl+Shift+Z / Ctrl+Y
+   outside text fields (inside one, the field's own text undo wins). #}
+<div class="fi-hist" role="group" aria-label="Historie úprav">
+    <button type="button" class="btn btn-ghost icon xs" disabled
+            title="Zpět (Ctrl/⌘+Z)" aria-label="Zpět"
+            data-variant-fill-overlay-target="undoButton"
+            data-action="variant-fill-overlay#undo">{{ icon('undo', 's16') }}</button>
+    <button type="button" class="btn btn-ghost icon xs" disabled
+            title="Znovu (Ctrl/⌘+Shift+Z)" aria-label="Znovu"
+            data-variant-fill-overlay-target="redoButton"
+            data-action="variant-fill-overlay#redo">{{ icon('redo', 's16') }}</button>
+</div>
+
 <label class="fi-sw" for="fill-highlight-toggle">
     <input
         type="checkbox"

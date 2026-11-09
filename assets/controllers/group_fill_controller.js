@@ -150,6 +150,9 @@ export default class extends Controller {
         // --- Placement state ------------------------------------------------
         // Chosen picture per slot: {imageId, url, natural: {width, height}|null}.
         this.pictures = {};
+        // Picked picture URL per slot, adjustable or not — the undo history
+        // (historyState) needs it to restore a thumb / ghost by id.
+        this._pickUrls = {};
         // Placement per DIMENSION per slot — `placement[variantId][inputId]`.
         // There is no shared placement: a crop that works in 4:5 rarely works
         // in 9:16, so every dimension owns its own from the first render.
@@ -305,6 +308,7 @@ export default class extends Controller {
      *  changes the pixels UNDER the echo, so the cached bases go stale. */
     changed(event, keyHint = null) {
         this._editSeq += 1;
+        this._touchHistory();
 
         const target = event ? event.target : null;
         const inputId = target && target.getAttribute ? target.getAttribute('data-input-id') : null;
@@ -349,6 +353,7 @@ export default class extends Controller {
      */
     changedFor(variantId) {
         this._editSeq += 1;
+        this._touchHistory();
         this._invalidateEchoBases(variantId);
         this._scheduleRefresh(variantId);
     }
@@ -426,6 +431,8 @@ export default class extends Controller {
                 element.classList.toggle('selected', element === option);
             });
         }
+
+        if (imageId) this._pickUrls[inputId] = imageUrl;
 
         // A new picture starts centred: keeping the previous crop would place a
         // different photo by coordinates that meant something only for the old one.
@@ -875,6 +882,7 @@ export default class extends Controller {
         const seed = this.seedValue || {};
 
         Object.entries(seed.pictures || {}).forEach(([inputId, pick]) => {
+            if (pick && pick.imageId && pick.url) this._pickUrls[inputId] = pick.url;
             if (!pick || !pick.imageId || !pick.url || !this._slot(inputId)) return;
             this._registerPicture(inputId, pick.imageId, pick.url);
         });
@@ -886,6 +894,92 @@ export default class extends Controller {
                 this.placement[variantId][inputId] = { ...NEUTRAL_PLACEMENT, ...placement };
             });
         });
+    }
+
+    // --- Undo / redo (fill_history.js via variant-fill-overlay) ---------------
+
+    /** A placement / picture change the form's own input / change events
+     *  don't carry (drags, wheel zoom, toolbar) — re-arm the history step. */
+    _touchHistory() {
+        this.element.dispatchEvent(new CustomEvent('fill-history:touch', { bubbles: true }));
+    }
+
+    /** Pictures (id, URL, hide) per slot + every dimension's raw placement. */
+    historyState() {
+        const pictures = {};
+        this.imageValueTargets.forEach((field) => {
+            const inputId = field.dataset.inputId;
+            const hide = this.element.querySelector(`input[data-image-hide="${inputId}"]`);
+            pictures[inputId] = {
+                imageId: field.value,
+                url: field.value ? (this._pickUrls[inputId] || '') : '',
+                hide: hide ? hide.checked : false,
+            };
+        });
+
+        return { pictures, placement: JSON.parse(JSON.stringify(this.placement)) };
+    }
+
+    /**
+     * Put pictures + placements back to a history step and re-render exactly
+     * what changed — through `changed()` / `changedFor()`, the user-edit path
+     * (echo bases invalidated, scoped refresh, single-flight queue).
+     */
+    applyHistoryState(state) {
+        const current = this.historyState();
+        const changedKeys = new Set();
+
+        Object.entries((state && state.pictures) || {}).forEach(([inputId, want]) => {
+            const have = current.pictures[inputId];
+            if (!have || !want) return;
+            if (have.imageId !== want.imageId) {
+                const field = this.imageValueTargets.find((element) => element.dataset.inputId === inputId);
+                if (field) field.value = want.imageId;
+
+                let url = want.url || '';
+                const options = this.imageOptionsTargets.find((element) => element.dataset.inputId === inputId);
+                if (options) {
+                    const all = Array.from(options.querySelectorAll('.group-fill-image-option'));
+                    const option = all.find((element) => (element.dataset.imageId || '') === want.imageId) || null;
+                    all.forEach((element) => element.classList.toggle('selected', element === option));
+                    if (!url && option) url = option.dataset.imageUrl || '';
+                }
+                const thumb = this.imageThumbTargets.find((element) => element.dataset.inputId === inputId);
+                if (thumb) thumb.style.backgroundImage = url ? `url('${url}')` : 'none';
+
+                if (want.imageId) this._pickUrls[inputId] = want.url;
+                if (this._slot(inputId)) {
+                    if (want.imageId && want.url) {
+                        this._registerPicture(inputId, want.imageId, want.url);
+                    } else {
+                        delete this.pictures[inputId];
+                    }
+                }
+                changedKeys.add(inputId);
+            }
+            const hide = this.element.querySelector(`input[data-image-hide="${inputId}"]`);
+            if (hide && hide.checked !== Boolean(want.hide)) {
+                hide.checked = Boolean(want.hide);
+                changedKeys.add(inputId);
+            }
+        });
+
+        const placementChanged = new Set();
+        Object.entries((state && state.placement) || {}).forEach(([variantId, slots]) => {
+            if (!this.placement[variantId]) return;
+            Object.entries(slots || {}).forEach(([inputId, placement]) => {
+                if (!this._slot(inputId) || JSON.stringify(this.placement[variantId][inputId]) === JSON.stringify(placement)) return;
+                this.placement[variantId][inputId] = { ...NEUTRAL_PLACEMENT, ...placement };
+                if (!changedKeys.has(inputId)) placementChanged.add(variantId);
+            });
+        });
+
+        if (changedKeys.size === 0 && placementChanged.size === 0) return;
+        this.slotsValue.forEach((slot) => this._writePlacementFields(slot.inputId));
+        this.renderGhosts();
+        this._syncPlacementControls();
+        changedKeys.forEach((inputId) => this.changed(null, inputId));
+        placementChanged.forEach((variantId) => this.changedFor(variantId));
     }
 
     _slot(inputId) {

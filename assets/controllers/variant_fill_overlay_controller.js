@@ -4,6 +4,7 @@ import { makeDraggable, isDragged, resetDrag } from "./popover_drag.js";
 import { fillStateHash, settleSourceFor } from "./fill_state_hash.js";
 import { liveComponentFor } from "./live_component.js";
 import { FillViewport } from "./fill_viewport.js";
+import { FillHistory } from "./fill_history.js";
 
 /**
  * Click-into-preview placeholder overlay of the fill pages — the ONE editing
@@ -71,7 +72,7 @@ export default class extends Controller {
     static targets = [
         "stage", "surface", "preview", "previewSource", "box", "popover", "modal", "spinner",
         "zoomLabel", "exportButton", "overflowAlert", "panel", "panelButton", "imageThumb",
-        "previewButton", "fitButton",
+        "previewButton", "fitButton", "undoButton", "redoButton",
     ];
     static values = {
         fonts: Array,
@@ -176,10 +177,22 @@ export default class extends Controller {
 
         this._connectViewport();
         this._fitToScreen();
+
+        // Zpět / Znovu over the whole fill state (fill_history.js).
+        this._history = new FillHistory({
+            root: this.element,
+            readState: () => this._historyState(),
+            applyState: (state) => this._applyHistoryState(state),
+            onChange: (info) => this._updateHistoryButtons(info),
+        });
     }
 
     disconnect() {
         this._disposed = true;
+        if (this._history) {
+            this._history.destroy();
+            this._history = null;
+        }
         if (this._view) {
             this._view.destroy();
             this._view = null;
@@ -944,6 +957,12 @@ export default class extends Controller {
         mirror.value = color;
         mirror.dispatchEvent(new Event("input", { bubbles: true }));
 
+        this._markShapeColor(inputId, color, { updatePicker: !fromPicker });
+        this._scheduleSpinner();
+    }
+
+    /** Mark the swatch showing `color` ("" = the designed one, the first). */
+    _markShapeColor(inputId, color, { updatePicker = true } = {}) {
         const swatches = this.element.querySelectorAll(`[data-shape-swatch="${inputId}"]`);
         const shown = color || (swatches[0] ? swatches[0].dataset.color : "");
         swatches.forEach((swatch) => {
@@ -951,12 +970,11 @@ export default class extends Controller {
             swatch.classList.toggle("is-active", active);
             swatch.setAttribute("aria-pressed", active ? "true" : "false");
         });
-        if (!fromPicker) {
+        if (updatePicker) {
             this.element.querySelectorAll(`[data-shape-picker="${inputId}"]`).forEach((picker) => {
                 picker.value = shown;
             });
         }
-        this._scheduleSpinner();
     }
 
     /** A rich-text WYSIWYG (rich_text_editor_controller) changed its value.
@@ -982,6 +1000,165 @@ export default class extends Controller {
         const max = field.getAttribute("maxlength");
         if (!max) return;
         counter.textContent = `${field.value.length} / ${max} znaků`;
+    }
+
+    // --- Zpět / Znovu (fill_history.js) ---------------------------------------
+
+    undo(event) {
+        if (event) event.preventDefault();
+        if (this._history) this._history.undo();
+    }
+
+    redo(event) {
+        if (event) event.preventDefault();
+        if (this._history) this._history.redo();
+    }
+
+    _updateHistoryButtons({ canUndo, canRedo }) {
+        this.undoButtonTargets.forEach((button) => { button.disabled = !canUndo; });
+        this.redoButtonTargets.forEach((button) => { button.disabled = !canRedo; });
+    }
+
+    /** The page's picture state owner: the single page's Fabric controller
+     *  or the group / document page's placement controller (both expose
+     *  historyState() / applyHistoryState()). */
+    _imageHistorySource() {
+        const app = this.application;
+        for (const identifier of ["variant-image-fill", "group-fill"]) {
+            const controller = app.getControllerForElementAndIdentifier(this.element, identifier);
+            if (controller && typeof controller.historyState === "function") return controller;
+        }
+        return null;
+    }
+
+    /** Fields owned by the picture controller (restored by it, not here). */
+    _isImageField(name) {
+        return name.startsWith("images[") || name.startsWith("imagePlacements[");
+    }
+
+    /**
+     * Every NAMED control of the fill form, keyed by name (a repeated name
+     * gets `#n`), minus the page plumbing (`_…` tokens, the draft id, the
+     * export format). Generic on purpose: a new kind of fill field is in
+     * the history the day it gets a name.
+     */
+    _historyFields() {
+        const imageSource = this._imageHistorySource();
+        const fields = new Map();
+        const seen = {};
+        Array.from(this.element.elements || []).forEach((element) => {
+            const name = element.name;
+            if (!name || name.startsWith("_") || name === "draftVersionId" || name === "format") return;
+            const type = (element.type || "").toLowerCase();
+            if (["button", "submit", "reset", "file", "image"].includes(type)) return;
+            if (imageSource && this._isImageField(name)) return;
+            seen[name] = (seen[name] || 0) + 1;
+            fields.set(seen[name] > 1 ? `${name}#${seen[name]}` : name, element);
+        });
+        return fields;
+    }
+
+    _historyFieldValue(element) {
+        const type = (element.type || "").toLowerCase();
+        if (type === "checkbox" || type === "radio") return element.checked ? (element.value || "on") : null;
+        return element.value;
+    }
+
+    _historyState() {
+        const fields = {};
+        this._historyFields().forEach((element, key) => { fields[key] = this._historyFieldValue(element); });
+        const imageSource = this._imageHistorySource();
+        return { fields, images: imageSource ? imageSource.historyState() : null };
+    }
+
+    /**
+     * Put a history step back THROUGH THE USER-EDIT PATH: each differing
+     * field is written and gets the event a user edit fires (`change` for a
+     * checkbox, `input` otherwise) — the Live model / group renderer, the
+     * text echo and the settle hash react as to typing — and its editor UI
+     * (textarea, WYSIWYG, checklist, font select, eye, swatches) is
+     * re-synced from the value. Pictures go through their own controller.
+     */
+    async _applyHistoryState(state) {
+        let serverEdit = false;
+        const wanted = (state && state.fields) || {};
+        this._historyFields().forEach((element, key) => {
+            if (!(key in wanted)) return;
+            const want = wanted[key];
+            const type = (element.type || "").toLowerCase();
+            if (type === "checkbox" || type === "radio") {
+                const checked = want !== null;
+                if (element.checked === checked) return;
+                element.checked = checked;
+                this._syncFieldUi(element);
+                element.dispatchEvent(new Event("change", { bubbles: true }));
+            } else {
+                const value = want === null || want === undefined ? "" : String(want);
+                if (element.value === value) return;
+                element.value = value;
+                this._syncFieldUi(element);
+                element.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+            serverEdit = true;
+        });
+
+        const imageSource = this._imageHistorySource();
+        if (imageSource && state && state.images) {
+            await imageSource.applyHistoryState(state.images);
+        }
+        this.element.querySelectorAll("[data-image-hide]").forEach((checkbox) => {
+            this._reflectHide(checkbox.getAttribute("data-image-hide"), checkbox.checked);
+        });
+
+        this._reanchorOpenPopover();
+        this._scheduleRecompute();
+        if (serverEdit) {
+            // The settle veil, unless the pixels already on screen ARE this
+            // state (undo + redo inside one debounce) — then no render may
+            // come to take it down.
+            const source = settleSourceFor(this.element);
+            const serverHash = source ? source.getAttribute("data-state-hash") : null;
+            if (serverHash === null || serverHash !== fillStateHash(this.element)) this._scheduleSpinner();
+        }
+        this.element.dispatchEvent(new CustomEvent("fill-history:restored", { bubbles: true }));
+    }
+
+    /** Re-sync the visible editor of one restored field from its value. */
+    _syncFieldUi(element) {
+        const textId = element.getAttribute("data-text-mirror");
+        if (textId !== null) {
+            const popover = this._popoverFor(textId);
+            if (!popover) return;
+            for (const identifier of ["rich-text-editor", "checklist-editor"]) {
+                const host = popover.querySelector(`[data-controller~="${identifier}"]`);
+                const controller = host && this.application.getControllerForElementAndIdentifier(host, identifier);
+                if (controller && typeof controller.loadMirrorValue === "function") {
+                    controller.loadMirrorValue(element.value);
+                    return;
+                }
+            }
+            const field = popover.querySelector("textarea.fill-popover__input");
+            if (field) {
+                field.value = element.value;
+                this._autoGrow(field);
+                this._updateCounter(textId, field);
+            }
+            return;
+        }
+        const fontId = element.getAttribute("data-font-mirror");
+        if (fontId !== null) {
+            const popover = this._popoverFor(fontId);
+            const select = popover && popover.querySelector("select.fill-popover__font");
+            if (select) select.value = element.value;
+            return;
+        }
+        const hideId = element.getAttribute("data-hide-mirror");
+        if (hideId !== null) {
+            this._reflectHide(hideId, element.checked);
+            return;
+        }
+        const shapeId = element.getAttribute("data-shape-color-mirror");
+        if (shapeId !== null) this._markShapeColor(shapeId, element.value);
     }
 
     // --- Live-preview spinner (single page; the group page has one per frame) --

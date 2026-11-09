@@ -38,6 +38,39 @@ export default class extends Controller {
         if (this.hasAddButtonTarget) {
             this.addButtonTarget.classList.toggle("d-none", !this.canAddValue);
         }
+        // Fill-page undo/redo restores by MIRROR value — remember the
+        // pristine pair (the mirror may start as a value _sync never writes).
+        const mirror = document.querySelector(`[data-text-mirror="${this.inputIdValue}"]`);
+        this._initialMirror = mirror ? mirror.value : null;
+        this._initialItems = this.items.map((item) => ({ ...item }));
+        this._render();
+        this._updateCounter();
+    }
+
+    /**
+     * Fill-page undo/redo (fill_history.js): show the items of a mirror value
+     * — the checkbox-list envelope, "" (no items) or the initial value.
+     * No `_sync()`: the history already wrote the mirror.
+     */
+    loadMirrorValue(value) {
+        if (value === this._initialMirror) {
+            this.items = this._initialItems.map((item) => ({ ...item }));
+        } else if (!value) {
+            this.items = [];
+        } else {
+            let texts = [String(value)];
+            let lines = [];
+            try {
+                const parsed = JSON.parse(value);
+                if (parsed && Array.isArray(parsed.runs)) {
+                    texts = parsed.runs.map((run) => run.text || "").join("").split("\n");
+                    lines = Array.isArray(parsed.lines) ? parsed.lines : [];
+                }
+            } catch (error) {
+                texts = String(value).split("\n");
+            }
+            this.items = texts.map((text, index) => ({ text, checked: lines[index] === "cbx" }));
+        }
         this._render();
         this._updateCounter();
     }

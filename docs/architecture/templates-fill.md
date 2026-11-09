@@ -171,6 +171,45 @@ consumer draws and the text the export substitutes can never disagree (textbox
 `inputId` props are unreliable post-v7-migration; image placeholders still key by
 their own reliable `inputId`).
 
+**Zpět / Znovu — fill-state undo / redo (2026-11-09)**
+
+All three fill pages (the buttons live in `_fill_overlay_toggles.html.twig`,
+driven by `variant-fill-overlay` → `assets/controllers/fill_history.js`).
+The fill page NEVER had this before (git history: undo/redo only ever existed
+in the admin editor, since 2024-08); per page session, nothing persists.
+- **State = the whole fill form, generically**: every NAMED control of the
+  fill form (`_historyFields`; minus `_…` tokens, `draftVersionId`,
+  `format`) + the picture controller's `historyState()` —
+  `variant-image-fill` (per slot: the six `images[…]` fields + the picked
+  URL) or `group-fill` (pictures id/URL/hide + the raw per-dimension
+  `placement`); `images[` / `imagePlacements[` fields are left to them. A
+  NEW fill field type (e.g. a container hide) is in the history the day it
+  gets a `name` — nothing to register. Steps compare as JSON strings.
+- **Coalescing**: `input` / `change` on the form, `variant-image-fill:*`
+  and `fill-history:touch` (group-fill's `changed()` / `changedFor()` —
+  ghost drags, wheel zoom, toolbar) re-arm a 900 ms idle timer; no step
+  while a pointer is down (drag / handle / slider = one step on release);
+  focusout and Zpět / Znovu commit a pending step first.
+- **Restore = the user-edit path**: each differing field is written and
+  gets `input` (`change` for checkboxes) — Live model, group renderer, text
+  echo and the settle hash see an ordinary edit — and its editor UI is
+  re-synced (`_syncFieldUi`: textarea + counter, `loadMirrorValue()` on the
+  WYSIWYG / checklist controllers, font select, eye via `_reflectHide`,
+  shape swatches). The editors remember their INITIAL mirror value + model:
+  restoring that value restores the pristine model (a plain sample under a
+  styled design). `loadMirrorValue` never `_sync()`s — a re-serialization
+  could differ byte-wise and create a phantom step. Pictures:
+  `applyHistoryState()` (reload only a DIFFERENT picture, fields written
+  verbatim; the group path re-renders via `changed` / `changedFor`). The
+  baseline after a restore is the state READ BACK, never the stored one.
+  The spinner is skipped when the settle already on screen carries the
+  restored state's hash (undo+redo inside one debounce — no render would
+  come to take it down). `fill-history:restored` bubbles afterwards for
+  controllers with extra UI.
+- **Shortcuts** ⌘/Ctrl+Z, ⌘/Ctrl+Shift+Z, Ctrl+Y — ignored while focus is
+  in a text input / textarea / select / contenteditable (native text undo,
+  the WYSIWYG's own runs stack) or a Bootstrap modal is open.
+
 **Pan / zoom viewport — no native scrolling (2026-11-09)**
 
 Single page only (`stage` target; the group / document pages do not zoom).
