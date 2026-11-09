@@ -397,7 +397,7 @@ Base: inline-flex, gap 8, height 44, padding 0 18, radius 999, 1px transparent b
 | Field | `label.field` (flex column, gap 8) > `span` 13/600 label (or `.field-l` with a right-aligned extra; `small` = 500 `--subtle` "nepovinné") + control + `.hint` (12px `--subtle`, optional `i-info s14`) |
 | Compact field | `.pal-f`: label 11/600 `--subtle` `.02em`, input h36 |
 | Inline-rename input | transparent, 1px transparent border; hover `--line-2`; focus lavender + glow (`.ed-name`, `.ed-ph-n`, `.tp-cat input` with `field-sizing: content`) |
-| Range | native `input[type=range]` with `accent-color: var(--lav)` |
+| Range | every `input[type=range]` is hand-drawn in `forms.css` (NOT `accent-color` — Safari ignores it on ranges and shows a grey native slider): 20px-tall input, 6px `--surface-3` track with a `--line-3` inset rim, 16px `--lav` thumb, lavender fill left of the thumb without JS (`::-moz-range-progress`; WebKit/Blink: thumb `border-image` clipped by the input's `overflow:hidden`, so keep the input ≥ 16px tall); native slider under `forced-colors` |
 
 ### 3.3 Selection controls
 
