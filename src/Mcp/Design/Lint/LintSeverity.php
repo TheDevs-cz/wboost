@@ -25,9 +25,10 @@ use Symfony\Component\DependencyInjection\Attribute\Exclude;
 enum LintSeverity: string
 {
     /**
-     * The design cannot be rendered at all. There is exactly one today
-     * ({@see LintCode::FontNotAllowed}) and it is the compiler's hard refusal
-     * seen one stage earlier — see {@see LintCode}'s class note.
+     * The design cannot be rendered / saved as written:
+     * {@see LintCode::FontNotAllowed} (the compiler's hard refusal seen one
+     * stage earlier — see {@see LintCode}'s class note) and the repeatable-row
+     * structure codes, whose `repeat` the canvas sanitizer would drop.
      */
     case Error = 'error';
 

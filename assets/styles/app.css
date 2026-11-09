@@ -968,6 +968,10 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     position: absolute;
     z-index: 1001;
     width: 260px;
+    /* The ⚙ popover grew (hide, nesting, repeatable row, move) — scroll
+       inside instead of running off a short stage. */
+    max-height: calc(100vh - 140px);
+    overflow-y: auto;
     padding: 14px 16px;
     /* Nocturne surface like the editor inspector popovers (F19: it kept the
        pre-redesign white background while its labels/inputs follow the theme). */
@@ -1007,6 +1011,132 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
 
 .container-zone-popover__close:hover {
     color: var(--text);
+}
+
+/* Repeatable rows (container-rows P3). Ghost outlines of rows 2…max sit in
+   the same unscaled zone layer as the zones (never on the canvas bitmap):
+   the default rows stronger, rows past what fits red. */
+.container-row-ghost {
+    position: absolute;
+    z-index: 898;
+    pointer-events: none;
+    border: 1.5px dashed var(--zone-color, #9d71f7);
+    border-radius: 3px;
+    opacity: 0.45;
+    background: repeating-linear-gradient(
+        -45deg,
+        transparent 0 6px,
+        rgba(157, 113, 247, 0.05) 6px 12px
+    );
+}
+
+.container-row-ghost--default {
+    opacity: 0.8;
+}
+
+.container-row-ghost--over {
+    opacity: 0.85;
+    border-color: #fa5c7c;
+    background: repeating-linear-gradient(
+        -45deg,
+        transparent 0 6px,
+        rgba(250, 92, 124, 0.08) 6px 12px
+    );
+}
+
+.container-row-ghost__label {
+    position: absolute;
+    top: 50%;
+    right: 6px;
+    transform: translateY(-50%);
+    padding: 0 5px;
+    font-size: 10px;
+    line-height: 1.5;
+    white-space: nowrap;
+    color: #fff;
+    background: var(--zone-color, #9d71f7);
+    border-radius: 3px;
+}
+
+.container-row-ghost--over .container-row-ghost__label {
+    background: #fa5c7c;
+}
+
+/* The bound the rows run into: the root's max height (or the page bottom
+   less spaceAfter), drawn across the row. */
+.container-row-limit {
+    position: absolute;
+    z-index: 902;
+    height: 0;
+    pointer-events: none;
+    border-top: 2px solid #fa5c7c;
+}
+
+.container-row-limit__label {
+    position: absolute;
+    left: 0;
+    bottom: 2px;
+    padding: 0 5px;
+    font-size: 10px;
+    line-height: 1.5;
+    white-space: nowrap;
+    color: #fff;
+    background: #fa5c7c;
+    border-radius: 3px;
+}
+
+.container-zones-off .container-row-ghost,
+.container-zones-off .container-row-limit,
+.container-zones-dim .container-row-ghost,
+.container-zones-dim .container-row-limit {
+    display: none;
+}
+
+/* A row whose max does not fit: the badge says so in the warning colour. */
+.container-zone--row-short .container-zone__label {
+    background: #fa5c7c;
+}
+
+.container-panel-row__badge {
+    margin-left: auto;
+    flex: none;
+    font-size: 11px;
+    color: var(--text-2);
+}
+
+.container-repeat {
+    padding-top: 8px;
+    border-top: 1px solid var(--line-2);
+}
+
+.container-repeat__fields {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    margin-bottom: 4px;
+}
+
+.container-repeat__field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    color: var(--text-2);
+    font-weight: 500;
+}
+
+.container-repeat__field > span {
+    font-size: 11px;
+    line-height: 1.2;
+}
+
+.container-repeat__blocked {
+    color: var(--subtle);
+    font-style: italic;
+}
+
+.container-repeat__warn {
+    margin-top: 4px;
+    color: #fa5c7c;
 }
 
 /* ---- User-fill placeholder overlay (variant_fill_overlay_controller) ----

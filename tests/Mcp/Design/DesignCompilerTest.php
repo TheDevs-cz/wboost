@@ -880,6 +880,70 @@ final class DesignCompilerTest extends TestCase
         );
     }
 
+    public function testARepeatableRowCompilesItsLimitsAndMaySingleOneMember(): void
+    {
+        $compiled = $this->compile(self::rowsDesign([
+            ['kind' => 'container', 'id' => 'row', 'members' => ['score'], 'repeat' => ['max' => 6, 'default' => 2]],
+            ['kind' => 'container', 'id' => 'list', 'members' => [], 'children' => ['row'], 'maxHeight' => 600],
+        ]));
+
+        $byId = array_column($compiled->canvas['containers'], null, 'id');
+        self::assertSame(['row', 'list'], array_keys($byId), 'the single-text row and its list parent both survive');
+        self::assertSame(['max' => 6, 'min' => 1, 'default' => 2], $byId['row']['repeat'] ?? null);
+        self::assertArrayNotHasKey('repeat', $byId['list']);
+
+        // …and the PHP side reads the same row back.
+        $parsed = \WBoost\Web\Value\CanvasContainer::collectionFromCanvas($compiled->canvas);
+        self::assertSame(6, \WBoost\Web\Value\CanvasContainer::findById($parsed, 'row')?->repeat?->max);
+    }
+
+    public function testRepeatBreakingTheStructureRulesIsDroppedLikeTheEditorDoes(): void
+    {
+        // Root `repeat` and a second repeatable child are dropped (the
+        // linter reports both as errors before set_design ever gets here);
+        // a row that loses `repeat` with one member is then degenerate.
+        $compiled = $this->compile(self::rowsDesign([
+            ['kind' => 'container', 'id' => 'first', 'members' => ['score', 'team'], 'repeat' => ['max' => 4]],
+            ['kind' => 'container', 'id' => 'second', 'members' => ['note', 'extra'], 'repeat' => ['max' => 4]],
+            ['kind' => 'container', 'id' => 'list', 'members' => [], 'children' => ['first', 'second'], 'maxHeight' => 800],
+        ]));
+
+        $byId = array_column($compiled->canvas['containers'], null, 'id');
+        self::assertSame(['max' => 4, 'min' => 1, 'default' => 1], $byId['first']['repeat'] ?? null);
+        self::assertArrayNotHasKey('repeat', $byId['second'], 'one repeatable row per parent');
+
+        $root = array_column($this->compile(self::rowsDesign([
+            ['kind' => 'container', 'id' => 'list', 'members' => ['score', 'team'], 'maxHeight' => 800, 'repeat' => ['max' => 2]],
+        ]))->canvas['containers'], null, 'id');
+        self::assertArrayNotHasKey('repeat', $root['list'], 'a root is never repeatable');
+
+        $nested = array_column($this->compile(self::rowsDesign([
+            ['kind' => 'container', 'id' => 'inner', 'members' => ['score', 'team'], 'repeat' => ['max' => 2]],
+            ['kind' => 'container', 'id' => 'outer', 'members' => ['note'], 'children' => ['inner'], 'repeat' => ['max' => 2]],
+            ['kind' => 'container', 'id' => 'list', 'members' => ['extra'], 'children' => ['outer'], 'maxHeight' => 800],
+        ]))->canvas['containers'], null, 'id');
+        self::assertSame(['max' => 2, 'min' => 1, 'default' => 1], $nested['outer']['repeat'] ?? null);
+        self::assertArrayNotHasKey('repeat', $nested['inner'], 'no rows inside rows');
+    }
+
+    /**
+     * @param list<array<string, mixed>> $containers
+     * @return array<string, mixed>
+     */
+    private static function rowsDesign(array $containers): array
+    {
+        return [
+            'canvas' => ['width' => self::CANVAS, 'height' => self::CANVAS],
+            'elements' => [
+                ['kind' => 'text', 'id' => 'score', 'text' => '4 - 4', 'font' => self::FONT_BOLD, 'size' => 40, 'x' => 80, 'y' => 120, 'width' => 200],
+                ['kind' => 'text', 'id' => 'team', 'text' => 'TJ Kelč', 'font' => self::FONT, 'size' => 40, 'x' => 300, 'y' => 120, 'width' => 600],
+                ['kind' => 'text', 'id' => 'note', 'text' => 'Poznámka', 'font' => self::FONT, 'size' => 30, 'x' => 80, 'y' => 300, 'width' => 400],
+                ['kind' => 'text', 'id' => 'extra', 'text' => 'Další', 'font' => self::FONT, 'size' => 30, 'x' => 500, 'y' => 300, 'width' => 400],
+                ...$containers,
+            ],
+        ];
+    }
+
     public function testAHidableContainerCompilesItsFlagAndLabelLikeTheEditor(): void
     {
         $design = self::containerDesign();

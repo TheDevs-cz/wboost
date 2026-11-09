@@ -265,8 +265,9 @@ them. Contract, in order of the pipeline:
 
 **Repeatable rows — the server-side row model (2026-11-09, container-rows plan P2)**
 — a NESTED container can be marked as a row the end user repeats ("Skóre +
-Soupeř" × N, a column of scorers). P2 is the model only: no editor control
-(P3), no fill +/− UI (P4), no API/MCP `rows` (P5), no merge action (P6). With
+Soupeř" × N, a column of scorers). P2 is the model only: the editor control
++ MCP DSL `repeat` came with P3 (below), no fill +/− UI (P4), no API/MCP
+`rows` (P5), no merge action (P6). With
 no container marked, everything is byte/pixel-identical (all P0/P2a goldens
 unchanged).
 
@@ -381,3 +382,69 @@ unchanged).
   hand design; scorers ≡ hand columns), `RepeatableRowsFillTest` (single /
   group / document pages, hash parity, versions, stored design untouched),
   `RepeatableRowsEntryPointsTest`.
+
+**Repeatable rows — the admin editor + MCP DSL (2026-11-09, plan P3)** —
+how a designer marks a row; the fill +/− UI is P4, API `rows` P5, the merge
+action P6.
+
+- **Authoring** (`canvas_container_controller.js`): the NESTED container's ⚙
+  popover has "Opakovatelný řádek" + Max. řádků / Výchozí počet / Min. počet.
+  Ticking prefills max with how many rows FIT (the smallest size in a group,
+  capped at 30), min = default = 1. Invalid numbers (not `1 ≤ min ≤ default ≤
+  max ≤ 30`) show an inline error and are NOT written; each field `change` is
+  one undo step (containers ride history). On a container that may not be a
+  row the box is disabled with the reason (`repeatBlockReason` in
+  `canvas_payload.js`: top-level / a second row in the parent / inside a row /
+  holding a row). A SINGLE-text row is authored from the text's element
+  popover: "Opakovat jako řádek" (`makeActiveRow`) wraps the member into a new
+  nested 1-item container marked `repeat` inside its current container (the
+  Výsledek scorer columns; "Vytvořit kontejner" needs 2+ items). Unticking a
+  1-item row dissolves it (its text goes back into the parent's flow).
+- **Canvas chrome** (DOM in the zone layer, never on the bitmap): the row zone
+  says "Řádek ×max · výchozí N" (red "· vejde se jen K" when max does not fit);
+  dashed ghost outlines of rows 2…max at the PITCH (stronger below `default`,
+  red with "nevejde se" past what fits); a red line at the bound the rows run
+  into (root top + maxHeight, or the page bottom − spaceAfter); the
+  Kontejnery panel row gets "↻ ×max". The zones / panel / 1-item rows honour
+  the same minimum as the sanitizer (`_minItems`: 1 for a row or a parent
+  holding a row).
+- **Pitch + fit** (`assets/controllers/container_rows.js`, pure, run on POJOs
+  so it never moves live objects): gap after the row = parent's uniform `gap`,
+  else the DESIGNED gap from the row's extent to the nearest item below it in
+  the parent, else 0; pitch = the row's FLOW height (the engine ends a flow at
+  its last item — Turnaj "Soupeř" ends above the taller "Skóre": 44.64, not the
+  50.85 extent) + that gap; fits = largest n with `contentBottom + extra +
+  (n−1)·pitch ≤ limit` (`extra` = the root's other rows at their default).
+  Pinned against `RepeatableRows::designedCapacity` by
+  `tests/Golden/ContainerRowsEditorGeometryTest` (node harness
+  `rows-editor-harness.cjs`: both fixtures, uniform / designed gaps, a footer,
+  a short page).
+- **Structure rules live** — `applyRepeatRules` (`canvas_payload.js`, shared
+  with `sanitizedContainers`) runs in `_dropDegenerate` after every structural
+  edit, so dissolving a parent / re-parenting a row to top-level / nesting a
+  second row drops `repeat` at once (undo restores it). ⧉ duplicate: the
+  duplicated container itself never keeps `repeat` (its copy is a sibling in
+  the same parent); rows INSIDE a duplicated tree keep theirs; a duplicated
+  1-item row's copy joins the parent as a plain item. × dissolve of a row
+  promotes its members (and drops the row).
+- **Group editor**: `repeat` is METADATA copied absolutely to every size —
+  in `_syncContainers` (multi-edit targets, with hidable/name) AND by
+  `GroupSync._syncRepeat` to EVERY size carrying that container regardless of
+  the multi-edit switches (Jan: ONE shared row count). The ⚙ popover lists
+  "vejde se" per size through `canvas.wboostGroupSurfaces()` (published by
+  `group_editor_controller`, shadows measured with the same POJO run) and
+  warns with the sizes that cannot fit max; the smallest decides.
+- **MCP DSL**: `repeat: {max, min?, default?}` on a container (parser
+  `REPEAT_KEYS`, strict numbers; a 1-item container is accepted only with
+  `repeat`, a parent holding only its row too), compiled / decompiled
+  verbatim (`DesignCompiler::applyRepeatRules` ≡ the JS, then the relaxed
+  fixpoint). Lint ERRORS `repeat_not_nested`, `repeat_multiple_in_parent`,
+  `repeat_inside_repeat` (set_design would silently lose the `repeat`);
+  WARNING `repeat_max_overflows` (the linter's flow estimate: root flow +
+  (max−1) × (row flow + gap) vs maxHeight / page, message says how many fit).
+  `describe_variant` containers gain `repeat` + `fitsRows`
+  (`designedCapacity`, within [min, max]); the REST listing does not yet (P5).
+- **P4–P6 notes**: the fill pages still show every materialised slot (P2
+  note above); the editor never materialises slots, so no clone can leak into
+  a save; the editor's `fits` is unclamped (prefill), the server's
+  `designedCapacity` is clamped to [min, max].

@@ -102,9 +102,22 @@ final class DescribeVariantTest extends WebTestCase
         foreach ($this->apiVariantsById(TestDataFixture::PROJECT_1_ID) as $variantId => $apiVariant) {
             $mcp = $this->describe(TestDataFixture::MCP_TOKEN_ACTIVE, $variantId);
 
+            // `repeat` / `fitsRows` are MCP-only until the API listing gains
+            // its repeatable-row field (container-rows P5).
+            $mcpContainers = is_array($mcp['containers'] ?? null) ? $mcp['containers'] : null;
+            if ($mcpContainers !== null) {
+                $mcpContainers = array_map(static function (mixed $container): mixed {
+                    if (is_array($container)) {
+                        unset($container['repeat'], $container['fitsRows']);
+                    }
+
+                    return $container;
+                }, $mcpContainers);
+            }
+
             self::assertSame(
                 self::numbersAsFloats($apiVariant['containers'] ?? null),
-                self::numbersAsFloats($mcp['containers'] ?? null),
+                self::numbersAsFloats($mcpContainers),
                 'Containers disagree with the REST listing for variant ' . $variantId,
             );
         }
@@ -203,6 +216,8 @@ final class DescribeVariantTest extends WebTestCase
                 'hidable' => false,
                 'name' => null,
                 'memberImageInputIds' => [],
+                'repeat' => null,
+                'fitsRows' => null,
             ],
             $containers[TestDataFixture::ORIENTATION_ROOT_CONTAINER_ID],
         );
@@ -223,6 +238,8 @@ final class DescribeVariantTest extends WebTestCase
                 'hidable' => false,
                 'name' => null,
                 'memberImageInputIds' => [],
+                'repeat' => null,
+                'fitsRows' => null,
             ],
             $containers[TestDataFixture::ORIENTATION_NESTED_CONTAINER_ID],
         );
@@ -246,6 +263,31 @@ final class DescribeVariantTest extends WebTestCase
      * fillable kind: describe_variant names it with exactly what the
      * shapeColors map accepts.
      */
+    public function testARepeatableRowReportsItsLimitsAndHowManyRowsFit(): void
+    {
+        $this->browser();
+        $variant = self::getContainer()->get(\WBoost\Web\Repository\TemplateVariantRepository::class)
+            ->get(\Ramsey\Uuid\Uuid::fromString(TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID));
+        \WBoost\Web\Tests\ContainerFixtures::applyRaw($variant, \WBoost\Web\Tests\ContainerFixtures::turnajRepeatableRaw(max: 8, default: 2));
+        self::getContainer()->get(\Doctrine\ORM\EntityManagerInterface::class)->flush();
+
+        $result = $this->describe(TestDataFixture::MCP_TOKEN_ACTIVE, TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID);
+        self::assertIsArray($result['containers']);
+        $byId = array_column($result['containers'], null, 'id');
+
+        $row = $byId[\WBoost\Web\Tests\ContainerFixtures::TURNAJ_ROW_1] ?? null;
+        self::assertIsArray($row, 'the template row is listed (once — slots are never described)');
+        self::assertSame(['max' => 8, 'min' => 1, 'default' => 2], $row['repeat']);
+        self::assertSame(\WBoost\Web\Services\Template\RepeatableRows::designedCapacity($variant, \WBoost\Web\Tests\ContainerFixtures::TURNAJ_ROW_1), $row['fitsRows']);
+        self::assertIsInt($row['fitsRows']);
+        self::assertTrue($row['nested']);
+
+        $root = $byId[\WBoost\Web\Tests\ContainerFixtures::TURNAJ_ROOT] ?? null;
+        self::assertIsArray($root);
+        self::assertNull($root['repeat']);
+        self::assertNull($root['fitsRows']);
+    }
+
     public function testRecolourableShapesAreDescribedWithTheirOptions(): void
     {
         $this->browser();

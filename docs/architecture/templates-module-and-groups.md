@@ -117,6 +117,13 @@ means:
   hydrate (`_shadowsHydrated`) and fans out once at boot-end via
   `_flushPendingSync` — flushing (or plain-rebaselining) earlier would fan
   the diff to the hydrated subset only, or consume it entirely.
+- **Repeatable-row limits** (container `repeat`, 2026-11-09 container-rows
+  P3) are the one container EDIT that also goes to `allTargets()`
+  (`GroupSync._syncRepeat`, every size carrying that container id, mode or
+  not): the group fill page has ONE shared row count, so max/min/default must
+  be identical in every size; the ⚙ popover shows "vejde se" per size and the
+  smallest decides (`canvas.wboostGroupSurfaces()`). See
+  templates-containers.md "Repeatable rows — the admin editor".
 - **STRUCTURE** (`projectNewObject`, `removeObject` and the explicit
   per-element "Přenést do ostatních variant" `resync`, renamed from
   "Srovnat podle skupiny" 2026-10-22) goes to

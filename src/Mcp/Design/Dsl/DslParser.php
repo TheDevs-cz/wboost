@@ -10,6 +10,7 @@ use WBoost\Web\Value\CanvasShapeGradient;
 use WBoost\Web\Value\CanvasShapeGradientStop;
 use WBoost\Web\Value\CanvasShapeKind;
 use WBoost\Web\Value\CanvasShapeStroke;
+use WBoost\Web\Value\ContainerRepeat;
 use WBoost\Web\Value\ElementMoveAllowance;
 use WBoost\Web\Value\RichText;
 use WBoost\Web\Value\ShapeColorTarget;
@@ -113,7 +114,10 @@ final class DslParser
     public const array BACKGROUND_KEYS = ['kind', 'id', 'asset', 'fill', 'fillable'];
 
     /** @var list<string> */
-    public const array CONTAINER_KEYS = ['kind', 'id', 'members', 'children', 'maxHeight', 'gap', 'spaceAfter', 'hidable', 'name', 'userMove'];
+    public const array CONTAINER_KEYS = ['kind', 'id', 'members', 'children', 'maxHeight', 'gap', 'spaceAfter', 'hidable', 'name', 'userMove', 'repeat'];
+
+    /** @var list<string> */
+    public const array REPEAT_KEYS = ['max', 'min', 'default'];
 
     /**
      * The `userMove` block ("Uživatel může posunout") — the canvas contract's
@@ -620,6 +624,68 @@ final class DslParser
     }
 
     /**
+     * `repeat: {max, min?, default?}` — "Opakovatelný řádek": the end user may
+     * show between `min` and `max` copies of this (nested) container,
+     * `default` on a fresh fill. Whole numbers with
+     * `1 ≤ min ≤ default ≤ max ≤ 30`; `min` defaults to 1, `default` to
+     * `min` (≡ {@see ContainerRepeat::fromArray()}). Absent / null = not
+     * repeatable. The STRUCTURAL rules (nested only, one per parent, not
+     * inside another repeatable tree) need the whole document and are lint
+     * errors.
+     *
+     * @param array<array-key, mixed> $raw
+     */
+    private function readRepeat(string $path, array $raw): null|ContainerRepeat
+    {
+        $value = $raw['repeat'] ?? null;
+
+        if ($value === null) {
+            return null;
+        }
+
+        $blockPath = self::join($path, 'repeat');
+
+        if (!is_array($value) || array_is_list($value)) {
+            $this->wrongType($path, 'repeat', sprintf('an object {%s} (or null)', implode(', ', self::REPEAT_KEYS)), $value);
+
+            return null;
+        }
+
+        $this->checkKeys($blockPath, $value, self::REPEAT_KEYS, 'a repeat block');
+
+        $max = $this->readInt($blockPath, $value, 'max');
+        $min = $this->readInt($blockPath, $value, 'min') ?? 1;
+        $default = $this->readInt($blockPath, $value, 'default') ?? $min;
+
+        if ($max === null) {
+            if (!array_key_exists('max', $value)) {
+                $this->violation(self::join($blockPath, 'max'), DslErrorCode::InvalidValue, sprintf(
+                    '%s.max is required: the most rows the user may show (at most %d). Pick what fits the parent container — describe_variant reports it as "fitsRows".',
+                    $blockPath,
+                    ContainerRepeat::MAX_ROWS,
+                ));
+            }
+
+            return null;
+        }
+
+        $repeat = ContainerRepeat::fromArray(['max' => $max, 'min' => $min, 'default' => $default]);
+
+        if ($repeat === null) {
+            $this->violation($blockPath, DslErrorCode::InvalidValue, sprintf(
+                '%s needs whole numbers with 1 ≤ min ≤ default ≤ max ≤ %d; got min %d, default %d, max %d.',
+                $blockPath,
+                ContainerRepeat::MAX_ROWS,
+                $min,
+                $default,
+                $max,
+            ));
+        }
+
+        return $repeat;
+    }
+
+    /**
      * @param array<array-key, mixed> $raw
      */
     private function readShapeKind(string $path, array $raw): null|CanvasShapeKind
@@ -947,12 +1013,13 @@ final class DslParser
         $name = $this->readString($path, $raw, 'name');
         $name = $name === null || trim($name) === '' ? null : trim($name);
         $userMove = $this->readUserMove($path, $raw);
+        $repeat = $this->readRepeat($path, $raw);
 
         if ($id === null) {
             return null;
         }
 
-        return new ContainerElement($id, $members, $children, $maxHeight, $gap, $spaceAfter, $hidable, $name, $userMove);
+        return new ContainerElement($id, $members, $children, $maxHeight, $gap, $spaceAfter, $hidable, $name, $userMove, $repeat);
     }
 
     // -----------------------------------------------------------------
@@ -1439,9 +1506,18 @@ final class DslParser
             $this->checkContainerMembers($path, $container, $byId);
             $this->checkContainerChildren($path, $container, $byId, $containersById, $parentOf);
 
-            if (count($container->referencedIds()) < 2) {
+            // A repeatable row may be ONE item (a column of single scorers)
+            // and a parent may hold nothing but its repeatable row — the
+            // rows ARE its items (≡ CanvasContainer::fromArray()).
+            $holdsRow = array_filter(
+                $container->childIds,
+                static fn (string $childId): bool => ($containersById[$childId] ?? null)?->repeat !== null,
+            ) !== [];
+            $minimum = $container->repeat !== null || $holdsRow ? 1 : 2;
+
+            if (count($container->referencedIds()) < $minimum) {
                 $this->violation($path, DslErrorCode::InvalidStructure, sprintf(
-                    '%s ("%s") groups %d item(s); a container needs at least 2 (members + children). A single-item container reflows nothing and is dropped by the canvas sanitizer, so it would silently disappear from the saved design.',
+                    '%s ("%s") groups %d item(s); a container needs at least 2 (members + children) — 1 for a repeatable row. A single-item container reflows nothing and is dropped by the canvas sanitizer, so it would silently disappear from the saved design.',
                     $path,
                     $container->id,
                     count($container->referencedIds()),

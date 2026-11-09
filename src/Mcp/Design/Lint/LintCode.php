@@ -46,8 +46,9 @@ enum LintCode: string
     /**
      * A text element names a face string this project does not have.
      *
-     * The one ERROR. See the class note for why it is checked here as well as
-     * in the compiler, and how the two are kept from disagreeing.
+     * An ERROR (as are the three `repeat_*` structure codes below). See the
+     * class note for why it is checked here as well as in the compiler, and
+     * how the two are kept from disagreeing.
      */
     case FontNotAllowed = 'font_not_allowed';
 
@@ -124,6 +125,34 @@ enum LintCode: string
     case UserMoveOnNestedContainer = 'user_move_on_nested_container';
 
     /**
+     * `repeat` on a TOP-LEVEL container. A repeatable row flows inside its
+     * parent (the parent is the list, the root's `maxHeight` the bound), so
+     * the canvas sanitizer drops `repeat` on a root — the agent asked for
+     * something the saved design would not have. An ERROR.
+     */
+    case RepeatNotNested = 'repeat_not_nested';
+
+    /**
+     * A second repeatable child of the same parent: the fill page offers ONE
+     * "+ Přidat řádek" list per parent, so only the first keeps `repeat`. An
+     * ERROR for the same reason as {@see self::RepeatNotNested}.
+     */
+    case RepeatMultipleInParent = 'repeat_multiple_in_parent';
+
+    /**
+     * A repeatable container inside another repeatable tree (rows of rows) —
+     * not supported in v1; the inner `repeat` is dropped. An ERROR.
+     */
+    case RepeatInsideRepeat = 'repeat_inside_repeat';
+
+    /**
+     * `repeat.max` rows do not fit the root container's `maxHeight` (or the
+     * page) by designed geometry — the fill page will stop adding rows
+     * earlier than `max` says. A WARNING carrying the "fits N" estimate.
+     */
+    case RepeatMaxOverflows = 'repeat_max_overflows';
+
+    /**
      * An image element with neither a stand-in picture nor a fillable
      * placeholder input: it draws nothing and it fills nothing.
      */
@@ -167,7 +196,10 @@ enum LintCode: string
     public function severity(): LintSeverity
     {
         return match ($this) {
-            self::FontNotAllowed => LintSeverity::Error,
+            self::FontNotAllowed,
+            self::RepeatNotNested,
+            self::RepeatMultipleInParent,
+            self::RepeatInsideRepeat => LintSeverity::Error,
             default => LintSeverity::Warning,
         };
     }

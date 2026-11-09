@@ -30,6 +30,7 @@ use WBoost\Web\Services\SocialNetwork\PlaceholderAllowedDirectories;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Services\SocialNetwork\TextInputObjectBinder;
 use WBoost\Web\Services\SocialNetwork\FillTextPlaceholders;
+use WBoost\Web\Services\Template\RepeatableRows;
 use WBoost\Web\Value\CanvasContainer;
 use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
@@ -180,7 +181,7 @@ readonly final class DescribeVariantTool
             ),
             inputs: $this->buildTextInputs($variant, $frames, $definitions),
             imageInputs: $this->buildImageInputs($variant, $canvas, $definitions),
-            containers: self::buildContainers($definitions, $frames, $variant->inputs, FillTextPlaceholders::decorativeMemberTops($canvas, $definitions), $this->placeholderGeometry->slotFramesByInputId($canvas)),
+            containers: self::buildContainers($definitions, $frames, $variant->inputs, FillTextPlaceholders::decorativeMemberTops($canvas, $definitions), $this->placeholderGeometry->slotFramesByInputId($canvas), self::repeatInfo($variant, $definitions)),
             richTextOptions: $this->buildRichTextOptions($variant),
             shapeInputs: $this->buildShapeInputs($canvas),
         );
@@ -425,9 +426,10 @@ readonly final class DescribeVariantTool
      *
      * @param array<string, float> $decorationTops decorative member tops (hidable decoration-only containers)
      * @param array<string, PlaceholderFrame> $imageFrames fillable image-slot frames (plan P2a)
+     * @param array<string, array{repeat: array{max: int, min: int, default: int}, fitsRows: null|int}> $repeatInfo repeatable rows (container-rows P3)
      * @return list<VariantContainerResponse>
      */
-    private static function buildContainers(array $definitions, array $frames, array $inputs, array $decorationTops = [], array $imageFrames = []): array
+    private static function buildContainers(array $definitions, array $frames, array $inputs, array $decorationTops = [], array $imageFrames = [], array $repeatInfo = []): array
     {
         return array_map(
             static fn (ResolvedCanvasContainer $container): VariantContainerResponse => new VariantContainerResponse(
@@ -442,9 +444,35 @@ readonly final class DescribeVariantTool
                 hidable: $container->hidable,
                 name: $container->name,
                 memberImageInputIds: $container->memberImageInputIds,
+                repeat: $repeatInfo[$container->id]['repeat'] ?? null,
+                fitsRows: $repeatInfo[$container->id]['fitsRows'] ?? null,
             ),
             ResolvedCanvasContainer::collection($definitions, $frames, $inputs, $decorationTops, $imageFrames),
         );
+    }
+
+    /**
+     * Repeatable rows of the AUTHORED design (never expanded — describe is a
+     * design-time reader): the row's limits + how many rows fit by designed
+     * geometry ({@see RepeatableRows::designedCapacity()}, within
+     * `[min, max]`).
+     *
+     * @param list<CanvasContainer> $definitions
+     * @return array<string, array{repeat: array{max: int, min: int, default: int}, fitsRows: null|int}>
+     */
+    private static function repeatInfo(TemplateVariant $variant, array $definitions): array
+    {
+        $info = [];
+        foreach ($definitions as $definition) {
+            if ($definition->repeat !== null) {
+                $info[$definition->id] = [
+                    'repeat' => $definition->repeat->toArray(),
+                    'fitsRows' => RepeatableRows::designedCapacity($variant, $definition->id),
+                ];
+            }
+        }
+
+        return $info;
     }
 
     /**

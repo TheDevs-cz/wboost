@@ -33,6 +33,11 @@ namespace WBoost\Web\Mcp\Response;
  * `inputs[<container id>] = {"hide": true}` to render_variant / export_variant
  * and the container with everything inside it (texts, decorative images,
  * shapes, nested containers) disappears and collapses. `name` is its label.
+ *
+ * `repeat: {max, min, default}` → a repeatable ROW: the fill pages offer
+ * "+ Přidat řádek" up to `max` (and as long as the rows still fit —
+ * `fitsRows` is the designed-geometry estimate). Only the template row is
+ * listed; the extra rows are materialised at fill / render time.
  */
 readonly final class VariantContainerResponse
 {
@@ -53,6 +58,16 @@ readonly final class VariantContainerResponse
         public bool $hidable = false,
         public null|string $name = null,
         public array $memberImageInputIds = [],
+        /**
+         * Repeatable row (container-rows P3): the end user may show
+         * `min`…`max` copies of this nested container, `default` on a fresh
+         * fill. Null = a plain container.
+         *
+         * @var null|array{max: int, min: int, default: int}
+         */
+        public null|array $repeat = null,
+        /** How many rows fit by designed geometry, within `[min, max]` (null unless repeatable). */
+        public null|int $fitsRows = null,
     ) {
     }
 }

@@ -598,6 +598,28 @@ final class DesignDecompilerTest extends TestCase
         );
     }
 
+    public function testARepeatableSingleTextRowKeepsItsLimits(): void
+    {
+        $canvas = [
+            'objects' => [self::textbox(['top' => 0]), self::textbox(['top' => 100])],
+            'containers' => [
+                ['id' => 'list', 'maxHeight' => 400, 'memberInputIds' => [], 'memberContainerIds' => ['row']],
+                ['id' => 'row', 'maxHeight' => 400, 'memberInputIds' => ['t1'], 'repeat' => ['max' => 5, 'min' => 1, 'default' => 3]],
+            ],
+        ];
+
+        $decompiled = self::decompile($canvas, [self::textInput('t1', 'Střelec'), self::textInput('t2', 'Popisek')], []);
+        $byId = [];
+        foreach ($decompiled->document->containerElements() as $container) {
+            $byId[$container->id] = $container;
+        }
+
+        self::assertSame(['list', 'row'], array_keys($byId), 'the one-member row and its list parent survive');
+        self::assertSame(['max' => 5, 'min' => 1, 'default' => 3], $byId['row']->repeat?->toArray());
+        self::assertNull($byId['list']->repeat);
+        self::assertSame([], $decompiled->losses);
+    }
+
     public function testAHidableContainerKeepsItsFlagAndLabel(): void
     {
         $canvas = [

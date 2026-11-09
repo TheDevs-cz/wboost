@@ -103,6 +103,19 @@ export default class extends Controller {
             allTargets: () => this.variants.filter((v) => v.id !== this.activeId && v.shadow),
         });
 
+        // Repeatable rows (container-rows P3): the container ⚙ popover asks
+        // every OTHER size how many rows fit — the row count is shared, the
+        // smallest size decides.
+        editor.canvas.wboostGroupSurfaces = () => {
+            const active = this._variant(this.activeId);
+            return {
+                active: active ? { id: active.id, label: active.label } : null,
+                others: this.variants
+                    .filter((v) => v.id !== this.activeId && v.shadow)
+                    .map((v) => ({ id: v.id, label: v.label, height: v.height, shadow: v.shadow })),
+            };
+        };
+
         // Fabric event hooks on the ONE interactive canvas. Guard everything
         // on "not loading / not switching / not restoring" — loadFromJSON
         // fires add/remove events for every object it (re)creates.

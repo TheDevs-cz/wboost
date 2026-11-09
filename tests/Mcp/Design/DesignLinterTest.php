@@ -28,11 +28,13 @@ use WBoost\Web\Mcp\Design\Lint\DesignLinter;
 use WBoost\Web\Mcp\Design\Lint\LintCode;
 use WBoost\Web\Mcp\Design\Lint\LintContext;
 use WBoost\Web\Mcp\Design\Lint\LintFinding;
+use WBoost\Web\Mcp\Design\Lint\LintSeverity;
 use WBoost\Web\Mcp\Design\Lint\LintReport;
 use WBoost\Web\Query\GetProjectPalette;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Value\CanvasShapeKind;
 use WBoost\Web\Value\CanvasShapeStroke;
+use WBoost\Web\Value\ContainerRepeat;
 use WBoost\Web\Value\ElementMoveAllowance;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 
@@ -143,6 +145,31 @@ final class DesignLinterTest extends KernelTestCase
     }
 
     /**
+     * A single-text repeatable row in a list parent that holds nothing else
+     * is a valid design: no too-few-items, and two rows fit.
+     */
+    public function testAFittingSingleTextRowIsClean(): void
+    {
+        $report = $this->lint(self::document([
+            self::text('headline', 80.0, 200.0, 920.0),
+            new ContainerElement('row', ['headline'], [], null, null, null, repeat: ContainerRepeat::fromArray(['max' => 2])),
+            self::container('list', [], ['row'], maxHeight: 400.0),
+        ]));
+
+        self::assertSame([], array_map(static fn (LintFinding $finding): string => $finding->code->value, $report->findings));
+
+        $tooMany = $this->lint(self::document([
+            self::text('headline', 80.0, 200.0, 920.0),
+            new ContainerElement('row', ['headline'], [], null, null, null, repeat: ContainerRepeat::fromArray(['max' => 30])),
+            self::container('list', [], ['row'], maxHeight: 400.0),
+        ]));
+        $finding = $tooMany->withCode(LintCode::RepeatMaxOverflows)[0] ?? null;
+        self::assertNotNull($finding);
+        // ~111 px per row, no gap: 3 rows fit in 400 px.
+        self::assertStringContainsString('only 3 fit', $finding->message);
+    }
+
+    /**
      * @return iterable<string, array{LintCode}>
      */
     public static function codes(): iterable
@@ -207,6 +234,33 @@ final class DesignLinterTest extends KernelTestCase
                 self::text('second', 80.0, 400.0, 920.0),
                 new ContainerElement('inner', ['first', 'second'], [], null, null, null, userMove: new ElementMoveAllowance(true, true)),
                 self::container('outer', ['headline', 'subhead'], ['inner'], maxHeight: 900.0),
+            ]),
+            LintCode::RepeatNotNested => self::document([
+                self::text('headline', 80.0, 200.0, 920.0),
+                self::text('subhead', 80.0, 300.0, 920.0),
+                new ContainerElement('body', ['headline', 'subhead'], [], 600.0, null, null, repeat: ContainerRepeat::fromArray(['max' => 2])),
+            ]),
+            LintCode::RepeatMultipleInParent => self::document([
+                self::text('headline', 80.0, 200.0, 920.0),
+                self::text('subhead', 80.0, 300.0, 920.0),
+                new ContainerElement('first', ['headline'], [], null, null, null, repeat: ContainerRepeat::fromArray(['max' => 1])),
+                new ContainerElement('second', ['subhead'], [], null, null, null, repeat: ContainerRepeat::fromArray(['max' => 1])),
+                self::container('list', [], ['first', 'second'], maxHeight: 600.0),
+            ]),
+            LintCode::RepeatInsideRepeat => self::document([
+                self::text('headline', 80.0, 200.0, 920.0),
+                self::text('subhead', 80.0, 300.0, 920.0),
+                new ContainerElement('inner', ['headline'], [], null, null, null, repeat: ContainerRepeat::fromArray(['max' => 1])),
+                new ContainerElement('outer', ['subhead'], ['inner'], null, null, null, repeat: ContainerRepeat::fromArray(['max' => 1])),
+                self::container('list', [], ['outer'], maxHeight: 600.0),
+            ]),
+            LintCode::RepeatMaxOverflows => self::document([
+                // Each row adds ~100 px (the designed pitch to the footer);
+                // 400 − 211 px of root flow leaves room for one more row.
+                self::text('headline', 80.0, 200.0, 920.0),
+                self::text('subhead', 80.0, 300.0, 920.0),
+                new ContainerElement('row', ['headline'], [], null, null, null, repeat: ContainerRepeat::fromArray(['max' => 8])),
+                self::container('list', ['subhead'], ['row'], maxHeight: 400.0),
             ]),
             LintCode::ImageWithoutAssetOrPlaceholder => self::document([
                 self::image('photo', 80.0, 400.0, 920.0, 400.0, placeholder: false),
@@ -453,6 +507,14 @@ final class DesignLinterTest extends KernelTestCase
 
         foreach (LintCode::cases() as $code) {
             if ($code === LintCode::FontNotAllowed) {
+                continue;
+            }
+
+            // The repeatable-row STRUCTURE codes block too: the sanitizer
+            // would drop the `repeat` the agent asked for.
+            if ($code->severity() === LintSeverity::Error) {
+                self::assertTrue($this->lint(self::fixtureFor($code))->hasErrors(), $code->value);
+
                 continue;
             }
 

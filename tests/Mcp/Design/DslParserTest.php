@@ -459,6 +459,67 @@ final class DslParserTest extends TestCase
         self::assertSame('elements[0].userMove', $exception->violations[0]->path);
     }
 
+    public function testParsesARepeatableRowAndItsDefaults(): void
+    {
+        $document = DslParser::parse(self::documentWith(
+            self::textElement(['id' => 'score']),
+            // A single-text row is allowed, and so is a list parent holding
+            // nothing but its row.
+            ['kind' => 'container', 'id' => 'row', 'members' => ['score'], 'repeat' => ['max' => 8]],
+            ['kind' => 'container', 'id' => 'list', 'members' => [], 'children' => ['row'], 'maxHeight' => 400],
+        ));
+
+        $row = $document->element('row');
+        self::assertInstanceOf(ContainerElement::class, $row);
+        self::assertSame(['max' => 8, 'min' => 1, 'default' => 1], $row->repeat?->toArray());
+        self::assertSame(['max' => 8, 'min' => 1, 'default' => 1], $document->toArray()['elements'][1]['repeat'] ?? null);
+        self::assertSame($document->toArray(), DslParser::parse($document->toArray())->toArray());
+
+        $explicit = DslParser::parse(self::documentWith(
+            self::textElement(['id' => 'score']),
+            ['kind' => 'container', 'id' => 'row', 'members' => ['score'], 'repeat' => ['max' => 6.0, 'min' => 2, 'default' => 3]],
+            ['kind' => 'container', 'id' => 'list', 'members' => [], 'children' => ['row'], 'maxHeight' => 400],
+        ))->element('row');
+        self::assertInstanceOf(ContainerElement::class, $explicit);
+        self::assertSame(['max' => 6, 'min' => 2, 'default' => 3], $explicit->repeat?->toArray());
+    }
+
+    /**
+     * @return iterable<string, array{mixed}>
+     */
+    public static function invalidRepeats(): iterable
+    {
+        yield 'no max' => [['min' => 1]];
+        yield 'max above the cap' => [['max' => 31]];
+        yield 'default above max' => [['max' => 3, 'default' => 4]];
+        yield 'min above default' => [['max' => 5, 'min' => 3, 'default' => 2]];
+        yield 'zero min' => [['max' => 5, 'min' => 0]];
+        yield 'fraction' => [['max' => 2.5]];
+        yield 'unknown key' => [['max' => 5, 'count' => 2]];
+        yield 'not an object' => [[5]];
+        yield 'scalar' => [true];
+    }
+
+    #[DataProvider('invalidRepeats')]
+    public function testAnInvalidRepeatIsRefused(mixed $repeat): void
+    {
+        self::reject(self::documentWith(
+            self::textElement(['id' => 'score']),
+            ['kind' => 'container', 'id' => 'row', 'members' => ['score'], 'repeat' => $repeat],
+            ['kind' => 'container', 'id' => 'list', 'members' => [], 'children' => ['row'], 'maxHeight' => 400],
+        ));
+    }
+
+    public function testASingleItemContainerWithoutRepeatIsStillRefused(): void
+    {
+        self::reject(self::documentWith(
+            self::textElement(['id' => 'score']),
+            self::textElement(['id' => 'title']),
+            ['kind' => 'container', 'id' => 'row', 'members' => ['score']],
+            ['kind' => 'container', 'id' => 'list', 'members' => ['title'], 'children' => ['row'], 'maxHeight' => 400],
+        ));
+    }
+
     public function testAContainerHidableFlagMustBeABoolean(): void
     {
         self::reject(self::documentWith(
@@ -976,7 +1037,7 @@ final class DslParserTest extends TestCase
             self::documentWith(['kind' => 'container', 'id' => 'body', 'padding' => 4]),
             'elements[0].padding',
             DslErrorCode::UnknownKey,
-            'Allowed keys: kind, id, members, children, maxHeight, gap, spaceAfter, hidable, name, userMove.',
+            'Allowed keys: kind, id, members, children, maxHeight, gap, spaceAfter, hidable, name, userMove, repeat.',
         ];
         yield 'unknown at key (row is deliberately not v1)' => [
             self::documentWith(self::textElement(['at' => ['area' => 'top', 'row' => [1, 2]]])),

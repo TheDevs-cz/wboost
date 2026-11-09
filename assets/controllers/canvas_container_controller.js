@@ -5,6 +5,8 @@ import { CANVAS_CUSTOM_PROPERTIES, applyEditorLock, applyTextboxDefaults } from 
 import { applyShapeDefaults, isShapeObject } from './canvas_shapes.js';
 import { designHeight, trimOriginRect } from './canvas_viewport.js';
 import { buildContainerMoveSection } from './canvas_user_move.js';
+import { applyRepeatRules, normalizeRepeat, repeatBlockReason } from './canvas_payload.js';
+import { MAX_ROWS, rowCapacity } from './container_rows.js';
 
 /**
  * Container ("smart text area") authoring for the admin canvas editor.
@@ -50,7 +52,7 @@ import { buildContainerMoveSection } from './canvas_user_move.js';
  */
 export default class extends Controller {
     static outlets = ["canvas-editor"];
-    static targets = ["layer", "createButton", "section", "panel", "panelList"];
+    static targets = ["layer", "createButton", "section", "panel", "panelList", "rowButton"];
 
     /** Zone/panel accent per nesting depth — parent and child containers must
      *  read as DIFFERENT colors at a glance (cycled past depth 2). */
@@ -76,6 +78,10 @@ export default class extends Controller {
         // because canvasEditorOutletConnected() (which renders zones) can fire
         // before connect() reads the toggle.
         this._zonesVisible = true;
+        // Repeatable rows (container-rows P3): row id → {pitch, fits,
+        // limitKind, groupFits} from the last _refreshRowInfo() pass — what
+        // the ghost outlines, the zone badge and the ⚙ popover read.
+        this._rowInfo = new Map();
     }
 
     connect() {
@@ -338,6 +344,63 @@ export default class extends Controller {
         this._syncSection(active);
     }
 
+    /**
+     * "Opakovat jako řádek" (element popover): wrap the selected text into a
+     * NESTED single-item container marked `repeat`, inside the container it
+     * already flows in — how a designer authors a one-text row (a column of
+     * scorers); "Vytvořit kontejner" needs 2+ items. Max is prefilled with
+     * how many rows fit; the row's ⚙ popover opens for the rest. One undo
+     * step.
+     */
+    makeActiveRow() {
+        const canvas = this._canvas();
+        const active = canvas ? canvas.getActiveObject() : null;
+        if (!active || !active.inputId) return;
+        const parent = this._containerOf(active.inputId);
+        if (!parent || this._rowBlockReason(active) !== null) return;
+
+        const containers = this._containers();
+        const row = {
+            id: crypto.randomUUID(),
+            // Inert for a nested container (only the root bounds) but must
+            // be positive to survive the sanitizer.
+            maxHeight: Math.max(20, Math.ceil(active.height * (active.scaleY || 1))),
+            memberInputIds: [active.inputId],
+            memberContainerIds: [],
+            repeat: { max: 1, min: 1, default: 1 },
+        };
+        parent.memberInputIds = (parent.memberInputIds || []).filter((id) => id !== active.inputId);
+        parent.memberContainerIds = [...(parent.memberContainerIds || []), row.id];
+        containers.push(row);
+
+        this._refreshRowInfo();
+        const info = this._rowInfo.get(row.id);
+        row.repeat = { max: Math.max(1, Math.min(MAX_ROWS, info ? info.groupFits : 1)), min: 1, default: 1 };
+
+        canvas.discardActiveObject();
+        this._dropDegenerate();
+        this._normalizeDesign();
+        this.renderZones();
+        canvas.requestRenderAll();
+        canvas.fire('object:modified', {});
+        this.canvasEditorOutlet.dispatchSelectionChanged();
+        if (this._containers().includes(row)) {
+            this._openSettings(row);
+        }
+    }
+
+    /** Why the selected member cannot become a repeatable row (null = it can). */
+    _rowBlockReason(active) {
+        const parent = active && active.inputId ? this._containerOf(active.inputId) : null;
+        if (!parent) return 'not a member';
+        const candidate = { id: '__row-candidate', memberInputIds: [active.inputId], memberContainerIds: [] };
+        const defs = this._containers().map((c) => (c.id === parent.id
+            ? { ...c, memberContainerIds: [...(c.memberContainerIds || []), candidate.id] }
+            : c));
+        defs.push(candidate);
+        return repeatBlockReason(defs, candidate);
+    }
+
     _pruneRemoved(obj) {
         if (!obj || !obj.inputId) return;
         let changed = false;
@@ -364,11 +427,14 @@ export default class extends Controller {
         const layout = this._layout();
         if (!canvas || !layout) return;
 
-        let defs = this._containers();
+        // Repeatable-row structure first (a dissolve / re-parent can leave a
+        // row on a root or a second row in one parent) — the minimum below
+        // depends on which rows survive.
+        let defs = applyRepeatRules(this._containers());
         for (;;) {
             const valid = new Set(
                 defs
-                    .filter((c) => this._memberObjects(c).length + layout.childContainersOf(defs, c).length >= 2)
+                    .filter((c) => this._memberObjects(c).length + layout.childContainersOf(defs, c).length >= this._minItems(c, defs))
                     .map((c) => c.id),
             );
             if (valid.size === defs.length) break;
@@ -380,6 +446,17 @@ export default class extends Controller {
                 }));
         }
         canvas.wboostContainers = defs;
+    }
+
+    /**
+     * Items a container needs to exist: 2, but a repeatable row may be ONE
+     * (a column of single scorers) and a parent may hold nothing but its
+     * repeatable row (≡ sanitizedContainers / PHP CanvasContainer).
+     */
+    _minItems(container, defs = this._containers()) {
+        if (container.repeat) return 1;
+        const byId = new Map(defs.map((c) => [c.id, c]));
+        return (container.memberContainerIds || []).some((id) => byId.get(id) && byId.get(id).repeat) ? 1 : 2;
     }
 
     // --- reflow + design snapshots ------------------------------------------
@@ -457,6 +534,8 @@ export default class extends Controller {
         const layout = this._layout();
         if (!layout || !this._prepared.length) return;
         layout.applyFabricLayout(this._prepared);
+        // Typing changes the row height → pitch, fits and the ghosts.
+        if (this._rowInfo.size) this._refreshRowInfo();
         this.repositionZones();
     }
 
@@ -507,9 +586,11 @@ export default class extends Controller {
         // Parents first so nested zones stack above them in the DOM.
         const ordered = [...this._containers()].sort((a, b) => this._depthOf(a) - this._depthOf(b));
 
+        this._refreshRowInfo();
+
         ordered.forEach((container) => {
             const members = this._deepMemberObjects(container);
-            if (members.length < 2) return;
+            if (members.length < this._minItems(container)) return;
             const nested = this._parentOf(container) !== null;
             const depth = this._depthOf(container);
 
@@ -610,9 +691,16 @@ export default class extends Controller {
             });
 
             this.layerTarget.appendChild(zone);
+            // Repeatable row: dashed ghosts of rows 2…max (where the extra
+            // rows would land) + the root's limit line. Plain DOM in the
+            // zone layer like the zone itself — never on the canvas bitmap,
+            // so nothing can leak into the saved design.
+            const rowChrome = container.repeat && this._rowInfo.has(container.id)
+                ? this._buildRowChrome(container)
+                : null;
             // Members are cached for the per-frame reposition pass — the
             // after:render hook must not re-resolve membership every frame.
-            this._zones.push({ container, zone, label, nested, members, css: '' });
+            this._zones.push({ container, zone, label, nested, members, css: '', rowChrome });
         });
 
         this._positionZones();
@@ -625,6 +713,169 @@ export default class extends Controller {
 
     repositionZones() {
         this._positionZones();
+    }
+
+    // --- repeatable rows (container-rows P3) -------------------------------
+
+    /**
+     * The shared engine run over geometry POJOs of a surface — side-effect
+     * free (the live objects are never written), so it is safe on load and
+     * mid-edit. Returns the POJOs (laid out) + the engine's results.
+     */
+    _designRun(objects, containers, canvasHeight, getTop, getLeft) {
+        const layout = this._layout();
+        if (!layout) return null;
+        const pojos = objects
+            .filter((o) => o.inputId)
+            .map((o) => ({
+                type: o.type,
+                inputId: o.inputId,
+                imagePlaceholder: o.imagePlaceholder,
+                isBackground: o.isBackground,
+                top: getTop(o),
+                left: getLeft(o),
+                width: o.width,
+                height: o.height,
+                scaleX: o.scaleX || 1,
+                scaleY: o.scaleY || 1,
+                visible: o.visible,
+            }));
+        const prepared = layout.prepareFabricContainers(pojos, containers, { canvasHeight });
+        return { pojos, results: layout.applyFabricLayout(prepared) };
+    }
+
+    /**
+     * Group editor: the OTHER sizes of the group ({label, height, shadow}) —
+     * published by group_editor_controller on the canvas. Single editor: none.
+     */
+    _groupSurfaces() {
+        const canvas = this._canvas();
+        const provider = canvas && typeof canvas.wboostGroupSurfaces === 'function' ? canvas.wboostGroupSurfaces : null;
+        return provider ? provider() : null;
+    }
+
+    /**
+     * Re-derive every repeatable row's pitch / "fits N" on THIS canvas and —
+     * in a group — on every other size (the row count is SHARED, so the
+     * smallest size decides: Jan, 2026-11-09). Cached in `_rowInfo` for the
+     * ghosts, the zone badge and the ⚙ popover.
+     */
+    _refreshRowInfo() {
+        this._rowInfo = new Map();
+        const canvas = this._canvas();
+        const layout = this._layout();
+        if (!canvas || !layout) return;
+        const containers = this._containers();
+        const rows = containers.filter((c) => c.repeat);
+        if (!rows.length) return;
+
+        const run = this._designRun(this._objects(), containers, designHeight(canvas), (o) => this._absTop(o), (o) => this._absLeft(o));
+        if (!run) return;
+
+        const group = this._groupSurfaces();
+        const otherRuns = group
+            ? group.others
+                .filter((surface) => surface.shadow && Array.isArray(surface.shadow.wboostContainers))
+                .map((surface) => ({
+                    surface,
+                    containers: surface.shadow.wboostContainers,
+                    run: this._designRun(surface.shadow.getObjects(), surface.shadow.wboostContainers, surface.height, (o) => o.top, (o) => o.left),
+                }))
+            : [];
+
+        rows.forEach((row) => {
+            const capacity = rowCapacity(run.pojos, containers, row.id, {
+                layout, results: run.results, canvasHeight: designHeight(canvas),
+            });
+            if (!capacity) return;
+
+            const perSize = [];
+            if (group && group.active) {
+                perSize.push({ label: group.active.label, fits: capacity.fits, active: true });
+            }
+            otherRuns.forEach(({ surface, containers: shadowContainers, run: shadowRun }) => {
+                if (!shadowRun || !shadowContainers.some((c) => c.id === row.id && c.repeat)) return;
+                const other = rowCapacity(shadowRun.pojos, shadowContainers, row.id, {
+                    layout, results: shadowRun.results, canvasHeight: surface.height,
+                });
+                if (other) perSize.push({ label: surface.label, fits: other.fits, active: false });
+            });
+
+            this._rowInfo.set(row.id, {
+                pitch: capacity.geometry.pitch,
+                // One row's flow height — what a ghost outline is tall.
+                rowHeight: Math.max(1, capacity.geometry.pitch - capacity.geometry.gap),
+                fits: capacity.fits,
+                limitKind: capacity.limitKind,
+                // The root's bound, relative to the row's top on THIS canvas
+                // — the ghost layer re-anchors it to the live row each frame.
+                limitOffset: capacity.limitBottom - capacity.geometry.extent.top,
+                groupFits: perSize.length ? Math.min(...perSize.map((p) => p.fits)) : capacity.fits,
+                perSize,
+            });
+        });
+    }
+
+    /**
+     * Ghost outlines of rows 2…max under a repeatable row (default rows
+     * stronger, rows past what fits red) + the bound line they run into. A
+     * small controller object: `place(geometry)` per reposition frame,
+     * `hide()`, `remove()`.
+     */
+    _buildRowChrome(container) {
+        const info = this._rowInfo.get(container.id);
+        const layer = this.layerTarget;
+        const color = this._zoneColor(this._depthOf(container));
+        const ghosts = [];
+        const max = Math.min(MAX_ROWS, container.repeat.max);
+        for (let k = 1; k < max; k++) {
+            const ghost = document.createElement('div');
+            ghost.className = 'container-row-ghost';
+            ghost.style.setProperty('--zone-color', color);
+            ghost.classList.toggle('container-row-ghost--default', k < container.repeat.default);
+            // Row k+1 needs k+1 ≤ fits (the smallest size in a group).
+            ghost.classList.toggle('container-row-ghost--over', k + 1 > info.groupFits);
+            const tag = document.createElement('span');
+            tag.className = 'container-row-ghost__label';
+            tag.textContent = k + 1 > info.groupFits ? `Řádek ${k + 1} · nevejde se` : `Řádek ${k + 1}`;
+            ghost.appendChild(tag);
+            ghost.setAttribute('aria-hidden', 'true');
+            layer.appendChild(ghost);
+            ghosts.push(ghost);
+        }
+
+        const limit = document.createElement('div');
+        limit.className = 'container-row-limit';
+        const limitTag = document.createElement('span');
+        limitTag.className = 'container-row-limit__label';
+        limitTag.textContent = info.limitKind === 'page'
+            ? 'Spodní okraj plátna (− mezera za kontejnerem)'
+            : 'Max. výška nadřazeného kontejneru';
+        limit.appendChild(limitTag);
+        limit.setAttribute('aria-hidden', 'true');
+        layer.appendChild(limit);
+
+        const all = [...ghosts, limit];
+        return {
+            place: ({ left, right, top, g, offX, offY, PAD }) => {
+                const pitch = info.pitch;
+                const rowHeight = info.rowHeight;
+                ghosts.forEach((ghost, index) => {
+                    const k = index + 1;
+                    ghost.style.display = '';
+                    ghost.style.left = `${offX + (left - PAD) * g.scale}px`;
+                    ghost.style.width = `${(right - left + 2 * PAD) * g.scale}px`;
+                    ghost.style.top = `${offY + (top + k * pitch) * g.scale}px`;
+                    ghost.style.height = `${rowHeight * g.scale}px`;
+                });
+                limit.style.display = '';
+                limit.style.left = `${offX + (left - PAD - 12) * g.scale}px`;
+                limit.style.width = `${(right - left + 2 * PAD + 24) * g.scale}px`;
+                limit.style.top = `${offY + (top + info.limitOffset) * g.scale}px`;
+            },
+            hide: () => all.forEach((el) => { el.style.display = 'none'; }),
+            remove: () => all.forEach((el) => el.remove()),
+        };
     }
 
     // --- containers panel (left panel, the Vrstvy pattern) -------------------
@@ -710,6 +961,14 @@ export default class extends Controller {
         text.className = 'text-truncate';
         text.textContent = label;
         row.append(icon, text);
+        if (container.repeat) {
+            // "↻ ×8" — this container is a repeatable row.
+            const badge = document.createElement('span');
+            badge.className = 'container-panel-row__badge';
+            badge.title = `Opakovatelný řádek: ${container.repeat.min}–${container.repeat.max}, výchozí ${container.repeat.default}`;
+            badge.textContent = `↻ ×${container.repeat.max}`;
+            row.appendChild(badge);
+        }
 
         row.addEventListener('mouseenter', () => this._setPanelFocus(container, true));
         row.addEventListener('mouseleave', () => this._setPanelFocus(container, false));
@@ -746,9 +1005,10 @@ export default class extends Controller {
             // The design-hidden filter runs live: the layers eye can flip
             // `visible` without a membership change (no renderZones pass).
             const members = entry.members.filter((o) => o.visible !== false);
-            if (members.length < 2) {
+            if (members.length < this._minItems(container)) {
                 if (entry.css !== 'hidden') {
                     zone.style.display = 'none';
+                    if (entry.rowChrome) entry.rowChrome.hide();
                     entry.css = 'hidden';
                 }
                 return;
@@ -778,7 +1038,11 @@ export default class extends Controller {
             const hideBadge = container.hidable === true
                 ? ` · lze skrýt${typeof container.name === 'string' && container.name !== '' ? ` („${container.name}“)` : ''}`
                 : '';
-            const text = nested
+            const rowInfo = container.repeat ? this._rowInfo.get(container.id) : null;
+            const rowShort = rowInfo ? rowInfo.groupFits < container.repeat.max : false;
+            const text = container.repeat
+                ? `Řádek ×${container.repeat.max}${container.repeat.default > 1 ? ` · výchozí ${container.repeat.default}` : ''}${rowShort ? ` · vejde se jen ${rowInfo.groupFits}` : ''}${hideBadge}`
+                : nested
                 ? `Vnořený kontejner${gapBadge}${hideBadge}`
                 : (overflowing
                     ? `Kontejner · obsah přesahuje o ${Math.ceil(overflowPx)} px`
@@ -792,6 +1056,11 @@ export default class extends Controller {
             }
             entry.css = css;
 
+            if (entry.rowChrome) {
+                entry.rowChrome.place({ left, right, top, g, offX, offY, PAD });
+            }
+            zone.classList.toggle('container-zone--row', Boolean(container.repeat));
+            zone.classList.toggle('container-zone--row-short', rowShort);
             zone.style.display = '';
             zone.style.left = `${offX + (left - PAD) * g.scale}px`;
             zone.style.top = `${offY + top * g.scale}px`;
@@ -805,7 +1074,10 @@ export default class extends Controller {
     }
 
     _clearZones() {
-        this._zones.forEach(({ zone }) => zone.remove());
+        this._zones.forEach(({ zone, rowChrome }) => {
+            zone.remove();
+            if (rowChrome) rowChrome.remove();
+        });
         this._zones = [];
         // A re-render mid-hover must not leave the stage dimmed forever.
         if (this.hasLayerTarget) {
@@ -951,7 +1223,7 @@ export default class extends Controller {
         if (!g || !canvas || !layout) return;
 
         const members = this._deepMemberObjects(container);
-        if (members.length < 2) return;
+        if (members.length < this._minItems(container)) return;
 
         const start = members.map((obj) => ({
             obj,
@@ -1074,16 +1346,33 @@ export default class extends Controller {
             if (typeof def.name === 'string' && def.name !== '') copy.name = def.name;
             // "Uživatel může posunout" — immutable value, sharing it is safe.
             if (def.userMove) copy.userMove = def.userMove;
+            // Repeatable rows: a row INSIDE the duplicated tree stays a row
+            // (its copy lives in the copied parent — one row per parent
+            // holds). The duplicated container ITSELF never keeps `repeat`:
+            // its copy joins the same parent, which already has its row.
+            if (def.repeat && def.id !== container.id) copy.repeat = { ...def.repeat };
             containers.push(copy);
         });
 
         // A nested original duplicates as a SIBLING inside the same parent.
         const parent = this._parentOf(container);
         if (parent) {
-            parent.memberContainerIds = [
-                ...(parent.memberContainerIds || []),
-                containerIdMap.get(container.id),
-            ];
+            const copyId = containerIdMap.get(container.id);
+            const copyDef = containers.find((c) => c.id === copyId);
+            if (container.repeat && copyDef
+                && copyDef.memberInputIds.length + copyDef.memberContainerIds.length < 2) {
+                // A single-item ROW (one scorer): without `repeat` its copy
+                // would be a degenerate 1-item container — the copied item
+                // joins the parent as a plain flow item instead.
+                parent.memberInputIds = [...(parent.memberInputIds || []), ...copyDef.memberInputIds];
+                parent.memberContainerIds = [...(parent.memberContainerIds || []), ...copyDef.memberContainerIds];
+                containers.splice(containers.indexOf(copyDef), 1);
+            } else {
+                parent.memberContainerIds = [
+                    ...(parent.memberContainerIds || []),
+                    copyId,
+                ];
+            }
         }
 
         this._dropDegenerate();
@@ -1387,6 +1676,8 @@ export default class extends Controller {
             el.appendChild(nestHint);
         }
 
+        el.appendChild(this._buildRepeatSection(container));
+
         if (!nested) {
             const maxLabel = document.createElement('label');
             maxLabel.className = 'form-label small mb-1';
@@ -1467,6 +1758,180 @@ export default class extends Controller {
         // The range band (canvas-user-move) follows the open popover.
         const canvas = this._canvas();
         if (canvas) canvas.requestRenderAll();
+    }
+
+    /**
+     * "Opakovatelný řádek" in the ⚙ popover (container-rows P3): the box +
+     * Max. řádků (prefilled with how many fit — the smallest size in a
+     * group — capped at 30), Výchozí počet and Min. počet. Disabled with the
+     * reason on a container that may not be a row (top-level, a second row
+     * in its parent, inside another row, holding a row). Every edit writes
+     * `repeat` only when the numbers are valid (1 ≤ min ≤ výchozí ≤ max ≤ 30)
+     * and commits ONE undo step on `change`.
+     */
+    _buildRepeatSection(container) {
+        const section = document.createElement('div');
+        section.className = 'container-repeat mb-2';
+
+        const reason = container.repeat ? null : repeatBlockReason(this._containers(), container);
+
+        const row = document.createElement('div');
+        row.className = 'form-check mb-1';
+        const box = document.createElement('input');
+        box.type = 'checkbox';
+        box.className = 'form-check-input';
+        box.id = `container-repeat-${container.id}`;
+        box.checked = Boolean(container.repeat);
+        box.disabled = reason !== null;
+        const boxLabel = document.createElement('label');
+        boxLabel.className = 'form-check-label small';
+        boxLabel.htmlFor = box.id;
+        boxLabel.textContent = 'Opakovatelný řádek';
+        row.append(box, boxLabel);
+        section.appendChild(row);
+
+        const hint = document.createElement('div');
+        hint.className = 'form-text small mb-1';
+        section.appendChild(hint);
+
+        const fields = document.createElement('div');
+        fields.className = 'container-repeat__fields';
+        const numberField = (labelText, key, title) => {
+            const wrap = document.createElement('label');
+            wrap.className = 'container-repeat__field small';
+            wrap.title = title;
+            const caption = document.createElement('span');
+            caption.textContent = labelText;
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.min = '1';
+            input.max = String(MAX_ROWS);
+            input.step = '1';
+            input.className = 'form-control form-control-sm';
+            input.dataset.repeatKey = key;
+            wrap.append(caption, input);
+            fields.appendChild(wrap);
+            return input;
+        };
+        const maxInput = numberField('Max. řádků', 'max', 'Nejvíc řádků, které uživatel může mít (nejvýš 30)');
+        const defaultInput = numberField('Výchozí počet', 'default', 'Kolik řádků se ukáže při otevření vyplňování');
+        const minInput = numberField('Min. počet', 'min', 'Méně řádků uživatel mít nemůže');
+        section.appendChild(fields);
+
+        const error = document.createElement('div');
+        error.className = 'form-text small text-danger mb-1';
+        error.hidden = true;
+        section.appendChild(error);
+
+        const fit = document.createElement('div');
+        fit.className = 'container-repeat__fit form-text small mb-1';
+        section.appendChild(fit);
+
+        const sync = () => {
+            const on = Boolean(container.repeat);
+            fields.hidden = !on;
+            fit.hidden = !on;
+            if (reason) {
+                hint.textContent = reason;
+                hint.classList.add('container-repeat__blocked');
+                return;
+            }
+            hint.classList.remove('container-repeat__blocked');
+            hint.textContent = on
+                ? 'Při vyplňování půjde řádek přidat (+) a odebrat (−). Nový řádek převezme ukázkový text tohoto řádku.'
+                : 'Uživatel si při vyplňování přidá tolik řádků, kolik potřebuje (např. výsledky, střelci).';
+            if (!on) return;
+            if (document.activeElement !== maxInput) maxInput.value = String(container.repeat.max);
+            if (document.activeElement !== defaultInput) defaultInput.value = String(container.repeat.default);
+            if (document.activeElement !== minInput) minInput.value = String(container.repeat.min);
+            this._renderFitInfo(fit, container);
+        };
+
+        const fitsNow = () => {
+            this._refreshRowInfo();
+            const info = this._rowInfo.get(container.id);
+            return info ? info.groupFits : 1;
+        };
+
+        box.addEventListener('change', () => {
+            if (box.checked) {
+                // Prefill: rows that fit by the design (the smallest size of
+                // a group), at least 1, at most 30.
+                container.repeat = { max: 1, min: 1, default: 1 };
+                const fits = fitsNow();
+                container.repeat = { max: Math.max(1, Math.min(MAX_ROWS, fits)), min: 1, default: 1 };
+            } else {
+                delete container.repeat;
+                const layout = this._layout();
+                const items = this._memberObjects(container).length
+                    + (layout ? layout.childContainersOf(this._containers(), container).length : 0);
+                if (items < 2) {
+                    // A single-item row is a container only BECAUSE it
+                    // repeats — without `repeat` its item goes back into the
+                    // parent's flow (undoable as one step).
+                    this._dissolve(container);
+                    return;
+                }
+            }
+            error.hidden = true;
+            this.renderZones();
+            this.canvasEditorOutlet.markUnsaved();
+            const canvas = this._canvas();
+            if (canvas) canvas.fire('object:modified', {});
+            sync();
+        });
+
+        const onNumbers = () => {
+            const read = (input) => (input.value.trim() === '' ? NaN : Number(input.value));
+            const next = normalizeRepeat({ max: read(maxInput), default: read(defaultInput), min: read(minInput) });
+            if (!next) {
+                error.textContent = `Musí platit 1 ≤ min. počet ≤ výchozí počet ≤ max. řádků ≤ ${MAX_ROWS} (celá čísla).`;
+                error.hidden = false;
+                return false;
+            }
+            error.hidden = true;
+            container.repeat = next;
+            this.renderZones();
+            this.canvasEditorOutlet.markUnsaved();
+            this._renderFitInfo(fit, container);
+            return true;
+        };
+        [maxInput, defaultInput, minInput].forEach((input) => {
+            input.addEventListener('input', onNumbers);
+            // Commit = one undo snapshot per edited field.
+            input.addEventListener('change', () => {
+                if (!onNumbers()) return;
+                const canvas = this._canvas();
+                if (canvas) canvas.fire('object:modified', {});
+            });
+        });
+
+        sync();
+        return section;
+    }
+
+    /** "Vejde se N řádků" (+ per size in a group) and the overflow warning. */
+    _renderFitInfo(el, container) {
+        el.textContent = '';
+        const info = this._rowInfo.get(container.id);
+        if (!info || !container.repeat) return;
+        const rows = (n) => (n === 1 ? 'řádek' : (n >= 2 && n <= 4 ? 'řádky' : 'řádků'));
+
+        const line = document.createElement('div');
+        if (info.perSize.length > 1) {
+            line.textContent = `Podle návrhu se vejde: ${info.perSize.map((p) => `${p.label} ${p.fits}`).join(' · ')} — počet řádků je společný, rozhoduje nejmenší (${info.groupFits}).`;
+        } else {
+            line.textContent = `Podle návrhu se vejde ${info.fits} ${rows(info.fits)}${info.fits >= MAX_ROWS ? ' (víc než limit)' : ''}.`;
+        }
+        el.appendChild(line);
+
+        if (container.repeat.max > info.groupFits) {
+            const warn = document.createElement('div');
+            warn.className = 'container-repeat__warn';
+            const short = info.perSize.filter((p) => p.fits < container.repeat.max).map((p) => p.label);
+            warn.textContent = `⚠ ${container.repeat.max} ${rows(container.repeat.max)} se do výšky ${container.repeat.max >= 2 && container.repeat.max <= 4 ? 'nevejdou' : 'nevejde'}${short.length && info.perSize.length > 1 ? ` (${short.join(', ')})` : ''} — uživatel přidá nejvýš ${Math.max(info.groupFits, container.repeat.min)}. Snižte max. řádků, nebo zvětšete max. výšku nadřazeného kontejneru.`;
+            el.appendChild(warn);
+        }
     }
 
     _closeSettings() {
@@ -1608,6 +2073,9 @@ export default class extends Controller {
             : null;
 
         this.sectionTargets.forEach((el) => el.classList.toggle('d-none', !container));
+        // "Opakovat jako řádek": texts only, and only where a row may live.
+        const canRow = Boolean(container) && layout.isTextboxObject(active) && this._rowBlockReason(active) === null;
+        this.rowButtonTargets.forEach((el) => el.classList.toggle('d-none', !canRow));
     }
 
     _syncCreateButton(activeObject) {

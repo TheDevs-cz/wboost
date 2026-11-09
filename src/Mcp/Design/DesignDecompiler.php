@@ -30,6 +30,7 @@ use WBoost\Web\Value\CanvasShape;
 use WBoost\Web\Value\CanvasShapeGradient;
 use WBoost\Web\Value\CanvasShapeKind;
 use WBoost\Web\Value\CanvasShapeStroke;
+use WBoost\Web\Value\ContainerRepeat;
 use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\ElementMoveAllowance;
@@ -1527,7 +1528,7 @@ readonly final class DesignDecompiler
             }
         }
 
-        /** @var list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string, userMove: null|ElementMoveAllowance}> $built */
+        /** @var list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string, userMove: null|ElementMoveAllowance, repeat: null|ContainerRepeat}> $built */
         $built = [];
 
         foreach ($containers as $position => $container) {
@@ -1591,6 +1592,7 @@ readonly final class DesignDecompiler
                 'hidable' => $container->hidable,
                 'name' => $container->name,
                 'userMove' => $container->userMove,
+                'repeat' => $container->repeat,
             ];
         }
 
@@ -1608,6 +1610,7 @@ readonly final class DesignDecompiler
                 $entry['hidable'],
                 $entry['name'],
                 $entry['userMove'],
+                $entry['repeat'],
             ),
             $built,
         );
@@ -1618,9 +1621,9 @@ readonly final class DesignDecompiler
      * mirroring `sanitizedContainers()` in `assets/controllers/canvas_payload.js`
      * and {@see DesignCompiler}'s own pass, because the parser enforces both.
      *
-     * @param list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string, userMove: null|ElementMoveAllowance}> $containers
+     * @param list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string, userMove: null|ElementMoveAllowance, repeat: null|ContainerRepeat}> $containers
      * @param list<DesignLoss> $losses
-     * @return list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string, userMove: null|ElementMoveAllowance}>
+     * @return list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string, userMove: null|ElementMoveAllowance, repeat: null|ContainerRepeat}>
      */
     private static function pruneContainerChildren(array $containers, array &$losses): array
     {
@@ -1693,18 +1696,31 @@ readonly final class DesignDecompiler
      * strip its parent below the minimum — hence the fixpoint, matching
      * {@see DesignCompiler::dropDegenerateToFixpoint()}.
      *
-     * @param list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string, userMove: null|ElementMoveAllowance}> $containers
+     * @param list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string, userMove: null|ElementMoveAllowance, repeat: null|ContainerRepeat}> $containers
      * @param list<DesignLoss> $losses
-     * @return list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string, userMove: null|ElementMoveAllowance}>
+     * @return list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string, userMove: null|ElementMoveAllowance, repeat: null|ContainerRepeat}>
      */
     private static function dropDegenerateContainers(array $containers, array &$losses): array
     {
+        $repeatable = [];
+
+        foreach ($containers as $container) {
+            if ($container['repeat'] !== null) {
+                $repeatable[$container['id']] = true;
+            }
+        }
+
         for (;;) {
             /** @var array<string, true> $valid */
             $valid = [];
 
             foreach ($containers as $container) {
-                if (count($container['members']) + count($container['children']) >= 2) {
+                // A repeatable row may be one item; a parent may hold only
+                // its repeatable row (≡ CanvasContainer::fromArray()).
+                $holdsRow = array_filter($container['children'], static fn (string $id): bool => isset($repeatable[$id])) !== [];
+                $minimum = $container['repeat'] !== null || $holdsRow ? 1 : 2;
+
+                if (count($container['members']) + count($container['children']) >= $minimum) {
                     $valid[$container['id']] = true;
                 }
             }
@@ -1713,7 +1729,7 @@ readonly final class DesignDecompiler
                 return $containers;
             }
 
-            /** @var list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string, userMove: null|ElementMoveAllowance}> $next */
+            /** @var list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string, userMove: null|ElementMoveAllowance, repeat: null|ContainerRepeat}> $next */
             $next = [];
 
             foreach ($containers as $container) {

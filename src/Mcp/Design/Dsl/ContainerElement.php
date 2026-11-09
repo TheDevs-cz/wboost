@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Mcp\Design\Dsl;
 
+use WBoost\Web\Value\ContainerRepeat;
 use WBoost\Web\Value\ElementMoveAllowance;
 
 /**
@@ -80,6 +81,15 @@ readonly final class ContainerElement implements DesignElement
          * on a nested one. Null = fixed in place.
          */
         public null|ElementMoveAllowance $userMove = null,
+        /**
+         * "Opakovatelný řádek" (canvas `repeat` on the definition): the end
+         * user may show `min`…`max` copies of this container, `default` on a
+         * fresh fill. NESTED containers only — the parent is the flow and its
+         * root's `maxHeight` the bound — one per parent, never inside another
+         * repeatable tree (all three are lint errors). Null = a plain
+         * container.
+         */
+        public null|ContainerRepeat $repeat = null,
     ) {
     }
 
@@ -117,6 +127,10 @@ readonly final class ContainerElement implements DesignElement
 
         if ($this->userMove !== null) {
             $data['userMove'] = $this->userMove->toArray();
+        }
+
+        if ($this->repeat !== null) {
+            $data['repeat'] = $this->repeat->toArray();
         }
 
         return $data;

@@ -390,6 +390,7 @@ export class GroupSync {
 
         this._syncZOrder(targets, touched);
         this._syncContainers(activeDims, targets, touched);
+        this._syncRepeat(touched);
 
         this.rebaseline();
 
@@ -776,6 +777,43 @@ export class GroupSync {
         });
     }
 
+    /**
+     * Repeatable rows share ONE row count across the group (Jan, 2026-11-09),
+     * so a `repeat` change on the active canvas reaches EVERY size that has
+     * the row — like a structural change (`allTargets`), regardless of the
+     * multi-edit switches that gate geometry. Sizes without that container
+     * are skipped (the fill page's gate asks only the sizes carrying it).
+     */
+    _syncRepeat(touched) {
+        const canvas = this.activeCanvas();
+        const current = Array.isArray(canvas.wboostContainers) ? canvas.wboostContainers : [];
+        const baselineById = new Map(this.baselineContainers.map((c) => [c.id, c]));
+        const changed = current.filter((c) => {
+            const base = baselineById.get(c.id);
+            return JSON.stringify(c.repeat ?? null) !== JSON.stringify(base ? (base.repeat ?? null) : null);
+        });
+        // A container that disappeared (dissolved) takes its repeat along
+        // through _syncContainers / the save sanitizer — nothing to do here.
+        if (!changed.length) return;
+
+        this.allTargets().forEach((target) => {
+            const shadowContainers = Array.isArray(target.shadow.wboostContainers) ? target.shadow.wboostContainers : [];
+            let hit = false;
+            changed.forEach((container) => {
+                const match = shadowContainers.find((c) => c.id === container.id);
+                if (!match) return;
+                if (JSON.stringify(match.repeat ?? null) === JSON.stringify(container.repeat ?? null)) return;
+                if (container.repeat) {
+                    match.repeat = { ...container.repeat };
+                } else {
+                    delete match.repeat;
+                }
+                hit = true;
+            });
+            if (hit) touched.add(target.id);
+        });
+    }
+
     _syncContainers(activeDims, targets, touched) {
         const canvas = this.activeCanvas();
         const current = Array.isArray(canvas.wboostContainers) ? canvas.wboostContainers : [];
@@ -820,6 +858,9 @@ export class GroupSync {
                 const hideMeta = {};
                 if (container.hidable === true) hideMeta.hidable = true;
                 if (typeof container.name === 'string' && container.name !== '') hideMeta.name = container.name;
+                // "Opakovatelný řádek" — METADATA too: max / min / default are
+                // SHARED by every size (one row count on the group fill page).
+                if (container.repeat) hideMeta.repeat = { ...container.repeat };
 
                 if (!existing) {
                     // New container → absolute projection of maxHeight/spacing.

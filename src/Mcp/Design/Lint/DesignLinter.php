@@ -816,19 +816,29 @@ readonly final class DesignLinter
         }
 
         /** @var list<LintFinding> $findings */
-        $findings = self::checkUserMove($document, $containers, $parentOf, $indexById);
+        $findings = [
+            ...self::checkUserMove($document, $containers, $parentOf, $indexById),
+            ...self::checkRepeatStructure($containers, $byId, $parentOf, $indexById),
+        ];
 
         foreach ($containers as $container) {
             $path = sprintf('elements[%d]', $indexById[$container->id] ?? 0);
             $items = self::resolvableItemCount($document, $container, $byId);
+            // A repeatable row may be ONE item; a parent may hold only its
+            // repeatable row (≡ CanvasContainer::fromArray()).
+            $holdsRow = array_filter(
+                $container->childIds,
+                static fn (string $childId): bool => ($byId[$childId] ?? null)?->repeat !== null,
+            ) !== [];
+            $minimum = $container->repeat !== null || $holdsRow ? 1 : 2;
 
-            if ($items < 2) {
+            if ($items < $minimum) {
                 $findings[] = new LintFinding(
                     LintCode::ContainerTooFewItems,
                     $container->id,
                     $path,
                     sprintf(
-                        '%s ("%s") groups %d item(s); a container needs at least 2 (members plus nested children). A container that reflows nothing is dropped by the canvas sanitizer, so it would disappear from the saved design without a word — remove it, or give it a second member.',
+                        '%s ("%s") groups %d item(s); a container needs at least 2 (members plus nested children; 1 for a repeatable row). A container that reflows nothing is dropped by the canvas sanitizer, so it would disappear from the saved design without a word — remove it, or give it a second member.',
                         $path,
                         $container->id,
                         $items,
@@ -863,9 +873,250 @@ readonly final class DesignLinter
             if ($overflow !== null) {
                 $findings[] = $overflow;
             }
+
+            array_push($findings, ...$this->checkRepeatCapacity($document, $container, $byId, $parentOf, $rects, $heights, $lineCounts, $indexById));
         }
 
         return $findings;
+    }
+
+    /**
+     * The repeatable-row STRUCTURE rules — each one an error, because the
+     * canvas sanitizer (editor, compiler, `CanvasContainer`) drops a `repeat`
+     * that breaks it and the agent would never learn its rows are gone:
+     * nested only, one per parent (the first in `children` order keeps it),
+     * never inside another repeatable tree.
+     *
+     * @param list<ContainerElement> $containers
+     * @param array<string, ContainerElement> $byId
+     * @param array<string, string> $parentOf child container id → parent id
+     * @param array<string, int> $indexById
+     * @return list<LintFinding>
+     */
+    private static function checkRepeatStructure(array $containers, array $byId, array $parentOf, array $indexById): array
+    {
+        $findings = [];
+
+        foreach ($containers as $container) {
+            if ($container->repeat === null) {
+                continue;
+            }
+
+            $path = sprintf('elements[%d].repeat', $indexById[$container->id] ?? 0);
+            $parentId = $parentOf[$container->id] ?? null;
+
+            if ($parentId === null) {
+                $findings[] = new LintFinding(
+                    LintCode::RepeatNotNested,
+                    $container->id,
+                    $path,
+                    sprintf(
+                        '%s: "%s" is a top-level container, and only a NESTED container can be a repeatable row — its parent is the list the rows flow in and the parent\'s maxHeight their bound. Wrap it in a parent container (list it in that parent\'s "children") or drop "repeat".',
+                        $path,
+                        $container->id,
+                    ),
+                );
+
+                continue;
+            }
+
+            $parent = $byId[$parentId];
+            foreach ($parent->childIds as $siblingId) {
+                if ($siblingId === $container->id) {
+                    break;
+                }
+                if (($byId[$siblingId] ?? null)?->repeat !== null) {
+                    $findings[] = new LintFinding(
+                        LintCode::RepeatMultipleInParent,
+                        $container->id,
+                        $path,
+                        sprintf(
+                            '%s: "%s" is the second repeatable row in "%s" (after "%s"); a parent offers ONE list of rows, so this "repeat" would be dropped. Move it into its own parent container or drop "repeat".',
+                            $path,
+                            $container->id,
+                            $parentId,
+                            $siblingId,
+                        ),
+                    );
+
+                    continue 2;
+                }
+            }
+
+            $seen = [];
+            for ($ancestorId = $parentId; $ancestorId !== null && !isset($seen[$ancestorId]); $ancestorId = $parentOf[$ancestorId] ?? null) {
+                $seen[$ancestorId] = true;
+                if (($byId[$ancestorId] ?? null)?->repeat !== null) {
+                    $findings[] = new LintFinding(
+                        LintCode::RepeatInsideRepeat,
+                        $container->id,
+                        $path,
+                        sprintf(
+                            '%s: "%s" sits inside the repeatable row "%s"; rows inside rows are not supported, so this "repeat" would be dropped. Keep "repeat" on one level only.',
+                            $path,
+                            $container->id,
+                            $ancestorId,
+                        ),
+                    );
+
+                    break;
+                }
+            }
+        }
+
+        return $findings;
+    }
+
+    /**
+     * `repeat.max` against the ROOT's room, by the same estimate as
+     * {@see self::checkOverflow()}: every extra row adds one PITCH (the row's
+     * flow height + the parent's uniform `gap`, else the designed gap to the
+     * next item below it, else 0 — {@see \WBoost\Web\Services\Template\RepeatableRows}'
+     * expansion) to the root's flow. Rows that do not fit are a warning
+     * naming how many do — the fill page stops adding rows there.
+     *
+     * @param array<string, ContainerElement> $byId
+     * @param array<string, string> $parentOf
+     * @param array<string, Rect> $rects
+     * @param array<string, float> $heights
+     * @param array<string, null|int> $lineCounts
+     * @param array<string, int> $indexById
+     * @return list<LintFinding>
+     */
+    private function checkRepeatCapacity(
+        DesignDocument $document,
+        ContainerElement $root,
+        array $byId,
+        array $parentOf,
+        array $rects,
+        array $heights,
+        array $lineCounts,
+        array $indexById,
+    ): array {
+        $rootFlow = null;
+        $findings = [];
+
+        foreach (self::treeOf($root, $byId) as $row) {
+            if ($row->repeat === null || $row->repeat->max <= 1 || !isset($parentOf[$row->id])) {
+                continue;
+            }
+
+            $parent = $byId[$parentOf[$row->id]];
+            $rowFlow = self::flowOf($document, $row, $byId, $rects, $heights, $lineCounts, []);
+            $rootFlow ??= self::flowOf($document, $root, $byId, $rects, $heights, $lineCounts, []);
+
+            if ($rowFlow === null || $rootFlow === null) {
+                continue; // unmeasurable — no opinion
+            }
+
+            $gap = $parent->gap ?? self::designedGapBelow($document, $parent, $row, $rowFlow, $byId, $rects, $heights, $lineCounts) ?? 0.0;
+            $pitch = max(1.0, $rowFlow['height'] + $gap);
+
+            $room = (float) $document->canvas->height - ($root->spaceAfter ?? 0.0) - ($rootFlow['top'] + $rootFlow['height']);
+            if ($root->maxHeight !== null) {
+                $room = min($room, $root->maxHeight - $rootFlow['height']);
+            }
+
+            $fits = $room < -self::OVERFLOW_TOLERANCE ? 0 : 1 + (int) floor(($room + self::OVERFLOW_TOLERANCE) / $pitch);
+
+            if ($fits >= $row->repeat->max) {
+                continue;
+            }
+
+            $path = sprintf('elements[%d].repeat', $indexById[$row->id] ?? 0);
+            $findings[] = new LintFinding(
+                LintCode::RepeatMaxOverflows,
+                $row->id,
+                $path,
+                sprintf(
+                    '%s: "%s" allows %d rows, but by designed geometry only %d fit%s in "%s" (each row adds about %s px; %s). The fill page stops offering "+ Přidat řádek" there, so "max" promises rows nobody can add. Lower "max" to %d, raise "%s".maxHeight, or tighten the row / its gap.',
+                    $path,
+                    $row->id,
+                    $row->repeat->max,
+                    $fits,
+                    $fits === 1 ? 's' : '',
+                    $root->id,
+                    self::number($pitch),
+                    $root->maxHeight === null
+                        ? 'bounded by the page bottom'
+                        : sprintf('maxHeight %s px', self::number($root->maxHeight)),
+                    max(1, $fits),
+                    $root->id,
+                ),
+            );
+        }
+
+        return $findings;
+    }
+
+    /**
+     * The container and every container nested in it.
+     *
+     * @param array<string, ContainerElement> $byId
+     * @return list<ContainerElement>
+     */
+    private static function treeOf(ContainerElement $root, array $byId): array
+    {
+        $tree = [];
+        $seen = [];
+        $queue = [$root];
+        while ($queue !== []) {
+            $current = array_shift($queue);
+            if (isset($seen[$current->id])) {
+                continue;
+            }
+            $seen[$current->id] = true;
+            $tree[] = $current;
+            foreach ($current->childIds as $childId) {
+                if (isset($byId[$childId])) {
+                    $queue[] = $byId[$childId];
+                }
+            }
+        }
+
+        return $tree;
+    }
+
+    /**
+     * The designed gap from the row to the nearest item below it in its
+     * parent — null when the row is the last item (≡ RepeatableRows).
+     *
+     * @param array{top: float, height: float, items: int} $rowFlow
+     * @param array<string, ContainerElement> $byId
+     * @param array<string, Rect> $rects
+     * @param array<string, float> $heights
+     * @param array<string, null|int> $lineCounts
+     */
+    private static function designedGapBelow(
+        DesignDocument $document,
+        ContainerElement $parent,
+        ContainerElement $row,
+        array $rowFlow,
+        array $byId,
+        array $rects,
+        array $heights,
+        array $lineCounts,
+    ): null|float {
+        $nextTop = null;
+
+        foreach ($parent->memberIds as $memberId) {
+            if (isset($rects[$memberId]) && $rects[$memberId]->y > $rowFlow['top']) {
+                $nextTop = $nextTop === null ? $rects[$memberId]->y : min($nextTop, $rects[$memberId]->y);
+            }
+        }
+
+        foreach ($parent->childIds as $childId) {
+            $child = $byId[$childId] ?? null;
+            if ($child === null || $childId === $row->id) {
+                continue;
+            }
+            $childFlow = self::flowOf($document, $child, $byId, $rects, $heights, $lineCounts, []);
+            if ($childFlow !== null && $childFlow['top'] > $rowFlow['top']) {
+                $nextTop = $nextTop === null ? $childFlow['top'] : min($nextTop, $childFlow['top']);
+            }
+        }
+
+        return $nextTop === null ? null : $nextTop - ($rowFlow['top'] + $rowFlow['height']);
     }
 
     /**

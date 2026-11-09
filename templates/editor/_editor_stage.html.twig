@@ -366,6 +366,10 @@
                 <h3 class="ed-sec-h">Kontejner</h3>
                 <p class="text-muted small my-2">Tento text je součástí kontejneru. Nastavení kontejneru (max. výška, mezery, vnoření) najdete pod ⚙ na jeho rámečku na plátně.</p>
                 <button type="button" class="btn btn-sm btn-outline-secondary w-100" data-action="canvas-container#removeActiveFromContainer">Odebrat z kontejneru</button>
+                {# Container-rows P3: the one way to author a SINGLE-text
+                   repeatable row (a column of scorers) — "Vytvořit kontejner"
+                   needs 2+ items. Hidden when the rules forbid a row here. #}
+                <button type="button" class="btn btn-sm btn-outline-secondary w-100 mt-2 d-none" data-canvas-container-target="rowButton" data-action="canvas-container#makeActiveRow" title="Text se stane řádkem, který si uživatel při vyplňování může přidat vícekrát (např. střelci)">Opakovat jako řádek</button>
             </div>
             <div class="ed-acts">
                 <button type="button" class="btn btn-tertiary btn-sm" data-action="canvas-clipboard#duplicate">{{ icon('copy', 's14') }}Duplikovat</button>

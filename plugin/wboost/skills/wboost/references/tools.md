@@ -165,7 +165,9 @@ of the canvas size a design must be authored at.
     "gap", "spaceAfter",   // nullable px
     "nested",              // true = it flows inside another container
     "hidable",             // true = the WHOLE container may be hidden (see below)
-    "name"                 // nullable label of that hide toggle
+    "name",                // nullable label of that hide toggle
+    "repeat",              // nullable {max, min, default} — a repeatable ROW (see below)
+    "fitsRows"             // nullable — how many rows fit by designed geometry (≤ max)
   }],
 
   "richTextOptions": {     // null unless a fillable richText input exists
@@ -208,6 +210,16 @@ entry accepts only `hide`, and hiding one without `hidable` is refused
 (`container_not_hidable`). It is the cheapest fix for a container overflow when
 the designer offered it. A hidable container may list `memberInputIds: []` —
 it holds only decorative images / shapes; hiding it still works.
+
+A container with `repeat` is a **repeatable row** ("Opakovatelný řádek", e.g.
+Skóre + Soupeř, or one scorer): the person filling the template shows between
+`min` and `max` copies of it (`default` on a fresh fill), stacked in its
+parent. Only the template row is listed — its inputs once. `fitsRows` is the
+server's estimate of how many fit the root's `maxHeight` / the page by the
+designed geometry; the fill page stops adding rows at the smaller of `max` and
+what really fits. Passing per-row values through `render_variant` /
+`export_variant` is not available yet: a render shows `default` rows, every row
+with the template row's sample.
 
 An image slot with a `containerId` flows like a text box of fixed height: a
 long text above it pushes it down (its picture keeps its place inside the
@@ -543,14 +555,17 @@ background are both reported in one turn.
 | `overwrite` | what does WRITING this destroy? | keep the thing, or acknowledge |
 
 `parse` and `compile` produce only errors; `variant` produces only warnings;
-`lint` and `overwrite` produce both. The single lint **error** is
+`lint` and `overwrite` produce both. The lint **errors** are
 `font_not_allowed` — an unknown face would be silently substituted by the
-renderer, so it stops the call before anything is drawn. Other lint codes
+renderer, so it stops the call before anything is drawn — and the
+repeatable-row structure codes `repeat_not_nested`, `repeat_multiple_in_parent`
+and `repeat_inside_repeat` (the saved design would silently lose that
+`repeat`). Other lint codes
 (`out_of_canvas_bounds`, `text_overlap`, `color_not_in_palette`,
 `font_size_too_small`, `container_overflow_predicted`, `container_too_few_items`,
 `container_hidable_without_name`, `image_without_asset_or_placeholder`,
 `max_length_below_stand_in`, `user_move_on_container_member`,
-`user_move_on_nested_container`) are warnings.
+`user_move_on_nested_container`, `repeat_max_overflows`) are warnings.
 
 ---
 
@@ -579,7 +594,8 @@ within the document. Slugs carry input identity across saves.
 | `shape` gradient stop | `at`, `color`, `opacity` |
 | `shape` userColor block | `target`, `colors`, `free` |
 | `background` element | `kind`, `id`, `asset`, `fill`, `fillable` |
-| `container` element | `kind`, `id`, `members`, `children`, `maxHeight`, `gap`, `spaceAfter`, `hidable`, `name`, `userMove` |
+| `container` element | `kind`, `id`, `members`, `children`, `maxHeight`, `gap`, `spaceAfter`, `hidable`, `name`, `userMove`, `repeat` |
+| `repeat` block | `max`, `min`, `default` |
 | `userMove` block | `vertical`, `horizontal`, `maxUp`, `maxDown`, `maxLeft`, `maxRight` |
 
 ### Enumerated values
@@ -670,6 +686,17 @@ within the document. Slugs carry input identity across saves.
   below. `hidable: true` lets the user (fill page) and API/MCP callers hide the
   WHOLE container with one toggle — give it a `name` (the toggle's label, e.g.
   `"Bublina s citací"`).
+- **`repeat`** ("Opakovatelný řádek") on a **nested** `container` makes it a
+  row the user repeats: `{"max": 8, "min": 1, "default": 1}` — whole numbers,
+  `1 ≤ min ≤ default ≤ max ≤ 30`; `min` defaults to 1 and `default` to `min`.
+  Design ONE row (e.g. `"members": ["skore", "souper"]`) inside a parent that
+  is the list (the root's `maxHeight` bounds all rows together); a repeatable
+  row may hold a single text, and its parent may hold nothing but the row.
+  Lint errors: `repeat_not_nested` (on a top-level container),
+  `repeat_multiple_in_parent` (one repeatable row per parent),
+  `repeat_inside_repeat` (no rows inside rows). `repeat_max_overflows` warns
+  when `max` rows do not fit and says how many do — `describe_variant` reports
+  the same estimate as `fitsRows` after saving.
 - **`userMove`** ("Uživatel může posunout") on a `text` (locked ones too), a
   `shape`, a **decorative** `image` or a **top-level** `container`: the person
   filling the template may move that element (a container: the whole block).

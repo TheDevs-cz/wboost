@@ -347,6 +347,95 @@ export function normalizeRepeat(raw) {
 }
 
 /**
+ * The repeatable-row STRUCTURE rules, applied IN PLACE to container
+ * definitions (≡ PHP CanvasContainer::collectionFromCanvas and the MCP
+ * DesignCompiler::applyRepeatRules): only a NESTED container keeps `repeat`,
+ * at most one per parent (the first in the parent's child order), never
+ * inside another repeatable tree. The editor runs it after every structural
+ * change (dissolve, re-parent, duplicate) so the live state never shows a
+ * row the save would drop; the save sanitizer runs it again.
+ *
+ * @param {Array} containers definitions ({id, memberContainerIds, repeat?})
+ * @returns {Array} the same array
+ */
+export function applyRepeatRules(containers) {
+    const result = containers;
+    const parentOf = new Map();
+    result.forEach((container) => (container.memberContainerIds || []).forEach((childId) => parentOf.set(childId, container.id)));
+    const repeatById = new Map(result.map((c) => [c.id, c]));
+    const claimedParents = new Set();
+    result.forEach((container) => {
+        (container.memberContainerIds || []).forEach((childId) => {
+            const child = repeatById.get(childId);
+            if (!child || !child.repeat) return;
+            let ancestor = container.id;
+            let insideRepeat = false;
+            const seen = new Set();
+            while (ancestor && !seen.has(ancestor)) {
+                seen.add(ancestor);
+                if (repeatById.get(ancestor) && repeatById.get(ancestor).repeat) {
+                    insideRepeat = true;
+                    break;
+                }
+                ancestor = parentOf.get(ancestor);
+            }
+            if (claimedParents.has(container.id) || insideRepeat) {
+                delete child.repeat;
+                return;
+            }
+            claimedParents.add(container.id);
+            child._repeatValid = true;
+        });
+    });
+    result.forEach((container) => {
+        if (container.repeat && !container._repeatValid) delete container.repeat;
+        delete container._repeatValid;
+    });
+    return result;
+}
+
+/**
+ * Why `container` may NOT become a repeatable row right now — a Czech hint
+ * for the ⚙ popover — or null when it may (the rules of applyRepeatRules,
+ * asked before the designer ticks the box).
+ */
+export function repeatBlockReason(containers, container) {
+    const parentOf = new Map();
+    containers.forEach((c) => (c.memberContainerIds || []).forEach((childId) => parentOf.set(childId, c.id)));
+    const byId = new Map(containers.map((c) => [c.id, c]));
+    const parentId = parentOf.get(container.id);
+    if (!parentId) {
+        return 'Opakovat lze jen vnořený kontejner — vložte řádek do nadřazeného kontejneru (ten tvoří seznam a jeho max. výška řádky omezuje).';
+    }
+    const parent = byId.get(parentId);
+    const sibling = (parent.memberContainerIds || [])
+        .map((id) => byId.get(id))
+        .find((c) => c && c.id !== container.id && c.repeat);
+    if (sibling) {
+        return 'Nadřazený kontejner už má jiný opakovatelný řádek — v jednom kontejneru může být jen jeden.';
+    }
+    const seen = new Set();
+    for (let ancestor = parentId; ancestor && !seen.has(ancestor); ancestor = parentOf.get(ancestor)) {
+        seen.add(ancestor);
+        if (byId.get(ancestor) && byId.get(ancestor).repeat) {
+            return 'Kontejner leží uvnitř jiného opakovatelného řádku — řádky v řádcích zatím nejdou.';
+        }
+    }
+    const nestedRow = (function findRow(c, visited) {
+        return (c.memberContainerIds || []).some((id) => {
+            if (visited.has(id)) return false;
+            visited.add(id);
+            const child = byId.get(id);
+            return Boolean(child) && (Boolean(child.repeat) || findRow(child, visited));
+        });
+    })(container, new Set());
+    if (nestedRow) {
+        return 'Uvnitř kontejneru už je opakovatelný řádek — řádky v řádcích zatím nejdou.';
+    }
+    return null;
+}
+
+/**
  * Canonicalise an object's / container entry's `userMove` in place (the
  * shared WBoostElementMove.normalize, ≡ PHP ElementMoveAllowance::fromArray):
  * an allowance that allows nothing is removed.
@@ -462,37 +551,8 @@ export function sanitizedContainers(canvas, objects) {
     // Repeat rules (≡ PHP CanvasContainer::collectionFromCanvas): only a
     // NESTED container, one per parent (first in the parent's order), never
     // inside another repeatable tree — otherwise `repeat` is dropped.
-    const parentOf = new Map();
-    result.forEach((container) => container.memberContainerIds.forEach((childId) => parentOf.set(childId, container.id)));
+    applyRepeatRules(result);
     const repeatById = new Map(result.map((c) => [c.id, c]));
-    const claimedParents = new Set();
-    result.forEach((container) => {
-        container.memberContainerIds.forEach((childId) => {
-            const child = repeatById.get(childId);
-            if (!child || !child.repeat) return;
-            let ancestor = container.id;
-            let insideRepeat = false;
-            const seen = new Set();
-            while (ancestor && !seen.has(ancestor)) {
-                seen.add(ancestor);
-                if (repeatById.get(ancestor) && repeatById.get(ancestor).repeat) {
-                    insideRepeat = true;
-                    break;
-                }
-                ancestor = parentOf.get(ancestor);
-            }
-            if (claimedParents.has(container.id) || insideRepeat) {
-                delete child.repeat;
-                return;
-            }
-            claimedParents.add(container.id);
-            child._repeatValid = true;
-        });
-    });
-    result.forEach((container) => {
-        if (container.repeat && !container._repeatValid) delete container.repeat;
-        delete container._repeatValid;
-    });
 
     // Degenerate drop to fixpoint: a container needs 2+ members in total (a
     // repeatable row 1+ — the single-text rows), and dropping one can

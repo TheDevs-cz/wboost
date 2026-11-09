@@ -409,7 +409,9 @@ a white 0 → 100 % fade as an overlay over a photo); it is decorative unless yo
 shows up in `describe_variant` `shapeInputs[]`). Shapes are how you author panels,
 rules and scrims rather than uploading a picture of one. A `container` groups `members` (texts, shapes and images —
 decorative ones and fillable image slots alike) and `children` (nested containers) into one vertical flow — a **top-level
-container must carry `maxHeight`**, a nested one must not need it.
+container must carry `maxHeight`**, a nested one must not need it. A nested container with
+`repeat: {"max": 8}` is a row the person filling it repeats ("+ Přidat řádek") — design ONE row,
+never number rows by hand.
 
 **Every design should have exactly one `background` element** — the editor's
 locked "Pozadí" layer at the bottom, always covering the whole canvas incl. the

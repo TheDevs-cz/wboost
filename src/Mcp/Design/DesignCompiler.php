@@ -963,7 +963,7 @@ readonly final class DesignCompiler
      *
      * @param array<string, string> $inputIds
      * @param array<string, array<string, mixed>> $objectByInputId
-     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}}>
+     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int}}>
      */
     private function compileContainers(
         DesignDocument $document,
@@ -983,7 +983,7 @@ readonly final class DesignCompiler
             $containerIds[$container->id] = true;
         }
 
-        /** @var list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}}> $result */
+        /** @var list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int}}> $result */
         $result = [];
 
         foreach ($containers as $container) {
@@ -1051,6 +1051,13 @@ readonly final class DesignCompiler
                 $entry['userMove'] = $container->userMove->toArray();
             }
 
+            // "Opakovatelný řádek" (container-rows P3) — emitted only when
+            // set; the structural rules are applied below, after the child
+            // references are final (≡ sanitizedContainers()).
+            if ($container->repeat !== null) {
+                $entry['repeat'] = $container->repeat->toArray();
+            }
+
             if ($entry['id'] !== '' && $entry['maxHeight'] > 0) {
                 $result[] = $entry;
             }
@@ -1058,6 +1065,7 @@ readonly final class DesignCompiler
 
         $result = self::pruneChildReferences($result);
         $result = self::dropCyclicChildReferences($result);
+        $result = self::applyRepeatRules($result);
 
         return self::dropDegenerateToFixpoint($result);
     }
@@ -1127,8 +1135,8 @@ readonly final class DesignCompiler
      * itself, and must have exactly one parent — the first that claims them in
      * list order.
      *
-     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}}> $containers
-     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}}>
+     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int}}> $containers
+     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int}}>
      */
     private static function pruneChildReferences(array $containers): array
     {
@@ -1173,8 +1181,8 @@ readonly final class DesignCompiler
      * editor matters more than symmetry — a design saved from the browser and
      * the same design compiled here must produce the same `containers`.
      *
-     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}}> $containers
-     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}}>
+     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int}}> $containers
+     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int}}>
      */
     private static function dropCyclicChildReferences(array $containers): array
     {
@@ -1229,22 +1237,100 @@ readonly final class DesignCompiler
     }
 
     /**
+     * The repeatable-row structure rules (≡ `sanitizedContainers()` in
+     * canvas_payload.js and `CanvasContainer::collectionFromCanvas()`): only a
+     * NESTED container keeps `repeat`, at most one per parent (the first in
+     * the parent's child order), and never inside another repeatable tree.
+     * The linter reports each of these as an error before set_design gets
+     * here, so this pass only keeps a hand-built canvas consistent.
+     *
+     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int}}> $containers
+     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int}}>
+     */
+    private static function applyRepeatRules(array $containers): array
+    {
+        $parentOf = [];
+        $repeatById = [];
+
+        foreach ($containers as $container) {
+            foreach ($container['memberContainerIds'] as $childId) {
+                $parentOf[$childId] = $container['id'];
+            }
+            $repeatById[$container['id']] = isset($container['repeat']);
+        }
+
+        $valid = [];
+        $claimedParents = [];
+
+        foreach ($containers as $container) {
+            foreach ($container['memberContainerIds'] as $childId) {
+                if (!($repeatById[$childId] ?? false)) {
+                    continue;
+                }
+
+                $insideRepeat = false;
+                $seen = [];
+                for ($ancestor = $container['id']; $ancestor !== null && !isset($seen[$ancestor]); $ancestor = $parentOf[$ancestor] ?? null) {
+                    $seen[$ancestor] = true;
+                    if ($repeatById[$ancestor] ?? false) {
+                        $insideRepeat = true;
+                        break;
+                    }
+                }
+
+                if (isset($claimedParents[$container['id']]) || $insideRepeat) {
+                    // Dropped in place, as the JS deletes it mid-walk — a
+                    // later descendant check sees the updated state.
+                    $repeatById[$childId] = false;
+
+                    continue;
+                }
+
+                $claimedParents[$container['id']] = true;
+                $valid[$childId] = true;
+            }
+        }
+
+        foreach ($containers as $index => $container) {
+            if (isset($container['repeat']) && !isset($valid[$container['id']])) {
+                unset($containers[$index]['repeat']);
+            }
+        }
+
+        return $containers;
+    }
+
+    /**
      * §4.4-17's fixpoint: a container needs 2+ items counting nested children,
      * and dropping one can invalidate the parent that counted it. Iterate until
      * the surviving set stops shrinking — a single pass leaves inert
      * definitions behind, which `CanvasContainer` would then drop silently and
      * asymmetrically from the design the agent was shown.
      *
-     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}}> $containers
-     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}}>
+     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int}}> $containers
+     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int}}>
      */
     private static function dropDegenerateToFixpoint(array $containers): array
     {
+        $repeatable = [];
+
+        foreach ($containers as $container) {
+            if (isset($container['repeat'])) {
+                $repeatable[$container['id']] = true;
+            }
+        }
+
         for (;;) {
             $valid = [];
 
             foreach ($containers as $container) {
-                if (count($container['memberInputIds']) + count($container['memberContainerIds']) >= 2) {
+                // A repeatable row may be ONE member (the single-scorer
+                // columns) and a parent may hold only its repeatable row —
+                // ≡ CanvasContainer::fromArray() and sanitizedContainers().
+                $holdsRow = array_filter($container['memberContainerIds'], static fn (string $id): bool => isset($repeatable[$id])) !== [];
+                $minimum = isset($container['repeat']) || $holdsRow ? 1 : 2;
+
+                if (count($container['memberInputIds']) + count($container['memberContainerIds']) >= $minimum) {
                     $valid[$container['id']] = true;
                 }
             }
