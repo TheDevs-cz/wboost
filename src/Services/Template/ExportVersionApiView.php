@@ -50,8 +50,7 @@ readonly final class ExportVersionApiView
 
     /**
      * @return array{inputs: array<string, mixed>, images: array<string, mixed>, placements: array<string, array<string, array<string, float>>>, shapeColors: array<string, mixed>, offsets: array<string, mixed>, rows: array<string, list<array<string, mixed>>>}
-     */
-    /**
+     *
      * `$foldRows: false` keeps the rows' values in the flat maps under their
      * slot ids (`rows` empty) — the MCP document tools, which do not take
      * `rows` yet, re-send the maps verbatim.

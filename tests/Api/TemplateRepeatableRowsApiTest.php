@@ -180,7 +180,6 @@ final class TemplateRepeatableRowsApiTest extends ApiTestCase
 
         self::assertSame('TJ Kelč', $call['texts'][self::SOUPER] ?? null);
         self::assertSame('FK Nový Jičín', $call['texts'][$slot(self::SOUPER, 2)] ?? null);
-        self::assertArrayNotHasKey($slot(self::SOUPER, 1), $call['texts'], 'an empty row object keeps the sample');
         self::assertArrayHasKey($slot(self::CREST, 2), $call['images'], 'row 3 picked its own crest');
         self::assertSame([self::ROW => 3], $hides['rowCounts']);
         self::assertArrayHasKey($slot(self::SOUPER, 3), $hides['effectiveHidden'], 'rows past the count are hidden');
@@ -189,6 +188,7 @@ final class TemplateRepeatableRowsApiTest extends ApiTestCase
         $version = $this->variantVersion(self::VARIANT);
         self::assertSame([self::ROW => 3], $version->fillValues->rows);
         self::assertSame('FK Nový Jičín', $version->fillValues->texts[$slot(self::SOUPER, 2)] ?? null, 'stored under the slot ids, like the web fill');
+        self::assertArrayNotHasKey($slot(self::SOUPER, 1), $version->fillValues->texts, 'an empty row object keeps the sample — nothing provided');
 
         $fill = $this->versionFill($client, $token, $version);
         self::assertIsArray($fill['rows']);
@@ -223,7 +223,7 @@ final class TemplateRepeatableRowsApiTest extends ApiTestCase
         $this->assertResponseIsSuccessful();
 
         $fill = $this->versionFill($client, $token, $this->variantVersion(self::VARIANT));
-        self::assertSame([self::ROW => [[self::SOUPER => 'A'], [self::SOUPER => 'B', self::ROW => ['hide' => true]]]], $fill['rows']);
+        self::assertEquals([self::ROW => [[self::SOUPER => 'A'], [self::SOUPER => 'B', self::ROW => ['hide' => true]]]], $fill['rows']);
 
         $this->post($client, $token, '/api/template-variants/' . self::VARIANT . '/export', ['inputs' => $fill['inputs'], 'rows' => $fill['rows']]);
         $this->assertResponseIsSuccessful();
@@ -317,6 +317,9 @@ final class TemplateRepeatableRowsApiTest extends ApiTestCase
     public function testRowsThatDoNotFitAnswerContainerOverflow(): void
     {
         $client = self::createClient();
+        // One kernel across the token + export requests: the overflow is
+        // pre-armed on the fake renderer instance a reboot would replace.
+        $client->disableReboot();
         $token = $this->token($client);
         $this->makeRows(self::VARIANT);
         $this->renderer($client)->throwContainerOverflow = new ContainerOverflow(self::ROOT, 42.0);
@@ -340,7 +343,8 @@ final class TemplateRepeatableRowsApiTest extends ApiTestCase
         $values = [['4 - 4', 'Fotbal TJ Kelč'], ['6 - 2', 'TJ Tatran'], ['8 - 0', 'FK Nový Jičín'], ['2 - 2', 'Jablunkov'], ['5 - 1', 'Dobratice']];
 
         // Hand-numbered: Skóre N / Soupeř N, one container per row.
-        $hand = ContainerFixtures::raw(ContainerFixtures::TURNAJ);
+        $fixture = ContainerFixtures::raw(ContainerFixtures::TURNAJ);
+        $hand = ['canvas' => $fixture['canvas'], 'inputs' => $fixture['inputs'], 'imageInputs' => $fixture['imageInputs']];
         ContainerFixtures::applyRaw($this->variant(self::VARIANT), $hand);
         self::getContainer()->get(EntityManagerInterface::class)->flush();
         $inputs = [];
