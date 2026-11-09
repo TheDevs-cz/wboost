@@ -39,7 +39,7 @@ final class FillRowActionsTest extends KernelTestCase
 
     public function testRemovingAMiddleRowShiftsTheLaterRowsUpWithAllTheirValues(): void
     {
-        [$result] = $this->run([['row' => self::ROW, 'count' => 4, 'action' => 'remove', 'slot' => 1]]);
+        [$result] = $this->runSteps([['row' => self::ROW, 'count' => 4, 'action' => 'remove', 'slot' => 1]]);
 
         self::assertSame(['count' => 3, 'sources' => [[1, 2], [2, 3], [3, null]]], $result['plan']);
         $fields = $result['state']['fields'];
@@ -79,7 +79,7 @@ final class FillRowActionsTest extends KernelTestCase
 
     public function testMovingARowSwapsTwoRowsValues(): void
     {
-        [$up, $down] = $this->run([
+        [$up, $down] = $this->runSteps([
             ['row' => self::ROW, 'count' => 4, 'action' => 'up', 'slot' => 2],
             ['row' => self::ROW, 'count' => 4, 'action' => 'down', 'slot' => 0],
         ]);
@@ -98,7 +98,7 @@ final class FillRowActionsTest extends KernelTestCase
 
     public function testAddingOnlyRaisesTheCountAndTheLimitsHold(): void
     {
-        [$add, $atMax, $atMin, $topUp, $lastDown, $outside] = $this->run([
+        [$add, $atMax, $atMin, $topUp, $lastDown, $outside] = $this->runSteps([
             ['row' => self::ROW, 'count' => 4, 'action' => 'add'],
             ['row' => self::ROW, 'count' => 5, 'action' => 'add'],
             ['row' => self::ROW, 'count' => 1, 'action' => 'remove', 'slot' => 0],
@@ -138,7 +138,7 @@ final class FillRowActionsTest extends KernelTestCase
             ],
         ];
 
-        [$result] = $this->run([['row' => self::ROW, 'count' => 3, 'action' => 'remove', 'slot' => 1]], $state);
+        [$result] = $this->runSteps([['row' => self::ROW, 'count' => 3, 'action' => 'remove', 'slot' => 1]], $state);
 
         $pictures = $result['state']['images']['pictures'];
         self::assertSame(['imageId' => 'c', 'url' => 'uc', 'hide' => false], $pictures[$this->id(self::SKORE, 1)]);
@@ -177,7 +177,7 @@ final class FillRowActionsTest extends KernelTestCase
      * @param null|array<string, mixed> $state
      * @return list<array{plan: null|array{count: int, sources: list<array{int, null|int}>}, state: array{fields: array<string, null|string>, images: array<string, array<string, mixed>>}, inactive: list<string>}>
      */
-    private function run(array $steps, null|array $state = null): array
+    private function runSteps(array $steps, null|array $state = null): array
     {
         $node = (new ExecutableFinder())->find('node');
         if ($node === null) {
