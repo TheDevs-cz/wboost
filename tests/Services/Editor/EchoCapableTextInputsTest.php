@@ -212,6 +212,26 @@ final class EchoCapableTextInputsTest extends TestCase
         self::assertSame([], $result, "the child's baked icon poisons the whole root tree");
     }
 
+    public function testATreeHoldingARepeatableRowIsJudgedLikeAnyOther(): void
+    {
+        // Container-rows P4: the painters hide the unused rows from the
+        // payload's `repeatRows`, so a row no longer poisons its tree.
+        $canvas = [
+            'objects' => [
+                $this->textbox(0, 0, 100, 40),
+                $this->textbox(0, 100, 100, 40),
+            ],
+            'containers' => [
+                ['id' => 'root', 'maxHeight' => 500.0, 'memberInputIds' => [self::ID_1], 'memberContainerIds' => ['row']],
+                ['id' => 'row', 'maxHeight' => 40.0, 'memberInputIds' => [self::ID_2], 'repeat' => ['max' => 4, 'min' => 1, 'default' => 1]],
+            ],
+        ];
+
+        $result = $this->resolver()->resolve($canvas, [$this->input(self::ID_1), $this->input(self::ID_2)]);
+
+        self::assertSame([self::ID_1, self::ID_2], $result);
+    }
+
     public function testMalformedObjectAboveIsConservative(): void
     {
         $canvas = ['objects' => [

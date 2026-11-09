@@ -6,6 +6,8 @@ namespace WBoost\Web\Services\Template;
 
 use WBoost\Web\Entity\TemplateExportVersion;
 use WBoost\Web\Entity\TemplateVariant;
+use WBoost\Web\Value\CanvasContainer;
+use WBoost\Web\Value\ContainerRepeat;
 use WBoost\Web\Value\ExportFillValues;
 use WBoost\Web\Value\RichText;
 
@@ -15,6 +17,11 @@ use WBoost\Web\Value\RichText;
  * flattened to their plain text, long values cut), plus how many pictures
  * were picked and how many inputs hidden. What lets a user tell twenty
  * same-day versions apart without a render per row.
+ *
+ * Repeatable rows (container-rows P4): the labels come from the EXPANDED
+ * variants, so a row's texts are named per row ("Soupeř · řádek 2"), and a
+ * row the fill did not use (slot ≥ the stored count) is left out — its
+ * mirrors are posted (pristine), but they are not part of the picture.
  */
 final readonly class SummarizeExportVersion
 {
@@ -30,10 +37,11 @@ final readonly class SummarizeExportVersion
     public function forVersions(array $versions, array $variants): array
     {
         $labels = $this->textLabels($variants);
+        $rowSlots = $this->rowSlots($variants);
         $summaries = [];
 
         foreach ($versions as $version) {
-            $summaries[$version->id->toString()] = $this->summarize($version->fillValues, $labels);
+            $summaries[$version->id->toString()] = $this->summarize($version->fillValues, $labels, $rowSlots);
         }
 
         return $summaries;
@@ -41,9 +49,10 @@ final readonly class SummarizeExportVersion
 
     /**
      * @param array<string, string> $labels inputId → label, in design order
+     * @param array<string, array{row: string, slot: int, repeat: ContainerRepeat}> $rowSlots {@see rowSlots()}
      * @return array{texts: list<array{label: string, value: string}>, pictures: int, hidden: int}
      */
-    public function summarize(ExportFillValues $values, array $labels): array
+    public function summarize(ExportFillValues $values, array $labels, array $rowSlots = []): array
     {
         $texts = [];
 
@@ -55,6 +64,11 @@ final readonly class SummarizeExportVersion
         );
 
         foreach ($ordered as $inputId => $label) {
+            $slot = $rowSlots[$inputId] ?? null;
+            if ($slot !== null && $slot['slot'] >= $slot['repeat']->clamp($values->rows[$slot['row']] ?? null)) {
+                continue; // an unused row
+            }
+
             $plain = $this->plainText($values->texts[$inputId]);
 
             if ($plain === '') {
@@ -88,19 +102,59 @@ final readonly class SummarizeExportVersion
     public function textLabels(array $variants): array
     {
         $labels = [];
+        $rowSlots = $this->rowSlots($variants);
 
         foreach ($variants as $variant) {
-            foreach ($variant->inputs as $position => $input) {
+            foreach (RepeatableRows::expand($variant)->inputs as $position => $input) {
                 if (isset($labels[$input->inputId])) {
                     continue;
                 }
 
                 $name = trim($input->name ?? '');
-                $labels[$input->inputId] = $name !== '' ? $name : sprintf('Text %d', $position + 1);
+                $label = $name !== '' ? $name : sprintf('Text %d', $position + 1);
+                $slot = $rowSlots[$input->inputId] ?? null;
+                $labels[$input->inputId] = $slot === null ? $label : sprintf('%s · řádek %d', $label, $slot['slot'] + 1);
             }
         }
 
         return $labels;
+    }
+
+    /**
+     * Every member id of a repeatable row's materialised slots → its row,
+     * 0-based slot and the row's limits (first wins across the variants).
+     *
+     * @param list<TemplateVariant> $variants
+     * @return array<string, array{row: string, slot: int, repeat: ContainerRepeat}>
+     */
+    public function rowSlots(array $variants): array
+    {
+        $index = [];
+
+        foreach ($variants as $variant) {
+            if (!RepeatableRows::hasRepeatableRows($variant)) {
+                continue;
+            }
+
+            $decoded = json_decode(RepeatableRows::expand($variant)->canvas, true);
+            $containers = CanvasContainer::collectionFromCanvas(is_array($decoded) ? $decoded : []);
+            foreach ($containers as $container) {
+                if ($container->repeat === null || $container->repeatSlotIds === []) {
+                    continue;
+                }
+                foreach ($container->repeatSlotIds as $slot => $slotContainerId) {
+                    $slotContainer = CanvasContainer::findById($containers, $slotContainerId);
+                    if ($slotContainer === null) {
+                        continue;
+                    }
+                    foreach ($slotContainer->deepMemberInputIds($containers) as $memberId) {
+                        $index[$memberId] ??= ['row' => $container->id, 'slot' => $slot, 'repeat' => $container->repeat];
+                    }
+                }
+            }
+        }
+
+        return $index;
     }
 
     /**

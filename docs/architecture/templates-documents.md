@@ -294,7 +294,10 @@ EXPANDS the page first (so every materialised row's derived ids get fill
 keys) and re-keys `repeatSlots` / `repeatSlotOf`; `pageInputIds()` lists the
 repeatable row container ids (their `rowCounts[<key>]` count) and
 `valuesForPage()` translates `rowCounts`. A row's members are never bindable
-to a shared field (`TemplateDocumentRules::isBindable`).
+to a shared field (`TemplateDocumentRules::isBindable`). The fill UI (P4)
+follows: `DocumentFillPage` builds `fill_rows` per page clone (roles and row
+ids are fill keys), each page's surface gets its own "+ Řádek" chip and the
+height gate probes only the page carrying the row.
 
 **User-moved elements (2026-11-09, M2)** are per page as well:
 `pageInputIds()` lists every movable element of the (expanded) page, the fill

@@ -26,6 +26,10 @@
  *
  * Shortcuts: ⌘/Ctrl+Z, ⌘/Ctrl+Shift+Z and Ctrl+Y — but NOT while focus is in
  * a text field or a WYSIWYG, where the native / editor text undo owns them.
+ *
+ * Compound edits (`transact`, container-rows P4): an action that rewrites
+ * many fields at once (a repeatable row added / removed / moved) is applied
+ * through the same restore path and recorded as exactly ONE step.
  */
 
 const EDIT_EVENTS = [
@@ -167,6 +171,30 @@ export class FillHistory {
             if (this._redo.length === 0) return null;
             const target = this._redo.pop();
             this._undo.push(this._current);
+            return target;
+        });
+    }
+
+    /**
+     * A compound edit as ONE step (a repeatable-row add / remove / reorder
+     * rewrites many fields at once): any pending edit is committed first,
+     * `transform` gets the current state and returns the wanted one (or
+     * null = nothing to do), which is applied through `applyState` — the
+     * user-edit path — and recorded as a single undo step.
+     *
+     * @param {(state: object) => (object|null)} transform
+     */
+    transact(transform) {
+        return this._enqueue(() => {
+            this._pointerDown = false;
+            this.commit();
+            const next = transform(JSON.parse(this._current));
+            if (!next) return null;
+            const target = JSON.stringify(next);
+            if (target === this._current) return null;
+            this._undo.push(this._current);
+            if (this._undo.length > this.limit) this._undo.shift();
+            this._redo = [];
             return target;
         });
     }

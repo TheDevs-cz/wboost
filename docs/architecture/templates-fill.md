@@ -173,10 +173,25 @@ pages instead of a pencil per member. Contracts:
   modals and the colour picker pop-up count as inside). Opening a popover,
   the panel or "Náhled" closes it; a pencil on another dimension's box
   re-anchors it.
-- **"Všechna pole"** is unchanged (no grouping yet; the admin field order
-  still applies there). The sheet ignores the arranged order — it lists the
+- **"Všechna pole"** keeps no container grouping (the admin field order
+  still applies there) — except a repeatable row's fields, which stay
+  together row by row (P4). The sheet ignores the arranged order — it lists the
   container's fields in DESIGNED flow order (top to bottom), sections
   included.
+
+**Repeatable rows on the fill pages (2026-11-09, container-rows plan P4)**
+
+All three pages: the container sheet's "Řádek n" sections with ↑ / ↓ / −,
+"+ Přidat řádek" (max + a probe-layout height gate, the reason shown under
+it), a "+ Řádek" chip under the last active row on the preview, only the
+active rows' boxes / cards / toggles shown, ONE undo step per action
+(`FillHistory#transact`), row-grouped "Všechna pole". Full contract in
+templates-containers.md "Repeatable rows — the fill UI". Code:
+`fill_rows.js` (pure permutations), the overlay's "Repeatable rows" block
+(`_connectRows`, `_syncRows`, `_rowFits`, `_rowAction`), payload
+`FillRepeatableRows` → `data-fill-rows`. M3 note honoured: nothing lives in
+`fill_element_move.js`; rows are nested (never movable) and a count change
+re-lays out a moved root through `_scheduleRecompute`.
 
 **Move tool — user-moved elements on the single fill page (2026-11-09, axis-move plan M3)**
 

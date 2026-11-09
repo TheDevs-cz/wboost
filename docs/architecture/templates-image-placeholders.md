@@ -183,3 +183,11 @@ slot machinery here:
   re-renders the texts around it.
 - **API.** `imageInputs[].containerId`, `containers[].memberImageInputIds`;
   `frame` stays the DESIGNED box (the preview render is where it lands).
+- **In repeatable rows (P4).** Every materialised row has its own slot id
+  (derived), so the picker, the upload target (`PlaceholderImageUploader`
+  expands), the placement fields / group placement map and the adjust panel
+  are simply per row. Unused rows collapse (no picture on the single page, no
+  ghost on the group / document page). A row action moves the picture state
+  with the row (`fill_rows.js`: the single page's per-slot fields + URL, the
+  group's pictures + per-dimension placements); a removed row's freed slot
+  goes back to the stand-in with a neutral placement.

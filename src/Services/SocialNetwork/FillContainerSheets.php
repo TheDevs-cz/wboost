@@ -30,6 +30,13 @@ use WBoost\Web\Value\ShapeColorInput;
  * The sheet is a VIEW over the existing "Všechna pole" cards (the same editor
  * instances — see variant_fill_overlay_controller `openSheet`), so nothing
  * here creates a form field.
+ *
+ * Repeatable rows (container-rows plan P4): the variant is the EXPANDED one,
+ * so a row's `max` materialised slots are nested containers like any other.
+ * Their sections carry `row` (the row container id) + `slot` (0-based) — the
+ * client labels them "Řádek n", gives them ↑ / ↓ / − and shows only the
+ * active ones — and a `rowAdd` entry follows a row's last slot ("+ Přidat
+ * řádek"). The sheet lists the row ids it holds in `rows`.
  */
 final readonly class FillContainerSheets
 {
@@ -66,7 +73,8 @@ final readonly class FillContainerSheets
      *     hidden: bool,
      *     memberIds: list<string>,
      *     fieldIds: list<string>,
-     *     entries: list<array{kind: string, id: string, depth: int, name?: null|string, hidable?: bool, hidden?: bool}>
+     *     entries: list<array{kind: string, id: string, depth: int, name?: null|string, hidable?: bool, hidden?: bool, row?: string, slot?: int}>,
+     *     rows: list<string>
      * }>
      */
     public function forVariants(array $variants, array $hiddenValues = [], string $level = self::PENCIL_LEVEL): array
@@ -96,7 +104,8 @@ final readonly class FillContainerSheets
      *     hidden: bool,
      *     memberIds: list<string>,
      *     fieldIds: list<string>,
-     *     entries: list<array{kind: string, id: string, depth: int, name?: null|string, hidable?: bool, hidden?: bool}>
+     *     entries: list<array{kind: string, id: string, depth: int, name?: null|string, hidable?: bool, hidden?: bool, row?: string, slot?: int}>,
+     *     rows: list<string>
      * }>
      */
     private function sheetsOf(TemplateVariant $variant, array $hiddenValues, array $hideNames, string $level): array
@@ -125,9 +134,12 @@ final readonly class FillContainerSheets
             $this->walk($owner, 0, $byId, $ownerIds, $editable, $tops, $hiddenValues, $hideNames, $entries, $memberIds, []);
 
             $fieldIds = [];
+            $rowIds = [];
             foreach ($entries as $entry) {
                 if ($entry['kind'] === 'field') {
                     $fieldIds[] = $entry['id'];
+                } elseif ($entry['kind'] === 'rowAdd') {
+                    $rowIds[] = $entry['id'];
                 }
             }
             if (count($fieldIds) < self::MIN_FIELDS) {
@@ -142,6 +154,7 @@ final readonly class FillContainerSheets
                 'memberIds' => array_values(array_unique($memberIds)),
                 'fieldIds' => $fieldIds,
                 'entries' => $entries,
+                'rows' => $rowIds,
             ];
         }
 
@@ -182,7 +195,9 @@ final readonly class FillContainerSheets
      * Depth-first over one owner's tree in DESIGNED flow order (top to
      * bottom): editable members become `field` entries, nested containers
      * that are not owners themselves become `section` entries followed by
-     * their own fields (a section without any field is dropped).
+     * their own fields (a section without any field is dropped). A
+     * repeatable row's slot sections carry `row` + `slot`; a `rowAdd` entry
+     * follows the last slot of each row.
      *
      * @param array<string, CanvasContainer> $byId
      * @param array<string, true> $ownerIds
@@ -190,7 +205,7 @@ final readonly class FillContainerSheets
      * @param array<string, float> $tops
      * @param array<array-key, mixed> $hiddenValues
      * @param array<string, string> $hideNames
-     * @param list<array{kind: string, id: string, depth: int, name?: null|string, hidable?: bool, hidden?: bool}> $entries
+     * @param list<array{kind: string, id: string, depth: int, name?: null|string, hidable?: bool, hidden?: bool, row?: string, slot?: int}> $entries
      * @param list<string> $memberIds
      * @param array<string, true> $visiting
      */
@@ -227,6 +242,9 @@ final readonly class FillContainerSheets
 
         usort($items, static fn (array $a, array $b): int => [$a['top'], $a['order']] <=> [$b['top'], $b['order']]);
 
+        /** @var array<string, int> $rowEnds row id → index of its last slot's last entry */
+        $rowEnds = [];
+
         foreach ($items as $item) {
             if ($item['kind'] === 'field') {
                 $entries[] = ['kind' => 'field', 'id' => $item['id'], 'depth' => $depth];
@@ -235,7 +253,7 @@ final readonly class FillContainerSheets
 
             $child = $byId[$item['id']];
             $sectionAt = count($entries);
-            $entries[] = [
+            $section = [
                 'kind' => 'section',
                 'id' => $child->id,
                 'depth' => $depth,
@@ -243,13 +261,53 @@ final readonly class FillContainerSheets
                 'hidable' => $child->hidable,
                 'hidden' => $child->hidable && self::isHidden($hiddenValues, $child->id),
             ];
+            $slot = self::rowSlotOf($child, $byId);
+            if ($slot !== null) {
+                $section['row'] = $slot['row'];
+                $section['slot'] = $slot['slot'];
+            }
+            $entries[] = $section;
             $before = count($entries);
             $this->walk($child, $depth + 1, $byId, $ownerIds, $editable, $tops, $hiddenValues, $hideNames, $entries, $memberIds, $visiting);
             if (count($entries) === $before) {
                 // Nothing editable inside: no empty heading.
                 array_splice($entries, $sectionAt, 1);
+                continue;
+            }
+            if ($slot !== null) {
+                $rowEnds[$slot['row']] = count($entries) - 1;
             }
         }
+
+        // "+ Přidat řádek" right after each row's last slot (slots are
+        // consecutive in flow order). Inserted back to front so the earlier
+        // positions stay valid.
+        arsort($rowEnds);
+        foreach ($rowEnds as $rowId => $end) {
+            array_splice($entries, $end + 1, 0, [['kind' => 'rowAdd', 'id' => (string) $rowId, 'depth' => $depth]]);
+        }
+    }
+
+    /**
+     * Which repeatable row (and which 0-based slot of it) a container of an
+     * EXPANDED variant is: the row itself is slot 0, a materialised copy
+     * names its row in `repeatSlotOf`. Null for every other container.
+     *
+     * @param array<string, CanvasContainer> $byId
+     * @return null|array{row: string, slot: int}
+     */
+    private static function rowSlotOf(CanvasContainer $container, array $byId): null|array
+    {
+        if ($container->repeat !== null && $container->repeatSlotIds !== []) {
+            return ['row' => $container->id, 'slot' => 0];
+        }
+        if ($container->repeatSlotOf === null) {
+            return null;
+        }
+        $row = $byId[$container->repeatSlotOf] ?? null;
+        $slot = $row === null ? false : array_search($container->id, $row->repeatSlotIds, true);
+
+        return is_int($slot) ? ['row' => $container->repeatSlotOf, 'slot' => $slot] : null;
     }
 
     /**

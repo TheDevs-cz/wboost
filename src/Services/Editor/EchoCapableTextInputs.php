@@ -230,15 +230,10 @@ final readonly class EchoCapableTextInputs
             $memberIds = [];
             $treeContainers = [];
             $this->collectTree($container, $byId, $memberIds, $treeContainers, []);
-            // Repeatable rows (container-rows P2): the echo painters do not
-            // know the unused-row hides yet (P4), so a tree holding rows is
-            // never "clean" — its texts stay settle-rendered. The row's own
-            // id is never an echo candidate, which is all it takes.
-            foreach ($treeContainers as $treeContainer) {
-                if ($treeContainer->repeat !== null) {
-                    $memberIds[] = $treeContainer->id;
-                }
-            }
+            // Repeatable rows: a tree holding rows is judged like any other
+            // (container-rows P4) — the painters hide the unused rows from
+            // the payload's `repeatRows` + the `rowCounts` mirrors exactly
+            // like the render (hidden row ≡ absent row).
             $trees[] = [
                 'containers' => $treeContainers,
                 'memberIds' => array_values(array_unique($memberIds)),

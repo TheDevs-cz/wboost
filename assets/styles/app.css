@@ -1750,7 +1750,8 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
    above the page, below the gallery pickers (like the panel) so a pick
    started from an image card opens over it. */
 .fill-sheet__head,
-.fill-sheet__section {
+.fill-sheet__section,
+.fill-sheet__row-add {
     display: none;
 }
 
@@ -1782,9 +1783,17 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     z-index: 2;
 }
 
-.fill-form.fill-js.fill-sheet-open .fill-popovers > .fill-sheet__section.is-in-sheet {
+.fill-form.fill-js.fill-sheet-open .fill-popovers > .fill-sheet__section.is-in-sheet,
+.fill-form.fill-js.fill-sheet-open .fill-popovers > .fill-sheet__row-add.is-in-sheet {
     display: flex;
     align-items: center;
+}
+
+/* Repeatable rows (container-rows P4): the rows a fill does not use are
+   materialised but never shown — sheet sections, cards, hide toggles. Beats
+   every presentation's display rule (floating, panel, sheet). */
+.fill-form .fill-popovers > .is-row-inactive {
+    display: none !important;
 }
 
 .fill-form.fill-js.fill-sheet-open .fill-popovers > .fill-popover.is-in-sheet {

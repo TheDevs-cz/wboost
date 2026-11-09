@@ -22,6 +22,7 @@ use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Services\Image\FileUploadPixelSizeBackfill;
 use WBoost\Web\Services\Image\GalleryImageCaption;
 use WBoost\Web\Services\ReleaseSessionLock;
+use WBoost\Web\Services\SocialNetwork\FillRepeatableRows;
 use WBoost\Web\Services\Template\RepeatableRows;
 use WBoost\Web\Services\SocialNetwork\CanvasPlaceholderGeometry;
 use WBoost\Web\Services\SocialNetwork\FillContainerHides;
@@ -809,6 +810,24 @@ abstract class AbstractVariantFiller extends AbstractController
     }
 
     /**
+     * The repeatable rows' client payload ({@see FillRepeatableRows}): the
+     * sheet's row controls, the "Všechna pole" row grouping and the add gate
+     * read it. Empty for every design without rows.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    public function fillRows(): array
+    {
+        $variant = $this->variantEntity();
+        $this->denyAccessUnlessGranted($this->viewAttribute(), $variant);
+
+        return $this->fillRowsCache ??= FillRepeatableRows::forVariants([$variant], $this->rowCounts);
+    }
+
+    /** @var null|array<string, array<string, mixed>> */
+    private null|array $fillRowsCache = null;
+
+    /**
      * The recolourable shapes ({@see FillShapePlaceholders}) — one popover +
      * one preview box each, `frame` in canvas px (null = no box, the panel
      * still lists it).
@@ -954,7 +973,8 @@ abstract class AbstractVariantFiller extends AbstractController
      *     objects: list<array{inputId: string, object: array<array-key, mixed>}>,
      *     containers: list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap: null|float, spaceAfter: null|float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int}, repeatSlots?: list<string>, repeatSlotOf?: string}>,
      *     containerHides: array<string, list<string>>,
-     *     inputs: array<string, array{richText: bool, lists: bool, maxLength: null|int, uppercase: bool}>
+     *     inputs: array<string, array{richText: bool, lists: bool, maxLength: null|int, uppercase: bool}>,
+     *     repeatRows?: array<string, array{min: int, max: int, default: int, slots: list<list<string>>}>
      * }
      */
     public function echoPayload(): null|array
@@ -998,7 +1018,7 @@ abstract class AbstractVariantFiller extends AbstractController
             }
         }
 
-        return [
+        $payload = [
             'width' => $variant->dimension->width(),
             'height' => $variant->dimension->height(),
             'canvasHeight' => $variant->dimension->height(),
@@ -1012,6 +1032,17 @@ abstract class AbstractVariantFiller extends AbstractController
             'containerHides' => $this->fillContainerHides->memberMap($variant),
             'inputs' => $inputRules,
         ];
+
+        // Repeatable rows (container-rows P4): row id → slots' deep member
+        // ids — the painters hide the slots beyond the `rowCounts` mirror
+        // like the render does. Only for designs with rows (every other
+        // payload keeps its exact shape).
+        $repeatRows = RepeatableRows::slotMemberMap(CanvasContainer::collectionFromCanvas($canvas));
+        if ($repeatRows !== []) {
+            $payload['repeatRows'] = $repeatRows;
+        }
+
+        return $payload;
     }
 
     /**

@@ -29,6 +29,7 @@ final readonly class FillContainerHides
     public function placeholders(array $variants, array $hiddenValues): array
     {
         $rows = [];
+        $names = [];
         $position = 0;
 
         foreach ($variants as $variant) {
@@ -39,10 +40,18 @@ final readonly class FillContainerHides
                     continue;
                 }
 
-                $position++;
+                $slot = self::rowSlot($container, $containers);
+                if ($slot === null || $slot === 0) {
+                    $position++;
+                    $names[$container->repeatSlotOf ?? $container->id] = $container->name ?? sprintf('Skupina prvků %d', $position);
+                }
+                $name = $names[$container->repeatSlotOf ?? $container->id] ?? ($container->name ?? sprintf('Skupina prvků %d', $position));
                 $rows[$container->id] = [
                     'id' => $container->id,
-                    'name' => $container->name ?? sprintf('Skupina prvků %d', $position),
+                    // A hidable repeatable row (container-rows P4): one toggle
+                    // per materialised row, named after its row — the fill
+                    // pages show only the active rows' toggles.
+                    'name' => $slot === null ? $name : sprintf('%s · řádek %d', $name, $slot + 1),
                     'hidden' => in_array($hiddenValues[$container->id] ?? false, [true, 1, '1', 'true'], true),
                     'memberCount' => count($container->deepMemberInputIds($containers)),
                 ];
@@ -61,6 +70,27 @@ final readonly class FillContainerHides
     public function memberMap(TemplateVariant $variant): array
     {
         return CanvasContainer::hidableMemberMap(self::containersOf($variant));
+    }
+
+    /**
+     * The 0-based slot of a repeatable row's materialised container (the
+     * row itself is slot 0) on an EXPANDED variant; null for every other
+     * container.
+     *
+     * @param list<CanvasContainer> $containers
+     */
+    private static function rowSlot(CanvasContainer $container, array $containers): null|int
+    {
+        if ($container->repeat !== null && $container->repeatSlotIds !== []) {
+            return 0;
+        }
+        if ($container->repeatSlotOf === null) {
+            return null;
+        }
+        $row = CanvasContainer::findById($containers, $container->repeatSlotOf);
+        $slot = $row === null ? false : array_search($container->id, $row->repeatSlotIds, true);
+
+        return is_int($slot) ? $slot : null;
     }
 
     /**

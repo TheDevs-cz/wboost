@@ -1,6 +1,7 @@
 import { Controller } from '@hotwired/stimulus';
 import * as fabric from 'fabric';
 import { ADJUST_SCALE_MIN, NEUTRAL_PLACEMENT, adjustScaleMax, clamp, frameBox, ghostStyle } from './image_placement.js';
+import { unusedRowMemberIds } from './fill_rows.js';
 import { ImageAdjustToolbar } from './image_adjust_toolbar.js';
 
 /**
@@ -322,7 +323,7 @@ export default class extends Controller {
         // Which input changed — narrows the re-render to the pages carrying
         // it where the variants declare their keys (document page).
         const key = inputId || hiddenFor || keyHint || containerHide
-            || (target && target.dataset ? (target.dataset.imageHide || target.dataset.shapeColorMirror || null) : null);
+            || (target && target.dataset ? (target.dataset.imageHide || target.dataset.shapeColorMirror || target.dataset.rowCountMirror || null) : null);
         const scope = this._scopeForKey(key);
 
         if (inputId || hiddenFor) {
@@ -816,6 +817,8 @@ export default class extends Controller {
                 const box = this.element.querySelector(`[data-hide-mirror="${containerId}"]`);
                 if (box && box.checked) (containerHides[containerId] || []).forEach((id) => containerHidden.add(id));
             });
+            // Unused repeatable rows (the shared count) hide like the render.
+            unusedRowMemberIds(this.element, entry.payload.repeatRows).forEach((id) => containerHidden.add(id));
             Object.keys(entry.payload.inputs).forEach((inputId) => {
                 const def = entry.payload.inputs[inputId];
                 // The popovers' mirrors ARE the form fields here (hidden

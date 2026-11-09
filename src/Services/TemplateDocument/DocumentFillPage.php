@@ -13,6 +13,7 @@ use WBoost\Web\Entity\TemplateDocumentField;
 use WBoost\Web\Entity\TemplateDocumentPage;
 use WBoost\Web\Services\SocialNetwork\FillContainerHides;
 use WBoost\Web\Services\SocialNetwork\FillContainerSheets;
+use WBoost\Web\Services\SocialNetwork\FillRepeatableRows;
 use WBoost\Web\Services\SocialNetwork\FillShapePlaceholders;
 use WBoost\Web\Services\SocialNetwork\PlaceholderAllowedDirectories;
 use WBoost\Web\Services\Template\FillFieldOrder;
@@ -73,6 +74,7 @@ readonly final class DocumentFillPage
      *     container_hides: list<array{id: string, name: string, hidden: bool, memberCount: int}>,
      *     container_sheets: list<array<string, mixed>>,
      *     row_counts: array<string, int>,
+     *     fill_rows: array<string, array<string, mixed>>,
      *     image_inputs: list<array<string, mixed>>,
      *     sections: list<array{title: string, shared: bool, fields: list<array<string, mixed>>}>,
      *     rich_toolbar: null|array<string, mixed>,
@@ -122,6 +124,8 @@ readonly final class DocumentFillPage
         $containerSheets = [];
         /** @var array<string, int> $rowCounts repeatable row fill key → count (per page, never shared) */
         $rowCounts = [];
+        /** @var array<string, array{id: string, name: null|string, min: int, max: int, default: int, count: int, capacity: int, slots: list<string>, roles: array<string, list<string>>, pristine: array<string, string>}> $fillRows repeatable row fill key → client payload */
+        $fillRows = [];
 
         foreach ($document->pages() as $index => $page) {
             $templateId = $page->template->id->toString();
@@ -182,9 +186,14 @@ readonly final class DocumentFillPage
 
             // Repeatable rows: one count per page per row, in fill-key space
             // (the clone's row ids are re-keyed; the seed is too).
-            foreach (RepeatableRows::normalizeCounts([$clone], $seed['rowCounts'] ?? []) as $rowKey => $count) {
+            $pageRowCounts = RepeatableRows::normalizeCounts([$clone], $seed['rowCounts'] ?? []);
+            foreach ($pageRowCounts as $rowKey => $count) {
                 $rowCounts[$rowKey] = $count;
                 $pageKeys[] = $rowKey;
+            }
+            // The rows' client payload (P4), in fill-key space like the rest.
+            foreach (FillRepeatableRows::forVariants([$clone], $pageRowCounts) as $rowKey => $row) {
+                $fillRows[$rowKey] ??= $row;
             }
 
             $layout = $this->placeholders->layoutData($clone);
@@ -334,8 +343,9 @@ readonly final class DocumentFillPage
             'container_hides' => array_values($containerRows),
             'container_sheets' => array_values($containerSheets),
             'row_counts' => $rowCounts,
+            'fill_rows' => $fillRows,
             'image_inputs' => array_values($imageSlots),
-            'sections' => $this->sections($document, $fieldsById, $sectionSources, $texts, $imageSlots, $shapes, $containerRows),
+            'sections' => $this->sections($document, $fieldsById, $sectionSources, $texts, $imageSlots, $shapes, $containerRows, FillRepeatableRows::slotIndex($fillRows)),
             'rich_toolbar' => $this->placeholders->richTextToolbar($clones),
             'placement_slots' => array_values($placementSlots),
             'placement_variants' => $placementVariants,
@@ -354,10 +364,11 @@ readonly final class DocumentFillPage
      * @param array<string, array<string, mixed>> $imageSlots
      * @param array<string, array<string, mixed>> $shapes
      * @param array<string, array<string, mixed>> $containerRows
+     * @param array<string, array{row: string, role: string, slot: int}> $rowSlots repeatable rows: a row's fields stay together
      *
      * @return list<array{title: string, shared: bool, fields: list<array<string, mixed>>}>
      */
-    private function sections(TemplateDocument $document, array $fieldsById, array $sources, array $texts, array $imageSlots, array $shapes, array $containerRows = []): array
+    private function sections(TemplateDocument $document, array $fieldsById, array $sources, array $texts, array $imageSlots, array $shapes, array $containerRows = [], array $rowSlots = []): array
     {
         $entry = static function (string $key) use ($texts, $imageSlots, $shapes, $containerRows): null|array {
             if (isset($containerRows[$key])) {
@@ -411,7 +422,7 @@ readonly final class DocumentFillPage
             $sections[] = [
                 'title' => sprintf('Strana %d — %s', $source['number'], $source['page']->template->name),
                 'shared' => false,
-                'fields' => $this->fillFieldOrder->apply($fields, static fn (array $field): string => $field['inputId'], $order),
+                'fields' => $this->fillFieldOrder->apply($fields, static fn (array $field): string => $field['inputId'], $order, $rowSlots),
             ];
         }
 

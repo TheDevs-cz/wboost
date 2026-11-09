@@ -2,6 +2,7 @@ import { Controller } from "@hotwired/stimulus";
 import * as fabric from "fabric";
 import { fillStateHash, settleSourceFor } from "./fill_state_hash.js";
 import { liveComponentFor } from "./live_component.js";
+import { unusedRowMemberIds } from "./fill_rows.js";
 
 /**
  * Client-side text ECHO for the single-variant fill page.
@@ -84,9 +85,15 @@ export default class extends Controller {
 
         // Mirror edits (the overlay dispatches bubbling events on them).
         this._onInput = (event) => {
-            if (event.target && event.target.matches && event.target.matches("[data-text-mirror], [data-font-mirror]")) {
+            if (!event.target || !event.target.matches) return;
+            if (event.target.matches("[data-text-mirror], [data-font-mirror]")) {
                 this._edited();
+                return;
             }
+            // A repeatable row count (container-rows P4) is like a container
+            // hide: it also shows / hides decorations and pictures the echo
+            // cannot draw — the settle owns it; an active echo keeps in step.
+            if (event.target.matches("[data-row-count-mirror]") && this._active) this._scheduleRepaint();
         };
         this._onChange = (event) => {
             if (!event.target || !event.target.matches) return;
@@ -236,6 +243,8 @@ export default class extends Controller {
             const box = this.element.querySelector(`[data-hide-mirror="${containerId}"]`);
             if (box && box.checked) (containerHides[containerId] || []).forEach((id) => containerHidden.add(id));
         });
+        // Unused repeatable rows hide like the render's expansion does.
+        unusedRowMemberIds(this.element, this.payloadValue.repeatRows).forEach((id) => containerHidden.add(id));
         Object.keys(rules).forEach((inputId) => {
             const mirror = this.element.querySelector(`[data-text-mirror="${inputId}"]`);
             const hideMirror = this.element.querySelector(`[data-hide-mirror="${inputId}"]`);

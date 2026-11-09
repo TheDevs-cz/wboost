@@ -6,6 +6,8 @@ import { liveComponentFor } from "./live_component.js";
 import { FillViewport } from "./fill_viewport.js";
 import { FillHistory } from "./fill_history.js";
 import { FillElementMove } from "./fill_element_move.js";
+import { NEUTRAL_PLACEMENT } from "./image_placement.js";
+import { applyPlan, canApply, inactiveIds, parseRows, plan, pristineImageState, slotIndex } from "./fill_rows.js";
 
 /**
  * Click-into-preview placeholder overlay of the fill pages — the ONE editing
@@ -89,6 +91,18 @@ import { FillElementMove } from "./fill_element_move.js";
  * like the render does: BEFORE the container phase A, every deep member of
  * a moved root translated (WBoostElementMove.deltas), so the boxes, the
  * reflow, the collision push and the overflow gate all follow a move live.
+ *
+ * REPEATABLE ROWS (container-rows P4). The page carries every row slot
+ * (`max`, materialised server-side) and `data-fill-rows` on the panel
+ * (FillRepeatableRows: per row the id of every role in every slot). Only the
+ * ACTIVE rows (`rowCounts[<row>]`) show — boxes, sheet sections, "Všechna
+ * pole" cards (`is-row-inactive`). The container sheet's "Řádek n"
+ * sections carry ↑ / ↓ / − and the row ends with "+ Přidat řádek"; a "+
+ * Řádek" chip sits under the last active row on the preview. Every action
+ * is a slot permutation of the whole fill state (fill_rows.js) applied as
+ * ONE history step (FillHistory#transact). "+" is gated by max AND by a
+ * probe layout with one more row (the real measured heights; the server's
+ * designed capacity is the fallback when nothing can be measured).
  */
 export default class extends Controller {
     static targets = [
@@ -128,6 +142,7 @@ export default class extends Controller {
         }
         this._imageFrames = {};
         this._surfaces = this._collectSurfaces();
+        this._connectRows();
         this._connectMover();
         this._loadFontsThenLayout();
 
@@ -228,6 +243,7 @@ export default class extends Controller {
             this._mover = null;
         }
         if (this._onOffsetInput) this.element.removeEventListener("input", this._onOffsetInput);
+        if (this._onRowCountInput) this.element.removeEventListener("input", this._onRowCountInput);
         if (this._liveComponent) {
             this._liveComponent.off("render:finished", this._onRenderFinished);
             this._liveComponent.off("response:error", this._onResponseError);
@@ -948,7 +964,7 @@ export default class extends Controller {
         entries.forEach((entry, index) => {
             const element = entry.kind === "section"
                 ? this._sheetSection(sheetId, entry.id)
-                : this._sheetCard(entry.id);
+                : (entry.kind === "rowAdd" ? this._sheetRowAdd(sheetId, entry.id) : this._sheetCard(entry.id));
             if (!element) return;
             element.style.order = String(index + 1);
             element.style.setProperty("--sheet-depth", String(entry.depth || 0));
@@ -1089,7 +1105,7 @@ export default class extends Controller {
         const inside = (node) => Boolean(node) && (
             (this.hasPanelTarget && this.panelTarget.contains(node))
             || boxes.some((box) => box.contains(node))
-            || (typeof node.closest === "function" && node.closest(".fill-modal, .modal, .color-picker-pop")));
+            || (typeof node.closest === "function" && node.closest(".fill-modal, .modal, .color-picker-pop, .fill-row-chip")));
         if (inside(event.target) || inside(this._pressOrigin)) return;
         this.closeSheet();
     }
@@ -1121,6 +1137,11 @@ export default class extends Controller {
             element.dataset.fillSheetSection === sheetId && element.dataset.sectionId === sectionId) || null;
     }
 
+    _sheetRowAdd(sheetId, rowId) {
+        return Array.from(this.panelTarget.children).find((element) =>
+            element.dataset.fillSheetRowAdd === sheetId && element.dataset.rowId === rowId) || null;
+    }
+
     /** A field's "Všechna pole" card (text / shape popover, image card) —
      *  by `data-inputid`, never by position. */
     _sheetCard(inputId) {
@@ -1141,6 +1162,7 @@ export default class extends Controller {
         let right = -Infinity;
         let bottom = -Infinity;
         this._sheetMemberIds(box).forEach((id) => {
+            if (this._inactiveRowIds && this._inactiveRowIds.has(id)) return;
             let frame = (surface.computed && surface.computed[id]) || (this._imageFrames && this._imageFrames[id]) || null;
             if (!frame) {
                 const memberBox = surface.boxes.find((candidate) => candidate.dataset.inputid === id && !candidate.dataset.sheetBox);
@@ -1435,6 +1457,270 @@ export default class extends Controller {
         counter.textContent = `${field.value.length} / ${max} znaků`;
     }
 
+    // --- Repeatable rows (fill_rows.js, container-rows P4) ------------------
+
+    _connectRows() {
+        this._rows = parseRows(this.hasPanelTarget ? this.panelTarget.dataset.fillRows : null);
+        this._rowIds = Object.keys(this._rows);
+        this._inactiveRowIds = null;
+        this._rowState = {};
+        if (this._rowIds.length === 0) return;
+        this._labelRowCards();
+        // A count written by anyone else (undo / redo, a Live morph) — the
+        // rows, boxes and gates follow.
+        this._onRowCountInput = (event) => {
+            if (event.target && event.target.matches && event.target.matches("[data-row-count-mirror]")) {
+                this._scheduleRecompute();
+            }
+        };
+        this.element.addEventListener("input", this._onRowCountInput);
+        // The first layout pass (_loadFontsThenLayout) syncs the rows.
+    }
+
+    /** "Řádek n" on every row field's "Všechna pole" card (the sheet shows
+     *  section headings instead). Static: a slot keeps its position; row
+     *  actions move VALUES between slots, never ids. */
+    _labelRowCards() {
+        if (!this.hasPanelTarget) return;
+        const index = slotIndex(this._rows);
+        Array.from(this.panelTarget.children).forEach((card) => {
+            const hit = card.dataset.inputid ? index.get(card.dataset.inputid) : null;
+            if (!hit || card.classList.contains("fill-popover--container")) return;
+            const row = this._rows[hit.row];
+            if (!row || row.max < 2) return;
+            const name = card.querySelector(".fill-popover__name");
+            if (!name || name.parentNode.querySelector(".fill-popover__row")) return;
+            const badge = document.createElement("span");
+            badge.className = "fill-popover__row";
+            badge.textContent = `Řádek ${hit.slot + 1}`;
+            name.after(badge);
+        });
+    }
+
+    /**
+     * Show the active rows only (boxes follow in reposition), refresh every
+     * row control (↑ / ↓ / − per section, "+ Přidat řádek" + its reason,
+     * the sheet's field count). Runs after every layout pass.
+     */
+    _syncRows() {
+        if (!this._rowIds || this._rowIds.length === 0) return;
+        const inactive = new Set();
+        const state = {};
+        this._rowIds.forEach((rowId) => {
+            const row = this._rows[rowId];
+            const count = this._rowCount(rowId, row);
+            inactiveIds(row, count).forEach((id) => inactive.add(id));
+            state[rowId] = { count, add: this._rowAddState(rowId, row, count) };
+        });
+        this._inactiveRowIds = inactive;
+        this._rowState = state;
+
+        if (this._openId && inactive.has(this._openId)) this.closePopover();
+        if (!this.hasPanelTarget) return;
+        const panel = this.panelTarget;
+
+        Array.from(panel.children).forEach((element) => {
+            const id = element.dataset.inputid || element.dataset.sectionId || null;
+            element.classList.toggle("is-row-inactive", id !== null && inactive.has(id));
+        });
+
+        panel.querySelectorAll(".fill-sheet__section[data-row]").forEach((section) => {
+            const row = this._rows[section.dataset.row];
+            const rowState = state[section.dataset.row];
+            if (!row || !rowState) return;
+            const slot = parseInt(section.dataset.slot, 10);
+            section.querySelectorAll("[data-row-action]").forEach((button) => {
+                button.disabled = !canApply(row, rowState.count, button.dataset.rowAction, slot);
+            });
+        });
+
+        panel.querySelectorAll("[data-fill-sheet-row-add]").forEach((holder) => {
+            const rowState = state[holder.dataset.rowId];
+            const button = holder.querySelector('[data-row-action="add"]');
+            if (!rowState || !button) return;
+            const ok = rowState.add.ok;
+            // aria-disabled, not `disabled`: the reason must stay readable
+            // (a disabled button gets no tooltip / focus in every browser).
+            button.setAttribute("aria-disabled", ok ? "false" : "true");
+            button.classList.toggle("is-disabled", !ok);
+            button.title = ok ? "Přidat další řádek" : rowState.add.reason;
+            const reason = holder.querySelector("[data-row-add-reason]");
+            if (reason) {
+                reason.textContent = ok ? "" : rowState.add.reason;
+                reason.hidden = ok;
+            }
+        });
+
+        panel.querySelectorAll("[data-fill-sheet]").forEach((head) => {
+            const counter = head.querySelector(".fill-sheet__count");
+            if (!counter) return;
+            let entries = [];
+            try {
+                entries = JSON.parse(head.dataset.sheetEntries || "[]");
+            } catch (err) {
+                entries = [];
+            }
+            const fields = entries.filter((entry) => entry.kind === "field" && !inactive.has(entry.id)).length;
+            counter.textContent = `${fields} ${fields >= 1 && fields <= 4 ? "pole" : "polí"}`;
+        });
+
+        if (this._sheetId !== null) this._positionSheet();
+    }
+
+    /** May one more row be added? Max first, then the height gate. */
+    _rowAddState(rowId, row, count) {
+        if (count >= row.max) {
+            return { ok: false, reason: `Víc řádků šablona nedovoluje (nejvýš ${row.max}).` };
+        }
+        const fits = this._rowFits(rowId, count + 1);
+        if (fits === false || (fits === null && count + 1 > (row.capacity || row.max))) {
+            return { ok: false, reason: "Další řádek se už do oblasti nevejde." };
+        }
+        return { ok: true, reason: "" };
+    }
+
+    /**
+     * The height gate: lay out every surface carrying the row with `count`
+     * rows (the real measured heights, the slot's current — pristine —
+     * values) and compare its overflow with the current one. A group's
+     * dimensions share the count, so the smallest size decides; a document
+     * page's row lives on its page only. Null when nothing could be measured.
+     */
+    _rowFits(rowId, count) {
+        const layoutModule = window.WBoostContainerLayout;
+        if (!layoutModule) return null;
+        let probed = false;
+        let fits = true;
+        this._probeCounts = { [rowId]: count };
+        try {
+            (this._surfaces || []).forEach((surface) => {
+                const data = surface.layout;
+                if (!fits || !data || !data.inputs || !data.repeatRows || !data.repeatRows[rowId]) return;
+                probed = true;
+                const overflow = this._layoutSurface(surface, data, layoutModule, true);
+                const now = typeof surface.overflow === "number" ? surface.overflow : 0;
+                if (overflow !== null && overflow > now + 0.5) fits = false;
+            });
+        } finally {
+            this._probeCounts = null;
+        }
+        return probed ? fits : null;
+    }
+
+    /** The "+ Řádek" chip: under the row's last ACTIVE slot on this surface,
+     *  only while another row may be added. */
+    _placeRowChip(chip, surface, scale) {
+        const rowId = chip.dataset.rowChip;
+        const row = this._rows[rowId];
+        const rowState = this._rowState[rowId];
+        if (!row || !rowState || !rowState.add.ok) {
+            chip.hidden = true;
+            return;
+        }
+        const slot = rowState.count - 1;
+        let left = Infinity;
+        let right = -Infinity;
+        let bottom = -Infinity;
+        Object.values(row.roles || {}).forEach((ids) => {
+            const id = ids[slot];
+            const frame = (surface.computed && surface.computed[id]) || null;
+            if (!frame || frame.height <= 0) return;
+            left = Math.min(left, frame.x);
+            right = Math.max(right, frame.x + frame.width);
+            bottom = Math.max(bottom, frame.y + frame.height);
+        });
+        if (!Number.isFinite(left)) {
+            chip.hidden = true;
+            return;
+        }
+        chip.hidden = false;
+        chip.style.left = `${((left + right) / 2) * scale}px`;
+        chip.style.top = `${bottom * scale}px`;
+    }
+
+    addRow(event) {
+        this._rowAction(event, "add");
+    }
+
+    removeRow(event) {
+        this._rowAction(event, "remove");
+    }
+
+    moveRowUp(event) {
+        this._rowAction(event, "up");
+    }
+
+    moveRowDown(event) {
+        this._rowAction(event, "down");
+    }
+
+    /** One row action = one permutation of the fill state = ONE undo step. */
+    _rowAction(event, action) {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        const rowId = event?.params?.row;
+        const row = this._rows && this._rows[rowId];
+        if (!row || !this._history) return;
+        const slot = Number.isInteger(event.params.slot) ? event.params.slot : null;
+        const count = this._rowCount(rowId, row);
+        if (action === "add" && !this._rowAddState(rowId, row, count).ok) return;
+        const rowPlan = plan(row, count, action, slot);
+        if (!rowPlan) return;
+
+        const trigger = event.currentTarget || null;
+        const chipSheet = trigger && trigger.dataset ? trigger.dataset.rowChipSheet || null : null;
+        let focusSlot = Math.min(slot ?? 0, rowPlan.count - 1);
+        if (action === "add") focusSlot = count;
+        else if (action === "up") focusSlot = slot - 1;
+        else if (action === "down") focusSlot = slot + 1;
+
+        this._history.transact((state) => applyPlan(state, row, rowPlan, {
+            pristineImage: (path, role, value) => pristineImageState(path, value, NEUTRAL_PLACEMENT),
+        })).then(() => {
+            this._recomputeLayout();
+            this._afterRowAction(rowId, row, action, focusSlot, chipSheet);
+        });
+    }
+
+    /** Keep the user where they act: a new row's first field, the moved
+     *  row's same button, the removed row's place. The canvas chip opens
+     *  the container sheet at the new row. */
+    _afterRowAction(rowId, row, action, focusSlot, chipSheet) {
+        const firstField = () => {
+            for (const ids of Object.values(row.roles || {})) {
+                const card = this.hasPanelTarget ? this._sheetCard(ids[focusSlot]) : null;
+                if (card && !card.classList.contains("fill-popover--container")) return ids[focusSlot];
+            }
+            return null;
+        };
+        if (chipSheet && this._sheetId !== chipSheet) {
+            const box = this._sheetBoxFor(chipSheet, null);
+            const focus = firstField();
+            this.openSheet({ params: { sheet: chipSheet, focus }, currentTarget: box, stopPropagation() {} });
+            return;
+        }
+        if (this._sheetId === null || !this.hasPanelTarget) return;
+        if (action === "add") {
+            const focus = firstField();
+            if (focus) this._focusSheetField(focus);
+            return;
+        }
+        const section = Array.from(this.panelTarget.querySelectorAll(".fill-sheet__section[data-row]"))
+            .find((element) => element.dataset.row === rowId && parseInt(element.dataset.slot, 10) === focusSlot);
+        const wanted = action === "remove" ? "remove" : action;
+        const button = section ? section.querySelector(`[data-row-action="${wanted}"]`) : null;
+        if (button && !button.disabled) {
+            button.focus({ preventScroll: false });
+            return;
+        }
+        const add = Array.from(this.panelTarget.querySelectorAll("[data-fill-sheet-row-add]"))
+            .find((holder) => holder.dataset.rowId === rowId);
+        const addButton = add ? add.querySelector("button") : null;
+        if (addButton) addButton.focus({ preventScroll: false });
+    }
+
     // --- Zpět / Znovu (fill_history.js) ---------------------------------------
 
     undo(event) {
@@ -1696,7 +1982,9 @@ export default class extends Controller {
             const edge = 18 / z;
 
             surface.boxes.forEach((box) => {
-                const frame = this._boxFrame(box, surface);
+                const frame = this._inactiveRowIds && !box.dataset.sheetBox && this._inactiveRowIds.has(box.dataset.inputid)
+                    ? null
+                    : this._boxFrame(box, surface);
                 if (!frame) {
                     box.style.display = "none";
                     return;
@@ -1712,6 +2000,9 @@ export default class extends Controller {
 
                 this._placeChrome(box, { left, top, right, bottom: top + frame.height * scale }, previewWidth, previewHeight, edge);
             });
+            if (this._rowIds && this._rowIds.length > 0) {
+                surface.el.querySelectorAll("[data-row-chip]").forEach((chip) => this._placeRowChip(chip, surface, scale));
+            }
         });
 
         if (this._mover) this._mover.reposition();
@@ -1859,7 +2150,12 @@ export default class extends Controller {
      */
     _recomputeLayout() {
         const layoutModule = window.WBoostContainerLayout;
-        if (!layoutModule) return;
+        if (!layoutModule) {
+            // No reflow mirror: the rows still show / hide (the gate falls
+            // back to the server's designed capacity).
+            this._syncRows();
+            return;
+        }
 
         let worstOverflow = null;
 
@@ -1867,6 +2163,7 @@ export default class extends Controller {
             const data = surface.layout;
             if (!data || !data.inputs) return;
             const surfaceOverflow = this._layoutSurface(surface, data, layoutModule);
+            surface.overflow = surfaceOverflow;
             // Group page: flag WHICH dimension overflows in its card header —
             // the signal that stays on the screen in "Náhled" mode.
             const badge = surface.el.closest(".card")?.querySelector("[data-fill-overflow-badge]");
@@ -1878,6 +2175,7 @@ export default class extends Controller {
 
         this._setOverflowState(worstOverflow);
         this._publishSlots();
+        this._syncRows();
         this.reposition();
     }
 
@@ -1908,7 +2206,7 @@ export default class extends Controller {
 
     /** One surface's reflow pass; returns its worst container overflow in
      *  canvas px (null = everything fits). */
-    _layoutSurface(surface, data, layoutModule) {
+    _layoutSurface(surface, data, layoutModule, probe = false) {
         const inputs = data.inputs;
         const computed = {};
 
@@ -2036,6 +2334,10 @@ export default class extends Controller {
                 }
             }
         });
+
+        // A probe (the "+ Přidat řádek" gate) only wants the overflow — the
+        // surface's live geometry stays untouched.
+        if (probe) return worstOverflow;
 
         // Slots: the box follows the moved frame; a collapsed slot (its own
         // hide, a hidden container, a hidden host text) becomes a zero-height
@@ -2194,6 +2496,9 @@ export default class extends Controller {
      *  mirror clamped to [min, max] (the server's normalisation), else the
      *  designer's default. */
     _rowCount(rowId, row) {
+        if (this._probeCounts && Object.prototype.hasOwnProperty.call(this._probeCounts, rowId)) {
+            return this._probeCounts[rowId];
+        }
         const mirror = this.element.querySelector(`[data-row-count-mirror="${rowId}"]`);
         const parsed = mirror ? parseInt(mirror.value, 10) : NaN;
         const count = Number.isFinite(parsed) ? parsed : row.default;

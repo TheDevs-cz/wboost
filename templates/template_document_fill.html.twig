@@ -338,7 +338,8 @@
                position. (Field order is arranged on each template's own fill
                page, not here.) #}
             <div class="fill-panel-backdrop" data-action="click->variant-fill-overlay#closePanel"></div>
-            <div class="fill-popovers" data-variant-fill-overlay-target="panel" aria-labelledby="fill-panel-title">
+            <div class="fill-popovers" data-variant-fill-overlay-target="panel" aria-labelledby="fill-panel-title"
+                 {% if fill.fill_rows|default([]) %}data-fill-rows="{{ fill.fill_rows|json_encode }}"{% endif %}>
                 {{ include('_fill_panel_header.html.twig', { arrangeable: false }) }}
                 {{ include('_fill_container_sheets.html.twig', { sheets: fill.container_sheets }) }}
 

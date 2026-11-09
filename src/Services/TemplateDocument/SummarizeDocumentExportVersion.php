@@ -27,13 +27,15 @@ final readonly class SummarizeDocumentExportVersion
     public function forVersions(array $versions, TemplateDocument $document): array
     {
         $labels = [];
+        $rowSlots = [];
         foreach ($document->pages() as $page) {
             $labels[$page->template->id->toString()] = $this->summarizer->textLabels([$page->variant]);
+            $rowSlots[$page->template->id->toString()] = $this->summarizer->rowSlots([$page->variant]);
         }
 
         $summaries = [];
         foreach ($versions as $version) {
-            $summaries[$version->id->toString()] = $this->summarize($version, $document, $labels);
+            $summaries[$version->id->toString()] = $this->summarize($version, $document, $labels, $rowSlots);
         }
 
         return $summaries;
@@ -41,9 +43,10 @@ final readonly class SummarizeDocumentExportVersion
 
     /**
      * @param array<string, array<string, string>> $labels templateId → inputId → label
+     * @param array<string, array<string, array{row: string, slot: int, repeat: \WBoost\Web\Value\ContainerRepeat}>> $rowSlots templateId → {@see SummarizeExportVersion::rowSlots()}
      * @return array{texts: list<array{label: string, value: string}>, pictures: int, hidden: int}
      */
-    private function summarize(TemplateDocumentExportVersion $version, TemplateDocument $document, array $labels): array
+    private function summarize(TemplateDocumentExportVersion $version, TemplateDocument $document, array $labels, array $rowSlots): array
     {
         $fill = $version->fill();
         $texts = [];
@@ -59,7 +62,7 @@ final readonly class SummarizeDocumentExportVersion
                 continue;
             }
 
-            $summary = $this->summarizer->summarize($values, $labels[$templateId] ?? []);
+            $summary = $this->summarizer->summarize($values, $labels[$templateId] ?? [], $rowSlots[$templateId] ?? []);
 
             foreach ($summary['texts'] as $entry) {
                 $key = $entry['label'] . "\0" . $entry['value'];

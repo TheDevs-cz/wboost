@@ -17,6 +17,7 @@ use WBoost\Web\Services\SocialNetwork\FillTextPlaceholders;
 use WBoost\Web\Services\SocialNetwork\PlaceholderAllowedDirectories;
 use WBoost\Web\Services\SocialNetwork\TextInputObjectBinder;
 use WBoost\Web\Services\UploaderHelper;
+use WBoost\Web\Services\Template\RepeatableRows;
 use WBoost\Web\Value\CanvasContainer;
 use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
@@ -79,7 +80,8 @@ readonly final class GroupFillPlaceholders
      *     objects: list<array{inputId: string, object: array<array-key, mixed>}>,
      *     containers: list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap: null|float, spaceAfter: null|float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int}, repeatSlots?: list<string>, repeatSlotOf?: string}>,
      *     containerHides: array<string, list<string>>,
-     *     inputs: array<string, array{richText: bool, lists: bool, maxLength: null|int, uppercase: bool}>
+     *     inputs: array<string, array{richText: bool, lists: bool, maxLength: null|int, uppercase: bool}>,
+     *     repeatRows?: array<string, array{min: int, max: int, default: int, slots: list<list<string>>}>
      * }
      */
     public function echoData(TemplateVariant $variant): null|array
@@ -119,7 +121,7 @@ readonly final class GroupFillPlaceholders
             }
         }
 
-        return [
+        $payload = [
             'width' => $variant->dimension->width(),
             'height' => $variant->dimension->height(),
             'canvasHeight' => $variant->dimension->height(),
@@ -133,6 +135,17 @@ readonly final class GroupFillPlaceholders
             'containerHides' => CanvasContainer::hidableMemberMap(CanvasContainer::collectionFromCanvas($canvas)),
             'inputs' => $inputRules,
         ];
+
+        // Repeatable rows (container-rows P4): row id → slots' deep member
+        // ids — the painters hide the slots beyond the `rowCounts` mirror
+        // like the render does. Only for designs with rows (every other
+        // payload keeps its exact shape).
+        $repeatRows = RepeatableRows::slotMemberMap(CanvasContainer::collectionFromCanvas($canvas));
+        if ($repeatRows !== []) {
+            $payload['repeatRows'] = $repeatRows;
+        }
+
+        return $payload;
     }
 
     /**

@@ -372,10 +372,14 @@ unchanged).
   collision-pushes the lower x-overlapping roots and can overflow like any
   designed position (`ElementOffsetsRenderTest`). Hash order: `T H F S R O`.
   Full contract: templates-data-model.md "User-moved elements".
-- **P4 notes:** `FillContainerHides` / `FillContainerSheets` currently list
-  every materialised slot (a hidable row gives max toggles; the sheet shows
-  max sections) — P4 groups them as rows and hides inactive ones; drop the
-  echo guard once the painters read `repeatRows`.
+- **P4 (shipped 2026-11-09):** the fill pages still render every
+  materialised slot, but show only the active rows and give them controls —
+  see "Repeatable rows — the fill UI" below. The echo guard is gone.
+- **Echo (P4):** a tree holding a row is judged like any other tree
+  (`EchoCapableTextInputs` no longer poisons it); both echo payloads carry
+  `repeatRows` (only for designs with rows) and the painters hide the slots
+  beyond the `rowCounts` mirror (`fill_rows.js unusedRowMemberIds`) — the
+  render's hide set, so hidden row ≡ absent row holds on the echo too.
 - Tests: `RepeatableRowsTest` (expansion, ids, inputs order with a
   design-hidden textbox + rows mid-`objects[]`, hides, validation),
   `ContainerRowsLayoutTest` (node engine: 1…max rows ≡ the hand-numbered
@@ -384,6 +388,71 @@ unchanged).
   hand design; scorers ≡ hand columns), `RepeatableRowsFillTest` (single /
   group / document pages, hash parity, versions, stored design untouched),
   `RepeatableRowsEntryPointsTest`.
+
+**Repeatable rows — the fill UI (2026-11-09, plan P4)** — single, group and
+document pages; API / MCP / mfkfm `rows` are P5, the merge action P6.
+
+- **Payload** — `Services/SocialNetwork/FillRepeatableRows::forVariants()`
+  → `data-fill-rows` on the `.fill-popovers` panel (only with rows): per row
+  `{min, max, default, count, capacity, slots, roles, pristine}`. `roles` =
+  for every id of the designed row's TREE (row container, nested containers,
+  members) its id in each slot, matched POSITIONALLY over the slot trees'
+  walk (container, own members, children) — so it is right in fill-key space
+  on the document page (the caller passes the re-keyed clone) and nothing is
+  derived in JS. `pristine` = the template row's sample per text role.
+  `capacity` = `designedCapacity`, the SMALLEST member on a group.
+  `slotIndex()` (id → row / role / slot) feeds the panel order + labels.
+- **Row action = slot permutation** (`assets/controllers/fill_rows.js`,
+  pure): `plan(row, count, action, slot)` → new count + target ← source
+  slot (null = pristine); `applyPlan` rewrites the fill-history state
+  `{fields, images}` GENERICALLY: every named field whose bracket segment is
+  a slot id takes the same role's value from the source slot (texts, fonts,
+  member / container hides, shape colours …), every picture-state entry
+  keyed by a slot id moves too (single page per-slot fields, group pictures
+  + per-dimension placements). Remove row i = rows i+1… shift up, the freed
+  last slot resets to pristine (sample text, designed font, shown, no
+  picture, neutral placement — `pristineField` / `pristineImageState`); ↑ /
+  ↓ = swap; add = count + 1 only (the slot is pristine because removing
+  always resets it). Applied by `FillHistory#transact` through the restore
+  path (each field gets its `input` / `change`, editors re-sync) = ONE undo
+  step. Pinned by `FillRowActionsTest` (node harness
+  `tests/Fixtures/containers/fill-rows-harness.cjs` on the real payload).
+- **Limits**: "−" disabled at `min`, ↑ / ↓ at the ends; "+" disabled
+  (`aria-disabled` + title + an inline reason under it) at `max` ("Víc
+  řádků šablona nedovoluje") or when one more row would overflow: the
+  overlay re-runs `_layoutSurface(…, probe)` with count + 1 on EVERY surface
+  carrying the row (real measured heights; the group's smallest size
+  decides; a document row lives on one page) and blocks when the overflow
+  grows by > 0.5 px over the current one. The designed `capacity` is only
+  the fallback when nothing can be measured. The server still clamps every
+  posted count to `[min, max]`.
+- **Only active rows show**: `_syncRows` (after every layout pass) puts
+  `is-row-inactive` on every panel child whose `data-inputid` /
+  `data-section-id` is an inactive slot id (cards, hide toggles, sheet
+  sections — CSS `display: none !important` beats every presentation),
+  reposition hides inactive boxes, `_sheetFrame` ignores them, a popover of
+  a row that just went inactive closes, the sheet head counts the active
+  fields.
+- **Sheet** (`FillContainerSheets`, expanded variant): a slot section
+  carries `row` + `slot` (rendered "Řádek n" with ↑ / ↓ / −), a `rowAdd`
+  entry follows the row's last slot ("+ Přidat řádek"), `rows` lists the
+  sheet's rows. Hidable row toggles are named per row ("Zápas · řádek 2",
+  `FillContainerHides`). Focus after an action: the new row's first field /
+  the moved row's same button / the add button.
+- **Canvas chip** — one "+ Řádek" pill per row per surface
+  (`data-row-chip`, after the container box), placed under the LAST ACTIVE
+  slot's union frame, shown only while "+" is allowed (and with the areas
+  on, not in Náhled); a click adds the row and opens the sheet at it. No
+  canvas "−": which row to remove is a sheet decision (reorder / remove sit
+  next to the values).
+- **"Všechna pole"**: `arrange_fill_fields(order, rows)` keeps a row's
+  fields together row by row where the row's earliest field ranks, each
+  slot in its designed row's order (`FillFieldOrder::apply` `$rowSlots`);
+  cards get a "Řádek n" badge (JS, hidden in the sheet).
+- **Versions**: labels name the row ("Soupeř · řádek 2",
+  `SummarizeExportVersion::textLabels` on the EXPANDED variants) and texts
+  of unused rows (slot ≥ the stored count) are left out (`rowSlots`).
+  Counts round-trip through the seeders (P2).
 
 **Repeatable rows — the admin editor + MCP DSL (2026-11-09, plan P3)** —
 how a designer marks a row; the fill +/− UI is P4, API `rows` P5, the merge
@@ -446,7 +515,6 @@ action P6.
   (max−1) × (row flow + gap) vs maxHeight / page, message says how many fit).
   `describe_variant` containers gain `repeat` + `fitsRows`
   (`designedCapacity`, within [min, max]); the REST listing does not yet (P5).
-- **P4–P6 notes**: the fill pages still show every materialised slot (P2
-  note above); the editor never materialises slots, so no clone can leak into
+- **P5–P6 notes**: the editor never materialises slots, so no clone can leak into
   a save; the editor's `fits` is unclamped (prefill), the server's
   `designedCapacity` is clamped to [min, max].

@@ -260,6 +260,30 @@ textarea.fill-popover__input { min-height: 44px; padding: 10px 12px; border-radi
 .fill-form.fill-js.fill-sheet-open .fill-popovers > .fill-popover.is-in-sheet > .card-body { gap: 8px; padding: 10px 12px 12px; }
 .fill-form.fill-js.fill-sheet-open .fill-popovers > .fill-popover.is-sheet-target { border-color: var(--lav); box-shadow: 0 0 0 3px var(--lav-glow); }
 
+/* ---------- Repeatable rows (container-rows P4) ---------- */
+.fill-sheet__section--row { gap: 8px; padding-top: 10px; font-size: 13px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text-2); }
+.fill-sheet__row-index { flex: none; display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: var(--lav-deep); color: var(--lav-ink); font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.fill-sheet__row-tools { flex: none; display: inline-flex; align-items: center; gap: 2px; margin-left: auto; }
+.fill-sheet__row-btn { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease); }
+.fill-sheet__row-btn:hover:not(:disabled) { background: var(--surface-3); color: var(--text); }
+.fill-sheet__row-btn--remove:hover:not(:disabled) { background: var(--rose-deep); color: var(--rose-ink); }
+.fill-sheet__row-btn:disabled { opacity: .3; cursor: default; }
+.fill-sheet__row-btn:focus-visible { outline: 2px solid var(--lav-ink); outline-offset: 2px; }
+.fill-sheet__row-add { flex-wrap: wrap; gap: 4px 10px; margin: 2px 0 4px calc(var(--sheet-depth, 0) * 10px); }
+.fill-sheet__add.is-disabled { opacity: .5; cursor: not-allowed; }
+.fill-sheet__add-reason { font-size: 12px; color: var(--subtle); }
+.fill-popover__row { flex: none; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: var(--lav-deep); color: var(--lav-ink); font-size: 11px; font-weight: 600; white-space: nowrap; }
+.fill-form.fill-js.fill-sheet-open .fill-popover.is-in-sheet .fill-popover__row { display: none; }
+/* "+ Řádek" under the last active row on the preview — counter-scaled to a
+   constant on-screen size like the box tools; follows the same toggles. */
+.fill-row-chip { position: absolute; z-index: 6; display: inline-flex; align-items: center; gap: 3px; height: 22px; padding: 0 9px 0 6px; border: 1px solid var(--lav-line); border-radius: 999px; background: var(--surface); color: var(--lav-ink); font: 600 11px/1 var(--font); white-space: nowrap; box-shadow: 0 2px 6px rgb(0 0 0 / .25); cursor: pointer; pointer-events: auto; transform-origin: top center; transform: translate(-50%, 4px) scale(calc(1 / var(--fill-zoom, 1))); }
+.fill-row-chip:hover { background: var(--lav); color: var(--on-accent); border-color: var(--lav); }
+.fill-row-chip:focus-visible { outline: 2px solid var(--lav-ink); outline-offset: 2px; }
+.fill-row-chip[hidden],
+.fill-form:not(.fill-js) .fill-row-chip,
+.fill-form.fill-js:not(.fill-highlight-on) .fill-row-chip,
+.fill-form.fill-js.fill-preview-on .fill-row-chip { display: none; }
+
 /* Image card (panel row of an image slot; prototype `.fi-img`). */
 .fill-image-card { display: flex; align-items: center; gap: 12px; }
 .fill-image-card__thumb { width: 64px; height: 64px; border-radius: 12px; border: 1px solid var(--line-2); background-color: var(--surface-2); background-size: contain; background-repeat: no-repeat; }

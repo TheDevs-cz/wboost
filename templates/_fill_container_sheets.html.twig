@@ -13,9 +13,16 @@
     - movable / unit: (optional, single page) FillMovableElements rows by id —
       a movable container's head gets the "Poloha" row
 
-    `data-sheet-entries` = the sheet's ordered entries ({kind: field|section,
-    id, depth}); section headings carry the nested container's eye when it
-    is hidable (the same `hiddenValues[<id>]` mirror as its panel row).
+    `data-sheet-entries` = the sheet's ordered entries ({kind: field|section|
+    rowAdd, id, depth}); section headings carry the nested container's eye
+    when it is hidable (the same `hiddenValues[<id>]` mirror as its panel row).
+
+    Repeatable rows (container-rows P4): a row's materialised slots are
+    sections with `row` + `slot` — headed "Řádek n" with ↑ / ↓ / − — and a
+    `rowAdd` entry ("+ Přidat řádek") follows the row's last slot. The
+    overlay shows only the ACTIVE rows (`rowCounts[<row>]`) and enables the
+    buttons (min / max / the height gate); every action is ONE undo step
+    (variant-fill-overlay#addRow / removeRow / moveRowUp / moveRowDown).
 #}
 {% for sheet in sheets %}
     {% set label = sheet.name ?: 'Skupina polí' %}
@@ -43,10 +50,25 @@
             <div class="fill-sheet__move">{{ include('_fill_move_position.html.twig', { m: movable[sheet.id], unit: unit|default('px') }) }}</div>
         {% endif %}
     </div>
+    {% for entry in sheet.entries|filter(entry => entry.kind == 'rowAdd') %}
+        <div class="fill-sheet__row-add" data-fill-sheet-row-add="{{ sheet.id }}" data-row-id="{{ entry.id }}" style="--sheet-depth: {{ entry.depth }}">
+            <button type="button" class="btn btn-tertiary xs fill-sheet__add"
+                data-row-action="add"
+                data-action="variant-fill-overlay#addRow"
+                data-variant-fill-overlay-row-param="{{ entry.id }}"
+            >{{ icon('plus', 's14') }}Přidat řádek</button>
+            <span class="fill-sheet__add-reason" data-row-add-reason hidden></span>
+        </div>
+    {% endfor %}
     {% for entry in sheet.entries|filter(entry => entry.kind == 'section') %}
-        <div class="fill-sheet__section{{ entry.name or entry.hidable ? '' : ' fill-sheet__section--plain' }}"
-             data-fill-sheet-section="{{ sheet.id }}" data-section-id="{{ entry.id }}" style="--sheet-depth: {{ entry.depth }}">
-            {% if entry.name %}<span class="fill-sheet__section-name">{{ entry.name }}</span>{% endif %}
+        {% set row_slot = entry.row is defined ? entry.slot + 1 : null %}
+        <div class="fill-sheet__section{{ row_slot ? ' fill-sheet__section--row' : (entry.name or entry.hidable ? '' : ' fill-sheet__section--plain') }}"
+             data-fill-sheet-section="{{ sheet.id }}" data-section-id="{{ entry.id }}" style="--sheet-depth: {{ entry.depth }}"
+             {% if row_slot %}data-row="{{ entry.row }}" data-slot="{{ entry.slot }}"{% endif %}>
+            {% if row_slot %}
+                <span class="fill-sheet__row-index" aria-hidden="true">{{ row_slot }}</span>
+                <span class="fill-sheet__section-name">Řádek {{ row_slot }}</span>
+            {% elseif entry.name %}<span class="fill-sheet__section-name">{{ entry.name }}</span>{% endif %}
             {% if entry.hidable %}
                 <button type="button"
                     class="fill-sheet__eye{{ entry.hidden ? ' is-active' : '' }}"
@@ -57,6 +79,31 @@
                     data-action="variant-fill-overlay#toggleHide"
                     data-variant-fill-overlay-inputid-param="{{ entry.id }}"
                 >{{ icon(entry.hidden ? 'eye-off' : 'eye', 's14') }}</button>
+            {% endif %}
+            {% if row_slot %}
+                <span class="fill-sheet__row-tools" role="group" aria-label="Řádek {{ row_slot }}">
+                    <button type="button" class="fill-sheet__row-btn"
+                        data-row-action="up"
+                        title="Posunout výš" aria-label="Posunout řádek {{ row_slot }} výš"
+                        data-action="variant-fill-overlay#moveRowUp"
+                        data-variant-fill-overlay-row-param="{{ entry.row }}"
+                        data-variant-fill-overlay-slot-param="{{ entry.slot }}"
+                    >{{ icon('arrow-up', 's14') }}</button>
+                    <button type="button" class="fill-sheet__row-btn"
+                        data-row-action="down"
+                        title="Posunout níž" aria-label="Posunout řádek {{ row_slot }} níž"
+                        data-action="variant-fill-overlay#moveRowDown"
+                        data-variant-fill-overlay-row-param="{{ entry.row }}"
+                        data-variant-fill-overlay-slot-param="{{ entry.slot }}"
+                    >{{ icon('arrow-down', 's14') }}</button>
+                    <button type="button" class="fill-sheet__row-btn fill-sheet__row-btn--remove"
+                        data-row-action="remove"
+                        title="Odebrat řádek" aria-label="Odebrat řádek {{ row_slot }}"
+                        data-action="variant-fill-overlay#removeRow"
+                        data-variant-fill-overlay-row-param="{{ entry.row }}"
+                        data-variant-fill-overlay-slot-param="{{ entry.slot }}"
+                    >{{ icon('minus', 's14') }}</button>
+                </span>
             {% endif %}
         </div>
     {% endfor %}

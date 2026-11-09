@@ -25,6 +25,10 @@
       overlay) with the pencil opening the container sheet + the container's
       eye; its member boxes stay as thin outlines WITHOUT tools — a click on
       one opens the sheet at that field.
+    - (repeatable rows, container-rows P4) a one-pencil container holding a
+      row gets one "+ Řádek" chip per row (`data-row-chip`), placed by the
+      overlay under the row's LAST ACTIVE slot and shown only while another
+      row can be added — the sheet holds the rest (−, ↑ / ↓, the reason).
     - movable: (optional, single page) the user-movable elements
       (FillMovableElements rows by id, THIS surface's frames). An element
       whose box is rendered here (an unlocked text, a recolourable shape, a
@@ -204,6 +208,15 @@
             {% endif %}
         </div>
     </div>
+    {% for rowId in sheet.rows|default([]) %}
+        <button type="button" class="fill-row-chip" hidden
+            data-row-chip="{{ rowId }}"
+            data-row-chip-sheet="{{ sheet.id }}"
+            title="Přidat řádek" aria-label="Přidat řádek: {{ label }}"
+            data-action="variant-fill-overlay#addRow"
+            data-variant-fill-overlay-row-param="{{ rowId }}"
+        >{{ icon('plus', 's12') }}<span>Řádek</span></button>
+    {% endfor %}
 {% endfor %}
 {# Move-only boxes: user-movable elements without a box above. The frame
    is the server's (FillMovableElements); the overlay offsets it by the

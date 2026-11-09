@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Controller\TemplateGroup;
 
+use WBoost\Web\Services\SocialNetwork\FillRepeatableRows;
 use WBoost\Web\Services\Template\RepeatableRows;
 use WBoost\Web\Services\SocialNetwork\ResolveElementOffsets;
 use WBoost\Web\Value\MovableElement;
@@ -161,6 +162,9 @@ final class TemplateGroupFillController extends AbstractController
             // Repeatable rows: ONE shared count per row for every dimension
             // (Jan, 2026-11-09) — `rowCounts[<rowId>]` fields.
             'row_counts' => $seed['rowCounts'],
+            // …and their client payload (P4): the sheet's row controls, the
+            // panel's row grouping, the add gate (the smallest size decides).
+            'fill_rows' => FillRepeatableRows::forVariants($memberVariants, $seed['rowCounts']),
             'export_history' => $this->getExportVersions->forGroup($group->id),
             'loaded_version' => $loadedVersion,
             'seed' => $seed,

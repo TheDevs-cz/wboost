@@ -14,6 +14,7 @@ use WBoost\Web\Repository\RegistrationRequestRepository;
 use WBoost\Web\Services\FormatFileSize;
 use WBoost\Web\Services\Meta\GetFacebookDestinations;
 use WBoost\Web\Services\SvgColorsMapper;
+use WBoost\Web\Services\SocialNetwork\FillRepeatableRows;
 use WBoost\Web\Services\Template\FillFieldOrder;
 use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Value\ManualPage;
@@ -76,11 +77,13 @@ final class TwigExtension extends AbstractExtension
     /**
      * @param list<array{inputId: string}> $fields
      * @param list<string> $order
+     * @param array<string, array{id: string, roles: array<string, list<string>>}> $rows the page's
+     *   repeatable rows ({@see FillRepeatableRows::forVariants()}) — keeps a row's fields together
      *
      * @return list<array{inputId: string}>
      */
-    private function arrangeFillFields(array $fields, array $order): array
+    private function arrangeFillFields(array $fields, array $order, array $rows = []): array
     {
-        return $this->fillFieldOrder->apply($fields, static fn (array $field): string => $field['inputId'], $order);
+        return $this->fillFieldOrder->apply($fields, static fn (array $field): string => $field['inputId'], $order, FillRepeatableRows::slotIndex($rows));
     }
 }
