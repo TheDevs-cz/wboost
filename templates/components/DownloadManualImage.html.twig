@@ -1,18 +1,21 @@
+{# colorVariant (optional, a LogoColorVariant value): names the downloaded file
+   "<manual> - <logo variant> - <colour variant>.<ext>" — only the card knows it. #}
+{% set color_param = colorVariant|default(null) is not null ? {'colorVariant': colorVariant} : {} %}
 <div class="dropdown position-absolute" style="right: 10px; top: 10px;">
     <a href="#" class="dropdown-toggle arrow-none btn btn-sm btn-soft-primary p-1 px-2" data-bs-toggle="dropdown" aria-expanded="false">
         <i class="mdi mdi-download"></i>
     </a>
 
     <div class="dropdown-menu dropdown-menu-end">
-        <a class="dropdown-item" href="{{ path('download_logo_image', {'manualId': manualId, 'logo': logoVariant, 'colorsMapping': colorsMapping, 'background': background, 'format': 'svg'}) }}">
+        <a class="dropdown-item" href="{{ path('download_logo_image', {'manualId': manualId, 'logo': logoVariant, 'colorsMapping': colorsMapping, 'background': background}|merge(color_param)|merge({'format': 'svg'})) }}">
             <i class="mdi mdi-image me-1"></i> Stáhnout SVG
         </a>
 
-        <a class="dropdown-item" href="{{ path('download_logo_image', {'manualId': manualId, 'logo': logoVariant, 'colorsMapping': colorsMapping, 'background': background, 'format': 'png'}) }}">
+        <a class="dropdown-item" href="{{ path('download_logo_image', {'manualId': manualId, 'logo': logoVariant, 'colorsMapping': colorsMapping, 'background': background}|merge(color_param)|merge({'format': 'png'})) }}">
             <i class="mdi mdi-image me-1"></i> Stáhnout PNG
         </a>
 
-        <a class="dropdown-item" href="{{ path('download_logo_image', {'manualId': manualId, 'logo': logoVariant, 'colorsMapping': colorsMapping, 'background': background, 'format': 'jpg'}) }}">
+        <a class="dropdown-item" href="{{ path('download_logo_image', {'manualId': manualId, 'logo': logoVariant, 'colorsMapping': colorsMapping, 'background': background}|merge(color_param)|merge({'format': 'jpg'})) }}">
             <i class="mdi mdi-image me-1"></i> Stáhnout JPG
         </a>
     </div>

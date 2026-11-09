@@ -23,23 +23,6 @@ use WBoost\Web\Value\RgbaColor;
 
 final class DownloadLogoImageController extends AbstractController
 {
-    /** The manual's own page headings ({@see \WBoost\Web\Value\ManualPage}). */
-    private const array LOGO_LABELS = [
-        'horizontal' => 'Horizontální logotyp',
-        'vertical' => 'Vertikální logotyp',
-        'horizontalWithClaim' => 'Horizontální logotyp se sloganem',
-        'verticalWithClaim' => 'Vertikální logotyp se sloganem',
-        'symbol' => 'Symbol',
-    ];
-
-    private const array COLOR_VARIANT_LABELS = [
-        'darkBackground' => 'na tmavém pozadí',
-        'lightBackground' => 'na světlém pozadí',
-        'oneColor' => 'jednobarevné',
-        'blackBackground' => 'na černém pozadí',
-        'whiteBackground' => 'na bílém pozadí',
-    ];
-
     public function __construct(
         readonly private SvgColorsMapper $svgColorsMapper,
         readonly private SvgPortableAlpha $svgPortableAlpha,
@@ -133,8 +116,8 @@ final class DownloadLogoImageController extends AbstractController
 
         return DownloadFileName::fromParts([
             $manual->name,
-            $logoVariant !== null ? self::LOGO_LABELS[$logoVariant->value] : 'logo',
-            $colorVariant !== null ? self::COLOR_VARIANT_LABELS[$colorVariant->value] : null,
+            $logoVariant !== null ? $logoVariant->label() : 'logo',
+            $colorVariant !== null ? $colorVariant->label() : null,
         ], $format->value, 'logo');
     }
 

@@ -142,6 +142,13 @@ before) = 100 %, so no migration and old rows render byte-identically.
   Every surface (manual preview cards incl. own-page variants via
   `_manual_logo_image.html.twig` → `remap_svg_colors`, and the download links
   in `DownloadManualImage`) takes that map, so no template had to change.
+- **Download file names** (`DownloadLogoImageController`, 2026-11-09):
+  `<manual> - <LogoTypeVariant::label()>[ - <LogoColorVariant::label()>].<ext>`.
+  The colour part comes from the optional `colorVariant` query param, which
+  `twig:DownloadManualImage colorVariant="…"` adds — every coloured card in
+  `manual_preview.html.twig` and `_manual_logo_variant_page.html.twig` passes
+  it, the plain white base cards don't (pinned by
+  `ManualPreviewDownloadLinksTest`).
 - `SvgColorsMapper::map()`: HEX target = the legacy bare-literal
   `str_ireplace` (the SVG's `#` stays); `rgba()` target replaces the WHOLE
   literal, `#` included, with a `(?![0-9a-f])` guard. Anything else is

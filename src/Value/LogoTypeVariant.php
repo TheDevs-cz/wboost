@@ -11,4 +11,16 @@ enum LogoTypeVariant: string
     case HorizontalWithClaim = 'horizontalWithClaim';
     case VerticalWithClaim = 'verticalWithClaim';
     case Symbol = 'symbol';
+
+    /** Czech name, as the manual's own page headings ({@see ManualPage}) say it — used in download file names. */
+    public function label(): string
+    {
+        return match ($this) {
+            self::Horizontal => 'Horizontální logotyp',
+            self::Vertical => 'Vertikální logotyp',
+            self::HorizontalWithClaim => 'Horizontální logotyp se sloganem',
+            self::VerticalWithClaim => 'Vertikální logotyp se sloganem',
+            self::Symbol => 'Symbol',
+        };
+    }
 }
