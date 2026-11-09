@@ -18,6 +18,8 @@ use WBoost\Web\Mcp\Response\VariantDimensionResponse;
 use WBoost\Web\Mcp\Response\VariantImageDirectoryResponse;
 use WBoost\Web\Mcp\Response\VariantImageInputResponse;
 use WBoost\Web\Mcp\Response\VariantInputFrameResponse;
+use WBoost\Web\Mcp\Response\VariantMovableElementResponse;
+use WBoost\Web\Mcp\Response\VariantRepeatableRowResponse;
 use WBoost\Web\Mcp\Response\VariantRichTextOptionsResponse;
 use WBoost\Web\Mcp\Response\VariantShapeInputResponse;
 use WBoost\Web\Mcp\Response\VariantTextInputResponse;
@@ -26,10 +28,12 @@ use WBoost\Web\Mcp\Security\McpToolScope;
 use WBoost\Web\Repository\TemplateVariantRepository;
 use WBoost\Web\Services\Security\TemplateVariantVoter;
 use WBoost\Web\Services\SocialNetwork\CanvasPlaceholderGeometry;
+use WBoost\Web\Services\SocialNetwork\FillMovableElements;
 use WBoost\Web\Services\SocialNetwork\PlaceholderAllowedDirectories;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Services\SocialNetwork\TextInputObjectBinder;
 use WBoost\Web\Services\SocialNetwork\FillTextPlaceholders;
+use WBoost\Web\Services\Template\ApiRepeatableRows;
 use WBoost\Web\Services\Template\RepeatableRows;
 use WBoost\Web\Value\CanvasContainer;
 use WBoost\Web\Value\EditorImageInput;
@@ -92,6 +96,7 @@ readonly final class DescribeVariantTool
         private CanvasPlaceholderGeometry $placeholderGeometry,
         private PlaceholderAllowedDirectories $allowedDirectories,
         private ResolveRichTextOptions $resolveRichTextOptions,
+        private FillMovableElements $movableElements,
     ) {
     }
 
@@ -139,6 +144,19 @@ readonly final class DescribeVariantTool
      * member input also reports its containerId — when a fill is refused for
      * overflow, shorten the texts of that container.
      *
+     * repeatableRows[] are rows the user may repeat (the designer drew one,
+     * the fill shows repeat.min…repeat.max of them): fill them with the rows
+     * argument of render_variant / export_variant — row containerId → a list
+     * of row objects keyed by members[].id, the list length is the count.
+     * fitsRows estimates how many fit with the sample texts; slots[] lists the
+     * id each member carries in every row (only needed to read a fill).
+     *
+     * movableElements[] are elements the designer lets the user move: texts,
+     * shapes, decorative images and whole top-level containers. Pass offsets
+     * {"<id>": {"x": 0, "y": -24}} (canvas px from the designed frame, +y
+     * down) within range {minX, maxX, minY, maxY}; vertical / horizontal say
+     * which axes move, limits the designer's per-direction maximum.
+     *
      * grouped: true means the variant belongs to a synchronized template group
      * and the design tools refuse to write to it.
      *
@@ -158,6 +176,7 @@ readonly final class DescribeVariantTool
         // out to be unpublishable still knows which container it was in.
         $definitions = CanvasContainer::collectionFromCanvas($canvas);
         $frames = $this->textInputObjectBinder->framesByInputId($canvas, $variant->inputs);
+        $repeatInfo = self::repeatInfo($variant, $definitions);
 
         return new DescribeVariantResponse(
             variantId: $variant->id->toString(),
@@ -181,10 +200,72 @@ readonly final class DescribeVariantTool
             ),
             inputs: $this->buildTextInputs($variant, $frames, $definitions),
             imageInputs: $this->buildImageInputs($variant, $canvas, $definitions),
-            containers: self::buildContainers($definitions, $frames, $variant->inputs, FillTextPlaceholders::decorativeMemberTops($canvas, $definitions), $this->placeholderGeometry->slotFramesByInputId($canvas), self::repeatInfo($variant, $definitions)),
+            containers: self::buildContainers($definitions, $frames, $variant->inputs, FillTextPlaceholders::decorativeMemberTops($canvas, $definitions), $this->placeholderGeometry->slotFramesByInputId($canvas), $repeatInfo),
             richTextOptions: $this->buildRichTextOptions($variant),
             shapeInputs: $this->buildShapeInputs($canvas),
+            repeatableRows: self::buildRepeatableRows($variant, $repeatInfo),
+            movableElements: $this->buildMovableElements($variant),
         );
+    }
+
+    /**
+     * The repeatable rows, read off the EXPANDED design exactly like the REST
+     * listing ({@see ApiRepeatableRows::describe()} — the same function the
+     * `rows` argument is applied by), `fitsRows` shared with `containers[]`.
+     *
+     * @param array<string, array{repeat: array{max: int, min: int, default: int}, fitsRows: null|int}> $repeatInfo
+     * @return list<VariantRepeatableRowResponse>
+     */
+    private static function buildRepeatableRows(TemplateVariant $variant, array $repeatInfo): array
+    {
+        $result = [];
+
+        foreach (ApiRepeatableRows::describe($variant) as $row) {
+            $repeat = $row['row']->repeat;
+            \assert($repeat !== null);
+
+            $result[] = new VariantRepeatableRowResponse(
+                containerId: $row['row']->id,
+                parentContainerId: $row['parentId'],
+                name: $row['row']->name,
+                repeat: $repeat->toArray(),
+                fitsRows: $repeatInfo[$row['row']->id]['fitsRows'] ?? null,
+                members: $row['members'],
+                slots: $row['slots'],
+            );
+        }
+
+        return $result;
+    }
+
+    /**
+     * The user-movable elements — the fill page's rows ({@see FillMovableElements},
+     * the single eligibility source) measured on the EXPANDED variant, the
+     * mirror of {@see \WBoost\Web\Api\Templates\TemplatesProvider::movableElementResponses()}:
+     * exactly what the strict `offsets` validation measures against.
+     *
+     * @return list<VariantMovableElementResponse>
+     */
+    private function buildMovableElements(TemplateVariant $variant): array
+    {
+        $result = [];
+
+        foreach ($this->movableElements->forVariant(RepeatableRows::expand($variant), []) as $row) {
+            $allowance = $row['allowance'];
+            $result[] = new VariantMovableElementResponse(
+                id: $row['id'],
+                kind: $row['kind'],
+                name: $row['designerName'],
+                frame: new VariantInputFrameResponse($row['frame']['x'], $row['frame']['y'], $row['frame']['width'], $row['frame']['height']),
+                vertical: $allowance['vertical'],
+                horizontal: $allowance['horizontal'],
+                limits: ['up' => $allowance['maxUp'], 'down' => $allowance['maxDown'], 'left' => $allowance['maxLeft'], 'right' => $allowance['maxRight']],
+                range: $row['bounds'],
+                memberIds: $row['members'],
+            );
+        }
+
+        return $result;
     }
 
     /**

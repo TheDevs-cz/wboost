@@ -154,6 +154,20 @@ Note the asymmetry: `set_design` **saves** a design whose containers are
 predicted to overflow (it is a warning — a design in progress is still worth
 saving), but `export_variant` still refuses to produce a file from it.
 
+**Repeatable rows** (`describe_variant` `repeatableRows[]` — a results table,
+a list of scorers): fill them with `rows`, never by guessing ids —
+`{"<row containerId>": [{"<member id>": "…"}, {"<member id>": "…"}]}`, one
+object per row, the list length IS the row count (within `repeat.min`…`max`).
+Five results → five row objects. Too many rows for the space is an overflow
+like any long text: drop a row or shorten. Do not also send a row member in
+`inputs` (`ambiguous_row_value`).
+
+**Moving elements** (`describe_variant` `movableElements[]`): only what the
+designer allowed, only along the allowed axes, only within `range`.
+`offsets: {"<id>": {"x": 0, "y": 40}}` — canvas px, +y down. Move a whole
+container, never one of its members. Use it when the user asks to nudge
+something ("posuň logo trochu níž"); do not move things on your own.
+
 ### 5. Respect what the designer locked down
 
 From `describe_variant`, per text input:

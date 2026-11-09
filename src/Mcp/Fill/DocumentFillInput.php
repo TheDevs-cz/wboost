@@ -14,7 +14,14 @@ use WBoost\Web\Services\TemplateDocument\DocumentExportVersionApiView;
  * The `{fields, pages}` document fill an MCP tool receives
  * (`export_document`, `document_history` "save_draft"): page keys
  * normalised to pageIds (a page's templateId is accepted too), optionally
- * laid OVER a stored version's fill — the agent's values win key by key.
+ * laid OVER a stored version's fill — the agent's values win key by key:
+ * per input / image / shape id, per moved element id (`offsets`) and per
+ * repeatable row (`rows` — a row's whole list of row objects is replaced,
+ * never merged entry by entry: the list length IS the count).
+ *
+ * The stored fill is read in the export body's own shape, rows FOLDED
+ * (`rows` + the flat maps without the rows' slot ids), so it posts back
+ * to export_document as-is.
  */
 readonly final class DocumentFillInput
 {
@@ -53,7 +60,7 @@ readonly final class DocumentFillInput
             return ['fields' => $fields, 'pages' => $normalized];
         }
 
-        $stored = self::plain($this->versionView->fill($base, $document));
+        $stored = self::plain($this->versionView->fill($base, $document, foldRows: true));
         $storedFields = is_array($stored['fields'] ?? null) ? $stored['fields'] : [];
         $storedPages = is_array($stored['pages'] ?? null) ? $stored['pages'] : [];
 
@@ -65,7 +72,7 @@ readonly final class DocumentFillInput
         foreach ($normalized as $pageId => $entry) {
             $into = $merged[$pageId] ?? [];
 
-            foreach (['inputs', 'images', 'shapeColors'] as $section) {
+            foreach (['inputs', 'images', 'shapeColors', 'offsets', 'rows'] as $section) {
                 if (is_array($entry[$section] ?? null)) {
                     $into[$section] = array_replace(is_array($into[$section] ?? null) ? $into[$section] : [], $entry[$section]);
                 }

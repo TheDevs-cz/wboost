@@ -74,6 +74,10 @@ return App::config([
             keyed by the inputId that describe_variant reports, never by an input's name.
             And preview with render_variant while you iterate: export_variant is the
             deliverable, it is stricter, and it is counted.
+            Repeatable rows (describe_variant repeatableRows[]) are filled with the rows
+            argument - one object per row, the list length is the row count; elements the
+            designer lets the user move (movableElements[]) take the offsets argument,
+            {"<id>": {"x": 0, "y": 40}} canvas px within their range.
             With the templates:design scope you can also author a variant's design:
             preview_design draws a design document without saving, set_design commits it.
             Every design should have exactly ONE background element - {"kind": "background",

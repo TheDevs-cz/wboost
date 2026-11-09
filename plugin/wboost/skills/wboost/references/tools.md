@@ -183,9 +183,35 @@ of the canvas size a design must be authored at.
     "colorOptions",        // the "#rrggbb" values accepted …
     "freeColor",           // … unless true: then any hex is accepted
     "frame": { "x", "y", "width", "height" }   // nullable
+  }],
+
+  "repeatableRows": [{     // rows the `rows` argument fills ([] = none)
+    "containerId",         // ← the rows map key (= a containers[].id with repeat)
+    "parentContainerId",   // the container the rows stack in
+    "name",                // nullable label
+    "repeat": { "max", "min", "default" },
+    "fitsRows",            // nullable — rows that fit with the sample texts
+    "members": [{ "id", "kind", "name" }],  // ← the keys of ONE row object;
+                           //   kind "text" | "image" | "shape" | "container" (hide only)
+    "slots": [{ "index", "containerId", "ids": { "<member id>": "<id in that row>" } }]
+                           //   one per row up to max; index 0 = the template row
+  }],
+
+  "movableElements": [{    // elements the `offsets` argument may move ([] = none)
+    "id",                  // ← the offsets map key
+    "kind",                // "text" | "shape" | "image" | "container" (a whole top-level one)
+    "name",                // nullable designer name
+    "frame": { "x", "y", "width", "height" },  // the DESIGNED box; add your offset yourself
+    "vertical", "horizontal",                  // the axes it may move along
+    "limits": { "up", "down", "left", "right" }, // designer max in px; null = to the artwork edge
+    "range": { "minX", "maxX", "minY", "maxY" }, // what the server accepts — stay inside it
+    "memberIds"            // a container's members (they move with it, never alone)
   }]
 }
 ```
+
+`repeatableRows[]` and `movableElements[]` are, field for field, the REST
+listing's `variants[].repeatableRows[]` / `movableElements[]`.
 
 **This describes the fillable surface, not the design.** There is no tool that
 returns a variant's design as a DSL document — see `SKILL.md` on why that makes
@@ -217,9 +243,8 @@ Skóre + Soupeř, or one scorer): the person filling the template shows between
 parent. Only the template row is listed — its inputs once. `fitsRows` is the
 server's estimate of how many fit the root's `maxHeight` / the page by the
 designed geometry; the fill page stops adding rows at the smaller of `max` and
-what really fits. Passing per-row values through `render_variant` /
-`export_variant` is not available yet: a render shows `default` rows, every row
-with the template row's sample.
+what really fits. Fill rows with the `rows` argument (see "Fill vocabulary");
+without it a render shows `default` rows, each with the template row's sample.
 
 An image slot with a `containerId` flows like a text box of fixed height: a
 long text above it pushes it down (its picture keeps its place inside the
@@ -314,7 +339,7 @@ All three lists use the exact `font` strings a design element and
 `input.allowedFonts` take. A file that is not a readable font is a tool error
 naming the file; nothing is stored. Nothing is ever replaced or deleted.
 
-## `render_variant(variantId, inputs?, images?, shapeColors?)`
+## `render_variant(variantId, inputs?, images?, shapeColors?, rows?, offsets?)`
 
 Reply = a JSON summary block **followed by** the image block.
 
@@ -343,7 +368,7 @@ to keep the designed colour.
 
 ---
 
-## `export_variant(variantId, inputs?, images?, shapeColors?)`
+## `export_variant(variantId, inputs?, images?, shapeColors?, format?, rows?, offsets?)`
 
 Same arguments, same fill vocabulary. Reply = JSON summary + the PNG.
 
@@ -358,7 +383,9 @@ Same arguments, same fill vocabulary. Reply = JSON summary + the PNG.
 ```
 
 Strict: container overflow is a refusal, nothing is produced, and nothing is
-recorded. A successful export **is** recorded in the project's usage report.
+recorded. A successful export **is** recorded in the project's usage report,
+and in the variant's export history with its rows (every row's count) and
+moves — the web fill page re-opens it exactly as exported.
 
 ---
 
@@ -367,11 +394,14 @@ recorded. A successful export **is** recorded in the project's usage report.
 `format`: `"pdf-screen"` (default) | `"pdf"` (print; mm / cm only, ≤ 8 pages
 here) | `"png"` (ZIP). `fields`: shared fieldId → a text value in the field's
 `textMode` shape (string, `{runs}`, …) | image id or `{imageId, hide}` (image)
-| `"#rrggbb"` (shape). `pages`: pageId → `{inputs, images, shapeColors}`,
-exactly `export_variant`'s body for the page's variant; a shared value wins
+| `"#rrggbb"` (shape). `pages`: pageId → `{inputs, images, shapeColors, rows,
+offsets}`, exactly `export_variant`'s body for the page's variant (its ids:
+`describe_variant` with the page's `variantId`); a shared value wins
 over the page's own TEXT for its bound input (the page's own `hide` /
-`fontFamily` for it are kept). `versionId` (from `document_history`) starts
-from that stored fill; `fields` / `pages` override it key by key. Every page
+`fontFamily` for it are kept); `rows` and `offsets` are page-only. `versionId`
+(from `document_history`) starts from that stored fill; `fields` / `pages`
+override it key by key — per input / image / shape id, per moved element
+id, and per row container id (the WHOLE list of rows is replaced). Every page
 is resolved before any renders; a refusal names the page. Every export lands
 in the document's history.
 
@@ -387,14 +417,18 @@ pruned). Scope `templates:export`; anyone who may fill the document.
 - `list` → `versions[]`: `{id, name, pinned, draft, lastExportedAt,
   exportCount, channel, summary: {texts: [{label, value}], pictures, hidden},
   loadUrl}`.
-- `get` (`versionId`) → `version` with `fill: {fields, pages}` in
-  `export_document`'s shape (seeded leniently against the current design).
+- `get` (`versionId`) → `version` with `fill: {fields, pages: {pageId:
+  {inputs, images, shapeColors, offsets, rows}}}` in `export_document`'s
+  shape (seeded leniently against the current design; a row's values come
+  back in `rows`, never under the rows' slot ids in `inputs`).
   To re-export: `export_document(documentId, versionId, …only what changes)`.
 - `rename` (`versionId`, `name`; blank clears), `pin` / `unpin` (`versionId`).
 - `save_draft` (`fields?`, `pages?`, `versionId?`) stores the fill WITHOUT
   rendering as a "Rozpracováno" draft; hand the user its `loadUrl` to finish
   on the web. With a draft's `versionId` that draft is overwritten; with an
-  export's, the new draft starts from it.
+  export's, the new draft starts from it. Nothing is validated except `rows`,
+  which must be translated onto the rows' ids and are refused like an export
+  refuses them.
 
 Nothing deletes.
 
@@ -768,6 +802,50 @@ Locked inputs are ignored (and warned about).
 `offsetX` / `offsetY` are canvas px; `offsetXRatio` / `offsetYRatio` are accepted
 as an alternative, expressed as a fraction of the slot frame. A transform without
 an `imageId` is refused. Omitted slots keep the designer's stand-in picture.
+
+### `rows` — keyed by `repeatableRows[].containerId`
+
+```jsonc
+"rows": {
+  "<containerId>": [                                  // one object per row — the
+    { "<members[].id>": "TJ Kelč", "<crest id>": "<imageId>" },  // list length IS the count
+    {},                                               // a row with the template samples
+    { "<members[].id>": {"value": "FK Nový Jičín"}, "<row containerId>": {"hide": true} }
+  ]
+}
+```
+
+Values take the shapes of `inputs` (text members, `{"hide": true}` for a
+`kind: "container"` member), `images` (image slots) and `shapeColors` (shapes).
+The count must stay within `repeat.min`…`repeat.max`. A row left out of `rows`
+shows its `default` count. A member of a row you send in `rows` must NOT also
+be addressed through `inputs` / `images` / `shapeColors` (not even by a
+`slots[].ids` id) — that is `ambiguous_row_value`. A value refused inside a
+row names `rowContainerId` and `rowIndex` (0-based) next to the member id you
+sent. Rows that do not fit are a container overflow, as for long texts.
+
+### `offsets` — keyed by `movableElements[].id`
+
+`{"<id>": {"x": 0, "y": -24}}` — canvas px from the designed position, +x right,
++y down; a missing axis is 0. Stay inside the element's `range`. A zero move is
+no move (and is not recorded). One map per variant; on a document, one
+per page.
+
+### Row and move refusals (same codes as the REST API)
+
+The message is the REST sentence, then the code in parentheses, then the REST
+context as `key: value` pairs.
+
+| code | meaning |
+|---|---|
+| `not_repeatable` | a `rows` key that is no `repeatableRows[].containerId` |
+| `too_many_rows` / `too_few_rows` | the list is longer than `max` / shorter than `min` (`count`, `min`, `max`) |
+| `unknown_row_input` | a row object key that is no `members[].id` (`rowIndex`, `inputId`) |
+| `ambiguous_row_value` | that row member is also in `inputs` / `images` / `shapeColors` |
+| `unknown_element` | an `offsets` key that is no element of the variant |
+| `move_not_allowed` | `reason`: `not_allowed` (axis given: that axis only), `in_container` (move the container), `hidden` |
+| `offset_out_of_range` | past the `range` (`axis`, `min`, `max`, `value`) |
+| `invalid_value` | a malformed `rows` / `offsets` value |
 
 ---
 

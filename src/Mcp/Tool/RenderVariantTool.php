@@ -151,6 +151,23 @@ readonly final class RenderVariantTool
      * A slot that forbids moving, resizing or rotating rejects that adjustment.
      * Slots you do not fill keep the designer's stand-in picture.
      *
+     * rows fills a repeatable row (describe_variant repeatableRows[]): row
+     * containerId → a LIST of row objects, one per row — the list length IS
+     * the row count (within repeat.min…repeat.max) — each keyed by the
+     * template row's members[].id with the value shape inputs / images /
+     * shapeColors take ({"hide": true} for a container member). A member left
+     * out shows the template row's sample; a row left out shows its default
+     * count. Never address a member of a row you send in rows through
+     * inputs / images / shapeColors as well (ambiguous_row_value).
+     *
+     * offsets moves elements the designer lets the user move
+     * (describe_variant movableElements[]): element id → {"x": 0, "y": -24},
+     * canvas px from the designed position, +x right, +y down. Stay within
+     * the element's range (offset_out_of_range otherwise); an axis it may not
+     * move along, a container member or an unknown id is refused
+     * (move_not_allowed / unknown_element). Refusals carry the same codes as
+     * the REST API, in parentheses.
+     *
      * Text that overflows its container is REPORTED here, not refused: the
      * picture comes back showing the overflow and warnings says which inputs
      * share that container and by how many pixels it is too long.
@@ -168,6 +185,8 @@ readonly final class RenderVariantTool
      * @param array<array-key, mixed> $inputs Map of text input id (describe_variant inputs[].id) to the value to render. Omit entirely to render the variant's own sample texts.
      * @param array<array-key, mixed> $images Map of image slot id (describe_variant imageInputs[].id) to a gallery image id, a placement object, or {"hide": true}. Omit entirely to keep every stand-in picture.
      * @param array<array-key, mixed> $shapeColors Map of recolourable shape id (describe_variant shapeInputs[].id) to the "#rrggbb" to repaint it in — one of that shape's colorOptions unless freeColor is true. Omit to keep the designed colours.
+     * @param array<array-key, mixed> $rows Map of repeatable row container id (describe_variant repeatableRows[].containerId) to a list of row objects keyed by repeatableRows[].members[].id; the list length is the row count. Omit to show every row's default count.
+     * @param array<array-key, mixed> $offsets Map of movable element id (describe_variant movableElements[].id) to {"x": px, "y": px} from its designed position. Omit to keep every element where the designer put it.
      */
     #[McpTool(name: 'render_variant')]
     public function __invoke(
@@ -178,6 +197,10 @@ readonly final class RenderVariantTool
         array $images = [],
         #[Schema(type: 'object', additionalProperties: true)]
         array $shapeColors = [],
+        #[Schema(type: 'object', additionalProperties: true)]
+        array $rows = [],
+        #[Schema(type: 'object', additionalProperties: true)]
+        array $offsets = [],
     ): CallToolResult {
         $variant = $this->fill->variant($variantId);
 
@@ -187,8 +210,15 @@ readonly final class RenderVariantTool
 
         $warnings = VariantFill::warnings($variant, $providedInputs, $providedImages, $providedShapeColors);
 
-        $overrides = $this->fill->withShapeColors($variant, $this->fill->texts($variant, $providedInputs), $providedShapeColors);
-        $imageOverrides = $this->fill->images($variant, $providedImages);
+        // Rows first (folded into the maps under their slot ids), then the
+        // ordinary strict resolvers, then the user's moves — REST's order.
+        $applied = $this->fill->rows($variant, $rows, $providedInputs, $providedImages, $providedShapeColors);
+        $overrides = $this->fill->withOffsets(
+            $variant,
+            $this->fill->withShapeColors($variant, $this->fill->texts($variant, $applied->inputs, $applied), $applied->shapeColors, $applied),
+            $offsets,
+        );
+        $imageOverrides = $this->fill->images($variant, $applied->images, $applied);
 
         $render = $this->renderPreview($variant, $overrides, $imageOverrides);
 

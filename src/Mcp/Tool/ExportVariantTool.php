@@ -21,6 +21,7 @@ use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Services\Print\PrintPdfRenderer;
 use WBoost\Web\Services\Security\TemplateVariantVoter;
 use WBoost\Web\Services\Template\RecordExportVersion;
+use WBoost\Web\Services\Template\RepeatableRows;
 use WBoost\Web\Services\Usage\RecordExportUsage;
 use WBoost\Web\Value\ExportChannel;
 use WBoost\Web\Value\ExportFillValues;
@@ -116,6 +117,10 @@ readonly final class ExportVariantTool
      * 0}, or {"hide": true}. An id left out renders the designer's sample
      * value; an empty string renders nothing for it. shapeColors repaints the
      * shapes describe_variant lists in shapeInputs[] ("#rrggbb" per id).
+     * rows fills repeatable rows and offsets moves movable elements, exactly
+     * as render_variant takes them (describe_variant repeatableRows[] /
+     * movableElements[]); both are recorded with the export, so
+     * the version re-loads with its rows and moves.
      *
      * Text that overflows its container is REFUSED here rather than drawn: the
      * error names the inputs sharing that container and by how many pixels the
@@ -150,6 +155,8 @@ readonly final class ExportVariantTool
      * @param array<array-key, mixed> $images Map of image slot id (describe_variant imageInputs[].id) to a gallery image id, a placement object, or {"hide": true}. Omit entirely to keep every stand-in picture.
      * @param array<array-key, mixed> $shapeColors Map of recolourable shape id (describe_variant shapeInputs[].id) to the "#rrggbb" to repaint it in — one of that shape's colorOptions unless freeColor is true. Omit to keep the designed colours.
      * @param string $format "png" (default) or "pdf" — the print PDF, print formats (mm / cm) only.
+     * @param array<array-key, mixed> $rows Map of repeatable row container id (describe_variant repeatableRows[].containerId) to a list of row objects keyed by repeatableRows[].members[].id; the list length is the row count. Omit to show every row's default count.
+     * @param array<array-key, mixed> $offsets Map of movable element id (describe_variant movableElements[].id) to {"x": px, "y": px} from its designed position. Omit to keep every element where the designer put it.
      */
     #[McpTool(name: 'export_variant')]
     public function __invoke(
@@ -162,6 +169,10 @@ readonly final class ExportVariantTool
         array $shapeColors = [],
         #[Schema(enum: ['png', 'pdf'])]
         string $format = 'png',
+        #[Schema(type: 'object', additionalProperties: true)]
+        array $rows = [],
+        #[Schema(type: 'object', additionalProperties: true)]
+        array $offsets = [],
     ): CallToolResult {
         $variant = $this->fill->variant($variantId);
         $exportFormat = ExportFormat::tryFrom(strtolower($format));
@@ -181,8 +192,15 @@ readonly final class ExportVariantTool
 
         $warnings = VariantFill::warnings($variant, $providedInputs, $providedImages, $providedShapeColors);
 
-        $overrides = $this->fill->withShapeColors($variant, $this->fill->texts($variant, $providedInputs), $providedShapeColors);
-        $imageOverrides = $this->fill->images($variant, $providedImages);
+        // Rows first (folded into the maps under their slot ids), then the
+        // ordinary strict resolvers, then the user's moves — REST's order.
+        $applied = $this->fill->rows($variant, $rows, $providedInputs, $providedImages, $providedShapeColors);
+        $overrides = $this->fill->withOffsets(
+            $variant,
+            $this->fill->withShapeColors($variant, $this->fill->texts($variant, $applied->inputs, $applied), $applied->shapeColors, $applied),
+            $offsets,
+        );
+        $imageOverrides = $this->fill->images($variant, $applied->images, $applied);
 
         $bytes = $this->render($variant, $overrides, $imageOverrides, $exportFormat);
 
@@ -192,7 +210,13 @@ readonly final class ExportVariantTool
         $this->recordExportVersion->recordVariant(
             $variant,
             ExportChannel::Mcp,
-            ExportFillValues::fromApiRequest($providedInputs, $providedImages, $providedShapeColors),
+            // The REST export's version shape: row values under the rows'
+            // slot ids + every row's count (defaults for rows not sent; none
+            // for a design without rows), the moves as rendered under the
+            // variant's id (absent when nothing moved — old hashes hold).
+            ExportFillValues::fromApiRequest($applied->inputs, $applied->images, $applied->shapeColors)
+                ->withRows(RepeatableRows::normalizeCounts([$variant], $applied->counts))
+                ->withOffsets([$variant->id->toString() => $overrides->offsets]),
         );
 
         $summary = new ExportVariantResponse(

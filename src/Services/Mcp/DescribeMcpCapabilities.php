@@ -183,8 +183,9 @@ readonly final class DescribeMcpCapabilities
             'describe_variant' => [
                 'Zjistit, co se do šablony vyplňuje',
                 'Popíše jednu variantu do detailu: která textová pole se vyplňují, jaký mají '
-                . 'limit délky, co je zamčené, co jde skrýt, kde jsou sloty na obrázky a které '
-                . 'texty si mezi sebou dělí místo v kontejneru.',
+                . 'limit délky, co je zamčené, co jde skrýt, kde jsou sloty na obrázky, které '
+                . 'texty si mezi sebou dělí místo v kontejneru, které řádky jde opakovat a které '
+                . 'prvky smíte posunout.',
             ],
             'list_gallery' => [
                 'Projít galerii obrázků',
@@ -194,8 +195,9 @@ readonly final class DescribeMcpCapabilities
             'render_variant' => [
                 'Ukázat náhled vyplněné šablony',
                 'Vyplní šablonu vaším textem a vrátí zmenšený náhled (nejvýše 1200 px na delší '
-                . 'straně). Náhledy se nepočítají do statistik exportů, takže se dá donekonečna '
-                . 'zkoušet, dokud text nesedí.',
+                . 'straně). Umí i přidat opakovatelné řádky (třeba pět výsledků místo dvou) a '
+                . 'posunout prvky, které grafik povolil posouvat. Náhledy se nepočítají do '
+                . 'statistik exportů, takže se dá donekonečna zkoušet, dokud text nesedí.',
             ],
             'export_variant' => [
                 'Vyexportovat hotový obrázek',

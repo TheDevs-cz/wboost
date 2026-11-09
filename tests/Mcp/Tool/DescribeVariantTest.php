@@ -292,6 +292,58 @@ final class DescribeVariantTest extends WebTestCase
         self::assertNull($root['fitsRows']);
     }
 
+    /**
+     * The M5 / P5 MCP halves: `repeatableRows[]` (what the `rows` argument
+     * fills) and `movableElements[]` (what the `offsets` argument may move)
+     * are the REST listing's, field for field — both read off the EXPANDED
+     * design by the functions the strict validation itself uses.
+     */
+    public function testRepeatableRowsAndMovableElementsAgreeWithTheRestApiListing(): void
+    {
+        $this->browser();
+        $variant = self::getContainer()->get(\WBoost\Web\Repository\TemplateVariantRepository::class)
+            ->get(\Ramsey\Uuid\Uuid::fromString(TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID));
+        $raw = \WBoost\Web\Tests\ContainerFixtures::turnajRepeatableRaw(max: 5, default: 2);
+        /** @var list<array<string, mixed>> $containers */
+        $containers = $raw['canvas']['containers'];
+        foreach ($containers as $i => $container) {
+            if ($container['id'] === \WBoost\Web\Tests\ContainerFixtures::TURNAJ_ROOT) {
+                $containers[$i]['userMove'] = ['vertical' => true, 'horizontal' => false, 'maxUp' => null, 'maxDown' => 300, 'maxLeft' => null, 'maxRight' => null];
+            }
+        }
+        $raw['canvas']['containers'] = $containers;
+        /** @var list<array<string, mixed>> $objects */
+        $objects = $raw['canvas']['objects'];
+        foreach ($objects as $i => $object) {
+            if (($object['inputId'] ?? null) === \WBoost\Web\Tests\ContainerFixtures::TURNAJ_HEADLINE) {
+                $objects[$i]['userMove'] = ['vertical' => false, 'horizontal' => true, 'maxUp' => null, 'maxDown' => null, 'maxLeft' => 50, 'maxRight' => 50];
+            }
+        }
+        $raw['canvas']['objects'] = $objects;
+        \WBoost\Web\Tests\ContainerFixtures::applyRaw($variant, $raw);
+        self::getContainer()->get(\Doctrine\ORM\EntityManagerInterface::class)->flush();
+
+        $api = $this->apiVariantsById(TestDataFixture::PROJECT_1_ID)[TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID] ?? null;
+        self::assertIsArray($api);
+        $mcp = $this->describe(TestDataFixture::MCP_TOKEN_ACTIVE, TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID);
+
+        self::assertIsArray($mcp['repeatableRows']);
+        self::assertCount(1, $mcp['repeatableRows']);
+        self::assertSame(self::numbersAsFloats($api['repeatableRows'] ?? null), self::numbersAsFloats($mcp['repeatableRows']));
+
+        self::assertIsArray($mcp['movableElements']);
+        self::assertSame(
+            [\WBoost\Web\Tests\ContainerFixtures::TURNAJ_ROOT, \WBoost\Web\Tests\ContainerFixtures::TURNAJ_HEADLINE],
+            array_values(array_intersect([\WBoost\Web\Tests\ContainerFixtures::TURNAJ_ROOT, \WBoost\Web\Tests\ContainerFixtures::TURNAJ_HEADLINE], array_column($mcp['movableElements'], 'id'))),
+        );
+        self::assertSame(self::numbersAsFloats($api['movableElements'] ?? null), self::numbersAsFloats($mcp['movableElements']));
+
+        // A design without either reports two empty lists, not nulls.
+        $plain = $this->describe(TestDataFixture::MCP_TOKEN_ACTIVE, TestDataFixture::ORIENTATION_VARIANT_ID);
+        self::assertSame([], $plain['repeatableRows']);
+        self::assertSame([], $plain['movableElements']);
+    }
+
     public function testRecolourableShapesAreDescribedWithTheirOptions(): void
     {
         $this->browser();

@@ -16,6 +16,7 @@ use WBoost\Web\Entity\TemplateDocumentExportVersion;
 use WBoost\Web\Entity\User;
 use WBoost\Web\Mcp\Fill\DocumentFillInput;
 use WBoost\Web\Mcp\Fill\DocumentLoader;
+use WBoost\Web\Mcp\Fill\VariantFill;
 use WBoost\Web\Mcp\Response\DocumentHistoryResponse;
 use WBoost\Web\Mcp\Response\DocumentVersionResponse;
 use WBoost\Web\Mcp\Security\McpScope;
@@ -25,6 +26,7 @@ use WBoost\Web\Message\TemplateDocument\RenameTemplateDocumentExportVersion;
 use WBoost\Web\Message\TemplateDocument\SaveTemplateDocumentFillDraft;
 use WBoost\Web\Query\GetExportVersions;
 use WBoost\Web\Repository\TemplateDocumentExportVersionRepository;
+use WBoost\Web\Services\Template\RepeatableRows;
 use WBoost\Web\Services\TemplateDocument\DocumentApiValues;
 use WBoost\Web\Services\TemplateDocument\DocumentExportVersionApiView;
 use WBoost\Web\Value\DocumentFillValues;
@@ -52,6 +54,7 @@ readonly final class DocumentHistoryTool
         private MessageBusInterface $bus,
         private Security $security,
         private UrlGeneratorInterface $urlGenerator,
+        private VariantFill $fill,
     ) {
     }
 
@@ -61,17 +64,17 @@ readonly final class DocumentHistoryTool
      *
      * Actions:
      * - "list": documentId → versions[] (id, name, pinned, draft, lastExportedAt, exportCount, channel, summary of the filled texts, loadUrl).
-     * - "get": documentId, versionId → that version WITH `fill` = {fields, pages} in export_document's own shape. To re-export it, pass `versionId` to export_document (plus only what changes).
+     * - "get": documentId, versionId → that version WITH `fill` = {fields, pages: {pageId: {inputs, images, shapeColors, offsets, rows}}} in export_document's own shape (repeatable rows as `rows`, moved elements as `offsets`). To re-export it, pass `versionId` to export_document (plus only what changes).
      * - "rename": documentId, versionId, name ("" or null clears the name).
      * - "pin" / "unpin": documentId, versionId — pinned versions stay on top and are never pruned.
-     * - "save_draft": documentId, fields?, pages?, versionId? — stores the fill WITHOUT rendering as a "Rozpracováno" draft the user can open on the web (its loadUrl) and finish there. With the versionId of a draft (one this tool or the web saved), that draft is overwritten; otherwise a new draft starts, laid over the given version's fill when versionId names an export. Nothing is validated against the design until an export.
+     * - "save_draft": documentId, fields?, pages?, versionId? — stores the fill WITHOUT rendering as a "Rozpracováno" draft the user can open on the web (its loadUrl) and finish there. With the versionId of a draft (one this tool or the web saved), that draft is overwritten; otherwise a new draft starts, laid over the given version's fill when versionId names an export. Nothing is validated against the design until an export — except a page's `rows`, which are translated onto the rows' ids right away and refused like export_document refuses them.
      *
      * @param string $action list | get | rename | pin | unpin | save_draft
      * @param string $documentId find_templates documents[].id
      * @param null|string $versionId versions[].id
      * @param null|string $name For "rename".
      * @param null|array<string, mixed> $fields For "save_draft": shared fieldId → value (as export_document).
-     * @param null|array<string, mixed> $pages For "save_draft": pageId → {inputs, images, shapeColors} (as export_document).
+     * @param null|array<string, mixed> $pages For "save_draft": pageId → {inputs, images, shapeColors, rows, offsets} (as export_document).
      */
     #[McpTool(name: 'document_history')]
     public function __invoke(
@@ -127,8 +130,25 @@ readonly final class DocumentHistoryTool
         $resolved = $this->fillInput->resolve($document, $given, $fields, $pages, $warnings);
 
         $pageValues = [];
+        $pageOffsets = [];
+        $pageRowCounts = [];
         foreach ($document->pages() as $page) {
-            $pageValues[$page->template->id->toString()] = DocumentApiValues::forPage($document, $page, $resolved['fields'], $resolved['pages'][$page->id->toString()] ?? []);
+            $templateId = $page->template->id->toString();
+            $values = DocumentApiValues::forPage($document, $page, $resolved['fields'], $resolved['pages'][$page->id->toString()] ?? []);
+
+            // Rows must land on the rows' slot ids to be stored at all (the
+            // web draft's shape), so they are applied — strictly — now.
+            try {
+                $applied = $this->fill->rows($page->variant, $values['rows'], $values['inputs'], $values['images'], $values['shapeColors']);
+            } catch (ToolCallException $refused) {
+                throw new ToolCallException(sprintf('Page %d (%s, pageId %s): %s', $page->position + 1, $page->template->name, $page->id->toString(), $refused->getMessage()));
+            }
+
+            $pageValues[$templateId] = ['inputs' => $applied->inputs, 'images' => $applied->images, 'shapeColors' => $applied->shapeColors];
+            $pageRowCounts[$templateId] = RepeatableRows::normalizeCounts([$page->variant], $applied->counts);
+            // Unvalidated like the rest of a draft (canonicalised only); the
+            // web page / an export re-clamps them to the design.
+            $pageOffsets[$templateId] = [$page->variant->id->toString() => $values['offsets']];
         }
 
         $draftId = $given !== null && $given->draft ? $given->id : Uuid::uuid7();
@@ -138,7 +158,7 @@ readonly final class DocumentHistoryTool
             $draftId,
             $document->id,
             $user instanceof User ? $user->id : null,
-            DocumentFillValues::fromApiPages($pageValues),
+            DocumentFillValues::fromApiPages($pageValues, $pageOffsets, $pageRowCounts),
             ExportChannel::Mcp,
         ));
 
@@ -206,7 +226,7 @@ readonly final class DocumentHistoryTool
             channel: $version->channel->value,
             summary: $summaries[$version->id->toString()] ?? ['texts' => [], 'pictures' => 0, 'hidden' => 0],
             loadUrl: $this->urlGenerator->generate('template_document_fill', ['documentId' => $document->id->toString(), 'version' => $version->id->toString()], UrlGeneratorInterface::ABSOLUTE_URL),
-            fill: $withFill ? $this->view->fill($version, $document) : null,
+            fill: $withFill ? $this->view->fill($version, $document, foldRows: true) : null,
         );
     }
 }

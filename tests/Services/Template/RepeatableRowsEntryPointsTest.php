@@ -55,7 +55,7 @@ final class RepeatableRowsEntryPointsTest extends KernelTestCase
         'Controller/TemplateDocument/TemplateDocumentExportController.php' => 'GroupFillRenderer::resolve() expands; TemplateDocumentExporter renders through the renderer / PrintPdfRenderer belts',
         'Controller/TemplateGroup/TemplateGroupExportController.php' => 'GroupFillRenderer::renderExport() expands',
         'Controller/TemplateGroup/TemplateGroupExportVariantController.php' => 'GroupFillRenderer::renderExport() expands',
-        'Mcp/Tool/ExportDocumentTool.php' => 'VariantFill::texts()/images()/withShapeColors() expand; renderer belt',
+        'Mcp/Tool/ExportDocumentTool.php' => 'VariantFill::rows()/texts()/images()/withShapeColors() expand; renderer belt',
         'Mcp/Tool/ExportVariantTool.php' => 'VariantFill expands; renderer + PrintPdfRenderer belts',
         'Mcp/Tool/PreviewDesignTool.php' => 'CandidateRenderer expands',
         'Mcp/Tool/RenderVariantTool.php' => 'VariantFill expands; renderer belt',

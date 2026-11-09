@@ -130,6 +130,21 @@ designer marked hidable, or ask the designer to raise the container's `maxHeight
 in the wboost editor. `render_variant` shows you the overflow while you work;
 `export_variant` refuses to produce a broken file.
 
+### 9a. A list of any length, and a nudge
+
+> Výsledky: Kelč 4:4, Nový Jičín 2:1, Frenštát 0:3. A posuň blok s výsledky
+> trochu níž.
+
+When the template has a repeatable row (`describe_variant` `repeatableRows[]`),
+the assistant sends the results as `rows` — one row object per result, so three
+results render three rows (within the designer's `min`…`max`; too many to fit is
+an overflow like a long text). Moving works only for what the designer allowed
+(`movableElements[]`): `offsets` with the element's id and a pixel distance
+within its `range`. Both are stored with the export, so the version reopens on
+the web exactly as exported. An element that may not move, or a move past the
+limit, is refused with the same code the REST API answers (`move_not_allowed`,
+`offset_out_of_range`).
+
 ---
 
 ## 10. Draft the copy for me

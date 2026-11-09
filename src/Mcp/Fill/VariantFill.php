@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Mcp\Fill;
 
+use WBoost\Web\Services\SocialNetwork\ResolveElementOffsets;
+use WBoost\Web\Services\Template\ApiRepeatableRows;
 use WBoost\Web\Services\Template\RepeatableRows;
 use Mcp\Exception\ToolCallException;
 use Mcp\Schema\Content\TextContent;
@@ -22,6 +24,7 @@ use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Services\SocialNetwork\ResolveShapeColorOverrides;
 use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
 use WBoost\Web\Services\SocialNetwork\ValidateContainerHides;
+use WBoost\Web\Value\AppliedApiRows;
 use WBoost\Web\Value\CanvasContainer;
 use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\ResolvedImageOverrides;
@@ -92,18 +95,51 @@ readonly final class VariantFill
     }
 
     /**
+     * The `rows` argument (repeatable container rows) folded into the value
+     * maps — {@see ApiRepeatableRows::apply()}, the REST contract verbatim:
+     * `rows` is row container id → list of row objects keyed by the TEMPLATE
+     * row's member ids, the list length is the count. Strict, with the REST
+     * codes (`not_repeatable`, `too_many_rows`, `too_few_rows`,
+     * `unknown_row_input`, `ambiguous_row_value`, `invalid_value`).
+     *
+     * Without `rows` the maps pass through and the counts are the ones the
+     * addressed slot ids imply (a merged row's legacy "Střelec 3" id shows
+     * at least three rows); explicit `rows` counts win over that inference.
+     *
+     * Hand the result to {@see texts()} / {@see withShapeColors()} /
+     * {@see images()}: their maps are `$applied->inputs` / `->images` /
+     * `->shapeColors`, and a value refused there names the row it came from.
+     *
+     * @param array<array-key, mixed> $inputs
+     * @param array<array-key, mixed> $images
+     * @param array<array-key, mixed> $shapeColors
+     */
+    public function rows(TemplateVariant $variant, mixed $rows, array $inputs, array $images, array $shapeColors): AppliedApiRows
+    {
+        try {
+            return ApiRepeatableRows::apply(RepeatableRows::expand($variant), $rows, $inputs, $images, $shapeColors);
+        } catch (InvalidExportValue $invalid) {
+            throw self::refusal($invalid);
+        }
+    }
+
+    /**
      * Text overrides, resolved STRICTLY (`truncateOverflow: false`) — the API
      * export's setting, not the web fill page's. A preview that silently cut an
      * over-long value would hand the agent a picture of a fill the export then
      * refuses; an export that cut it would hand the user a deliverable they did
      * not ask for.
      *
+     * `$rows` (from {@see rows()}) supplies the row counts and tags a refused
+     * row value with its `rowContainerId` + `rowIndex`; without it the counts
+     * are inferred from the addressed ids alone.
+     *
      * @param array<string, mixed> $providedInputs
      */
-    public function texts(TemplateVariant $variant, array $providedInputs): ResolvedInputOverrides
+    public function texts(TemplateVariant $variant, array $providedInputs, null|AppliedApiRows $rows = null): ResolvedInputOverrides
     {
         // Repeatable rows: resolve against the EXPANDED variant (rows at
-        // their default count until the P5 `rows` argument).
+        // the `rows` argument's counts, else their default).
         $variant = RepeatableRows::expand($variant);
 
         try {
@@ -118,16 +154,15 @@ readonly final class VariantFill
             );
 
             // A value addressed to row k of a repeatable row (a MERGED row's
-            // legacy "Střelec 3" id) shows at least k + 1 rows.
-            return $overrides->withRowCounts(RepeatableRows::inferredCounts([$variant], array_keys($providedInputs)));
-        } catch (InvalidRichTextValue $invalidRichText) {
-            throw new ToolCallException(self::withContext(
-                sprintf('%s (%s)', $invalidRichText->getMessage(), $invalidRichText->errorCode),
-                $invalidRichText->context,
-            ));
+            // legacy "Střelec 3" id) shows at least k + 1 rows; the explicit
+            // `rows` counts sit on top of that inference (ApiRepeatableRows::apply).
+            return $overrides->withRowCounts($rows !== null
+                ? $rows->counts
+                : RepeatableRows::inferredCounts([$variant], array_keys($providedInputs)));
+        } catch (InvalidRichTextValue|InvalidExportValue $invalid) {
+            throw self::refusal($rows !== null ? $rows->tag($invalid) : $invalid);
         } catch (BadRequestHttpException $badRequest) {
-            // maxLength — already phrased for a human ("Input "Nadpis" exceeds
-            // max length of 24 characters."), so it is passed through as-is.
+            // Already phrased for a human — passed through as-is.
             throw new ToolCallException($badRequest->getMessage());
         }
     }
@@ -138,7 +173,7 @@ readonly final class VariantFill
      *
      * @param array<string, mixed> $providedShapeColors
      */
-    public function withShapeColors(TemplateVariant $variant, ResolvedInputOverrides $overrides, array $providedShapeColors): ResolvedInputOverrides
+    public function withShapeColors(TemplateVariant $variant, ResolvedInputOverrides $overrides, array $providedShapeColors, null|AppliedApiRows $rows = null): ResolvedInputOverrides
     {
         $variant = RepeatableRows::expand($variant);
 
@@ -147,17 +182,37 @@ readonly final class VariantFill
                 $this->resolveShapeColorOverrides->forVariant($variant, $providedShapeColors, lenient: false),
             );
         } catch (InvalidExportValue $invalid) {
-            throw new ToolCallException(self::withContext(
-                sprintf('%s (%s)', $invalid->getMessage(), $invalid->errorCode),
-                array_diff_key($invalid->context, ['shapeInputId' => true]),
-            ));
+            throw self::refusal($rows !== null ? $rows->tag($invalid) : $invalid);
+        }
+    }
+
+    /**
+     * The user's element moves ("Uživatel může posunout"): the `offsets`
+     * argument — element id → `{x, y}` canvas px from the designed position
+     * (describe_variant movableElements[]) — resolved STRICTLY like the REST
+     * export ({@see ResolveElementOffsets}, `lenient: false`, against the
+     * EXPANDED variant): `unknown_element`, `move_not_allowed`,
+     * `offset_out_of_range`, `invalid_value`. The canonical map (rounded,
+     * zero moves dropped) lands on the overrides' `offsets`, which is both
+     * what the renderer bakes and what a recorded version stores.
+     *
+     * @param array<array-key, mixed> $offsets
+     */
+    public function withOffsets(TemplateVariant $variant, ResolvedInputOverrides $overrides, array $offsets): ResolvedInputOverrides
+    {
+        try {
+            return $overrides->withOffsets(
+                ResolveElementOffsets::forVariant(RepeatableRows::expand($variant), self::stringKeyed($offsets), lenient: false),
+            );
+        } catch (InvalidExportValue $invalid) {
+            throw self::refusal($invalid);
         }
     }
 
     /**
      * @param array<string, mixed> $providedImages
      */
-    public function images(TemplateVariant $variant, array $providedImages): ResolvedImageOverrides
+    public function images(TemplateVariant $variant, array $providedImages, null|AppliedApiRows $rows = null): ResolvedImageOverrides
     {
         $variant = RepeatableRows::expand($variant);
 
@@ -167,10 +222,38 @@ readonly final class VariantFill
                 $variant->template->project->id,
                 $providedImages,
             );
-        } catch (BadRequestHttpException $badRequest) {
+        } catch (InvalidExportValue $invalid) {
             // "cannot be rotated", "is not available for this placeholder", …
+            throw self::refusal($rows !== null ? $rows->tag($invalid) : $invalid);
+        } catch (BadRequestHttpException $badRequest) {
             throw new ToolCallException($badRequest->getMessage());
         }
+    }
+
+    /**
+     * A structured refusal as an MCP tool error: the REST sentence, the REST
+     * machine code in parentheses, then the REST context as `key: value`
+     * pairs — so an agent reads the same `code` + `elementId` / `axis` /
+     * `max` / `rowContainerId` / `rowIndex` a REST consumer gets in the 400
+     * body. Rich-text violations list their context as the allowed values
+     * (fonts, colours) — that is what their context is.
+     */
+    public static function refusal(InvalidExportValue|InvalidRichTextValue $invalid): ToolCallException
+    {
+        $message = sprintf('%s (%s)', $invalid->getMessage(), $invalid->errorCode);
+
+        if ($invalid instanceof InvalidRichTextValue) {
+            return new ToolCallException(self::withContext($message, $invalid->context));
+        }
+
+        $parts = [];
+        foreach ($invalid->context as $key => $value) {
+            $parts[] = sprintf('%s: %s', $key, is_array($value)
+                ? implode(', ', array_map(static fn (mixed $item): string => self::scalarToString($item), $value))
+                : self::scalarToString($value));
+        }
+
+        return new ToolCallException($parts === [] ? $message : sprintf('%s Details — %s.', $message, implode('; ', $parts)));
     }
 
     /**
@@ -236,6 +319,9 @@ readonly final class VariantFill
      */
     public static function warnings(TemplateVariant $variant, array $providedInputs, array $providedImages, array $providedShapeColors = []): array
     {
+        // The EXPANDED design: a merged row's legacy slot id ("Střelec 3") is
+        // a real input of the fill, not an unknown one.
+        $variant = RepeatableRows::expand($variant);
         $warnings = [];
 
         $known = [];

@@ -21,6 +21,7 @@ use WBoost\Web\Mcp\Security\McpScope;
 use WBoost\Web\Mcp\Security\McpToolScope;
 use WBoost\Web\Repository\TemplateDocumentExportVersionRepository;
 use WBoost\Web\Services\TemplateDocument\DocumentApiValues;
+use WBoost\Web\Services\Template\RepeatableRows;
 use WBoost\Web\Services\Template\TemplateExportFileNames;
 use WBoost\Web\Services\TemplateDocument\DocumentExportArchive;
 use WBoost\Web\Services\TemplateDocument\RecordDocumentExportVersion;
@@ -72,9 +73,11 @@ readonly final class ExportDocumentTool
      *   hide}; shape: "#rrggbb"). It fills the bound input on every page and wins
      *   over that page's own value.
      * - pages: pageId → that page's fill, exactly like export_variant's body
-     *   for the page's variantId: {inputs, images, shapeColors}. Input ids are
-     *   the page variant's own (describe_variant). Pages left out export as
-     *   designed (sample texts).
+     *   for the page's variantId: {inputs, images, shapeColors, rows,
+     *   offsets}. Ids are the page variant's own (describe_variant with the
+     *   page's variantId: inputs[], repeatableRows[], movableElements[]);
+     *   rows and offsets are page-only (never shared fields). Pages left out
+     *   export as designed (sample texts).
      * - format: "pdf-screen" (default — sRGB, light, for sending), "pdf"
      *   (print: PDF/X-1a CMYK with the document's stored bleed + crop marks —
      *   dimension.bleedMm / cropMarks, changed with manage_document
@@ -83,7 +86,9 @@ readonly final class ExportDocumentTool
      *
      * - versionId: re-export a stored version (document_history "list") —
      *   its fill is the base and `fields` / `pages` given here override it
-     *   key by key ("the March offer, only with a new customer name").
+     *   key by key ("the March offer, only with a new customer name") — a
+     *   page's rows per row container id (the whole list), its offsets per
+     *   element id.
      *
      * Preview a page first with render_variant (its variantId + the same
      * inputs) — it is fast and lossy; this call renders every page in full.
@@ -91,7 +96,7 @@ readonly final class ExportDocumentTool
      *
      * @param string $documentId find_templates documents[].id
      * @param array<string, mixed> $fields shared fieldId → value
-     * @param array<string, mixed> $pages pageId → {inputs, images, shapeColors}
+     * @param array<string, mixed> $pages pageId → {inputs, images, shapeColors, rows, offsets}
      * @param null|string $versionId document_history versions[].id to start from
      */
     #[McpTool(name: 'export_document')]
@@ -143,9 +148,11 @@ readonly final class ExportDocumentTool
         // Resolve EVERY page before rendering ANY (strict, like export_variant).
         $resolved = [];
         $pageValues = [];
+        $pageOffsets = [];
+        $pageRowCounts = [];
         foreach ($documentPages as $page) {
             $values = DocumentApiValues::forPage($document, $page, $fields, $pages[$page->id->toString()] ?? []);
-            $pageValues[$page->template->id->toString()] = $values;
+            $templateId = $page->template->id->toString();
             $inputs = VariantFill::stringKeyed($values['inputs']);
             $images = VariantFill::stringKeyed($values['images']);
             $shapeColors = VariantFill::stringKeyed($values['shapeColors']);
@@ -155,11 +162,22 @@ readonly final class ExportDocumentTool
             }
 
             try {
-                $overrides = $this->fill->withShapeColors($page->variant, $this->fill->texts($page->variant, $inputs), $shapeColors);
-                $imageOverrides = $this->fill->images($page->variant, $images);
+                // The page's rows folded into its maps first, its moves last
+                // — the REST document export's order and version shape.
+                $applied = $this->fill->rows($page->variant, $values['rows'], $inputs, $images, $shapeColors);
+                $overrides = $this->fill->withOffsets(
+                    $page->variant,
+                    $this->fill->withShapeColors($page->variant, $this->fill->texts($page->variant, $applied->inputs, $applied), $applied->shapeColors, $applied),
+                    $values['offsets'],
+                );
+                $imageOverrides = $this->fill->images($page->variant, $applied->images, $applied);
             } catch (ToolCallException $refused) {
                 throw new ToolCallException(sprintf('Page %d (%s, pageId %s): %s', $page->position + 1, $page->template->name, $page->id->toString(), $refused->getMessage()));
             }
+
+            $pageValues[$templateId] = ['inputs' => $applied->inputs, 'images' => $applied->images, 'shapeColors' => $applied->shapeColors];
+            $pageRowCounts[$templateId] = RepeatableRows::normalizeCounts([$page->variant], $applied->counts);
+            $pageOffsets[$templateId] = [$page->variant->id->toString() => $overrides->offsets];
 
             $resolved[] = [$page, $overrides, $imageOverrides];
         }
@@ -186,7 +204,7 @@ readonly final class ExportDocumentTool
             $this->recordExportUsage->record($page->variant, ExportChannel::Mcp, $exportFormat);
         }
 
-        $fill = DocumentFillValues::fromApiPages($pageValues);
+        $fill = DocumentFillValues::fromApiPages($pageValues, $pageOffsets, $pageRowCounts);
         $this->recordExportVersion->record($document, ExportChannel::Mcp, $fill);
 
         $fileName = $this->fileNames->document($document, $exportFormat, $fill)->name;

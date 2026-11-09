@@ -17,6 +17,9 @@ namespace WBoost\Web\Mcp\Response;
  * single-variant write would be clobbered by the next group save. It is the
  * same flag, with the same name, `find_templates` reports per variant.
  *
+ * `repeatableRows` are the rows the `rows` argument fills;
+ * `movableElements` the elements the `offsets` argument may move.
+ *
  * `richTextOptions` is present only when the variant has a fillable rich input
  * — its absence means no value here may carry styling.
  *
@@ -32,6 +35,8 @@ readonly final class DescribeVariantResponse
      * @param list<VariantImageInputResponse> $imageInputs
      * @param list<VariantContainerResponse> $containers
      * @param list<VariantShapeInputResponse> $shapeInputs
+     * @param list<VariantRepeatableRowResponse> $repeatableRows
+     * @param list<VariantMovableElementResponse> $movableElements
      */
     public function __construct(
         public string $variantId,
@@ -46,6 +51,8 @@ readonly final class DescribeVariantResponse
         public array $containers,
         public null|VariantRichTextOptionsResponse $richTextOptions,
         public array $shapeInputs = [],
+        public array $repeatableRows = [],
+        public array $movableElements = [],
     ) {
     }
 }

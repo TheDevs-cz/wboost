@@ -121,15 +121,13 @@ Versions store the canonical resolved maps (`withOffsets`, per variant /
 per page variant, absent when nothing moved → old hashes unchanged);
 `GET /api/export-versions/{id}` answers `fill.offsets` (variant: id → xy;
 group: variantId → id → xy; `{}` when empty) and document versions
-`fill.pages[pageId].offsets`, re-clamped by the seeders. The MCP half
-(tools' `offsets`, `describe_variant.movableElements`) is still to do —
-`ElementOffsetsEntryPointsTest` lists those tools as delegates.
+`fill.pages[pageId].offsets`, re-clamped by the seeders. MCP mirrors it
+(see "Repeatable rows + moves over MCP" below).
 
 ### Repeatable rows over the API (container-rows P5, 2026-11-09)
 
-REST half only — MCP (`describe_variant` already has `repeat` / `fitsRows`;
-`render_variant` / `export_variant` / `export_document` `rows`) and mfkfm
-follow. One service, `Services/Template/ApiRepeatableRows`:
+REST first; MCP mirrors it (below), mfkfm follows. One service,
+`Services/Template/ApiRepeatableRows`:
 
 - **`describe(variant)`** — every repeatable row of the EXPANDED variant:
   parent, fillable members of the TEMPLATE row (unlocked texts,
@@ -175,8 +173,42 @@ follow. One service, `Services/Template/ApiRepeatableRows`:
   (`ApiRepeatableRows::fold()`, the inverse of `apply`): `fill.rows` (row id →
   one object per shown row; slot values removed from the flat maps, unused
   slots dropped) so a loaded fill posts back as-is. Document versions fold
-  only on the REST path (`DocumentExportVersionApiView::fill(foldRows: true)`)
-  — the MCP document tools still re-send the flat maps until the MCP phase.
+  (`DocumentExportVersionApiView::fill(foldRows: true)`) on the REST path
+  and in the MCP document tools alike.
+
+### Repeatable rows + moves over MCP (2026-11-10)
+
+The MCP half of P5 + M5 — same contract, same codes, one implementation:
+
+- **`VariantFill`** (shared by `render_variant`, `export_variant`,
+  `export_document`): `rows()` = `ApiRepeatableRows::apply()` on the
+  expanded variant (counts = explicit `rows` + the legacy slot-id inference
+  on top), `texts()` / `withShapeColors()` / `images()` take the
+  `AppliedApiRows` and re-tag refusals through `tag()`, `withOffsets()` =
+  `ResolveElementOffsets::forVariant(…, lenient: false)`. Every
+  `InvalidExportValue` / `InvalidRichTextValue` becomes a tool error
+  `"<REST message> (<code>) Details — key: value; …"` (`VariantFill::refusal()`).
+  Order: rows → texts → shape colours → offsets → images (REST's).
+- **Tools:** `render_variant` / `export_variant` take `rows` + `offsets`;
+  `export_document` takes them per page (`pages[pageId].rows|offsets`,
+  page-only, through `DocumentApiValues`). MCP has no group tool, so no
+  per-dimension offsets / shared group count here.
+- **Versions:** `export_variant` records like `ExportProcessor` (applied
+  maps + `normalizeCounts` + offsets under the variant id);
+  `export_document` and `document_history` "save_draft" like the REST
+  document export (`DocumentFillValues::fromApiPages($values, $offsets,
+  $rowCounts)`; a draft applies `rows` strictly — they must land on slot
+  ids — but stores `offsets` unvalidated). `document_history` "get" and the
+  `versionId` base read `fill(foldRows: true)`; `DocumentFillInput::resolve`
+  merges `offsets` per element id and `rows` per row container id (the whole
+  list) over the stored fill.
+- **`describe_variant`:** `repeatableRows[]` + `movableElements[]`, field
+  for field the REST listing's (`VariantRepeatableRowResponse`,
+  `VariantMovableElementResponse`; `DescribeVariantTest` compares them).
+  `VariantFill::warnings()` reads the EXPANDED variant (a merged row's
+  legacy slot id is not reported as unknown).
+- Tests: `tests/Mcp/Tool/FillRowsAndOffsetsTest.php`; the MCP tools left
+  `ElementOffsetsEntryPointsTest::DELEGATES`.
 
 ### Print PDF over the API + MCP (2026-10-30)
 

@@ -41,10 +41,10 @@ final readonly class DocumentExportVersionApiView
     }
 
     /**
-     * `$foldRows` (the REST API): each page's repeatable rows come back as
-     * `rows` (row container id → one object per shown row, keyed by the
-     * template row's member ids) instead of slot ids in the flat maps — the
-     * MCP tools, which do not take `rows` yet, keep the flat form.
+     * `$foldRows` (the REST API and the MCP document tools): each page's
+     * repeatable rows come back as `rows` (row container id → one object
+     * per shown row, keyed by the template row's member ids) instead of
+     * slot ids in the flat maps — the shape both export bodies take.
      *
      * @return array{fields: array<string, mixed>|\ArrayObject<string, mixed>, pages: array<string, mixed>|\ArrayObject<string, mixed>}
      */

@@ -44,15 +44,11 @@ final class ElementOffsetsEntryPointsTest extends KernelTestCase
      * Call sites that do NOT handle offsets themselves → why that is right.
      */
     private const array DELEGATES = [
-        // The REST API carries `offsets` since M5 (ApiExportRenderer, strict).
-        // The MCP fill tools' `offsets` argument is the deferred half of M5;
-        // until then they render every element at its designed position.
+        // The REST API carries `offsets` since M5 (ApiExportRenderer, strict),
+        // the MCP fill tools since the M5 MCP half (VariantFill::withOffsets,
+        // strict) — neither is listed here any more.
         'Mcp/Design/CandidateRenderer.php' => 'MCP design preview: the design itself, no fill',
-        'Mcp/Fill/VariantFill.php' => 'MCP: offsets argument deferred (M5 MCP half)',
-        'Mcp/Tool/ExportDocumentTool.php' => 'MCP: offsets argument deferred (M5 MCP half)',
-        'Mcp/Tool/ExportVariantTool.php' => 'MCP: offsets argument deferred (M5 MCP half)',
         'Mcp/Tool/PreviewDesignTool.php' => 'MCP design preview: the design itself, no fill',
-        'Mcp/Tool/RenderVariantTool.php' => 'MCP: offsets argument deferred (M5 MCP half)',
         'Mcp/Tool/SetDesignTool.php' => 'MCP design preview: the design itself, no fill',
         // Pages arrive RESOLVED (overrides carry the offsets) — they only forward.
         'Services/Print/ScreenPdfRenderer.php' => 'forwards resolved overrides to the renderer',
