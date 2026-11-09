@@ -14,6 +14,7 @@ use Symfony\Component\DomCrawler\Form;
 use WBoost\Web\Entity\Manual;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Tests\TestingLogin;
+use WBoost\Web\Value\ColorMapping;
 use WBoost\Web\Value\Logo;
 use WBoost\Web\Value\ManualPage;
 use WBoost\Web\Value\SvgImage;
@@ -209,6 +210,40 @@ final class ManualPreviewInPlaceEditTest extends WebTestCase
         self::assertResponseStatusCodeSame(404);
     }
 
+    /**
+     * The horizontal-with-claim cards on a light / one-colour background used
+     * to paint the HORIZONTAL logo's background (a copy/paste slip in
+     * manual_preview.html.twig) — while their download links already used
+     * their own. Every card reads its own colour mapping now.
+     */
+    public function testHorizontalWithClaimCardsUseTheirOwnBackground(): void
+    {
+        $browser = $this->adminBrowser();
+        $this->giveManualLogos(withClaim: true, backgrounds: [
+            'horizontal' => ['lightBackground' => 'AAAAAA', 'oneColor' => 'AAAAAA'],
+            'horizontalWithClaim' => ['lightBackground' => 'BBBBBB', 'oneColor' => 'CCCCCC'],
+        ]);
+
+        $crawler = $browser->request('GET', self::PREVIEW_URL);
+        self::assertResponseIsSuccessful();
+
+        foreach (['lightBackground' => 'BBBBBB', 'oneColor' => 'CCCCCC'] as $colorVariant => $background) {
+            $card = $crawler->filter('#logo-card-horizontalWithClaim-' . $colorVariant);
+            self::assertCount(1, $card);
+            self::assertStringContainsString('#' . $background, (string) $card->attr('style'), $colorVariant);
+            self::assertStringContainsString('#AAAAAA', (string) $crawler->filter('#logo-card-horizontal-' . $colorVariant)->attr('style'));
+        }
+
+        // …and the in-place save repaints the card with what was just saved.
+        $form = $this->logoColorsForm($crawler, 'horizontalWithClaim', 'lightBackground', ['background' => 'DDDDDD']);
+        $browser->submit($form, [], self::TURBO);
+
+        self::assertResponseStatusCodeSame(200);
+        $card = (new Crawler($this->streams($browser)['#logo-card-horizontalWithClaim-lightBackground']))
+            ->filter('#logo-card-horizontalWithClaim-lightBackground');
+        self::assertStringContainsString('#DDDDDD', (string) $card->attr('style'));
+    }
+
     private function adminBrowser(): KernelBrowser
     {
         $browser = self::createClient();
@@ -268,24 +303,32 @@ final class ManualPreviewInPlaceEditTest extends WebTestCase
         return $streams;
     }
 
-    private function giveManualLogos(): void
+    /**
+     * @param array<string, array<string, string>> $backgrounds logo variant => colour variant => custom background
+     */
+    private function giveManualLogos(bool $withClaim = false, array $backgrounds = []): void
     {
         /** @var FilesystemOperator $filesystem */
         $filesystem = self::getContainer()->get('oneup_flysystem.minio_filesystem');
         $svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 100"><rect width="300" height="100" fill="#ABC123"/></svg>';
 
-        foreach (['horizontal', 'vertical', 'symbol'] as $name) {
+        foreach (['horizontal', 'horizontalWithClaim', 'vertical', 'symbol'] as $name) {
             $filesystem->write("manuals/test/logo-$name.svg", $svg);
         }
+
+        $mappings = static fn (string $variant): array => array_map(
+            static fn (string $background): ColorMapping => new ColorMapping($background, []),
+            $backgrounds[$variant] ?? [],
+        );
 
         $entityManager = self::getContainer()->get(EntityManagerInterface::class);
         $manual = $entityManager->find(Manual::class, Uuid::fromString(TestDataFixture::MANUAL_1_ID));
         assert($manual instanceof Manual);
 
         $manual->editLogo(new Logo(
-            horizontal: new SvgImage('manuals/test/logo-horizontal.svg', ['#ABC123']),
+            horizontal: new SvgImage('manuals/test/logo-horizontal.svg', ['#ABC123'], $mappings('horizontal')),
             vertical: new SvgImage('manuals/test/logo-vertical.svg', ['#ABC123']),
-            horizontalWithClaim: null,
+            horizontalWithClaim: $withClaim ? new SvgImage('manuals/test/logo-horizontalWithClaim.svg', ['#ABC123'], $mappings('horizontalWithClaim')) : null,
             verticalWithClaim: null,
             symbol: new SvgImage('manuals/test/logo-symbol.svg', ['#ABC123']),
         ));

@@ -609,9 +609,11 @@ width bar was already in place (JSON, see above).
   `manual_preview.html.twig` (PHP 8.4 `Dom\HTMLDocument`, `regions()`), NOT
   re-rendered from partials — the ~30 logo cards are inlined with per-page
   wrapper classes and the description's column class comes from the caller,
-  so the page is the only source of their exact markup (quirks included, e.g.
-  the horizontalWithClaim light/oneColor cards reading the HORIZONTAL
-  background). The modal BODY is rendered from its partial
+  so the page is the only source of their exact markup. (Every card reads
+  its OWN mapping's background — until 2026-11-09 the horizontalWithClaim
+  light/oneColor cards painted the HORIZONTAL one while their downloads used
+  their own; fixed on Jan's call, it changed mas/mas-manual and
+  ostravice/ostravice-logomanual on prod.) The modal BODY is rendered from its partial
   (`_manual_page_text_form_body`, `_manual_logo_colors_form_body`): fresh after
   a save, with errors + status 422 on a validation failure. Targets: page texts
   → `#manual-page-title-<page>`, `#manual-page-description-<page>` (a `d-none`
