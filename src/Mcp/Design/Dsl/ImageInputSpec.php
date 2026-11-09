@@ -42,7 +42,10 @@ readonly final class ImageInputSpec
          * **Empty = UNRESTRICTED — the whole gallery including the root**, never
          * "none". That is the app-wide semantic owned by
          * {@see \WBoost\Web\Services\SocialNetwork\PlaceholderAllowedDirectories};
-         * naming any folder implicitly excludes the root.
+         * naming any folder implicitly excludes the root. **A named folder
+         * includes its whole sub-tree** (every sub-folder, recursively) — name
+         * the parent once instead of listing its children; a child never
+         * opens its parent.
          *
          * @var list<string>
          */

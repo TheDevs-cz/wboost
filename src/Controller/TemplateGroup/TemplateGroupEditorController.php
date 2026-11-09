@@ -26,6 +26,7 @@ use WBoost\Web\Services\Security\TemplateGroupVoter;
 use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\FileSource;
+use WBoost\Web\Value\GalleryFolderTree;
 
 final class TemplateGroupEditorController extends AbstractController
 {
@@ -62,11 +63,10 @@ final class TemplateGroupEditorController extends AbstractController
             }
         }
 
-        $galleryDirectories = array_map(
-            static fn (FileDirectory $directory): array => [
-                'id' => $directory->id->toString(),
-                'name' => $directory->name,
-            ],
+        // Gallery folders offered as per-placeholder allow-lists in the image
+        // properties panel — as the gallery's tree (allowing a folder allows
+        // its sub-tree, which the panel shows).
+        $galleryDirectories = GalleryFolderTree::fromDirectories(
             $this->fileDirectoryRepository->listAll($group->project->id, FileSource::ProjectImage),
         );
 

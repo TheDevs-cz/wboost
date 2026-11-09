@@ -297,7 +297,11 @@ final class DescribeVariantTest extends WebTestCase
         // The frame is the CANVAS, not the designed 1200×1100 object box.
         self::assertSame(['x' => 0, 'y' => 0, 'width' => 1080, 'height' => 1080], $background['frame']);
         self::assertSame(
-            [['id' => TestDataFixture::FILE_DIRECTORY_ALLOWED_ID, 'name' => 'Photos']],
+            [
+                ['id' => TestDataFixture::FILE_DIRECTORY_ALLOWED_ID, 'name' => 'Photos'],
+                // Allowing a folder allows its sub-tree: "Photos/Logos" too.
+                ['id' => TestDataFixture::FILE_DIRECTORY_NESTED_ID, 'name' => 'Logos'],
+            ],
             $background['directories'],
         );
         self::assertFalse(

@@ -22,7 +22,7 @@ export default class extends Controller {
     static outlets = ["canvas-editor"];
     static targets = [
         "details", "placeholder", "name", "description",
-        "allowMove", "allowResize", "allowRotate", "hidable", "directory",
+        "allowMove", "allowResize", "allowRotate", "hidable", "directory", "folderItem",
         "warning", "editorLocked", "transformLimit", "backgroundHint",
     ];
 
@@ -55,10 +55,12 @@ export default class extends Controller {
         this.transformLimitTargets.forEach((el) => { el.style.display = isBackground ? 'none' : ''; });
         if (this.hasBackgroundHintTarget) this.backgroundHintTarget.style.display = isBackground ? 'block' : 'none';
 
-        const allowed = Array.isArray(activeObject.allowedDirectoryIds) ? activeObject.allowedDirectoryIds : [];
-        this.directoryTargets.forEach((checkbox) => {
-            checkbox.checked = allowed.includes(checkbox.dataset.directoryId);
-        });
+        // Folder tree: re-open the branches leading to ticked folders only
+        // when a DIFFERENT image gets selected — a re-sync of the same image
+        // keeps whatever the designer expanded / collapsed.
+        const otherImage = activeObject !== this._foldersObject;
+        this._foldersObject = activeObject;
+        this._renderFolders(activeObject, otherImage);
 
         this._toggleDetails(isPlaceholder);
         this._refreshWarning(isPlaceholder);
@@ -187,14 +189,166 @@ export default class extends Controller {
         this.canvasEditorOutlet.markUnsaved();
     }
 
-    updateDirectories() {
+    // --- Složky galerie (folder tree) ---------------------------------------
+    //
+    // Allowing a folder allows its WHOLE sub-tree server-side
+    // (PlaceholderAllowedDirectories), so the stored allow-list keeps only the
+    // TOP-MOST ticked folders: ticking a parent drops its ticked descendants
+    // from `allowedDirectoryIds` and shows the whole sub-tree as ticked +
+    // disabled ("Zahrnuto v nadřazené složce"). The dropped child ticks are
+    // remembered per image (editor session only, never saved) so unticking
+    // the parent brings them back. Ticking only children works as before; a
+    // parent with some ticked descendants shows the indeterminate dash (pure
+    // display — nothing is stored for it).
+
+    updateDirectories(event) {
         const image = this._getActiveImage();
         if (!image) return;
-        image.allowedDirectoryIds = this.directoryTargets
-            .filter((checkbox) => checkbox.checked)
-            .map((checkbox) => checkbox.dataset.directoryId);
+
+        const checkbox = event && event.target;
+        const ids = new Set(this._explicitDirectoryIds(image));
+        const memory = this._shadowMemory(image);
+        const id = checkbox && checkbox.dataset ? checkbox.dataset.directoryId : null;
+
+        if (id) {
+            if (checkbox.checked) {
+                ids.add(id);
+                this._setBranchOpen(this._folderItem(id), true);
+            } else {
+                ids.delete(id);
+                (memory.get(id) || []).forEach((childId) => ids.add(childId));
+                memory.delete(id);
+            }
+        }
+
+        image.allowedDirectoryIds = this._normalizeDirectoryIds(ids, memory);
+        this._renderFolders(image, false);
         this._refreshWarning(true);
         this.canvasEditorOutlet.markUnsaved();
+    }
+
+    /** Chevron: show / hide one folder's sub-folders. */
+    toggleBranch(event) {
+        const item = event.currentTarget.closest('[data-canvas-image-properties-target~="folderItem"]');
+        if (!item) return;
+        const button = event.currentTarget;
+        this._setBranchOpen(item, button.getAttribute('aria-expanded') !== 'true');
+    }
+
+    /**
+     * Keep only the top-most ticked folders (in tree order), parking each
+     * covered descendant in `memory` under its top-most ticked ancestor.
+     * Ids the tree doesn't know (folders deleted since) drop out — the same
+     * as the old flat list did on any change.
+     */
+    _normalizeDirectoryIds(ids, memory) {
+        const result = [];
+        this.folderItemTargets.forEach((item) => {
+            const folderId = item.dataset.directoryId;
+            if (!ids.has(folderId)) return;
+            const top = this._ancestorItems(item).reverse().find((ancestor) => ids.has(ancestor.dataset.directoryId));
+            if (!top) {
+                result.push(folderId);
+                return;
+            }
+            const parked = memory.get(top.dataset.directoryId) || [];
+            if (!parked.includes(folderId)) parked.push(folderId);
+            memory.set(top.dataset.directoryId, parked);
+        });
+        return result;
+    }
+
+    /**
+     * Paint every folder row from the image's allow-list: explicitly ticked,
+     * included via a ticked ancestor (ticked + disabled), partially ticked
+     * below (indeterminate) or off. `resetExpansion` collapses the tree and
+     * opens just the branches leading to ticked folders.
+     */
+    _renderFolders(image, resetExpansion) {
+        if (!this.hasFolderItemTarget) return;
+        const explicit = new Set(this._explicitDirectoryIds(image));
+
+        this.folderItemTargets.forEach((item) => {
+            const folderId = item.dataset.directoryId;
+            const row = item.querySelector(':scope > .ed-ftree__row');
+            const checkbox = row && row.querySelector('input[type="checkbox"]');
+            if (!row || !checkbox) return;
+
+            const ancestor = this._ancestorItems(item).find((candidate) => explicit.has(candidate.dataset.directoryId));
+            if (ancestor) {
+                checkbox.checked = true;
+                checkbox.disabled = true;
+                checkbox.indeterminate = false;
+                row.classList.add('is-inherited');
+                row.classList.remove('is-partial');
+                row.title = `Zahrnuto v nadřazené složce „${this._folderName(ancestor)}“`;
+                return;
+            }
+
+            const checked = explicit.has(folderId);
+            const partial = !checked && this._descendantIds(item).some((childId) => explicit.has(childId));
+            checkbox.disabled = false;
+            checkbox.checked = checked;
+            checkbox.indeterminate = partial;
+            row.classList.remove('is-inherited');
+            row.classList.toggle('is-partial', partial);
+            if (partial) row.title = 'Vybrané jsou jen některé podsložky';
+            else row.removeAttribute('title');
+        });
+
+        if (resetExpansion) {
+            this.folderItemTargets.forEach((item) => this._setBranchOpen(item, false));
+            explicit.forEach((folderId) => {
+                const item = this._folderItem(folderId);
+                if (item) this._ancestorItems(item).forEach((ancestor) => this._setBranchOpen(ancestor, true));
+            });
+        }
+    }
+
+    _explicitDirectoryIds(image) {
+        return Array.isArray(image && image.allowedDirectoryIds) ? image.allowedDirectoryIds : [];
+    }
+
+    /** Per-image memory: ticked folder id → child ticks it covered. */
+    _shadowMemory(image) {
+        if (!this._shadowed) this._shadowed = new WeakMap();
+        if (!this._shadowed.has(image)) this._shadowed.set(image, new Map());
+        return this._shadowed.get(image);
+    }
+
+    _folderItem(folderId) {
+        return this.folderItemTargets.find((item) => item.dataset.directoryId === folderId) || null;
+    }
+
+    /** Folder items enclosing `item`, nearest first. */
+    _ancestorItems(item) {
+        const result = [];
+        let parent = item.parentElement && item.parentElement.closest('[data-canvas-image-properties-target~="folderItem"]');
+        while (parent) {
+            result.push(parent);
+            parent = parent.parentElement && parent.parentElement.closest('[data-canvas-image-properties-target~="folderItem"]');
+        }
+        return result;
+    }
+
+    _descendantIds(item) {
+        return Array.from(item.querySelectorAll(':scope > ul [data-canvas-image-properties-target~="folderItem"]'))
+            .map((descendant) => descendant.dataset.directoryId);
+    }
+
+    _folderName(item) {
+        const name = item.querySelector(':scope > .ed-ftree__row .ed-ftree__name');
+        return name ? name.textContent.trim() : '';
+    }
+
+    _setBranchOpen(item, open) {
+        if (!item) return;
+        const list = item.querySelector(':scope > ul');
+        const button = item.querySelector(':scope > .ed-ftree__row .ed-ftree__chev[aria-expanded]');
+        if (!list || !button) return;
+        list.hidden = !open;
+        button.setAttribute('aria-expanded', String(open));
+        button.setAttribute('aria-label', `${open ? 'Sbalit' : 'Rozbalit'} složku ${this._folderName(item)}`);
     }
 
     _toggleDetails(show) {
@@ -217,7 +371,7 @@ export default class extends Controller {
             return;
         }
 
-        const anyChecked = this.directoryTargets.some((checkbox) => checkbox.checked);
+        const anyChecked = this._explicitDirectoryIds(this._getActiveImage()).length > 0;
 
         if (!anyChecked) {
             this.warningTarget.textContent = 'Nevybrali jste žádnou složku — uživateli bude otevřená celá galerie (všechny složky i obrázky mimo složky). Pro omezení vyberte konkrétní složky.';

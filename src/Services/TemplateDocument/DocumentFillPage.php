@@ -10,6 +10,7 @@ use WBoost\Web\Entity\TemplateDocumentField;
 use WBoost\Web\Entity\TemplateDocumentPage;
 use WBoost\Web\Services\SocialNetwork\FillContainerHides;
 use WBoost\Web\Services\SocialNetwork\FillShapePlaceholders;
+use WBoost\Web\Services\SocialNetwork\PlaceholderAllowedDirectories;
 use WBoost\Web\Services\Template\FillFieldOrder;
 use WBoost\Web\Services\TemplateGroup\GroupFillPlaceholders;
 use WBoost\Web\Value\DocumentFieldKind;
@@ -55,6 +56,7 @@ readonly final class DocumentFillPage
         private FillContainerHides $containerHides,
         private FillFieldOrder $fillFieldOrder,
         private UrlGeneratorInterface $urlGenerator,
+        private PlaceholderAllowedDirectories $allowedDirectories,
     ) {
     }
 
@@ -216,7 +218,8 @@ readonly final class DocumentFillPage
             $input = $first['input'];
 
             if ($field !== null && $field->kind === DocumentFieldKind::Image) {
-                $input = self::sharedImageInput($field, $input, array_map(static fn (array $binding): EditorImageInput => $binding['input'], $bindings));
+                $boundInputs = array_map(static fn (array $binding): EditorImageInput => $binding['input'], $bindings);
+                $input = self::sharedImageInput($field, $input, $boundInputs, $this->allowedDirectories->intersectIds($boundInputs, $projectId));
             }
 
             $slot = $this->placeholders->imageSlot($input, $first['defaultImageUrl'], $projectId);
@@ -583,21 +586,14 @@ readonly final class DocumentFillPage
 
     /**
      * @param list<EditorImageInput> $inputs every bound slot (fill-key space)
+     * @param null|list<string> $folders the bound slots' effective folders, intersected
+     *        ({@see PlaceholderAllowedDirectories::intersectIds()}); null = none restricts
      */
-    private static function sharedImageInput(TemplateDocumentField $field, EditorImageInput $first, array $inputs): EditorImageInput
+    private static function sharedImageInput(TemplateDocumentField $field, EditorImageInput $first, array $inputs, null|array $folders): EditorImageInput
     {
-        $restricted = array_values(array_filter(
-            array_map(static fn (EditorImageInput $input): array => $input->allowedDirectoryIds, $inputs),
-            static fn (array $ids): bool => $ids !== [],
-        ));
-
-        $allowed = [];
-        if ($restricted !== []) {
-            $allowed = count($restricted) === 1 ? $restricted[0] : array_values(array_intersect(...$restricted));
-            if ($allowed === []) {
-                $allowed = [self::NO_FOLDER];
-            }
-        }
+        // Already sub-tree-expanded, so re-resolving it changes nothing; an
+        // empty intersection must stay CLOSED, not read as "unrestricted".
+        $allowed = $folders === null ? [] : ($folders === [] ? [self::NO_FOLDER] : $folders);
 
         $all = static fn (\Closure $flag): bool => array_reduce($inputs, static fn (bool $carry, EditorImageInput $input): bool => $carry && $flag($input), true);
 

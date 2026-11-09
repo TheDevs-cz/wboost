@@ -1,0 +1,34 @@
+{#
+    One level of the image placeholder's "Složky galerie pro uživatele" tree
+    (canvas-image-properties). Recursive: `tree` is a GalleryFolderTree,
+    `parent_id` null for the top level. Allowing a folder allows its whole
+    sub-tree server-side (PlaceholderAllowedDirectories), so the controller
+    shows the descendants of a ticked folder as ticked + disabled
+    ("Zahrnuto v nadřazené složce"). Branches start collapsed; the controller
+    opens the ones leading to a ticked folder on every selection.
+#}
+<ul class="ed-ftree__list"{% if parent_id %} id="image-dir-children-{{ parent_id }}" hidden{% endif %}>
+    {% for node in tree.children(parent_id) %}
+        {% set has_children = tree.hasChildren(node.id) %}
+        <li class="ed-ftree__item" data-canvas-image-properties-target="folderItem" data-directory-id="{{ node.id }}">
+            <div class="ed-ftree__row">
+                {% if has_children %}
+                    <button type="button" class="ed-ftree__chev" aria-expanded="false" aria-controls="image-dir-children-{{ node.id }}"
+                            aria-label="Rozbalit složku {{ node.name }}" title="Podsložky"
+                            data-action="canvas-image-properties#toggleBranch">{{ icon('chev-right', 's14') }}</button>
+                {% else %}
+                    <span class="ed-ftree__chev ed-ftree__chev--none" aria-hidden="true"></span>
+                {% endif %}
+                <input type="checkbox" class="form-check-input ed-ftree__check" id="image-dir-{{ node.id }}"
+                       data-canvas-image-properties-target="directory" data-directory-id="{{ node.id }}"
+                       data-action="change->canvas-image-properties#updateDirectories">
+                <label class="ed-ftree__label" for="image-dir-{{ node.id }}">
+                    {{ icon('folder', 's14') }}<span class="ed-ftree__name">{{ node.name }}</span>
+                </label>
+            </div>
+            {% if has_children %}
+                {{ include('editor/_image_folder_branch.html.twig', {tree: tree, parent_id: node.id}) }}
+            {% endif %}
+        </li>
+    {% endfor %}
+</ul>

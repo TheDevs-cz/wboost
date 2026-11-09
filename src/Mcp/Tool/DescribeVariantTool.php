@@ -119,7 +119,8 @@ readonly final class DescribeVariantTool
      * may name.
      *
      * imageInputs[] are the picture slots. Which pictures fit is directories +
-     * includesRoot together: the folders the image must be in, plus whether
+     * includesRoot together: the folders the image must be in (sub-folders
+     * of an allowed folder are listed too — access is recursive), plus whether
      * images outside any folder count too. allowMove/allowResize/allowRotate
      * limit the adjustments a fill may carry. isBackground marks the background
      * layer — always cover-fitted over the whole canvas, no transform accepted.

@@ -288,6 +288,29 @@ a.ed-sync:hover { color: var(--text); }
 .ed-acts { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 14px; border-top: 1px solid var(--line); }
 .ed-acts .btn { flex: 1; }
 
+/* Image placeholder "Složky galerie pro uživatele" — the gallery's folder
+   tree (canvas-image-properties). Guide line per nesting level, chevron
+   disclosure; `.is-inherited` = included via a ticked ancestor (ticked +
+   disabled, muted), `.is-partial` = only some descendants ticked. */
+.ed-ftree { margin-top: 2px; }
+.ed-ftree__hint { margin: 0 0 6px; font-size: 12px; line-height: 1.35; color: var(--muted); }
+.ed-ftree__list { list-style: none; margin: 0; padding: 0; }
+.ed-ftree__list .ed-ftree__list { margin-left: 11px; padding-left: 9px; border-left: 1px solid var(--line-2); }
+.ed-ftree__row { display: flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 6px 0 0; border-radius: 8px; }
+.ed-ftree__row:hover { background: var(--surface-2); }
+.ed-ftree__chev { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 22px; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--subtle); cursor: pointer; }
+.ed-ftree__chev:hover { color: var(--text); background: var(--surface-3); }
+.ed-ftree__chev .i { transition: transform .25s; }
+.ed-ftree__chev[aria-expanded="true"] .i { transform: rotate(90deg); }
+.ed-ftree__chev--none { cursor: default; }
+.ed .ed-ftree__check.form-check-input { flex: 0 0 auto; margin: 0; }
+.ed-ftree__label { display: flex; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0; margin: 0; font-size: 13px; color: var(--text); cursor: pointer; }
+.ed-ftree__label .i { flex: 0 0 auto; color: var(--subtle); }
+.ed-ftree__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ed-ftree__row.is-inherited .ed-ftree__check.form-check-input:disabled { opacity: .5; }
+.ed-ftree__row.is-inherited .ed-ftree__label { color: var(--muted); cursor: default; }
+.ed-ftree__row.is-inherited .ed-ftree__label::after { content: "zahrnuto"; flex: 0 0 auto; margin-left: 2px; padding: 1px 7px; border-radius: 999px; font-size: 11px; color: var(--lav-ink); background: var(--lav-deep); }
+
 /* ---- small screens: desktop-first editor, stays usable ------------------ */
 @media (max-width: 1180px) {
     .ed-top .ed-state .ed-lbl { display: none; }

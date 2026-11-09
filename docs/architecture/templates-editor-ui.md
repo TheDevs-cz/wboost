@@ -523,3 +523,12 @@ editor module must keep:
   nastavení" re-covers a layer background only if it still sits at its
   automatic cover (`BackgroundLayer::recoverForBleed`) — a hand-placed one is
   the designer's composition.
+
+### Image popover — "Složky galerie pro uživatele" folder tree (2026-11-09)
+
+The placeholder's folder allow-list renders as the gallery's folder TREE
+(recursive `editor/_image_folder_branch.html.twig`, chevron disclosure, guide
+lines) instead of a flat list. Ticking a folder opens its whole sub-tree
+server-side, so descendants show ticked + disabled ("zahrnuto"); only the
+top-most ticked folders are stored. Contract, restore-on-untick memory and
+expansion rules: `templates-image-placeholders.md` ("Admin editor tree").

@@ -11,6 +11,7 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Messenger\MessageBusInterface;
+use WBoost\Web\Entity\FileDirectory;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Entity\Project;
 use WBoost\Web\Message\Image\UploadFile;
@@ -141,8 +142,10 @@ readonly final class PlaceholderImageUploader
      *    {@see PlaceholderAllowedDirectories}): the whole gallery is open, so
      *    no choice defaults to the gallery ROOT — also the answer for a project
      *    with no folders at all, which used to be a dead end.
-     *  - Restricted slot with exactly ONE remaining folder: that folder.
-     *  - Restricted slot with several folders: 400 — the caller must choose.
+     *  - Restricted slot whose remaining folders form ONE sub-tree (exactly
+     *    one folder without an allowed ancestor — e.g. the designer ticked a
+     *    single parent, whose sub-folders are open too): that top folder.
+     *  - Restricted slot spanning several sub-trees: 400 — the caller must choose.
      *  - Restricted slot whose every picked folder was deleted: 400 dead end,
      *    which the admin editor flags to the designer up front.
      */
@@ -168,10 +171,34 @@ readonly final class PlaceholderImageUploader
             throw new BadRequestHttpException('This placeholder has no gallery folder to upload into — create a folder in the project gallery first.');
         }
 
-        if (count($allowed) > 1) {
+        // Allowing a folder allows its sub-tree, so `$allowed` may hold a
+        // parent plus its descendants — still one unambiguous default: the top.
+        $allowedIds = array_map(static fn (FileDirectory $directory): string => $directory->id->toString(), $allowed);
+        $top = array_values(array_filter(
+            $allowed,
+            static fn (FileDirectory $directory): bool => !self::hasAncestorIn($directory, $allowedIds),
+        ));
+
+        if (count($top) !== 1) {
             throw new BadRequestHttpException('Several folders are allowed for this placeholder — pass "directoryId" to choose where the file should be uploaded.');
         }
 
-        return $allowed[0]->id;
+        return $top[0]->id;
+    }
+
+    /**
+     * @param list<string> $ids
+     */
+    private static function hasAncestorIn(FileDirectory $directory, array $ids): bool
+    {
+        $seen = [];
+        for ($parent = $directory->parent; $parent !== null && !isset($seen[$parent->id->toString()]); $parent = $parent->parent) {
+            $seen[$parent->id->toString()] = true;
+            if (in_array($parent->id->toString(), $ids, true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

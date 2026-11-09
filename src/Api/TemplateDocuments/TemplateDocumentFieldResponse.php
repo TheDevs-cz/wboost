@@ -36,8 +36,10 @@ final readonly class TemplateDocumentFieldResponse
         public bool $hidable = false,
         /**
          * Image: the gallery folders a pick may come from — the intersection
-         * of the bound slots' `allowedDirectoryIds`. `null` = any folder;
-         * `[]` = the slots share no folder (no pick passes every page).
+         * of the bound slots' EFFECTIVE folders (an allowed folder brings its
+         * whole sub-tree, so this list already names every sub-folder; filter
+         * picks by plain membership). `null` = any folder; `[]` = the slots
+         * share no folder (no pick passes every page).
          * Always null for text.
          *
          * @var null|list<string>

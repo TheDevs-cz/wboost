@@ -229,8 +229,9 @@ Returns a **plain JSON array** (no pagination; null fields are kept on purpose):
             "allowRotate": false,                         // user may rotate
             "hidable": true,                              // offer a "hide" toggle
             "allowedDirectoryIds": ["0192..."],          // raw designer allow-list ([] = unrestricted)
-            "directories": [                              // RESOLVED upload/pick folders with names
-              { "id": "0192...", "name": "Photos" }
+            "directories": [                              // RESOLVED upload/pick folders with names —
+              { "id": "0192...", "name": "Photos" },      //   an allowed folder brings its WHOLE sub-tree
+              { "id": "0193...", "name": "Portraits" }    //   (here "Photos/Portraits"), in gallery tree order
             ],
             "includesRoot": false,                        // unrestricted slots also use the gallery root
             "frame": { "x": 100, "y": 120, "width": 400, "height": 300 }, // designer's fixed frame (canvas px), nullable
@@ -383,8 +384,11 @@ same request:
 }
 ```
 
-- `imageId` must be an image from one of that slot's `allowedDirectoryIds` (list them
-  via the gallery endpoint below) — otherwise **`400`**.
+- `imageId` must be an image from one of that slot's `directories` — the
+  `allowedDirectoryIds` folders **or any of their sub-folders, at any depth**
+  (allowing a folder allows its sub-tree; list the pickable images via the gallery
+  endpoint below) — otherwise **`400`**. Never filter by `allowedDirectoryIds`
+  yourself: it is the raw designer list and does not name the sub-folders.
 - A `scale`/`offset`/`rotation` the slot doesn't permit (`allowResize`/`allowMove`/
   `allowRotate: false`) returns **`400`** — in either pan form.
 - Send a pan as `offsetX`/`offsetY` **or** `offsetXRatio`/`offsetYRatio`, never both
@@ -878,9 +882,11 @@ For each image slot, let the user pick a picture (and, if allowed, position it):
 
    `directoryId` rules — render the slot's `directories` (+ a "Galerie" root
    option when `includesRoot`) as a folder select next to the upload control:
-   - several folders in `directories` (restricted slot) → `directoryId`
-     **required**, otherwise **`400`**;
-   - exactly one folder, not `includesRoot` → optional (auto-resolved);
+   - restricted slot whose `directories` span several sub-trees →
+     `directoryId` **required**, otherwise **`400`**;
+   - restricted slot whose `directories` are ONE folder and its sub-folders
+     (`allowedDirectoryIds` names a single folder) → optional, omitted = that
+     top folder; any of its sub-folders may be chosen;
    - `includesRoot: true` (unrestricted) → optional; omitted = gallery root;
    - a folder outside `directories` → **`403`**.
 
@@ -1157,8 +1163,11 @@ hide them from a "templates" list and present the document instead.
     - `hidable`: every valid bound input / slot is hidable → `{hide: true}`
       as the field value hides it on every page.
     - `allowedDirectoryIds` (image): the gallery folders a pick may come
-      from — the INTERSECTION of the bound slots' folders. `null` = any
-      folder; `[]` = the slots share no folder (no pick passes every page).
+      from — the INTERSECTION of the bound slots' EFFECTIVE folders (each
+      slot's allowed folders plus all their sub-folders), so the list
+      already names every usable sub-folder: filter picks by plain
+      membership. `null` = any folder; `[]` = the slots share no folder (no
+      pick passes every page).
       Always `null` for text.
 - **Pages never share values implicitly.** Two pages may carry the SAME
   inputId (a duplicated template); their values are still per page. Only a

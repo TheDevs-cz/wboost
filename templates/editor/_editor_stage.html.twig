@@ -3,7 +3,7 @@
    text + image popovers. Expects: canvas_width, canvas_height (px; the TRIM),
    optional canvas_bleed (px per side — the element is the bleed box, see
    canvas_viewport.js),
-   gallery_directories, and optional group_mode (adds the per-element
+   gallery_directories (a GalleryFolderTree), and optional group_mode (adds the per-element
    "Přenést do ostatních variant" re-sync button targeting group-editor). #}
 {# The viewport is the SCROLL CONTAINER for the stage: panning a zoomed-in
    canvas scrolls here, never the page — the left panel and the sticky toolbar
@@ -452,13 +452,17 @@
                     </div>
                 </div>
 
-                <label class="form-label small mb-1">Složky galerie pro uživatele:</label>
-                {% for dir in gallery_directories %}
-                    <div class="form-check">
-                        <input type="checkbox" class="form-check-input" id="image-dir-{{ dir.id }}" data-canvas-image-properties-target="directory" data-directory-id="{{ dir.id }}" data-action="change->canvas-image-properties#updateDirectories">
-                        <label class="form-check-label small" for="image-dir-{{ dir.id }}">{{ dir.name }}</label>
-                    </div>
-                {% endfor %}
+                {# The gallery's folder tree (same order). Ticking a folder opens its
+                   whole sub-tree to the user — its descendants show as included. #}
+                <div class="ed-ftree" role="group" aria-labelledby="image-dir-heading">
+                    <p class="form-label small mb-1" id="image-dir-heading">Složky galerie pro uživatele:</p>
+                    {% if gallery_directories.nodes is not empty %}
+                        <p class="ed-ftree__hint">Zaškrtnutá složka zpřístupní i všechny své podsložky.</p>
+                        {{ include('editor/_image_folder_branch.html.twig', {tree: gallery_directories, parent_id: null}) }}
+                    {% else %}
+                        <p class="ed-ftree__hint">Galerie projektu zatím nemá žádné složky.</p>
+                    {% endif %}
+                </div>
 
                 {# Live guidance: empty allow-list = "offer all folders"; no folders at all = dead end. #}
                 <div class="alert alert-warning py-1 px-2 small mt-1 mb-0" role="alert" data-canvas-image-properties-target="warning" style="display: none;"></div>

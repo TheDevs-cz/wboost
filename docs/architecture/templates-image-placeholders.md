@@ -22,6 +22,44 @@ they can never disagree. The admin editor warns the designer when they leave a
 placeholder's folders empty ("uživateli bude otevřená celá galerie"). The only
 remaining dead end is a restricted slot whose every picked folder was deleted.
 
+**Allowing a folder allows its WHOLE sub-tree, recursively (2026-11-09).**
+`effectiveIds()` expands every named folder with all its descendants
+(`GalleryFolderTree::expand`, pure + unit-tested), so ticking "Soupiska" also
+opens "Soupiska/A tým/…" — including sub-folders created later. Ticking only
+children still works and never opens the parent. Before this, the match was
+exact-id (a parent did NOT include its children). Consequences, all through
+the same rule:
+- resolved lists (`resolve()` → web/API `directories`, MCP describe) come back
+  in **gallery tree order** (folder, then its sub-tree; siblings
+  alphabetical, as `listAll` returns them) and include the descendants;
+  `allowedDirectoryIds` in the API stays the RAW designer list;
+- **upload default** (`resolveTargetDirectory`, no `directoryId`): a
+  restricted slot whose folders form ONE sub-tree (exactly one folder with no
+  allowed ancestor) defaults to that top folder — a ticked parent stays
+  unambiguous although its children are open too; several sub-trees → 400;
+- **document shared image fields** intersect the bound slots' EFFECTIVE sets
+  (`intersectIds()` / pure `intersectEffective()`), so a parent on one page and
+  its child on another meet at the child's branch (raw id intersection gave
+  `[]`). `DocumentFillPage::sharedImageInput` and the documents API
+  (`fields[].allowedDirectoryIds`, now an expanded list) both use it.
+
+**Admin editor tree** (`editor/_image_folder_branch.html.twig`, recursive;
+controllers pass `gallery_directories` = `GalleryFolderTree`;
+`canvas_image_properties_controller.js` "Složky galerie"). The stored
+allow-list keeps only the TOP-MOST ticked folders: ticking a parent removes
+its ticked descendants from `allowedDirectoryIds` and paints the whole
+sub-tree ticked + disabled (`.is-inherited`, "zahrnuto" pill, tooltip
+"Zahrnuto v nadřazené složce „X“"). The removed child ticks are parked in a
+per-image `WeakMap` (editor session only, never saved — lost on reload or an
+undo that rebuilds the object), so unticking the parent restores them. A
+parent with only some ticked descendants shows the checkbox
+`indeterminate` dash (display only). Branches are collapsed by default; on
+each NEW image selection only the ancestors of ticked folders open (a ticked
+parent itself stays collapsed); ticking a parent opens it. Legacy rows that
+store a parent AND its child are shown correctly and normalised to the parent
+on the next tick change. Ids of deleted folders drop out on the next change
+(as with the old flat list).
+
 **Upload target is the UPLOADER'S choice (web + API), never an arbitrary
 fallback.** `PlaceholderImageUploader::resolveTargetDirectory` resolves an
 omitted `directoryId` only when unambiguous: a restricted slot with exactly one

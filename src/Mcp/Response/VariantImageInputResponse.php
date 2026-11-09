@@ -16,7 +16,10 @@ namespace WBoost\Web\Mcp\Response;
  *
  * **Where the picture may come from** is two fields together, and reading only
  * one of them gets it wrong. `directories` are the folders the image must be
- * in; `includesRoot` says images that sit in NO folder are allowed too. Both
+ * in — already expanded with every sub-folder of a folder the designer
+ * allowed (allowing a folder allows its sub-tree, recursively), listed in
+ * gallery tree order; `includesRoot` says images that sit in NO folder are
+ * allowed too. Both
  * open (a full folder list plus `includesRoot: true`) is the unrestricted
  * slot — the whole project gallery. An empty `directories` with
  * `includesRoot: false` is the one genuine dead end: every folder the designer

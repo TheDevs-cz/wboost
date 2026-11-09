@@ -9,6 +9,7 @@ use WBoost\Web\Entity\FileDirectory;
 use WBoost\Web\Repository\FileDirectoryRepository;
 use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\FileSource;
+use WBoost\Web\Value\GalleryFolderTree;
 
 /**
  * Single source of truth for "which gallery folders may an image placeholder be
@@ -19,6 +20,12 @@ use WBoost\Web\Value\FileSource;
  * when they leave it empty). A non-empty list is intersected with the project's
  * real folders, so a folder deleted after the designer picked it simply drops
  * out; the root can never be on an explicit list.
+ *
+ * **Allowing a folder allows its whole sub-tree** (recursively, 2026-11-09):
+ * the designer may tick a parent once instead of every child, and a folder
+ * created under it later is open too. Ticking only children stays possible —
+ * a child never opens its parent. Resolved lists come back in gallery tree
+ * order (a folder, then its sub-folders).
  *
  * Every fill path (web pick list, API gallery list, upload target, render-time
  * validation) resolves through here so they can never disagree about what is
@@ -42,20 +49,20 @@ readonly final class PlaceholderAllowedDirectories
     }
 
     /**
-     * @return list<FileDirectory>
+     * @return list<FileDirectory> depth-first (gallery tree order)
      */
     public function resolve(EditorImageInput $input, UuidInterface $projectId): array
     {
         $all = $this->fileDirectoryRepository->listAll($projectId, FileSource::ProjectImage);
-        $effective = self::effectiveIds(
-            array_map(static fn (FileDirectory $directory): string => $directory->id->toString(), $all),
-            $input->allowedDirectoryIds,
-        );
+        $byId = [];
+        foreach ($all as $directory) {
+            $byId[$directory->id->toString()] = $directory;
+        }
 
-        return array_values(array_filter(
-            $all,
-            static fn (FileDirectory $directory): bool => in_array($directory->id->toString(), $effective, true),
-        ));
+        return array_map(
+            static fn (string $id): FileDirectory => $byId[$id],
+            self::effectiveIds(GalleryFolderTree::fromDirectories($all), $input->allowedDirectoryIds),
+        );
     }
 
     /**
@@ -63,32 +70,74 @@ readonly final class PlaceholderAllowedDirectories
      */
     public function resolveIds(EditorImageInput $input, UuidInterface $projectId): array
     {
-        $all = $this->fileDirectoryRepository->listAll($projectId, FileSource::ProjectImage);
+        return self::effectiveIds($this->tree($projectId), $input->allowedDirectoryIds);
+    }
 
-        return self::effectiveIds(
-            array_map(static fn (FileDirectory $directory): string => $directory->id->toString(), $all),
-            $input->allowedDirectoryIds,
+    /**
+     * Folders that pass EVERY restricted slot of `$inputs` — the shared
+     * fields of multi-page documents. Unrestricted slots narrow nothing, so
+     * null = no slot is restricted (any folder, root included). See
+     * {@see self::intersectEffective()}.
+     *
+     * @param list<EditorImageInput> $inputs
+     * @return null|list<string>
+     */
+    public function intersectIds(array $inputs, UuidInterface $projectId): null|array
+    {
+        $restricted = array_values(array_filter(
+            array_map(static fn (EditorImageInput $input): array => $input->allowedDirectoryIds, $inputs),
+            static fn (array $ids): bool => $ids !== [],
+        ));
+
+        if ($restricted === []) {
+            return null;
+        }
+
+        return self::intersectEffective($this->tree($projectId), $restricted);
+    }
+
+    public function tree(UuidInterface $projectId): GalleryFolderTree
+    {
+        return GalleryFolderTree::fromDirectories(
+            $this->fileDirectoryRepository->listAll($projectId, FileSource::ProjectImage),
         );
     }
 
     /**
      * The rule, isolated and pure: an empty allow-list expands to EVERY project
-     * folder (unrestricted); otherwise it is intersected with the project's real
-     * folders (order preserved), dropping ids that no longer exist.
+     * folder (unrestricted); otherwise each named folder that still exists
+     * brings its whole sub-tree along, and ids that no longer exist drop out.
+     * Tree order either way.
      *
-     * @param list<string> $allProjectFolderIds
      * @param list<string> $allowedDirectoryIds
      * @return list<string>
      */
-    public static function effectiveIds(array $allProjectFolderIds, array $allowedDirectoryIds): array
+    public static function effectiveIds(GalleryFolderTree $tree, array $allowedDirectoryIds): array
     {
         if ($allowedDirectoryIds === []) {
-            return $allProjectFolderIds;
+            return $tree->ids();
         }
 
-        return array_values(array_filter(
-            $allProjectFolderIds,
-            static fn (string $id): bool => in_array($id, $allowedDirectoryIds, true),
-        ));
+        return $tree->expand($allowedDirectoryIds);
+    }
+
+    /**
+     * Intersection of several RESTRICTED (non-empty) allow-lists, each taken
+     * at its effective (sub-tree-expanded) value — so a parent on one list
+     * and its child on another meet at the child's branch, which raw id
+     * intersection would miss. The result is itself sub-tree-closed: feeding
+     * it back through {@see self::effectiveIds()} changes nothing.
+     *
+     * @param non-empty-list<list<string>> $allowLists
+     * @return list<string>
+     */
+    public static function intersectEffective(GalleryFolderTree $tree, array $allowLists): array
+    {
+        $result = self::effectiveIds($tree, $allowLists[0]);
+        foreach (array_slice($allowLists, 1) as $allowList) {
+            $result = array_values(array_intersect($result, self::effectiveIds($tree, $allowList)));
+        }
+
+        return $result;
     }
 }

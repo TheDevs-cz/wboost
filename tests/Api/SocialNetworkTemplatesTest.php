@@ -279,7 +279,11 @@ final class SocialNetworkTemplatesTest extends ApiTestCase
         // The resolved upload/pick targets carry folder names; a restricted
         // slot never includes the gallery root.
         self::assertSame(
-            [['id' => TestDataFixture::FILE_DIRECTORY_ALLOWED_ID, 'name' => 'Photos']],
+            [
+                ['id' => TestDataFixture::FILE_DIRECTORY_ALLOWED_ID, 'name' => 'Photos'],
+                // Allowing a folder allows its sub-tree: "Photos/Logos" too.
+                ['id' => TestDataFixture::FILE_DIRECTORY_NESTED_ID, 'name' => 'Logos'],
+            ],
             $photo['directories'] ?? null,
         );
         self::assertFalse($photo['includesRoot'] ?? null);

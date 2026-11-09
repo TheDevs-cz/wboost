@@ -17,10 +17,12 @@ use WBoost\Web\Entity\TemplateDocument;
 use WBoost\Web\Exceptions\ProjectNotFound;
 use WBoost\Web\Repository\ProjectRepository;
 use WBoost\Web\Services\Security\ProjectVoter;
+use WBoost\Web\Services\SocialNetwork\PlaceholderAllowedDirectories;
 use WBoost\Web\Services\Template\ApiSubjectLoader;
 use WBoost\Web\Services\TemplateDocument\TemplateDocumentRules;
 use WBoost\Web\Value\DocumentFieldKind;
 use WBoost\Web\Value\DocumentTextMode;
+use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
 
 /**
@@ -37,6 +39,7 @@ final readonly class TemplateDocumentsProvider implements ProviderInterface
         private ProjectRepository $projectRepository,
         private ApiSubjectLoader $subjectLoader,
         private TemplatesProvider $templatesProvider,
+        private PlaceholderAllowedDirectories $allowedDirectories,
     ) {
     }
 
@@ -99,8 +102,8 @@ final readonly class TemplateDocumentsProvider implements ProviderInterface
             $hidable = true;
             /** @var list<EditorTextInput> $textInputs */
             $textInputs = [];
-            /** @var null|list<string> $folders */
-            $folders = null;
+            /** @var list<EditorImageInput> $imageInputs */
+            $imageInputs = [];
 
             foreach ($field->bindings() as $binding) {
                 $page = $pageByTemplate[$binding->templateId] ?? null;
@@ -147,11 +150,7 @@ final readonly class TemplateDocumentsProvider implements ProviderInterface
                     }
 
                     $hidable = $hidable && $input->hidable;
-
-                    // An empty list = any folder: it narrows nothing.
-                    if ($input->allowedDirectoryIds !== []) {
-                        $folders = $folders === null ? $input->allowedDirectoryIds : array_values(array_intersect($folders, $input->allowedDirectoryIds));
-                    }
+                    $imageInputs[] = $input;
                 }
             }
 
@@ -163,7 +162,11 @@ final readonly class TemplateDocumentsProvider implements ProviderInterface
                 $maxLength,
                 richText: $field->kind === DocumentFieldKind::Text && in_array(DocumentTextMode::common($textInputs), [DocumentTextMode::Rich, DocumentTextMode::List], true),
                 hidable: $validCount > 0 && $hidable,
-                allowedDirectoryIds: $field->kind === DocumentFieldKind::Image ? $folders : null,
+                // Effective folders (a parent brings its sub-tree), intersected
+                // over the bound slots; null = no slot restricts.
+                allowedDirectoryIds: $field->kind === DocumentFieldKind::Image
+                    ? $this->allowedDirectories->intersectIds($imageInputs, $document->project->id)
+                    : null,
                 textMode: $field->kind === DocumentFieldKind::Text ? DocumentTextMode::common($textInputs)->value : null,
             );
         }
