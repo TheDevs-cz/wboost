@@ -507,6 +507,8 @@ html.fill-move-dragging, html.fill-move-dragging * { cursor: grabbing !important
 .fill-move-chip__name .i { flex: none; color: var(--lav-ink); }
 .fill-move-chip .fill-move-pos { margin-top: 8px; }
 .fill-move-chip__hint { margin: 2px 0 0; font-size: 11px; color: var(--muted); }
+/* Group / document page: the move belongs to ONE size / page (M4). */
+.fill-move-chip__scope { display: flex; align-items: center; gap: 4px; margin: 6px 0 0; font-size: 11px; color: var(--lav-ink); }
 .fill-form.fill-preview-on .fill-move-chip { display: none; }
 @media (max-width: 700px), (pointer: coarse) {
     .fill-move-pos__axis { grid-template-columns: 76px 44px minmax(0, 1fr) 44px; }

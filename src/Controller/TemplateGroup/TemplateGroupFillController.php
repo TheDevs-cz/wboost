@@ -24,6 +24,7 @@ use WBoost\Web\Repository\TemplateExportVersionRepository;
 use WBoost\Web\Services\Security\TemplateGroupVoter;
 use WBoost\Web\Services\SocialNetwork\FillContainerHides;
 use WBoost\Web\Services\SocialNetwork\FillContainerSheets;
+use WBoost\Web\Services\SocialNetwork\FillMovableElements;
 use WBoost\Web\Services\SocialNetwork\FillShapePlaceholders;
 use WBoost\Web\Services\Template\ExportVersionSeeder;
 use WBoost\Web\Services\TemplateGroup\GroupFillPlaceholders;
@@ -48,6 +49,7 @@ final class TemplateGroupFillController extends AbstractController
         readonly private FillShapePlaceholders $shapePlaceholders,
         readonly private FillContainerHides $containerHides,
         readonly private FillContainerSheets $containerSheets,
+        readonly private FillMovableElements $movableElements,
     ) {
     }
 
@@ -132,6 +134,13 @@ final class TemplateGroupFillController extends AbstractController
             $variants[$i]['offsets'] = array_map(
                 static fn (MovableElement $element): array => $seed['offsets'][$variantId][$element->id] ?? ['x' => 0.0, 'y' => 0.0],
                 ResolveElementOffsets::movableElementsOf($entry['variant']),
+            );
+            // …and their move tool (M4): THIS dimension's server rows (frame,
+            // clamp bounds, members, echo flag, captions) as the surface's
+            // `data-movable` — empty for every design without movable elements.
+            $variants[$i]['movable'] = $this->movableElements->forVariant(
+                $entry['variant'],
+                $this->placeholders->echoCapableIds($entry['variant']),
             );
         }
 

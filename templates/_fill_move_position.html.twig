@@ -11,7 +11,12 @@
     Params:
     - m:    one FillMovableElements row
     - unit: the variant's DimensionUnit value ('px' | 'mm' | 'cm')
+    - move_variant: (group / document page) the size's / page's variantId —
+      every control carries it as `data-move-variant` (the move is per
+      surface; the mirrors are `offsets[<variantId>][<id>][x|y]`)
 #}
+{% set move_variant = move_variant|default(null) %}
+{% set mv %}{% if move_variant %} data-move-variant="{{ move_variant }}"{% endif %}{% endset %}
 {% set step = unit == 'px' ? '1' : (unit == 'cm' ? '0.01' : '0.1') %}
 {% set axes = [] %}
 {% if m.allowance.vertical %}
@@ -20,21 +25,21 @@
 {% if m.allowance.horizontal %}
     {% set axes = axes|merge([{axis: 'x', key: '↔', label: 'Vodorovně', less: 'Doleva', more: 'Doprava', less_icon: 'arrow-left', more_icon: 'arrow-right', hint: m.hints.horizontal, aria: 'Vodorovný posun v ' ~ unit ~ ' (kladný = doprava)'}]) %}
 {% endif %}
-<div class="fill-move-pos" data-move-position="{{ m.id }}" role="group" aria-label="Poloha: {{ m.name }}">
+<div class="fill-move-pos" data-move-position="{{ m.id }}"{{ mv }} role="group" aria-label="Poloha: {{ m.name }}">
     <div class="fill-move-pos__head">
         <span class="fill-move-pos__title">Poloha</span>
-        <button type="button" class="btn btn-ghost xs fill-move-pos__reset" data-move-reset="{{ m.id }}" title="Vrátit na původní místo" disabled>{{ icon('undo', 's14') }}Vrátit</button>
+        <button type="button" class="btn btn-ghost xs fill-move-pos__reset" data-move-reset="{{ m.id }}"{{ mv }} title="Vrátit na původní místo" disabled>{{ icon('undo', 's14') }}Vrátit</button>
     </div>
     {% for a in axes %}
         <div class="fill-move-pos__axis">
             <span class="fill-move-pos__label" title="{{ a.hint }}"><span aria-hidden="true">{{ a.key }}</span> {{ a.label }}</span>
-            <button type="button" class="btn btn-ghost icon xs fill-move-pos__step" data-move-step="{{ m.id }}" data-move-axis="{{ a.axis }}" data-move-dir="-1" title="{{ a.less }}" aria-label="{{ a.less }}">{{ icon(a.less_icon, 's14') }}</button>
+            <button type="button" class="btn btn-ghost icon xs fill-move-pos__step" data-move-step="{{ m.id }}"{{ mv }} data-move-axis="{{ a.axis }}" data-move-dir="-1" title="{{ a.less }}" aria-label="{{ a.less }}">{{ icon(a.less_icon, 's14') }}</button>
             <label class="fill-adjust__field fill-move-pos__field">
                 <input type="number" class="form-control" step="{{ step }}" inputmode="decimal" value="0"
-                       data-move-input="{{ m.id }}" data-move-axis="{{ a.axis }}" aria-label="{{ a.aria }}">
+                       data-move-input="{{ m.id }}"{{ mv }} data-move-axis="{{ a.axis }}" aria-label="{{ a.aria }}">
                 <span class="fill-adjust__unit" aria-hidden="true">{{ unit }}</span>
             </label>
-            <button type="button" class="btn btn-ghost icon xs fill-move-pos__step" data-move-step="{{ m.id }}" data-move-axis="{{ a.axis }}" data-move-dir="1" title="{{ a.more }}" aria-label="{{ a.more }}">{{ icon(a.more_icon, 's14') }}</button>
+            <button type="button" class="btn btn-ghost icon xs fill-move-pos__step" data-move-step="{{ m.id }}"{{ mv }} data-move-axis="{{ a.axis }}" data-move-dir="1" title="{{ a.more }}" aria-label="{{ a.more }}">{{ icon(a.more_icon, 's14') }}</button>
         </div>
         <p class="cap fill-move-pos__hint">{{ a.hint }}</p>
     {% endfor %}

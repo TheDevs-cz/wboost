@@ -13,6 +13,7 @@ use WBoost\Web\Entity\TemplateDocumentField;
 use WBoost\Web\Entity\TemplateDocumentPage;
 use WBoost\Web\Services\SocialNetwork\FillContainerHides;
 use WBoost\Web\Services\SocialNetwork\FillContainerSheets;
+use WBoost\Web\Services\SocialNetwork\FillMovableElements;
 use WBoost\Web\Services\SocialNetwork\FillRepeatableRows;
 use WBoost\Web\Services\SocialNetwork\FillShapePlaceholders;
 use WBoost\Web\Services\SocialNetwork\PlaceholderAllowedDirectories;
@@ -63,6 +64,7 @@ readonly final class DocumentFillPage
         private FillFieldOrder $fillFieldOrder,
         private UrlGeneratorInterface $urlGenerator,
         private PlaceholderAllowedDirectories $allowedDirectories,
+        private FillMovableElements $movableElements,
     ) {
     }
 
@@ -226,6 +228,10 @@ readonly final class DocumentFillPage
                     static fn (MovableElement $element): array => $seed['offsets'][$variant->id->toString()][$element->id] ?? ['x' => 0.0, 'y' => 0.0],
                     ResolveElementOffsets::movableElementsOf($clone),
                 ),
+                // …and their move tool (M4): this page's server rows, read off
+                // the re-keyed clone — ids, container members and the echo
+                // flag are all fill keys, like every other surface payload.
+                'movable' => $this->movableElements->forVariant($clone, $this->placeholders->echoCapableIds($clone)),
                 'keys' => array_values(array_unique($pageKeys)),
             ];
 

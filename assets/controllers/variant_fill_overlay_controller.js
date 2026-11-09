@@ -91,6 +91,10 @@ import { applyPlan, canApply, inactiveIds, parseRows, plan, pristineImageState, 
  * like the render does: BEFORE the container phase A, every deep member of
  * a moved root translated (WBoostElementMove.deltas), so the boxes, the
  * reflow, the collision push and the overflow gate all follow a move live.
+ * Group / document pages (M4): moves are PER SURFACE (one size / page) —
+ * the mover runs scoped (its mirrors carry `data-variant-id`), each
+ * surface bakes only its own offsets, and group-fill re-renders, echoes
+ * and clears the ghosts of that one surface.
  *
  * REPEATABLE ROWS (container-rows P4). The page carries every row slot
  * (`max`, materialised server-side) and `data-fill-rows` on the panel
@@ -243,6 +247,7 @@ export default class extends Controller {
             this._mover = null;
         }
         if (this._onOffsetInput) this.element.removeEventListener("input", this._onOffsetInput);
+        if (this._onSurfaceSettled) this.element.removeEventListener("group-fill:settled", this._onSurfaceSettled);
         if (this._onRowCountInput) this.element.removeEventListener("input", this._onRowCountInput);
         if (this._liveComponent) {
             this._liveComponent.off("render:finished", this._onRenderFinished);
@@ -291,6 +296,7 @@ export default class extends Controller {
                 canvasWidth: parseFloat(el.dataset.canvasWidth) || 0,
                 layout,
                 movable: movable && typeof movable === "object" && !Array.isArray(movable) ? movable : {},
+                unit: el.dataset.unit || null,
                 deltas: {},
                 preview: el.querySelector('[data-variant-fill-overlay-target~="preview"]'),
                 boxes: [],
@@ -315,6 +321,8 @@ export default class extends Controller {
         this._mover = new FillElementMove({
             root: this.element,
             unit: unitHost ? unitHost.el.dataset.unit : "px",
+            // Group / document pages: one set of mirrors per size / page.
+            scoped: this.element.querySelector("[data-offset-mirror][data-variant-id]") !== null,
             host: {
                 surfaces: () => this._surfaces || [],
                 scaleFor: (surface) => this._scaleFor(surface),
@@ -322,8 +330,16 @@ export default class extends Controller {
                 frameOf: (id, surface) => this._movableFrame(id, surface),
                 isHidden: (id) => this._isHidden(id),
                 changed: (row, info) => this._offsetsChanged(row, info),
+                echoLive: (row, surface) => this._echoLive(row, surface),
             },
         });
+        // Group / document page: a size's / page's settle render landed —
+        // its ghosts are where the real pixels now are.
+        this._onSurfaceSettled = (event) => {
+            const variantId = event.detail && event.detail.variantId;
+            if (this._mover && variantId) this._mover.clearGhosts(variantId);
+        };
+        this.element.addEventListener("group-fill:settled", this._onSurfaceSettled);
         // A mirror written by anyone else (undo / redo, a Live morph) — the
         // boxes and the "Poloha" fields follow.
         this._onOffsetInput = (event) => {
@@ -332,12 +348,26 @@ export default class extends Controller {
             }
         };
         this.element.addEventListener("input", this._onOffsetInput);
-        this._offsetsSignature = JSON.stringify(this._mover.offsets());
+        this._offsetsSignature = JSON.stringify(this._mover.allOffsets());
     }
 
-    /** Offsets the next render bakes (mirrors + a running drag), id → {x, y}. */
-    _offsets() {
-        return this._mover ? this._mover.offsets() : {};
+    /** Offsets the next render of `surface` bakes (mirrors + a running
+     *  drag), id → {x, y} — the surface's own on a group / document page. */
+    _offsets(surface = null) {
+        return this._mover ? this._mover.offsets(this._mover.scopeOf(surface)) : {};
+    }
+
+    /** Can the text echo repaint this element live right now? The single
+     *  page's echo base is always there; the group / document page fetches
+     *  a size's base on first use (group-fill#echoReady) — until then the
+     *  drag shows a ghost instead. */
+    _echoLive(row, surface) {
+        if (!row.echo) return false;
+        const groupFill = this.application.getControllerForElementAndIdentifier(this.element, "group-fill");
+        if (groupFill && typeof groupFill.echoReady === "function") {
+            return Boolean(surface && surface.variantId && groupFill.echoReady(surface.variantId));
+        }
+        return true;
     }
 
     /**
@@ -346,15 +376,21 @@ export default class extends Controller {
      * live-capable element (`fill-move:draft`); a commit shows the settle
      * veil like any other edit.
      */
-    _offsetsChanged(row, { draft = false, committed = false } = {}) {
-        this._offsetsSignature = JSON.stringify(this._offsets());
+    _offsetsChanged(row, { draft = false, committed = false, surface = null, echo = undefined } = {}) {
+        this._offsetsSignature = JSON.stringify(this._mover ? this._mover.allOffsets() : {});
         // A drag frame lays out synchronously (pure geometry — the measured
         // heights are cached) so the band, the ghost and the boxes move in
         // the same frame as the pointer.
         if (draft) this._recomputeLayout(); else this._scheduleRecompute();
         this.element.dispatchEvent(new CustomEvent("fill-move:draft", {
             bubbles: true,
-            detail: { offsets: draft ? this._offsets() : null, id: row.id, echo: Boolean(row.echo) },
+            detail: {
+                offsets: draft ? this._offsets(surface) : null,
+                id: row.id,
+                echo: echo === undefined ? Boolean(row.echo) : Boolean(echo),
+                // Group / document page: whose echo / render this is.
+                variantId: surface && this._mover && this._mover.scoped ? surface.variantId : null,
+            },
         }));
         if (committed) this._scheduleSpinner();
     }
@@ -375,7 +411,7 @@ export default class extends Controller {
         const w = parseFloat(box.dataset.frameWidth);
         const h = parseFloat(box.dataset.frameHeight);
         if ([x, y, w, h].some((v) => Number.isNaN(v))) return null;
-        const offset = this._offsets()[box.dataset.inputid] || { x: 0, y: 0 };
+        const offset = this._offsets(surface)[box.dataset.inputid] || { x: 0, y: 0 };
         let left = x + offset.x;
         let top = y + offset.y;
         let right = left + w;
@@ -1925,7 +1961,7 @@ export default class extends Controller {
         if (this._mover) {
             // A Live morph may have rewritten the offset mirrors (the server's
             // normalisation) without an input event — follow it.
-            const signature = JSON.stringify(this._offsets());
+            const signature = JSON.stringify(this._mover.allOffsets());
             if (signature !== this._offsetsSignature) {
                 this._offsetsSignature = signature;
                 this._scheduleRecompute();
@@ -2215,7 +2251,7 @@ export default class extends Controller {
         // whole deep tree included. Empty without movable elements.
         const moveModule = window.WBoostElementMove;
         const deltas = this._mover && moveModule && typeof moveModule.deltas === "function"
-            ? moveModule.deltas(data.containers || [], this._offsets())
+            ? moveModule.deltas(data.containers || [], this._offsets(surface))
             : {};
         surface.deltas = deltas;
         const dxOf = (inputId) => (deltas[inputId] ? deltas[inputId][0] : 0);

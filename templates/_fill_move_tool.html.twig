@@ -7,11 +7,15 @@
     a click (≤ 3 px of travel) or Enter selects it ("move mode": drag the
     box, arrow keys, the offset chip).
 
-    Params: m = one FillMovableElements row.
+    Params: m = one FillMovableElements row; move_variant = (group /
+    document page) the size's / page's variantId — the move is per surface,
+    so the tool says whose (`data-move-variant`, fill_element_move.js SCOPES).
 #}
+{% set move_variant = move_variant|default(null) %}
 {% set glyph = m.allowance.vertical and m.allowance.horizontal ? 'move' : (m.allowance.vertical ? 'move-v' : 'move-h') %}
 <button type="button" class="fill-box__tool fill-box__tool--move"
     data-move-tool="{{ m.id }}"
+    {% if move_variant %}data-move-variant="{{ move_variant }}"{% endif %}
     title="Posunout — táhněte, nebo klikněte a posouvejte šipkami"
     aria-label="Posunout: {{ m.name }}"
 >{{ icon(glyph, 's14') }}</button>

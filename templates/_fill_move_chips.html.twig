@@ -6,17 +6,23 @@
     popovers / the image adjust panel) and docked to the bottom on phones;
     the include site wraps it in data-live-ignore.
 
-    Params: movable (FillMovableElements rows), unit.
+    Params: movable (FillMovableElements rows), unit; on the group /
+    document page also move_variant (the size's / page's variantId — one
+    chip set per surface, `data-move-variant`) and scope_label (that
+    size / page, shown on the chip: the move applies there only).
 #}
+{% set move_variant = move_variant|default(null) %}
+{% set scope_label = scope_label|default(null) %}
 <div class="fill-move-layer">
     {% for m in movable %}
         {% set glyph = m.allowance.vertical and m.allowance.horizontal ? 'move' : (m.allowance.vertical ? 'move-v' : 'move-h') %}
-        <div class="fill-move-chip" hidden role="dialog" aria-label="Posun: {{ m.name }}" data-move-chip="{{ m.id }}">
+        <div class="fill-move-chip" hidden role="dialog" aria-label="Posun: {{ m.name }}{{ scope_label ? ' — ' ~ scope_label }}" data-move-chip="{{ m.id }}"{% if move_variant %} data-move-variant="{{ move_variant }}"{% endif %}>
             <div class="fill-move-chip__head">
                 <span class="fill-move-chip__name">{{ icon(glyph, 's14') }}<span class="text-truncate">{{ m.name }}</span></span>
                 <button type="button" class="btn btn-success xs" data-move-done title="Hotovo (Esc)">{{ icon('check', 's14') }}Hotovo</button>
             </div>
-            {{ include('_fill_move_position.html.twig', { m: m, unit: unit }) }}
+            {% if scope_label %}<p class="cap fill-move-chip__scope">{{ icon('info', 's12') }}Jen {{ scope_label }}</p>{% endif %}
+            {{ include('_fill_move_position.html.twig', { m: m, unit: unit, move_variant: move_variant }) }}
             <p class="cap fill-move-chip__hint">Táhněte rámeček, nebo posouvejte šipkami (Shift = po 10&nbsp;px).</p>
         </div>
     {% endfor %}

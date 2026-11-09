@@ -63,6 +63,9 @@
             <script src="{{ asset('editor/rich_text_runs.js') }}"></script>
             <script src="{{ asset('editor/rich_text_blocks.js') }}"></script>
             <script src="{{ asset('editor/fill_text_echo.js') }}"></script>
+            {# User-moved elements: the overlay + the echo bake each size's
+               offsets with the render's own maths (WBoostElementMove). #}
+            <script src="{{ asset('editor/element_move.js') }}"></script>
             <style>
                 {% for face in font_faces %}
                     @font-face {
@@ -231,8 +234,10 @@
             {# User-movable elements ("Uživatel může posunout", M2): moves are
                PER DIMENSION — one x / y pair per movable element of each
                member (canvas px of that member; 0 = designed position). The
-               move UI (M4) writes them; the previews / exports / versions
-               carry them. Absent for every design without movable elements. #}
+               move tool (M4, fill_element_move.js scoped by data-variant-id)
+               writes them; only THAT dimension re-renders
+               (group-fill#offsetChanged). Absent for every design without
+               movable elements. #}
             {% for v in variants %}
                 {% for elementId, offset in v.offsets|default([]) %}
                     {% for axis in ['x', 'y'] %}
@@ -242,7 +247,7 @@
                                data-offset-mirror="{{ elementId }}"
                                data-offset-axis="{{ axis }}"
                                data-variant-id="{{ v.variant.id }}"
-                               data-action="input->group-fill#changed">
+                               data-action="input->group-fill#offsetChanged">
                     {% endfor %}
                 {% endfor %}
             {% endfor %}
@@ -322,7 +327,8 @@
                                          data-variant-fill-overlay-target="surface"
                                          data-variant-id="{{ variantId }}"
                                          data-canvas-width="{{ v.width }}"
-                                         data-layout="{{ v.text_layout|json_encode }}">
+                                         data-layout="{{ v.text_layout|json_encode }}"
+                                         {% if v.movable %}data-movable="{{ v.movable|json_encode }}" data-unit="{{ v.variant.dimension.unit.value }}"{% endif %}>
                                         <div class="group-fill-preview-frame" style="aspect-ratio: {{ v.width }} / {{ v.height }};">
                                             <img src="{{ (v.variant.previewImagePath ?: v.variant.backgroundImage) ? uploaded_asset(v.variant.previewImagePath ?: v.variant.backgroundImage) : asset('images/manual-placeholder.png') }}"
                                                  alt="{{ v.dimension_label }}"
@@ -363,6 +369,8 @@
                                                 shape_placeholders: shape_placeholders,
                                                 shape_frames: v.shape_frames,
                                                 container_sheets: v.container_sheets,
+                                                movable: v.movable,
+                                                move_variant: variantId,
                                             }) }}
                                         </div>
                                         {# Placement toolbars: how a PICKED picture sits in THIS
@@ -663,6 +671,17 @@
                         </div>
                     </div>
                 </div>
+            {% endfor %}
+
+            {# Move-mode chips: one set PER DIMENSION (a move belongs to one
+               size), fixed in viewport coords like the single page's. #}
+            {% for v in variants|filter(v => v.movable) %}
+                {{ include('_fill_move_chips.html.twig', {
+                    movable: v.movable,
+                    unit: v.variant.dimension.unit.value,
+                    move_variant: v.variant.id,
+                    scope_label: 'v rozměru ' ~ v.variant.dimension.label,
+                }) }}
             {% endfor %}
         </form>
 

@@ -29,18 +29,21 @@
       row gets one "+ Řádek" chip per row (`data-row-chip`), placed by the
       overlay under the row's LAST ACTIVE slot and shown only while another
       row can be added — the sheet holds the rest (−, ↑ / ↓, the reason).
-    - movable: (optional, single page) the user-movable elements
-      (FillMovableElements rows by id, THIS surface's frames). An element
+    - movable: (optional) the user-movable elements of THIS surface
+      (FillMovableElements rows by id, this surface's frames). An element
       whose box is rendered here (an unlocked text, a recolourable shape, a
       one-pencil container) gets the ✥ move tool in its cluster; every
       other one (a locked text, a decorative image, a plain shape, a
       container without a sheet) gets a move-only `fill-box--move` box at
       the server's frame. fill_element_move.js drives them.
+    - move_variant: (group / document page) this surface's variantId — the
+      move tools carry it (`data-move-variant`): a move is per size / page.
 
     The dashed BORDER follows the "Zobrazit oblasti k vyplnění" switch, the
     name tag the "Popisky prvků" one (CSS on the form classes).
 #}
 {% set movable = movable|default({}) %}
+{% set move_variant = move_variant|default(null) %}
 {% set move_hosted = [] %}
 {% set sheet_of = {} %}
 {% for sheet in container_sheets|default([]) %}
@@ -72,7 +75,7 @@
                 >{{ icon('edit', 's14') }}</button>
                 {% if movable[ph.inputId] is defined %}
                     {% set move_hosted = move_hosted|merge([ph.inputId]) %}
-                    {{ include('_fill_move_tool.html.twig', { m: movable[ph.inputId] }) }}
+                    {{ include('_fill_move_tool.html.twig', { m: movable[ph.inputId], move_variant: move_variant }) }}
                 {% endif %}
                 {% if ph.hidable %}
                     <button type="button"
@@ -163,7 +166,7 @@
                 >{{ icon('palette', 's14') }}</button>
                 {% if movable[ph.inputId] is defined %}
                     {% set move_hosted = move_hosted|merge([ph.inputId]) %}
-                    {{ include('_fill_move_tool.html.twig', { m: movable[ph.inputId] }) }}
+                    {{ include('_fill_move_tool.html.twig', { m: movable[ph.inputId], move_variant: move_variant }) }}
                 {% endif %}
             </div>
             {% endif %}
@@ -193,7 +196,7 @@
             >{{ icon('edit', 's14') }}</button>
             {% if movable[sheet.id] is defined %}
                 {% set move_hosted = move_hosted|merge([sheet.id]) %}
-                {{ include('_fill_move_tool.html.twig', { m: movable[sheet.id] }) }}
+                {{ include('_fill_move_tool.html.twig', { m: movable[sheet.id], move_variant: move_variant }) }}
             {% endif %}
             {% if sheet.hidable %}
                 <button type="button"
@@ -236,7 +239,7 @@
     >
         <span class="fill-box__name">{{ m.name }}</span>
         <div class="fill-box__tools">
-            {{ include('_fill_move_tool.html.twig', { m: m }) }}
+            {{ include('_fill_move_tool.html.twig', { m: m, move_variant: move_variant }) }}
         </div>
     </div>
 {% endfor %}

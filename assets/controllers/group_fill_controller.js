@@ -84,6 +84,20 @@ const MAX_CONCURRENT_RENDERS = 2;
  * preview opens next to it (zoom / rotation / centre). Pans are stored as a
  * FRACTION of the frame, the one form that survives a preview being displayed
  * at an arbitrary size.
+ *
+ * ## User-moved elements ("Uživatel může posunout", M4)
+ *
+ * Like picture placement, an element's MOVE is per dimension / page: the
+ * overlay's move tool (fill_element_move.js, scoped) writes that surface's
+ * `offsets[<variantId>][<id>][x|y]` mirrors, whose input lands in
+ * offsetChanged() — only that dimension re-renders. A moved echo-capable
+ * text (or a clean container of them) keeps the echo base (the text is
+ * transparent in it) and repaints at the new place, live while dragging
+ * once that dimension's echo is ready (`fill-move:draft`, echoReady());
+ * any other element's move changes pixels under the echo → that
+ * dimension's base goes stale. A settle that reflects the current state
+ * announces itself (`group-fill:settled`) so the overlay drops that
+ * dimension's move ghosts.
  */
 export default class extends Controller {
     static targets = [
@@ -147,6 +161,8 @@ export default class extends Controller {
         this._editSeq = 0;
         this._echoActive = false;
         this._echoRepaintQueued = false;
+        // variantId → the running move drag's offsets (fill-move:draft).
+        this._moveDrafts = new Map();
 
         // --- Placement state ------------------------------------------------
         // Chosen picture per slot: {imageId, url, natural: {width, height}|null}.
@@ -225,6 +241,12 @@ export default class extends Controller {
         }
 
         this._initEcho();
+
+        // A move drag on one dimension (the overlay's fill-move:draft): the
+        // echo of THAT dimension follows the pointer when it is live.
+        this._moveDrafts.clear();
+        this._onMoveDraft = (event) => this._moveDraft(event.detail || {});
+        this.element.addEventListener('fill-move:draft', this._onMoveDraft);
     }
 
     /**
@@ -285,6 +307,8 @@ export default class extends Controller {
         (this._adjustToolbars || []).forEach((toolbar) => toolbar.destroy());
         this._adjustToolbars = [];
         window.removeEventListener('resize', this._onResize);
+        if (this._onMoveDraft) this.element.removeEventListener('fill-move:draft', this._onMoveDraft);
+        this._moveDrafts.clear();
         this._selected = null;
         clearTimeout(this.refreshTimer);
         clearTimeout(this.exportTimer);
@@ -361,6 +385,75 @@ export default class extends Controller {
         this._touchHistory();
         this._invalidateEchoBases(variantId);
         this._scheduleRefresh(variantId);
+    }
+
+    /**
+     * A user move (an `offsets[<variantId>][<id>][x|y]` mirror): it belongs
+     * to ONE dimension / page, so only that one re-renders. Moving an
+     * element the echo paints keeps the echo base (the text is transparent
+     * in it) and repaints it at the new place; any other move changes the
+     * pixels under the echo — that dimension's base is stale.
+     */
+    offsetChanged(event) {
+        const target = event ? event.target : null;
+        const variantId = target && target.dataset ? (target.dataset.variantId || null) : null;
+        if (!variantId) {
+            this.changed(event);
+            return;
+        }
+        const id = target.getAttribute('data-offset-mirror');
+        const entry = this._echo.get(variantId);
+        if (!entry || !this._echoTouches(entry, id)) {
+            this.changedFor(variantId);
+            return;
+        }
+        this._editSeq += 1;
+        this._touchHistory();
+        if (!this._isOffscreen(variantId)) this._activateEcho(variantId, entry);
+        this._scheduleEchoRepaint();
+        this._scheduleRefresh(variantId);
+    }
+
+    /** Does moving `id` move something this dimension's echo paints (an
+     *  echoed text, or a clean container of them)? */
+    _echoTouches(entry, id) {
+        if (!id || !entry || !entry.payload) return false;
+        const payload = entry.payload;
+        return (payload.objects || []).some((object) => object.inputId === id)
+            || (payload.containers || []).some((container) => container.id === id);
+    }
+
+    /** Is this dimension's echo able to repaint right now (painter built,
+     *  base fetched)? The move tool drags a ghost until it is. */
+    echoReady(variantId) {
+        const entry = this._echo.get(variantId);
+        return Boolean(entry && entry.painter && entry.baseLoaded && !this._isOffscreen(variantId));
+    }
+
+    _moveDraft(detail) {
+        const variantId = detail.variantId || null;
+        if (!variantId) return;
+        if (detail.offsets) this._moveDrafts.set(variantId, detail.offsets);
+        else this._moveDrafts.delete(variantId);
+        const entry = this._echo.get(variantId);
+        if (!entry) return;
+        if (detail.offsets && detail.echo && this.echoReady(variantId)) this._activateEcho(variantId, entry);
+        if (entry.active) this._scheduleEchoRepaint();
+    }
+
+    /** The offsets one dimension's echo bakes: the running drag, else the
+     *  committed mirrors of that dimension. */
+    _moveOffsetsFor(variantId) {
+        if (this._moveDrafts.has(variantId)) return this._moveDrafts.get(variantId);
+        const offsets = {};
+        this.element.querySelectorAll(`[data-offset-mirror][data-variant-id="${CSS.escape(variantId)}"]`).forEach((mirror) => {
+            const id = mirror.getAttribute('data-offset-mirror');
+            const entry = offsets[id] || { x: 0, y: 0 };
+            const value = Number(String(mirror.value || '').trim());
+            entry[mirror.getAttribute('data-offset-axis') === 'y' ? 'y' : 'x'] = Number.isFinite(value) ? value : 0;
+            offsets[id] = entry;
+        });
+        return offsets;
     }
 
     /** `scope`: null = every dimension, a variantId, or a list of them. */
@@ -603,6 +696,12 @@ export default class extends Controller {
             // fresher render is queued (dirty) or coming with the next edit.
             if (seqAtSend === this._editSeq && !this._dirty.has(endpoint)) {
                 this._restEchoFor(img.dataset.variantId);
+                // The pixels ARE the current state: the overlay drops this
+                // dimension's move ghosts once they are decoded.
+                const variantId = img.dataset.variantId;
+                const settled = () => this.element.dispatchEvent(new CustomEvent('group-fill:settled', { bubbles: true, detail: { variantId } }));
+                if (typeof img.decode === 'function') img.decode().then(settled, settled);
+                else settled();
             }
         } catch (error) {
             if (error.name !== 'AbortError') {
@@ -806,7 +905,7 @@ export default class extends Controller {
     _repaintEcho() {
         const module = window.WBoostFillTextEcho;
         if (!module) return;
-        this._echo.forEach((entry) => {
+        this._echo.forEach((entry, variantId) => {
             if (!entry.active || !entry.painter) return;
             const values = {};
             // Texts inside a hidden container hide with it (the render's
@@ -835,7 +934,9 @@ export default class extends Controller {
                 values[inputId] = { resolved: module.resolveValue(raw, def), hidden, fontFamily };
             });
             this._fitEchoCanvas(entry);
-            entry.painter.update(values);
+            // User moves of THIS dimension (M4) — the painter bakes them like
+            // the render; none = the exact pre-move path.
+            entry.painter.update(values, this._moveOffsetsFor(variantId));
         });
     }
 
@@ -1015,7 +1116,8 @@ export default class extends Controller {
         const flow = this._slotFlow?.[variantId]?.[inputId];
         if (!flow) return frame;
         if (flow.collapsed) return null;
-        return flow.dy ? { ...frame, y: frame.y + flow.dy } : frame;
+        // dx: a container the user moved sideways carries its slots (M4).
+        return (flow.dy || flow.dx) ? { ...frame, x: frame.x + (flow.dx || 0), y: frame.y + (flow.dy || 0) } : frame;
     }
 
     /** variant-fill-overlay → every surface's laid-out slots, by variantId. */

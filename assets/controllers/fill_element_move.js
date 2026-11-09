@@ -36,6 +36,14 @@ import { pxPerUnit, unitDecimals } from "./image_placement.js";
  * current preview pixels at its pre-drag place — following the pointer; the
  * ghost stays at the dropped place until the matching settle render lands
  * (clearGhosts(), called by the overlay's settle hook).
+ *
+ * SCOPES (M4 — the group and document pages). There every fill surface is
+ * one SIZE / PAGE with its own mirrors `offsets[<variantId>][<id>][x|y]`
+ * (`data-variant-id` on the mirror): a move belongs to ONE surface. With
+ * `scoped: true` every element is addressed as (scope = the surface's
+ * variantId, id) — mirrors, draft, selection, ghosts and every piece of
+ * chrome (tool, chip, "Poloha" row, stepper, reset: `data-move-variant`).
+ * The single page is unscoped (scope null): one surface, one set of mirrors.
  */
 
 const DRAG_SLOP = 3;          // px of travel before a press becomes a drag
@@ -74,19 +82,26 @@ export class FillElementMove {
      * @param {HTMLElement} options.root  the fill form
      * @param {string} options.unit       the variant's unit (px | mm | cm)
      * @param {object} options.host       the overlay's hooks:
-     *   surfaces()             → [{ el, movable: {id: row}, boxes, canvasWidth, preview }]
+     *   surfaces()             → [{ el, variantId, unit, movable: {id: row}, boxes, canvasWidth, preview }]
      *   scaleFor(surface)      → unscaled stage px per canvas px
      *   zoom()                 → the stage zoom (screen px per stage px)
      *   frameOf(id, surface)   → the element's LIVE frame (offset included) | null
      *   isHidden(id)           → the element is hidden (eye / container hide)
-     *   changed(row, {draft})  → offsets changed: re-layout the boxes (+ echo / spinner)
+     *   changed(row, {draft, committed, surface}) → offsets changed: re-layout
+     *                            the boxes (+ echo / spinner)
+     *   echoLive(row, surface) → (optional) the echo can repaint this element
+     *                            right now (default: row.echo)
+     * @param {boolean} [options.scoped] one set of mirrors PER SURFACE (group /
+     *   document pages) — see SCOPES above
      */
-    constructor({ root, unit, host }) {
+    constructor({ root, unit, host, scoped = false }) {
         this.root = root;
         this.unit = unit || "px";
         this.host = host;
+        this.scoped = Boolean(scoped);
         this.draft = null;
         this.activeId = null;
+        this.activeScope = null;
         this._press = null;
         this._ghosts = new Map();
         this._band = null;
@@ -134,9 +149,46 @@ export class FillElementMove {
 
     // --- State ---------------------------------------------------------------
 
-    /** The row of an element (first surface carrying it), with its surface. */
-    rowOf(id, surface = null) {
-        const surfaces = surface ? [surface] : this.host.surfaces();
+    // --- Scopes ---------------------------------------------------------------
+
+    /** A surface's scope: its variantId on a scoped page, else null. */
+    scopeOf(surface) {
+        return this.scoped && surface ? (surface.variantId || null) : null;
+    }
+
+    /** The scope a piece of chrome addresses (`data-move-variant`). */
+    _scopeAttr(el) {
+        return this.scoped && el ? (el.getAttribute("data-move-variant") || null) : null;
+    }
+
+    /** Attribute selector narrowing chrome to a scope ('' when unscoped). */
+    _chromeSel(scope) {
+        return this.scoped && scope ? `[data-move-variant="${CSS.escape(scope)}"]` : "";
+    }
+
+    _key(scope, id) {
+        return `${scope || ""}\u0001${id}`;
+    }
+
+    _surfacesOf(scope) {
+        const surfaces = this.host.surfaces();
+        return this.scoped ? surfaces.filter((surface) => this.scopeOf(surface) === scope) : surfaces;
+    }
+
+    /** The variant unit of a scope (px | mm | cm). */
+    unitOf(scope) {
+        const surface = this.scoped ? this._surfacesOf(scope)[0] : null;
+        return (surface && surface.unit) || this.unit;
+    }
+
+    // --- State ---------------------------------------------------------------
+
+    /** The row of an element (first surface of the scope carrying it), with
+     *  its surface. `where` = a surface, or a scope (string|null). */
+    rowOf(id, where = null) {
+        let surfaces;
+        if (where && typeof where === "object") surfaces = [where];
+        else surfaces = this.scoped ? this._surfacesOf(where) : this.host.surfaces();
         for (const candidate of surfaces) {
             const row = candidate.movable && candidate.movable[id];
             if (row) return { row, surface: candidate };
@@ -144,37 +196,52 @@ export class FillElementMove {
         return null;
     }
 
-    _mirror(id, axis) {
-        return this.root.querySelector(`[data-offset-mirror="${CSS.escape(id)}"][data-offset-axis="${axis}"]`);
+    _mirrorSel(scope) {
+        return this.scoped && scope ? `[data-variant-id="${CSS.escape(scope)}"]` : "";
+    }
+
+    _mirror(id, axis, scope = null) {
+        return this.root.querySelector(`[data-offset-mirror="${CSS.escape(id)}"][data-offset-axis="${axis}"]${this._mirrorSel(scope)}`);
     }
 
     /** The committed offset of one element (its mirrors). */
-    committed(id) {
-        const x = this._mirror(id, "x");
-        const y = this._mirror(id, "y");
+    committed(id, scope = null) {
+        const x = this._mirror(id, "x", scope);
+        const y = this._mirror(id, "y", scope);
         return { x: round2(numeric(x && x.value)), y: round2(numeric(y && y.value)) };
     }
 
-    /** Every element's offset as the next render would bake it, the running
-     *  drag included — id → {x, y}, non-zero only. */
-    offsets() {
+    /** Every element's offset as the next render of `scope` would bake it,
+     *  the running drag included — id → {x, y}, non-zero only. */
+    offsets(scope = null) {
         const result = {};
-        this.root.querySelectorAll("[data-offset-mirror]").forEach((mirror) => {
+        this.root.querySelectorAll(`[data-offset-mirror]${this._mirrorSel(scope)}`).forEach((mirror) => {
             const id = mirror.getAttribute("data-offset-mirror");
             const entry = result[id] || { x: 0, y: 0 };
             entry[mirror.getAttribute("data-offset-axis") === "y" ? "y" : "x"] = round2(numeric(mirror.value));
             result[id] = entry;
         });
-        if (this.draft) result[this.draft.id] = { x: this.draft.x, y: this.draft.y };
+        if (this.draft && this.draft.scope === scope) result[this.draft.id] = { x: this.draft.x, y: this.draft.y };
         Object.keys(result).forEach((id) => {
             if (result[id].x === 0 && result[id].y === 0) delete result[id];
         });
         return result;
     }
 
-    current(id) {
-        if (this.draft && this.draft.id === id) return { x: this.draft.x, y: this.draft.y };
-        return this.committed(id);
+    /** Every scope's offsets (scope '' = unscoped) — a change signature. */
+    allOffsets() {
+        if (!this.scoped) return { "": this.offsets(null) };
+        const result = {};
+        this.host.surfaces().forEach((surface) => {
+            const scope = this.scopeOf(surface);
+            if (scope !== null && !(scope in result)) result[scope] = this.offsets(scope);
+        });
+        return result;
+    }
+
+    current(id, scope = null) {
+        if (this.draft && this.draft.id === id && this.draft.scope === scope) return { x: this.draft.x, y: this.draft.y };
+        return this.committed(id, scope);
     }
 
     /** Clamp a wanted offset into the element's range: a disallowed axis is
@@ -199,13 +266,13 @@ export class FillElementMove {
     /** Write an element's offset into its mirrors (only the changed axes get
      *  their `input` — the Live model, the history, the echo, the settle
      *  hash all see one ordinary edit). */
-    commit(id, x, y) {
-        const found = this.rowOf(id);
+    commit(id, x, y, scope = null) {
+        const found = this.rowOf(id, scope);
         if (!found) return;
         const next = this.constrain(found.row, { x, y });
         let changed = false;
         [["x", next.x], ["y", next.y]].forEach(([axis, value]) => {
-            const mirror = this._mirror(id, axis);
+            const mirror = this._mirror(id, axis, scope);
             if (!mirror) return;
             const text = String(value);
             if (round2(numeric(mirror.value)) === value && mirror.value !== "") return;
@@ -215,8 +282,8 @@ export class FillElementMove {
         });
         this.sync();
         // Nothing changed = no render will come to take a ghost down.
-        if (!changed) this._dropGhost(id);
-        this.host.changed(found.row, { draft: false, committed: changed });
+        if (!changed) this._dropGhost(id, scope);
+        this.host.changed(found.row, { draft: false, committed: changed, surface: found.surface });
     }
 
     // --- Pointer: drag the tool / the selected box ----------------------------
@@ -245,8 +312,10 @@ export class FillElementMove {
         if (!id || this.host.isHidden(id)) return;
         const surfaceEl = source.closest("[data-movable]");
         const surface = this.host.surfaces().find((candidate) => candidate.el === surfaceEl) || null;
+        if (this.scoped && !surface) return;
         const found = this.rowOf(id, surface);
         if (!found) return;
+        const scope = this.scopeOf(found.surface);
 
         event.preventDefault();
         event.stopPropagation();
@@ -254,6 +323,7 @@ export class FillElementMove {
 
         this._press = {
             id,
+            scope,
             row: found.row,
             surface: found.surface,
             source,
@@ -261,8 +331,9 @@ export class FillElementMove {
             pointerId: event.pointerId,
             startX: event.clientX,
             startY: event.clientY,
-            start: this.committed(id),
+            start: this.committed(id, scope),
             frame: this.host.frameOf(id, found.surface),
+            echo: false,
             dragging: false,
         };
         window.addEventListener("pointermove", this._onPointerMove);
@@ -283,9 +354,9 @@ export class FillElementMove {
         event.preventDefault();
         const k = this._screenPerCanvas(press.surface);
         const next = this.constrain(press.row, { x: press.start.x + dx / k, y: press.start.y + dy / k }, MAGNET / k);
-        this.draft = { id: press.id, x: next.x, y: next.y };
+        this.draft = { id: press.id, scope: press.scope, x: next.x, y: next.y };
         if (next.limitX || next.limitY) this._flashLimit();
-        this.host.changed(press.row, { draft: true });
+        this.host.changed(press.row, { draft: true, surface: press.surface, echo: press.echo });
         this.reposition();
     }
 
@@ -300,10 +371,10 @@ export class FillElementMove {
             document.documentElement.classList.remove("fill-move-dragging");
             press.source.classList.remove("is-dragging");
             if (cancelled || !draft) {
-                this._dropGhost(press.id);
-                this.host.changed(press.row, { draft: false, committed: false });
+                this._dropGhost(press.id, press.scope);
+                this.host.changed(press.row, { draft: false, committed: false, surface: press.surface });
             } else {
-                this.commit(press.id, draft.x, draft.y);
+                this.commit(press.id, draft.x, draft.y, press.scope);
             }
             this.reposition();
             return;
@@ -311,7 +382,7 @@ export class FillElementMove {
         if (press.fromTool && !cancelled) {
             // A click on the tool: select / deselect ("move mode").
             this._swallowClick = true;
-            this.toggle(press.id);
+            this.toggle(press.id, press.scope);
         }
     }
 
@@ -325,8 +396,13 @@ export class FillElementMove {
     _beginDrag(press) {
         document.documentElement.classList.add("fill-move-dragging");
         press.source.classList.add("is-dragging");
-        this._dropGhost(press.id);
-        if (!press.row.echo) this._makeGhost(press);
+        this._dropGhost(press.id, press.scope);
+        // Repainted live by the text echo, or lifted off as a ghost — decided
+        // once per drag (the group / document echo needs its base first).
+        press.echo = typeof this.host.echoLive === "function"
+            ? Boolean(this.host.echoLive(press.row, press.surface))
+            : Boolean(press.row.echo);
+        if (!press.echo) this._makeGhost(press);
     }
 
     /** Screen px per canvas px on a surface (box scale × stage zoom). */
@@ -349,7 +425,7 @@ export class FillElementMove {
                 return;
             }
             // Keyboard (Enter / Space) — no pointer press came first.
-            this.toggle(tool.getAttribute("data-move-tool"), { focusChip: false });
+            this.toggle(tool.getAttribute("data-move-tool"), this._scopeAttr(tool));
             return;
         }
         this._swallowClick = false;
@@ -364,7 +440,7 @@ export class FillElementMove {
         const reset = target.closest("[data-move-reset]");
         if (reset) {
             event.preventDefault();
-            this.commit(reset.getAttribute("data-move-reset"), 0, 0);
+            this.commit(reset.getAttribute("data-move-reset"), 0, 0, this._scopeAttr(reset));
             return;
         }
         if (target.closest("[data-move-done]")) {
@@ -373,18 +449,20 @@ export class FillElementMove {
         }
     }
 
-    _stepSize() {
+    _stepSize(scope = null) {
         // One whole unit per click: 1 px, 1 mm, 0.1 cm (= 1 mm) — in canvas px.
-        return this.unit === "cm" ? pxPerUnit("cm") / 10 : pxPerUnit(this.unit);
+        const unit = this.unitOf(scope);
+        return unit === "cm" ? pxPerUnit("cm") / 10 : pxPerUnit(unit);
     }
 
     _step(button, big) {
         const id = button.getAttribute("data-move-step");
+        const scope = this._scopeAttr(button);
         const axis = button.getAttribute("data-move-axis") === "y" ? "y" : "x";
         const dir = Number(button.getAttribute("data-move-dir")) < 0 ? -1 : 1;
-        const current = this.committed(id);
-        current[axis] += dir * this._stepSize() * (big ? 10 : 1);
-        this.commit(id, current.x, current.y);
+        const current = this.committed(id, scope);
+        current[axis] += dir * this._stepSize(scope) * (big ? 10 : 1);
+        this.commit(id, current.x, current.y, scope);
     }
 
     _startRepeat(button, event) {
@@ -428,25 +506,28 @@ export class FillElementMove {
 
     _applyInput(input) {
         const id = input.getAttribute("data-move-input");
+        const scope = this._scopeAttr(input);
         const axis = input.getAttribute("data-move-axis") === "y" ? "y" : "x";
-        const current = this.committed(id);
-        current[axis] = numeric(input.value) * pxPerUnit(this.unit);
-        this.commit(id, current.x, current.y);
+        const current = this.committed(id, scope);
+        current[axis] = numeric(input.value) * pxPerUnit(this.unitOf(scope));
+        this.commit(id, current.x, current.y, scope);
         this.sync({ force: true });
     }
 
-    /** Display value of an offset in the variant's unit. */
-    _toUnit(px) {
-        const decimals = unitDecimals(this.unit);
+    /** Display value of an offset in the scope's unit. */
+    _toUnit(px, scope = null) {
+        const unit = this.unitOf(scope);
+        const decimals = unitDecimals(unit);
         const factor = 10 ** decimals;
-        const value = Math.round((px / pxPerUnit(this.unit)) * factor) / factor;
+        const value = Math.round((px / pxPerUnit(unit)) * factor) / factor;
         return Object.is(value, -0) ? 0 : value;
     }
 
-    _format(px) {
-        const value = this._toUnit(px);
-        const text = value.toLocaleString("cs-CZ", { maximumFractionDigits: unitDecimals(this.unit) });
-        return `${value > 0 ? "+" : ""}${text} ${this.unit}`;
+    _format(px, scope = null) {
+        const unit = this.unitOf(scope);
+        const value = this._toUnit(px, scope);
+        const text = value.toLocaleString("cs-CZ", { maximumFractionDigits: unitDecimals(unit) });
+        return `${value > 0 ? "+" : ""}${text} ${unit}`;
     }
 
     /**
@@ -455,52 +536,57 @@ export class FillElementMove {
      * hidden state (a hidden element cannot move) and the open chip.
      */
     sync({ force = false } = {}) {
-        const ids = new Set();
-        this.host.surfaces().forEach((surface) => Object.keys(surface.movable || {}).forEach((id) => ids.add(id)));
-        ids.forEach((id) => {
-            const offset = this.current(id);
+        const pairs = new Map();
+        this.host.surfaces().forEach((surface) => {
+            const scope = this.scopeOf(surface);
+            Object.keys(surface.movable || {}).forEach((id) => pairs.set(this._key(scope, id), { scope, id }));
+        });
+        pairs.forEach(({ scope, id }) => {
+            const offset = this.current(id, scope);
             const hidden = this.host.isHidden(id);
             const escaped = CSS.escape(id);
-            this.root.querySelectorAll(`[data-move-input="${escaped}"]`).forEach((input) => {
+            const narrow = this._chromeSel(scope);
+            this.root.querySelectorAll(`[data-move-input="${escaped}"]${narrow}`).forEach((input) => {
                 const axis = input.getAttribute("data-move-axis") === "y" ? "y" : "x";
                 input.disabled = hidden;
                 if (!force && document.activeElement === input) return;
-                const value = String(this._toUnit(offset[axis]));
+                const value = String(this._toUnit(offset[axis], scope));
                 if (input.value !== value) input.value = value;
             });
-            this.root.querySelectorAll(`[data-move-step="${escaped}"]`).forEach((button) => { button.disabled = hidden; });
-            this.root.querySelectorAll(`[data-move-reset="${escaped}"]`).forEach((button) => {
+            this.root.querySelectorAll(`[data-move-step="${escaped}"]${narrow}`).forEach((button) => { button.disabled = hidden; });
+            this.root.querySelectorAll(`[data-move-reset="${escaped}"]${narrow}`).forEach((button) => {
                 button.disabled = hidden || (offset.x === 0 && offset.y === 0);
             });
-            this.root.querySelectorAll(`[data-move-position="${escaped}"]`).forEach((row) => {
+            this.root.querySelectorAll(`[data-move-position="${escaped}"]${narrow}`).forEach((row) => {
                 row.classList.toggle("is-disabled", hidden);
                 row.classList.toggle("is-moved", offset.x !== 0 || offset.y !== 0);
             });
-            this.root.querySelectorAll(`[data-move-tool="${escaped}"]`).forEach((tool) => {
+            this.root.querySelectorAll(`[data-move-tool="${escaped}"]${narrow}`).forEach((tool) => {
                 tool.hidden = hidden;
                 tool.classList.toggle("is-moved", offset.x !== 0 || offset.y !== 0);
             });
-            if (hidden && this.activeId === id) this.deselect();
+            if (hidden && this.activeId === id && this.activeScope === scope) this.deselect();
         });
     }
 
     // --- Move mode ("selected") -----------------------------------------------
 
-    toggle(id) {
-        if (this.activeId === id) {
+    toggle(id, scope = null) {
+        if (this.activeId === id && this.activeScope === scope) {
             this.deselect({ focusTool: true });
             return;
         }
-        this.select(id);
+        this.select(id, scope);
     }
 
-    select(id) {
-        if (this.host.isHidden(id) || !this.rowOf(id)) return;
+    select(id, scope = null) {
+        if (this.host.isHidden(id) || !this.rowOf(id, scope)) return;
         this.deselect();
         this.activeId = id;
-        this._boxesOf(id).forEach((box) => box.classList.add("is-moving"));
-        this.root.querySelectorAll(`[data-move-tool="${CSS.escape(id)}"]`).forEach((tool) => tool.setAttribute("aria-pressed", "true"));
-        const chip = this._chip(id);
+        this.activeScope = scope;
+        this._boxesOf(id, scope).forEach((box) => box.classList.add("is-moving"));
+        this.root.querySelectorAll(`[data-move-tool="${CSS.escape(id)}"]${this._chromeSel(scope)}`).forEach((tool) => tool.setAttribute("aria-pressed", "true"));
+        const chip = this._chip(id, scope);
         if (chip) chip.hidden = false;
         this.sync();
         this.reposition();
@@ -509,11 +595,13 @@ export class FillElementMove {
     deselect({ focusTool = false } = {}) {
         const id = this.activeId;
         if (id === null) return;
+        const scope = this.activeScope;
         this.activeId = null;
-        this._boxesOf(id).forEach((box) => box.classList.remove("is-moving"));
-        const tools = this.root.querySelectorAll(`[data-move-tool="${CSS.escape(id)}"]`);
+        this.activeScope = null;
+        this._boxesOf(id, scope).forEach((box) => box.classList.remove("is-moving"));
+        const tools = this.root.querySelectorAll(`[data-move-tool="${CSS.escape(id)}"]${this._chromeSel(scope)}`);
         tools.forEach((tool) => tool.setAttribute("aria-pressed", "false"));
-        const chip = this._chip(id);
+        const chip = this._chip(id, scope);
         if (chip) chip.hidden = true;
         if (focusTool) {
             const tool = Array.from(tools).find((candidate) => candidate.offsetParent !== null);
@@ -540,7 +628,8 @@ export class FillElementMove {
         const moves = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
         const move = moves[event.key];
         if (!move || event.ctrlKey || event.metaKey || event.altKey || isEditable(event.target)) return false;
-        const found = this.rowOf(this.activeId);
+        const scope = this.activeScope;
+        const found = this.rowOf(this.activeId, scope);
         if (!found) return false;
         const allowance = found.row.allowance || {};
         if ((move[0] !== 0 && !allowance.horizontal) || (move[1] !== 0 && !allowance.vertical)) {
@@ -549,11 +638,11 @@ export class FillElementMove {
         }
         event.preventDefault();
         const step = event.shiftKey ? 10 : 1;
-        const current = this.committed(this.activeId);
+        const current = this.committed(this.activeId, scope);
         const wanted = { x: current.x + move[0] * step, y: current.y + move[1] * step };
         const next = this.constrain(found.row, wanted);
         if (next.limitX || next.limitY) this._flashLimit();
-        this.commit(this.activeId, next.x, next.y);
+        this.commit(this.activeId, next.x, next.y, scope);
         this.reposition();
         return true;
     }
@@ -564,15 +653,16 @@ export class FillElementMove {
         if (!target || typeof target.closest !== "function") return;
         const id = this.activeId;
         const escaped = CSS.escape(id);
-        if (target.closest(`[data-move-chip="${escaped}"], [data-move-tool="${escaped}"], [data-move-position="${escaped}"]`)) return;
+        const narrow = this._chromeSel(this.activeScope);
+        if (target.closest(`[data-move-chip="${escaped}"]${narrow}, [data-move-tool="${escaped}"]${narrow}, [data-move-position="${escaped}"]${narrow}`)) return;
         const box = target.closest(".fill-box");
         if (box && box.classList.contains("is-moving")) return;
         this.deselect();
     }
 
-    _boxesOf(id) {
+    _boxesOf(id, scope = null) {
         const result = [];
-        this.host.surfaces().forEach((surface) => {
+        this._surfacesOf(scope).forEach((surface) => {
             (surface.boxes || []).forEach((box) => {
                 if (box.dataset.inputid === id && !box.dataset.sheetMember) result.push(box);
             });
@@ -580,8 +670,8 @@ export class FillElementMove {
         return result;
     }
 
-    _chip(id) {
-        return this.root.querySelector(`[data-move-chip="${CSS.escape(id)}"]`);
+    _chip(id, scope = null) {
+        return this.root.querySelector(`[data-move-chip="${CSS.escape(id)}"]${this._chromeSel(scope)}`);
     }
 
     // --- Band, origin outline, readout, ghost ---------------------------------
@@ -611,8 +701,10 @@ export class FillElementMove {
      *  the chip for the current drag / selection. Called by the overlay's
      *  reposition() (zoom, pan, reflow) and after every move. */
     reposition() {
-        const focusId = (this._press && this._press.dragging) ? this._press.id : this.activeId;
-        const found = focusId !== null ? this.rowOf(focusId, this._press && this._press.dragging ? this._press.surface : null) : null;
+        const dragging = Boolean(this._press && this._press.dragging);
+        const focusId = dragging ? this._press.id : this.activeId;
+        const focusScope = dragging ? this._press.scope : this.activeScope;
+        const found = focusId !== null ? this.rowOf(focusId, dragging ? this._press.surface : focusScope) : null;
 
         [this._band, this._origin, this._readout].forEach((el) => { if (el) el.hidden = true; });
 
@@ -620,7 +712,7 @@ export class FillElementMove {
             const { row, surface } = found;
             const scale = this.host.scaleFor(surface);
             const live = this.host.frameOf(row.id, surface);
-            const offset = this.current(row.id);
+            const offset = this.current(row.id, focusScope);
             if (live) {
                 // The frame at offset 0, then swept by the allowed range.
                 const home = { x: live.x - offset.x, y: live.y - offset.y, width: live.width, height: live.height };
@@ -644,8 +736,8 @@ export class FillElementMove {
                     const readout = this._layer("readout", surface);
                     if (readout) {
                         const parts = [];
-                        if (row.allowance.vertical) parts.push(`↕ ${this._format(offset.y)}`);
-                        if (row.allowance.horizontal) parts.push(`↔ ${this._format(offset.x)}`);
+                        if (row.allowance.vertical) parts.push(`↕ ${this._format(offset.y, focusScope)}`);
+                        if (row.allowance.horizontal) parts.push(`↔ ${this._format(offset.x, focusScope)}`);
                         readout.textContent = parts.join(" · ");
                         readout.style.left = `${live.x * scale}px`;
                         readout.style.top = `${live.y * scale}px`;
@@ -656,7 +748,7 @@ export class FillElementMove {
         }
 
         this._ghosts.forEach((ghost) => {
-            const offset = this.current(ghost.id);
+            const offset = this.current(ghost.id, ghost.scope);
             const scale = this.host.scaleFor(ghost.surface);
             this._place(ghost.el, {
                 x: ghost.frame.x + (offset.x - ghost.start.x),
@@ -714,38 +806,42 @@ export class FillElementMove {
             canvas.classList.add("is-empty"); // outline only
         }
         overlay.appendChild(canvas);
-        const ghost = { id: press.id, el: canvas, surface, frame, start: { ...press.start }, timer: null };
-        ghost.timer = setTimeout(() => this._dropGhost(press.id), GHOST_TTL);
-        this._ghosts.set(press.id, ghost);
+        const ghost = { id: press.id, scope: press.scope, el: canvas, surface, frame, start: { ...press.start }, timer: null };
+        ghost.timer = setTimeout(() => this._dropGhost(press.id, press.scope), GHOST_TTL);
+        this._ghosts.set(this._key(press.scope, press.id), ghost);
     }
 
-    _dropGhost(id) {
-        const ghost = this._ghosts.get(id);
+    _dropGhost(id, scope = null) {
+        const key = this._key(scope, id);
+        const ghost = this._ghosts.get(key);
         if (!ghost) return;
         clearTimeout(ghost.timer);
         ghost.el.remove();
-        this._ghosts.delete(id);
+        this._ghosts.delete(key);
     }
 
     /** The settle that renders the CURRENT state landed: the real pixels are
-     *  where the ghosts are. */
-    clearGhosts() {
-        if (this._press && this._press.dragging) return;
-        Array.from(this._ghosts.keys()).forEach((id) => this._dropGhost(id));
+     *  where the ghosts are. `scope` (group / document page): only that
+     *  size's / page's render landed — undefined = every ghost. */
+    clearGhosts(scope = undefined) {
+        if (this._press && this._press.dragging && (scope === undefined || this._press.scope === scope)) return;
+        Array.from(this._ghosts.values()).forEach((ghost) => {
+            if (scope === undefined || ghost.scope === scope) this._dropGhost(ghost.id, ghost.scope);
+        });
     }
 
     /** The chip floats below the selected box (above when there is no room),
      *  clamped on-screen; phones dock it to the bottom edge (CSS). */
     _positionChip() {
         if (this.activeId === null) return;
-        const chip = this._chip(this.activeId);
+        const chip = this._chip(this.activeId, this.activeScope);
         if (!chip || chip.hidden) return;
         if (window.matchMedia && window.matchMedia("(max-width: 700px)").matches) {
             chip.style.removeProperty("top");
             chip.style.removeProperty("left");
             return;
         }
-        const box = this._boxesOf(this.activeId).find((candidate) => candidate.style.display !== "none");
+        const box = this._boxesOf(this.activeId, this.activeScope).find((candidate) => candidate.style.display !== "none");
         if (!box) return;
         const rect = box.getBoundingClientRect();
         const margin = 10;

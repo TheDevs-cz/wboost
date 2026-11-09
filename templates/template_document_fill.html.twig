@@ -62,6 +62,9 @@
             <script src="{{ asset('editor/rich_text_runs.js') }}"></script>
             <script src="{{ asset('editor/rich_text_blocks.js') }}"></script>
             <script src="{{ asset('editor/fill_text_echo.js') }}"></script>
+            {# User-moved elements: the overlay + the echo bake each page's
+               offsets with the render's own maths (WBoostElementMove). #}
+            <script src="{{ asset('editor/element_move.js') }}"></script>
             <style>
                 {% for face in font_faces %}
                     @font-face {
@@ -204,7 +207,8 @@
             {% endfor %}
 
             {# User-movable elements (M2): per page (fill key = re-keyed id),
-               one x / y pair each; the move UI (M4) writes them. #}
+               one x / y pair each; the move tool (M4) writes them and only
+               THAT page re-renders (group-fill#offsetChanged). #}
             {% for entry in fill.pages %}
                 {% for elementKey, offset in entry.offsets|default([]) %}
                     {% for axis in ['x', 'y'] %}
@@ -214,7 +218,7 @@
                                data-offset-mirror="{{ elementKey }}"
                                data-offset-axis="{{ axis }}"
                                data-variant-id="{{ entry.variant.id }}"
-                               data-action="input->group-fill#changed">
+                               data-action="input->group-fill#offsetChanged">
                     {% endfor %}
                 {% endfor %}
             {% endfor %}
@@ -277,7 +281,8 @@
                                  data-variant-fill-overlay-target="surface"
                                  data-variant-id="{{ variantId }}"
                                  data-canvas-width="{{ entry.width }}"
-                                 data-layout="{{ entry.text_layout|json_encode }}">
+                                 data-layout="{{ entry.text_layout|json_encode }}"
+                                 {% if entry.movable %}data-movable="{{ entry.movable|json_encode }}" data-unit="{{ entry.variant.dimension.unit.value }}"{% endif %}>
                                 <div class="group-fill-preview-frame" style="aspect-ratio: {{ entry.width }} / {{ entry.height }};">
                                     <img src="{{ (entry.variant.previewImagePath ?: entry.variant.backgroundImage) ? uploaded_asset(entry.variant.previewImagePath ?: entry.variant.backgroundImage) : asset('images/manual-placeholder.png') }}"
                                          alt="Strana {{ entry.number }}"
@@ -309,6 +314,8 @@
                                         shape_placeholders: fill.shape_placeholders,
                                         shape_frames: entry.shape_frames,
                                         container_sheets: entry.container_sheets,
+                                        movable: entry.movable,
+                                        move_variant: variantId,
                                     }) }}
                                 </div>
                                 {% for slot in entry.adjustable %}
@@ -552,6 +559,17 @@
                         </div>
                     </div>
                 </div>
+            {% endfor %}
+
+            {# Move-mode chips: one set PER PAGE (fill-key ids; a move
+               belongs to one page), fixed in viewport coords. #}
+            {% for entry in fill.pages|filter(entry => entry.movable) %}
+                {{ include('_fill_move_chips.html.twig', {
+                    movable: entry.movable,
+                    unit: entry.variant.dimension.unit.value,
+                    move_variant: entry.variant.id,
+                    scope_label: 'na straně ' ~ entry.number,
+                }) }}
             {% endfor %}
         </form>
         {# The history rows' pin / rename controls sit INSIDE the fill form

@@ -144,7 +144,7 @@ final class ElementOffsetsFillTest extends WebTestCase
 
         $crawler = $client->request('GET', '/template-group/' . TestDataFixture::TEMPLATE_GROUP_1_ID . '/fill');
         self::assertResponseIsSuccessful();
-        self::assertCount(8, $crawler->filter('input[data-offset-mirror][data-action="input->group-fill#changed"]'), '2 elements × x/y × 2 dimensions');
+        self::assertCount(8, $crawler->filter('input[data-offset-mirror][data-action="input->group-fill#offsetChanged"]'), '2 elements × x/y × 2 dimensions');
         self::assertCount(1, $crawler->filter(sprintf('input[name="offsets[%s][%s][y]"][data-variant-id="%s"]', $freeform, self::ROOT, $freeform)));
 
         $offsets = [

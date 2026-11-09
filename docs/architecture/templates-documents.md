@@ -305,3 +305,9 @@ page renders one `offsets[<page variantId>][<fill key>][x|y]` pair each, and
 `valuesForPage()` translates `offsets` like `imagePlacements`
 (`[variantId][key]` → real ids). Never shared. See templates-data-model.md
 "User-moved elements".
+The move tool (M4) works per page too: `DocumentFillPage` puts
+`FillMovableElements::forVariant()` of each page's RE-KEYED clone on the
+page's surface (`movable` → `data-movable`, ids / container members / echo
+flag all fill keys), each page gets its own chips, and a move re-renders
+only that page (`group-fill#offsetChanged`). See templates-fill.md "Move
+tool" → "Group and document pages".

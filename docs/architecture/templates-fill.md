@@ -196,8 +196,8 @@ re-lays out a moved root through `_scheduleRecompute`.
 **Move tool — user-moved elements on the single fill page (2026-11-09, axis-move plan M3)**
 
 The designer's "Uživatel může posunout" allowance (templates-data-model.md
-`userMove`; server pipeline M2) gets its UI. Single page only — the group /
-document pages (M4) and the API / MCP / mfkfm (M5) follow. Contracts:
+`userMove`; server pipeline M2) gets its UI — single page (M3), group and
+document pages (M4, below). Contracts:
 
 - **Data from the server, never recomputed.** `AbstractVariantFiller::movableElements()`
   → `Services/SocialNetwork/FillMovableElements` (rows of
@@ -268,6 +268,55 @@ document pages (M4) and the API / MCP / mfkfm (M5) follow. Contracts:
   DESIGNED positions — an echoed text dragged under other content is drawn
   above it until the settle; the move-only container box grows with its
   reflowed members but never shrinks below the moved server frame.
+- **Group and document pages (M4, 2026-11-09).** A move belongs to ONE size
+  / page (Jan: per-size offsets, the admin max scaled per format — the
+  group sync projects it, M1). Contracts:
+  - Each `.fill-surface` carries ITS rows (`TemplateGroupFillController` /
+    `DocumentFillPage` → `FillMovableElements::forVariant()` of that member
+    / of the page's re-keyed clone, echo ids from
+    `GroupFillPlaceholders::echoCapableIds()`) as `data-movable` + `data-unit`
+    (a group may mix px and mm members); the boxes partial gets `movable` +
+    `move_variant`.
+  - The mover runs SCOPED (`scoped` = the mirrors carry `data-variant-id`):
+    every element is (scope = the surface's variantId, id). Mirrors,
+    `offsets(scope)`, the draft, the selection, ghosts and every piece of
+    chrome (`data-move-variant` on the tool, chip, "Poloha" row, steppers,
+    inputs, reset) are per scope; the unit is the scope's. Unscoped (the
+    single page) is the M3 behaviour unchanged.
+  - "Poloha" lives in the per-surface move-mode CHIP only (one chip set per
+    size / page, `_fill_move_chips` with `move_variant` + `scope_label` —
+    "Jen v rozměru …" / "Jen na straně n"); the shared popovers, the
+    container sheet and "Všechna pole" have no per-size row. On phones the
+    chip docks to the bottom with the 44 px steppers.
+  - The overlay bakes each surface's own offsets (`_offsets(surface)`) into
+    that surface's POJOs, boxes and move-only container boxes.
+  - Mirrors fire `input->group-fill#offsetChanged`: only THAT dimension /
+    page re-renders. Moving an element the dimension's echo paints (an echo
+    text / clean container) keeps the echo base and repaints it at the new
+    place; any other move invalidates that dimension's base only.
+  - Live feedback: an echo row repaints live only when that dimension's echo
+    is READY (`group-fill#echoReady`: painter built + base fetched — the
+    base is lazy on these pages); otherwise the drag lifts a ghost. The
+    decision is taken once per drag (`host.echoLive`) and travels as
+    `fill-move:draft` `{offsets, id, echo, variantId}`; group-fill keeps
+    the draft per variant and passes `painter.update(values, offsets)`.
+  - A settle that reflects the current edit state (the echo-rest rule)
+    dispatches `group-fill:settled` `{variantId}` after the image decodes;
+    the overlay drops that scope's ghosts (`clearGhosts(scope)`).
+  - Image slots in a container moved sideways: `group-fill#_frame()` adds
+    the flow's `dx` (placement ghost + toolbar follow).
+  - Undo: the mirrors are named form fields — a drag = one step, a nudge
+    burst = one step; restore re-renders via the same `offsetChanged`.
+  - Tests: `ElementMoveToolGroupFillTest` (per-surface rows + tools +
+    chips, fill keys on documents, per-size re-render action, nothing
+    without movable elements).
+    Browser-verified 2026-11-09 (puppeteer, local dev, 1440 / 390): a drag
+    on the 4:5 size of a 2-size group moves only it (9:16 mirrors stay 0,
+    only the 4:5 preview POSTs), ghost lifted + cleared on settle, band +
+    readout, move mode + arrows (locked axis swallowed), undo / redo of a
+    nudge burst, per-size PNG download ≡ preview (MSE 0.00007 / 0.00013),
+    the chip docked at the bottom on a phone, a document page moved in
+    fill keys re-rendering that page only (+ its echo base).
 - Tests: `ElementMoveToolFillTest` (rows, one tool per element, glyphs,
   chips / "Poloha" rows, debounce, nothing without movable elements, unit
   captions). Browser-verified 2026-11-09 (puppeteer, local dev, 1440 / 390,
