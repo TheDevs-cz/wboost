@@ -301,6 +301,24 @@ so what previews fine exports fine. The difference is what they ARE:
   The group export (`/api/template-groups/{id}/export[/{variantId}]`) takes
   the same `format`; its PDF ZIP (`{group}-pdf.zip`) holds the print-format
   members only.
+- **`PATCH /api/template-variants/{id}/print-setup`** (2026-11-09) sets the
+  bleed + crop marks of a **standalone** print variant — the web's
+  "Tiskové nastavení". Body `{bleedMm?, cropMarks?}` (`application/json` or
+  `application/merge-patch+json`; an absent key keeps its value): `bleedMm`
+  a number 0–20 mm per side, `cropMarks` a boolean. Answers 200
+  `{id, unit, printFormat, bleedMm, bleedPx, cropMarks}` (`bleedPx` = the
+  bleed in canvas px at 300 DPI); the templates listing reports the new
+  values on `variants[]`. Needs edit rights on the template (owner / admin;
+  403 otherwise). Structured `400 {error, code}`: `invalid_bleed` (not a
+  number, < 0 or > 20 — never clamped), `invalid_crop_marks`,
+  `missing_print_setup` (neither key), `print_setup_not_available` (px /
+  social variant), `document_page` + `documentId` (a page of a multi-page
+  document follows its document — `PATCH /api/template-documents/{id}`
+  instead). A grouped variant is accepted and only that dimension changes
+  (groups have no shared print setup, as on the web). The export takes no
+  bleed override — it always prints with the stored setup, because the
+  artwork has to be designed into the bleed. If your UI lets users set it,
+  default to 3 mm + crop marks.
 
 > Build this URL from `API_BASE` + the variant `id`. Don't reuse the response's
 > `exportUrl` string from a container (its host is `localhost`).

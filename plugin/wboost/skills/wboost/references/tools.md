@@ -22,7 +22,7 @@ called anyway.
 |---|---|
 | `templates:read` | `get_context`, `find_templates`, `describe_variant`, `list_gallery`, `render_variant` |
 | `templates:export` | `export_variant`, `export_document`, `document_history` |
-| `templates:design` | `preview_design`, `set_design`, `manage_document`, `upload_font` |
+| `templates:design` | `preview_design`, `set_design`, `manage_document`, `upload_font`, `set_print_setup` |
 | `gallery:write` | `upload_image` |
 
 Each row lists the tools that **declare** that scope. Implication is separate and
@@ -413,6 +413,25 @@ Every action answers the document:
 Refusals name the invariant: `template_grouped`, `template_not_found`,
 `no_matching_variant`, `template_in_other_document`, `duplicate_page`,
 `too_many_pages` (30), `invalid_binding`.
+
+## `set_print_setup(variantId, bleedMm?, cropMarks?)`
+
+Bleed + crop marks of ONE standalone print variant (mm / cm,
+`dimension.printFormat` true) — what `export_variant` `format: "pdf"` prints
+with. `bleedMm` ("spadávka", 0–20 mm per side) is how far the artwork runs
+past the cut; `cropMarks` adds cut marks in a fixed 5 mm margin outside the
+bleed. An omitted value keeps its setting. **If the user has not said which
+bleed, ask** — suggest 3 mm with crop marks. Changing the bleed re-fits the
+background layer; other edge-reaching artwork must extend `dimension.bleedPx`
+past the edges (`set_design`).
+
+Answers `{variantId, templateName, projectName, grouped, dimension, status}`
+(`dimension` as in `describe_variant`). A grouped variant is accepted and only
+this dimension changes (a group has no shared print setup). Refusals:
+`invalid_bleed` (outside 0–20, never clamped), `invalid_crop_marks`,
+`missing_print_setup`, `print_setup_not_available` (px / social),
+`document_page` (a document page follows its document — use
+`manage_document` `set_print` with the named `documentId`).
 
 ## `preview_design(variantId, design)`
 

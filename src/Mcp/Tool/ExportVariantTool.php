@@ -136,7 +136,7 @@ readonly final class ExportVariantTool
      * to extend into the bleed (negative coordinates / past the canvas size
      * by dimension.bleedPx). This tool takes no bleed override; a document's
      * bleed is changed with manage_document "set_print", a standalone
-     * variant's in the wboost web ("Tiskové nastavení"). If a print variant
+     * variant's with set_print_setup (ask the user first). If a print variant
      * reports bleedMm 0 and the artwork reaches the edge, tell the user
      * before exporting.
      *

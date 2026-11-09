@@ -83,8 +83,9 @@ return App::config([
             Print formats (mm / cm) also export a print PDF with a bleed ("spadávka": how far
             the artwork runs past the cut) and optional crop marks. When you create a print
             document with manage_document and the user has not said which bleed they want,
-            ASK them; suggest 3 mm with crop marks, the common default. Screen formats (px)
-            have no bleed.
+            ASK them; suggest 3 mm with crop marks, the common default. A standalone print
+            variant's bleed is set with set_print_setup (ask the same way). Screen formats
+            (px) have no bleed.
             INSTRUCTIONS,
 
         'client_transports' => [

@@ -1,6 +1,6 @@
 ---
 name: wboost
-description: Use when working with wboost brand templates — listing the user's wboost projects, brand fonts and colours; finding a template variant; filling its text and image placeholders; previewing and exporting the finished PNG; filling and exporting multi-page documents as one PDF; uploading a picture to a project gallery; or authoring a variant's design from scratch. Covers the thirteen wboost MCP tools (get_context, find_templates, describe_variant, list_gallery, render_variant, export_variant, export_document, document_history, upload_image, upload_font, preview_design, set_design, manage_document), the ids-never-names rule, container overflow, the design DSL, and the acknowledgeLosses overwrite guard.
+description: Use when working with wboost brand templates — listing the user's wboost projects, brand fonts and colours; finding a template variant; filling its text and image placeholders; previewing and exporting the finished PNG; filling and exporting multi-page documents as one PDF; uploading a picture to a project gallery; or authoring a variant's design from scratch. Covers the fourteen wboost MCP tools (get_context, find_templates, describe_variant, list_gallery, render_variant, export_variant, export_document, document_history, upload_image, upload_font, preview_design, set_design, manage_document, set_print_setup), the ids-never-names rule, container overflow, the design DSL, and the acknowledgeLosses overwrite guard.
 ---
 
 # wboost templates
@@ -9,7 +9,7 @@ wboost is a brand-manual and template platform. A designer authors a **template
 variant** — a canvas with text placeholders, picture slots and brand assets —
 and it is filled with the user's copy and exported as a finished image.
 
-This connector gives you twelve tools across three jobs:
+This connector gives you fourteen tools across three jobs:
 
 - **read** what the account holds (`get_context`, `find_templates`,
   `describe_variant`, `list_gallery`);
@@ -19,7 +19,8 @@ This connector gives you twelve tools across three jobs:
 - **author** — add pictures to the gallery, add font files, write a
   variant's design yourself and arrange multi-page documents
   (`upload_image`, `upload_font`, `preview_design`, `set_design`,
-  `manage_document`).
+  `manage_document`), and set a print variant's bleed + crop marks
+  (`set_print_setup`).
 
 Which of those you can actually do depends on the scopes the connection was
 granted; `get_context` echoes them back and a tool you lack the scope for is not
@@ -260,6 +261,21 @@ iterate. A second `set_design` on your own design is clean.
 Non-destructive findings (today: the canvas-level background of a legacy
 variant, which lives on the row and survives any canvas write) are reported as
 warnings whether acknowledged or not. They never block.
+
+## Print setup (bleed + crop marks)
+
+Print formats (mm / cm) export a print PDF with a **bleed** ("spadávka" — how
+far the artwork runs past the cut, 0–20 mm) and optional **crop marks** (in a
+fixed 5 mm margin outside the bleed). Screen formats (px) have neither.
+
+- **Ask.** When the user wants something printed and has not said which bleed,
+  ask them — suggest **3 mm with crop marks**, the common default.
+- **Standalone variant:** `set_print_setup(variantId, bleedMm?, cropMarks?)`.
+  A grouped variant changes only itself.
+- **Document:** `manage_document` `create` with `dimension.bleedMm` /
+  `cropMarks`, or `set_print` later. A document's pages follow it —
+  `set_print_setup` on a page answers `document_page`.
+- Edge-reaching artwork extends `dimension.bleedPx` past every canvas edge.
 
 ## Multi-page documents
 

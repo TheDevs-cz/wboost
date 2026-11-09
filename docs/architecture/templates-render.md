@@ -117,7 +117,8 @@ structure of the Illustrator-exported reference file.
 - **Print setup lives on `TemplateDimension`** (`bleedMm`, `cropMarks`;
   0 / false for every pre-existing variant; add forms default to 3 mm +
   marks, an Instagram preset clears both; "Tiskové nastavení" page edits an
-  existing variant). **Bleed ≠ crop-mark margin (2026-11-08)**: `bleedMm`
+  existing variant — so do `PATCH /api/template-variants/{id}/print-setup`
+  and MCP `set_print_setup`, same message, see `api-templates.md`). **Bleed ≠ crop-mark margin (2026-11-08)**: `bleedMm`
   ("Spadávka", the ONLY input) is how far the artwork runs past the cut; the
   crop marks live in a FIXED 5 mm band OUTSIDE the bleed
   (`PrintPageGeometry::MARK_MARGIN_MM`, no input) — each mark sits on a trim

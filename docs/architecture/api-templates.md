@@ -151,9 +151,21 @@ MCP:
   message}]` to its answer (`DocumentSummaryResponse::$warnings`, empty
   everywhere else), and the tool description + server instructions tell the
   agent to ASK for the bleed, suggesting 3 mm + crop marks.
-- Standalone (non-document) variants have NO print-setup write over the API
-  or MCP — the API has no variant writes at all; their bleed is set by the
-  web add form (3 mm + marks default) or "Tiskové nastavení". The export
-  (`format: "pdf"`) always uses the stored setup; it takes no bleed
-  override, because the design has to reach into the bleed it is printed
-  with.
+- **Standalone variant print setup (2026-11-09)**:
+  `PATCH /api/template-variants/{variantId}/print-setup`
+  (`Api/Templates/TemplateVariantPrintSetup{Request,Response,Processor}`) and
+  MCP `set_print_setup` (`Mcp/Tool/SetPrintSetupTool`, `templates:design`)
+  both go through `Services/Template/VariantPrintSetup`, which dispatches the
+  web form's `EditTemplateVariantPrintSettings` (its handler re-fits the
+  background layer to the new bleed box). Absent key = keep; validation =
+  `DocumentWriteInput::printSettings()` + `missing_print_setup`,
+  `print_setup_not_available` (px — the web page 404s too) and
+  `document_page` (+ `documentId`: pages follow their document,
+  `TemplateDocumentPageList::applyPrintSetup`). Access: API
+  `ApiSubjectLoader::variant()` + `TemplateVariantVoter::EDIT` (403); MCP
+  `DesignVariants::editable()` — NOT `writable()`, so grouped variants are
+  accepted and change only themselves, exactly like the web form (a group
+  has no print setup of its own; every member dimension carries its own).
+  The request DTO's fields are `mixed` so wrong types reach the structured
+  `invalid_bleed` / `invalid_crop_marks` instead of the serializer's 400.
+  The export (`format: "pdf"`) takes no bleed override, by design.

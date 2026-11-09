@@ -260,6 +260,15 @@ marks (the API default), and the `create` answer carries
 Out-of-range values (`invalid_bleed`) and a bleed on a px document
 (`print_setup_not_available`) are refused, never silently adjusted.
 
+A **single print template** (not a document) gets its bleed the same way:
+
+> Nastav plakátu A3 spadávku 3 mm a ořezové značky.
+
+`set_print_setup` with `variantId`, `bleedMm: 3`, `cropMarks: true` (the
+assistant asks if you name no bleed). A variant of a synchronized group
+changes only that size; a document page is refused with `document_page` —
+change the document with `set_print`.
+
 ## Two things to say out loud in any prompt
 
 - **The project or template name.** The account may hold dozens of projects;
