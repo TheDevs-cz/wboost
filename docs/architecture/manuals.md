@@ -93,6 +93,24 @@ disappears.
 is the plain logo, annotated with zones or dimensions), so promoting a variant
 must not strip it from them.
 
+**Re-flow contract (2026-11-09, user feedback "u sekce bez sloganu by se to
+mělo přeskládat").** A shared page that loses one of its two variants must not
+keep an empty half (`manual_preview.html.twig`, Bootstrap grid only — no CSS):
+- `horizontal_backgrounds` / `vertical_backgrounds`: both variants = one
+  `col-sm-6` column per variant with its 3 cards stacked (unchanged); one
+  variant left = each of its 3 cards gets its own `col-sm-6` cell (2 + 1 grid,
+  every card `mb-4`).
+- `basic_logos`: vertical + symbol share a row (`col-6` each); only one of
+  them left = `col-12`. `logos_with_claim`: verticalWithClaim stays the
+  half-width `col-6` under the horizontal card; alone (horizontalWithClaim
+  promoted) = `col-12`.
+- `*_monochrome` need nothing: their 2×2 grid of `col-6` cells already wraps
+  the remaining two cards into one full row. `symbol` has a single variant.
+- A re-flowed row carries `manual-logo-reflow` (test hook only). With both
+  variants present the markup renders the same layout as before —
+  screenshots of all six pages were pixel-identical, pinned by
+  `ManualPreviewOwnPageReflowTest`. Card ids and slot ids are unchanged.
+
 Each dedicated page has its own `ManualPage` case (`horizontal_page`,
 `horizontal_with_claim_page`, `vertical_page`, `vertical_with_claim_page`,
 `symbol_page`, reached from Twig via `manual_logo_page(variant)`), so its
