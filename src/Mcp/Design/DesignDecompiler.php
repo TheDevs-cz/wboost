@@ -32,6 +32,7 @@ use WBoost\Web\Value\CanvasShapeKind;
 use WBoost\Web\Value\CanvasShapeStroke;
 use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
+use WBoost\Web\Value\ElementMoveAllowance;
 use WBoost\Web\Value\RichText;
 use WBoost\Web\Value\ShapeColorTarget;
 
@@ -977,6 +978,7 @@ readonly final class DesignDecompiler
             $placement,
             self::textInputSpec($object, $input),
             self::opacity($object),
+            ElementMoveAllowance::fromCanvasObject($object),
         );
     }
 
@@ -1038,7 +1040,33 @@ readonly final class DesignDecompiler
             self::imageInputSpec($object, $input, $placeholder, $path, $losses),
             mirror: !$placeholder && ($object['flipX'] ?? false) === true,
             opacity: self::opacity($object),
+            userMove: self::imageUserMove($object, $placeholder, $path, $losses),
         );
+    }
+
+    /**
+     * "Uživatel může posunout" on an image — decorative ones only. A fillable
+     * placeholder's frame never moves (its own allowMove pans the picture),
+     * and the editor does not offer the switch there; a stray flag on one is
+     * inert and reported instead of becoming a DSL the parser would refuse.
+     *
+     * @param array<array-key, mixed> $object
+     * @param list<DesignLoss> $losses
+     */
+    private static function imageUserMove(array $object, bool $placeholder, string $path, array &$losses): null|ElementMoveAllowance
+    {
+        $allowance = ElementMoveAllowance::fromCanvasObject($object);
+
+        if ($allowance !== null && $placeholder) {
+            $losses[] = new DesignLoss($path . '.userMove', DesignLossCode::InputFeatureDropped, sprintf(
+                '%s carries a "userMove" allowance, but it is a fillable placeholder — its frame never moves (input.allowMove pans the picture inside it). The inert flag is dropped.',
+                $path,
+            ));
+
+            return null;
+        }
+
+        return $allowance;
     }
 
     /**
@@ -1118,6 +1146,7 @@ readonly final class DesignDecompiler
                 $canvas,
             ),
             userColor: self::shapeUserColor($object),
+            userMove: ElementMoveAllowance::fromCanvasObject($object),
         );
     }
 
@@ -1498,7 +1527,7 @@ readonly final class DesignDecompiler
             }
         }
 
-        /** @var list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string}> $built */
+        /** @var list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string, userMove: null|ElementMoveAllowance}> $built */
         $built = [];
 
         foreach ($containers as $position => $container) {
@@ -1562,6 +1591,7 @@ readonly final class DesignDecompiler
                 'spaceAfter' => $container->spaceAfter,
                 'hidable' => $container->hidable,
                 'name' => $container->name,
+                'userMove' => $container->userMove,
             ];
         }
 
@@ -1578,6 +1608,7 @@ readonly final class DesignDecompiler
                 $entry['spaceAfter'],
                 $entry['hidable'],
                 $entry['name'],
+                $entry['userMove'],
             ),
             $built,
         );
@@ -1588,9 +1619,9 @@ readonly final class DesignDecompiler
      * mirroring `sanitizedContainers()` in `assets/controllers/canvas_payload.js`
      * and {@see DesignCompiler}'s own pass, because the parser enforces both.
      *
-     * @param list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string}> $containers
+     * @param list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string, userMove: null|ElementMoveAllowance}> $containers
      * @param list<DesignLoss> $losses
-     * @return list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string}>
+     * @return list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string, userMove: null|ElementMoveAllowance}>
      */
     private static function pruneContainerChildren(array $containers, array &$losses): array
     {
@@ -1663,9 +1694,9 @@ readonly final class DesignDecompiler
      * strip its parent below the minimum — hence the fixpoint, matching
      * {@see DesignCompiler::dropDegenerateToFixpoint()}.
      *
-     * @param list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string}> $containers
+     * @param list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string, userMove: null|ElementMoveAllowance}> $containers
      * @param list<DesignLoss> $losses
-     * @return list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string}>
+     * @return list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string, userMove: null|ElementMoveAllowance}>
      */
     private static function dropDegenerateContainers(array $containers, array &$losses): array
     {
@@ -1683,7 +1714,7 @@ readonly final class DesignDecompiler
                 return $containers;
             }
 
-            /** @var list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string}> $next */
+            /** @var list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string, userMove: null|ElementMoveAllowance}> $next */
             $next = [];
 
             foreach ($containers as $container) {

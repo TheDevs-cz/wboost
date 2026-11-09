@@ -25,6 +25,7 @@ orchestrator dispatches on Fabric's selection lifecycle:
 | `canvas_layers_controller` | Photoshop-style layers panel ("Vrstvy"): topmost-first rows, hover outline, click-select, SortableJS restack, and a per-layer **visibility eye**. Row label = the object's `name` (every popover — text, image, shape — has a "Název" field; the image one is offered for EVERY image since 2026-09-03, not just placeholders, and doubles as the fill-page field tag once the image becomes one), else a per-type fallback **numbered in stack order, bottom = 1** ("Obrázek 1", "Obrázek 2 (placeholder)", "Obdélník 1"; a text falls back to its first line, the single "Pozadí" is never numbered) — `canvas_layer_labels.js`, pure and node-testable. The ordinal is display-only: blank names stay blank in the canvas JSON, so nothing reaches `imageInputs[].name` or the API. The eye is PERSISTED (`visible: false` rides the canvas JSON): hidden layers vanish from renders/exports/thumbnails, are **excluded from fillable inputs** (`buildVariantPayload` + `TextInputObjectBinder` skip invisible objects — the positional textbox↔input contract counts only VISIBLE textboxes), drop out of container membership at layout time (`collectMembers` skips them; fill-time `hide` still collapses), are filtered from API `containers[].memberInputIds`, and propagate through group sync (`visible` ∈ META_KEYS). Also a per-layer **padlock**, which is the element's OWN popover lock and therefore means two different things (each row's title says which): an image — the background included — flips `editorLocked` (editor lock: click-through, immovable), a text flips `locked` (fill-time: the user can't overwrite it). When the row is the active object it delegates to `canvas-input-properties#toggleLocked` / `canvas-image-properties#toggleEditorLock` (+ `refreshContextToggle`) so the popover checkbox and mini-toolbar stay in step; otherwise it flips the flag directly. Selecting a row opens the popover WITHOUT focusing a field (`openPopoverKeepFocus`) — a focused input makes `handleKeydown` bail, which used to swallow Delete for anything selected from the panel. The eye and the padlock are `filter`ed OUT of the row's SortableJS drag (`preventOnFilter: false`) and the list has `fallbackTolerance: 4`: in `forceFallback` mode Sortable owns the pointer from pointerdown and its default 0 px tolerance turned any sub-pixel wobble of a click into a drag whose onEnd rebuild replaced the row before the click landed (2026-09-03, "the eye sometimes does nothing"). |
 | `canvas_floating_toolbar_controller` | The element-anchored floating UX (see below). |
 | `canvas_container_controller` | Containers ("smart text areas") — see the dedicated section below. |
+| `canvas_user_move_controller` | "Uživatel může posunout" — the per-element move allowance section + the range band. See "User-movable elements" below. |
 
 **Element opacity (2026-11-08)**
 
@@ -62,6 +63,62 @@ orchestrator dispatches on Fabric's selection lifecycle:
   the compiler emits the key only when < 1 so older designs recompile
   byte-identically, the decompiler reads it back loss-free (only a background's
   opacity is still a `style_dropped` loss).
+
+**User-movable elements — "Uživatel může posunout" (2026-11-09, M1 of the axis-move plan)**
+
+The ADMIN half of letting the end user move a text (locked ones too), a shape, a
+decorative image or a whole TOP-LEVEL container on the fill page. M1 = editor
+only: nothing on the fill page / render / API reads the allowance yet (M2–M5).
+
+- **Data**: custom prop `userMove` on the object (`CANVAS_CUSTOM_PROPERTIES`)
+  or a `userMove` key on a `containers[]` definition — `{vertical, horizontal,
+  maxUp, maxDown, maxLeft, maxRight}`, canvas px, null = anywhere but the
+  element stays on the artwork, 0 = not that way. Absent = fixed. Canonical
+  shape / bounds / clamp / group scaling / bake live in the classic script
+  `assets/editor/element_move.js` (`window.WBoostElementMove`, loaded by
+  `_editor_scripts`) with the PHP twin `Value/ElementMoveAllowance` +
+  `Value/ElementOffsets`, parity-pinned by `ElementMoveParityTest` (node
+  harness `tests/Fixtures/element-move/harness.cjs`). Full contract:
+  templates-data-model.md. The value is IMMUTABLE — every edit assigns a fresh
+  object, because Fabric clones (clipboard, group sync, undo) share it.
+- **UI**: `editor/_user_move_section.html.twig`, included in the text / image /
+  shape popovers (`surface` suffix on ids): ↕ Svisle switch + max ↑ / ↓, ↔
+  Vodorovně switch + max ← / →, `.ed-geo__field` inputs in the variant's unit
+  (px with 2 decimals, mm 1, cm 2 — `canvas_user_move.js` helpers on top of
+  `image_placement.js` `pxPerUnit`), stored as canvas px. Enter applies, ↑/↓
+  step. A switched-off axis keeps what was typed for that object, so off → on
+  restores it. Not offered on the background or multi-selections; a fillable
+  placeholder shows a hint instead (its frame never moves — its own checkbox is
+  now labelled **"Posun obrázku v rámečku"**); a CONTAINER MEMBER shows the
+  section disabled with a hint (members move with the container; a stored
+  allowance stays, inert, so removing it from the container restores it).
+  Containers: the ⚙ popover's "Uživatel může posunout celý kontejner" block
+  (`buildContainerMoveSection`, top-level only; a nested one with a stored
+  allowance says it is inert); the ⧉ duplicate copies it, × drops it with the
+  definition.
+- **Range band** (`.umove-band`, stage DOM layer, z 897, `after:render` like the
+  zones; hidden by the clean-preview eye): the designed bounding box swept by
+  `WBoostElementMove.bounds` — asymmetric per direction, an unlimited direction
+  runs to the trim edge — with a solid "home" outline and caps "↑ 15 mm" /
+  "→ ∞". Shown for the active movable element, and for a movable top-level
+  container while its ⚙ popover is open (`data-container-id` on the popover) or
+  its members are label-selected. Container frame = union of its visible deep
+  members (not the maxHeight-extended zone).
+- **Undo**: each switch / committed field = `markUnsaved` + ONE synthetic
+  `object:modified` (container edits: `object:modified` with no target, like
+  gap/spaceAfter). Browser-verified 2026-11-09 (single editor 5 edits = 5 steps,
+  undo/redo restore; group undo — which may jump tabs, pre-existing).
+- **Group editor**: `userMove` is a PROJECTED meta key (`PROJECTED_META_KEYS` in
+  `group_sync.js`): flags copy, maxima are re-projected per target — up/down ×
+  height ratio, left/right × width ratio — on the diff pass, a new object's
+  fan-out, the explicit re-sync, and container sync (follows like spacing: the
+  target keeps its own until the active one changes). STORED scaled in every
+  variant (decision: no render-time reference to a sibling exists), and
+  `CanvasDesignProjector` scales it the same way for new dimensions. Verified:
+  40/100 px on 1080×1350 → 56.89/142.22 on 1080×1920 → 103.94/259.85 on A4;
+  10 mm typed on A4 = 118.11 px.
+- **MCP**: DSL `userMove` on text / shape / image / container, linted when inert
+  (see templates-data-model.md); `DesignCompilerTest` parses the JS prop list.
 
 **Image size & position — "Velikost a poloha" (2026-11-09)**
 

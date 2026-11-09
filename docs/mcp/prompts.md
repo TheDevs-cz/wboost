@@ -186,6 +186,17 @@ saved with its colour on Fabric's canvas-level background — invisible in the
 editor — and then "fixed" with a hand-drawn rectangle; both are now linted, and
 `canvas.background.fill` alone compiles to the real layer.)
 
+**Letting the user move an element** ("ať si nadpis může posunout nahoru, když
+se nevejde"): put `userMove` on the text, shape, decorative image or
+**top-level** container — `{"vertical": true, "maxUp": 120, "maxDown": 0}` —
+axes toggled separately, one optional limit per direction in canvas px (`null`
+= anywhere on the artwork, `0` = not that way). It is the editor's "Uživatel
+může posunout" section, byte for byte. On a container member or a nested
+container it is inert and linted (`user_move_on_container_member`,
+`user_move_on_nested_container`); on a fillable placeholder it is refused (its
+`input.allowMove` pans the picture inside the frame). As of 2026-11-09 only the
+allowance is stored — the fill page / API side of moving lands later.
+
 Iterate here as much as you like; nothing is persisted.
 
 ---

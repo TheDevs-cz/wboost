@@ -542,7 +542,8 @@ renderer, so it stops the call before anything is drawn. Other lint codes
 (`out_of_canvas_bounds`, `text_overlap`, `color_not_in_palette`,
 `font_size_too_small`, `container_overflow_predicted`, `container_too_few_items`,
 `container_hidable_without_name`, `image_without_asset_or_placeholder`,
-`max_length_below_stand_in`) are warnings.
+`max_length_below_stand_in`, `user_move_on_container_member`,
+`user_move_on_nested_container`) are warnings.
 
 ---
 
@@ -562,16 +563,17 @@ within the document. Slugs carry input identity across saves.
 | `canvas` | `width`, `height`, `background` |
 | `canvas.background` | `image`, `fill` |
 | `at` | `area`, `col`, `marginX`, `marginY`, `offsetX`, `offsetY` |
-| `text` element | `kind`, `id`, `text`, `font`, `size`, `color`, `align`, `lineHeight`, `opacity`, `at`, `x`, `y`, `width`, `input` |
+| `text` element | `kind`, `id`, `text`, `font`, `size`, `color`, `align`, `lineHeight`, `opacity`, `at`, `x`, `y`, `width`, `input`, `userMove` |
 | `text` input block | `name`, `maxLength`, `uppercase`, `hidable`, `locked`, `richText`, `sampleValue`, `allowedFonts`, `fontChoice`, `allowedColors` |
-| `image` element | `kind`, `id`, `asset`, `at`, `x`, `y`, `width`, `height`, `input`, `mirror`, `opacity` |
+| `image` element | `kind`, `id`, `asset`, `at`, `x`, `y`, `width`, `height`, `input`, `mirror`, `opacity`, `userMove` |
 | `image` input block | `name`, `placeholder`, `allowMove`, `allowResize`, `allowRotate`, `hidable`, `allowedDirectories` |
-| `shape` element | `kind`, `id`, `shape`, `fill`, `stroke`, `strokeWidth`, `strokeStyle`, `cornerRadius`, `opacity`, `name`, `locked`, `userColor`, `at`, `x`, `y`, `width`, `height` |
+| `shape` element | `kind`, `id`, `shape`, `fill`, `stroke`, `strokeWidth`, `strokeStyle`, `cornerRadius`, `opacity`, `name`, `locked`, `userColor`, `at`, `x`, `y`, `width`, `height`, `userMove` |
 | `shape` gradient fill | `type`, `angle`, `from`, `to`, `stops` |
 | `shape` gradient stop | `at`, `color`, `opacity` |
 | `shape` userColor block | `target`, `colors`, `free` |
 | `background` element | `kind`, `id`, `asset`, `fill`, `fillable` |
-| `container` element | `kind`, `id`, `members`, `children`, `maxHeight`, `gap`, `spaceAfter`, `hidable`, `name` |
+| `container` element | `kind`, `id`, `members`, `children`, `maxHeight`, `gap`, `spaceAfter`, `hidable`, `name`, `userMove` |
+| `userMove` block | `vertical`, `horizontal`, `maxUp`, `maxDown`, `maxLeft`, `maxRight` |
 
 ### Enumerated values
 
@@ -660,6 +662,22 @@ within the document. Slugs carry input identity across saves.
   below. `hidable: true` lets the user (fill page) and API/MCP callers hide the
   WHOLE container with one toggle — give it a `name` (the toggle's label, e.g.
   `"Bublina s citací"`).
+- **`userMove`** ("Uživatel může posunout") on a `text` (locked ones too), a
+  `shape`, a **decorative** `image` or a **top-level** `container`: the person
+  filling the template may move that element (a container: the whole block).
+  `{"vertical": true, "horizontal": false, "maxUp": 120, "maxDown": 0}` — the
+  two axes are toggled separately and each DIRECTION has its own optional
+  limit in canvas px: `null` / omitted = anywhere, but the element stays on
+  the artwork; `0` = not that way (the example: only upwards, at most 120 px).
+  A limit on an axis that is not allowed is refused, and so is a block that
+  allows neither axis. Refused on a fillable placeholder (its
+  `input.allowMove` pans the picture inside the frame). On a container
+  member or a nested container it is stored but does nothing (lint
+  `user_move_on_container_member` / `user_move_on_nested_container`). In a
+  template group the limits are per size: other sizes scale them by their
+  height (up/down) and width (left/right) ratio when the designer syncs.
+  The fill page / API side of moving is not live yet — today the DSL only
+  records the allowance.
 - **colours**: `#rrggbb` or `#rgb` shorthand, normalized to lowercase. No alpha.
 - **`asset` / `allowedDirectories[]`**: gallery UUIDs from `list_gallery` or
   `upload_image` — never a file name or a URL.

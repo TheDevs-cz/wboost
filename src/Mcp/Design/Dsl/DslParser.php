@@ -10,6 +10,7 @@ use WBoost\Web\Value\CanvasShapeGradient;
 use WBoost\Web\Value\CanvasShapeGradientStop;
 use WBoost\Web\Value\CanvasShapeKind;
 use WBoost\Web\Value\CanvasShapeStroke;
+use WBoost\Web\Value\ElementMoveAllowance;
 use WBoost\Web\Value\RichText;
 use WBoost\Web\Value\ShapeColorTarget;
 
@@ -70,19 +71,19 @@ final class DslParser
     public const array AT_KEYS = ['area', 'col', 'marginX', 'marginY', 'offsetX', 'offsetY'];
 
     /** @var list<string> */
-    public const array TEXT_KEYS = ['kind', 'id', 'text', 'font', 'size', 'color', 'align', 'lineHeight', 'opacity', 'at', 'x', 'y', 'width', 'input'];
+    public const array TEXT_KEYS = ['kind', 'id', 'text', 'font', 'size', 'color', 'align', 'lineHeight', 'opacity', 'at', 'x', 'y', 'width', 'input', 'userMove'];
 
     /** @var list<string> */
     public const array TEXT_INPUT_KEYS = ['name', 'maxLength', 'uppercase', 'hidable', 'locked', 'richText', 'sampleValue', 'allowedFonts', 'fontChoice', 'allowedColors'];
 
     /** @var list<string> */
-    public const array IMAGE_KEYS = ['kind', 'id', 'asset', 'at', 'x', 'y', 'width', 'height', 'input', 'mirror', 'opacity'];
+    public const array IMAGE_KEYS = ['kind', 'id', 'asset', 'at', 'x', 'y', 'width', 'height', 'input', 'mirror', 'opacity', 'userMove'];
 
     /** @var list<string> */
     public const array IMAGE_INPUT_KEYS = ['name', 'placeholder', 'allowMove', 'allowResize', 'allowRotate', 'hidable', 'allowedDirectories'];
 
     /** @var list<string> */
-    public const array SHAPE_KEYS = ['kind', 'id', 'shape', 'fill', 'stroke', 'strokeWidth', 'strokeStyle', 'cornerRadius', 'opacity', 'name', 'locked', 'userColor', 'at', 'x', 'y', 'width', 'height'];
+    public const array SHAPE_KEYS = ['kind', 'id', 'shape', 'fill', 'stroke', 'strokeWidth', 'strokeStyle', 'cornerRadius', 'opacity', 'name', 'locked', 'userColor', 'at', 'x', 'y', 'width', 'height', 'userMove'];
 
     /**
      * The keys of a shape's `userColor` block ({@see ShapeUserColor}).
@@ -112,7 +113,16 @@ final class DslParser
     public const array BACKGROUND_KEYS = ['kind', 'id', 'asset', 'fill', 'fillable'];
 
     /** @var list<string> */
-    public const array CONTAINER_KEYS = ['kind', 'id', 'members', 'children', 'maxHeight', 'gap', 'spaceAfter', 'hidable', 'name'];
+    public const array CONTAINER_KEYS = ['kind', 'id', 'members', 'children', 'maxHeight', 'gap', 'spaceAfter', 'hidable', 'name', 'userMove'];
+
+    /**
+     * The `userMove` block ("Uživatel může posunout") — the canvas contract's
+     * own vocabulary ({@see ElementMoveAllowance}), so what the editor saves
+     * is what the DSL says.
+     *
+     * @var list<string>
+     */
+    public const array USER_MOVE_KEYS = ['vertical', 'horizontal', 'maxUp', 'maxDown', 'maxLeft', 'maxRight'];
 
     /**
      * Slug shape: lowercase only, so two ids can never differ by case alone —
@@ -391,12 +401,13 @@ final class DslParser
         $opacity = $this->readOpacity($path, $raw);
         $placement = $this->parsePlacement($path, $raw, allowHeight: false);
         $input = $this->parseTextInput($path, $raw['input'] ?? null);
+        $userMove = $this->readUserMove($path, $raw);
 
         if ($id === null || $text === null || $font === null || $size === null || $placement === null) {
             return null;
         }
 
-        return new TextElement($id, $text, $font, $size, $color, $align, $lineHeight, $placement, $input, $opacity);
+        return new TextElement($id, $text, $font, $size, $color, $align, $lineHeight, $placement, $input, $opacity, $userMove);
     }
 
     /**
@@ -409,6 +420,7 @@ final class DslParser
         $input = $this->parseImageInput($path, $raw['input'] ?? null);
         $mirror = $this->readBool($path, $raw, 'mirror', false);
         $opacity = $this->readOpacity($path, $raw);
+        $userMove = $this->readUserMove($path, $raw);
 
         // A fill re-places a placeholder's picture and resets its flip
         // (ImagePlacement) — a mirrored placeholder would preview a state no
@@ -421,11 +433,21 @@ final class DslParser
             $mirror = false;
         }
 
+        // A placeholder's own "allowMove" pans the PICTURE inside its frame;
+        // moving the frame itself is not offered for fillable slots (v1).
+        if ($userMove !== null && $input !== null && $input->placeholder) {
+            $this->violation(self::join($path, 'userMove'), DslErrorCode::InvalidValue, sprintf(
+                '%s: only a decorative image can be moved by the user. On a fillable placeholder use input.allowMove — it lets the user pan the picture inside the frame; the frame itself stays put.',
+                self::join($path, 'userMove'),
+            ));
+            $userMove = null;
+        }
+
         if ($id === null || $placement === null) {
             return null;
         }
 
-        return new ImageElement($id, $assetId, $placement, $input, $mirror, $opacity);
+        return new ImageElement($id, $assetId, $placement, $input, $mirror, $opacity, $userMove);
     }
 
     /**
@@ -451,6 +473,7 @@ final class DslParser
         $name = $this->readString($path, $raw, 'name');
         $locked = $this->readBool($path, $raw, 'locked', false);
         $userColor = $this->readShapeUserColor($path, $raw);
+        $userMove = $this->readUserMove($path, $raw);
         $placement = $this->parsePlacement($path, $raw, allowHeight: true);
 
         // Rounding is a rectangle affordance. On an Ellipse (and on the Circle
@@ -489,6 +512,7 @@ final class DslParser
             locked: $locked,
             placement: $placement,
             userColor: $userColor,
+            userMove: $userMove,
         );
     }
 
@@ -537,6 +561,62 @@ final class DslParser
             colors: $this->readColorList($blockPath, $value, 'colors') ?? [],
             free: $this->readBool($blockPath, $value, 'free', false),
         );
+    }
+
+    /**
+     * `userMove: {vertical, horizontal, maxUp?, maxDown?, maxLeft?, maxRight?}`
+     * — absent / null = fixed in place. Maxima are px ≥ 0 (0 = not that way,
+     * null / absent = anywhere on the artwork). A maximum on an axis that is
+     * not allowed is refused rather than silently dropped: it says the agent
+     * meant something the flags do not.
+     *
+     * @param array<array-key, mixed> $raw
+     */
+    private function readUserMove(string $path, array $raw): null|ElementMoveAllowance
+    {
+        $value = $raw['userMove'] ?? null;
+
+        if ($value === null) {
+            return null;
+        }
+
+        $blockPath = self::join($path, 'userMove');
+
+        if (!is_array($value) || array_is_list($value)) {
+            $this->wrongType($path, 'userMove', sprintf('an object {%s} (or null)', implode(', ', self::USER_MOVE_KEYS)), $value);
+
+            return null;
+        }
+
+        $this->checkKeys($blockPath, $value, self::USER_MOVE_KEYS, 'a userMove block');
+
+        $vertical = $this->readBool($blockPath, $value, 'vertical', false);
+        $horizontal = $this->readBool($blockPath, $value, 'horizontal', false);
+        $maxima = [];
+        foreach (['maxUp' => $vertical, 'maxDown' => $vertical, 'maxLeft' => $horizontal, 'maxRight' => $horizontal] as $key => $axisAllowed) {
+            $maxima[$key] = $this->readNonNegativeNumber($blockPath, $value, $key);
+            if ($maxima[$key] !== null && !$axisAllowed) {
+                $this->invalidValue($blockPath, $key, sprintf(
+                    'needs %s: true — a limit on an axis the user may not move along means nothing',
+                    in_array($key, ['maxUp', 'maxDown'], true) ? 'vertical' : 'horizontal',
+                ));
+            }
+        }
+
+        if (!$vertical && !$horizontal) {
+            $this->violation($blockPath, DslErrorCode::InvalidValue, sprintf(
+                '%s must allow at least one axis (vertical: true and/or horizontal: true). Drop the block to keep the element in place.',
+                $blockPath,
+            ));
+
+            return null;
+        }
+
+        return ElementMoveAllowance::fromArray([
+            'vertical' => $vertical,
+            'horizontal' => $horizontal,
+            ...$maxima,
+        ]);
     }
 
     /**
@@ -866,12 +946,13 @@ final class DslParser
         $hidable = $this->readBool($path, $raw, 'hidable', false);
         $name = $this->readString($path, $raw, 'name');
         $name = $name === null || trim($name) === '' ? null : trim($name);
+        $userMove = $this->readUserMove($path, $raw);
 
         if ($id === null) {
             return null;
         }
 
-        return new ContainerElement($id, $members, $children, $maxHeight, $gap, $spaceAfter, $hidable, $name);
+        return new ContainerElement($id, $members, $children, $maxHeight, $gap, $spaceAfter, $hidable, $name, $userMove);
     }
 
     // -----------------------------------------------------------------

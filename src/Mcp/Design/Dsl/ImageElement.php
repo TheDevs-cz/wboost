@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Mcp\Design\Dsl;
 
+use WBoost\Web\Value\ElementMoveAllowance;
+
 /**
  * An image element — a Fabric image object, either decorative or a fillable
  * placeholder ({@see ImageInputSpec}).
@@ -41,6 +43,12 @@ readonly final class ImageElement implements DesignElement
          * the source and the placement, never the opacity.
          */
         public float $opacity = 1.0,
+        /**
+         * "Uživatel může posunout" (canvas `userMove`): the end user may move
+         * the element along the allowed axes, up to the per-direction maxima
+         * (px, null = anywhere on the artwork). Null = fixed in place.
+         */
+        public null|ElementMoveAllowance $userMove = null,
     ) {
     }
 
@@ -67,7 +75,7 @@ readonly final class ImageElement implements DesignElement
     {
         $placement = $this->placement->toArray();
 
-        return [
+        $data = [
             'kind' => ElementKind::Image->value,
             'id' => $this->id,
             'asset' => $this->assetId,
@@ -80,5 +88,11 @@ readonly final class ImageElement implements DesignElement
             'mirror' => $this->mirror,
             'opacity' => $this->opacity,
         ];
+
+        if ($this->userMove !== null) {
+            $data['userMove'] = $this->userMove->toArray();
+        }
+
+        return $data;
     }
 }

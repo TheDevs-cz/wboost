@@ -1,0 +1,51 @@
+{# "Uživatel může posunout" — the end user may move this element on the fill
+   page (canvas custom prop `userMove`, see assets/editor/element_move.js).
+   Driven by canvas-user-move; included once per element popover (text,
+   image, shape), so ids carry the `surface` suffix. Containers get the same
+   fields in their ⚙ popover (built by canvas_user_move.js). Values are typed
+   in the variant's unit and stored as canvas px. #}
+{% set s = surface %}
+<div class="ed-umove d-none" data-canvas-user-move-target="section">
+    <h3 class="ed-sec-h">Uživatel může posunout</h3>
+    <p class="ed-umove__hint d-none" data-canvas-user-move-target="memberHint">Prvek je součástí kontejneru — při vyplňování se posouvá s ním. Posun povolte celému kontejneru (⚙ na jeho rámečku).</p>
+    <p class="ed-umove__hint d-none" data-canvas-user-move-target="placeholderHint">U pole pro obrázek se rámeček nehýbe — posun obrázku v rámečku nastavíte výše.</p>
+    <div class="ed-umove__body" data-canvas-user-move-target="body">
+        <div class="ed-umove__axis">
+            <div class="form-check form-switch mb-0">
+                <input type="checkbox" role="switch" id="umove-vertical-{{ s }}" class="form-check-input" data-axis="vertical" data-canvas-user-move-target="toggle" data-action="change->canvas-user-move#toggleAxis">
+                <label for="umove-vertical-{{ s }}" class="form-check-label small">↕ Svisle</label>
+            </div>
+            <div class="ed-umove__limits" data-axis="vertical" data-canvas-user-move-target="limits">
+                <label class="ed-geo__field" title="Nejvýš o kolik nahoru">
+                    <span class="ed-geo__key" aria-hidden="true">↑</span>
+                    <input type="text" inputmode="decimal" class="form-control form-control-sm" placeholder="kamkoli" aria-label="Maximální posun nahoru" data-dir="maxUp" data-canvas-user-move-target="max" data-action="change->canvas-user-move#updateMax keydown->canvas-user-move#maxKeydown">
+                    <span class="ed-geo__unit" data-canvas-user-move-target="unit">px</span>
+                </label>
+                <label class="ed-geo__field" title="Nejvýš o kolik dolů">
+                    <span class="ed-geo__key" aria-hidden="true">↓</span>
+                    <input type="text" inputmode="decimal" class="form-control form-control-sm" placeholder="kamkoli" aria-label="Maximální posun dolů" data-dir="maxDown" data-canvas-user-move-target="max" data-action="change->canvas-user-move#updateMax keydown->canvas-user-move#maxKeydown">
+                    <span class="ed-geo__unit" data-canvas-user-move-target="unit">px</span>
+                </label>
+            </div>
+        </div>
+        <div class="ed-umove__axis">
+            <div class="form-check form-switch mb-0">
+                <input type="checkbox" role="switch" id="umove-horizontal-{{ s }}" class="form-check-input" data-axis="horizontal" data-canvas-user-move-target="toggle" data-action="change->canvas-user-move#toggleAxis">
+                <label for="umove-horizontal-{{ s }}" class="form-check-label small">↔ Vodorovně</label>
+            </div>
+            <div class="ed-umove__limits" data-axis="horizontal" data-canvas-user-move-target="limits">
+                <label class="ed-geo__field" title="Nejvýš o kolik doleva">
+                    <span class="ed-geo__key" aria-hidden="true">←</span>
+                    <input type="text" inputmode="decimal" class="form-control form-control-sm" placeholder="kamkoli" aria-label="Maximální posun doleva" data-dir="maxLeft" data-canvas-user-move-target="max" data-action="change->canvas-user-move#updateMax keydown->canvas-user-move#maxKeydown">
+                    <span class="ed-geo__unit" data-canvas-user-move-target="unit">px</span>
+                </label>
+                <label class="ed-geo__field" title="Nejvýš o kolik doprava">
+                    <span class="ed-geo__key" aria-hidden="true">→</span>
+                    <input type="text" inputmode="decimal" class="form-control form-control-sm" placeholder="kamkoli" aria-label="Maximální posun doprava" data-dir="maxRight" data-canvas-user-move-target="max" data-action="change->canvas-user-move#updateMax keydown->canvas-user-move#maxKeydown">
+                    <span class="ed-geo__unit" data-canvas-user-move-target="unit">px</span>
+                </label>
+            </div>
+        </div>
+        <p class="ed-umove__hint">Prázdné pole = kamkoli, prvek ale zůstane na ploše. 0 = tímto směrem ne. Rozsah ukazuje čárkovaný rámeček na plátně.</p>
+    </div>
+</div>

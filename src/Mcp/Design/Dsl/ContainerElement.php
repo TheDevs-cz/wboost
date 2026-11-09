@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Mcp\Design\Dsl;
 
+use WBoost\Web\Value\ElementMoveAllowance;
+
 /**
  * A container ("smart text area"): a vertical flow whose items reflow at
  * render time — a filled text that wraps to more lines pushes everything below
@@ -70,6 +72,14 @@ readonly final class ContainerElement implements DesignElement
         public bool $hidable = false,
         /** Label of the hide toggle on the fill pages. Null = unnamed. */
         public null|string $name = null,
+        /**
+         * "Uživatel může posunout celý kontejner" (canvas `userMove` on the
+         * definition): the end user may move the WHOLE block along the
+         * allowed axes, up to the per-direction maxima (px, null = anywhere
+         * on the artwork). Top-level containers only — inert (and linted)
+         * on a nested one. Null = fixed in place.
+         */
+        public null|ElementMoveAllowance $userMove = null,
     ) {
     }
 
@@ -93,7 +103,7 @@ readonly final class ContainerElement implements DesignElement
      */
     public function toArray(): array
     {
-        return [
+        $data = [
             'kind' => ElementKind::Container->value,
             'id' => $this->id,
             'members' => $this->memberIds,
@@ -104,5 +114,11 @@ readonly final class ContainerElement implements DesignElement
             'hidable' => $this->hidable,
             'name' => $this->name,
         ];
+
+        if ($this->userMove !== null) {
+            $data['userMove'] = $this->userMove->toArray();
+        }
+
+        return $data;
     }
 }

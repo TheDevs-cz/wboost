@@ -33,6 +33,7 @@ use WBoost\Web\Query\GetProjectPalette;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Value\CanvasShapeKind;
 use WBoost\Web\Value\CanvasShapeStroke;
+use WBoost\Web\Value\ElementMoveAllowance;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 
 /**
@@ -193,6 +194,19 @@ final class DesignLinterTest extends KernelTestCase
                 self::text('headline', 80.0, 200.0, 920.0),
                 self::text('subhead', 80.0, 300.0, 920.0),
                 new ContainerElement('bubble', ['headline', 'subhead'], [], 600.0, null, null, true),
+            ]),
+            LintCode::UserMoveOnContainerMember => self::document([
+                self::text('headline', 80.0, 200.0, 920.0, userMove: new ElementMoveAllowance(true, false)),
+                self::text('subhead', 80.0, 300.0, 920.0),
+                self::container('body', ['headline', 'subhead'], maxHeight: 600.0),
+            ]),
+            LintCode::UserMoveOnNestedContainer => self::document([
+                self::text('headline', 80.0, 100.0, 920.0),
+                self::text('subhead', 80.0, 200.0, 920.0),
+                self::text('first', 80.0, 300.0, 920.0),
+                self::text('second', 80.0, 400.0, 920.0),
+                new ContainerElement('inner', ['first', 'second'], [], null, null, null, userMove: new ElementMoveAllowance(true, true)),
+                self::container('outer', ['headline', 'subhead'], ['inner'], maxHeight: 900.0),
             ]),
             LintCode::ImageWithoutAssetOrPlaceholder => self::document([
                 self::image('photo', 80.0, 400.0, 920.0, 400.0, placeholder: false),
@@ -724,6 +738,7 @@ final class DesignLinterTest extends KernelTestCase
         null|string $sampleValue = null,
         bool $richText = false,
         bool $uppercase = false,
+        null|ElementMoveAllowance $userMove = null,
     ): TextElement {
         return new TextElement(
             id: $id,
@@ -741,6 +756,7 @@ final class DesignLinterTest extends KernelTestCase
                 richText: $richText,
                 sampleValue: $sampleValue,
             ),
+            userMove: $userMove,
         );
     }
 

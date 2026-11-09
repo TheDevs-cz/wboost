@@ -210,6 +210,11 @@ export function buildVariantPayload(canvas) {
             serialized.src = serialized[MISSING_SRC_PROP];
         }
         delete serialized[MISSING_SRC_PROP];
+
+        // "Uživatel může posunout": persisted in its canonical shape, and
+        // only when at least one axis is allowed (untouched objects keep
+        // their exact JSON).
+        normalizeUserMove(serialized);
     });
 
     // Container definitions travel inside the canvas document (sanitized:
@@ -326,6 +331,22 @@ export function sanitizedGuides(canvas) {
 }
 
 /**
+ * Canonicalise an object's / container entry's `userMove` in place (the
+ * shared WBoostElementMove.normalize, ≡ PHP ElementMoveAllowance::fromArray):
+ * an allowance that allows nothing is removed.
+ */
+function normalizeUserMove(entry) {
+    if (!entry || entry.userMove === undefined) return;
+    const core = typeof window !== 'undefined' ? window.WBoostElementMove : null;
+    const normalized = core ? core.normalize(entry.userMove) : entry.userMove;
+    if (normalized) {
+        entry.userMove = normalized;
+    } else {
+        delete entry.userMove;
+    }
+}
+
+/**
  * Container sanitization: stale members pruned (texts + decorative images —
  * fillable placeholders and the background layer are never members), flow
  * order re-derived from tops, child references validated (existing ids only,
@@ -376,6 +397,13 @@ export function sanitizedContainers(canvas, objects) {
             }
             if (typeof container.name === 'string' && container.name.trim() !== '') {
                 entry.name = container.name.trim();
+            }
+            // "Uživatel může posunout celý kontejner" — same canonical shape
+            // as on objects, emitted only when set. Kept (inert) on a nested
+            // container so un-nesting restores it.
+            if (container.userMove !== undefined) {
+                entry.userMove = container.userMove;
+                normalizeUserMove(entry);
             }
             return entry;
         })

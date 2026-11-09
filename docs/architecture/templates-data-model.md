@@ -31,6 +31,46 @@ monolithic Stimulus controller, Fabric v5) have been retired.
   fallback for legacy rows; once the migration has run on prod, no live row
   hits it.
 
+**User-movable elements — `userMove` (2026-11-09, axis-move plan M0/M1)**
+
+"Uživatel může posunout": the designer lets the END USER move an element on
+the fill page / via the API (moving lands in M2–M5; today only the allowance is
+authored). Contract:
+
+```json
+"userMove": {"vertical": true, "horizontal": false,
+             "maxUp": 120, "maxDown": 0, "maxLeft": null, "maxRight": null}
+```
+
+- On a Fabric object (text — locked included —, shape, DECORATIVE image) as a
+  custom prop, or on a TOP-LEVEL `containers[]` definition (moves the whole
+  deep tree). Emitted only when at least one axis is allowed — fixed elements
+  keep their exact JSON. Never on the background; on a fillable placeholder,
+  a container member or a nested container it is inert (kept, so dissolving /
+  un-nesting restores it; the editor and the MCP linter say so).
+- The two axes are toggled separately; each DIRECTION has its own optional
+  limit (Jan 2026-11-09: separate up/down/left/right, not a symmetric ±), in
+  canvas px of the variant that stores it, rounded to 1/100. `null` = no
+  limit, but the element's bounding box stays on the artwork (an element the
+  design already hangs over an edge may not go further out); `0` = not that
+  way. A disabled axis always carries null maxima.
+- Single source of maths: PHP `Value/ElementMoveAllowance` (`fromArray`
+  lenient normalisation, `bounds`, `clamp`, `scaled`) + `Value/ElementOffsets::bake`
+  (translate `left`/`top` + an `absolutePositioned` clipPath; container keys
+  move every deep member; keys add) ≡ JS `assets/editor/element_move.js`.
+  Rounding is spelled out with `floor(abs·100+0.5)` on both sides (PHP's
+  `round()` and `Math.round` differ on negatives); no `-0`. Parity test:
+  `tests/Value/ElementMoveParityTest.php`.
+- No column, no migration. `CanvasContainer` parses it (`$userMove`) but
+  `toArray()` does NOT emit it yet — those arrays feed the fill / echo /
+  render payloads, which move nothing before M2.
+- Groups: stored ALREADY SCALED per variant (up/down × height ratio,
+  left/right × width ratio) by `group_sync.js` and `CanvasDesignProjector`.
+- MCP DSL: `userMove` with the same keys on text / image (refused on a
+  placeholder) / shape / container; a block allowing no axis, a limit on a
+  disabled axis or a negative limit is refused; lint warnings
+  `user_move_on_container_member`, `user_move_on_nested_container`.
+
 **Backgrounds — canvas mode vs LAYER mode (`background_mode` column)**
 
 Two styles, discriminated by the `background_mode` column (`BackgroundMode`

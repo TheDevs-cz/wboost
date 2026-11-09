@@ -7,6 +7,7 @@ namespace WBoost\Web\Mcp\Design\Dsl;
 use WBoost\Web\Value\CanvasShapeGradient;
 use WBoost\Web\Value\CanvasShapeKind;
 use WBoost\Web\Value\CanvasShapeStroke;
+use WBoost\Web\Value\ElementMoveAllowance;
 
 /**
  * A vector shape — the DSL face of the editor's "Přidat tvar" primitive
@@ -69,6 +70,12 @@ readonly final class ShapeElement implements DesignElement
         public Placement $placement,
         /** End-user recolouring ("Barva pro uživatele"); null = the shape is purely decorative. */
         public null|ShapeUserColor $userColor = null,
+        /**
+         * "Uživatel může posunout" (canvas `userMove`): the end user may move
+         * the element along the allowed axes, up to the per-direction maxima
+         * (px, null = anywhere on the artwork). Null = fixed in place.
+         */
+        public null|ElementMoveAllowance $userMove = null,
     ) {
     }
 
@@ -96,7 +103,7 @@ readonly final class ShapeElement implements DesignElement
     {
         $placement = $this->placement->toArray();
 
-        return [
+        $data = [
             'kind' => ElementKind::Shape->value,
             'id' => $this->id,
             'shape' => $this->shape->value,
@@ -115,5 +122,11 @@ readonly final class ShapeElement implements DesignElement
             'width' => $placement['width'],
             'height' => $placement['height'],
         ];
+
+        if ($this->userMove !== null) {
+            $data['userMove'] = $this->userMove->toArray();
+        }
+
+        return $data;
     }
 }

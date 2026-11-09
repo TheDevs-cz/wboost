@@ -816,7 +816,7 @@ readonly final class DesignLinter
         }
 
         /** @var list<LintFinding> $findings */
-        $findings = [];
+        $findings = self::checkUserMove($document, $containers, $parentOf, $indexById);
 
         foreach ($containers as $container) {
             $path = sprintf('elements[%d]', $indexById[$container->id] ?? 0);
@@ -863,6 +863,70 @@ readonly final class DesignLinter
             if ($overflow !== null) {
                 $findings[] = $overflow;
             }
+        }
+
+        return $findings;
+    }
+
+    /**
+     * "Uživatel může posunout" only works on free elements and on TOP-LEVEL
+     * containers (the whole block moves); on a member or a nested container
+     * the allowance is stored but inert — tell the agent instead of letting
+     * it believe the user can move it.
+     *
+     * @param list<ContainerElement> $containers
+     * @param array<string, string> $parentOf child container id → parent id
+     * @param array<string, int> $indexById
+     * @return list<LintFinding>
+     */
+    private static function checkUserMove(DesignDocument $document, array $containers, array $parentOf, array $indexById): array
+    {
+        $findings = [];
+        /** @var array<string, string> $containerOfMember */
+        $containerOfMember = [];
+
+        foreach ($containers as $container) {
+            foreach ($container->memberIds as $memberId) {
+                $containerOfMember[$memberId] ??= $container->id;
+            }
+
+            if ($container->userMove !== null && isset($parentOf[$container->id])) {
+                $path = sprintf('elements[%d].userMove', $indexById[$container->id] ?? 0);
+                $findings[] = new LintFinding(
+                    LintCode::UserMoveOnNestedContainer,
+                    $container->id,
+                    $path,
+                    sprintf(
+                        '%s: "%s" is nested in "%s", and only a top-level container moves as one block — this allowance does nothing. Put userMove on "%s" instead (or drop it).',
+                        $path,
+                        $container->id,
+                        $parentOf[$container->id],
+                        $parentOf[$container->id],
+                    ),
+                );
+            }
+        }
+
+        foreach ($document->elements as $element) {
+            if (!($element instanceof TextElement || $element instanceof ImageElement || $element instanceof ShapeElement)
+                || $element->userMove === null
+                || !isset($containerOfMember[$element->id])
+            ) {
+                continue;
+            }
+
+            $path = sprintf('elements[%d].userMove', $indexById[$element->id] ?? 0);
+            $findings[] = new LintFinding(
+                LintCode::UserMoveOnContainerMember,
+                $element->id,
+                $path,
+                sprintf(
+                    '%s: "%s" is a member of the container "%s"; members never move on their own (the flow already pushes them when a text above grows), so this allowance does nothing. Put userMove on the top-level container to let the user move the whole block.',
+                    $path,
+                    $element->id,
+                    $containerOfMember[$element->id],
+                ),
+            );
         }
 
         return $findings;

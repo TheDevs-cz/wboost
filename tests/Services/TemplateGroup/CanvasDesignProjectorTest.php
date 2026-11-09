@@ -102,6 +102,46 @@ final class CanvasDesignProjectorTest extends TestCase
         self::assertSame(['a', 'b'], $container['memberInputIds']);
     }
 
+    public function testUserMoveMaximaScalePerAxisOnObjectsAndContainers(): void
+    {
+        $canvas = json_encode([
+            'version' => '5.2.4',
+            'objects' => [
+                ['type' => 'Textbox', 'inputId' => 'a', 'left' => 0, 'top' => 0, 'width' => 100,
+                    'userMove' => ['vertical' => true, 'horizontal' => true, 'maxUp' => 40, 'maxDown' => null, 'maxLeft' => 10, 'maxRight' => 0]],
+                ['type' => 'rect', 'inputId' => 'r', 'left' => 0, 'top' => 0, 'userMove' => ['vertical' => false]],
+            ],
+            'containers' => [
+                ['id' => 'c-1', 'maxHeight' => 300, 'memberInputIds' => ['a', 'b'],
+                    'userMove' => ['vertical' => true, 'horizontal' => false, 'maxUp' => null, 'maxDown' => 100]],
+            ],
+        ], JSON_THROW_ON_ERROR);
+
+        $projected = $this->decode($this->projector->project($canvas, 1080, 1350, 2160, 1920, 'https://assets/bg.png'));
+
+        $objects = $projected['objects'] ?? null;
+        self::assertIsArray($objects);
+        $text = $objects[0] ?? null;
+        self::assertIsArray($text);
+        self::assertSame(
+            // Whole numbers come back as ints: the projector stores json_encode()d floats.
+            ['vertical' => true, 'horizontal' => true, 'maxUp' => 56.89, 'maxDown' => null, 'maxLeft' => 20, 'maxRight' => 0],
+            $text['userMove'],
+        );
+        $rect = $objects[1] ?? null;
+        self::assertIsArray($rect);
+        self::assertArrayNotHasKey('userMove', $rect, 'an allowance that allows nothing is dropped');
+
+        $containers = $projected['containers'] ?? null;
+        self::assertIsArray($containers);
+        $container = $containers[0] ?? null;
+        self::assertIsArray($container);
+        self::assertSame(
+            ['vertical' => true, 'horizontal' => false, 'maxUp' => null, 'maxDown' => 142.22, 'maxLeft' => null, 'maxRight' => null],
+            $container['userMove'],
+        );
+    }
+
     public function testBackgroundIsReplacedWithFullBleedTargetBlock(): void
     {
         $canvas = json_encode([

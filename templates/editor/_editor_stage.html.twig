@@ -10,7 +10,7 @@
    must stay put. Max-height (the visible band below the sticky header) is
    maintained by canvas_zoom_controller. #}
 <div class="canvas-viewport" data-canvas-zoom-target="viewport">
-<div class="canvas-stage" data-canvas-floating-toolbar-target="layer" data-canvas-container-target="layer" data-canvas-layers-target="stage" data-canvas-snapping-target="layer" data-canvas-rulers-target="layer">
+<div class="canvas-stage" data-canvas-floating-toolbar-target="layer" data-canvas-container-target="layer" data-canvas-layers-target="stage" data-canvas-snapping-target="layer" data-canvas-rulers-target="layer" data-canvas-user-move-target="layer">
     <div class="canvas-wrapper" data-canvas-zoom-target="canvasContainer">
         <canvas id="c" width="{{ canvas_width + 2 * canvas_bleed|default(0) }}" height="{{ canvas_height + 2 * canvas_bleed|default(0) }}"></canvas>
     </div>
@@ -357,6 +357,8 @@
                 </div>
             </div>
 
+            {{ include('editor/_user_move_section.html.twig', {surface: 'text'}) }}
+
             {# Container membership — only the ELEMENT-specific action lives
                here; the container itself (max. výška, mezery, vnoření,
                zrušení) is configured in its zone's ⚙ popover on the canvas. #}
@@ -494,10 +496,13 @@
                    limits are hidden (the hint below shows instead). #}
                 <p class="small text-muted mb-1" data-canvas-image-properties-target="backgroundHint" style="display: none;">Pozadí se vyplní automaticky přes celé plátno (bez posunu, změny velikosti a rotace).</p>
                 <div class="row g-1 mb-2">
-                    <div class="col-6" data-canvas-image-properties-target="transformLimit">
+                    {# "Posun obrázku v rámečku" — pans the user's PICTURE inside the
+                       frame; the frame itself never moves (not to be confused
+                       with "Uživatel může posunout" on texts / shapes). #}
+                    <div class="col-12" data-canvas-image-properties-target="transformLimit">
                         <div class="form-check mb-0">
                             <input type="checkbox" id="image-allow-move-control" class="form-check-input" data-canvas-image-properties-target="allowMove" data-action="change->canvas-image-properties#updateAllowMove">
-                            <label for="image-allow-move-control" class="form-check-label small">Posun</label>
+                            <label for="image-allow-move-control" class="form-check-label small">Posun obrázku v rámečku</label>
                         </div>
                     </div>
                     <div class="col-6" data-canvas-image-properties-target="transformLimit">
@@ -535,6 +540,8 @@
                 {# Live guidance: empty allow-list = "offer all folders"; no folders at all = dead end. #}
                 <div class="alert alert-warning py-1 px-2 small mt-1 mb-0" role="alert" data-canvas-image-properties-target="warning" style="display: none;"></div>
             </div>
+
+            {{ include('editor/_user_move_section.html.twig', {surface: 'image'}) }}
 
             {# Container membership for a DECORATIVE image member — mirrors the
                textbox popover's section (both are plural `section` targets):
@@ -718,6 +725,8 @@
                     </div>
                 </div>
             </div>
+
+            {{ include('editor/_user_move_section.html.twig', {surface: 'shape'}) }}
 
             {# Container membership for a DECORATIVE shape member — mirrors the
                textbox / image popovers (all three are plural `section`

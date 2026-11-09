@@ -615,6 +615,36 @@ final class DesignDecompilerTest extends TestCase
         self::assertSame([], $decompiled->losses);
     }
 
+    public function testUserMoveReadsBackOnElementsAndContainersButNotOnAPlaceholder(): void
+    {
+        $move = ['vertical' => true, 'horizontal' => false, 'maxUp' => 120.0, 'maxDown' => 0.0, 'maxLeft' => null, 'maxRight' => null];
+        $canvas = [
+            'objects' => [
+                self::textbox(['top' => 0, 'userMove' => $move]),
+                self::textbox(['top' => 100]),
+                self::image(['left' => 0, 'top' => 600, 'width' => 200, 'height' => 100, 'assetPath' => 'gallery/logo.png', 'userMove' => ['horizontal' => true]]),
+                self::image(['inputId' => 'slot', 'imagePlaceholder' => true, 'top' => 800, 'assetPath' => 'gallery/pic.png', 'userMove' => $move]),
+            ],
+            'containers' => [
+                ['id' => 'body', 'maxHeight' => 400, 'memberInputIds' => ['t1', 't2'], 'userMove' => $move],
+            ],
+        ];
+
+        $decompiled = self::decompile($canvas, [self::textInput('t1', 'Nadpis'), self::textInput('t2', 'Popisek')], [self::imageInput('slot', 'Foto')], self::context());
+
+        self::assertSame($move, $decompiled->document->textElements()[0]->userMove?->toArray());
+        self::assertNull($decompiled->document->textElements()[1]->userMove);
+        $images = $decompiled->document->imageElements();
+        self::assertTrue($images[0]->userMove?->horizontal);
+        self::assertNull($images[1]->userMove, 'a placeholder frame never moves');
+        self::assertSame($move, $decompiled->document->containerElements()[0]->userMove?->toArray());
+        $movePaths = array_values(array_filter(
+            array_map(static fn (DesignLoss $loss): string => $loss->path, $decompiled->losses),
+            static fn (string $path): bool => str_ends_with($path, '.userMove'),
+        ));
+        self::assertCount(1, $movePaths, 'only the placeholder\'s inert flag is reported');
+    }
+
     // -----------------------------------------------------------------
     // fit rules (the compiler's, inverted)
     // -----------------------------------------------------------------

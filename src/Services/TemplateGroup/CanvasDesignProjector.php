@@ -7,6 +7,7 @@ namespace WBoost\Web\Services\TemplateGroup;
 use WBoost\Web\Services\Editor\BackgroundLayer;
 use WBoost\Web\Value\BackgroundMode;
 use WBoost\Web\Value\CanvasShape;
+use WBoost\Web\Value\ElementMoveAllowance;
 
 /**
  * Projects a designer canvas document into a different dimension — the PHP
@@ -19,7 +20,9 @@ use WBoost\Web\Value\CanvasShape;
  *    weight) scales by the WIDTH ratio only, so elements keep their aspect
  *    ratio;
  *  - rotation is absolute (an angle means the same thing at any size);
- *  - container maxHeight scales by the height ratio.
+ *  - container maxHeight scales by the height ratio;
+ *  - "Uživatel může posunout" maxima (`userMove`) scale per axis (vertical
+ *    by the height ratio, horizontal by the width ratio).
  *
  * Object order and every custom annotation property (inputId, name, locked, …)
  * are preserved verbatim, so the seeded variants share inputIds with the
@@ -154,6 +157,7 @@ readonly final class CanvasDesignProjector
                     // (designed gaps / zero clearance) stay put.
                     $this->scaleKey($container, 'gap', $ry);
                     $this->scaleKey($container, 'spaceAfter', $ry);
+                    $this->scaleUserMove($container, $rx, $ry);
                 }
 
                 $containers[] = $container;
@@ -277,7 +281,34 @@ readonly final class CanvasDesignProjector
             $this->scaleKey($object, 'strokeWidth', $rx);
         }
 
+        $this->scaleUserMove($object, $rx, $ry);
+
         return $object;
+    }
+
+    /**
+     * "Uživatel může posunout": the flags are metadata, the per-direction
+     * maxima are geometry — vertical by the height ratio, horizontal by the
+     * width ratio, so a limit is the same visual share in every dimension
+     * (the group editor's group_sync.js does the same when it propagates).
+     * An unusable value is dropped rather than copied.
+     *
+     * @param array<mixed> $values a Fabric object or a containers[] definition
+     */
+    private function scaleUserMove(array &$values, float $rx, float $ry): void
+    {
+        if (!array_key_exists(ElementMoveAllowance::CANVAS_KEY, $values)) {
+            return;
+        }
+
+        $allowance = ElementMoveAllowance::fromArray($values[ElementMoveAllowance::CANVAS_KEY]);
+        if ($allowance === null) {
+            unset($values[ElementMoveAllowance::CANVAS_KEY]);
+
+            return;
+        }
+
+        $values[ElementMoveAllowance::CANVAS_KEY] = $allowance->scaled($rx, $ry)->toArray();
     }
 
     /**

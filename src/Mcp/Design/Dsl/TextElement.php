@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Mcp\Design\Dsl;
 
+use WBoost\Web\Value\ElementMoveAllowance;
+
 /**
  * A text element — one Fabric Textbox plus its {@see \WBoost\Web\Value\EditorTextInput}.
  *
@@ -48,6 +50,12 @@ readonly final class TextElement implements DesignElement
          * a user override.
          */
         public float $opacity = 1.0,
+        /**
+         * "Uživatel může posunout" (canvas `userMove`): the end user may move
+         * the element along the allowed axes, up to the per-direction maxima
+         * (px, null = anywhere on the artwork). Null = fixed in place.
+         */
+        public null|ElementMoveAllowance $userMove = null,
     ) {
     }
 
@@ -63,7 +71,7 @@ readonly final class TextElement implements DesignElement
     {
         $placement = $this->placement->toArray();
 
-        return [
+        $data = [
             'kind' => ElementKind::Text->value,
             'id' => $this->id,
             'text' => $this->text,
@@ -79,5 +87,11 @@ readonly final class TextElement implements DesignElement
             'input' => $this->input->toArray(),
             'opacity' => $this->opacity,
         ];
+
+        if ($this->userMove !== null) {
+            $data['userMove'] = $this->userMove->toArray();
+        }
+
+        return $data;
     }
 }

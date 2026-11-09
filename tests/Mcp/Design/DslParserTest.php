@@ -381,6 +381,66 @@ final class DslParserTest extends TestCase
         self::assertSame($document->toArray(), DslParser::parse($document->toArray())->toArray());
     }
 
+    /**
+     * "Uživatel může posunout" (2026-11-09): the canvas contract's own
+     * vocabulary — two axis flags, a limit per DIRECTION (null = anywhere on
+     * the artwork, 0 = not that way) — on texts, shapes, decorative images and
+     * containers; refused on a placeholder and wherever it means nothing.
+     */
+    public function testUserMoveParsesPerDirectionLimitsAndRefusesWhatMeansNothing(): void
+    {
+        $document = DslParser::parse(self::documentWith(
+            self::textElement(['userMove' => ['vertical' => true, 'maxUp' => 120, 'maxDown' => 0]]),
+            self::imageElement(['asset' => self::ASSET_2, 'userMove' => ['horizontal' => true, 'maxRight' => 33.333]]),
+            ['kind' => 'shape', 'id' => 'rule', 'shape' => 'line', 'x' => 0, 'y' => 200, 'width' => 600, 'height' => 4,
+                'userMove' => ['vertical' => true, 'horizontal' => true]],
+            self::textElement(['id' => 'a', 'at' => ['area' => 'middle']]),
+            self::textElement(['id' => 'b', 'at' => ['area' => 'lower']]),
+            ['kind' => 'container', 'id' => 'body', 'members' => ['a', 'b'], 'maxHeight' => 400,
+                'userMove' => ['vertical' => true, 'horizontal' => false, 'maxUp' => null, 'maxDown' => 80]],
+        ));
+
+        $text = $document->element('headline');
+        self::assertInstanceOf(TextElement::class, $text);
+        self::assertSame(
+            ['vertical' => true, 'horizontal' => false, 'maxUp' => 120.0, 'maxDown' => 0.0, 'maxLeft' => null, 'maxRight' => null],
+            $text->userMove?->toArray(),
+        );
+        $image = $document->element('photo');
+        self::assertInstanceOf(ImageElement::class, $image);
+        self::assertSame(33.33, $image->userMove?->maxRight);
+        $shape = $document->element('rule');
+        self::assertInstanceOf(ShapeElement::class, $shape);
+        self::assertNotNull($shape->userMove);
+        self::assertNull($shape->userMove->maxLeft, 'omitted = unlimited');
+        $container = $document->element('body');
+        self::assertInstanceOf(ContainerElement::class, $container);
+        self::assertSame(80.0, $container->userMove?->maxDown);
+        self::assertArrayNotHasKey('userMove', $document->element('a')?->toArray() ?? [], 'a fixed element words nothing');
+        self::assertSame($document->toArray(), DslParser::parse($document->toArray())->toArray());
+
+        $exception = self::reject(self::documentWith(self::imageElement([
+            'userMove' => ['vertical' => true],
+            'input' => ['name' => 'Foto', 'placeholder' => true],
+        ])));
+        self::assertSame('elements[0].userMove', $exception->violations[0]->path);
+
+        $exception = self::reject(self::documentWith(self::textElement(['userMove' => ['vertical' => true, 'maxLeft' => 10]])));
+        self::assertSame('elements[0].userMove.maxLeft', $exception->violations[0]->path);
+
+        $exception = self::reject(self::documentWith(self::textElement(['userMove' => ['vertical' => false]])));
+        self::assertSame('elements[0].userMove', $exception->violations[0]->path);
+
+        $exception = self::reject(self::documentWith(self::textElement(['userMove' => ['vertical' => true, 'maxUp' => -5]])));
+        self::assertSame('elements[0].userMove.maxUp', $exception->violations[0]->path);
+
+        $exception = self::reject(self::documentWith(self::textElement(['userMove' => ['up' => 5]])));
+        self::assertSame(DslErrorCode::UnknownKey, $exception->violations[0]->code);
+
+        $exception = self::reject(self::documentWith(self::textElement(['userMove' => true])));
+        self::assertSame('elements[0].userMove', $exception->violations[0]->path);
+    }
+
     public function testAContainerHidableFlagMustBeABoolean(): void
     {
         self::reject(self::documentWith(
@@ -886,7 +946,7 @@ final class DslParserTest extends TestCase
             self::documentWith(self::imageElement(['src' => 'x.png'])),
             'elements[0].src',
             DslErrorCode::UnknownKey,
-            'Allowed keys: kind, id, asset, at, x, y, width, height, input, mirror, opacity.',
+            'Allowed keys: kind, id, asset, at, x, y, width, height, input, mirror, opacity, userMove.',
         ];
         yield 'unknown background key' => [
             self::documentWith(['kind' => 'background', 'id' => 'bg', 'cover' => true]),
@@ -898,7 +958,7 @@ final class DslParserTest extends TestCase
             self::documentWith(['kind' => 'container', 'id' => 'body', 'padding' => 4]),
             'elements[0].padding',
             DslErrorCode::UnknownKey,
-            'Allowed keys: kind, id, members, children, maxHeight, gap, spaceAfter, hidable, name.',
+            'Allowed keys: kind, id, members, children, maxHeight, gap, spaceAfter, hidable, name, userMove.',
         ];
         yield 'unknown at key (row is deliberately not v1)' => [
             self::documentWith(self::textElement(['at' => ['area' => 'top', 'row' => [1, 2]]])),

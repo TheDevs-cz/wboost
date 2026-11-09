@@ -235,7 +235,35 @@ a.ed-sync:hover { color: var(--text); }
 .ed.ed-is-clean .canvas-ruler,
 .ed.ed-is-clean .canvas-ruler-corner,
 .ed.ed-is-clean .canvas-guide,
-.ed.ed-is-clean .canvas-bleed-guide { display: none !important; }
+.ed.ed-is-clean .canvas-bleed-guide,
+.ed.ed-is-clean .umove-band { display: none !important; }
+
+/* "Uživatel může posunout" — range band in the stage layer (canvas-user-move):
+   the designed box swept by the allowed offsets, asymmetric per direction.
+   Chrome only (never on the bitmap), click-through. */
+.umove-band { position: absolute; z-index: 897; pointer-events: none; box-sizing: border-box;
+    border: 1.5px dashed var(--lav-ink); border-radius: 3px;
+    background: repeating-linear-gradient(135deg, color-mix(in oklab, var(--lav-ink) 13%, transparent) 0 6px, transparent 6px 12px); }
+.umove-band__home { position: absolute; box-sizing: border-box; border: 1px solid color-mix(in oklab, var(--lav-ink) 70%, transparent); border-radius: 2px; }
+.umove-band__cap { position: absolute; padding: 1px 6px; border-radius: 999px; font: 600 10.5px/16px var(--font); white-space: nowrap;
+    color: var(--surface); background: var(--lav-ink); box-shadow: var(--shadow-2); }
+.umove-band__cap--up { top: 0; left: 50%; transform: translate(-50%, -50%); }
+.umove-band__cap--down { bottom: 0; left: 50%; transform: translate(-50%, 50%); }
+.umove-band__cap--left { left: 0; top: 50%; transform: translate(-50%, -50%); }
+.umove-band__cap--right { right: 0; top: 50%; transform: translate(50%, -50%); }
+
+/* the popover section (text / image / shape inspectors + container ⚙) */
+.ed-umove { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.ed-umove.d-none { display: none; }
+.ed-umove__body { display: flex; flex-direction: column; gap: 8px; }
+.ed-umove__body.is-disabled { opacity: .55; }
+.ed-umove__axis { display: flex; flex-direction: column; gap: 6px; }
+.ed-umove__limits { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px; }
+.ed-umove__limits.is-off { opacity: .5; }
+.ed .ed-insp .ed-umove .ed-geo__field .form-control,
+.container-zone-popover .ed-umove .ed-geo__field .form-control { min-height: 32px; height: 32px; padding: 0 30px 0 26px; border-radius: 10px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.ed-umove__hint { margin: 0; font-size: 12px; line-height: 1.35; color: var(--muted); }
+.ed-umove--container { margin: 4px 0 10px; }
 
 /* ---- floating chrome: mini toolbar + multi-select bar ------------------- */
 .ed .canvas-mini-toolbar { gap: 2px; padding: 5px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line-2); box-shadow: var(--shadow-3); }

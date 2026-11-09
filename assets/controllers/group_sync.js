@@ -62,6 +62,32 @@ const META_KEYS = [
     'colorChoice', 'colorFree',
 ];
 
+// Metadata whose VALUE is partly geometry: "Uživatel může posunout"
+// (`userMove`) — the axis flags copy exactly, but the per-direction maxima are
+// canvas px and are PROJECTED per dimension (up/down by the height ratio,
+// left/right by the width ratio), so "40 px down" on 1080×1350 stays the same
+// visual share on 1080×1920. Stored already scaled in each variant (the PHP
+// projector does the same for new dimensions) — nothing at render time needs
+// to know the sibling it came from.
+const PROJECTED_META_KEYS = ['userMove'];
+
+/** Per-target value of a propagated prop: projected for PROJECTED_META_KEYS,
+ *  a deep-enough copy otherwise. */
+function propValueFor(key, value, rx, ry) {
+    if (key === 'userMove') {
+        return projectUserMove(value, rx, ry);
+    }
+    return clonePaintValue(value);
+}
+
+/** Scaled copy of a `userMove` allowance (undefined when nothing is allowed). */
+function projectUserMove(value, rx, ry) {
+    const core = window.WBoostElementMove;
+    if (value === undefined || value === null) return undefined;
+    if (!core) return value;
+    return core.scale(value, rx, ry) || undefined;
+}
+
 function isTextboxObject(obj) {
     return (obj.type || '').toLowerCase() === 'textbox';
 }
@@ -77,6 +103,13 @@ function isContainerMemberObject(obj) {
         return layout.isMemberCandidate(obj);
     }
     return isTextboxObject(obj);
+}
+
+/** A container entry with `userMove` set only when there is one (absent =
+ *  fixed — keeps untouched definitions byte-identical). */
+function withUserMove(entry, userMove) {
+    if (userMove) entry.userMove = userMove;
+    return entry;
 }
 
 /** Vertical-spacing projection (gap / spaceAfter): scale when set, keep the
@@ -169,7 +202,7 @@ const RESYNC_CHANGE_GROUPS = [
     { label: 'text', keys: ['text'] },
     { label: 'zrcadlení', keys: ['flipX'] },
     { label: 'styl', keys: STYLE_KEYS.filter((key) => key !== 'text' && key !== 'flipX') },
-    { label: 'nastavení', keys: META_KEYS.filter((key) => key !== 'visible') },
+    { label: 'nastavení', keys: [...META_KEYS.filter((key) => key !== 'visible'), ...PROJECTED_META_KEYS] },
 ];
 
 // Sub-pixel float noise from the ratio projection must not read as a change.
@@ -204,7 +237,7 @@ function resyncChanges(before, after) {
 function snapshotProps(obj) {
     const props = {};
 
-    [...STYLE_KEYS, ...META_KEYS].forEach((key) => {
+    [...STYLE_KEYS, ...META_KEYS, ...PROJECTED_META_KEYS].forEach((key) => {
         props[key] = clonePaintValue(obj[key]);
     });
 
@@ -311,7 +344,7 @@ export class GroupSync {
             const curGeom = snapshotGeometry(obj);
             const curProps = snapshotProps(obj);
 
-            const changedProps = [...STYLE_KEYS, ...META_KEYS].filter(
+            const changedProps = [...STYLE_KEYS, ...META_KEYS, ...PROJECTED_META_KEYS].filter(
                 (key) => !propsEqual(base.props[key], curProps[key]),
             );
             const geomChanged = Object.keys(base.geom).some(
@@ -343,7 +376,7 @@ export class GroupSync {
                     // live object, and handing the SAME instance to every
                     // sibling's shadow canvas would alias state the engine
                     // treats as per-canvas.
-                    match.set(key, clonePaintValue(curProps[key]));
+                    match.set(key, propValueFor(key, curProps[key], rx, ry));
                 });
 
                 if (isTextboxObject(match) && typeof match.initDimensions === 'function') {
@@ -407,6 +440,11 @@ export class GroupSync {
                 const { rx, ry } = ratios(activeDims, target);
                 const projected = projectGeometry(snapshotGeometry(obj), rx, ry, isTextboxObject(obj));
                 clone.set(projected);
+                // The re-stamp above copied the allowance verbatim — its
+                // maxima are this dimension's px, so project them too.
+                if (obj.userMove !== undefined) {
+                    clone.userMove = projectUserMove(obj.userMove, rx, ry);
+                }
 
                 if (isTextboxObject(clone) && typeof clone.initDimensions === 'function') {
                     clone.initDimensions();
@@ -615,7 +653,7 @@ export class GroupSync {
             return { touched, report };
         }
 
-        const copyKeys = [...STYLE_KEYS, ...META_KEYS].filter((key) => key !== 'visible');
+        const copyKeys = [...STYLE_KEYS, ...META_KEYS, ...PROJECTED_META_KEYS].filter((key) => key !== 'visible');
 
         this.allTargets().forEach((target) => {
             const match = target.shadow.getObjects().find((o) => o.inputId === obj.inputId);
@@ -640,7 +678,11 @@ export class GroupSync {
             copyKeys.forEach((key) => {
                 const value = props[key];
                 if (value !== undefined) {
-                    match.set(key, clonePaintValue(value));
+                    match.set(key, propValueFor(key, value, rx, ry));
+                } else if (PROJECTED_META_KEYS.includes(key) && match[key] !== undefined) {
+                    // An allowance switched off on the source is switched
+                    // off on the target too (absent = fixed).
+                    match.set(key, undefined);
                 }
             });
 
@@ -748,7 +790,7 @@ export class GroupSync {
         const currentIds = new Set(current.map((c) => c.id));
 
         targets.forEach((target) => {
-            const { ry } = ratios(activeDims, target);
+            const { rx, ry } = ratios(activeDims, target);
             const shadowContainers = Array.isArray(target.shadow.wboostContainers)
                 ? target.shadow.wboostContainers
                 : [];
@@ -781,7 +823,7 @@ export class GroupSync {
 
                 if (!existing) {
                     // New container → absolute projection of maxHeight/spacing.
-                    next.push({
+                    next.push(withUserMove({
                         id: container.id,
                         maxHeight: container.maxHeight * ry,
                         gap: projectedSpacing(container.gap, ry),
@@ -789,7 +831,7 @@ export class GroupSync {
                         memberInputIds: memberIds,
                         memberContainerIds: childIds,
                         ...hideMeta,
-                    });
+                    }, projectUserMove(container.userMove, rx, ry)));
                     return;
                 }
 
@@ -813,7 +855,15 @@ export class GroupSync {
                     return value;
                 };
 
-                next.push({
+                // "Uživatel může posunout celý kontejner": like spacing — the
+                // target keeps its own (already scaled) allowance until the
+                // ACTIVE canvas changes it, then it is projected absolutely.
+                let userMove = existing.userMove;
+                if (!base || JSON.stringify(container.userMove ?? null) !== JSON.stringify(base.userMove ?? null)) {
+                    userMove = projectUserMove(container.userMove, rx, ry);
+                }
+
+                next.push(withUserMove({
                     id: container.id,
                     maxHeight,
                     gap: followSpacing('gap'),
@@ -821,7 +871,7 @@ export class GroupSync {
                     memberInputIds: memberIds,
                     memberContainerIds: childIds,
                     ...hideMeta,
-                });
+                }, userMove));
             });
 
             // Containers dissolved on the active canvas disappear from targets

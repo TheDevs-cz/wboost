@@ -76,12 +76,21 @@ readonly final class CanvasContainer
          * the API's `containers[].name`. Null = unnamed.
          */
         public null|string $name = null,
+        /**
+         * "Uživatel může posunout celý kontejner" — the end user may move the
+         * whole block (only meaningful on a TOP-LEVEL container; inert when
+         * nested). See {@see ElementMoveAllowance}.
+         */
+        public null|ElementMoveAllowance $userMove = null,
     ) {
     }
 
     /**
      * `hidable` / `name` are emitted only when set, so every pre-existing
      * definition (and every payload built from one) keeps its exact shape.
+     * `userMove` is NOT emitted yet: these arrays feed the fill pages / echo /
+     * render payloads, none of which moves anything before the M2 server
+     * phase — read {@see self::$userMove} directly until then.
      *
      * @return array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap: null|float, spaceAfter: null|float, hidable?: true, name?: string}
      */
@@ -167,6 +176,7 @@ readonly final class CanvasContainer
             self::nonNegativeFloatOrNull($data['spaceAfter'] ?? null),
             ($data['hidable'] ?? false) === true,
             self::nameOrNull($data['name'] ?? null),
+            ElementMoveAllowance::fromCanvasObject($data),
         );
     }
 

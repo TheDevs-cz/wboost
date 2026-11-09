@@ -18,6 +18,7 @@ use WBoost\Web\Value\CanvasShape;
 use WBoost\Web\Value\CanvasShapeGradient;
 use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
+use WBoost\Web\Value\ElementMoveAllowance;
 
 /**
  * DSL → Fabric canvas + `inputs[]` + `imageInputs[]`. The heart of the design
@@ -108,7 +109,7 @@ readonly final class DesignCompiler
         'sampleValue', 'allowedFonts', 'fontChoice', 'allowedColors',
         'imagePlaceholder', 'allowMove', 'allowResize', 'allowRotate', 'allowedDirectoryIds',
         'assetPath', 'assetId', 'editorLocked', 'isBackground', 'shapeKind', 'missingSrc',
-        'colorChoice', 'colorFree',
+        'colorChoice', 'colorFree', 'userMove',
     ];
 
     /**
@@ -125,6 +126,7 @@ readonly final class DesignCompiler
      */
     public const array TEXT_CUSTOM_PROPERTIES = [
         'inputId', 'name', 'maxLength', 'locked', 'uppercase', 'description', 'hidable', 'richText', 'sampleValue', 'allowedFonts', 'fontChoice', 'allowedColors',
+        'userMove',
     ];
 
     /**
@@ -140,7 +142,7 @@ readonly final class DesignCompiler
     public const array IMAGE_CUSTOM_PROPERTIES = [
         'inputId', 'name', 'description', 'imagePlaceholder', 'hidable',
         'allowMove', 'allowResize', 'allowRotate', 'allowedDirectoryIds',
-        'assetPath', 'assetId', 'isBackground', 'editorLocked',
+        'assetPath', 'assetId', 'isBackground', 'editorLocked', 'userMove',
     ];
 
     /**
@@ -160,7 +162,7 @@ readonly final class DesignCompiler
      */
     public const array SHAPE_CUSTOM_PROPERTIES = [
         'inputId', 'shapeKind', 'name', 'editorLocked',
-        'colorChoice', 'allowedColors', 'colorFree',
+        'colorChoice', 'allowedColors', 'colorFree', 'userMove',
     ];
 
     /**
@@ -589,7 +591,7 @@ readonly final class DesignCompiler
             'allowedColors' => $element->input->allowedColors,
         ];
 
-        return self::withOpacity($object, $element->opacity);
+        return self::withUserMove(self::withOpacity($object, $element->opacity), $element->userMove);
     }
 
     /**
@@ -605,6 +607,24 @@ readonly final class DesignCompiler
     {
         if ($opacity < 1.0) {
             $object['opacity'] = $opacity;
+        }
+
+        return $object;
+    }
+
+    /**
+     * "Uživatel může posunout" (`userMove`) — emitted ONLY when the element
+     * is movable, in the canonical {@see ElementMoveAllowance} shape, exactly
+     * like the editor writes it; a fixed element compiles to the same object
+     * as before the feature existed.
+     *
+     * @param array<string, mixed> $object
+     * @return array<string, mixed>
+     */
+    private static function withUserMove(array $object, null|ElementMoveAllowance $userMove): array
+    {
+        if ($userMove !== null) {
+            $object[ElementMoveAllowance::CANVAS_KEY] = $userMove->toArray();
         }
 
         return $object;
@@ -745,7 +765,7 @@ readonly final class DesignCompiler
             $object['allowedDirectoryIds'] = $element->input->allowedDirectories;
         }
 
-        return self::withOpacity($object, $element->opacity);
+        return self::withUserMove(self::withOpacity($object, $element->opacity), $element->userMove);
     }
 
     /**
@@ -804,6 +824,8 @@ readonly final class DesignCompiler
             $object['allowedColors'] = $element->userColor->colors;
             $object['colorFree'] = $element->userColor->free;
         }
+
+        $object = self::withUserMove($object, $element->userMove);
 
         return match ($element->shape->fabricType()) {
             'Rect' => $object + ['rx' => $element->cornerRadius, 'ry' => $element->cornerRadius],
@@ -940,7 +962,7 @@ readonly final class DesignCompiler
      *
      * @param array<string, string> $inputIds
      * @param array<string, array<string, mixed>> $objectByInputId
-     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string}>
+     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}}>
      */
     private function compileContainers(
         DesignDocument $document,
@@ -960,7 +982,7 @@ readonly final class DesignCompiler
             $containerIds[$container->id] = true;
         }
 
-        /** @var list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string}> $result */
+        /** @var list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}}> $result */
         $result = [];
 
         foreach ($containers as $container) {
@@ -1019,6 +1041,13 @@ readonly final class DesignCompiler
 
             if ($container->name !== null) {
                 $entry['name'] = $container->name;
+            }
+
+            // "Uživatel může posunout celý kontejner" — emitted only when set
+            // (sanitizedContainers() keeps it the same way). A nested
+            // container keeps it inert, as the editor does; the linter warns.
+            if ($container->userMove !== null) {
+                $entry['userMove'] = $container->userMove->toArray();
             }
 
             if ($entry['id'] !== '' && $entry['maxHeight'] > 0) {
@@ -1097,8 +1126,8 @@ readonly final class DesignCompiler
      * itself, and must have exactly one parent — the first that claims them in
      * list order.
      *
-     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string}> $containers
-     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string}>
+     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}}> $containers
+     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}}>
      */
     private static function pruneChildReferences(array $containers): array
     {
@@ -1143,8 +1172,8 @@ readonly final class DesignCompiler
      * editor matters more than symmetry — a design saved from the browser and
      * the same design compiled here must produce the same `containers`.
      *
-     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string}> $containers
-     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string}>
+     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}}> $containers
+     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}}>
      */
     private static function dropCyclicChildReferences(array $containers): array
     {
@@ -1205,8 +1234,8 @@ readonly final class DesignCompiler
      * definitions behind, which `CanvasContainer` would then drop silently and
      * asymmetrically from the design the agent was shown.
      *
-     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string}> $containers
-     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string}>
+     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}}> $containers
+     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}}>
      */
     private static function dropDegenerateToFixpoint(array $containers): array
     {

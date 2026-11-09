@@ -109,6 +109,21 @@ enum LintCode: string
     case ContainerHidableWithoutName = 'container_hidable_without_name';
 
     /**
+     * A text / shape / decorative image with `userMove` that is a MEMBER of a
+     * container. Members never move on their own — the flow already pushes
+     * them when a text above grows — so the allowance is inert (kept, so
+     * dissolving the container restores it). Move the whole top-level
+     * container instead.
+     */
+    case UserMoveOnContainerMember = 'user_move_on_container_member';
+
+    /**
+     * `userMove` on a NESTED container. Only a top-level container moves as
+     * one block; a nested one flows in its parent, so the allowance is inert.
+     */
+    case UserMoveOnNestedContainer = 'user_move_on_nested_container';
+
+    /**
      * An image element with neither a stand-in picture nor a fillable
      * placeholder input: it draws nothing and it fills nothing.
      */

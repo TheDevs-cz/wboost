@@ -51,6 +51,12 @@
 // switches and group-sync clones keep the marker, and buildVariantPayload
 // puts it BACK into `src` and strips it — the saved document never carries
 // the stand-in, and the server never sees this property.
+// userMove ("Uživatel může posunout" — texts incl. locked, shapes, decorative
+// images): {vertical, horizontal, maxUp, maxDown, maxLeft, maxRight}, maxima
+// in canvas px (null = anywhere on the artwork, 0 = not that way). Absent =
+// fixed. Canonical shape + clamp maths live in the classic script
+// assets/editor/element_move.js (window.WBoostElementMove) and its PHP twin
+// ElementMoveAllowance. Treat the value as IMMUTABLE — clones share it.
 export const CANVAS_CUSTOM_PROPERTIES = [
     'name', 'maxLength', 'locked', 'uppercase', 'description', 'hidable', 'richText', 'inputId',
     'lists', 'listBullet', 'listBulletImage', 'listIndent', 'listItemSpacing', 'listBlockSpacing',
@@ -59,7 +65,7 @@ export const CANVAS_CUSTOM_PROPERTIES = [
     'sampleValue', 'allowedFonts', 'fontChoice', 'allowedColors',
     'imagePlaceholder', 'allowMove', 'allowResize', 'allowRotate', 'allowedDirectoryIds',
     'assetPath', 'assetId', 'editorLocked', 'isBackground', 'shapeKind', 'missingSrc',
-    'colorChoice', 'colorFree',
+    'colorChoice', 'colorFree', 'userMove',
 ];
 
 /**

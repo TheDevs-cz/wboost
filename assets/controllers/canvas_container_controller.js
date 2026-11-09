@@ -4,6 +4,7 @@ import { ActiveSelection } from "fabric";
 import { CANVAS_CUSTOM_PROPERTIES, applyEditorLock, applyTextboxDefaults } from './canvas_custom_properties.js';
 import { applyShapeDefaults, isShapeObject } from './canvas_shapes.js';
 import { designHeight, trimOriginRect } from './canvas_viewport.js';
+import { buildContainerMoveSection } from './canvas_user_move.js';
 
 /**
  * Container ("smart text area") authoring for the admin canvas editor.
@@ -1071,6 +1072,8 @@ export default class extends Controller {
             if (typeof def.spaceAfter === 'number' && isFinite(def.spaceAfter)) copy.spaceAfter = def.spaceAfter;
             if (def.hidable === true) copy.hidable = true;
             if (typeof def.name === 'string' && def.name !== '') copy.name = def.name;
+            // "Uživatel může posunout" — immutable value, sharing it is safe.
+            if (def.userMove) copy.userMove = def.userMove;
             containers.push(copy);
         });
 
@@ -1191,6 +1194,9 @@ export default class extends Controller {
 
         const el = document.createElement('div');
         el.className = 'container-zone-popover';
+        // canvas-user-move draws the range band of the container whose
+        // popover is open.
+        el.dataset.containerId = container.id;
         el.addEventListener('mousedown', (event) => event.stopPropagation());
 
         const title = document.createElement('div');
@@ -1416,6 +1422,29 @@ export default class extends Controller {
             el.appendChild(nestedHint);
         }
 
+        // "Uživatel může posunout celý kontejner" — TOP-LEVEL only: a nested
+        // container flows in its parent, so an allowance there is inert (kept
+        // so un-nesting restores it, and said so).
+        if (!nested) {
+            el.appendChild(buildContainerMoveSection(container, {
+                unit: this.hasCanvasEditorOutlet ? this.canvasEditorOutlet.unitValue : 'px',
+                idPrefix: `container-umove-${container.id}`,
+                onChange: () => {
+                    this.canvasEditorOutlet.markUnsaved();
+                    const canvas = this._canvas();
+                    if (canvas) {
+                        canvas.fire('object:modified', {});
+                        canvas.requestRenderAll();
+                    }
+                },
+            }));
+        } else if (container.userMove) {
+            const moveHint = document.createElement('div');
+            moveHint.className = 'form-text small mb-2';
+            moveHint.textContent = 'Posun pro uživatele je nastavený, ale u vnořeného kontejneru se neuplatní — posouvat lze jen celý vnější kontejner.';
+            el.appendChild(moveHint);
+        }
+
         // Dissolution lives here too — the ⚙ popover is the container's whole
         // configuration surface (element popovers only carry the
         // element-specific "Odebrat z kontejneru").
@@ -1435,14 +1464,22 @@ export default class extends Controller {
         this._settingsEl = el;
         this._settingsContainerId = container.id;
         this._positionSettings();
+        // The range band (canvas-user-move) follows the open popover.
+        const canvas = this._canvas();
+        if (canvas) canvas.requestRenderAll();
     }
 
     _closeSettings() {
+        const wasOpen = Boolean(this._settingsEl);
         if (this._settingsEl) {
             this._settingsEl.remove();
         }
         this._settingsEl = null;
         this._settingsContainerId = null;
+        if (wasOpen) {
+            const canvas = this._canvas();
+            if (canvas) canvas.requestRenderAll();
+        }
     }
 
     /**

@@ -904,6 +904,52 @@ final class DesignCompilerTest extends TestCase
     }
 
     /**
+     * "Uživatel může posunout": the canonical `userMove` object on the
+     * object / container definition, exactly what the editor writes — and
+     * nothing at all on a fixed element, so older designs compile
+     * byte-identically.
+     */
+    public function testUserMoveCompilesToTheCanonicalCanvasContractOnlyWhenSet(): void
+    {
+        $design = self::containerDesign();
+        self::assertIsArray($design['elements']);
+        $element = $design['elements'][3];
+        self::assertIsArray($element);
+        $design['elements'][3] = [...$element, 'userMove' => ['vertical' => true, 'maxDown' => 40]];
+        $design['elements'][] = ['kind' => 'text', 'id' => 'free', 'text' => 'Free', 'font' => self::FONT, 'size' => 40, 'x' => 80, 'y' => 900, 'width' => 400,
+            'userMove' => ['horizontal' => true, 'maxLeft' => 0, 'maxRight' => 12.5]];
+        $design['elements'][] = ['kind' => 'shape', 'id' => 'dot', 'shape' => 'circle', 'x' => 10, 'y' => 10, 'width' => 40, 'height' => 40,
+            'userMove' => ['vertical' => true, 'horizontal' => true]];
+
+        $compiled = $this->compile($design);
+
+        $container = $compiled->canvas['containers'][0];
+        $expected = ['vertical' => true, 'horizontal' => false, 'maxUp' => null, 'maxDown' => 40.0, 'maxLeft' => null, 'maxRight' => null];
+        self::assertArrayHasKey('userMove', $container);
+        self::assertSame($expected, $container['userMove']);
+        $parsed = \WBoost\Web\Value\CanvasContainer::fromArray($container);
+        self::assertNotNull($parsed);
+        self::assertSame($expected, $parsed->userMove?->toArray(), 'the PHP VO reads it back');
+
+        $byText = [];
+        foreach ($compiled->objects() as $object) {
+            $byText[is_string($object['text'] ?? null) ? $object['text'] : (is_string($object['shapeKind'] ?? null) ? $object['shapeKind'] : '?')] = $object;
+        }
+        self::assertSame(
+            ['vertical' => false, 'horizontal' => true, 'maxUp' => null, 'maxDown' => null, 'maxLeft' => 0.0, 'maxRight' => 12.5],
+            $byText['Free']['userMove'] ?? null,
+        );
+        $circleMove = $byText['circle']['userMove'] ?? null;
+        self::assertIsArray($circleMove);
+        self::assertTrue($circleMove['vertical'] ?? null);
+
+        foreach ($this->compile(self::containerDesign())->objects() as $object) {
+            self::assertArrayNotHasKey('userMove', $object);
+        }
+        self::assertArrayNotHasKey('userMove', $this->compile(self::containerDesign())->canvas['containers'][0]);
+    }
+
+    /**
      * §4.4-16: `memberInputIds` is in FLOW order — ascending designed `top`,
      * re-derived by the compiler, never trusted from the document. An author who
      * drags an element upwards must not also have to remember to reorder a list.
