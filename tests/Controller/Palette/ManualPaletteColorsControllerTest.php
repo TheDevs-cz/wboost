@@ -250,7 +250,7 @@ final class ManualPaletteColorsControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         $tabs = $crawler->filter('nav.man-tabs a');
-        self::assertSame(['Logotypy'], $tabs->each(static fn (Crawler $tab): string => trim((string) preg_replace('~\s+\d+/\d+$~', '', trim($tab->text())))));
+        self::assertSame(['Úvodní stránka', 'Logotypy'], $tabs->each(static fn (Crawler $tab): string => trim((string) preg_replace('~\s+\d+/\d+$~', '', trim($tab->text())))));
         self::assertCount(0, $crawler->filter('a[href$="/colors"]'));
         self::assertStringNotContainsString('Barevná paleta', $crawler->filter('nav.man-tabs')->text());
     }

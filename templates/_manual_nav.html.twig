@@ -1,5 +1,7 @@
 {# Manual section tabs (prototype `.tabs-u.man-tabs`). Real links — every
-   section is its own route. Counts: logos n/5, mockup pages. Mockup pages
+   section is its own route. Úvodní stránka = the intro content page editor
+   (P1, both manual types; first because it is the manual's first page).
+   Counts: logos n/5, mockup pages. Mockup pages
    exist only for brand manuals. The Fonty tab is gone (F8, 2026-11-05):
    manual fonts are edited in the "Písma v manuálech" box of the project
    Fonty page (`fonts_list`); so is the "Barevná paleta" tab (F7 P3): the
@@ -8,6 +10,9 @@
 {% set manual_route = app.request.attributes.get('_route') %}
 {% set logo_total = 5 %}
 <nav class="tabs-u man-tabs" aria-label="Části manuálu">
+    <a href="{{ path('manual_intro_page', {'id': manual.id}) }}"{% if manual_route == 'manual_intro_page' %} aria-current="page"{% endif %}>
+        {{ icon('type', 's16') }}Úvodní stránka
+    </a>
     <a href="{{ path('manual_logos', {'id': manual.id}) }}"{% if manual_route == 'manual_logos' %} aria-current="page"{% endif %}>
         {{ icon('image', 's16') }}Logotypy <span class="pd-n">{{ manual.logo.imagesCount }}/{{ logo_total }}</span>
     </a>

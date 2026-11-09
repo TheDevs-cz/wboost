@@ -10,6 +10,7 @@ use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use WBoost\Web\Exceptions\ManualNotFound;
 use WBoost\Web\Message\Manual\EditManual;
 use WBoost\Web\Repository\ManualRepository;
+use WBoost\Web\Services\Manual\IntroContentPageImage;
 
 #[AsMessageHandler]
 readonly final class EditManualHandler
@@ -18,6 +19,7 @@ readonly final class EditManualHandler
         private ManualRepository $manualRepository,
         private ClockInterface $clock,
         private Filesystem $filesystem,
+        private IntroContentPageImage $introContentPageImage,
     ) {
     }
 
@@ -39,10 +41,18 @@ readonly final class EditManualHandler
             $this->filesystem->write($introImagePath, $fileContent);
         }
 
+        $previousIntroImage = $manual->introImage;
+
         $manual->edit(
             $message->type,
             $message->name,
             $introImagePath,
         );
+
+        // A new upload lands in the intro content page, which is what the
+        // manual renders (P1); the column itself goes away in P4.
+        if ($introImagePath !== null && $introImagePath !== $previousIntroImage) {
+            $this->introContentPageImage->apply($manual, $previousIntroImage, $introImagePath);
+        }
     }
 }

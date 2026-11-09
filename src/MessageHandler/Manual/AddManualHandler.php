@@ -6,13 +6,13 @@ namespace WBoost\Web\MessageHandler\Manual;
 
 use League\Flysystem\Filesystem;
 use Psr\Clock\ClockInterface;
-use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use WBoost\Web\Entity\Manual;
 use WBoost\Web\Exceptions\ProjectNotFound;
 use WBoost\Web\Message\Manual\AddManual;
 use WBoost\Web\Repository\ManualRepository;
 use WBoost\Web\Repository\ProjectRepository;
+use WBoost\Web\Services\Manual\IntroContentPageImage;
 
 #[AsMessageHandler]
 readonly final class AddManualHandler
@@ -22,6 +22,7 @@ readonly final class AddManualHandler
         private ManualRepository $manualRepository,
         private ClockInterface $clock,
         private Filesystem $filesystem,
+        private IntroContentPageImage $introContentPageImage,
     ) {
     }
 
@@ -54,5 +55,11 @@ readonly final class AddManualHandler
         );
 
         $this->manualRepository->add($manual);
+
+        // The manual renders its intro from the content page (P1); the
+        // `intro_image` column is only kept until P4 drops it.
+        if ($introImagePath !== null) {
+            $this->introContentPageImage->apply($manual, null, $introImagePath);
+        }
     }
 }

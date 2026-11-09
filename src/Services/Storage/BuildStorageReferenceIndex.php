@@ -16,7 +16,8 @@ use WBoost\Web\Value\StorageReferenceIndex;
  * Every place the app persists a path is enumerated here — plain string columns
  * (`manual.intro_image`, `*.background_image`, `*.preview_image_path`, …), JSON
  * documents holding paths (`manual.logo`, `manual_mockup_page.images`, its
- * `download_file` / `image_downloads` attachments, `font.faces`) and the canvas
+ * `download_file` / `image_downloads` attachments, the image elements of
+ * `manual_content_page.segments`, `font.faces`) and the canvas
  * JSONB, which embeds gallery images as full public URLs. **A path missing
  * from this list makes a live file look like an orphan**, so any new writer
  * must be added here as well.
@@ -169,6 +170,24 @@ readonly final class BuildStorageReferenceIndex
                      CASE WHEN jsonb_typeof(mp.image_downloads) = 'array' THEN mp.image_downloads ELSE '[]'::jsonb END
                  ) AS dl(value)
                  WHERE jsonb_typeof(dl.value) = 'object' AND dl.value->>'path' IS NOT NULL",
+                $ownerColumns,
+                sprintf($ownerJoin, 'm.project_id'),
+            ),
+
+            // A content page's (intro / custom) image elements carry the key
+            // under `path` inside segments[].elements[] (type `image`).
+            'manual_content_page.segments' => sprintf(
+                "SELECT el.value->>'path' AS path, %s
+                 FROM manual_content_page cp
+                 JOIN manual m ON m.id = cp.manual_id
+                 %s
+                 CROSS JOIN LATERAL jsonb_array_elements(
+                     CASE WHEN jsonb_typeof(cp.segments) = 'array' THEN cp.segments ELSE '[]'::jsonb END
+                 ) AS seg(value)
+                 CROSS JOIN LATERAL jsonb_array_elements(
+                     CASE WHEN jsonb_typeof(seg.value->'elements') = 'array' THEN seg.value->'elements' ELSE '[]'::jsonb END
+                 ) AS el(value)
+                 WHERE el.value->>'type' = 'image' AND el.value->>'path' IS NOT NULL",
                 $ownerColumns,
                 sprintf($ownerJoin, 'm.project_id'),
             ),

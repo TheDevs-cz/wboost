@@ -1,0 +1,18 @@
+{# "Náhled v manuálu" panel of the intro editor: the SAVED page exactly as the
+   manual renders it (same heading row + `_manual_content_page.html.twig`).
+   Re-rendered by SaveManualIntroPageController after every save.
+   Params: manual, intro_page (nullable), content_styles. #}
+{% if intro_page and intro_page.hasContent %}
+    <div class="mce-preview-page">
+        {{ include('_manual_content_page_heading.html.twig', {'content_page': intro_page, 'number': 1, 'edit_url': null}) }}
+        <div class="py-4">
+            {{ include('_manual_content_page.html.twig', {'content_page': intro_page, 'content_styles': content_styles}) }}
+        </div>
+    </div>
+{% else %}
+    <div class="empty mce-preview-empty">
+        <span class="ico-c">{{ icon('book') }}</span>
+        <h2>Úvodní stránka se v manuálu nezobrazuje</h2>
+        <p>Zatím nemá žádný obsah. Přidejte nadpis, text nebo obrázek a uložte — stránka se objeví jako první stránka manuálu.</p>
+    </div>
+{% endif %}

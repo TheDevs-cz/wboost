@@ -160,7 +160,9 @@ the project gallery) plus the `Image` attribute on
 gap is accepted by one layer and rejected by the next:
 `gallery_uploader_controller.js` (`maxSize` Stimulus value),
 `mockup_page_editor_controller.js` (fed by
-`_mockup_page_form_editor.html.twig`), and
+`_mockup_page_form_editor.html.twig`), `manual_content_editor_controller.js`
+(fed by `manual_intro_page.html.twig`; server side
+`UploadManualContentImageController::MAX_SIZE`), and
 `PlaceholderImageUploader::MAX_FILE_SIZE_BYTES`.
 
 A mockup page's downloadable ATTACHMENT is deliberately outside this limit —

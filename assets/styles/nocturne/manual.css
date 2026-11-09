@@ -256,3 +256,89 @@
 .cal-ico { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; background: var(--lav-deep); color: var(--lav-ink); }
 .cal-beta { flex-wrap: wrap; }
 .cal-beta > div { flex: 1 1 280px; }
+
+/* ---- Manual content pages — intro editor (manual_intro_page.html.twig,
+   manual_content_editor_controller.js). The stage is "paper": the manual is
+   always light, so the paper re-scopes the light tokens for the element
+   chrome inside it in both themes; the content itself is styled by the
+   shared `.mcp-*` rules in app.css (same as the public render). ---------- */
+.mce-toolbar { position: sticky; top: 12px; z-index: 15; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 10px; border-radius: 18px; background: var(--surface-2); border: 1px solid var(--line-2); box-shadow: var(--shadow-2); }
+.mce-toolbar.is-idle .mce-tb, .mce-toolbar.is-idle .mce-tb-font, .mce-toolbar.is-idle .mce-tb-colors { opacity: .45; }
+.mce-tb { font-size: 15px; font-weight: 600; }
+.mce-tb b, .mce-tb i, .mce-tb u { font-size: 15px; line-height: 1; }
+.mce-tb-ol { font-size: 13px; font-variant-numeric: tabular-nums; }
+.mce-tb.on { background: var(--lav-deep); color: var(--lav-ink); }
+.mce-tb-sep { width: 1px; height: 24px; margin: 0 4px; background: var(--line-2); }
+.mce-tb-font { width: 210px; max-width: 100%; }
+.mce-tb-colors { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0 4px; }
+.mce-swatch { width: 24px; height: 24px; padding: 0; border-radius: 50%; border: 1px solid var(--line-3); background: var(--sw, transparent); cursor: pointer; transition: box-shadow .15s, transform .12s; }
+.mce-swatch:hover { transform: scale(1.08); }
+.mce-swatch.on { box-shadow: 0 0 0 2px var(--surface-2), 0 0 0 4px var(--lav); }
+.mce-swatch:disabled { cursor: default; transform: none; }
+.mce-swatch-none { background: linear-gradient(135deg, transparent 45%, var(--rose) 45%, var(--rose) 55%, transparent 55%), var(--surface); }
+.mce-tb-hint { margin-left: auto; }
+.mce-link { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 6px; border-top: 1px solid var(--line-2); }
+.mce-link .inp { flex: 1 1 260px; }
+
+.mce-paper {
+    --bg: #F6F4F8; --surface: #FFFFFF; --surface-2: #F1EEF5; --surface-3: #E8E4EE;
+    --line: #E6E2EC; --line-2: #DAD5E1; --line-3: #C6C0CF;
+    --text: #17151B; --text-2: #3A3640; --muted: #5E5966; --subtle: #6B6673;
+    --lav-deep: #EEE8FC; --lav-ink: #5B47A8; --lav-glow: rgba(91,71,168,.16); --lav-line: rgba(91,71,168,.32);
+    --rose-deep: #FCE4E8; --rose-ink: #A3334B;
+    color-scheme: light;
+    padding: 28px; border-radius: 18px; background: #fff; border: 1px solid var(--line); color: #313a46;
+    overflow-x: auto;
+}
+.mce-stage { min-width: 640px; }
+.mce-seg { gap: 10px; padding: 10px; border-radius: 12px; outline: 1.5px dashed #D3D8E5; outline-offset: -1px; min-height: 140px; }
+.mce-seg:hover, .mce-seg:focus-within { outline-color: #B9B0E3; }
+.mce-els { display: flex; flex-direction: column; gap: 1.25rem; min-height: 56px; }
+.mcp-va-center > .mce-els { margin-block: auto; }
+.mcp-va-bottom > .mce-els { margin-top: auto; }
+.mce-seg-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-top: auto; padding-top: 4px; }
+.mcp-va-center > .mce-seg-foot { margin-top: 0; }
+.mce-add-btn { color: var(--lav-ink); }
+.mce-align { display: flex; gap: 2px; }
+.mce-align .btn[aria-pressed="true"] { background: var(--lav-deep); color: var(--lav-ink); }
+
+.mce-el { position: relative; display: flex; flex-direction: column; gap: 6px; padding: 6px 8px 8px; margin: -6px -8px -8px; border-radius: 10px; border: 1px solid transparent; transition: border-color .15s, background .15s; }
+.mce-el:hover, .mce-el:focus-within { border-color: var(--line-2); background: #FCFBFE; }
+.mce-el-bar { display: flex; align-items: center; gap: 6px; min-height: 28px; color: var(--muted); font-size: 12px; font-weight: 600; opacity: .6; transition: opacity .15s; }
+.mce-el:hover .mce-el-bar, .mce-el:focus-within .mce-el-bar { opacity: 1; }
+@media (hover: none) { .mce-el-bar { opacity: 1; } }
+.mce-grip { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 26px; border-radius: 6px; color: var(--subtle); cursor: grab; }
+.mce-grip:hover { background: var(--surface-3); color: var(--text); }
+.mce-el-kind { text-transform: uppercase; letter-spacing: .08em; font-size: 10.5px; }
+.mce-el-tools { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.mce-el-del { color: var(--rose-ink); }
+.mce-el .seg { padding: 2px; gap: 2px; }
+.mce-el .seg button { height: 24px; padding: 0 9px; font-size: 12px; border-radius: 999px; }
+.mce-el .seg.soft button.on { background: var(--lav-deep); color: var(--lav-ink); }
+
+.mce-heading { display: block; width: 100%; padding: 0; border: 0; border-radius: 6px; resize: none; overflow: hidden; background: transparent; color: inherit; font-family: inherit; outline: none; }
+.mce-heading::placeholder { color: #B5BBC8; }
+.mce-rt .ProseMirror { min-height: 1.6em; outline: none; white-space: pre-wrap; word-wrap: break-word; font-variant-ligatures: none; }
+.mce-rt .ProseMirror > :first-child { margin-top: 0; }
+.mce-rt .ProseMirror > :last-child { margin-bottom: 0; }
+.mce-rt .ProseMirror li { position: relative; }
+.mce-rt .ProseMirror-hideselection *::selection { background: transparent; }
+.mce-rt .ProseMirror-selectednode { outline: 2px solid var(--lav); }
+.mce-el-richText:not(:focus-within) .ProseMirror:has(> p:only-child > br:only-child)::before { content: 'Napište text…'; position: absolute; color: #B5BBC8; pointer-events: none; }
+.mce-alt { height: 32px; font-size: 13px; background: var(--surface-2) !important; color: var(--text) !important; border-color: var(--line-2) !important; }
+.mce-uploading { padding: 14px; border-radius: 10px; border: 1.5px dashed var(--lav-line); color: var(--lav-ink); font-size: 13px; font-weight: 600; text-align: center; }
+.mce-ghost { opacity: .4; }
+.mce-drag { background: #fff; border-color: var(--lav) !important; box-shadow: 0 12px 32px rgba(23,21,27,.18); }
+
+.mce-preview-page { padding: 8px 28px 4px; border-radius: 18px; background: #fff; color: #313a46; border: 1px solid var(--line); overflow-x: auto; }
+.mce-preview-page .page-heading { border-bottom: 1px solid #dee2e6 !important; color: #313a46; }
+.mce-preview-page .page-heading .fs-4 { font-size: 1.35rem !important; }
+.mce-preview-page .mcp-page { min-width: 640px; }
+.mce-preview-empty { margin: 0; }
+
+@media (max-width: 560px) {
+    .mce-paper { padding: 14px; }
+    .mce-preview-page { padding: 6px 14px; }
+    .mce-tb-hint { display: none; }
+    .mce-tb-font { width: 100%; }
+}

@@ -2352,6 +2352,80 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
 }
 
 /*
+ * Manual content pages (intro + custom pages, `_manual_content_page.html.twig`)
+ * — the mockup grid's 3 × 2 slots with AUTO row height. Shared by the public
+ * manual (app_plain, always light) and the Nocturne editor's preview panel, so
+ * it carries its own typography and colours instead of inheriting either skin.
+ */
+.mcp-page {
+    container-type: inline-size;
+    color: #313a46;
+    font-size: 1.125rem;
+    line-height: 1.6;
+}
+
+.mcp-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-auto-rows: auto;
+    gap: 2.609cqw;
+}
+
+.mcp-seg {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    min-width: 0;
+}
+
+.mcp-va-center { justify-content: center; }
+.mcp-va-bottom { justify-content: flex-end; }
+
+.mcp-h {
+    margin: 0;
+    color: inherit;
+    font-weight: 700;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+}
+
+.mcp-h1 { font-size: 2.25rem; }
+.mcp-h2 { font-size: 1.75rem; }
+.mcp-h3 { font-size: 1.375rem; }
+
+.mcp-rt { overflow-wrap: anywhere; }
+.mcp-rt > :first-child { margin-top: 0; }
+.mcp-rt > :last-child { margin-bottom: 0; }
+.mcp-rt p { margin: 0 0 0.75em; }
+.mcp-rt ul, .mcp-rt ol { margin: 0 0 0.75em; padding-left: 1.5em; }
+.mcp-rt li > p { margin: 0 0 0.25em; }
+.mcp-rt a { color: inherit; text-decoration: underline; }
+
+.mcp-img { margin: 0; }
+
+/* natural = the legacy intro image: own ratio, never wider than the slot, centred */
+.mcp-img-natural img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 0 auto;
+}
+
+/* cover = the mockup look: slot width, cropped to the slot's canonical ratio
+   (the figure carries `aspect-ratio` inline) */
+.mcp-img-cover {
+    overflow: hidden;
+    border-radius: 1.45cqw;
+}
+
+.mcp-img-cover img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/*
  * Mockup page editor — layout picker (radio cards with live mini previews).
  */
 .mockup-layout-picker {

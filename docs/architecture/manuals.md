@@ -1,4 +1,4 @@
-# Manuals — mockup pages, logo variants/widths, colours, fonts, page texts
+# Manuals — mockup pages, logo variants/widths, colours, fonts, page texts, content pages
 
 ### Manual mockup pages — canonical grid geometry
 
@@ -637,3 +637,115 @@ width bar was already in place (JSON, see above).
   preferences — the preview is always light): scroll and the edited element's
   viewport position unchanged, no backdrop left, reopen + save again, 422 keeps
   the modal open, Escape closes it.
+
+### Manual content pages — editable intro (P1, 2026-11-09)
+
+Plan + phases: `docs/plans/2026-11-manual-content-pages.md` (P2 custom pages,
+P3 gallery migration, P4 drop `manual.intro_image` are still to come).
+
+- **Model.** `ManualContentPage` (`manual_content_page`): `role`
+  (`ManualContentPageRole`: `intro` | `custom`), `name` (plain title — printed
+  in the page heading row "NN · manual · NAME", NOT a content element),
+  `layout` (`MockupPageLayout`, the mockup grid's 11 layouts), `segments`
+  (JSONB via `ManualContentSegmentsDoctrineType`), `position` (reserved for
+  P2: custom pages share one sortable space with mockup pages; the intro is
+  always first and keeps 0), timestamps. Manual CASCADE; **at most one intro
+  per manual** = partial unique index `uniq_manual_content_page_intro … WHERE
+  role = 'intro'` (also declared on the entity so the test schema has it).
+  `ManualContentPage::fitSegments()` keeps exactly one segment per layout
+  slot — a shorter layout moves the dropped segments' elements into the last
+  slot, never deletes them (the JS editor does the same on a layout switch).
+- **Value objects** (`src/Value/ManualContent/`), strict on decode
+  (`InvalidManualContent`, 422): `ContentSegment {verticalAlign top|center|bottom,
+  elements}`, elements discriminated by `type` — `HeadingElement {id, level
+  1–3, text}`, `RichTextElement {id, doc}`, `ImageElement {id, path,
+  galleryImageId (null until P3), fit natural|cover, alt}`. Element ids are
+  client-generated (`[A-Za-z0-9_-]{1,64}`). Image `path` must be a bare key
+  `manuals/<uuid>/…` (no URL, no `..`); the save handler additionally
+  requires it to be under THIS manual. `ManualContentPagePayload` = the whole
+  editor POST (`{name, layout, segments}`, one segment per slot, ≤ 120
+  elements, ≤ 1 MB).
+- **Rich text = ProseMirror JSON, never HTML** (`RichTextDoc`). Allow-list:
+  `paragraph`, `bullet_list`, `ordered_list` (attrs.order), `list_item`
+  (paragraph first), `text`, `hard_break`; marks `link` (http/https/mailto only,
+  no whitespace/control chars), `bold`, `italic`, `underline`, `font`
+  (attrs.family), `color` (attrs.color `#rrggbb`). Unknown keys are dropped,
+  marks come out in `RichTextDoc::MARK_ORDER` — the JS schema declares its
+  marks in the same order so `toJSON()` matches. Which fonts / colours are
+  allowed is NOT a structural rule (it changes): `ResolveManualContentStyles`
+  = every face of the manual's fonts as `Font::faceFamily()` (`"Rubik (Rubik
+  Bold)"`, the family the manual's `@font-face` uses) + the project palette
+  (`GetProjectPalette::forProject()`); the save handler drops disallowed
+  font/colour marks (`restrictStyles`) and the renderer re-checks at render.
+- **Render.** `RichTextHtmlRenderer` (Twig `manual_rich_text(doc, styles)`)
+  escapes everything, re-validates hrefs/colours/fonts, emits font names as
+  CSS-escaped strings. Tests incl. XSS attempts:
+  `tests/Services/Manual/RichTextHtmlRendererTest.php`,
+  `tests/Value/ManualContent/RichTextDocTest.php`. **Twig gotcha:** call
+  `doc.isEmpty()` explicitly — `doc.empty` resolves to the STATIC factory
+  `RichTextDoc::empty()` (always truthy).
+- **One partial** `_manual_content_page.html.twig` (+ heading row
+  `_manual_content_page_heading.html.twig`) for the public manual and the
+  editor's "Náhled v manuálu" panel. CSS `.mcp-*` in `app.css` (both
+  entrypoints), own typography/colours. Grid = the mockup 3 × 2 tracks with
+  `grid-auto-rows: auto` (rows grow, text never overflows). Image `natural` =
+  own ratio, `max-width:100%`, centred — byte-for-byte the legacy intro look;
+  `cover` = slot width cropped to the slot's canonical ratio (inline
+  `aspect-ratio`).
+- **Manual numbering: "no content → no page".** The intro renders (and takes
+  page 01) only when `hasContent()` (an image, a non-empty heading or rich
+  text). The old intro page texts (`ManualPage::Intro` overrides) no longer
+  render anywhere: the title became the page `name`, the description a
+  rich-text element. An admin sees a pencil on the heading row linking to the
+  editor.
+- **Editor** `manual_intro_page` (`/manual/{id}/uvodni-stranka`, "Úvodní
+  stránka" tab, first in `_manual_nav`, both manual types, `manual_edit`).
+  A manual without an intro page opens with `IntroContentPageDefaults`
+  (title override or "Úvod", description override as rich text, legacy
+  `intro_image`) — nothing is written until Save.
+  `manual_content_editor_controller.js` (**lazy** Stimulus controller — the
+  ProseMirror bundle loads only here): layout picker (mockup mini-grids),
+  segments on white "paper" (light tokens re-scoped on `.mce-paper`, the
+  manual is always light), "+ Přidat prvek" (Nadpis / Text / Obrázek),
+  per-segment vertical align, element delete, SortableJS within and between
+  segments (`group`, `forceFallback: true`, own ghost/drag classes —
+  element DOM nodes are only MOVED, never rebuilt, so ProseMirror views keep
+  caret + undo), heading = auto-height textarea, sticky toolbar (B/I/U, lists,
+  link popover, manual-font select, palette swatches; toolbar buttons
+  `preventDefault` on mousedown to keep the selection). Save = ONE POST
+  (`manual_intro_page_save`, form fields `_token` + `payload` JSON) →
+  `SaveManualContentPage` (upsert; for the intro the existing intro wins over
+  the id) → JSON `{state, preview}`; dirty tracking compares key-sorted JSON,
+  `beforeunload` guard, Cmd/Ctrl+S. Pictures upload separately
+  (`manual_content_image_upload`, `UploadManualContentImage`) to
+  `manuals/{manualId}/content/{uuid7}.{ext}`, 10 MB DECIMAL (`'10m'`, mirrored
+  in the template), normalised like gallery uploads (HEIC → JPEG/PNG, SVG
+  kept); an upload never saved stays an orphan for the storage scan.
+- **ProseMirror delivery**: `assets/vendor-pinned/prosemirror.bundle.js`, ONE
+  committed esbuild ESM bundle imported by relative path (no importmap pins —
+  jsDelivr `+esm` non-determinism). Versions + rebuild:
+  `resources/prosemirror-bundle/README.md`.
+- **Legacy upload (until P4).** The add/edit manual form's "Úvodní obrázek"
+  still writes `manual.intro_image` AND goes through `IntroContentPageImage`:
+  no intro page → one is created from the defaults + picture; otherwise the
+  image element still showing the previous upload gets the new key (fit/alt
+  kept), or the picture is appended to the first segment when the admin had
+  removed it. The edit form's "current image" preview still shows the
+  column, which may differ from the page after editor changes.
+- **Data migration** `Version20261109140100` (plan in
+  `IntroContentPageMigration`, tested): every manual with `intro_image` got
+  its intro page (layout-7; description override → rich text; picture,
+  natural, alt "Úvod"); manuals without one got nothing. Idempotent.
+- **Storage**: image paths are enumerated by `BuildStorageReferenceIndex`
+  (`manual_content_page.segments`); the keys live under `manuals/{manualId}/`,
+  so project deletion already removes them.
+- Pinned by `tests/Controller/Manual/ManualIntroPageTest.php`,
+  `tests/MessageHandler/Manual/IntroImageContentPageTest.php`,
+  `tests/Entity/ManualContentPageTest.php`,
+  `tests/Value/ManualContent/ManualContentPagePayloadTest.php`,
+  `tests/Services/Manual/IntroContentPageMigrationTest.php`,
+  `ScanStorageTest::testImageOfAContentPageIsNotAnOrphan`. Browser-verified
+  2026-11-09 (puppeteer, local): layout switch, add heading/text/image,
+  bold + manual font + palette colour + link + ordered list + undo, drag
+  between and within segments, upload, save, reload round-trip, public render,
+  dirty flag; screenshots 390/820/1440 × dark/light.

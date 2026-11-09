@@ -36,7 +36,8 @@ survives purely for the untouched `social-networks/…` keys and historical rows
 - `ScanStorage` (`src/Services/Storage/`) lists the bucket and cross-references
   `BuildStorageReferenceIndex`, which enumerates **every** column that stores a
   path: plain strings, the JSON documents (`manual.logo`,
-  `manual_mockup_page.images`, `font.faces`), the canvas JSONB **and the e-mail
+  `manual_mockup_page.images`, the image elements of
+  `manual_content_page.segments`, `font.faces`), the canvas JSONB **and the e-mail
   signature `code`** — the last two EMBED paths inside full public URLs rather
   than storing the key, so they are matched by storage-prefix regex (the base
   URL is environment-specific; the prefix is the stable anchor). **A writer

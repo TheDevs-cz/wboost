@@ -15,6 +15,7 @@ use WBoost\Web\FormData\LogoColorsEditForm;
 use WBoost\Web\FormData\ManualPageTextFormData;
 use WBoost\Web\Query\GetManualFonts;
 use WBoost\Web\Query\GetManualMockupPages;
+use WBoost\Web\Repository\ManualContentPageRepository;
 use WBoost\Web\Value\LogoColorVariant;
 use WBoost\Web\Value\LogoTypeVariant;
 use WBoost\Web\Value\ManualPage;
@@ -50,6 +51,8 @@ final readonly class ManualPreviewTurboStream
         private ManualEditForms $forms,
         private GetManualFonts $getManualFonts,
         private GetManualMockupPages $getManualMockupPages,
+        private ManualContentPageRepository $contentPageRepository,
+        private ResolveManualContentStyles $resolveContentStyles,
     ) {
     }
 
@@ -71,6 +74,8 @@ final readonly class ManualPreviewTurboStream
             'manual' => $manual,
             'fonts' => $this->getManualFonts->allForManual($manual->id),
             'mockup_pages' => $this->getManualMockupPages->allForManual($manual->id),
+            'intro_page' => $this->contentPageRepository->introFor($manual->id),
+            'content_styles' => $this->resolveContentStyles->forManual($manual),
         ];
     }
 

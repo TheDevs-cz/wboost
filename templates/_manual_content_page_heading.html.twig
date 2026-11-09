@@ -1,0 +1,15 @@
+{# The heading row of a content page in the manual — the same row every
+   page has (number · manual · page name · manual type). The page NAME is
+   the title here; the page's own headings are elements in its body.
+   Params: manual, content_page, number, edit_url (null for readers). #}
+<div class="page-heading py-3 border-bottom">
+    <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(number) }}</span>
+    <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
+    <span class="d-inline-block pe-4 fs-4 fw-bold">{{ content_page.name }}</span>
+    <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
+    {% if edit_url %}
+        <a href="{{ edit_url }}" class="btn btn-sm btn-soft-primary p-1 px-2 manual-page-text-edit float-end me-3" title="Upravit stránku" aria-label="Upravit stránku {{ content_page.name }}">
+            <i class="mdi mdi-pencil"></i>
+        </a>
+    {% endif %}
+</div>

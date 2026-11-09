@@ -123,6 +123,41 @@ final class ScanStorageTest extends KernelTestCase
         self::assertSame(TestDataFixture::PROJECT_1_ID, $row['project_id']);
     }
 
+    /**
+     * A content page's image elements live inside the segments JSONB —
+     * without their query in BuildStorageReferenceIndex a live intro picture
+     * would read as an orphan.
+     */
+    public function testImageOfAContentPageIsNotAnOrphan(): void
+    {
+        $path = 'manuals/' . TestDataFixture::MANUAL_1_ID . '/content/0199aaaa-0000-7000-8000-000000000001.png';
+        $this->write($path, 'content-image');
+
+        self::getContainer()->get(EntityManagerInterface::class)->getConnection()->insert('manual_content_page', [
+            'id' => '0199aaaa-0000-7000-8000-0000000000c1',
+            'manual_id' => TestDataFixture::MANUAL_1_ID,
+            'role' => 'intro',
+            'name' => 'Úvod',
+            'layout' => 'layout-8',
+            'segments' => (string) json_encode([
+                ['verticalAlign' => 'top', 'elements' => [['id' => 'h', 'type' => 'heading', 'level' => 1, 'text' => 'manuals/not-a-path']]],
+                ['verticalAlign' => 'top', 'elements' => [['id' => 'i', 'type' => 'image', 'path' => $path, 'galleryImageId' => null, 'fit' => 'natural', 'alt' => '']]],
+            ]),
+            'position' => 0,
+            'created_at' => '2026-11-09 12:00:00',
+            'updated_at' => '2026-11-09 12:00:00',
+        ]);
+
+        self::getContainer()->get(ScanStorage::class)->scan();
+
+        $row = $this->row($path);
+
+        self::assertNotNull($row);
+        self::assertFalse((bool) $row['orphaned']);
+        self::assertSame('manual_content_page.segments', $row['referenced_by']);
+        self::assertSame(TestDataFixture::PROJECT_1_ID, $row['project_id']);
+    }
+
     public function testDatabaseRowsPointingAtMissingFilesAreReportedAsDangling(): void
     {
         // The fixtures reference `fixtures/in-allowed.png`; not writing it means

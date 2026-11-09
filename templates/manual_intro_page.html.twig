@@ -1,0 +1,139 @@
+{% extends 'base_manual.html.twig' %}
+
+{% block title %}{{ manual.name }}{% endblock %}
+{% set active_menu_item = 'manuals' %}
+
+{% block page_lead %}První stránka manuálu. Vyberte rozložení a do každého pole přidejte nadpis, text nebo obrázek. Změny uložíte tlačítkem dole.{% endblock %}
+
+{% block custom_styles %}
+    {# The manual's font faces under the family names the rich text stores
+       (`Font::faceFamily()`, same as manual_preview.html.twig). #}
+    <style>
+        {% for font in content_styles.fonts %}
+            @font-face { font-family: '{{ font.family|e('css') }}'; src: url('{{ font.url|e('css') }}'); font-display: swap; }
+        {% endfor %}
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="stack">
+    {{ include('_manual_nav.html.twig') }}
+
+    {# Everything below is driven by manual_content_editor_controller.js
+       (lazy — it pulls the committed ProseMirror bundle only on this page).
+       The 10 MB cap mirrors UploadManualContentImageController::MAX_SIZE
+       ('10m' = DECIMAL megabytes, see gallery-and-uploads.md). #}
+    <div class="man-editor mce"
+         data-controller="manual-content-editor"
+         data-manual-content-editor-state-value="{{ editor_state|json_encode }}"
+         data-manual-content-editor-geometry-value="{{ layouts_geometry|json_encode }}"
+         data-manual-content-editor-fonts-value="{{ content_styles.fonts|json_encode }}"
+         data-manual-content-editor-colors-value="{{ content_styles.colors|json_encode }}"
+         data-manual-content-editor-save-url-value="{{ path('manual_intro_page_save', {'manualId': manual.id}) }}"
+         data-manual-content-editor-upload-url-value="{{ path('manual_content_image_upload', {'manualId': manual.id}) }}"
+         data-manual-content-editor-csrf-value="{{ csrf_token('manual_content_page') }}"
+         data-manual-content-editor-max-file-size-value="10000000"
+         data-manual-content-editor-max-payload-bytes-value="{{ max_payload_bytes }}">
+
+        <section class="man-sec" aria-labelledby="mce-name-title">
+            <div class="man-sech">
+                <h2 id="mce-name-title">Název stránky</h2>
+                <span class="cap">Zobrazuje se v záhlaví stránky manuálu vedle čísla stránky.</span>
+            </div>
+            <div class="man-name">
+                <input type="text" class="form-control" maxlength="255" required placeholder="Např. Úvod"
+                       aria-labelledby="mce-name-title"
+                       data-manual-content-editor-target="name"
+                       data-action="input->manual-content-editor#nameChanged">
+            </div>
+        </section>
+
+        <section class="man-sec" aria-labelledby="mce-layout-title">
+            <div class="man-sech">
+                <h2 id="mce-layout-title">Rozložení stránky</h2>
+                <span class="cap">Rozdělí stránku na pole stejně jako u stránek s mockupy. Výška polí se řídí obsahem. Při přepnutí na rozložení s menším počtem polí se prvky z chybějících polí přesunou do posledního pole.</span>
+            </div>
+            <div class="mockup-layout-picker" role="radiogroup" aria-labelledby="mce-layout-title">
+                {% for layout, slots in layouts_geometry %}
+                    <label class="mockup-layout-option">
+                        <input type="radio" class="mockup-layout-radio" name="mce-layout" value="{{ layout }}"
+                               data-manual-content-editor-target="layoutRadio"
+                               data-action="change->manual-content-editor#layoutChanged">
+                        <span class="mockup-mini-grid" aria-hidden="true">
+                            {% for slot in slots %}
+                                <span style="grid-column: {{ slot.column }} / span {{ slot.columnSpan }}; grid-row: {{ slot.row }} / span {{ slot.rowSpan }};"></span>
+                            {% endfor %}
+                        </span>
+                        <span class="mockup-layout-count">{{ slots|length }} {{ slots|length == 1 ? 'pole' : (slots|length < 5 ? 'pole' : 'polí') }}</span>
+                    </label>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="man-sec" aria-labelledby="mce-content-title">
+            <div class="man-sech">
+                <h2 id="mce-content-title">Obsah</h2>
+                <span class="cap">Prvky přidáte tlačítkem „Přidat prvek“ v poli, pořadí změníte přetažením za úchyt — i mezi poli. Text formátujete lištou nahoře, písma a barvy nabízí jen z tohoto manuálu.</span>
+            </div>
+
+            <div class="mce-toolbar" role="toolbar" aria-label="Formátování textu" data-manual-content-editor-target="toolbar" aria-disabled="true">
+                <button type="button" class="btn btn-ghost icon xs mce-tb" data-cmd="bold" title="Tučně (Ctrl+B)" aria-label="Tučně" aria-pressed="false"><b>B</b></button>
+                <button type="button" class="btn btn-ghost icon xs mce-tb" data-cmd="italic" title="Kurzíva (Ctrl+I)" aria-label="Kurzíva" aria-pressed="false"><i>I</i></button>
+                <button type="button" class="btn btn-ghost icon xs mce-tb" data-cmd="underline" title="Podtržení (Ctrl+U)" aria-label="Podtržení" aria-pressed="false"><u>U</u></button>
+                <span class="mce-tb-sep" aria-hidden="true"></span>
+                <button type="button" class="btn btn-ghost icon xs mce-tb" data-cmd="bullet_list" title="Odrážky" aria-label="Odrážky" aria-pressed="false">{{ icon('list', 's16') }}</button>
+                <button type="button" class="btn btn-ghost icon xs mce-tb mce-tb-ol" data-cmd="ordered_list" title="Číslovaný seznam" aria-label="Číslovaný seznam" aria-pressed="false">1.</button>
+                <button type="button" class="btn btn-ghost icon xs mce-tb" data-cmd="link" title="Odkaz" aria-label="Odkaz" aria-pressed="false">{{ icon('link', 's16') }}</button>
+                <span class="mce-tb-sep" aria-hidden="true"></span>
+                <label class="inp sm sel mce-tb-font" title="Písmo">
+                    <select data-manual-content-editor-target="fontSelect" data-action="change->manual-content-editor#fontPicked" aria-label="Písmo">
+                        <option value="">Výchozí písmo</option>
+                    </select>
+                    {{ icon('chev-down', 's14') }}
+                </label>
+                <div class="mce-tb-colors" data-manual-content-editor-target="colorList" role="group" aria-label="Barva textu"></div>
+                <span class="mce-tb-hint cap" data-manual-content-editor-target="toolbarHint">Klikněte do textu, který chcete formátovat.</span>
+
+                <div class="mce-link" hidden data-manual-content-editor-target="linkBox">
+                    <label class="inp sm">
+                        {{ icon('link', 's14') }}
+                        <input type="text" placeholder="https://… nebo e-mail" data-manual-content-editor-target="linkInput"
+                               data-action="keydown->manual-content-editor#linkKey" aria-label="Adresa odkazu">
+                    </label>
+                    <button type="button" class="btn btn-primary xs" data-action="manual-content-editor#applyLink">Použít</button>
+                    <button type="button" class="btn btn-ghost xs" data-action="manual-content-editor#removeLink">Odebrat odkaz</button>
+                    <span class="hint err" hidden data-manual-content-editor-target="linkError">Zadejte adresu začínající http(s):// nebo e-mail.</span>
+                </div>
+            </div>
+
+            <div class="mce-paper">
+                <div class="mcp-page">
+                    <div class="mcp-grid mce-stage" data-manual-content-editor-target="stage"></div>
+                </div>
+            </div>
+
+            <input type="file" accept="image/*" hidden data-manual-content-editor-target="fileInput" data-action="change->manual-content-editor#filePicked">
+        </section>
+
+        <section class="man-sec" aria-labelledby="mce-preview-title">
+            <div class="man-sech">
+                <h2 id="mce-preview-title">Náhled v manuálu</h2>
+                <span class="cap">Uložená podoba stránky tak, jak ji uvidí čtenáři manuálu. Po uložení se obnoví.</span>
+            </div>
+            <div class="mce-preview" data-manual-content-editor-target="preview">
+                {{ include('_manual_intro_page_preview.html.twig') }}
+            </div>
+        </section>
+
+        <div class="man-savebar">
+            <span class="cap" data-manual-content-editor-target="status" role="status"></span>
+            <span class="mockup-editor-dirty d-none" data-manual-content-editor-target="dirtyBadge">
+                <span class="mockup-editor-dirty-dot"></span> Neuložené změny
+            </span>
+            <button class="btn btn-primary sm" type="button" data-manual-content-editor-target="saveButton" data-action="manual-content-editor#save">
+                {{ icon('check', 's16') }}Uložit stránku
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -45,17 +45,16 @@
         <div class="container-fluid" style="max-width: 1320px;">
             {% set page = 0 %}
 
-            {% if manual.introImage %}
+            {# The intro is a content page (P1, `_manual_content_page.html.twig`):
+               no content → no page, so a manual that never had an intro image
+               does not gain an empty page 01. #}
+            {% if intro_page and intro_page.hasContent %}
                 {% set page = page+1 %}
                 <div class="manual-page border-bottom border-2" id="page-{{ page }}">
-                    {{ include('_manual_page_heading.html.twig', {'page': manual_page('intro'), 'number': page}) }}
+                    {{ include('_manual_content_page_heading.html.twig', {'content_page': intro_page, 'number': page, 'edit_url': can_edit_manual ? path('manual_intro_page', {'id': manual.id}) : null}) }}
 
-                    <div class="page-content py-4 gx-5 row">
-                        {{ include('_manual_page_description.html.twig', {'page': manual_page('intro'), 'class': 'col-12 fs-5 fst-italic text-center'}) }}
-
-                        <div class="page-description col-12 text-center">
-                            <img src="{{ uploaded_asset(manual.introImage) }}" style="max-width: 100%;" alt="Úvod">
-                        </div>
+                    <div class="page-content py-4">
+                        {{ include('_manual_content_page.html.twig', {'content_page': intro_page, 'content_styles': content_styles}) }}
                     </div>
                 </div>
             {% endif %}

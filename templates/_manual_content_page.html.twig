@@ -1,0 +1,36 @@
+{# A manual content page's body: the mockup grid's segments (3 × 2 tracks,
+   same slots as MockupPageLayout) but with AUTO row height — rows grow with
+   their content, text never overflows. One partial for the public manual
+   (manual_preview.html.twig) and the editor's "Náhled v manuálu" panel, so
+   what the admin previews is what readers get.
+
+   Styles live in app.css (`.mcp-*`), loaded by both entrypoints; they set
+   their own typography so the Nocturne editor and the plain manual agree.
+
+   Params: content_page (ManualContentPage), content_styles (ManualContentStyles). #}
+<div class="mcp-page">
+    <div class="mcp-grid">
+        {% for slot in content_page.layout.slots %}
+            {% set segment = content_page.segment(loop.index0) %}
+            <div class="mcp-seg mcp-va-{{ segment.verticalAlign.value }}"
+                 style="grid-column: {{ slot.column }} / span {{ slot.columnSpan }}; grid-row: {{ slot.row }} / span {{ slot.rowSpan }};">
+                {% for element in segment.elements %}
+                    {% if element.type == 'heading' %}
+                        {% if element.text is not empty %}
+                            <h{{ element.level + 1 }} class="mcp-h mcp-h{{ element.level }}">{{ element.text }}</h{{ element.level + 1 }}>
+                        {% endif %}
+                    {% elseif element.type == 'richText' %}
+                        {% if not element.doc.isEmpty() %}
+                            <div class="mcp-rt">{{ manual_rich_text(element.doc, content_styles) }}</div>
+                        {% endif %}
+                    {% elseif element.type == 'image' %}
+                        <figure class="mcp-img mcp-img-{{ element.fit.value }}"
+                            {%- if element.fit.value == 'cover' %} style="aspect-ratio: {{ slot.unitWidth }} / {{ slot.unitHeight }};"{% endif %}>
+                            <img src="{{ uploaded_asset(element.path) }}" alt="{{ element.alt }}" loading="lazy">
+                        </figure>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        {% endfor %}
+    </div>
+</div>
