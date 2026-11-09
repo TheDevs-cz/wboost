@@ -19,6 +19,7 @@ use WBoost\Web\Query\GetTemplateGroupMembers;
 use WBoost\Web\Repository\TemplateExportVersionRepository;
 use WBoost\Web\Services\Security\TemplateGroupVoter;
 use WBoost\Web\Services\SocialNetwork\FillContainerHides;
+use WBoost\Web\Services\SocialNetwork\FillContainerSheets;
 use WBoost\Web\Services\SocialNetwork\FillShapePlaceholders;
 use WBoost\Web\Services\Template\ExportVersionSeeder;
 use WBoost\Web\Services\TemplateGroup\GroupFillPlaceholders;
@@ -42,6 +43,7 @@ final class TemplateGroupFillController extends AbstractController
         readonly private ExportVersionSeeder $versionSeeder,
         readonly private FillShapePlaceholders $shapePlaceholders,
         readonly private FillContainerHides $containerHides,
+        readonly private FillContainerSheets $containerSheets,
     ) {
     }
 
@@ -112,6 +114,12 @@ final class TemplateGroupFillController extends AbstractController
             )
             : ['texts' => [], 'hidden' => [], 'fonts' => [], 'shapeColors' => [], 'images' => [], 'imageHidden' => [], 'placements' => []];
 
+        // One pencil per container: each dimension's own boxes (membership
+        // and frames are per dimension), one sheet per container id.
+        foreach ($variants as $i => $entry) {
+            $variants[$i]['container_sheets'] = $this->containerSheets->forVariants([$entry['variant']], $seed['hidden']);
+        }
+
         // The group is 1:1 with its template, which stores the admin-arranged
         // order of the "Všechna pole" panel.
         $groupTemplate = $this->members->template($group->id);
@@ -135,6 +143,7 @@ final class TemplateGroupFillController extends AbstractController
             // Hidable containers (shared ids across dimensions) — one panel
             // toggle + one `hiddenValues[<containerId>]` checkbox each.
             'container_hides' => $this->containerHides->placeholders($memberVariants, $seed['hidden']),
+            'container_sheets' => $this->containerSheets->forVariants($memberVariants, $seed['hidden']),
             'export_history' => $this->getExportVersions->forGroup($group->id),
             'loaded_version' => $loadedVersion,
             'seed' => $seed,

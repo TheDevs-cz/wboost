@@ -332,6 +332,7 @@
                                                 image_hidden: seed.imageHidden,
                                                 shape_placeholders: shape_placeholders,
                                                 shape_frames: v.shape_frames,
+                                                container_sheets: v.container_sheets,
                                             }) }}
                                         </div>
                                         {# Placement toolbars: how a PICKED picture sits in THIS
@@ -373,6 +374,7 @@
             <div class="fill-popovers" data-variant-fill-overlay-target="panel" aria-labelledby="fill-panel-title"
                  {% if can_arrange_fields %}data-controller="fill-field-order" data-fill-field-order-url-value="{{ path('template_fill_field_order', {templateId: group_template.id}) }}"{% endif %}>
                 {{ include('_fill_panel_header.html.twig', { arrangeable: can_arrange_fields }) }}
+                {{ include('_fill_container_sheets.html.twig', { sheets: container_sheets|default([]) }) }}
 
                 {# Text and image fields in ONE sequence, in the template's
                    admin-arranged order (Template::$fillFieldOrder — the group is

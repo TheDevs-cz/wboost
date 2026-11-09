@@ -19,23 +19,38 @@
     - shape_placeholders / shape_frames: (optional) the recolourable shapes
       (FillShapePlaceholders rows) + their frames in THIS surface — a box
       with a palette button opening the shape's colour popover
+    - container_sheets: (optional) THIS surface's one-pencil containers
+      (FillContainerSheets rows). Each gets ONE `fill-box--container` box
+      (outline = the union of its members' reflowed frames, computed by the
+      overlay) with the pencil opening the container sheet + the container's
+      eye; its member boxes stay as thin outlines WITHOUT tools — a click on
+      one opens the sheet at that field.
 
     The dashed BORDER follows the "Zobrazit oblasti k vyplnění" switch, the
     name tag the "Popisky prvků" one (CSS on the form classes).
 #}
+{% set sheet_of = {} %}
+{% for sheet in container_sheets|default([]) %}
+    {% for fieldId in sheet.fieldIds %}
+        {% set sheet_of = sheet_of|merge({(fieldId): sheet.id}) %}
+    {% endfor %}
+{% endfor %}
 {% for ph in text_placeholders %}
     {% set frame = text_frames[ph.inputId] ?? null %}
+    {% set sheet_id = sheet_of[ph.inputId] ?? null %}
     {% if frame and not ph.locked %}
         <div
-            class="fill-box fill-box--text"
+            class="fill-box fill-box--text{{ sheet_id ? ' fill-box--sheet-member' }}"
             data-variant-fill-overlay-target="box"
             data-inputid="{{ ph.inputId }}"
             data-frame-x="{{ frame.x }}"
             data-frame-y="{{ frame.y }}"
             data-frame-width="{{ frame.width }}"
             data-frame-height="{{ frame.height }}"
+            {% if sheet_id %}{{ include('_fill_sheet_member_attrs.html.twig', { sheet_id: sheet_id, input_id: ph.inputId, label: ph.name ?: 'Text' }) }}{% endif %}
         >
             <span class="fill-box__name">{{ ph.name ?: 'Text' }}</span>
+            {% if not sheet_id %}
             <div class="fill-box__tools">
                 <button type="button" class="fill-box__tool fill-box__tool--edit"
                     title="Upravit text" aria-label="Upravit text{% if ph.name %}: {{ ph.name }}{% endif %}"
@@ -54,6 +69,7 @@
                     >{{ icon(ph.hidden ? 'eye-off' : 'eye', 's14') }}</button>
                 {% endif %}
             </div>
+            {% endif %}
         </div>
     {% endif %}
 {% endfor %}
@@ -61,16 +77,19 @@
     {% set frame = image_frames[ph.inputId] ?? null %}
     {% if frame %}
         {% set hidden = image_hidden[ph.inputId] ?? false %}
+        {% set sheet_id = sheet_of[ph.inputId] ?? null %}
         <div
-            class="fill-box fill-box--image"
+            class="fill-box fill-box--image{{ sheet_id ? ' fill-box--sheet-member' }}"
             data-variant-fill-overlay-target="box"
             data-inputid="{{ ph.inputId }}"
             data-frame-x="{{ frame.x }}"
             data-frame-y="{{ frame.y }}"
             data-frame-width="{{ frame.width }}"
             data-frame-height="{{ frame.height }}"
+            {% if sheet_id %}{{ include('_fill_sheet_member_attrs.html.twig', { sheet_id: sheet_id, input_id: ph.inputId, label: ph.name ?: 'Obrázek' }) }}{% endif %}
         >
             <span class="fill-box__name">{{ ph.name ?: 'Obrázek' }}</span>
+            {% if not sheet_id %}
             <div class="fill-box__tools">
                 <button type="button" class="fill-box__tool fill-box__tool--edit"
                     title="Vybrat obrázek" aria-label="Vybrat obrázek{% if ph.name %}: {{ ph.name }}{% endif %}"
@@ -99,22 +118,26 @@
                     >{{ icon(hidden ? 'eye-off' : 'eye', 's14') }}</button>
                 {% endif %}
             </div>
+            {% endif %}
         </div>
     {% endif %}
 {% endfor %}
 {% for ph in shape_placeholders|default([]) %}
     {% set frame = shape_frames[ph.inputId] ?? null %}
+    {% set sheet_id = sheet_of[ph.inputId] ?? null %}
     {% if frame %}
         <div
-            class="fill-box fill-box--shape"
+            class="fill-box fill-box--shape{{ sheet_id ? ' fill-box--sheet-member' }}"
             data-variant-fill-overlay-target="box"
             data-inputid="{{ ph.inputId }}"
             data-frame-x="{{ frame.x }}"
             data-frame-y="{{ frame.y }}"
             data-frame-width="{{ frame.width }}"
             data-frame-height="{{ frame.height }}"
+            {% if sheet_id %}{{ include('_fill_sheet_member_attrs.html.twig', { sheet_id: sheet_id, input_id: ph.inputId, label: ph.name ?: 'Barva tvaru' }) }}{% endif %}
         >
             <span class="fill-box__name">{{ ph.name ?: 'Barva tvaru' }}</span>
+            {% if not sheet_id %}
             <div class="fill-box__tools">
                 <button type="button" class="fill-box__tool fill-box__tool--edit"
                     title="Změnit barvu" aria-label="Změnit barvu{% if ph.name %}: {{ ph.name }}{% endif %}"
@@ -122,6 +145,42 @@
                     data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
                 >{{ icon('palette', 's14') }}</button>
             </div>
+            {% endif %}
         </div>
     {% endif %}
+{% endfor %}
+{# One box per one-pencil container, AFTER the member boxes so its tool
+   cluster stacks above theirs. No designed frame: the overlay places it at
+   the union of the members' live frames on this surface (`data-sheet-members`);
+   with no member frame here it stays hidden. #}
+{% for sheet in container_sheets|default([]) %}
+    {% set label = sheet.name ?: 'Skupina polí' %}
+    <div
+        class="fill-box fill-box--container"
+        data-variant-fill-overlay-target="box"
+        data-inputid="{{ sheet.id }}"
+        data-sheet-box="{{ sheet.id }}"
+        data-sheet-members="{{ sheet.memberIds|join(' ') }}"
+    >
+        <span class="fill-box__name">{{ label }}</span>
+        <div class="fill-box__tools">
+            <button type="button" class="fill-box__tool fill-box__tool--edit"
+                title="Upravit skupinu ({{ sheet.fieldIds|length }} polí)" aria-label="Upravit skupinu: {{ label }}"
+                aria-haspopup="dialog"
+                data-action="variant-fill-overlay#openSheet"
+                data-variant-fill-overlay-sheet-param="{{ sheet.id }}"
+            >{{ icon('edit', 's14') }}</button>
+            {% if sheet.hidable %}
+                <button type="button"
+                    class="fill-box__tool fill-box__tool--hide{{ sheet.hidden ? ' is-active' : '' }}"
+                    data-hide-toggle="{{ sheet.id }}"
+                    aria-pressed="{{ sheet.hidden ? 'true' : 'false' }}"
+                    title="{{ sheet.hidden ? 'Zobrazit prvek' : 'Schovat prvek' }}"
+                    aria-label="{{ sheet.hidden ? 'Zobrazit prvek' : 'Schovat prvek' }}"
+                    data-action="variant-fill-overlay#toggleHide"
+                    data-variant-fill-overlay-inputid-param="{{ sheet.id }}"
+                >{{ icon(sheet.hidden ? 'eye-off' : 'eye', 's14') }}</button>
+            {% endif %}
+        </div>
+    </div>
 {% endfor %}

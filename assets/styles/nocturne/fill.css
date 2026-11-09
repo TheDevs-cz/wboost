@@ -160,6 +160,15 @@
 .fill-box.fill-box--tools-inside .fill-box__tools { top: calc(var(--fill-vis-top, 0px) + 4px); right: calc(var(--fill-vis-right, 0px) + 4px); }
 .fill-box.fill-box--tools-left.fill-box--tools-inside .fill-box__tools { right: auto; left: calc(var(--fill-vis-left, 0px) + 4px); }
 
+/* One pencil per container: the container box = a solid lavender outline
+   around the block with its tag hanging ABOVE it (the first member's own tag
+   sits at the same corner inside); members keep a lighter dotted outline. */
+.fill-form.fill-js.fill-highlight-on .fill-box--container { border: 1.5px solid color-mix(in oklab, var(--lav) 90%, white); border-radius: 6px; background: none; box-shadow: 0 0 0 1px rgb(0 0 0 / .18); }
+.fill-form.fill-js.fill-highlight-on .fill-box--container.is-sheet-open { border-width: 2px; box-shadow: 0 0 0 3px var(--lav-glow); }
+.fill-box--container .fill-box__name { border-radius: 4px 4px 0 0; transform: scale(calc(1 / var(--fill-zoom, 1))) translateY(calc(-100% - 1px)); }
+.fill-form.fill-js.fill-highlight-on .fill-box--sheet-member { border-style: dotted; }
+.fill-form.fill-js.fill-highlight-on .fill-box--sheet-member:hover { background: color-mix(in oklab, var(--lav) 16%, transparent); }
+
 /* Live-preview veil + spinner badge. */
 .fill-spinner { background: color-mix(in oklab, var(--bg) 30%, transparent); }
 .fill-spinner__badge { width: 56px; height: 56px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line-2); box-shadow: var(--shadow-3); }
@@ -231,6 +240,25 @@ textarea.fill-popover__input { min-height: 44px; padding: 10px 12px; border-radi
 .fill-popovers__empty { display: flex; align-items: center; gap: 8px; color: var(--muted) !important; }
 .fill-form.fill-js.fill-panel-open .fill-popovers .document-fill-panel-heading { display: flex; align-items: center; gap: 6px; margin: 8px 0 0; font-size: 12px; font-weight: 700; letter-spacing: .04em; color: var(--subtle); }
 .fill-form.fill-js.fill-panel-open .fill-popovers .document-fill-panel-heading.is-shared { color: var(--lav-ink); }
+
+/* ---------- Container sheet (one pencil per container) ---------- */
+.fill-form.fill-js.fill-sheet-open .fill-popovers { padding: 0 14px 14px; background: var(--surface-2); color: var(--text); border: 1px solid var(--line-2); border-radius: 18px; box-shadow: var(--shadow-4); scrollbar-width: thin; }
+.fill-sheet__head { gap: 8px; padding: 12px 0 10px; border-bottom: 1px solid var(--line); background: var(--surface-2); }
+.fill-sheet__lead { display: inline-flex; align-items: center; gap: 8px; flex: 1 1 auto; min-width: 0; color: var(--lav-ink); }
+.fill-sheet__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 600; color: var(--text); }
+.fill-sheet__count { flex: none; font-size: 12px; color: var(--subtle); }
+.fill-sheet__ok { box-shadow: 0 6px 18px var(--mnt-glow); }
+.fill-sheet__x { color: var(--muted); }
+.fill-sheet__eye { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--subtle); cursor: pointer; }
+.fill-sheet__eye:hover { background: var(--surface-3); color: var(--text); }
+.fill-sheet__eye.is-active { background: var(--pch-deep); color: var(--pch-ink); }
+.fill-sheet__eye:focus-visible { outline: 2px solid var(--lav-ink); outline-offset: 2px; }
+.fill-sheet__section { gap: 6px; min-height: 0; margin: 6px 0 -2px calc(var(--sheet-depth, 0) * 10px); padding-top: 8px; border-top: 1px dashed var(--line-2); font-size: 12px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--subtle); }
+.fill-sheet__section-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fill-sheet__section--plain { padding-top: 4px; }
+.fill-form.fill-js.fill-sheet-open .fill-popovers > .fill-popover.is-in-sheet { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); box-shadow: none; }
+.fill-form.fill-js.fill-sheet-open .fill-popovers > .fill-popover.is-in-sheet > .card-body { gap: 8px; padding: 10px 12px 12px; }
+.fill-form.fill-js.fill-sheet-open .fill-popovers > .fill-popover.is-sheet-target { border-color: var(--lav); box-shadow: 0 0 0 3px var(--lav-glow); }
 
 /* Image card (panel row of an image slot; prototype `.fi-img`). */
 .fill-image-card { display: flex; align-items: center; gap: 12px; }

@@ -1,0 +1,8 @@
+{# Attributes of a member box inside a one-pencil container (see
+   _fill_overlay_boxes.html.twig): a click opens the container sheet at this
+   field. Not in the tab order — the container's pencil is the keyboard path. #}
+data-sheet-member="{{ sheet_id }}"
+title="Upravit: {{ label }}"
+data-action="click->variant-fill-overlay#openSheet"
+data-variant-fill-overlay-sheet-param="{{ sheet_id }}"
+data-variant-fill-overlay-focus-param="{{ input_id }}"

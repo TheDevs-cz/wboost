@@ -49,6 +49,7 @@
 {% set imagePlaceholders = hasImages ? this.imagePlaceholders() : [] %}
 {% set shapePlaceholders = this.shapePlaceholders() %}
 {% set containerHides = this.containerHides() %}
+{% set containerSheets = this.containerSheets() %}
 {# Render the (slow) server preview ONCE — reused by the preview source span and
    the <img> below. Only the text-only branch has a server preview <img>.
    `src` = the settle render (the on-screen truth at rest); `baseSrc` = the
@@ -406,6 +407,7 @@
                     image_adjust_tool: true,
                     shape_placeholders: shapePlaceholders,
                     shape_frames: shapeFrames,
+                    container_sheets: containerSheets,
                 }) }}
             </div>
         </div>
@@ -447,6 +449,7 @@
         <div class="fill-popovers" data-live-ignore data-variant-fill-overlay-target="panel" aria-labelledby="fill-panel-title"
              {% if canArrangeFields %}data-controller="fill-field-order" data-fill-field-order-url-value="{{ path('template_fill_field_order', {templateId: this.variant.template.id}) }}"{% endif %}>
             {{ include('_fill_panel_header.html.twig', { arrangeable: canArrangeFields }) }}
+            {{ include('_fill_container_sheets.html.twig', { sheets: containerSheets }) }}
             {# Text and image fields in ONE sequence, in the template's
                admin-arranged order (Template::$fillFieldOrder); admins drag
                them by the handle (fill_field_order_controller.js). #}

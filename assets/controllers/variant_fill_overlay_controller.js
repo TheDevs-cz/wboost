@@ -43,6 +43,19 @@ import { FillHistory } from "./fill_history.js";
  *  - hide → toggleHide flips the controlled checkbox (`data-hide-mirror` for text,
  *    `data-image-hide` for image) and dispatches change so the page reacts.
  *
+ * ONE PENCIL PER CONTAINER (container sheet, 2026-11-09). A container the
+ * server marks as a sheet owner (FillContainerSheets — top-level, ≥ 2
+ * editable fields) gets ONE `fill-box--container` box at the union of its
+ * members' live frames, whose pencil opens the CONTAINER SHEET: the same
+ * `panel` element in `fill-sheet-open` mode, showing only that container's
+ * cards (by `data-inputid`) under its head + section headings, ordered with
+ * CSS `order` — never moved in the DOM, so every editor keeps its one
+ * instance and the mirrors / history / hash see nothing new. Member boxes
+ * lose their tools; a click on one opens the sheet at that field. The sheet
+ * floats beside the container box (fixed, clamped on-screen; docked to the
+ * bottom on phones) and closes like a popover (×, Uložit, Ctrl/⌘+Enter,
+ * Escape, a click outside).
+ *
  * THE "VŠECHNA POLE" PANEL docks the popovers container (`panel` target) into
  * a modal listing every popover + image card as a stacked form — the SAME
  * editor instances (a WYSIWYG keeps its state), just laid out statically,
@@ -84,6 +97,9 @@ export default class extends Controller {
         this._modalTrigger = null;
         this._panelOpen = false;
         this._panelTrigger = null;
+        this._sheetId = null;
+        this._sheetBox = null;
+        this._sheetMembers = [];
         this._previewOn = false;
         this._zoom = 1;
         this._userZoomed = false;
@@ -261,6 +277,10 @@ export default class extends Controller {
                 this.closePanel();
                 return;
             }
+            if (this._sheetId !== null) {
+                this.closeSheet();
+                return;
+            }
             if (this._openId === null && this._previewOn) {
                 this.togglePreview();
                 return;
@@ -270,6 +290,13 @@ export default class extends Controller {
         }
         // Ctrl/Cmd+Enter = "Uložit" from the keyboard: plain Enter inserts a
         // newline in every (multi-line) editor, so the confirm needs a modifier.
+        if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && this._sheetId !== null) {
+            if (this.hasPanelTarget && this.panelTarget.contains(event.target)) {
+                event.preventDefault();
+                this.closeSheet();
+            }
+            return;
+        }
         if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && this._openId !== null) {
             const popover = this._popoverFor(this._openId);
             if (popover && popover.contains(event.target)) {
@@ -313,7 +340,10 @@ export default class extends Controller {
      */
     togglePreview() {
         this._previewOn = !this._previewOn;
-        if (this._previewOn) this.closePopover();
+        if (this._previewOn) {
+            this.closePopover();
+            this.closeSheet();
+        }
         this.element.classList.toggle("fill-preview-on", this._previewOn);
         this.previewButtonTargets.forEach((button) => {
             // The pressed look comes from aria-pressed (fill.css).
@@ -345,6 +375,7 @@ export default class extends Controller {
     openPanel(event) {
         if (!this.hasPanelTarget || this._panelOpen) return;
         this.closePopover();
+        this.closeSheet();
         this._closeAllModals();
         this._panelOpen = true;
         this._panelTrigger = event?.currentTarget ?? null;
@@ -652,6 +683,7 @@ export default class extends Controller {
 
         this._closeAllModals();
         if (this._panelOpen) this.closePanel();
+        this.closeSheet();
 
         // Anchor: the box the pencil sits in (any dimension's), else the
         // input's first box (a layers-panel row has no box of its own).
@@ -719,6 +751,10 @@ export default class extends Controller {
     }
 
     _maybeCloseOnOutside(event) {
+        if (this._sheetId !== null) {
+            this._maybeCloseSheetOnOutside(event);
+            return;
+        }
         if (this._openId === null) return;
         const popover = this._popoverFor(this._openId);
         const boxes = this._boxesFor(this._openId);
@@ -729,6 +765,273 @@ export default class extends Controller {
         // drag inside the WYSIWYG editor that releases beyond the popover edge.
         if (inside(event.target) || inside(this._pressOrigin)) return;
         this.closePopover();
+    }
+
+    // --- Container sheet (one pencil per container) ------------------------
+    // The `panel` element in a third presentation (after the floating
+    // popovers and the docked "Všechna pole"): only ONE container's cards,
+    // shown as a floating sheet next to the container box. Which containers
+    // own a sheet, and in what order the sheet lists its fields + nested
+    // sections, is decided server-side (FillContainerSheets — the pencil
+    // level is one constant there); this controller only follows
+    // `data-sheet-entries`.
+
+    openSheet(event) {
+        if (event) event.stopPropagation();
+        const sheetId = event?.params?.sheet;
+        if (!sheetId || !this.hasPanelTarget) return;
+        const focusId = event.params?.focus || null;
+        const trigger = event.currentTarget;
+        const host = trigger && typeof trigger.closest === "function" ? trigger.closest(".fill-box") : null;
+        const box = this._sheetBoxFor(sheetId, host);
+
+        if (this._sheetId === sheetId) {
+            // Another dimension's / member's box re-anchors; the container's
+            // own pencil a second time closes, like a popover's.
+            if (focusId) {
+                if (box && box !== this._sheetBox) {
+                    this._sheetBox = box;
+                    this._positionSheet();
+                }
+                this._focusSheetField(focusId);
+                return;
+            }
+            if (box && box !== this._sheetBox) {
+                this._sheetBox = box;
+                this._positionSheet();
+                return;
+            }
+            this.closeSheet();
+            return;
+        }
+
+        const head = this._sheetHead(sheetId);
+        if (!head) return;
+
+        this._closeAllModals();
+        if (this._panelOpen) this.closePanel();
+        this.closePopover();
+        this.closeSheet();
+
+        let entries = [];
+        try {
+            entries = JSON.parse(head.dataset.sheetEntries || "[]");
+        } catch (err) {
+            entries = [];
+        }
+
+        const panel = this.panelTarget;
+        const members = [head];
+        head.style.order = "0";
+        entries.forEach((entry, index) => {
+            const element = entry.kind === "section"
+                ? this._sheetSection(sheetId, entry.id)
+                : this._sheetCard(entry.id);
+            if (!element) return;
+            element.style.order = String(index + 1);
+            element.style.setProperty("--sheet-depth", String(entry.depth || 0));
+            members.push(element);
+        });
+        members.forEach((element) => element.classList.add("is-in-sheet"));
+
+        this._sheetId = sheetId;
+        this._sheetBox = box;
+        this._sheetMembers = members;
+        this._sheetLabelledBy = panel.getAttribute("aria-labelledby");
+        this.element.classList.add("fill-sheet-open");
+        panel.setAttribute("role", "dialog");
+        panel.setAttribute("aria-labelledby", `fill-sheet-title-${sheetId}`);
+        this._sheetBoxes(sheetId).forEach((sheetBox) => sheetBox.classList.add("is-sheet-open"));
+
+        // Every plain field grows to its value (as in the docked panel).
+        members.forEach((element) => {
+            element.querySelectorAll("textarea").forEach((field) => this._autoGrow(field));
+        });
+        panel.scrollTop = 0;
+        this._positionSheet();
+
+        if (focusId) {
+            this._focusSheetField(focusId);
+        } else {
+            const first = this._sheetFocusable(members.slice(1));
+            if (first) first.focus({ preventScroll: true });
+        }
+    }
+
+    closeSheet(event) {
+        if (event && typeof event.preventDefault === "function") event.preventDefault();
+        if (this._sheetId === null) return;
+        const sheetId = this._sheetId;
+        (this._sheetMembers || []).forEach((element) => {
+            element.classList.remove("is-in-sheet", "is-sheet-target");
+            element.style.removeProperty("order");
+            element.style.removeProperty("--sheet-depth");
+        });
+        this._sheetBoxes(sheetId).forEach((box) => box.classList.remove("is-sheet-open"));
+        this.element.classList.remove("fill-sheet-open");
+        if (this.hasPanelTarget) {
+            const panel = this.panelTarget;
+            panel.style.removeProperty("top");
+            panel.style.removeProperty("left");
+            panel.removeAttribute("role");
+            if (this._sheetLabelledBy) {
+                panel.setAttribute("aria-labelledby", this._sheetLabelledBy);
+            } else {
+                panel.removeAttribute("aria-labelledby");
+            }
+        }
+        // Keyboard users land back on the pencil that opened it.
+        const pencil = this._sheetBox && this._sheetBox.querySelector(".fill-box__tool--edit");
+        const focusInside = this.hasPanelTarget && this.panelTarget.contains(document.activeElement);
+        this._sheetId = null;
+        this._sheetBox = null;
+        this._sheetMembers = [];
+        if (focusInside && pencil && pencil.offsetParent !== null) pencil.focus({ preventScroll: true });
+    }
+
+    /** Scroll the sheet to one field's card and focus its editor. */
+    _focusSheetField(inputId) {
+        const card = this._sheetCard(inputId);
+        if (!card || !this.hasPanelTarget) return;
+        const panel = this.panelTarget;
+        const head = this._sheetHead(this._sheetId);
+        const headHeight = head ? head.offsetHeight : 0;
+        const top = card.offsetTop - headHeight - 8;
+        if (top < panel.scrollTop || card.offsetTop + card.offsetHeight > panel.scrollTop + panel.clientHeight) {
+            panel.scrollTop = Math.max(0, top);
+        }
+        (this._sheetMembers || []).forEach((element) => element.classList.remove("is-sheet-target"));
+        card.classList.add("is-sheet-target");
+        const field = this._sheetFocusable([card]);
+        if (field) field.focus({ preventScroll: true });
+    }
+
+    /** The first editable control among the given cards (a WYSIWYG counts). */
+    _sheetFocusable(cards) {
+        for (const card of cards) {
+            const field = Array.from(card.querySelectorAll(
+                'textarea, [contenteditable="true"], select, button.btn:not(.fill-popover__chrome), button.fill-richtext-swatch',
+            )).find((candidate) => candidate.offsetParent !== null);
+            if (field) return field;
+        }
+        return null;
+    }
+
+    /**
+     * Beside the container box when there is room (right, else left), top
+     * aligned with it; otherwise below / above it like a popover; always
+     * clamped fully on-screen. Phones: CSS docks it to the bottom edge.
+     */
+    _positionSheet() {
+        if (this._sheetId === null || !this.hasPanelTarget) return;
+        const panel = this.panelTarget;
+        if (window.matchMedia && window.matchMedia("(max-width: 700px)").matches) {
+            panel.style.removeProperty("top");
+            panel.style.removeProperty("left");
+            return;
+        }
+        const box = this._sheetBox;
+        if (!box || box.style.display === "none") return;
+        const rect = box.getBoundingClientRect();
+        const margin = 12;
+        const sheet = panel.getBoundingClientRect();
+        const viewW = window.innerWidth;
+        const viewH = window.innerHeight;
+
+        let left;
+        let top = rect.top;
+        if (rect.right + margin + sheet.width <= viewW - margin) {
+            left = rect.right + margin;
+        } else if (rect.left - margin - sheet.width >= margin) {
+            left = rect.left - margin - sheet.width;
+        } else {
+            left = rect.left;
+            top = rect.bottom + margin;
+            if (top + sheet.height > viewH - margin) {
+                const above = rect.top - sheet.height - margin;
+                if (above >= margin) top = above;
+            }
+        }
+        top = Math.max(margin, Math.min(top, viewH - sheet.height - margin));
+        left = Math.max(margin, Math.min(left, viewW - sheet.width - margin));
+        panel.style.top = `${top}px`;
+        panel.style.left = `${left}px`;
+    }
+
+    _maybeCloseSheetOnOutside(event) {
+        // An image picker / colour picker opened FROM the sheet lives outside
+        // it; the sheet stays open under them.
+        if (this.modalTargets.some((modal) => modal.classList.contains("is-open"))
+            || document.querySelector(".modal.show")) return;
+        const boxes = this._sheetBoxes(this._sheetId);
+        const inside = (node) => Boolean(node) && (
+            (this.hasPanelTarget && this.panelTarget.contains(node))
+            || boxes.some((box) => box.contains(node))
+            || (typeof node.closest === "function" && node.closest(".fill-modal, .modal, .color-picker-pop")));
+        if (inside(event.target) || inside(this._pressOrigin)) return;
+        this.closeSheet();
+    }
+
+    /** The container box of a sheet: the clicked one, else the container
+     *  box on the clicked member's surface, else the first visible one. */
+    _sheetBoxFor(sheetId, host) {
+        if (host && host.dataset.sheetBox === sheetId) return host;
+        const surface = host ? (this._surfaces || []).find((candidate) => candidate.el.contains(host)) : null;
+        const own = surface ? surface.boxes.find((box) => box.dataset.sheetBox === sheetId) : null;
+        if (own) return own;
+        const boxes = this.boxTargets.filter((box) => box.dataset.sheetBox === sheetId);
+        return boxes.find((box) => box.style.display !== "none") || boxes[0] || null;
+    }
+
+    /** Every box of a sheet on every surface: container + member boxes. */
+    _sheetBoxes(sheetId) {
+        if (sheetId === null) return [];
+        return this.boxTargets.filter((box) => box.dataset.sheetBox === sheetId || box.dataset.sheetMember === sheetId);
+    }
+
+    _sheetHead(sheetId) {
+        if (!this.hasPanelTarget || sheetId === null) return null;
+        return Array.from(this.panelTarget.children).find((element) => element.dataset.fillSheet === sheetId) || null;
+    }
+
+    _sheetSection(sheetId, sectionId) {
+        return Array.from(this.panelTarget.children).find((element) =>
+            element.dataset.fillSheetSection === sheetId && element.dataset.sectionId === sectionId) || null;
+    }
+
+    /** A field's "Všechna pole" card (text / shape popover, image card) —
+     *  by `data-inputid`, never by position. */
+    _sheetCard(inputId) {
+        return Array.from(this.panelTarget.children).find((element) =>
+            element.dataset.inputid === inputId && !element.classList.contains("fill-popover--container")) || null;
+    }
+
+    _sheetMemberIds(box) {
+        return (box.dataset.sheetMembers || "").split(" ").filter(Boolean);
+    }
+
+    /** A container box's frame: the union of its members' LIVE frames on
+     *  this surface (reflowed texts, tracked pictures, shapes). Null when no
+     *  member is placed here — the box hides. */
+    _sheetFrame(box, surface) {
+        let left = Infinity;
+        let top = Infinity;
+        let right = -Infinity;
+        let bottom = -Infinity;
+        this._sheetMemberIds(box).forEach((id) => {
+            let frame = (surface.computed && surface.computed[id]) || (this._imageFrames && this._imageFrames[id]) || null;
+            if (!frame) {
+                const memberBox = surface.boxes.find((candidate) => candidate.dataset.inputid === id && !candidate.dataset.sheetBox);
+                if (memberBox) frame = this._frameOf(memberBox, surface);
+            }
+            if (!frame) return;
+            left = Math.min(left, frame.x);
+            top = Math.min(top, frame.y);
+            right = Math.max(right, frame.x + frame.width);
+            bottom = Math.max(bottom, frame.y + frame.height);
+        });
+        if (!Number.isFinite(left) || !Number.isFinite(top)) return null;
+        return { x: left, y: top, width: right - left, height: bottom - top };
     }
 
     // --- Image gallery modal ------------------------------------------------
@@ -989,6 +1292,7 @@ export default class extends Controller {
     }
 
     _reanchorOpenPopover() {
+        if (this._sheetId !== null) this._positionSheet();
         if (this._openId === null) return;
         const popover = this._popoverFor(this._openId);
         if (popover) this._positionPopover(popover, this._anchorBox);
@@ -1238,7 +1542,7 @@ export default class extends Controller {
             const edge = 18 / z;
 
             surface.boxes.forEach((box) => {
-                const frame = this._frameOf(box, surface);
+                const frame = box.dataset.sheetBox ? this._sheetFrame(box, surface) : this._frameOf(box, surface);
                 if (!frame) {
                     box.style.display = "none";
                     return;
@@ -1529,7 +1833,10 @@ export default class extends Controller {
 
         surface.computed = computed;
         surface.boxes.forEach((box) => {
-            box.classList.toggle("fill-box--overflow", overflowIds.has(box.dataset.inputid));
+            const overflowing = box.dataset.sheetBox
+                ? this._sheetMemberIds(box).some((id) => overflowIds.has(id))
+                : overflowIds.has(box.dataset.inputid);
+            box.classList.toggle("fill-box--overflow", overflowing);
         });
 
         return worstOverflow;

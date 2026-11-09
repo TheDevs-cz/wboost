@@ -108,6 +108,66 @@ Vrstvy panel and the API `layerIndex` are unaffected. Contracts:
   them). Untouched sample-less inputs export blank — the single page's
   behaviour since day one; the group's old "empty = designed text" is gone.
 
+**One pencil per container — the container sheet (2026-11-09)**
+
+Container-rows plan P1 (decided by Jan the same day): a TOP-LEVEL container
+holding ≥ 2 editable fields (unlocked text, fillable image slot, recolourable
+shape — anywhere in its tree) gets ONE box + ONE pencil on all three fill
+pages instead of a pencil per member. Contracts:
+
+- **Who gets a sheet** — `Services/SocialNetwork/FillContainerSheets`
+  (`forVariants(variants, hiddenValues)`, first-wins by container id like the
+  popovers; per page on the document page, in fill-key space). The pencil
+  LEVEL is ONE constant, `FillContainerSheets::PENCIL_LEVEL` (`LEVEL_TOP`
+  today; `LEVEL_ROW` = one pencil per container that directly holds editable
+  fields, e.g. per result row). The JS and Twig only follow the rows it
+  builds (`id`, `memberIds` for the outline, ordered `fieldIds` + `entries`
+  = fields and nested-container `section`s with their depth / label / eye),
+  so switching the level touches nothing else. Single-field containers and
+  non-container inputs keep their per-field pencil.
+- **Boxes** (`_fill_overlay_boxes.html.twig`, param `container_sheets` = THIS
+  surface's sheets): a `fill-box--container` box (`data-sheet-box`,
+  `data-sheet-members`) after the member boxes, with the pencil
+  (`openSheet`) and — when hidable — the container's eye. It has no designed
+  frame: `reposition` places it at the union of its members' LIVE frames on
+  that surface (`_sheetFrame`: reflowed text frames, tracked picture frames,
+  shape boxes), so it follows the reflow and collapses with a hidden
+  container; it goes red when a member overflows. Member boxes render
+  WITHOUT tools (`fill-box--sheet-member`, `data-sheet-member`), and — only
+  while "Zobrazit oblasti" is on and "Náhled" is off — are clickable: the
+  click opens the sheet scrolled to that field and focuses it
+  (`_fill_sheet_member_attrs.html.twig`). The container box itself never
+  takes pointer events (a picture under it stays draggable).
+- **The sheet is the `panel` element in a THIRD presentation**
+  (`fill-sheet-open` on the form, after floating popovers and the docked
+  "Všechna pole"): `_fill_container_sheets.html.twig` renders, inside
+  `.fill-popovers`, one hidden head per sheet (title, field count, the
+  container's eye, Uložit, ×; `data-sheet-entries` JSON) + one heading per
+  section (nested container; label = its name / its "Všechna pole" toggle
+  label when hidable, plus its eye). `openSheet` marks the head, the
+  sections and the field CARDS (`data-inputid`, the existing text / shape
+  popovers and image cards) `.is-in-sheet` and orders them with inline
+  `order` — NOTHING moves in the DOM (moving a `data-controller` element
+  reconnects its Stimulus controller and would reseed a WYSIWYG from its
+  server value). Same editor instances, same mirrors: history, the settle
+  hash, drafts and POSTs see nothing new. Members' own eyes are the cards'
+  `.fill-popover__eye` (shown in sheet mode); picture placement stays on the
+  picture (single-page Fabric selection + adjust panel, group/document
+  ghost toolbar).
+- **Placement / closing**: fixed, beside the container box (right, else
+  left, top-aligned), else below/above, always clamped on-screen;
+  re-anchored with the popovers (`_reanchorOpenPopover`). Phones (≤ 700 px):
+  docked to the bottom edge. z 1045 — above the page, below the gallery
+  pickers, so a pick from an image card opens over it. Closes on ×, Uložit,
+  Ctrl/⌘+Enter, Escape and a click outside (the image pickers, Bootstrap
+  modals and the colour picker pop-up count as inside). Opening a popover,
+  the panel or "Náhled" closes it; a pencil on another dimension's box
+  re-anchors it.
+- **"Všechna pole"** is unchanged (no grouping yet; the admin field order
+  still applies there). The sheet ignores the arranged order — it lists the
+  container's fields in DESIGNED flow order (top to bottom), sections
+  included.
+
 **Click-into-preview overlay (`variant_fill_overlay_controller.js`).** Editing
 happens ON the preview: every text + image placeholder shows an always-visible
 icon cluster — **pencil** (text → floating popover with the replace input; image

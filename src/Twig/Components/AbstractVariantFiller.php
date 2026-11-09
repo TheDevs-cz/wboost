@@ -24,6 +24,7 @@ use WBoost\Web\Services\Image\GalleryImageCaption;
 use WBoost\Web\Services\ReleaseSessionLock;
 use WBoost\Web\Services\SocialNetwork\CanvasPlaceholderGeometry;
 use WBoost\Web\Services\SocialNetwork\FillContainerHides;
+use WBoost\Web\Services\SocialNetwork\FillContainerSheets;
 use WBoost\Web\Services\SocialNetwork\FillShapePlaceholders;
 use WBoost\Web\Services\SocialNetwork\FillTextPlaceholders;
 use WBoost\Web\Services\SocialNetwork\ResolveShapeColorOverrides;
@@ -164,6 +165,7 @@ abstract class AbstractVariantFiller extends AbstractController
         private readonly FillShapePlaceholders $fillShapePlaceholders,
         private readonly ResolveShapeColorOverrides $resolveShapeColorOverrides,
         private readonly FillContainerHides $fillContainerHides,
+        private readonly FillContainerSheets $fillContainerSheets,
     ) {
     }
 
@@ -614,6 +616,20 @@ abstract class AbstractVariantFiller extends AbstractController
         $this->denyAccessUnlessGranted($this->viewAttribute(), $variant);
 
         return $this->fillContainerHides->placeholders([$variant], $this->hiddenValues);
+    }
+
+    /**
+     * The containers that get ONE box + pencil opening a "container sheet"
+     * instead of a pencil per member ({@see FillContainerSheets}).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function containerSheets(): array
+    {
+        $variant = $this->variantEntity();
+        $this->denyAccessUnlessGranted($this->viewAttribute(), $variant);
+
+        return $this->fillContainerSheets->forVariants([$variant], $this->hiddenValues);
     }
 
     /**

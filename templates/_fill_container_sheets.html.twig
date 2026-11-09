@@ -1,0 +1,58 @@
+{#
+    The "container sheet" chrome of every one-pencil container, rendered
+    INSIDE the `.fill-popovers` container of all three fill pages (single,
+    group, document). A sheet is a VIEW over the existing "Všechna pole"
+    cards: variant-fill-overlay#openSheet switches `.fill-popovers` into
+    `fill-sheet-open` mode, shows this sheet's head + section headings and
+    the cards of its fields (by `data-inputid`, never by DOM position) and
+    orders them with CSS `order` — no card moves in the DOM, so every editor
+    (WYSIWYG, checklist, font select) keeps its one instance and state.
+
+    Parameters:
+    - sheets: FillContainerSheets rows (unified for the page)
+
+    `data-sheet-entries` = the sheet's ordered entries ({kind: field|section,
+    id, depth}); section headings carry the nested container's eye when it
+    is hidable (the same `hiddenValues[<id>]` mirror as its panel row).
+#}
+{% for sheet in sheets %}
+    {% set label = sheet.name ?: 'Skupina polí' %}
+    {% set count = sheet.fieldIds|length %}
+    <div class="fill-sheet__head" data-fill-sheet="{{ sheet.id }}" data-sheet-entries="{{ sheet.entries|json_encode }}">
+        <span class="fill-sheet__lead">
+            {{ icon('layers', 's16') }}
+            <span class="fill-sheet__title" id="fill-sheet-title-{{ sheet.id }}">{{ label }}</span>
+            <span class="fill-sheet__count">{{ count }} {{ count <= 4 ? 'pole' : 'polí' }}</span>
+        </span>
+        {% if sheet.hidable %}
+            <button type="button"
+                class="fill-sheet__eye{{ sheet.hidden ? ' is-active' : '' }}"
+                data-hide-toggle="{{ sheet.id }}"
+                aria-pressed="{{ sheet.hidden ? 'true' : 'false' }}"
+                title="{{ sheet.hidden ? 'Zobrazit prvek' : 'Schovat prvek' }}"
+                aria-label="{{ sheet.hidden ? 'Zobrazit prvek' : 'Schovat prvek' }}"
+                data-action="variant-fill-overlay#toggleHide"
+                data-variant-fill-overlay-inputid-param="{{ sheet.id }}"
+            >{{ icon(sheet.hidden ? 'eye-off' : 'eye', 's14') }}</button>
+        {% endif %}
+        <button type="button" class="btn btn-success xs fill-sheet__ok" title="Uložit (Ctrl/⌘+Enter)" data-action="variant-fill-overlay#closeSheet">{{ icon('check', 's14') }}Uložit</button>
+        <button type="button" class="btn btn-ghost icon xs fill-sheet__x" aria-label="Zavřít" data-action="variant-fill-overlay#closeSheet">{{ icon('x', 's16') }}</button>
+    </div>
+    {% for entry in sheet.entries|filter(entry => entry.kind == 'section') %}
+        <div class="fill-sheet__section{{ entry.name or entry.hidable ? '' : ' fill-sheet__section--plain' }}"
+             data-fill-sheet-section="{{ sheet.id }}" data-section-id="{{ entry.id }}" style="--sheet-depth: {{ entry.depth }}">
+            {% if entry.name %}<span class="fill-sheet__section-name">{{ entry.name }}</span>{% endif %}
+            {% if entry.hidable %}
+                <button type="button"
+                    class="fill-sheet__eye{{ entry.hidden ? ' is-active' : '' }}"
+                    data-hide-toggle="{{ entry.id }}"
+                    aria-pressed="{{ entry.hidden ? 'true' : 'false' }}"
+                    title="{{ entry.hidden ? 'Zobrazit prvek' : 'Schovat prvek' }}"
+                    aria-label="{{ entry.hidden ? 'Zobrazit prvek' : 'Schovat prvek' }}"
+                    data-action="variant-fill-overlay#toggleHide"
+                    data-variant-fill-overlay-inputid-param="{{ entry.id }}"
+                >{{ icon(entry.hidden ? 'eye-off' : 'eye', 's14') }}</button>
+            {% endif %}
+        </div>
+    {% endfor %}
+{% endfor %}

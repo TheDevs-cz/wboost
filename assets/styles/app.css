@@ -1529,6 +1529,9 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     display: block;
     width: auto;
     max-width: none;
+    /* A flex item honours z-index even when static: the floating popovers'
+       1200 painted the cards over the sticky panel header on scroll. */
+    z-index: auto;
     /* Each field is its own card: a soft lift (not the floating popover's
        deep drop shadow) so the stack reads as separate rows on the white
        panel instead of hairline-bordered boxes melting into it. */
@@ -1606,6 +1609,98 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
 
 .fill-form.fill-js.fill-panel-open .fill-popover__eye {
     display: inline-flex;
+}
+
+/* --- Container sheet (one pencil per container, 2026-11-09) ---------------
+   The popovers container's THIRD presentation (see variant-fill-overlay
+   `openSheet`): only one container's cards (`.is-in-sheet`, ordered by the
+   controller with `order`) under that container's head + section headings,
+   as a floating sheet the controller places beside the container box. The
+   cards are the very same "Všechna pole" cards — no second editor. z-order:
+   above the page, below the gallery pickers (like the panel) so a pick
+   started from an image card opens over it. */
+.fill-sheet__head,
+.fill-sheet__section {
+    display: none;
+}
+
+.fill-form.fill-js.fill-sheet-open .fill-popovers {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    width: min(440px, calc(100vw - 24px));
+    max-height: min(680px, calc(100vh - 24px));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    z-index: 1045;
+    margin: 0;
+    pointer-events: auto;
+}
+
+.fill-form.fill-js.fill-sheet-open .fill-popovers > :not(.is-in-sheet) {
+    display: none !important;
+}
+
+.fill-form.fill-js.fill-sheet-open .fill-popovers > .fill-sheet__head.is-in-sheet {
+    display: flex;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+.fill-form.fill-js.fill-sheet-open .fill-popovers > .fill-sheet__section.is-in-sheet {
+    display: flex;
+    align-items: center;
+}
+
+.fill-form.fill-js.fill-sheet-open .fill-popovers > .fill-popover.is-in-sheet {
+    position: static;
+    display: block;
+    width: auto;
+    max-width: none;
+    margin-left: calc(var(--sheet-depth, 0) * 10px);
+    /* A flex item honours z-index even when static: the floating popovers'
+       1200 would paint every card over the sticky head. */
+    z-index: auto;
+}
+
+.fill-form.fill-js.fill-sheet-open .fill-popover__chrome {
+    display: none !important;
+}
+
+.fill-form.fill-js.fill-sheet-open .fill-popover.is-in-sheet .fill-popover__eye {
+    display: inline-flex;
+}
+
+@media (max-width: 700px) {
+    /* Phones: docked to the bottom edge like the pop-ups. The controller
+       leaves left/top alone there; !important beats a stale inline value. */
+    .fill-form.fill-js.fill-sheet-open .fill-popovers {
+        left: 12px !important;
+        right: 12px;
+        top: auto !important;
+        bottom: 12px;
+        width: auto;
+        max-height: 75vh;
+    }
+}
+
+/* The container box: an outline around the whole block, its own tool
+   cluster (pencil → sheet, eye when hidable). Never clickable itself — a
+   picture under it stays draggable; the member boxes inside are. */
+.fill-form.fill-js .fill-box--container {
+    pointer-events: none;
+}
+
+/* Members of a one-pencil container: no tools of their own; with the areas
+   shown, a click opens the container sheet at that field. */
+.fill-form.fill-js.fill-highlight-on:not(.fill-preview-on) .fill-box--sheet-member {
+    pointer-events: auto;
+    cursor: pointer;
 }
 
 .fill-image-card__thumb {

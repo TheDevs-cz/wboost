@@ -119,6 +119,22 @@ member stays an ordinary independent input. Since the 2026-08 nesting rework:
   icon attachments included); overflow shows an inline alert and disables
   Export. Coalesced via setTimeout, NOT requestAnimationFrame (rAF never
   fires in hidden tabs).
+- **One pencil per container (2026-11-09)**: on the fill pages a top-level
+  container with ≥ 2 editable fields in its tree is ONE box + pencil opening
+  a "container sheet" (its fields, nested containers as sections, the
+  container + member hide eyes) — `FillContainerSheets`, full contract in
+  templates-fill.md "One pencil per container". The pencil level (top-level
+  vs per row) is the single constant `FillContainerSheets::PENCIL_LEVEL`.
+- **Safety net for repeatable rows (2026-11-09, plan P0)**: the two prod
+  fixtures (`tests/Fixtures/containers/`: "Výsledky turnaje" — a root of
+  five nested 2-field rows; "Výsledek" — two columns of four single
+  scorers) are pinned by `tests/Golden/ContainerFixtureLayoutTest`
+  (`layoutData()` + box frames byte-for-byte, and the REAL engine run in
+  node through `layout-harness.cjs`: designed / wrapped / hidden / overflow
+  scenarios; regenerate with `UPDATE_GOLDEN=1`) and the invariant rows will
+  rest on — a HIDDEN row lays out (engine) and renders (Gotenberg,
+  `ContainerFixtureRenderTest`, group `gotenberg`) exactly like the same
+  design WITHOUT that row.
 - **API listing**: `variants[].containers[]` `{id, maxHeight, y,
   memberInputIds, memberContainerIds, gap, nested}` + per-input `containerId`
   and `textStyle {fontFamily, fontSize, lineHeight, charSpacing}` so

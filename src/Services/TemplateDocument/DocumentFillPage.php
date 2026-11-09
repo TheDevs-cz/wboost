@@ -9,6 +9,7 @@ use WBoost\Web\Entity\TemplateDocument;
 use WBoost\Web\Entity\TemplateDocumentField;
 use WBoost\Web\Entity\TemplateDocumentPage;
 use WBoost\Web\Services\SocialNetwork\FillContainerHides;
+use WBoost\Web\Services\SocialNetwork\FillContainerSheets;
 use WBoost\Web\Services\SocialNetwork\FillShapePlaceholders;
 use WBoost\Web\Services\SocialNetwork\PlaceholderAllowedDirectories;
 use WBoost\Web\Services\Template\FillFieldOrder;
@@ -54,6 +55,7 @@ readonly final class DocumentFillPage
         private GroupFillPlaceholders $placeholders,
         private FillShapePlaceholders $shapePlaceholders,
         private FillContainerHides $containerHides,
+        private FillContainerSheets $containerSheets,
         private FillFieldOrder $fillFieldOrder,
         private UrlGeneratorInterface $urlGenerator,
         private PlaceholderAllowedDirectories $allowedDirectories,
@@ -66,6 +68,7 @@ readonly final class DocumentFillPage
      *     text_placeholders: list<array<string, mixed>>,
      *     shape_placeholders: list<array<string, mixed>>,
      *     container_hides: list<array{id: string, name: string, hidden: bool, memberCount: int}>,
+     *     container_sheets: list<array<string, mixed>>,
      *     image_inputs: list<array<string, mixed>>,
      *     sections: list<array{title: string, shared: bool, fields: list<array<string, mixed>>}>,
      *     rich_toolbar: null|array<string, mixed>,
@@ -111,6 +114,8 @@ readonly final class DocumentFillPage
         $sectionSources = [];
         /** @var array<string, array{id: string, name: string, hidden: bool, memberCount: int}> $containerRows fill key → hide toggle */
         $containerRows = [];
+        /** @var array<string, array<string, mixed>> $containerSheets fill key → one-pencil container sheet */
+        $containerSheets = [];
 
         foreach ($document->pages() as $index => $page) {
             $templateId = $page->template->id->toString();
@@ -162,6 +167,13 @@ readonly final class DocumentFillPage
                 $pageKeys[] = $containerRow['id'];
             }
 
+            // One pencil per container: per page, in fill-key space (the
+            // clone's container + member ids are re-keyed), never shared.
+            $pageSheets = $this->containerSheets->forVariants([$clone], $seed['hidden']);
+            foreach ($pageSheets as $sheet) {
+                $containerSheets[$sheet['id']] ??= $sheet;
+            }
+
             $layout = $this->placeholders->layoutData($clone);
             $textFrames = [];
             /** @var array<string, array{frame: mixed}> $layoutInputs */
@@ -185,6 +197,7 @@ readonly final class DocumentFillPage
                 'text_layout' => $layout,
                 'text_frames' => $textFrames,
                 'shape_frames' => $this->shapePlaceholders->frames($clone),
+                'container_sheets' => $pageSheets,
                 'keys' => array_values(array_unique($pageKeys)),
             ];
 
@@ -300,6 +313,7 @@ readonly final class DocumentFillPage
             'text_placeholders' => array_values($texts),
             'shape_placeholders' => array_values($shapes),
             'container_hides' => array_values($containerRows),
+            'container_sheets' => array_values($containerSheets),
             'image_inputs' => array_values($imageSlots),
             'sections' => $this->sections($document, $fieldsById, $sectionSources, $texts, $imageSlots, $shapes, $containerRows),
             'rich_toolbar' => $this->placeholders->richTextToolbar($clones),
