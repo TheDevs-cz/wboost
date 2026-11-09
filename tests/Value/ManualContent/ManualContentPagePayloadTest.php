@@ -79,7 +79,8 @@ final class ManualContentPagePayloadTest extends TestCase
         yield 'heading too long' => [$page([['id' => 'a', 'type' => 'heading', 'level' => 1, 'text' => str_repeat('x', 301)]])];
         yield 'image url instead of key' => [$page([['id' => 'a', 'type' => 'image', 'path' => 'https://evil.example/x.png', 'fit' => 'natural']])];
         yield 'image traversal' => [$page([['id' => 'a', 'type' => 'image', 'path' => 'manuals/00000000-0000-0000-0000-000000000001/../../x.png', 'fit' => 'natural']])];
-        yield 'image other namespace' => [$page([['id' => 'a', 'type' => 'image', 'path' => 'file-upload/00000000-0000-0000-0000-000000000001/x.png', 'fit' => 'natural']])];
+        // Gallery uploads (`file-upload/{projectId}/…`) are allowed since P3 — the save handler checks the project.
+        yield 'image other namespace' => [$page([['id' => 'a', 'type' => 'image', 'path' => 'custom-templates/00000000-0000-0000-0000-000000000001/x.png', 'fit' => 'natural']])];
         yield 'image bad fit' => [$page([['id' => 'a', 'type' => 'image', 'path' => self::IMAGE, 'fit' => 'contain']])];
         yield 'image bad gallery id' => [$page([['id' => 'a', 'type' => 'image', 'path' => self::IMAGE, 'fit' => 'natural', 'galleryImageId' => 'x']])];
         yield 'rich text html' => [$page([['id' => 'a', 'type' => 'richText', 'doc' => '<p>x</p>']])];

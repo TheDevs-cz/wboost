@@ -1,0 +1,11 @@
+{# Stand-in for a manual picture that is no longer a live gallery picture
+   (content pages P3) — shown to editors only; readers see nothing there.
+   The storage object itself is never deleted while a manual references it
+   (purge guard), so restoring the picture from the Koš brings it back.
+   Params: reason ('trashed' | 'missing'). #}
+<div class="manual-img-standin" role="img" aria-label="Obrázek není k dispozici">
+    {{ icon('alert', 's16') }}
+    <span>{{ reason == 'trashed'
+        ? 'Obrázek je v koši galerie – čtenáři manuálu ho nevidí. Obnovte ho v galerii, nebo ho tu vyměňte.'
+        : 'Obrázek už v galerii není – čtenáři manuálu ho nevidí. Vyberte jiný.' }}</span>
+</div>

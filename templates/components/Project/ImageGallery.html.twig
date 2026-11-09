@@ -525,6 +525,17 @@
                                 {% for site in asset.usedIn %}<a href="{{ path('template_variants', {'templateId': site.id}) }}">{{ site.name }}</a>{{ not loop.last ? ', ' }}{% endfor %}</span>
                             </div>
                         {% endif %}
+                        {# Manuals still showing the picture: it can not be
+                           purged at all until it is taken out of the manual
+                           (a public manual has no stand-in for a vanished
+                           object) — content pages P3. #}
+                        {% if asset.usedInManuals is not empty %}
+                            <div class="gal-warn" data-gallery-used-in-manual title="Manuály, které obrázek zobrazují – dokud v nich je, nelze ho trvale smazat">
+                                {{ icon('alert', 's14') }}
+                                <span>V manuálu:
+                                {% for site in asset.usedInManuals %}<a href="{{ path('manual_dashboard', {'id': site.id}) }}">{{ site.name }}</a>{{ not loop.last ? ', ' }}{% endfor %}</span>
+                            </div>
+                        {% endif %}
                         <div class="gal-purge">{{ asset.purgeLabel }}</div>
                         <div class="gal-trash-a">
                             <button
@@ -535,6 +546,7 @@
                                 data-live-fileid-param="{{ asset.id }}"
                             >{{ icon('undo', 's16') }}Obnovit</button>
                             {% set used_names = asset.usedIn|map(site => site.name)|join(', ') %}
+                            {% if asset.usedInManuals is empty %}
                             <button
                                 type="button"
                                 class="btn btn-ghost-danger icon xs"
@@ -548,6 +560,7 @@
                                 data-live-action-param="purgeFile"
                                 data-live-fileid-param="{{ asset.id }}"
                             >{{ icon('trash', 's16') }}</button>
+                            {% endif %}
                         </div>
                     </div>
                 {% endfor %}

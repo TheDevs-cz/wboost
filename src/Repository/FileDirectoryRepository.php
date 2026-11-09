@@ -94,4 +94,30 @@ readonly final class FileDirectoryRepository
 
         return $result;
     }
+
+    /**
+     * The app-maintained folder with this key (see FileDirectory::$systemKey).
+     * Folders persisted but not flushed yet in this unit of work count too —
+     * one handler may need the same folder several times before its flush
+     * (FileSource has a single case, so the pending match skips it).
+     */
+    public function findBySystemKey(UuidInterface $projectId, FileSource $source, string $systemKey): null|FileDirectory
+    {
+        foreach ($this->entityManager->getUnitOfWork()->getScheduledEntityInsertions() as $pending) {
+            if ($pending instanceof FileDirectory
+                && $pending->systemKey === $systemKey
+                && $pending->project->id->equals($projectId)
+            ) {
+                return $pending;
+            }
+        }
+
+        $directory = $this->entityManager->getRepository(FileDirectory::class)->findOneBy([
+            'project' => $projectId,
+            'source' => $source,
+            'systemKey' => $systemKey,
+        ]);
+
+        return $directory instanceof FileDirectory ? $directory : null;
+    }
 }

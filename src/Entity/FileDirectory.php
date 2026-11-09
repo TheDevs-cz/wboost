@@ -10,6 +10,7 @@ use Doctrine\ORM\Mapping\Entity;
 use Doctrine\ORM\Mapping\Id;
 use Doctrine\ORM\Mapping\JoinColumn;
 use Doctrine\ORM\Mapping\ManyToOne;
+use Doctrine\ORM\Mapping\UniqueConstraint;
 use JetBrains\PhpStorm\Immutable;
 use Ramsey\Uuid\Doctrine\UuidType;
 use Ramsey\Uuid\UuidInterface;
@@ -23,10 +24,22 @@ use WBoost\Web\Value\FileSource;
  * Nesting is modeled with a nullable self-reference (`parent === null` means
  * the directory sits at the gallery root). Scoped per project + {@see FileSource}
  * so each asset "kind" gets its own independent tree.
+ *
+ * `systemKey` marks a folder the APP maintains (the manual gallery folders:
+ * `manual-root` = "Manuál", `manual:{manualId}` = one manual's sub-folder,
+ * see {@see \WBoost\Web\Services\Manual\ManualGalleryFolders}). The key,
+ * not the name, is how the app finds it again — the user may rename or move
+ * pictures around freely; null for every folder a user created.
  */
 #[Entity]
+#[UniqueConstraint(name: 'uniq_file_directory_system_key', columns: ['project_id', 'source', 'system_key'])]
 class FileDirectory
 {
+    public const int SYSTEM_KEY_MAX_LENGTH = 64;
+
+    #[Column(length: self::SYSTEM_KEY_MAX_LENGTH, nullable: true)]
+    public null|string $systemKey = null;
+
     public function __construct(
         #[Id]
         #[Immutable]

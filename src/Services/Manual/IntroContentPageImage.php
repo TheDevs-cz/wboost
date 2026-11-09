@@ -25,12 +25,16 @@ use WBoost\Web\Value\ManualPage;
  *   upload gets the new key (fit, alt and position kept); when the admin
  *   has removed that picture in the editor, the new one is appended to the
  *   first segment.
+ *
+ * Content pages P3: the upload is also registered in the gallery
+ * (`Manuál / <manual>`, over the same key) and the element points at it.
  */
 readonly final class IntroContentPageImage
 {
     public function __construct(
         private ManualContentPageRepository $contentPageRepository,
         private ClockInterface $clock,
+        private ManualGalleryImages $galleryImages,
     ) {
     }
 
@@ -38,9 +42,10 @@ readonly final class IntroContentPageImage
     {
         $now = $this->clock->now();
         $page = $this->contentPageRepository->introFor($manual->id);
+        $galleryId = $this->galleryImages->register($manual, $newPath, 'Úvodní obrázek')->id->toString();
 
         if ($page === null) {
-            $this->contentPageRepository->add(new ManualContentPage(
+            $this->contentPageRepository->add($page = new ManualContentPage(
                 Uuid::uuid7(),
                 $manual,
                 ManualContentPageRole::Intro,
@@ -50,6 +55,7 @@ readonly final class IntroContentPageImage
                 0,
                 $now,
             ));
+            $page->linkGalleryImages([$newPath => $galleryId]);
 
             return;
         }
@@ -77,5 +83,6 @@ readonly final class IntroContentPageImage
         }
 
         $page->edit($page->name, $page->layout, $segments, $now);
+        $page->linkGalleryImages([$newPath => $galleryId]);
     }
 }

@@ -30,6 +30,13 @@ final class ManualMockupPageFormData
     public array $removeImages;
 
     /**
+     * Gallery picks per slot (FileUpload id, '' = none).
+     *
+     * @var array<null|string>
+     */
+    public array $galleryImages;
+
+    /**
      * The downloadable file offered next to the whole page.
      */
     public null|UploadedFile $downloadFile = null;
@@ -57,6 +64,7 @@ final class ManualMockupPageFormData
     public function __construct()
     {
         $this->images = array_fill(0, MockupPageLayout::maxUploadInputsCount(), null);
+        $this->galleryImages = array_fill(0, MockupPageLayout::maxUploadInputsCount(), '');
         $this->removeImages = array_fill(0, MockupPageLayout::maxUploadInputsCount(), '0');
         $this->imageDownloads = array_fill(0, MockupPageLayout::maxUploadInputsCount(), null);
         $this->removeImageDownloads = array_fill(0, MockupPageLayout::maxUploadInputsCount(), '0');

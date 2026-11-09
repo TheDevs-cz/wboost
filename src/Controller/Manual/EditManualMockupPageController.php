@@ -14,6 +14,7 @@ use WBoost\Web\Entity\ManualMockupPage;
 use WBoost\Web\FormData\ManualMockupPageFormData;
 use WBoost\Web\FormType\ManualMockupPageFormType;
 use WBoost\Web\Message\Manual\EditManualMockupPage;
+use WBoost\Web\Services\Manual\ManualGalleryPicker;
 use WBoost\Web\Services\Security\ManualMockupPageVoter;
 use WBoost\Web\Value\MockupPageLayout;
 
@@ -21,6 +22,7 @@ final class EditManualMockupPageController extends AbstractController
 {
     public function __construct(
         readonly private MessageBusInterface $bus,
+        readonly private ManualGalleryPicker $galleryPicker,
     ) {
     }
 
@@ -55,6 +57,7 @@ final class EditManualMockupPageController extends AbstractController
                         static fn (string $flag): bool => $flag === '1',
                         array_slice($formData->removeImageDownloads, 0, $page->layout->uploadInputsCount()),
                     ),
+                    AddManualMockupPageController::galleryPicks($formData, $page->layout->uploadInputsCount()),
                 ),
             );
 
@@ -71,6 +74,7 @@ final class EditManualMockupPageController extends AbstractController
             'mockup_page' => $page,
             'layouts_geometry' => MockupPageLayout::exportGeometry(),
             'form' => $form,
+            'gallery_directory_id' => $this->galleryPicker->directoryId($page->manual),
         ]);
     }
 }

@@ -26,7 +26,8 @@ use WBoost\Web\Services\UploaderHelper;
 /**
  * Uploads ONE picture for a content page image element and answers its key
  * + public URL; the page references it only once the editor saves (an
- * upload that is never saved is an orphan the storage scan reports).
+ * upload that is never saved stays a picture in the gallery folder
+ * `Manuál / <manual>` — content pages P3 registers every upload there).
  *
  * The cap is the app-wide 10 MB DECIMAL (`maxSize: '10m'`), mirrored by the
  * editor (`data-…-max-file-size-value="10000000"`) — see
@@ -84,11 +85,15 @@ final class UploadManualContentImageController extends AbstractController
             return new JsonResponse(['error' => 'Tento formát obrázku neumíme přečíst. Nahrajte PNG, JPG, WebP nebo SVG.'], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $path = sprintf('manuals/%s/content/%s.%s', $manual->id->toString(), Uuid::uuid7()->toString(), $extension);
+        $imageId = Uuid::uuid7();
+        $path = sprintf('manuals/%s/content/%s.%s', $manual->id->toString(), $imageId->toString(), $extension);
 
-        $this->bus->dispatch(new UploadManualContentImage($manual->id, $path, $contents));
+        $this->bus->dispatch(new UploadManualContentImage($manual->id, $path, $contents, $file->getClientOriginalName(), $width, $height));
 
+        // The gallery row's id IS the key's UUID (ManualGalleryImages::register
+        // prefers it; a fresh uuid7 is never taken).
         return new JsonResponse([
+            'galleryImageId' => $imageId->toString(),
             'path' => $path,
             'url' => $this->uploaderHelper->getPublicPath($path),
             'width' => $width,

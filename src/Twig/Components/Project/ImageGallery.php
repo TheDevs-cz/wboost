@@ -18,6 +18,7 @@ use WBoost\Web\Entity\FileDirectory;
 use WBoost\Web\Entity\FileUpload;
 use WBoost\Web\Entity\Project;
 use WBoost\Web\Exceptions\FileDirectoryNotEmpty;
+use WBoost\Web\Exceptions\FileUploadInUse;
 use WBoost\Web\Exceptions\FileDirectoryNotFound;
 use WBoost\Web\Exceptions\FileUploadNotFound;
 use Psr\Clock\ClockInterface;
@@ -31,12 +32,14 @@ use WBoost\Web\Message\Image\RenameFileUpload;
 use WBoost\Web\Message\Image\RestoreFileUpload;
 use WBoost\Web\Repository\FileDirectoryRepository;
 use WBoost\Web\Repository\FileUploadRepository;
+use WBoost\Web\Query\GetGalleryImageManualUsage;
 use WBoost\Web\Query\GetGalleryImageUsage;
 use WBoost\Web\Services\Image\FileUploadPixelSizeBackfill;
 use WBoost\Web\Services\Image\GalleryImageCaption;
 use WBoost\Web\Services\ProvideIdentity;
 use WBoost\Web\Services\Security\ProjectVoter;
 use WBoost\Web\Services\UploaderHelper;
+use WBoost\Web\Value\GalleryImageManualSite;
 use WBoost\Web\Value\GalleryImageUsageSite;
 use WBoost\Web\Value\FileSource;
 
@@ -181,6 +184,7 @@ final class ImageGallery extends AbstractController
         private readonly ClockInterface $clock,
         private readonly FileUploadPixelSizeBackfill $pixelSizeBackfill,
         private readonly GetGalleryImageUsage $galleryImageUsage,
+        private readonly GetGalleryImageManualUsage $galleryImageManualUsage,
         private readonly GalleryImageCaption $caption,
     ) {
     }
@@ -299,9 +303,11 @@ final class ImageGallery extends AbstractController
      * reference the picture: the nightly purge skips such a file (its
      * countdown says so instead), and "Smazat ihned" names them in its
      * confirm — purging is the one gallery action that damages a design for
-     * good.
+     * good. `usedInManuals` names the manuals that still show it: such a
+     * file can not be purged at all (not even "Smazat ihned") until it is
+     * taken out of the manual — content pages P3.
      *
-     * @return list<array{id: string, url: string, deletedAt: string, purgeLabel: string, usedIn: list<array{id: string, name: string}>, name: null|string, nameBase: string, nameExt: string, width: null|int, height: null|int, sizeLabel: null|string, format: string, tooltip: string}>
+     * @return list<array{id: string, url: string, deletedAt: string, purgeLabel: string, usedIn: list<array{id: string, name: string}>, usedInManuals: list<array{id: string, name: string}>, name: null|string, nameBase: string, nameExt: string, width: null|int, height: null|int, sizeLabel: null|string, format: string, tooltip: string}>
      */
     public function trashedAssets(): array
     {
@@ -311,19 +317,29 @@ final class ImageGallery extends AbstractController
         $files = $this->fileUploadRepository->listTrashed($project->id, $this->source);
         $this->pixelSizeBackfill->backfill($files);
         $usage = $this->galleryImageUsage->forFiles($project->id, $files);
+        $manualUsage = $this->galleryImageManualUsage->forFiles($files);
 
         return array_map(
-            function (FileUpload $f) use ($now, $usage): array {
+            function (FileUpload $f) use ($now, $usage, $manualUsage): array {
                 $sites = $usage[$f->id->toString()] ?? [];
+                $manualSites = $manualUsage[$f->id->toString()] ?? [];
 
                 return [
                     'id' => $f->id->toString(),
                     'url' => $this->uploaderHelper->getPublicPath($f->path),
                     'deletedAt' => $f->deletedAt?->format('Y-m-d H:i') ?? '',
-                    'purgeLabel' => $sites === [] ? $this->purgeLabel($f, $now) : 'Automaticky se nesmaže – používá se v šabloně',
+                    'purgeLabel' => match (true) {
+                        $manualSites !== [] => 'Nesmaže se – používá se v manuálu',
+                        $sites !== [] => 'Automaticky se nesmaže – používá se v šabloně',
+                        default => $this->purgeLabel($f, $now),
+                    },
                     'usedIn' => array_map(
                         static fn (GalleryImageUsageSite $site): array => ['id' => $site->templateId, 'name' => $site->templateName],
                         $sites,
+                    ),
+                    'usedInManuals' => array_map(
+                        static fn (GalleryImageManualSite $site): array => ['id' => $site->manualId, 'name' => $site->manualName],
+                        $manualSites,
                     ),
                     ...$this->caption->describe($f),
                 ];
@@ -631,7 +647,20 @@ final class ImageGallery extends AbstractController
             return;
         }
 
-        $this->bus->dispatch(new PurgeFileUpload($file->id, force: true));
+        try {
+            $this->bus->dispatch(new PurgeFileUpload($file->id, force: true));
+        } catch (HandlerFailedException $exception) {
+            // Even a forced purge refuses a picture a manual still shows.
+            $previous = $exception->getPrevious();
+            if (!$previous instanceof FileUploadInUse) {
+                throw $exception;
+            }
+
+            $this->folderActionError = sprintf(
+                'Obrázek nelze trvale smazat – používá se v manuálu: %s. Nejdřív ho z manuálu odeberte.',
+                implode(', ', $previous->manualNames()),
+            );
+        }
     }
 
     #[LiveAction]

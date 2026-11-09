@@ -6,10 +6,13 @@ namespace WBoost\Web\MessageHandler\Manual;
 
 use Psr\Clock\ClockInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+use Ramsey\Uuid\Uuid;
+use WBoost\Web\Entity\Manual;
 use WBoost\Web\Entity\ManualContentPage;
 use WBoost\Web\Exceptions\InvalidManualContent;
 use WBoost\Web\Exceptions\ManualNotFound;
 use WBoost\Web\Message\Manual\SaveManualContentPage;
+use WBoost\Web\Repository\FileUploadRepository;
 use WBoost\Web\Repository\ManualContentPageRepository;
 use WBoost\Web\Repository\ManualRepository;
 use WBoost\Web\Services\Manual\ManualPagePositions;
@@ -30,6 +33,7 @@ readonly final class SaveManualContentPageHandler
         private ResolveManualContentStyles $resolveStyles,
         private ClockInterface $clock,
         private ManualPagePositions $positions,
+        private FileUploadRepository $fileUploadRepository,
     ) {
     }
 
@@ -40,7 +44,7 @@ readonly final class SaveManualContentPageHandler
     public function __invoke(SaveManualContentPage $message): void
     {
         $manual = $this->manualRepository->get($message->manualId);
-        $segments = $this->sanitize($message->segments, $message->manualId->toString(), $this->resolveStyles->forManual($manual));
+        $segments = $this->sanitize($message->segments, $manual, $this->resolveStyles->forManual($manual));
         $now = $this->clock->now();
 
         $page = $this->contentPageRepository->find($message->pageId);
@@ -74,21 +78,28 @@ readonly final class SaveManualContentPageHandler
     }
 
     /**
-     * Images may only reference this manual's own storage (an id typed into
-     * the payload must not pull another client's file into a public page);
-     * fonts / colours the manual does not allow are dropped from the text.
+     * Images may only reference this project's pictures (an id or key typed
+     * into the payload must not pull another client's file into a public
+     * page); fonts / colours the manual does not allow are dropped from the
+     * text.
+     *
+     * A gallery pick (`galleryImageId`) is resolved server-side: the row must
+     * belong to the manual's project and its key REPLACES whatever path the
+     * client sent (the path is only a snapshot of the row). A picked id whose
+     * row is gone (purged) keeps its element — the render shows the stand-in
+     * — as long as the path is still one of this manual/project's own keys.
      *
      * @param list<ContentSegment> $segments
      * @return list<ContentSegment>
      * @throws InvalidManualContent
      */
-    private function sanitize(array $segments, string $manualId, ManualContentStyles $styles): array
+    private function sanitize(array $segments, Manual $manual, ManualContentStyles $styles): array
     {
         return array_map(
-            static fn (ContentSegment $segment): ContentSegment => $segment->withElements(array_map(
-                static function (ContentElement $element) use ($manualId, $styles): ContentElement {
-                    if ($element instanceof ImageElement && !$element->belongsToManual($manualId)) {
-                        throw new InvalidManualContent('The picture belongs to another manual.');
+            fn (ContentSegment $segment): ContentSegment => $segment->withElements(array_map(
+                function (ContentElement $element) use ($manual, $styles): ContentElement {
+                    if ($element instanceof ImageElement) {
+                        return $this->sanitizeImage($element, $manual);
                     }
 
                     if ($element instanceof RichTextElement) {
@@ -101,5 +112,34 @@ readonly final class SaveManualContentPageHandler
             )),
             $segments,
         );
+    }
+
+    /**
+     * @throws InvalidManualContent
+     */
+    private function sanitizeImage(ImageElement $element, Manual $manual): ImageElement
+    {
+        if ($element->galleryImageId !== null) {
+            $file = $this->fileUploadRepository->find(Uuid::fromString($element->galleryImageId));
+
+            if ($file !== null) {
+                if (!$file->project->id->equals($manual->project->id)) {
+                    throw new InvalidManualContent('The picture belongs to another project.');
+                }
+
+                // The snapshot must stay decodable (ImageElement is strict on read).
+                if (!ImageElement::isValidPath($file->path)) {
+                    throw new InvalidManualContent('This gallery picture can not be used in a manual.');
+                }
+
+                return $element->withGalleryImage($file->id->toString(), $file->path);
+            }
+        }
+
+        if (!$element->belongsToManual($manual->id->toString()) && !$element->isGalleryUploadOf($manual->project->id->toString())) {
+            throw new InvalidManualContent('The picture belongs to another manual.');
+        }
+
+        return $element;
     }
 }

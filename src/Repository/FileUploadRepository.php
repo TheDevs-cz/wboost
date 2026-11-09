@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace WBoost\Web\Repository;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
 use WBoost\Web\Entity\FileDirectory;
 use WBoost\Web\Entity\FileUpload;
@@ -269,6 +270,91 @@ readonly final class FileUploadRepository
             ->where('f.deletedAt IS NOT NULL')
             ->andWhere('f.deletedAt <= :deadline')
             ->setParameter('deadline', $deadline);
+
+        /** @var list<FileUpload> $result */
+        $result = $qb->getQuery()->getResult();
+
+        return $result;
+    }
+
+    public function find(UuidInterface $fileId): null|FileUpload
+    {
+        $file = $this->entityManager->find(FileUpload::class, $fileId);
+
+        return $file instanceof FileUpload ? $file : null;
+    }
+
+    /**
+     * The gallery row (live OR trashed) of a project that references this
+     * storage key — how a manual image is matched to its gallery picture.
+     */
+    public function findByProjectAndPath(UuidInterface $projectId, string $path): null|FileUpload
+    {
+        $file = $this->entityManager->getRepository(FileUpload::class)->findOneBy([
+            'project' => $projectId,
+            'path' => $path,
+        ]);
+
+        return $file instanceof FileUpload ? $file : null;
+    }
+
+    /**
+     * Rows (any project, live or trashed) other than $file that reference the
+     * same storage key. A gallery row created over an existing key (the
+     * manual import) may share it — purging one must not delete the object
+     * the other still shows.
+     */
+    public function countOthersWithPath(FileUpload $file): int
+    {
+        /** @var int|string $count */
+        $count = $this->entityManager->createQueryBuilder()
+            ->select('COUNT(f.id)')
+            ->from(FileUpload::class, 'f')
+            ->where('f.path = :path')
+            ->andWhere('f.id <> :id')
+            ->setParameter('path', $file->path)
+            ->setParameter('id', $file->id)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return (int) $count;
+    }
+
+    /**
+     * Rows of one project (live AND trashed) whose id or path is in the
+     * given sets — the availability lookup behind a manual's images.
+     *
+     * @param list<string> $ids
+     * @param list<string> $paths
+     * @return list<FileUpload>
+     */
+    public function listByProjectIdsOrPaths(UuidInterface $projectId, array $ids, array $paths): array
+    {
+        $ids = array_values(array_filter($ids, static fn (string $id): bool => Uuid::isValid($id)));
+
+        if ($ids === [] && $paths === []) {
+            return [];
+        }
+
+        $qb = $this->entityManager->createQueryBuilder()
+            ->select('f')
+            ->from(FileUpload::class, 'f')
+            ->where('IDENTITY(f.project) = :projectId')
+            ->setParameter('projectId', $projectId);
+
+        $or = [];
+
+        if ($ids !== []) {
+            $or[] = 'f.id IN (:ids)';
+            $qb->setParameter('ids', $ids);
+        }
+
+        if ($paths !== []) {
+            $or[] = 'f.path IN (:paths)';
+            $qb->setParameter('paths', $paths);
+        }
+
+        $qb->andWhere(implode(' OR ', $or));
 
         /** @var list<FileUpload> $result */
         $result = $qb->getQuery()->getResult();

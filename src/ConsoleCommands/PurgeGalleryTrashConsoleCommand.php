@@ -15,6 +15,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use WBoost\Web\Entity\FileUpload;
 use WBoost\Web\Exceptions\FileUploadInUse;
 use WBoost\Web\Message\Image\PurgeFileUpload;
+use WBoost\Web\Query\GetGalleryImageManualUsage;
 use WBoost\Web\Query\GetGalleryImageUsage;
 use WBoost\Web\Repository\FileUploadRepository;
 use WBoost\Web\Value\GalleryImageUsageSite;
@@ -29,7 +30,8 @@ use WBoost\Web\Value\GalleryImageUsageSite;
  * of the design or purges it by hand. Purging it would damage the design for
  * good — the editor would load a red stand-in, the export render nothing
  * there (the prod group whose every variant referenced a purged picture,
- * 2026-09-08).
+ * 2026-09-08). The same goes for a picture a manual still shows (content
+ * pages P3) — that one cannot even be purged by hand.
  */
 #[AsCommand('app:gallery:purge-trash', 'Permanently delete gallery images past the trash-bin retention window')]
 final class PurgeGalleryTrashConsoleCommand extends Command
@@ -39,6 +41,7 @@ final class PurgeGalleryTrashConsoleCommand extends Command
         readonly private MessageBusInterface $bus,
         readonly private ClockInterface $clock,
         readonly private GetGalleryImageUsage $galleryImageUsage,
+        readonly private GetGalleryImageManualUsage $galleryImageManualUsage,
     ) {
         parent::__construct();
     }
@@ -57,12 +60,14 @@ final class PurgeGalleryTrashConsoleCommand extends Command
         }
 
         $usage = $this->usageByFile($expired);
+        $manualUsage = $this->galleryImageManualUsage->forFiles($expired);
         $purged = 0;
         $skipped = 0;
 
         foreach ($expired as $file) {
             $sites = $usage[$file->id->toString()] ?? [];
-            if ($sites === []) {
+            $manualSites = $manualUsage[$file->id->toString()] ?? [];
+            if ($sites === [] && $manualSites === []) {
                 try {
                     $this->bus->dispatch(new PurgeFileUpload($file->id));
                 } catch (HandlerFailedException $exception) {
@@ -74,16 +79,17 @@ final class PurgeGalleryTrashConsoleCommand extends Command
                         throw $exception;
                     }
                     $sites = $previous->sites;
+                    $manualSites = $previous->manualSites;
                 }
             }
 
-            if ($sites !== []) {
+            if ($sites !== [] || $manualSites !== []) {
                 $skipped++;
                 $io->writeln(sprintf(
-                    'Skipped %s (trashed %s) — still used by template(s): %s',
+                    'Skipped %s (trashed %s) — still used by %s',
                     $file->path,
                     $file->deletedAt?->format('Y-m-d H:i') ?? '?',
-                    implode(', ', array_unique(array_map(static fn (GalleryImageUsageSite $site): string => $site->templateName, $sites))),
+                    (new FileUploadInUse($file, $sites, $manualSites))->usedByLabel(),
                 ));
 
                 continue;
@@ -94,7 +100,7 @@ final class PurgeGalleryTrashConsoleCommand extends Command
         }
 
         if ($skipped > 0) {
-            $io->warning(sprintf('%d image(s) past the retention window stay in the bin: a template still uses them.', $skipped));
+            $io->warning(sprintf('%d image(s) past the retention window stay in the bin: a template or a manual still uses them.', $skipped));
         }
         $io->success(sprintf('Purged %d image(s) from the trash bin.', $purged));
 

@@ -149,6 +149,65 @@ class ManualContentPage
     }
 
     /**
+     * Points every image element whose key is in $galleryIdsByPath at that
+     * gallery row (content pages P3 import). A data link, not an edit — the
+     * rendered page is unchanged, so `updatedAt` stays. Returns how many
+     * elements changed.
+     *
+     * @param array<string, string> $galleryIdsByPath storage key → FileUpload id
+     */
+    public function linkGalleryImages(array $galleryIdsByPath): int
+    {
+        $changed = 0;
+        $segments = [];
+
+        foreach ($this->segments as $segment) {
+            $segments[] = $segment->withElements(array_map(
+                static function (ContentElement $element) use ($galleryIdsByPath, &$changed): ContentElement {
+                    if (!$element instanceof ImageElement) {
+                        return $element;
+                    }
+
+                    $galleryId = $galleryIdsByPath[$element->path] ?? null;
+
+                    if ($galleryId === null || $element->galleryImageId === $galleryId) {
+                        return $element;
+                    }
+
+                    $changed++;
+
+                    return $element->withGalleryImage($galleryId, $element->path);
+                },
+                $segment->elements,
+            ));
+        }
+
+        if ($changed > 0) {
+            $this->segments = $segments;
+        }
+
+        return $changed;
+    }
+
+    /**
+     * @return list<ImageElement> every image element, in reading order
+     */
+    public function imageElements(): array
+    {
+        $images = [];
+
+        foreach ($this->segments as $segment) {
+            foreach ($segment->elements as $element) {
+                if ($element instanceof ImageElement) {
+                    $images[] = $element;
+                }
+            }
+        }
+
+        return $images;
+    }
+
+    /**
      * @return list<string> storage keys of every image element
      */
     public function imagePaths(): array

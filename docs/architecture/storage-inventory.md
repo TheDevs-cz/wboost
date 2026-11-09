@@ -45,6 +45,13 @@ survives purely for the untouched `social-networks/…` keys and historical rows
   there. The signature `code` case was found the hard way, by diffing a prod
   scan against a full `pg_dump`; if you ever act on the orphan list in bulk, do
   that diff first rather than trusting the flag.
+- **Gallery rows may point at manual keys** (content pages P3): the manual
+  picture import made `file_upload` rows whose `path` is a
+  `manuals/{manualId}/…` key (and new manual uploads do the same), so such
+  objects are referenced twice (manual column + `file_upload.path`) — the
+  `×N` count is expected, and `StorageCategory` still files them under the
+  manual. Purging the gallery row never deletes a key a manual or another
+  row still uses (see gallery-and-uploads.md).
 - Unreferenced objects are still attributed to a project by
   `ResolveStorageOwnerByPath`, which pulls the first UUID out of the key and
   looks it up across every namespacing entity. Objects whose entity is gone stay

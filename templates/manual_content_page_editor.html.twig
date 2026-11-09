@@ -36,6 +36,7 @@
          data-manual-content-editor-save-url-value="{{ save_url }}"
          data-manual-content-editor-upload-url-value="{{ path('manual_content_image_upload', {'manualId': manual.id}) }}"
          data-manual-content-editor-csrf-value="{{ csrf_token('manual_content_page') }}"
+         data-manual-content-editor-gallery-modal-value="#manualGalleryModal"
          data-manual-content-editor-max-file-size-value="10000000"
          data-manual-content-editor-max-payload-bytes-value="{{ max_payload_bytes }}">
 
@@ -140,4 +141,5 @@
         </div>
     </div>
 </div>
+{{ include('_manual_gallery_modal.html.twig') }}
 {% endblock %}

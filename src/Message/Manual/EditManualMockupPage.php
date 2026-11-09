@@ -24,6 +24,8 @@ readonly final class EditManualMockupPage
         public array $imageDownloads = [],
         /** @var array<bool> Slot indexes flagged true get their existing download file removed. */
         public array $removeImageDownloads = [],
+        /** @var array<null|string> Per-slot gallery picks (FileUpload ids), aligned with $images; an upload for the same slot wins. */
+        public array $galleryImages = [],
     ) {
     }
 }

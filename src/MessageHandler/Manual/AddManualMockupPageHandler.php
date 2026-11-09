@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\MessageHandler\Manual;
 
-use League\Flysystem\Filesystem;
+use League\Flysystem\FilesystemException;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use WBoost\Web\Entity\ManualMockupPage;
@@ -13,6 +13,7 @@ use WBoost\Web\Message\Manual\AddManualMockupPage;
 use WBoost\Web\Repository\ManualMockupPageRepository;
 use WBoost\Web\Repository\ManualRepository;
 use WBoost\Web\Services\Manual\ManualPagePositions;
+use WBoost\Web\Services\Manual\MockupPageSlotImages;
 use WBoost\Web\Services\Manual\StoreMockupPageDownload;
 use WBoost\Web\Services\ProvideIdentity;
 
@@ -24,7 +25,7 @@ readonly final class AddManualMockupPageHandler
         private ManualMockupPageRepository $manualMockupPageRepository,
         private ProvideIdentity $provideIdentity,
         private ClockInterface $clock,
-        private Filesystem $filesystem,
+        private MockupPageSlotImages $slotImages,
         private StoreMockupPageDownload $storeMockupPageDownload,
         private ManualPagePositions $positions,
     ) {
@@ -32,6 +33,7 @@ readonly final class AddManualMockupPageHandler
 
     /**
      * @throws ManualNotFound
+     * @throws FilesystemException
      */
     public function __invoke(AddManualMockupPage $message): void
     {
@@ -41,18 +43,15 @@ readonly final class AddManualMockupPageHandler
         $images = [];
 
         foreach ($message->images as $index => $image) {
-            if ($image === null) {
-                $images[] = null;
-                continue;
-            }
-
-            $imageNumber = $index + 1;
-            $extension = $image->guessExtension();
-            $path = "manuals/$manual->id/pages/$pageId/image-$imageNumber-$timestamp.$extension";
-
-            $this->filesystem->write($path, $image->getContent());
-
-            $images[] = $path;
+            $images[] = $this->slotImages->resolve(
+                $manual,
+                $pageId,
+                $message->name,
+                $index,
+                $image,
+                $message->galleryImages[$index] ?? null,
+                $timestamp,
+            );
         }
 
         $downloadFile = $message->downloadFile === null ? null : ($this->storeMockupPageDownload)(

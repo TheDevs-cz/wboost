@@ -19,7 +19,9 @@ use WBoost\Web\Value\GalleryImageUsageSite;
  * storage key, and a placeholder's `assetId` by the id — every one of those
  * spellings contains the file's UUID, so the scan is a substring match over
  * the variants' text of ONE project (a gallery image can never be referenced
- * from another project). Export versions are deliberately NOT a reference:
+ * from another project). A row created over a manual's existing key (the
+ * content pages P3 import) is not named after its id, so the storage key is
+ * matched too. Export versions are deliberately NOT a reference:
  * a purged pick degrades leniently when a version is re-loaded (the seeder
  * falls back to the designed stand-in), which is documented and fine.
  */
@@ -86,7 +88,9 @@ readonly final class GetGalleryImageUsage
             $sites = [];
 
             foreach ($rows as $row) {
-                if (isset($sites[$row['template_id']]) || !str_contains($row['haystack'], $fileId)) {
+                // The storage key too: a row created over a manual's key (content
+                // pages P3 import) is not named after its id.
+                if (isset($sites[$row['template_id']]) || (!str_contains($row['haystack'], $fileId) && !str_contains($row['haystack'], $file->path))) {
                     continue;
                 }
 

@@ -65,6 +65,18 @@ final class ManualMockupPageFormType extends AbstractType
             'allow_delete' => false,
         ]);
 
+        // Per-slot gallery pick ("Vybrat z galerie"): the FileUpload id; the
+        // handler validates it against the manual's project. An upload for the
+        // same slot wins.
+        $builder->add('galleryImages', CollectionType::class, [
+            'entry_type' => HiddenType::class,
+            'entry_options' => [
+                'label' => false,
+            ],
+            'allow_add' => false,
+            'allow_delete' => false,
+        ]);
+
         $builder->add('images', CollectionType::class, [
             'entry_type' => FileType::class,
             'entry_options' => [

@@ -16,6 +16,7 @@ use WBoost\Web\Entity\Manual;
 use WBoost\Web\FormData\ManualMockupPageFormData;
 use WBoost\Web\FormType\ManualMockupPageFormType;
 use WBoost\Web\Message\Manual\AddManualMockupPage;
+use WBoost\Web\Services\Manual\ManualGalleryPicker;
 use WBoost\Web\Services\Security\ManualVoter;
 use WBoost\Web\Value\MockupPageLayout;
 
@@ -23,7 +24,21 @@ final class AddManualMockupPageController extends AbstractController
 {
     public function __construct(
         readonly private MessageBusInterface $bus,
+        readonly private ManualGalleryPicker $galleryPicker,
     ) {
+    }
+
+    /**
+     * The per-slot gallery picks of the form, sliced like the uploads ('' → null).
+     *
+     * @return list<null|string>
+     */
+    public static function galleryPicks(ManualMockupPageFormData $formData, int $count): array
+    {
+        return array_map(
+            static fn (null|string $id): null|string => $id !== null && $id !== '' ? $id : null,
+            array_values(array_slice($formData->galleryImages, 0, $count)),
+        );
     }
 
     #[Route(path: '/manual/{id}/add-mockup-page/{mockupPageLayout}', name: 'add_manual_mockup_page')]
@@ -55,6 +70,7 @@ final class AddManualMockupPageController extends AbstractController
                     array_slice($formData->images, 0, $formData->layout->uploadInputsCount()),
                     $formData->downloadFile,
                     array_slice($formData->imageDownloads, 0, $formData->layout->uploadInputsCount()),
+                    self::galleryPicks($formData, $formData->layout->uploadInputsCount()),
                 ),
             );
 
@@ -66,6 +82,7 @@ final class AddManualMockupPageController extends AbstractController
         }
 
         return $this->render('add_manual_mockup_page.html.twig', [
+            'gallery_directory_id' => $this->galleryPicker->directoryId($manual),
             'project' => $manual->project,
             'manual' => $manual,
             'layouts' => MockupPageLayout::cases(),

@@ -10,10 +10,17 @@ import { Controller } from '@hotwired/stimulus';
  *
  * Slot geometry comes from MockupPageLayout::exportGeometry() — the same
  * source that renders the manual page itself.
+ *
+ * A slot can also take a picture from the project gallery ("Z galerie",
+ * content pages P3): the shared #manualGalleryModal (rendered OUTSIDE the
+ * form) dispatches `asset-selected`; the slot that armed it writes the file
+ * id into its hidden `galleryInput` and the server resolves + validates it.
+ * Per slot: a picked upload wins over a gallery pick wins over the stored
+ * image (same precedence as EditManualMockupPageHandler).
  */
 export default class extends Controller {
     static targets = [
-        'stage', 'stageEmpty', 'fileInput', 'removeFlag',
+        'stage', 'stageEmpty', 'fileInput', 'removeFlag', 'galleryInput',
         'layoutRadio', 'layoutOption', 'extraNotice',
         'fillSummary', 'dirtyBadge',
         'downloadInput', 'downloadRemoveFlag',
@@ -33,6 +40,7 @@ export default class extends Controller {
         fixedLayout: String,
         maxFileSize: Number,
         maxDownloadSize: Number,
+        galleryModal: { type: String, default: '#manualGalleryModal' },
     };
 
     connect() {
@@ -55,9 +63,19 @@ export default class extends Controller {
                 existingDims: null,
                 removed: (this.removeFlagTargets[i]?.value ?? '0') === '1',
                 file: null,
+                gallery: null,
                 error: null,
             });
+            // A re-rendered form (validation error) loses the picked thumbnail;
+            // drop a stale id rather than save a pick the user cannot see.
+            if (this.galleryInputTargets[i]) {
+                this.galleryInputTargets[i].value = '';
+            }
         }
+
+        this.galleryArmedIndex = null;
+        this.onAssetSelected = (event) => this.assetSelected(event);
+        window.addEventListener('asset-selected', this.onAssetSelected);
 
         // Downloadable attachments: one state per slot plus the page-level one.
         // They carry no preview, only a name/size, so they are their own list
@@ -110,6 +128,7 @@ export default class extends Controller {
 
     disconnect() {
         window.removeEventListener('beforeunload', this.onBeforeUnload);
+        window.removeEventListener('asset-selected', this.onAssetSelected);
         this.element.removeEventListener('input', this.onNameInput);
         this.slotStates.forEach((state) => {
             if (state.file?.objectUrl) {
@@ -178,6 +197,7 @@ export default class extends Controller {
                 <span class="i i-upload s16" aria-hidden="true"></span>
                 <strong>Nahrát obrázek</strong>
                 <span class="mockup-editor-slot-dims">doporučeno ${slot.recommendedWidth} × ${slot.recommendedHeight} px</span>
+                <button type="button" class="btn btn-tertiary btn-sm mockup-editor-slot-gallery" data-role="gallery"><span class="i i-image-search s16" aria-hidden="true"></span>Vybrat z galerie</button>
                 <span class="mockup-editor-slot-error text-danger" hidden></span>
             </div>
             <div class="mockup-editor-slot-removed" hidden>
@@ -189,6 +209,7 @@ export default class extends Controller {
             <div class="mockup-editor-slot-meta" hidden></div>
             <div class="mockup-editor-slot-actions">
                 <button type="button" class="btn btn-sm btn-light" data-role="replace"><span class="i i-upload s16" aria-hidden="true"></span>Vyměnit</button>
+                <button type="button" class="btn btn-sm btn-light" data-role="gallery"><span class="i i-image-search s16" aria-hidden="true"></span>Z galerie</button>
                 <button type="button" class="btn btn-sm btn-light text-danger" data-role="remove"><span class="i i-trash s16" aria-hidden="true"></span>Odebrat</button>
                 <button type="button" class="btn btn-sm btn-light" data-role="restore"><span class="i i-undo s16" aria-hidden="true"></span>Vrátit původní</button>
             </div>
@@ -209,6 +230,8 @@ export default class extends Controller {
 
             if (button.dataset.role === 'replace') {
                 this.openPicker(index);
+            } else if (button.dataset.role === 'gallery') {
+                this.openGallery(index);
             } else if (button.dataset.role === 'remove') {
                 this.removeImage(index);
             } else if (button.dataset.role === 'restore') {
@@ -273,8 +296,8 @@ export default class extends Controller {
         }
 
         const state = this.slotStates[index];
-        const displayUrl = state.file?.objectUrl ?? (state.removed ? null : state.existingUrl);
-        const isRemovedView = state.file === null && state.removed && state.existingUrl !== null;
+        const displayUrl = state.file?.objectUrl ?? state.gallery?.url ?? (state.removed ? null : state.existingUrl);
+        const isRemovedView = state.file === null && state.gallery === null && state.removed && state.existingUrl !== null;
 
         const image = element.querySelector('.mockup-editor-slot-img');
         image.hidden = displayUrl === null;
@@ -292,7 +315,9 @@ export default class extends Controller {
 
         const dims = state.file !== null
             ? { width: state.file.width, height: state.file.height }
-            : (displayUrl !== null ? state.existingDims : null);
+            : (state.gallery !== null
+                ? state.gallery.dims
+                : (displayUrl !== null ? state.existingDims : null));
 
         const chip = element.querySelector('.mockup-editor-slot-chip');
         const meta = element.querySelector('.mockup-editor-slot-meta');
@@ -308,7 +333,8 @@ export default class extends Controller {
             chip.innerHTML = `${verdict.icon} ${verdict.short}`;
 
             meta.hidden = false;
-            const name = state.file !== null ? `${this.truncate(state.file.name, 28)} · ` : '';
+            const pickedName = state.file?.name ?? state.gallery?.name ?? null;
+            const name = pickedName !== null ? `${this.truncate(pickedName, 28)} · ` : '';
             meta.textContent = `${name}${dims.width} × ${dims.height} px · ${verdict.notes.join(' · ')}`;
         } else {
             chip.hidden = true;
@@ -318,7 +344,7 @@ export default class extends Controller {
 
         const removeButton = element.querySelector('button[data-role="remove"]');
         removeButton.hidden = displayUrl === null;
-        removeButton.innerHTML = state.file !== null
+        removeButton.innerHTML = state.file !== null || state.gallery !== null
             ? '<span class="i i-x s16" aria-hidden="true"></span>Zrušit výběr'
             : '<span class="i i-trash s16" aria-hidden="true"></span>Odebrat';
 
@@ -382,6 +408,7 @@ export default class extends Controller {
             };
             state.removed = false;
             this.setRemoveFlag(index, false);
+            this.clearGalleryPick(index);
             this.markDirty();
             this.afterSlotChange(index);
         };
@@ -399,6 +426,8 @@ export default class extends Controller {
 
         if (state.file !== null) {
             this.clearPickedFile(index);
+        } else if (state.gallery !== null) {
+            this.clearGalleryPick(index);
         } else if (state.existingUrl !== null) {
             state.removed = true;
             this.setRemoveFlag(index, true);
@@ -425,6 +454,85 @@ export default class extends Controller {
 
         state.file = null;
         this.fileInputTargets[index].value = '';
+    }
+
+    // --- gallery picks ---------------------------------------------------------
+
+    openGallery(index) {
+        const modalElement = document.querySelector(this.galleryModalValue);
+
+        if (modalElement === null || !window.bootstrap) {
+            return;
+        }
+
+        this.galleryArmedIndex = index;
+        // Closing without a pick disarms — a later pick must not land here.
+        modalElement.addEventListener('hidden.bs.modal', () => {
+            this.galleryArmedIndex = null;
+        }, { once: true });
+        window.bootstrap.Modal.getOrCreateInstance(modalElement).show();
+    }
+
+    assetSelected(event) {
+        const index = this.galleryArmedIndex;
+        const detail = event.detail ?? {};
+
+        if (index === null || !detail.id || !detail.url) {
+            return;
+        }
+
+        this.galleryArmedIndex = null;
+        const state = this.slotStates[index];
+
+        if (state === undefined) {
+            return;
+        }
+
+        // A gallery pick replaces a pending upload for the slot.
+        this.clearPickedFile(index);
+        state.error = null;
+        state.removed = false;
+        this.setRemoveFlag(index, false);
+        state.gallery = {
+            id: detail.id,
+            url: detail.url,
+            name: detail.name ?? null,
+            dims: detail.width && detail.height ? { width: detail.width, height: detail.height } : null,
+        };
+
+        if (this.galleryInputTargets[index]) {
+            this.galleryInputTargets[index].value = detail.id;
+        }
+
+        if (state.gallery.dims === null) {
+            const probe = new Image();
+            const picked = state.gallery;
+            probe.onload = () => {
+                if (state.gallery === picked) {
+                    picked.dims = { width: probe.naturalWidth, height: probe.naturalHeight };
+                    this.refreshSlot(index);
+                }
+            };
+            probe.src = detail.url;
+        }
+
+        this.markDirty();
+        this.afterSlotChange(index);
+
+        const modalElement = document.querySelector(this.galleryModalValue);
+        const modal = modalElement ? window.bootstrap.Modal.getInstance(modalElement) : null;
+
+        if (modal) {
+            modal.hide();
+        }
+    }
+
+    clearGalleryPick(index) {
+        this.slotStates[index].gallery = null;
+
+        if (this.galleryInputTargets[index]) {
+            this.galleryInputTargets[index].value = '';
+        }
     }
 
     setRemoveFlag(index, removed) {
@@ -777,7 +885,7 @@ export default class extends Controller {
         const state = this.slotStates[index];
 
         return state !== undefined
-            && (state.file !== null || (state.existingUrl !== null && !state.removed));
+            && (state.file !== null || state.gallery !== null || (state.existingUrl !== null && !state.removed));
     }
 
     updateMiniGrids() {
@@ -817,7 +925,7 @@ export default class extends Controller {
 
         const total = this.currentSlots.length;
         const hasExtra = total > 0 && (
-            this.slotStates.some((state, index) => index >= total && state.file !== null)
+            this.slotStates.some((state, index) => index >= total && (state.file !== null || state.gallery !== null))
             || this.downloadStates.some((state, index) => index >= total && this.effectiveDownload(state) !== null)
         );
 

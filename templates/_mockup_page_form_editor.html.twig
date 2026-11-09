@@ -11,6 +11,8 @@
      an empty hash as `[]` and Stimulus' Object reader THROWS on an array,
      which aborted connect() and left the editor half-wired)
    - submit_label: string
+   The page must also include _manual_gallery_modal.html.twig OUTSIDE this
+   form (the slots' "Z galerie" picker).
 #}
 {% set existing_images = existing_images|default([]) %}
 {% set existing_downloads = existing_downloads|default([]) %}
@@ -89,7 +91,7 @@
         <section class="man-sec" aria-labelledby="mockup-images-title">
             <div class="man-sech">
                 <h2 id="mockup-images-title">Obrázky</h2>
-                <span class="cap">Klikněte na pole (nebo do něj přetáhněte soubor) a nahrajte obrázek. U každého pole vidíte doporučené rozměry — obrázek v jiném poměru stran se při zobrazení ořízne.</span>
+                <span class="cap">Klikněte na pole (nebo do něj přetáhněte soubor) a nahrajte obrázek, nebo ho vyberte z galerie projektu — nahrané obrázky se do galerie uloží také (složka Manuál). U každého pole vidíte doporučené rozměry — obrázek v jiném poměru stran se při zobrazení ořízne.</span>
             </div>
 
             {% for imageField in form.images %}
@@ -173,6 +175,11 @@
                 {% for removeField in form.removeImages %}
                     {{ form_widget(removeField, {'attr': {
                         'data-mockup-page-editor-target': 'removeFlag',
+                    }}) }}
+                {% endfor %}
+                {% for galleryField in form.galleryImages %}
+                    {{ form_widget(galleryField, {'attr': {
+                        'data-mockup-page-editor-target': 'galleryInput',
                     }}) }}
                 {% endfor %}
 

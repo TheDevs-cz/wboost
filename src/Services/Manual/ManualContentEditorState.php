@@ -14,12 +14,15 @@ use WBoost\Web\Value\ManualPage;
 /**
  * The document the content editor starts from (and gets back after a save):
  * `{name, layout, segments}` exactly as the save endpoint accepts it, plus a
- * display-only `url` on every image element (ignored on the way back in).
+ * display-only `url` on every image element (ignored on the way back in)
+ * and `unavailable` (null | `trashed` | `missing` — the picture went to the
+ * gallery Koš / its row is gone; the editor marks it, content pages P3).
  */
 readonly final class ManualContentEditorState
 {
     public function __construct(
         private UploaderHelper $uploaderHelper,
+        private ManualImageAvailability $availability,
     ) {
     }
 
@@ -33,6 +36,7 @@ readonly final class ManualContentEditorState
         }
 
         return $this->state(
+            $manual,
             IntroContentPageDefaults::name($manual->pageTextTitleOverride(ManualPage::Intro)),
             IntroContentPageDefaults::LAYOUT->value,
             IntroContentPageDefaults::segments($manual->pageDescriptionOverride(ManualPage::Intro), $manual->introImage),
@@ -44,14 +48,14 @@ readonly final class ManualContentEditorState
      */
     public function forPage(ManualContentPage $page): array
     {
-        return $this->state($page->name, $page->layout->value, $page->segments);
+        return $this->state($page->manual, $page->name, $page->layout->value, $page->segments);
     }
 
     /**
      * @param list<ContentSegment> $segments
      * @return array{name: string, layout: string, segments: list<array<string, mixed>>}
      */
-    private function state(string $name, string $layout, array $segments): array
+    private function state(Manual $manual, string $name, string $layout, array $segments): array
     {
         $data = [];
 
@@ -63,6 +67,7 @@ readonly final class ManualContentEditorState
 
                 if ($element instanceof ImageElement) {
                     $array['url'] = $this->uploaderHelper->getPublicPath($element->path);
+                    $array['unavailable'] = $this->availability->state($manual, $element->path, $element->galleryImageId);
                 }
 
                 $elements[] = $array;

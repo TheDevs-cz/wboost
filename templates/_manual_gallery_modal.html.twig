@@ -1,0 +1,16 @@
+{# The project gallery as a picker for the manual editors (content pages P3)
+   — the same Project:ImageGallery Live component the template editors use,
+   opened in the manual's folder `Manuál / <manual>` so uploads made inside
+   land there. Picking dispatches the gallery's `asset-selected` window event,
+   consumed by whichever editor control ARMED the modal.
+
+   MUST be rendered OUTSIDE any <form>: the component carries its own upload /
+   rename forms, and nested forms break the outer one (CLAUDE.md).
+   Params: project, gallery_directory_id (null = gallery root). #}
+<div class="modal fade" id="manualGalleryModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <twig:Project:ImageGallery :project="project" :currentDirectoryId="gallery_directory_id|default(null)" />
+        </div>
+    </div>
+</div>

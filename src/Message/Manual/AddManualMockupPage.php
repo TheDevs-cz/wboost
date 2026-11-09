@@ -20,6 +20,8 @@ readonly final class AddManualMockupPage
         public null|UploadedFile $downloadFile = null,
         /** @var array<null|UploadedFile> Per-slot download files, aligned with $images. */
         public array $imageDownloads = [],
+        /** @var array<null|string> Per-slot gallery picks (FileUpload ids), aligned with $images; an upload for the same slot wins. */
+        public array $galleryImages = [],
     ) {
     }
 }

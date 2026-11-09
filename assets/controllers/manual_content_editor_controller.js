@@ -127,6 +127,7 @@ export default class extends Controller {
         colors: Array,
         saveUrl: String,
         uploadUrl: String,
+        galleryModal: String,
         csrf: String,
         maxFileSize: Number,
         maxPayloadBytes: Number,
@@ -138,6 +139,13 @@ export default class extends Controller {
         this.activeView = null;
         this.saving = false;
         this.uploadTarget = null;
+        this.galleryTarget = null;
+
+        // The project gallery picker (content pages P3): the shared modal
+        // dispatches `asset-selected` on window; only a pick this editor ARMED
+        // (openGallery) is consumed.
+        this.onAssetSelected = (event) => this.assetSelected(event);
+        window.addEventListener("asset-selected", this.onAssetSelected);
 
         this.buildToolbar();
         this.load(this.stateValue);
@@ -160,6 +168,7 @@ export default class extends Controller {
 
     disconnect() {
         window.removeEventListener("beforeunload", this.onBeforeUnload);
+        window.removeEventListener("asset-selected", this.onAssetSelected);
         document.removeEventListener("keydown", this.onKeydown);
         this.destroyStage();
     }
@@ -237,7 +246,7 @@ export default class extends Controller {
         const addButton = el("button", "btn btn-ghost xs mce-add-btn", { type: "button", "data-bs-toggle": "dropdown", "aria-expanded": "false" });
         addButton.append(icon("plus"), document.createTextNode("Přidat prvek"));
         const menu = el("div", "dropdown-menu");
-        [["heading", "type", "Nadpis"], ["richText", "list", "Text"], ["image", "image", "Obrázek"]].forEach(([type, iconName, label]) => {
+        [["heading", "type", "Nadpis"], ["richText", "list", "Text"], ["imageGallery", "image-search", "Obrázek z galerie"], ["image", "upload", "Nahrát obrázek"]].forEach(([type, iconName, label]) => {
             const item = el("button", "dropdown-item", { type: "button" });
             item.append(icon(iconName), document.createTextNode(label));
             item.addEventListener("click", () => this.addElement(segment, type));
@@ -361,6 +370,11 @@ export default class extends Controller {
     }
 
     addElement(segment, type) {
+        if (type === "imageGallery") {
+            this.openGallery({ segment, item: null });
+            return;
+        }
+
         if (type === "image") {
             this.uploadTarget = { segment, item: null };
             this.fileInputTarget.value = "";
@@ -500,19 +514,28 @@ export default class extends Controller {
             });
             fit.appendChild(button);
         });
-        const replace = el("button", "btn btn-ghost icon xs", { type: "button", title: "Nahradit obrázek", "aria-label": "Nahradit obrázek" });
+        const pick = el("button", "btn btn-ghost icon xs", { type: "button", title: "Vybrat jiný obrázek z galerie", "aria-label": "Vybrat jiný obrázek z galerie" });
+        pick.appendChild(icon("image-search", "s14"));
+        pick.addEventListener("click", () => this.openGallery({ segment: null, item }));
+        const replace = el("button", "btn btn-ghost icon xs", { type: "button", title: "Nahrát jiný obrázek", "aria-label": "Nahrát jiný obrázek" });
         replace.appendChild(icon("upload", "s14"));
         replace.addEventListener("click", () => {
             this.uploadTarget = { segment: null, item };
             this.fileInputTarget.value = "";
             this.fileInputTarget.click();
         });
-        item.tools.append(fit, replace);
+        item.tools.append(fit, pick, replace);
         item.fitGroup = fit;
 
         const figure = el("figure", "mcp-img");
         const img = el("img", "", { alt: "" });
         figure.appendChild(img);
+        // The picture went to the gallery Koš / is gone from the gallery:
+        // readers no longer see it (server-side stand-in), say so here too.
+        const unavailable = el("div", "mce-img-unavailable", { role: "status" });
+        unavailable.hidden = true;
+        item.body.appendChild(unavailable);
+        item.unavailableNote = unavailable;
         const alt = el("input", "form-control form-control-sm mce-alt", { type: "text", placeholder: "Popis obrázku (pro čtečky a vyhledávače)", "aria-label": "Popis obrázku", maxlength: "300" });
         alt.value = item.data.alt || "";
         alt.addEventListener("input", () => {
@@ -531,6 +554,11 @@ export default class extends Controller {
         item.figure.style.aspectRatio = item.data.fit === "cover" && slot ? `${slot.width} / ${slot.height}` : "";
         if (item.img.getAttribute("src") !== item.data.url) item.img.src = item.data.url || "";
         item.img.alt = item.data.alt || "";
+        const reason = item.data.unavailable || null;
+        item.unavailableNote.hidden = reason === null;
+        item.unavailableNote.textContent = reason === "trashed"
+            ? "Obrázek je v koši galerie – čtenáři manuálu ho nevidí. Obnovte ho v galerii, nebo vyberte jiný."
+            : (reason ? "Obrázek už v galerii není – čtenáři manuálu ho nevidí. Vyberte jiný." : "");
         item.fitGroup.querySelectorAll("button").forEach((button) => {
             const on = button.dataset.fit === item.data.fit;
             button.classList.toggle("on", on);
@@ -564,22 +592,56 @@ export default class extends Controller {
             const json = await response.json().catch(() => ({}));
             if (!response.ok) throw new Error(json.error || "Obrázek se nepodařilo nahrát. Zkuste to znovu.");
 
-            if (target.item) {
-                target.item.data.path = json.path;
-                target.item.data.url = json.url;
-                target.item.data.galleryImageId = null;
-                this.paintImage(target.item);
-            } else {
-                const item = this.createItem({ id: newId(), type: "image", path: json.path, url: json.url, fit: "natural", alt: "", galleryImageId: null });
-                target.segment.list.appendChild(item.node);
-                this.paintImage(item);
-            }
-            this.changed();
+            // Every upload is a gallery picture too (folder Manuál / <manual>).
+            this.placeImage(target, { path: json.path, url: json.url, galleryImageId: json.galleryImageId ?? null });
         } catch (error) {
             this.flash(error.message, true);
         } finally {
             placeholder.remove();
         }
+    }
+
+    /** Puts a picture into the element being replaced, or a new element at the end of the segment. */
+    placeImage(target, { path, url, galleryImageId }) {
+        if (target.item) {
+            Object.assign(target.item.data, { path, url, galleryImageId, unavailable: null });
+            this.paintImage(target.item);
+        } else {
+            const item = this.createItem({ id: newId(), type: "image", path, url, fit: "natural", alt: "", galleryImageId });
+            target.segment.list.appendChild(item.node);
+            this.paintImage(item);
+        }
+        this.changed();
+    }
+
+    // ---- gallery picker ----------------------------------------------------------
+
+    openGallery(target) {
+        const modalElement = this.galleryModalValue ? document.querySelector(this.galleryModalValue) : null;
+        if (!modalElement || !window.bootstrap) {
+            this.flash("Galerii se nepodařilo otevřít. Obnovte stránku.", true);
+            return;
+        }
+
+        this.galleryTarget = target;
+        // Closing without a pick disarms — a later pick must not land here.
+        modalElement.addEventListener("hidden.bs.modal", () => { this.galleryTarget = null; }, { once: true });
+        window.bootstrap.Modal.getOrCreateInstance(modalElement).show();
+    }
+
+    assetSelected(event) {
+        const target = this.galleryTarget;
+        const detail = event.detail || {};
+        if (!target || !detail.id || !detail.path) return;
+        this.galleryTarget = null;
+
+        // The server re-resolves the id (project check) and replaces the path
+        // with the gallery row's key — the path here is only a snapshot.
+        this.placeImage(target, { path: detail.path, url: detail.url, galleryImageId: detail.id });
+
+        const modalElement = document.querySelector(this.galleryModalValue);
+        const modal = modalElement ? window.bootstrap.Modal.getInstance(modalElement) : null;
+        if (modal) modal.hide();
     }
 
     // ---- toolbar ---------------------------------------------------------------
@@ -873,7 +935,7 @@ export default class extends Controller {
             ...state,
             segments: state.segments.map((segment) => ({
                 ...segment,
-                elements: segment.elements.map(({ url, ...rest }) => (rest.type === "image" ? { ...rest, galleryImageId: rest.galleryImageId ?? null } : rest)),
+                elements: segment.elements.map(({ url, unavailable, ...rest }) => (rest.type === "image" ? { ...rest, galleryImageId: rest.galleryImageId ?? null } : rest)),
             })),
         };
     }

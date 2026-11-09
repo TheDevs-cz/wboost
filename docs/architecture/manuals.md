@@ -688,8 +688,8 @@ width bar was already in place (JSON, see above).
 ### Manual content pages — editable intro (P1, 2026-11-09)
 
 Plan + phases: `docs/plans/2026-11-manual-content-pages.md` (P2 custom pages
-— see the next section; P3 gallery migration, P4 drop `manual.intro_image`
-are still to come).
+— see the next section; P3 gallery — the section after it; P4 drop
+`manual.intro_image` is still to come).
 
 - **Model.** `ManualContentPage` (`manual_content_page`): `role`
   (`ManualContentPageRole`: `intro` | `custom`), `name` (plain title — printed
@@ -707,10 +707,12 @@ are still to come).
   (`InvalidManualContent`, 422): `ContentSegment {verticalAlign top|center|bottom,
   elements}`, elements discriminated by `type` — `HeadingElement {id, level
   1–3, text}`, `RichTextElement {id, doc}`, `ImageElement {id, path,
-  galleryImageId (null until P3), fit natural|cover, alt}`. Element ids are
+  galleryImageId (P3: the gallery row; path = its key snapshot), fit
+  natural|cover, alt}`. Element ids are
   client-generated (`[A-Za-z0-9_-]{1,64}`). Image `path` must be a bare key
-  `manuals/<uuid>/…` (no URL, no `..`); the save handler additionally
-  requires it to be under THIS manual. `ManualContentPagePayload` = the whole
+  `manuals/<uuid>/…` or `file-upload/<uuid>/…` (no URL, no `..`); the save
+  handler resolves `galleryImageId` (same project, its key replaces the
+  path) and otherwise requires the key under THIS manual / project (P3). `ManualContentPagePayload` = the whole
   editor POST (`{name, layout, segments}`, one segment per slot, ≤ 120
   elements, ≤ 1 MB).
 - **Rich text = ProseMirror JSON, never HTML** (`RichTextDoc`). Allow-list:
@@ -865,3 +867,35 @@ are still to come).
   rename / delete / intro not deletable / mixed sort / renumber SQL / typed
   ids) and `tests/Controller/Manual/ManualContentPagesControllerTest.php`
   (routes, voter, list, sort, public order + numbering).
+
+### Manual pictures in the project gallery (P3, 2026-11-09)
+
+Full contract in `gallery-and-uploads.md` "Manual pictures live in the
+gallery". In short:
+
+- Every manual picture is a gallery picture in `Manuál / <manual>` (nested
+  folders, found by `file_directory.system_key`). Rows REFERENCE the manual's
+  keys — nothing was copied; content image elements carry `galleryImageId`,
+  mockup slots stay plain keys (matched to rows by key).
+- `app:manual:import-images-to-gallery [--dry-run]` did the existing pictures
+  (idempotent; missing keys skipped + listed).
+- **Content editor**: "+ Přidat prvek" offers "Obrázek z galerie" /
+  "Nahrát obrázek"; an image element has "Vybrat jiný z galerie" + upload.
+  Uploads still go to `manuals/{id}/content/{uuid}` and register in the
+  gallery (`galleryImageId` = that UUID). The save handler re-resolves every
+  `galleryImageId` (project check, row key replaces the client path; a row
+  whose key is not a manual/gallery key is refused — the element decode is
+  strict). Editor state carries a display-only `unavailable`.
+- **Mockup editor**: each slot has "Vybrat z galerie" / "Z galerie" →
+  hidden `galleryImages[i]` (form field) → `MockupPageSlotImages`: upload >
+  gallery pick (live row of the manual's project, else ignored) > remove flag
+  > keep. New uploads keep their `manuals/{id}/pages/{pageId}/…` key and
+  register in the gallery. The picker modal is rendered OUTSIDE the form.
+- **Koš / purge**: a picture a manual shows can't be purged (not even
+  forced); a trashed one disappears for readers, editors see a stand-in
+  (`_manual_image_standin.html.twig`; CSS `.manual-img-standin` in app.css).
+  Note: a content page whose only content is a trashed picture still counts
+  as "has content" (takes a page number, renders empty for readers).
+- Pinned by `tests/Services/Manual/ManualGalleryImportTest.php`,
+  `tests/MessageHandler/Image/PurgeManualReferencedFileTest.php`,
+  `tests/Controller/Manual/ManualGalleryPickerTest.php`.

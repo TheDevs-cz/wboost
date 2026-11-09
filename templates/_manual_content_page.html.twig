@@ -7,7 +7,11 @@
    Styles live in app.css (`.mcp-*`), loaded by both entrypoints; they set
    their own typography so the Nocturne editor and the plain manual agree.
 
+   A picture moved to the gallery Koš / gone from the gallery (content pages
+   P3) is not shown: readers get nothing, editors a stand-in saying why.
+
    Params: content_page (ManualContentPage), content_styles (ManualContentStyles). #}
+{% set can_edit_images = is_granted('manual_edit', content_page.manual) %}
 <div class="mcp-page">
     <div class="mcp-grid">
         {% for slot in content_page.layout.slots %}
@@ -22,6 +26,12 @@
                     {% elseif element.type == 'richText' %}
                         {% if not element.doc.isEmpty() %}
                             <div class="mcp-rt">{{ manual_rich_text(element.doc, content_styles) }}</div>
+                        {% endif %}
+                    {% elseif element.type == 'image' and manual_image_unavailable(content_page.manual, element.path, element.galleryImageId) %}
+                        {% if can_edit_images %}
+                            <figure class="mcp-img mcp-img-cover" style="aspect-ratio: {{ slot.unitWidth }} / {{ slot.unitHeight }};">
+                                {{ include('_manual_image_standin.html.twig', {'reason': manual_image_unavailable(content_page.manual, element.path, element.galleryImageId)}) }}
+                            </figure>
                         {% endif %}
                     {% elseif element.type == 'image' %}
                         <figure class="mcp-img mcp-img-{{ element.fit.value }}"

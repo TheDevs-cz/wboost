@@ -8,10 +8,13 @@ use Ramsey\Uuid\Uuid;
 use WBoost\Web\Exceptions\InvalidManualContent;
 
 /**
- * A picture on a content page. P1 stores the storage key (`path`) only;
- * `galleryImageId` is reserved for P3, when the pictures move into the
- * project gallery and the path becomes a snapshot of the gallery row's key.
- * Every path written here must be enumerated by BuildStorageReferenceIndex.
+ * A picture on a content page: the gallery picture it shows
+ * (`galleryImageId`, content pages P3) plus a SNAPSHOT of that row's storage
+ * key (`path`) — the render reads the snapshot, so a page keeps rendering
+ * without a gallery lookup; the id is what tells it the picture went to the
+ * Koš / was purged (stand-in) and what the save handler validates. Legacy
+ * elements (before the import) carry only the path. Every path written here
+ * must be enumerated by BuildStorageReferenceIndex.
  */
 readonly final class ImageElement implements ContentElement
 {
@@ -19,10 +22,12 @@ readonly final class ImageElement implements ContentElement
     public const int MAX_ALT_LENGTH = 300;
 
     /**
-     * Bare storage key in a namespace the app writes — never a URL, never
-     * a traversal. Which manual it belongs to is checked by the save handler.
+     * Bare storage key in a namespace the app writes — a manual's own
+     * (`manuals/{manualId}/…`) or a gallery upload (`file-upload/{projectId}/…`)
+     * — never a URL, never a traversal. Which manual / project it belongs to
+     * is checked by the save handler.
      */
-    private const string PATH_PATTERN = '~^manuals/[0-9a-f-]{36}/[A-Za-z0-9._/-]{1,200}$~';
+    private const string PATH_PATTERN = '~^(?:manuals|file-upload)/[0-9a-f-]{36}/[A-Za-z0-9._/-]{1,200}$~';
 
     public function __construct(
         public string $id,
@@ -84,6 +89,12 @@ readonly final class ImageElement implements ContentElement
         return str_starts_with($this->path, 'manuals/' . strtolower($manualId) . '/');
     }
 
+    /** A gallery upload of this project (`file-upload/{projectId}/…`). */
+    public function isGalleryUploadOf(string $projectId): bool
+    {
+        return str_starts_with($this->path, 'file-upload/' . strtolower($projectId) . '/');
+    }
+
     public function id(): string
     {
         return $this->id;
@@ -97,6 +108,11 @@ readonly final class ImageElement implements ContentElement
     public function withPath(string $path): self
     {
         return new self($this->id, $path, $this->fit, $this->alt, $this->galleryImageId);
+    }
+
+    public function withGalleryImage(null|string $galleryImageId, string $path): self
+    {
+        return new self($this->id, $path, $this->fit, $this->alt, $galleryImageId);
     }
 
     /**

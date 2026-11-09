@@ -41,6 +41,7 @@ readonly final class ManualContentPageEditor
         private Environment $twig,
         private CsrfTokenManagerInterface $csrfTokenManager,
         private UrlGeneratorInterface $urlGenerator,
+        private ManualGalleryPicker $galleryPicker,
     ) {
     }
 
@@ -134,6 +135,7 @@ readonly final class ManualContentPageEditor
             'save_url' => $saveUrl,
             'layouts_geometry' => MockupPageLayout::exportGeometry(),
             'max_payload_bytes' => ManualContentPagePayload::MAX_BYTES,
+            'gallery_directory_id' => $this->galleryPicker->directoryId($manual),
         ];
     }
 }

@@ -355,3 +355,7 @@
     .mce-tb-hint { display: none; }
     .mce-tb-font { width: 100%; }
 }
+
+/* Content pages P3 — gallery picker in the manual editors. */
+.mce-img-unavailable { margin-top: 6px; padding: 8px 10px; border-radius: 8px; background: var(--bs-danger-bg-subtle); color: var(--bs-danger-text-emphasis); font-size: 12.5px; font-weight: 600; }
+.mockup-editor-slot-gallery { margin-top: 8px; pointer-events: auto; }

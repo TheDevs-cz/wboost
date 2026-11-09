@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace WBoost\Web\MessageHandler\Manual;
 
-use League\Flysystem\Filesystem;
+use League\Flysystem\FilesystemException;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use WBoost\Web\Exceptions\ManualMockupPageNotFound;
 use WBoost\Web\Message\Manual\EditManualMockupPage;
 use WBoost\Web\Repository\ManualMockupPageRepository;
+use WBoost\Web\Services\Manual\MockupPageSlotImages;
 use WBoost\Web\Services\Manual\StoreMockupPageDownload;
 
 #[AsMessageHandler]
@@ -18,13 +19,14 @@ readonly final class EditManualMockupPageHandler
     public function __construct(
         private ManualMockupPageRepository $manualMockupPageRepository,
         private ClockInterface $clock,
-        private Filesystem $filesystem,
+        private MockupPageSlotImages $slotImages,
         private StoreMockupPageDownload $storeMockupPageDownload,
     ) {
     }
 
     /**
      * @throws ManualMockupPageNotFound
+     * @throws FilesystemException
      */
     public function __invoke(EditManualMockupPage $message): void
     {
@@ -34,20 +36,25 @@ readonly final class EditManualMockupPageHandler
         $images = [];
 
         foreach ($message->images as $index => $image) {
-            if ($image === null) {
-                $keepExisting = ($message->removeImages[$index] ?? false) === false;
+            // Upload > gallery pick > remove flag > keep: the new choice for a
+            // slot always wins over the flag set by clicking "remove" first.
+            $new = $this->slotImages->resolve(
+                $page->manual,
+                $page->id,
+                $message->name,
+                $index,
+                $image,
+                $message->galleryImages[$index] ?? null,
+                $timestamp,
+            );
 
-                $images[] = $keepExisting ? ($page->images[$index] ?? null) : null;
+            if ($new !== null) {
+                $images[] = $new;
                 continue;
             }
 
-            $imageNumber = $index + 1;
-            $extension = $image->guessExtension();
-            $path = "manuals/$manualId/pages/$page->id/image-$imageNumber-$timestamp.$extension";
-
-            $this->filesystem->write($path, $image->getContent());
-
-            $images[] = $path;
+            $keepExisting = ($message->removeImages[$index] ?? false) === false;
+            $images[] = $keepExisting ? ($page->images[$index] ?? null) : null;
         }
 
         // A new upload always wins over the remove flag, mirroring the images

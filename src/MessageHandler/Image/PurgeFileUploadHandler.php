@@ -9,6 +9,7 @@ use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use WBoost\Web\Exceptions\FileUploadInUse;
 use WBoost\Web\Exceptions\FileUploadNotFound;
 use WBoost\Web\Message\Image\PurgeFileUpload;
+use WBoost\Web\Query\GetGalleryImageManualUsage;
 use WBoost\Web\Query\GetGalleryImageUsage;
 use WBoost\Web\Repository\FileUploadRepository;
 
@@ -19,6 +20,7 @@ readonly final class PurgeFileUploadHandler
         private FileUploadRepository $fileUploadRepository,
         private Filesystem $filesystem,
         private GetGalleryImageUsage $galleryImageUsage,
+        private GetGalleryImageManualUsage $galleryImageManualUsage,
     ) {
     }
 
@@ -35,6 +37,14 @@ readonly final class PurgeFileUploadHandler
      * could not even be opened for editing, 2026-09-08). The cron never
      * forces; the bin's "Smazat ihned" does, after naming the templates.
      *
+     * A picture a MANUAL still shows (mockup slot, content page element,
+     * legacy `intro_image` — content pages P3) is refused EVEN WHEN FORCED:
+     * a public manual has no stand-in for a vanished object, and the manual
+     * keys predate the gallery (the import made rows over them).
+     *
+     * A row created over a key another row also names (the manual import)
+     * only drops ITS row — the shared object stays for the other one.
+     *
      * The storage delete runs inside the command bus's doctrine_transaction, so
      * it happens just before the row removal is committed. A commit failure
      * after the object is gone would leave a row pointing at a missing file —
@@ -48,14 +58,16 @@ readonly final class PurgeFileUploadHandler
     {
         $file = $this->fileUploadRepository->get($message->fileId);
 
-        if (!$message->force) {
-            $sites = $this->galleryImageUsage->forFile($file);
-            if ($sites !== []) {
-                throw new FileUploadInUse($file, $sites);
-            }
+        $manualSites = $this->galleryImageManualUsage->forFile($file);
+        $sites = $message->force ? [] : $this->galleryImageUsage->forFile($file);
+
+        if ($sites !== [] || $manualSites !== []) {
+            throw new FileUploadInUse($file, $sites, $manualSites);
         }
 
-        $this->filesystem->delete($file->path);
+        if ($this->fileUploadRepository->countOthersWithPath($file) === 0) {
+            $this->filesystem->delete($file->path);
+        }
 
         $this->fileUploadRepository->remove($file);
     }

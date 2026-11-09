@@ -4,15 +4,25 @@
    always match. Params: mockup_page (required), show_placeholders (optional,
    renders a placeholder in empty slots — admin surfaces only), show_downloads
    (optional, default true — the corner button of a slot that carries a file
-   the admin attached for download). #}
+   the admin attached for download).
+
+   A picture moved to the gallery Koš (content pages P3) is not shown:
+   readers get the empty slot, editors a stand-in saying why. #}
 {% set show_downloads = show_downloads|default(true) %}
+{% set can_edit_images = is_granted('manual_edit', mockup_page.manual) %}
 <div class="mockup-grid-container">
     <div class="mockup-grid">
         {% for slot in mockup_page.layout.slots %}
             {% set slot_download = mockup_page.imageDownload(loop.index0) %}
             <div class="mockup-slot"
                  style="grid-column: {{ slot.column }} / span {{ slot.columnSpan }}; grid-row: {{ slot.row }} / span {{ slot.rowSpan }};">
-                {% if mockup_page.images[loop.index0] ?? null %}
+                {% set slot_image = mockup_page.images[loop.index0] ?? null %}
+                {% set slot_unavailable = slot_image ? manual_image_unavailable(mockup_page.manual, slot_image) : null %}
+                {% if slot_image and slot_unavailable %}
+                    {% if can_edit_images %}
+                        {{ include('_manual_image_standin.html.twig', {'reason': slot_unavailable}) }}
+                    {% endif %}
+                {% elseif slot_image %}
                     <img src="{{ uploaded_asset(mockup_page.images[loop.index0]) }}" alt="{{ mockup_page.name }} – obrázek {{ loop.index }}" loading="lazy">
                 {% elseif show_placeholders|default(false) %}
                     <div class="mockup-slot-placeholder">
