@@ -128,15 +128,15 @@ final class ElementOffsetsRenderTest extends KernelTestCase
             }
             self::assertCount(10, $rootMembers, 'five rows × score + opponent');
 
-            /** @var list<array<string, mixed>> $objects */
+            /** @var list<array{inputId?: string, left: float|int, top: float|int}> $objects */
             $objects = $canvas['objects'];
             foreach ($objects as $i => $object) {
                 $id = $object['inputId'] ?? null;
                 if ($id === ContainerFixtures::TURNAJ_HEADLINE) {
-                    $objects[$i]['left'] = (float) $object['left'] + self::LEFT;
+                    $objects[$i]['left'] = $object['left'] + self::LEFT;
                 }
                 if (in_array($id, $rootMembers, true)) {
-                    $objects[$i]['top'] = (float) $object['top'] + self::DOWN;
+                    $objects[$i]['top'] = $object['top'] + self::DOWN;
                 }
             }
             $canvas['objects'] = $objects;
