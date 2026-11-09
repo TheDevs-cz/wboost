@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Services\Image;
 
+use AsyncAws\Core\Exception\Exception as AsyncAwsException;
 use League\Flysystem\FilesystemException;
 use League\Flysystem\FilesystemReader;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Contracts\HttpClient\Exception\ExceptionInterface as HttpClientException;
 
 /**
  * Reads the pixel size of a picture already sitting in the object store, from
@@ -20,8 +23,11 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
  *
  * Null is the honest answer whenever there is no size to report: an SVG (a
  * vector scales to whatever box it is placed in), an object that vanished from
- * the bucket, a header PHP cannot decode. Callers never get a guess — a wrong
- * aspect ratio mis-crops every placement made from it.
+ * the bucket, a header PHP cannot decode, or a storage HTTP failure (S3 429 /
+ * 5xx / network — AsyncAws responses are lazy, so those surface from
+ * `readStream()` OR from reading the stream; Sentry WEB-4W crashed the manual
+ * gallery import that way). Callers never get a guess — a wrong aspect ratio
+ * mis-crops every placement made from it.
  */
 readonly final class ReadStoredImagePixelSize
 {
@@ -30,6 +36,7 @@ readonly final class ReadStoredImagePixelSize
     public function __construct(
         #[Autowire(service: 'oneup_flysystem.minio_filesystem')]
         private FilesystemReader $filesystem,
+        private LoggerInterface $logger,
     ) {
     }
 
@@ -67,14 +74,28 @@ readonly final class ReadStoredImagePixelSize
      */
     private function readHeader(string $path): null|string
     {
+        $stream = null;
+
         try {
             $stream = $this->filesystem->readStream($path);
+            $header = stream_get_contents($stream, self::HEADER_BYTES);
         } catch (FilesystemException) {
             return null;
-        }
+        } catch (AsyncAwsException | HttpClientException $exception) {
+            // A transient storage failure is "size unknown", not a crash —
+            // the caller (a sweep over hundreds of pictures) carries on.
+            $this->logger->warning('Could not read the stored image header of {path}: {message}', [
+                'path' => $path,
+                'message' => $exception->getMessage(),
+                'exception' => $exception,
+            ]);
 
-        $header = stream_get_contents($stream, self::HEADER_BYTES);
-        fclose($stream);
+            return null;
+        } finally {
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
+        }
 
         return $header === false || $header === '' ? null : $header;
     }
