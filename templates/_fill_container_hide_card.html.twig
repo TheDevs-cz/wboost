@@ -8,7 +8,9 @@
     export. Members' own hide toggles are kept and apply again once the
     container is shown.
 
-    Params: container {id, name, hidden, memberCount}; arrangeable (bool).
+    Params: container {id, name, hidden, memberCount}; arrangeable (bool);
+    move / unit (optional, single page): the container's FillMovableElements
+    row when the user may move it — adds the "Poloha" row.
 #}
 {% set hidden = container.hidden %}
 <div class="fill-popover fill-popover--image fill-popover--container card" data-inputid="{{ container.id }}">
@@ -30,5 +32,6 @@
             >{{ icon(hidden ? 'eye-off' : 'eye', 's14') }}</button>
         </div>
         <p class="cap fill-popover__desc mb-0">Skupina prvků ({{ container.memberCount }}) — skrytím zmizí celá včetně všeho uvnitř.</p>
+        {% if move|default(null) %}{{ include('_fill_move_position.html.twig', { m: move, unit: unit|default('px') }) }}{% endif %}
     </div>
 </div>

@@ -174,8 +174,10 @@ Per surface:
 - **Overlay / echo / harness** get the slot through `layoutData().decorations`
   with `slot: true` (only on slot entries — designs without slot members ship
   byte-identical data). The overlay feeds them as POJOs, reads back the final
-  top / visibility and publishes per surface `{dy, collapsed}` to the page's
-  picture owner (`slotsLaidOut()`): the single page's
+  top / visibility and publishes per surface `{dx, dy, collapsed}` to the
+  page's picture owner (`slotsLaidOut()`; `dx` ≠ 0 only when the user moved
+  the slot's root sideways — axis-move M3; the group page reads `dy` only
+  until M4): the single page's
   `variant_image_fill_controller` translates the live picture + its clip and
   places everything against the LIVE frame (`_frame()`); the group / document
   page's `group_fill_controller` shifts its ghost + toolbar frame

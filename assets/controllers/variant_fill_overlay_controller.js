@@ -5,6 +5,7 @@ import { fillStateHash, settleSourceFor } from "./fill_state_hash.js";
 import { liveComponentFor } from "./live_component.js";
 import { FillViewport } from "./fill_viewport.js";
 import { FillHistory } from "./fill_history.js";
+import { FillElementMove } from "./fill_element_move.js";
 
 /**
  * Click-into-preview placeholder overlay of the fill pages — the ONE editing
@@ -80,6 +81,14 @@ import { FillHistory } from "./fill_history.js";
  * text. When a container's content can't fit its max height the export
  * would be rejected (API contract) — the overlay shows an inline error and
  * disables the Export button instead of letting the POST produce a broken PNG.
+ *
+ * USER-MOVED ELEMENTS ("Uživatel může posunout", M3). A surface carrying
+ * `data-movable` (FillMovableElements rows) gets the ✥ move tool — the
+ * gestures live in fill_element_move.js (`this._mover`); this controller
+ * bakes the offsets (mirrors + the running drag) into its geometry exactly
+ * like the render does: BEFORE the container phase A, every deep member of
+ * a moved root translated (WBoostElementMove.deltas), so the boxes, the
+ * reflow, the collision push and the overflow gate all follow a move live.
  */
 export default class extends Controller {
     static targets = [
@@ -119,6 +128,7 @@ export default class extends Controller {
         }
         this._imageFrames = {};
         this._surfaces = this._collectSurfaces();
+        this._connectMover();
         this._loadFontsThenLayout();
 
         this._boundReposition = () => this.reposition();
@@ -213,6 +223,11 @@ export default class extends Controller {
             this._view.destroy();
             this._view = null;
         }
+        if (this._mover) {
+            this._mover.destroy();
+            this._mover = null;
+        }
+        if (this._onOffsetInput) this.element.removeEventListener("input", this._onOffsetInput);
         if (this._liveComponent) {
             this._liveComponent.off("render:finished", this._onRenderFinished);
             this._liveComponent.off("response:error", this._onResponseError);
@@ -246,11 +261,21 @@ export default class extends Controller {
                     layout = null;
                 }
             }
+            let movable = null;
+            if (el.dataset.movable) {
+                try {
+                    movable = JSON.parse(el.dataset.movable);
+                } catch (err) {
+                    movable = null;
+                }
+            }
             return {
                 el,
                 variantId: el.dataset.variantId || null,
                 canvasWidth: parseFloat(el.dataset.canvasWidth) || 0,
                 layout,
+                movable: movable && typeof movable === "object" && !Array.isArray(movable) ? movable : {},
+                deltas: {},
                 preview: el.querySelector('[data-variant-fill-overlay-target~="preview"]'),
                 boxes: [],
                 computed: {},
@@ -264,7 +289,102 @@ export default class extends Controller {
         return surfaces;
     }
 
+    // --- User-moved elements (fill_element_move.js) -------------------------
+
+    /** The move tool — only when a surface carries movable elements. */
+    _connectMover() {
+        const surfaces = this._surfaces || [];
+        if (!surfaces.some((surface) => Object.keys(surface.movable).length > 0)) return;
+        const unitHost = surfaces.find((surface) => surface.el.dataset.unit);
+        this._mover = new FillElementMove({
+            root: this.element,
+            unit: unitHost ? unitHost.el.dataset.unit : "px",
+            host: {
+                surfaces: () => this._surfaces || [],
+                scaleFor: (surface) => this._scaleFor(surface),
+                zoom: () => this._zoom || 1,
+                frameOf: (id, surface) => this._movableFrame(id, surface),
+                isHidden: (id) => this._isHidden(id),
+                changed: (row, info) => this._offsetsChanged(row, info),
+            },
+        });
+        // A mirror written by anyone else (undo / redo, a Live morph) — the
+        // boxes and the "Poloha" fields follow.
+        this._onOffsetInput = (event) => {
+            if (event.target && event.target.matches && event.target.matches("[data-offset-mirror]")) {
+                this._scheduleRecompute();
+            }
+        };
+        this.element.addEventListener("input", this._onOffsetInput);
+        this._offsetsSignature = JSON.stringify(this._mover.offsets());
+    }
+
+    /** Offsets the next render bakes (mirrors + a running drag), id → {x, y}. */
+    _offsets() {
+        return this._mover ? this._mover.offsets() : {};
+    }
+
+    /**
+     * The mover changed an element's position — a drag frame (`draft`) or a
+     * committed edit. Boxes + reflow follow at once; the text echo repaints a
+     * live-capable element (`fill-move:draft`); a commit shows the settle
+     * veil like any other edit.
+     */
+    _offsetsChanged(row, { draft = false, committed = false } = {}) {
+        this._offsetsSignature = JSON.stringify(this._offsets());
+        // A drag frame lays out synchronously (pure geometry — the measured
+        // heights are cached) so the band, the ghost and the boxes move in
+        // the same frame as the pointer.
+        if (draft) this._recomputeLayout(); else this._scheduleRecompute();
+        this.element.dispatchEvent(new CustomEvent("fill-move:draft", {
+            bubbles: true,
+            detail: { offsets: draft ? this._offsets() : null, id: row.id, echo: Boolean(row.echo) },
+        }));
+        if (committed) this._scheduleSpinner();
+    }
+
+    /** One movable element's LIVE frame on a surface (canvas px, current
+     *  offset included): the box carrying its tool. */
+    _movableFrame(id, surface) {
+        if (!surface) return null;
+        const box = surface.boxes.find((candidate) => candidate.dataset.inputid === id && !candidate.dataset.sheetMember);
+        return box ? this._boxFrame(box, surface) : null;
+    }
+
+    /** A move-only CONTAINER box: the server's frame moved by the offset,
+     *  grown by its members' reflowed frames on this surface. */
+    _moveBoxFrame(box, surface) {
+        const x = parseFloat(box.dataset.frameX);
+        const y = parseFloat(box.dataset.frameY);
+        const w = parseFloat(box.dataset.frameWidth);
+        const h = parseFloat(box.dataset.frameHeight);
+        if ([x, y, w, h].some((v) => Number.isNaN(v))) return null;
+        const offset = this._offsets()[box.dataset.inputid] || { x: 0, y: 0 };
+        let left = x + offset.x;
+        let top = y + offset.y;
+        let right = left + w;
+        let bottom = top + h;
+        (box.dataset.moveMembers || "").split(" ").filter(Boolean).forEach((memberId) => {
+            const frame = (surface.computed && surface.computed[memberId]) || null;
+            if (!frame || !(frame.height > 0)) return;
+            left = Math.min(left, frame.x);
+            top = Math.min(top, frame.y);
+            right = Math.max(right, frame.x + frame.width);
+            bottom = Math.max(bottom, frame.y + frame.height);
+        });
+        return { x: left, y: top, width: right - left, height: bottom - top };
+    }
+
+    /** Any box's live frame — container sheet box, move-only container box,
+     *  or a field box. */
+    _boxFrame(box, surface) {
+        if (box.dataset.sheetBox) return this._sheetFrame(box, surface);
+        if (box.dataset.moveBox && box.dataset.moveMembers !== undefined) return this._moveBoxFrame(box, surface);
+        return this._frameOf(box, surface);
+    }
+
     _onKeydown(event) {
+        if (this._mover && this._mover.handleKey(event)) return;
         if (event.key === "Escape") {
             // A Bootstrap modal (the group page's image picker) owns its own
             // Escape; ours must not also close the panel underneath it.
@@ -343,6 +463,7 @@ export default class extends Controller {
         if (this._previewOn) {
             this.closePopover();
             this.closeSheet();
+            if (this._mover) this._mover.deselect();
         }
         this.element.classList.toggle("fill-preview-on", this._previewOn);
         this.previewButtonTargets.forEach((button) => {
@@ -505,6 +626,7 @@ export default class extends Controller {
             extraBounds: () => this._selectedPictureBounds(),
             isInteractive: (event) => this._pressBelongsToContent(event),
             ownsArrows: () => {
+                if (this._mover && this._mover.active) return true;
                 const fill = this._imageFill();
                 return Boolean(fill && fill.hasActivePicture());
             },
@@ -542,7 +664,7 @@ export default class extends Controller {
     _pressBelongsToContent(event) {
         const target = event.target;
         if (target && typeof target.closest === "function"
-            && target.closest("button, a, input, textarea, select, .fill-box__tools, .fill-box__tool, .fill-adjust-handle")) {
+            && target.closest("button, a, input, textarea, select, .fill-box__tools, .fill-box__tool, .fill-adjust-handle, .fill-box.is-moving")) {
             return true;
         }
         const fill = this._imageFill();
@@ -1478,7 +1600,11 @@ export default class extends Controller {
             return;
         }
         const shapeId = element.getAttribute("data-shape-color-mirror");
-        if (shapeId !== null) this._markShapeColor(shapeId, element.value);
+        if (shapeId !== null) {
+            this._markShapeColor(shapeId, element.value);
+            return;
+        }
+        if (element.hasAttribute("data-offset-mirror") && this._mover) this._mover.sync({ force: true });
     }
 
     // --- Live-preview spinner (single page; the group page has one per frame) --
@@ -1510,10 +1636,22 @@ export default class extends Controller {
      *  settle raced by typing keeps it up; Live guarantees one more render for
      *  the final state. No hash (pre-echo markup) counts as a match. */
     _settleRendered() {
+        if (this._mover) {
+            // A Live morph may have rewritten the offset mirrors (the server's
+            // normalisation) without an input event — follow it.
+            const signature = JSON.stringify(this._offsets());
+            if (signature !== this._offsetsSignature) {
+                this._offsetsSignature = signature;
+                this._scheduleRecompute();
+            }
+            this._mover.sync();
+        }
         const source = settleSourceFor(this.element);
         const serverHash = source ? source.getAttribute("data-state-hash") : null;
         if (serverHash !== null && serverHash !== fillStateHash(this.element)) return;
         this._hideSpinner();
+        // The pixels on screen ARE the current state: the move ghosts go.
+        if (this._mover) this._mover.clearGhosts();
     }
 
     _hideSpinner() {
@@ -1558,7 +1696,7 @@ export default class extends Controller {
             const edge = 18 / z;
 
             surface.boxes.forEach((box) => {
-                const frame = box.dataset.sheetBox ? this._sheetFrame(box, surface) : this._frameOf(box, surface);
+                const frame = this._boxFrame(box, surface);
                 if (!frame) {
                     box.style.display = "none";
                     return;
@@ -1576,6 +1714,7 @@ export default class extends Controller {
             });
         });
 
+        if (this._mover) this._mover.reposition();
         this._reanchorOpenPopover();
     }
 
@@ -1773,6 +1912,17 @@ export default class extends Controller {
         const inputs = data.inputs;
         const computed = {};
 
+        // User moves, baked BEFORE phase A like the render's bake
+        // (ElementOffsets::bake): inputId → [dx, dy], a moved container's
+        // whole deep tree included. Empty without movable elements.
+        const moveModule = window.WBoostElementMove;
+        const deltas = this._mover && moveModule && typeof moveModule.deltas === "function"
+            ? moveModule.deltas(data.containers || [], this._offsets())
+            : {};
+        surface.deltas = deltas;
+        const dxOf = (inputId) => (deltas[inputId] ? deltas[inputId][0] : 0);
+        const dyOf = (inputId) => (deltas[inputId] ? deltas[inputId][1] : 0);
+
         Object.keys(inputs).forEach((inputId) => {
             const def = inputs[inputId];
             if (!def.frame) return;
@@ -1780,7 +1930,7 @@ export default class extends Controller {
             if (!def.locked && def.style) {
                 height = this._measureHeight(surface, inputId, this._currentValue(inputId, def), def);
             }
-            computed[inputId] = { x: def.frame.x, y: def.frame.y, width: def.frame.width, height };
+            computed[inputId] = { x: def.frame.x + dxOf(inputId), y: def.frame.y + dyOf(inputId), width: def.frame.width, height };
         });
 
         // Phase A over DESIGNED geometry (the anchor snapshot), phase B over
@@ -1796,9 +1946,9 @@ export default class extends Controller {
             const pojo = {
                 type: 'textbox',
                 inputId,
-                _designedTop: def.frame.y,
-                top: def.frame.y,
-                left: def.frame.x,
+                _designedTop: def.frame.y + dyOf(inputId),
+                top: def.frame.y + dyOf(inputId),
+                left: def.frame.x + dxOf(inputId),
                 width: def.frame.width,
                 height: def.frame.height,
                 scaleX: 1,
@@ -1819,9 +1969,9 @@ export default class extends Controller {
                 type: 'image',
                 imagePlaceholder: isSlot,
                 inputId,
-                _designedTop: decoration.frame.y,
-                top: decoration.frame.y,
-                left: decoration.frame.x,
+                _designedTop: decoration.frame.y + dyOf(inputId),
+                top: decoration.frame.y + dyOf(inputId),
+                left: decoration.frame.x + dxOf(inputId),
                 width: decoration.frame.width,
                 height: decoration.frame.height,
                 scaleX: 1,
@@ -1894,13 +2044,15 @@ export default class extends Controller {
         Object.keys(slotPojos).forEach((inputId) => {
             const { pojo, frame } = slotPojos[inputId];
             const visible = pojo.visible !== false;
+            // dx: a moved root carries its slots sideways too (M3).
             slots[inputId] = {
+                dx: pojo.left - frame.x,
                 dy: visible ? pojo.top - frame.y : 0,
                 collapsed: !visible && !this._isImageHidden(inputId),
             };
             computed[inputId] = visible
-                ? { x: frame.x, y: pojo.top, width: frame.width, height: frame.height }
-                : { x: frame.x, y: this._collapsedSlotTop(inputId, frame, pojos, data.containers || [], layoutModule), width: frame.width, height: 0 };
+                ? { x: pojo.left, y: pojo.top, width: frame.width, height: frame.height }
+                : { x: pojo.left, y: this._collapsedSlotTop(inputId, frame, pojos, data.containers || [], layoutModule), width: frame.width, height: 0 };
         });
         surface.slots = slots;
 
@@ -2154,6 +2306,10 @@ export default class extends Controller {
         const w = parseFloat(box.dataset.frameWidth);
         const h = parseFloat(box.dataset.frameHeight);
         if ([x, y, w, h].some((v) => Number.isNaN(v))) return null;
+        // A designed frame (shape, decorative image, a locked text without a
+        // reflow entry) follows the user's move like the render's bake.
+        const delta = surface && surface.deltas ? surface.deltas[box.dataset.inputid] : null;
+        if (delta) return { x: x + delta[0], y: y + delta[1], width: w, height: h };
         return { x, y, width: w, height: h };
     }
 

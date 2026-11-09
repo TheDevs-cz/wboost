@@ -433,3 +433,65 @@ html.fill-adjust-rotating, html.fill-adjust-rotating * { cursor: grabbing !impor
     .fill-adjust-handle::after { inset: 12px; }
 }
 .fill-box__tool--adjust[hidden] { display: none; }
+
+/* ---------- User-movable elements ("Uživatel může posunout", M3) ----------
+   The ✥ / ↕ / ↔ tool sits in the box's dot cluster after the pencil
+   (fill_element_move.js). Neutral dot with a lavender glyph; lavender fill
+   while its element is selected ("move mode"). 44 px hit area on a 26 px
+   dot; touch-action none on the tool only, so a drag on it never pans. */
+.fill-box__tool--move { position: relative; color: var(--lav-ink); cursor: grab; touch-action: none; }
+.fill-box__tool--move::before { content: ""; position: absolute; inset: -9px; border-radius: 50%; }
+.fill-box__tool--move[hidden] { display: none; }
+.fill-box__tool--move.is-moved { box-shadow: 0 0 0 2px var(--lav-line), 0 2px 6px rgb(0 0 0 / .25); }
+.fill-box__tool--move[aria-pressed="true"], .fill-box__tool--move.is-dragging { background: var(--lav); color: var(--on-accent); }
+html.fill-move-dragging, html.fill-move-dragging * { cursor: grabbing !important; user-select: none; }
+/* Move-only box (locked text, decorative image, plain shape, container
+   without a sheet): a quiet dotted outline — it carries no field. */
+.fill-form.fill-js.fill-highlight-on .fill-box--move { border-style: dotted; border-color: color-mix(in oklab, var(--lav) 55%, transparent); background: none; box-shadow: none; }
+.fill-box--move .fill-box__name { background: color-mix(in oklab, var(--lav) 55%, black); }
+/* Move mode: the selected box takes the pointer (drag it anywhere inside). */
+.fill-form.fill-js:not(.fill-preview-on) .fill-box.is-moving { pointer-events: auto; cursor: move; touch-action: none; border: 2px solid var(--lav) !important; border-radius: 4px; box-shadow: 0 0 0 3px var(--lav-glow) !important; }
+/* Range band (asymmetric per direction), the designed spot and the
+   see-through ghost of a non-text element — stage layer, never the bitmap. */
+.fill-move-band, .fill-move-origin, .fill-move-ghost, .fill-move-readout { position: absolute; pointer-events: none; }
+.fill-move-band { border: 1.5px dashed var(--lav); border-radius: 4px; background: repeating-linear-gradient(135deg, color-mix(in oklab, var(--lav) 12%, transparent) 0 6px, transparent 6px 12px); box-shadow: 0 0 0 1px rgb(0 0 0 / .18); }
+.fill-move-band.is-limit { animation: fill-move-limit 340ms var(--ease); }
+@keyframes fill-move-limit { 0%, 40% { border-color: var(--rose); box-shadow: 0 0 0 3px color-mix(in oklab, var(--rose) 40%, transparent); } }
+.fill-move-origin { border: 1.5px dashed color-mix(in oklab, var(--text-2) 75%, transparent); border-radius: 3px; }
+.fill-move-ghost { opacity: .7; outline: 1.5px solid var(--lav); outline-offset: -1px; }
+.fill-move-ghost.is-empty { opacity: 1; background: var(--lav-glow); }
+.fill-move-band[hidden], .fill-move-origin[hidden], .fill-move-readout[hidden] { display: none; }
+.fill-move-readout { z-index: 2; padding: 2px 8px; border-radius: 999px; background: var(--lav); color: var(--on-accent); font: 600 11px/18px var(--font); font-variant-numeric: tabular-nums; white-space: nowrap; box-shadow: 0 2px 6px rgb(0 0 0 / .3); transform-origin: bottom left; transform: translateY(calc(-100% - 6px)) scale(calc(1 / var(--fill-zoom, 1))); }
+.fill-form.fill-preview-on .fill-move-band, .fill-form.fill-preview-on .fill-move-origin, .fill-form.fill-preview-on .fill-move-readout { display: none; }
+/* "Poloha" rows: popovers, sheet head, "Všechna pole", the chip. */
+.fill-move-pos { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); }
+.fill-move-pos__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.fill-move-pos__title { font-size: 12px; font-weight: 600; color: var(--text-2); }
+.fill-move-pos__axis { display: grid; grid-template-columns: 92px auto minmax(0, 1fr) auto; align-items: center; gap: 4px; }
+.fill-move-pos__label { font-size: 12px; color: var(--text-2); white-space: nowrap; }
+.fill-move-pos__field .form-control { padding-left: 10px; }
+.fill-move-pos__hint { margin: 2px 0 6px 96px; font-size: 11px; color: var(--muted); }
+.fill-move-pos.is-disabled { opacity: .5; }
+.fill-form.fill-js.fill-sheet-open .fill-popovers > .fill-sheet__head.is-in-sheet:has(.fill-sheet__move) { flex-wrap: wrap; }
+.fill-sheet__move { flex: 1 0 100%; padding: 0 2px; }
+.fill-sheet__move .fill-move-pos { margin-top: 4px; }
+/* Move-mode chip: floats under the selected box (fixed, clamped). */
+.fill-move-chip { position: fixed; z-index: 1150; width: 300px; max-width: calc(100vw - 16px); padding: 10px 12px 10px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line-2); box-shadow: var(--shadow-3); color: var(--text); }
+.fill-move-chip[hidden] { display: none; }
+.fill-move-chip__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.fill-move-chip__name { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-size: 13px; font-weight: 600; }
+.fill-move-chip__name .i { flex: none; color: var(--lav-ink); }
+.fill-move-chip .fill-move-pos { margin-top: 8px; }
+.fill-move-chip__hint { margin: 2px 0 0; font-size: 11px; color: var(--muted); }
+.fill-form.fill-preview-on .fill-move-chip { display: none; }
+@media (max-width: 700px), (pointer: coarse) {
+    .fill-move-pos__axis { grid-template-columns: 76px 44px minmax(0, 1fr) 44px; }
+    .fill-move-pos__step { min-width: 44px; min-height: 44px; }
+    .fill-move-pos__field .form-control { height: 40px; min-height: 40px; font-size: 16px; }
+    .fill-move-pos__hint { margin-left: 80px; }
+}
+@media (max-width: 700px) {
+    /* Bottom sheet like the image adjust panel. */
+    .fill-move-chip { left: 8px !important; right: 8px; bottom: 8px; top: auto !important; width: auto; max-width: none; padding: 12px 14px 14px; border-radius: 18px; }
+    .fill-move-chip__hint { display: none; }
+}

@@ -10,6 +10,8 @@
 
     Parameters:
     - sheets: FillContainerSheets rows (unified for the page)
+    - movable / unit: (optional, single page) FillMovableElements rows by id —
+      a movable container's head gets the "Poloha" row
 
     `data-sheet-entries` = the sheet's ordered entries ({kind: field|section,
     id, depth}); section headings carry the nested container's eye when it
@@ -37,6 +39,9 @@
         {% endif %}
         <button type="button" class="btn btn-success xs fill-sheet__ok" title="Uložit (Ctrl/⌘+Enter)" data-action="variant-fill-overlay#closeSheet">{{ icon('check', 's14') }}Uložit</button>
         <button type="button" class="btn btn-ghost icon xs fill-sheet__x" aria-label="Zavřít" data-action="variant-fill-overlay#closeSheet">{{ icon('x', 's16') }}</button>
+        {% if (movable|default({}))[sheet.id] is defined %}
+            <div class="fill-sheet__move">{{ include('_fill_move_position.html.twig', { m: movable[sheet.id], unit: unit|default('px') }) }}</div>
+        {% endif %}
     </div>
     {% for entry in sheet.entries|filter(entry => entry.kind == 'section') %}
         <div class="fill-sheet__section{{ entry.name or entry.hidable ? '' : ' fill-sheet__section--plain' }}"

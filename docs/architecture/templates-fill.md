@@ -178,6 +178,89 @@ pages instead of a pencil per member. Contracts:
   container's fields in DESIGNED flow order (top to bottom), sections
   included.
 
+**Move tool — user-moved elements on the single fill page (2026-11-09, axis-move plan M3)**
+
+The designer's "Uživatel může posunout" allowance (templates-data-model.md
+`userMove`; server pipeline M2) gets its UI. Single page only — the group /
+document pages (M4) and the API / MCP / mfkfm (M5) follow. Contracts:
+
+- **Data from the server, never recomputed.** `AbstractVariantFiller::movableElements()`
+  → `Services/SocialNetwork/FillMovableElements` (rows of
+  `ResolveElementOffsets::movableElementsOf`, the single eligibility source):
+  per element `frame` (the server's designed frame on the EXPANDED canvas),
+  `allowance`, `bounds` (the lenient resolver's clamp range), `members`
+  (container deep inputIds), `echo` (repaintable by the text echo), `hints`
+  (Czech limit captions in the unit). Shipped as the stage's `data-movable`
+  + `data-unit` — only when non-empty, every other design renders nothing new.
+- **Markup** (all behaviour-free, wired by delegation):
+  `_fill_move_tool.html.twig` — the ✥ dot (↕ / ↔ glyph `i-move-v` / `i-move-h`
+  for one axis) after the pencil in the element's box (unlocked text,
+  recolourable shape, one-pencil container box); everything else (locked
+  text, decorative image, plain shape, container without a sheet) gets a
+  move-only `fill-box--move` box (`data-move-box`, the server frame; a
+  container's grows with its reflowed members, `data-move-members`).
+  `_fill_move_position.html.twig` — the "Poloha" row (per allowed axis:
+  − / value in the unit / +, the limit hint, "Vrátit"), rendered in the text
+  / shape popover, the container sheet head, the container hide card, a
+  `_fill_move_card.html.twig` "Všechna pole" card for elements without a
+  popover, and the move-mode chip (`_fill_move_chips.html.twig`, fixed,
+  outside the zoomed stage, bottom-docked ≤ 700 px). No `name`s anywhere —
+  the two `offsetValues[<id>][x|y]` mirrors stay the only form fields.
+- **Gestures — `assets/controllers/fill_element_move.js`** (`FillElementMove`,
+  owned by `variant-fill-overlay` through a small `host` hook object, so the
+  overlay stays the geometry owner and M4 / P4 can sit beside it):
+  press-and-drag the tool (≤ 3 px = a click) moves along the ALLOWED axes,
+  clamped to `bounds`, magnetic to 0 within 6 screen px; a hatched range
+  band (asymmetric per direction) + the dashed home outline + a readout pill
+  show while dragging, the band flashes rose at a limit. Click / Enter on
+  the tool = MOVE MODE: the box takes the pointer (`.is-moving`), arrows
+  nudge 1 canvas px (Shift 10) on allowed axes, the chip shows "Poloha"; Esc
+  / Hotovo / a press elsewhere / "Náhled" leaves it. The ± steppers step one
+  unit (1 px / 1 mm / 0.1 cm), long-press repeats. Enter in a "Poloha" field
+  is swallowed (it would submit = download).
+- **Mirrors written once.** A drag keeps its position in `draft` (read by
+  `offsets()` = mirrors + draft) and writes the mirrors on RELEASE; typed
+  values, nudges and steppers write per action, and the mirrors'
+  `data-model` debounces 400 ms so a nudge burst is one render. History: a
+  drag is one step (no step while a pointer is down), a nudge burst one
+  step (the 900 ms coalescing); restore re-syncs the "Poloha" fields
+  (`_syncFieldUi` → `sync({force})`). The settle hash is untouched (`O:`
+  lines from the same mirrors, M2).
+- **Geometry follows the move live.** `_layoutSurface` bakes
+  `WBoostElementMove.deltas(containers, offsets)` into the text and
+  decoration POJOs BEFORE phase A (the render's bake order), so a moved
+  root's members reflow, collision-push the roots below and hit the
+  page-bottom overflow gate exactly like the render; static frames (shapes,
+  decorative images) add their delta in `_frameOf`; image SLOTS in a moved
+  root get `{dx, dy}` (`slotsLaidOut`) and `variant-image-fill` translates
+  the picture + its clip both ways. A drag frame lays out synchronously.
+- **Live feedback.** `echo` rows (an echo-capable text, or a container whose
+  every member is one) repaint through the text echo: the overlay emits
+  `fill-move:draft` ({offsets|null, id, echo}); `fill_text_echo.js`'s
+  `update(values, offsets)` puts every box at designed + delta and
+  re-prepares phase A over the pristine design when the offsets change (no
+  offsets = the exact old path — the golden harness calls `update(values)`).
+  Everything else gets a see-through GHOST (a crop of the current preview
+  pixels lifted at the pre-drag place, 70 %) that stays at the drop until
+  the settle whose hash matches lands (`_settleRendered` → `clearGhosts()`;
+  20 s safety net; dropped at once when the drop changed nothing).
+- **Interplay.** Box bodies stay pointer-inert outside move mode (a picture
+  under a title stays draggable, click-to-edit unchanged); the move tool
+  and an `.is-moving` box count as content for the touch-pan rule; while an
+  element is selected the viewport leaves the arrows to it. A hidden element
+  (eye / container hide) loses its tool and its "Poloha" rows disable.
+- Known v1 gaps: the echo z-guard (`EchoCapableTextInputs`) is computed on
+  DESIGNED positions — an echoed text dragged under other content is drawn
+  above it until the settle; the move-only container box grows with its
+  reflowed members but never shrinks below the moved server frame.
+- Tests: `ElementMoveToolFillTest` (rows, one tool per element, glyphs,
+  chips / "Poloha" rows, debounce, nothing without movable elements, unit
+  captions). Browser-verified 2026-11-09 (puppeteer, local dev, 1440 / 390,
+  dark / light): axes + per-direction limits, band, ghost cleared on settle,
+  arrows + Shift, locked axis swallowed, reset, typed px value, undo / redo
+  of a nudge burst, container move, download PNG ≡ preview (crop MSE
+  0.00017 vs 0.0020 for the unmoved control), "Náhled" hides the tools.
+
 **Click-into-preview overlay (`variant_fill_overlay_controller.js`).** Editing
 happens ON the preview: every text + image placeholder shows an always-visible
 icon cluster — **pencil** (text → floating popover with the replace input; image

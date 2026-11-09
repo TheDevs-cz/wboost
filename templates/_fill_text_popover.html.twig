@@ -12,6 +12,8 @@
     - ph: one FillTextPlaceholders row
     - richToolbar: the WYSIWYG toolbar payload (null = no rich input on the page)
     - arrangeable: (optional) show the admin's panel reorder handle
+    - move / unit: (optional, single page) the element's FillMovableElements
+      row when the user may move it — adds the "Poloha" row
 
     `.fill-popover__chrome` marks the floating-only bits (drag grip, Uložit,
     close); the eye is the panel-only hide control (the box has its own).
@@ -180,5 +182,6 @@
                 {% if ph.maxLength %}<small class="text-muted" data-fill-counter="{{ ph.inputId }}">{{ ph.value|length }} / {{ ph.maxLength }} znaků</small>{% endif %}
             </div>
         {% endif %}
+        {% if move|default(null) %}{{ include('_fill_move_position.html.twig', { m: move, unit: unit|default('px') }) }}{% endif %}
     </div>
 </div>

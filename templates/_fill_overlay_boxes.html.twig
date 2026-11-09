@@ -25,10 +25,19 @@
       overlay) with the pencil opening the container sheet + the container's
       eye; its member boxes stay as thin outlines WITHOUT tools — a click on
       one opens the sheet at that field.
+    - movable: (optional, single page) the user-movable elements
+      (FillMovableElements rows by id, THIS surface's frames). An element
+      whose box is rendered here (an unlocked text, a recolourable shape, a
+      one-pencil container) gets the ✥ move tool in its cluster; every
+      other one (a locked text, a decorative image, a plain shape, a
+      container without a sheet) gets a move-only `fill-box--move` box at
+      the server's frame. fill_element_move.js drives them.
 
     The dashed BORDER follows the "Zobrazit oblasti k vyplnění" switch, the
     name tag the "Popisky prvků" one (CSS on the form classes).
 #}
+{% set movable = movable|default({}) %}
+{% set move_hosted = [] %}
 {% set sheet_of = {} %}
 {% for sheet in container_sheets|default([]) %}
     {% for fieldId in sheet.fieldIds %}
@@ -57,6 +66,10 @@
                     data-action="variant-fill-overlay#openPopover"
                     data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
                 >{{ icon('edit', 's14') }}</button>
+                {% if movable[ph.inputId] is defined %}
+                    {% set move_hosted = move_hosted|merge([ph.inputId]) %}
+                    {{ include('_fill_move_tool.html.twig', { m: movable[ph.inputId] }) }}
+                {% endif %}
                 {% if ph.hidable %}
                     <button type="button"
                         class="fill-box__tool fill-box__tool--hide{{ ph.hidden ? ' is-active' : '' }}"
@@ -144,6 +157,10 @@
                     data-action="variant-fill-overlay#openPopover"
                     data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
                 >{{ icon('palette', 's14') }}</button>
+                {% if movable[ph.inputId] is defined %}
+                    {% set move_hosted = move_hosted|merge([ph.inputId]) %}
+                    {{ include('_fill_move_tool.html.twig', { m: movable[ph.inputId] }) }}
+                {% endif %}
             </div>
             {% endif %}
         </div>
@@ -170,6 +187,10 @@
                 data-action="variant-fill-overlay#openSheet"
                 data-variant-fill-overlay-sheet-param="{{ sheet.id }}"
             >{{ icon('edit', 's14') }}</button>
+            {% if movable[sheet.id] is defined %}
+                {% set move_hosted = move_hosted|merge([sheet.id]) %}
+                {{ include('_fill_move_tool.html.twig', { m: movable[sheet.id] }) }}
+            {% endif %}
             {% if sheet.hidable %}
                 <button type="button"
                     class="fill-box__tool fill-box__tool--hide{{ sheet.hidden ? ' is-active' : '' }}"
@@ -181,6 +202,28 @@
                     data-variant-fill-overlay-inputid-param="{{ sheet.id }}"
                 >{{ icon(sheet.hidden ? 'eye-off' : 'eye', 's14') }}</button>
             {% endif %}
+        </div>
+    </div>
+{% endfor %}
+{# Move-only boxes: user-movable elements without a box above. The frame
+   is the server's (FillMovableElements); the overlay offsets it by the
+   element's current move (a container's also grows with its reflowed
+   members, `data-move-members`). #}
+{% for m in movable|filter(m => m.id not in move_hosted) %}
+    <div
+        class="fill-box fill-box--move fill-box--move-{{ m.kind }}"
+        data-variant-fill-overlay-target="box"
+        data-inputid="{{ m.id }}"
+        data-move-box="{{ m.id }}"
+        data-frame-x="{{ m.frame.x }}"
+        data-frame-y="{{ m.frame.y }}"
+        data-frame-width="{{ m.frame.width }}"
+        data-frame-height="{{ m.frame.height }}"
+        {% if m.kind == 'container' %}data-move-members="{{ m.members|join(' ') }}"{% endif %}
+    >
+        <span class="fill-box__name">{{ m.name }}</span>
+        <div class="fill-box__tools">
+            {{ include('_fill_move_tool.html.twig', { m: m }) }}
         </div>
     </div>
 {% endfor %}

@@ -1,0 +1,22 @@
+{#
+    "Všechna pole" panel card of a user-movable element that has no popover
+    of its own (a locked text, a decorative image, a plain shape, a
+    container) — panel-only chrome like the image cards (the
+    `fill-popover--image` class gives it their show-in-panel /
+    hide-in-floating-mode rules). Body = the shared "Poloha" row.
+
+    Params: m (FillMovableElements row), unit, arrangeable (bool).
+#}
+{% set kind_icon = {text: 'type', shape: 'shape', image: 'image', container: 'layers'}[m.kind] ?? 'layers' %}
+<div class="fill-popover fill-popover--image fill-popover--move card" data-inputid="{{ m.id }}">
+    <div class="card-body">
+        <div class="fill-popover__head">
+            <span class="fill-popover__lead">
+                {% if arrangeable|default(false) %}{{ include('_fill_field_reorder_handle.html.twig') }}{% endif %}
+                {{ icon(kind_icon, 's14') }}
+                <span class="fill-popover__name">{{ m.name }}</span>
+            </span>
+        </div>
+        {{ include('_fill_move_position.html.twig', { m: m, unit: unit }) }}
+    </div>
+</div>

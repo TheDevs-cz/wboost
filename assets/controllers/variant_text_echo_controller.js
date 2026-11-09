@@ -26,6 +26,13 @@ import { liveComponentFor } from "./live_component.js";
  * again changes no attribute, so a MutationObserver alone would miss it); the
  * observer on the source span stays as the belt. The hash is the shared
  * fill_state_hash.js module (PHP twin: AbstractVariantFiller::fillStateHash()).
+ *
+ * USER MOVES (M3): the painter bakes the element offsets — the committed
+ * `[data-offset-mirror]` values, or while a drag runs the overlay's draft
+ * (`fill-move:draft`, detail.offsets) — so a moved echo-capable text (or a
+ * clean container of them) follows the pointer live. Moving such an element
+ * enters echo mode like typing; any other element's move only keeps an
+ * active echo in step.
  */
 export default class extends Controller {
     static targets = ["canvas", "baseImage"];
@@ -94,8 +101,27 @@ export default class extends Controller {
                 this._edited();
             }
         };
+        // Offset mirrors (committed moves) and the overlay's drag draft.
+        this._draftOffsets = null;
+        this._onMoveInput = (event) => {
+            const id = event.target && event.target.getAttribute && event.target.getAttribute("data-offset-mirror");
+            if (id === null || id === undefined) return;
+            if (this._touchesEcho(id)) this._edited();
+            else if (this._active) this._scheduleRepaint();
+        };
+        this._onMoveDraft = (event) => {
+            const detail = event.detail || {};
+            this._draftOffsets = detail.offsets || null;
+            if (detail.echo || this._touchesEcho(detail.id)) {
+                this._edited();
+            } else if (this._active) {
+                this._scheduleRepaint();
+            }
+        };
         this.element.addEventListener("input", this._onInput);
+        this.element.addEventListener("input", this._onMoveInput);
         this.element.addEventListener("change", this._onChange);
+        this.element.addEventListener("fill-move:draft", this._onMoveDraft);
 
         // Settle renders land as data-* mutations on the Live-updated source
         // element (previewSource span, or the backdrop span on the image
@@ -144,7 +170,9 @@ export default class extends Controller {
     disconnect() {
         this._disposed = true;
         this.element.removeEventListener("input", this._onInput);
+        this.element.removeEventListener("input", this._onMoveInput);
         this.element.removeEventListener("change", this._onChange);
+        this.element.removeEventListener("fill-move:draft", this._onMoveDraft);
         if (this._settleObserver) this._settleObserver.disconnect();
         if (this._resizeObserver) this._resizeObserver.disconnect();
         if (this._liveComponent) {
@@ -218,7 +246,29 @@ export default class extends Controller {
                 fontFamily: fontMirror ? fontMirror.value : "",
             };
         });
-        this._painter.update(values);
+        this._painter.update(values, this._draftOffsets || this._committedOffsets());
+    }
+
+    /** The committed element offsets (the Live-bound mirrors), id → {x, y}. */
+    _committedOffsets() {
+        const offsets = {};
+        this.element.querySelectorAll("[data-offset-mirror]").forEach((mirror) => {
+            const id = mirror.getAttribute("data-offset-mirror");
+            const entry = offsets[id] || { x: 0, y: 0 };
+            const value = Number(String(mirror.value || "").trim());
+            entry[mirror.getAttribute("data-offset-axis") === "y" ? "y" : "x"] = Number.isFinite(value) ? value : 0;
+            offsets[id] = entry;
+        });
+        return offsets;
+    }
+
+    /** Does moving this element move something the echo paints? (an echoed
+     *  text, or a clean container of them). */
+    _touchesEcho(id) {
+        if (!id || !this.hasPayloadValue) return false;
+        const payload = this.payloadValue;
+        return (payload.objects || []).some((entry) => entry.inputId === id)
+            || (payload.containers || []).some((container) => container.id === id);
     }
 
     _fitToPreview() {

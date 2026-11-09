@@ -1,0 +1,23 @@
+{#
+    The move-mode chips of the single fill page — one hidden chip per
+    user-movable element, shown by fill_element_move.js while that element
+    is selected ("move mode": drag the box, arrow keys 1 px / Shift 10 px).
+    Fixed in viewport coords OUTSIDE the zoom-scaled stage (like the
+    popovers / the image adjust panel) and docked to the bottom on phones;
+    the include site wraps it in data-live-ignore.
+
+    Params: movable (FillMovableElements rows), unit.
+#}
+<div class="fill-move-layer">
+    {% for m in movable %}
+        {% set glyph = m.allowance.vertical and m.allowance.horizontal ? 'move' : (m.allowance.vertical ? 'move-v' : 'move-h') %}
+        <div class="fill-move-chip" hidden role="dialog" aria-label="Posun: {{ m.name }}" data-move-chip="{{ m.id }}">
+            <div class="fill-move-chip__head">
+                <span class="fill-move-chip__name">{{ icon(glyph, 's14') }}<span class="text-truncate">{{ m.name }}</span></span>
+                <button type="button" class="btn btn-success xs" data-move-done title="Hotovo (Esc)">{{ icon('check', 's14') }}Hotovo</button>
+            </div>
+            {{ include('_fill_move_position.html.twig', { m: m, unit: unit }) }}
+            <p class="cap fill-move-chip__hint">Táhněte rámeček, nebo posouvejte šipkami (Shift = po 10&nbsp;px).</p>
+        </div>
+    {% endfor %}
+</div>

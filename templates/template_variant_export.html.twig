@@ -22,6 +22,9 @@
         <script src="{{ asset('editor/rich_text_runs.js') }}"></script>
         <script src="{{ asset('editor/rich_text_blocks.js') }}"></script>
         <script src="{{ asset('editor/fill_text_echo.js') }}"></script>
+        {# User-moved elements: the overlay + the echo bake the offsets with
+           the render's own maths (WBoostElementMove.deltas). #}
+        <script src="{{ asset('editor/element_move.js') }}"></script>
         <style>
             {% for face in font_faces %}
                 @font-face {

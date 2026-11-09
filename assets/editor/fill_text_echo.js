@@ -26,6 +26,14 @@
  *    cannot drift. Only "clean" trees (every member echo-capable) are handed
  *    in — the server's EchoCapableTextInputs guarantees nothing baked moves.
  *
+ * User-moved elements ("Uživatel může posunout", M3): update() takes an
+ * optional second argument, the element offsets ({ id: {x, y}}, canvas px).
+ * They are baked like the render bakes them (ElementOffsets::bake via
+ * WBoostElementMove.deltas): every box sits at designed + its delta (a moved
+ * container's whole deep tree) BEFORE phase A, which is re-prepared over the
+ * pristine designed state whenever the offsets change. No offsets = the
+ * exact pre-M3 behaviour (the golden harness calls update(values) alone).
+ *
  * A value carrying LIST lines is not drawable here (block stacks are a settle
  * concern — see EchoCapableTextInputs); resolveValue surfaces `lines` so the
  * caller can detect it, but capable inputs never allow lists, so in practice
@@ -153,6 +161,8 @@
                     designedText: box.text,
                     designedStylesJson: JSON.stringify(box.styles || {}),
                     designedFontFamily: box.fontFamily,
+                    designedLeft: box.left,
+                    designedTop: box.top,
                 });
                 canvas.add(box);
             });
@@ -161,13 +171,54 @@
             // anchors on designed tops/gaps; every applyFabricLayout re-run
             // measures the CURRENT (overridden) heights against those anchors,
             // so repeated applies recompute absolutely and cannot drift.
-            const prepared = layoutModule && (options.containers || []).length > 0
+            let prepared = layoutModule && (options.containers || []).length > 0
                 ? layoutModule.prepareFabricContainers(
                     boxes.map(function (entry) { return entry.box; }),
                     options.containers,
                     { canvasHeight: options.canvasHeight || options.height },
                 )
                 : null;
+
+            // The offsets the boxes currently carry (sorted JSON of the
+            // per-box deltas; '' = designed positions).
+            let offsetsSignature = '';
+
+            /**
+             * Bake the user's moves: each box at designed + delta, then
+             * phase A again over the PRISTINE designed state (designed text,
+             * styles and face — the anchors must be the designed geometry
+             * at its new place, exactly the render's bake-then-prepare). The
+             * update() that follows re-applies every value.
+             */
+            function applyOffsets(offsets) {
+                const mover = window.WBoostElementMove;
+                const deltas = offsets && mover && typeof mover.deltas === 'function'
+                    ? mover.deltas(options.containers || [], offsets)
+                    : {};
+                const signature = JSON.stringify(Object.keys(deltas).sort().map(function (id) {
+                    return [id, deltas[id][0], deltas[id][1]];
+                }).filter(function (row) { return row[1] !== 0 || row[2] !== 0; }));
+                const normalized = signature === '[]' ? '' : signature;
+                if (normalized === offsetsSignature) return;
+                offsetsSignature = normalized;
+
+                boxes.forEach(function (entry) {
+                    const delta = deltas[entry.inputId] || [0, 0];
+                    entry.box.set({ left: entry.designedLeft + delta[0], top: entry.designedTop + delta[1] });
+                    if (typeof entry.box.setCoords === 'function') entry.box.setCoords();
+                });
+                if (!prepared) return;
+                boxes.forEach(function (entry) {
+                    entry.box.styles = JSON.parse(entry.designedStylesJson);
+                    entry.box.set({ fontFamily: entry.designedFontFamily, text: entry.designedText, visible: entry.designedVisible });
+                    if (typeof entry.box.initDimensions === 'function') entry.box.initDimensions();
+                });
+                prepared = layoutModule.prepareFabricContainers(
+                    boxes.map(function (entry) { return entry.box; }),
+                    options.containers,
+                    { canvasHeight: options.canvasHeight || options.height },
+                );
+            }
 
             let displayWidth = null;
 
@@ -179,8 +230,10 @@
             }
 
             const api = {
-                update: function (values) {
+                update: function (values, offsets) {
                     const runsModule = window.WBoostRichTextRuns;
+
+                    applyOffsets(offsets || null);
 
                     // Overrides — the render template's exact order per input:
                     // per-char styles cleared BEFORE the text lands, rich runs

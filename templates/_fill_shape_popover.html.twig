@@ -13,6 +13,8 @@
       defaultColor, current; a document's shared row may add `resetLabel` —
       its first swatch then stands for EACH page's own designed colour)
     - arrangeable: (optional) show the admin's panel reorder handle
+    - move / unit: (optional, single page) the element's FillMovableElements
+      row when the user may move it — adds the "Poloha" row
 #}
 <div class="fill-popover fill-popover--shape card" role="dialog" aria-labelledby="fill-shape-label-{{ ph.inputId }}" data-variant-fill-overlay-target="popover" data-inputid="{{ ph.inputId }}">
     <div class="card-body">
@@ -51,5 +53,6 @@
                 </label>
             {% endif %}
         </div>
+        {% if move|default(null) %}{{ include('_fill_move_position.html.twig', { m: move, unit: unit|default('px') }) }}{% endif %}
     </div>
 </div>

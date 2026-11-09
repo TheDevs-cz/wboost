@@ -1,0 +1,17 @@
+{#
+    The ✥ move tool of ONE user-movable element ("Uživatel může posunout",
+    axis-move plan M3) — a dot in the box's tool cluster, after the pencil.
+    ↕ / ↔ when the designer allowed one axis only. Behaviour-free markup:
+    fill_element_move.js (owned by variant-fill-overlay) handles it by
+    delegation — press-and-drag moves the element along the allowed axes,
+    a click (≤ 3 px of travel) or Enter selects it ("move mode": drag the
+    box, arrow keys, the offset chip).
+
+    Params: m = one FillMovableElements row.
+#}
+{% set glyph = m.allowance.vertical and m.allowance.horizontal ? 'move' : (m.allowance.vertical ? 'move-v' : 'move-h') %}
+<button type="button" class="fill-box__tool fill-box__tool--move"
+    data-move-tool="{{ m.id }}"
+    title="Posunout — táhněte, nebo klikněte a posouvejte šipkami"
+    aria-label="Posunout: {{ m.name }}"
+>{{ icon(glyph, 's14') }}</button>

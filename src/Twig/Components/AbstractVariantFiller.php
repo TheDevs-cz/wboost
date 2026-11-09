@@ -27,6 +27,7 @@ use WBoost\Web\Services\SocialNetwork\CanvasPlaceholderGeometry;
 use WBoost\Web\Services\SocialNetwork\FillContainerHides;
 use WBoost\Web\Services\SocialNetwork\ResolveElementOffsets;
 use WBoost\Web\Services\SocialNetwork\FillContainerSheets;
+use WBoost\Web\Services\SocialNetwork\FillMovableElements;
 use WBoost\Web\Services\SocialNetwork\FillShapePlaceholders;
 use WBoost\Web\Services\SocialNetwork\FillTextPlaceholders;
 use WBoost\Web\Services\SocialNetwork\ResolveShapeColorOverrides;
@@ -200,6 +201,7 @@ abstract class AbstractVariantFiller extends AbstractController
         private readonly ResolveShapeColorOverrides $resolveShapeColorOverrides,
         private readonly FillContainerHides $fillContainerHides,
         private readonly FillContainerSheets $fillContainerSheets,
+        private readonly FillMovableElements $fillMovableElements,
     ) {
     }
 
@@ -825,6 +827,31 @@ abstract class AbstractVariantFiller extends AbstractController
             $this->fillShapePlaceholders->placeholders([$variant], $this->shapeColorValues),
         );
     }
+
+    /**
+     * The user-movable elements of the (expanded) variant — one row each
+     * with the SERVER's designed frame, allowance, clamp bounds, deep
+     * members and echo flag ({@see FillMovableElements}). The move tool
+     * (variant-fill-overlay → fill_element_move.js) reads it from the
+     * stage's `data-movable`; empty for every design without movable
+     * elements. Memoized per request.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    public function movableElements(): array
+    {
+        if ($this->movableElementsCache !== null) {
+            return $this->movableElementsCache;
+        }
+
+        $variant = $this->variantEntity();
+        $this->denyAccessUnlessGranted($this->viewAttribute(), $variant);
+
+        return $this->movableElementsCache = $this->fillMovableElements->forVariant($variant, $this->echoCapableIds());
+    }
+
+    /** @var null|array<string, array<string, mixed>> */
+    private null|array $movableElementsCache = null;
 
     /**
      * The rich-text toolbar payload (pickable font faces + brand color

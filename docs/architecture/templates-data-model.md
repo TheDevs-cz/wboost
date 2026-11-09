@@ -143,10 +143,13 @@ records them, and with no offsets everything is byte/pixel-identical.
   per-dimension export of one form still dedupe). Seeders re-clamp to the
   CURRENT allowance (`offsetValues` single, `offsets` group / document in
   fill-key space). The versions API view does not expose them yet (M5).
-- **Echo / overlay (M3 work):** the client echo and the overlay boxes still
-  paint at DESIGNED positions — the fill page has no way to produce an offset
-  before M3, which must bake `element_move.js` into the echo / overlay (or
-  exempt moved texts from the echo) and draw the band from the server frames.
+- **Echo / overlay (M3, 2026-11-09):** both bake the offsets client-side
+  with the render's own maths (`WBoostElementMove.deltas` in
+  element_move.js, now loaded by the single fill page) BEFORE the container
+  phase A — the overlay translates its text / decoration POJOs, the echo
+  re-prepares phase A over the pristine design at the new place. The client
+  clamps with the SERVER's bounds (`FillMovableElements` → `data-movable`),
+  never its own. UI contract: templates-fill.md "Move tool".
 - Tests: `ResolveElementOffsetsTest`, `ExportFillValuesTest`,
   `TemplateVariantImageRendererCacheTest`, `FillStateHashOffsetsTest`,
   `ElementOffsetsFillTest` (single / group / document, versions, re-clamped

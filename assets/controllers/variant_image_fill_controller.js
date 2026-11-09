@@ -71,7 +71,8 @@ export default class extends Controller {
         // it to reload a picture the fields only know by id.
         this._urls = {};
         this.overlayObjects = {};
-        // Container flow (slotsLaidOut): inputId → { dy, collapsed }.
+        // Container flow (slotsLaidOut): inputId → { dx, dy, collapsed } — dx
+        // only when the user moved the slot's container sideways (M3).
         this._slotFlow = {};
         this.placeholdersById = {};
         (this.placeholdersValue || []).forEach((ph) => { this.placeholdersById[ph.inputId] = ph; });
@@ -399,8 +400,8 @@ export default class extends Controller {
         const placeholder = this.placeholdersById[inputId];
         if (!placeholder || !placeholder.frame) return null;
         const flow = this._slotFlow[inputId];
-        if (!flow || placeholder.isBackground || !flow.dy) return placeholder.frame;
-        return { ...placeholder.frame, y: placeholder.frame.y + flow.dy };
+        if (!flow || placeholder.isBackground || (!flow.dy && !flow.dx)) return placeholder.frame;
+        return { ...placeholder.frame, x: placeholder.frame.x + (flow.dx || 0), y: placeholder.frame.y + (flow.dy || 0) };
     }
 
     /** Called by variant-fill-overlay after every reflow with the laid-out
@@ -411,12 +412,12 @@ export default class extends Controller {
     slotsLaidOut(surfaces) {
         const slots = Object.values(surfaces || {})[0] || {};
         Object.keys(this.placeholdersById).forEach((inputId) => {
-            const previous = this._slotFlow[inputId] || { dy: 0, collapsed: false };
-            const next = slots[inputId] || { dy: 0, collapsed: false };
+            const previous = this._slotFlow[inputId] || { dx: 0, dy: 0, collapsed: false };
+            const next = slots[inputId] || { dx: 0, dy: 0, collapsed: false };
             this._slotFlow[inputId] = next;
             const object = this.objects[inputId] && this.objects[inputId].object;
             if (!object) return;
-            this._shiftObject(object, next.dy);
+            this._shiftObject(object, next.dx || 0, next.dy || 0);
             if (previous.collapsed !== next.collapsed) {
                 object.set('visible', !next.collapsed);
                 if (next.collapsed && this._adjustId === inputId) this.closeAdjust();
@@ -429,15 +430,18 @@ export default class extends Controller {
     }
 
     /** Translate a slot object (and its absolute frame clip) so it sits at
-     *  flow shift `dy` — idempotent: it remembers the shift it carries. */
-    _shiftObject(object, dy) {
-        const delta = dy - (object._flowDy || 0);
-        if (!delta) return;
-        object.set('top', object.top + delta);
+     *  flow shift (`dx`, `dy`) — idempotent: it remembers the shift it
+     *  carries. dx ≠ 0 only for a container the user moved sideways. */
+    _shiftObject(object, dx, dy) {
+        const deltaX = dx - (object._flowDx || 0);
+        const deltaY = dy - (object._flowDy || 0);
+        if (!deltaX && !deltaY) return;
+        object.set({ left: object.left + deltaX, top: object.top + deltaY });
         if (object.clipPath && object.clipPath.absolutePositioned) {
-            object.clipPath.set('top', object.clipPath.top + delta);
+            object.clipPath.set({ left: object.clipPath.left + deltaX, top: object.clipPath.top + deltaY });
             object.set('dirty', true);
         }
+        object._flowDx = dx;
         object._flowDy = dy;
     }
 
@@ -445,7 +449,9 @@ export default class extends Controller {
      *  already carries the current shift (and the current collapse). */
     _adoptFlow(inputId, object) {
         const flow = this._slotFlow[inputId];
-        object._flowDy = flow && !this.placeholdersById[inputId]?.isBackground ? (flow.dy || 0) : 0;
+        const flows = flow && !this.placeholdersById[inputId]?.isBackground;
+        object._flowDx = flows ? (flow.dx || 0) : 0;
+        object._flowDy = flows ? (flow.dy || 0) : 0;
         if (flow && flow.collapsed) object.set('visible', false);
     }
 

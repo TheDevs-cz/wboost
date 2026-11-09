@@ -125,25 +125,25 @@
     }
 
     /**
-     * Translate the offset elements of a canvas document (plain JSON, not
-     * Fabric objects). Returns a NEW document; the input is not mutated.
-     * offsets = { <inputId | containerId>: {x, y} } — already clamped.
+     * Per-OBJECT translation of a set of element offsets: inputId → [dx, dy].
+     * A container key moves every deep member (nested containers, row
+     * slots), keys add, zero moves are skipped. `containers` = the canvas'
+     * `containers[]` definitions. Used by bake() and, on the fill page, by
+     * the overlay + the text echo (the same ids the render translates).
      */
-    function bake(canvas, offsets) {
-        if (!canvas || typeof canvas !== 'object' || !Array.isArray(canvas.objects)) return canvas;
-
+    function deltas(containers, offsets) {
         var byId = {};
-        (Array.isArray(canvas.containers) ? canvas.containers : []).forEach(function (container) {
+        (Array.isArray(containers) ? containers : []).forEach(function (container) {
             if (container && typeof container.id === 'string' && container.id !== ''
                 && !Object.prototype.hasOwnProperty.call(byId, container.id)) {
                 byId[container.id] = container;
             }
         });
 
-        var deltas = {};
+        var result = {};
         var add = function (inputId, dx, dy) {
-            var current = deltas[inputId] || [0, 0];
-            deltas[inputId] = [current[0] + dx, current[1] + dy];
+            var current = result[inputId] || [0, 0];
+            result[inputId] = [current[0] + dx, current[1] + dy];
         };
         Object.keys(offsets || {}).forEach(function (id) {
             var offset = offsets[id] || {};
@@ -156,11 +156,23 @@
             }
             add(id, dx, dy);
         });
+        return result;
+    }
+
+    /**
+     * Translate the offset elements of a canvas document (plain JSON, not
+     * Fabric objects). Returns a NEW document; the input is not mutated.
+     * offsets = { <inputId | containerId>: {x, y} } — already clamped.
+     */
+    function bake(canvas, offsets) {
+        if (!canvas || typeof canvas !== 'object' || !Array.isArray(canvas.objects)) return canvas;
+
+        var moves = deltas(canvas.containers, offsets);
 
         var copy = Object.assign({}, canvas);
         copy.objects = canvas.objects.map(function (object) {
             if (!object || typeof object !== 'object' || typeof object.inputId !== 'string') return object;
-            var delta = deltas[object.inputId];
+            var delta = moves[object.inputId];
             if (!delta || (delta[0] === 0 && delta[1] === 0)) return object;
             var moved = Object.assign({}, object);
             moved.left = num(object.left) + delta[0];
@@ -182,6 +194,7 @@
         scale: scale,
         bounds: bounds,
         clamp: clamp,
+        deltas: deltas,
         bake: bake,
     };
 })(typeof window !== 'undefined' ? window : globalThis);
