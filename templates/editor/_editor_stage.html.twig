@@ -173,7 +173,7 @@
                                 ></button>
                             {% endfor %}
                             <label class="fill-richtext-swatch fill-richtext-swatch--custom mb-0" title="Vlastní barva">
-                                <input type="color" class="fill-richtext-swatch__input" aria-label="Vlastní barva" data-canvas-text-toolbar-target="colorPicker" data-action="input->canvas-text-toolbar#pickCustomColor">
+                                <input type="button" class="fill-richtext-swatch__input" aria-label="Vlastní barva" data-controller="color-picker" data-canvas-text-toolbar-target="colorPicker" data-action="input->canvas-text-toolbar#pickCustomColor change->canvas-text-toolbar#commitColor">
                             </label>
                         </div>
                     {% endif %}
@@ -518,12 +518,12 @@
                             ></button>
                         {% endfor %}
                         <label class="fill-richtext-swatch fill-richtext-swatch--custom mb-0" title="Vlastní barva">
-                            <input type="color" class="fill-richtext-swatch__input" aria-label="Vlastní barva" data-canvas-shape-properties-target="fillPicker" data-action="input->canvas-shape-properties#pickCustomFill">
+                            <input type="button" class="fill-richtext-swatch__input" aria-label="Vlastní barva" data-controller="color-picker" data-canvas-shape-properties-target="fillPicker" data-action="input->canvas-shape-properties#pickCustomFill change->canvas-shape-properties#commitColor">
                         </label>
                     </div>
                 {% else %}
                     <label class="fill-richtext-swatch fill-richtext-swatch--custom mb-1" title="Vlastní barva">
-                        <input type="color" class="fill-richtext-swatch__input" aria-label="Vlastní barva" data-canvas-shape-properties-target="fillPicker" data-action="input->canvas-shape-properties#pickCustomFill">
+                        <input type="button" class="fill-richtext-swatch__input" aria-label="Vlastní barva" data-controller="color-picker" data-canvas-shape-properties-target="fillPicker" data-action="input->canvas-shape-properties#pickCustomFill change->canvas-shape-properties#commitColor">
                     </label>
                 {% endif %}
                 <input type="text" id="shape-fill-control" class="form-control form-control-sm" placeholder="#000000" aria-label="Barva výplně" data-canvas-shape-properties-target="fillColor" data-action="input->canvas-shape-properties#updateFillHex">
@@ -569,7 +569,7 @@
             <div class="row g-1 align-items-end">
                 <div class="col-auto">
                     <label class="fill-richtext-swatch fill-richtext-swatch--custom mb-0" title="Barva obrysu">
-                        <input type="color" class="fill-richtext-swatch__input" aria-label="Barva obrysu" data-canvas-shape-properties-target="strokePicker" data-action="input->canvas-shape-properties#pickStrokeColor">
+                        <input type="button" class="fill-richtext-swatch__input" aria-label="Barva obrysu" data-controller="color-picker" data-canvas-shape-properties-target="strokePicker" data-action="input->canvas-shape-properties#pickStrokeColor change->canvas-shape-properties#commitColor">
                     </label>
                 </div>
                 <div class="col">
@@ -794,7 +794,7 @@
                     <button type="button" class="fill-richtext-swatch" style="background-color: {{ color }}" title="{{ color }}" data-action="rich-text-editor#pickColor" data-rich-text-editor-color-param="{{ color }}"></button>
                 {% endfor %}
                 <label class="fill-richtext-swatch fill-richtext-swatch--custom" title="Vlastní barva">
-                    <input type="color" class="fill-richtext-swatch__input" aria-label="Vlastní barva" data-rich-text-editor-target="colorInput" data-action="change->rich-text-editor#applyCustomColor">
+                    <input type="button" class="fill-richtext-swatch__input" aria-label="Vlastní barva" data-controller="color-picker" data-rich-text-editor-target="colorInput" data-action="change->rich-text-editor#applyCustomColor">
                 </label>
             </div>
             <div class="form-control form-control-sm fill-richtext-editor" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Vzorový text"

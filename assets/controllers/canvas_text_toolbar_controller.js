@@ -124,10 +124,16 @@ export default class extends Controller {
         this._applyFill(color);
     }
 
-    /** The free `<input type="color">` picker — `input` fires while dragging,
-     *  so the canvas previews the color live. */
+    /** The free hex picker (color_picker_controller) — `input` fires while
+     *  dragging, so the canvas previews the color live. */
     pickCustomColor(event) {
         this._applyFill(event.target.value);
+    }
+
+    /** The hex picker closed with a new colour (`change`) — one undo step. */
+    commitColor() {
+        const activeObject = this._getActiveTextbox();
+        if (activeObject) this.canvasEditorOutlet.canvas.fire('object:modified', { target: activeObject });
     }
 
     _applyFill(color, { syncHexInput = true } = {}) {
@@ -151,7 +157,7 @@ export default class extends Controller {
             const swatchColor = (swatch.dataset.canvasTextToolbarColorParam || '').toLowerCase();
             swatch.classList.toggle('is-active', swatchColor !== '' && swatchColor === normalized);
         });
-        // The native picker only accepts #rrggbb — skip rgb()/named/short-hex.
+        // The hex picker's value is #rrggbb — skip rgb()/named/short-hex.
         if (this.hasColorPickerTarget && /^#[0-9a-f]{6}$/i.test(normalized)) {
             this.colorPickerTarget.value = normalized;
         }

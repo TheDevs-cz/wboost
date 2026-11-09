@@ -255,10 +255,17 @@ export default class extends Controller {
         this._applySolidFill(color);
     }
 
-    /** Free `<input type="color">` — `input` fires while dragging, so the
-     *  canvas previews the colour live. */
+    /** Free hex picker (color_picker_controller) — `input` fires while
+     *  dragging, so the canvas previews the colour live. */
     pickCustomFill(event) {
         this._applySolidFill(event.target.value, { syncPicker: false });
+    }
+
+    /** The picker closed with a new colour (`change`, fill or stroke) — land
+     *  ONE undo step for the whole drag instead of none. */
+    commitColor() {
+        const shape = this._activeShape();
+        if (shape) this._commit(shape, { history: true });
     }
 
     /** Hex text field — ignore anything that is not a complete colour yet, so
@@ -420,9 +427,13 @@ export default class extends Controller {
             const row = document.createElement('div');
             row.className = 'shape-gradient-stop';
 
+            // Hex picker (color_picker_controller), not a native
+            // <input type="color"> — Safari's has no hex field.
             const color = document.createElement('input');
-            color.type = 'color';
-            color.className = 'form-control form-control-sm form-control-color shape-gradient-stop__color';
+            color.type = 'button';
+            color.className = 'color-picker-trigger shape-gradient-stop__color';
+            color.dataset.controller = 'color-picker';
+            color.setAttribute('data-color-picker-paint-value', 'true');
             color.value = stop.color;
             color.title = 'Barva';
             color.setAttribute('aria-label', `Barva bodu ${index + 1}`);

@@ -1,0 +1,146 @@
+/* ==========================================================================
+   Nocturne — hex colour picker (color_picker_controller.js). One shared
+   popover on <body>: position fixed + viewport clamp (the controller), so it
+   is never clipped by the element popover it opens from. Same surface recipe
+   as .menu / .dropdown-menu (surface-2, line-2, shadow-3), both themes via
+   tokens. Replaces every native <input type="color"> in the canvas editor —
+   Safari's native picker has no hex field.
+   ========================================================================== */
+
+.color-picker-pop {
+    position: fixed;
+    z-index: 1300;
+    width: 248px;
+    padding: 10px;
+    border-radius: 16px;
+    background: var(--surface-2);
+    border: 1px solid var(--line-2);
+    box-shadow: var(--shadow-3);
+    color: var(--text-2);
+    font-size: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.color-picker-pop[hidden] { display: none; }
+
+.color-picker-pop__sv {
+    position: relative;
+    height: 140px;
+    border-radius: 10px;
+    background:
+        linear-gradient(to top, #000, transparent),
+        linear-gradient(to right, #fff, var(--color-picker-hue, red));
+    cursor: crosshair;
+    touch-action: none;
+}
+
+.color-picker-pop__hue {
+    position: relative;
+    height: 12px;
+    border-radius: 999px;
+    background: linear-gradient(to right, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%);
+    cursor: ew-resize;
+    touch-action: none;
+}
+
+.color-picker-pop__sv-thumb,
+.color-picker-pop__hue-thumb {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, .45), 0 1px 3px rgba(0, 0, 0, .4);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+.color-picker-pop__sv-thumb { background: var(--color-picker-current, #000); }
+.color-picker-pop__hue-thumb { top: 50%; background: transparent; }
+
+.color-picker-pop__sv:focus-visible,
+.color-picker-pop__hue:focus-visible {
+    outline: 2px solid var(--a);
+    outline-offset: 2px;
+}
+
+.color-picker-pop__row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.color-picker-pop__preview {
+    flex: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    border: 1px solid var(--line-3);
+    background: var(--color-picker-current, #000);
+}
+
+.color-picker-pop__hex-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: .04em;
+}
+.color-picker-pop .color-picker-pop__hex {
+    min-width: 0;
+    font-variant-numeric: tabular-nums;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    text-transform: uppercase;
+}
+
+.color-picker-pop .color-picker-pop__hex.is-invalid {
+    border-color: var(--rose-ink);
+    box-shadow: 0 0 0 3px var(--rose-glow);
+}
+
+.color-picker-pop__done { flex: none; }
+
+.color-picker-pop__error {
+    margin: -2px 0 0;
+    color: var(--rose-ink);
+    font-size: 11px;
+}
+
+.color-picker-pop__swatches {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding-top: 8px;
+    border-top: 1px solid var(--line-2);
+}
+.color-picker-pop__swatches[hidden] { display: none; }
+
+.color-picker-pop__swatch {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid var(--line-3);
+    background: var(--color-picker-swatch);
+    cursor: pointer;
+}
+.color-picker-pop__swatch:hover { transform: scale(1.08); }
+.color-picker-pop__swatch.is-active { box-shadow: 0 0 0 2px var(--surface-2), 0 0 0 4px var(--a); }
+
+/* A trigger that shows its own colour (gradient stop rows). */
+.color-picker-trigger {
+    -webkit-appearance: none;
+    appearance: none;
+    padding: 0;
+    border: 1px solid var(--line-3);
+    border-radius: 8px;
+    background: var(--color-picker-swatch, transparent);
+    color: transparent;
+    font-size: 0;
+    cursor: pointer;
+}
+.color-picker-trigger:focus-visible { outline: 2px solid var(--a); outline-offset: 2px; }

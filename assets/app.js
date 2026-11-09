@@ -36,6 +36,8 @@ import './styles/app.css';
 import './styles/nocturne/fill.css';
 // Canvas editors re-skin app.css's editor chrome rules, so they load after it too.
 import './styles/nocturne/editor.css';
+// Hex colour picker popover (color_picker_controller) — editor + fill pages.
+import './styles/nocturne/color-picker.css';
 
 // window.bootstrap before Stimulus starts.
 import './bootstrap_global.js';

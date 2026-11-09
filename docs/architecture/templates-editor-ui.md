@@ -216,6 +216,45 @@ on the canvas through its own floating popover, Canva-style.
     is **lossless** — the only such one besides the empty write target, because
     the grammar was written against what the editor already emits.
 
+**Hex colour picker (`color_picker_controller.js`, 2026-11-08).** There is NO
+native `<input type="color">` in the admin editor any more — Safari's native
+picker has no hex field, so a brand hex could not be typed or pasted. Every
+free-colour affordance (text colour, shape solid fill, every gradient stop,
+shape stroke, the "Vzorový text" WYSIWYG run colour) is an
+`<input type="button" data-controller="color-picker">` whose `value` is the
+`#rrggbb`. Contract that kept the owning controllers untouched:
+
+- The controller emits exactly what the native input did: it writes the
+  trigger's `value` and dispatches a bubbling **`input`** (rAF-throttled while
+  dragging / on every valid keystroke in the HEX field) and ONE **`change`**
+  when the popover closes with a different colour (outside click, Enter,
+  "Hotovo"). **Escape reverts** to the opening colour (an `input` back, no
+  `change`). Owners sync it with a plain `trigger.value = hex` — on an input
+  of type button that reflects to the `value` attribute, which the controller
+  observes to repaint `paint`ed triggers (gradient stops show their colour; the
+  rainbow "custom" chips keep their ring).
+- `change` = the undo step: `canvas-text-toolbar#commitColor` /
+  `canvas-shape-properties#commitColor` fire `object:modified` (fill + stroke;
+  gradient stops already landed history on `change`). Before this, a free
+  colour pick landed NO undo point of its own.
+- HEX field accepts `#RRGGBB`, `RRGGBB`, `#RGB`, `RGB` (`parseHex`); partial
+  input is ignored silently, an invalid value on Enter/blur marks the field
+  `is-invalid` + an error line and keeps the last valid colour.
+- One shared popover, `position: fixed` + viewport clamp, appended to `<body>`
+  — or to the trigger's `.modal` (Bootstrap's focus trap would steal focus
+  from the HEX field otherwise). Its keydown/click/mousedown stop propagating,
+  so the editor's window shortcuts (Delete, arrows, ⌘Z), the floating
+  popover's Escape and the fill overlay's outside-click never see them.
+- **Rich-text selection**: focusing the HEX field moves the document
+  selection out of the contenteditable, and `rich_text_editor#applyCustomColor`
+  colours the LIVE selection (whole text when collapsed). The picker saves the
+  contenteditable range on open and restores it right before `change`.
+- Quick swatches = `swatches` value, else the editor's project palette
+  (`data-canvas-editor-brand-colors-value` on an ancestor) — palette as the
+  colour source of truth.
+- Krytí / Pozice of gradient stops stay separate fields; the picker only
+  handles RGB.
+
 **Floating element toolbar.** Selection-contextual editing is NOT in the left
 panel — it floats next to the selected object (Canva/Slides style).
 `canvas_floating_toolbar_controller` owns *when* and *where* the chrome shows;
