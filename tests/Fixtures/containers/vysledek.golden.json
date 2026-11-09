@@ -1,0 +1,517 @@
+{
+    "layoutData": {
+        "inputs": {
+            "830a61dd-190f-4b6e-a645-40e9d2294a33": {
+                "frame": {
+                    "x": 259.3332,
+                    "y": 949.0647,
+                    "width": 253.3589,
+                    "height": 32.77
+                },
+                "style": {
+                    "fontFamily": "Montserrat (Montserrat Regular)",
+                    "fontSize": 29.0,
+                    "lineHeight": 1.16,
+                    "charSpacing": 0.0,
+                    "textAlign": "center"
+                },
+                "locked": false,
+                "uppercase": false,
+                "maxLength": null,
+                "hidable": true,
+                "richText": false,
+                "lists": false,
+                "listStyle": null
+            },
+            "ba8514f1-4745-47b6-89d8-65c6a8a4a25a": {
+                "frame": {
+                    "x": 259.3332,
+                    "y": 996.8347,
+                    "width": 253.3589,
+                    "height": 32.77
+                },
+                "style": {
+                    "fontFamily": "Montserrat (Montserrat Regular)",
+                    "fontSize": 29.0,
+                    "lineHeight": 1.16,
+                    "charSpacing": 0.0,
+                    "textAlign": "center"
+                },
+                "locked": false,
+                "uppercase": false,
+                "maxLength": null,
+                "hidable": true,
+                "richText": false,
+                "lists": false,
+                "listStyle": null
+            },
+            "7375f8f3-1781-42e5-b5af-c7cb357ae763": {
+                "frame": {
+                    "x": 259.3332,
+                    "y": 1044.6047,
+                    "width": 253.3589,
+                    "height": 32.77
+                },
+                "style": {
+                    "fontFamily": "Montserrat (Montserrat Regular)",
+                    "fontSize": 29.0,
+                    "lineHeight": 1.16,
+                    "charSpacing": 0.0,
+                    "textAlign": "center"
+                },
+                "locked": false,
+                "uppercase": false,
+                "maxLength": null,
+                "hidable": true,
+                "richText": false,
+                "lists": false,
+                "listStyle": null
+            },
+            "12cb5a4d-5258-407a-bbbd-abe7998df9f5": {
+                "frame": {
+                    "x": 582.4525,
+                    "y": 949.0647,
+                    "width": 253.3589,
+                    "height": 32.77
+                },
+                "style": {
+                    "fontFamily": "Montserrat (Montserrat Regular)",
+                    "fontSize": 29.0,
+                    "lineHeight": 1.16,
+                    "charSpacing": 0.0,
+                    "textAlign": "center"
+                },
+                "locked": false,
+                "uppercase": false,
+                "maxLength": null,
+                "hidable": true,
+                "richText": false,
+                "lists": false,
+                "listStyle": null
+            },
+            "84de0fcf-e88b-4c44-8591-23f4a018f4d1": {
+                "frame": {
+                    "x": 584.3044,
+                    "y": 996.8347,
+                    "width": 253.3589,
+                    "height": 32.77
+                },
+                "style": {
+                    "fontFamily": "Montserrat (Montserrat Regular)",
+                    "fontSize": 29.0,
+                    "lineHeight": 1.16,
+                    "charSpacing": 0.0,
+                    "textAlign": "center"
+                },
+                "locked": false,
+                "uppercase": false,
+                "maxLength": null,
+                "hidable": true,
+                "richText": false,
+                "lists": false,
+                "listStyle": null
+            },
+            "be81bb30-3a64-4f43-aeb2-e2bdcd4bfb36": {
+                "frame": {
+                    "x": 584.3044,
+                    "y": 1044.6047,
+                    "width": 253.3589,
+                    "height": 32.77
+                },
+                "style": {
+                    "fontFamily": "Montserrat (Montserrat Regular)",
+                    "fontSize": 29.0,
+                    "lineHeight": 1.16,
+                    "charSpacing": 0.0,
+                    "textAlign": "center"
+                },
+                "locked": false,
+                "uppercase": false,
+                "maxLength": null,
+                "hidable": true,
+                "richText": false,
+                "lists": false,
+                "listStyle": null
+            },
+            "7c7af9a1-abdf-4226-a46b-d0135f8ba242": {
+                "frame": {
+                    "x": 374.2216,
+                    "y": 506.2228,
+                    "width": 330.5568,
+                    "height": 37.29
+                },
+                "style": {
+                    "fontFamily": "Montserrat (Montserrat Regular)",
+                    "fontSize": 33.0,
+                    "lineHeight": 1.16,
+                    "charSpacing": 0.0,
+                    "textAlign": "center"
+                },
+                "locked": true,
+                "uppercase": true,
+                "maxLength": null,
+                "hidable": false,
+                "richText": false,
+                "lists": false,
+                "listStyle": null
+            },
+            "b1b3f383-dd8f-4292-8865-8560943aaf08": {
+                "frame": {
+                    "x": 584.3044,
+                    "y": 1092.3747,
+                    "width": 253.3589,
+                    "height": 32.77
+                },
+                "style": {
+                    "fontFamily": "Montserrat (Montserrat Regular)",
+                    "fontSize": 29.0,
+                    "lineHeight": 1.16,
+                    "charSpacing": 0.0,
+                    "textAlign": "center"
+                },
+                "locked": false,
+                "uppercase": false,
+                "maxLength": null,
+                "hidable": true,
+                "richText": false,
+                "lists": false,
+                "listStyle": null
+            },
+            "dc856a12-b515-4229-a1df-8500fd370dbd": {
+                "frame": {
+                    "x": 259.3332,
+                    "y": 1092.3747,
+                    "width": 253.3589,
+                    "height": 32.77
+                },
+                "style": {
+                    "fontFamily": "Montserrat (Montserrat Regular)",
+                    "fontSize": 29.0,
+                    "lineHeight": 1.16,
+                    "charSpacing": 0.0,
+                    "textAlign": "center"
+                },
+                "locked": false,
+                "uppercase": false,
+                "maxLength": null,
+                "hidable": true,
+                "richText": false,
+                "lists": false,
+                "listStyle": null
+            },
+            "2d763e40-0353-47ad-8bd5-5961f95c9715": {
+                "frame": {
+                    "x": 502.4779,
+                    "y": 652.2689,
+                    "width": 74.0441,
+                    "height": 204.53
+                },
+                "style": {
+                    "fontFamily": "Montserrat (Montserrat Black)",
+                    "fontSize": 181.0,
+                    "lineHeight": 1.16,
+                    "charSpacing": 0.0,
+                    "textAlign": "left"
+                },
+                "locked": true,
+                "uppercase": false,
+                "maxLength": null,
+                "hidable": false,
+                "richText": false,
+                "lists": false,
+                "listStyle": null
+            }
+        },
+        "decorations": [],
+        "containers": [
+            {
+                "id": "6573ac4d-5d3b-4be4-9455-12b2f0c76fa7",
+                "maxHeight": 220.0,
+                "memberInputIds": [
+                    "830a61dd-190f-4b6e-a645-40e9d2294a33",
+                    "ba8514f1-4745-47b6-89d8-65c6a8a4a25a",
+                    "7375f8f3-1781-42e5-b5af-c7cb357ae763",
+                    "dc856a12-b515-4229-a1df-8500fd370dbd"
+                ],
+                "memberContainerIds": [],
+                "gap": 15.0,
+                "spaceAfter": 0.0
+            },
+            {
+                "id": "e2ade5b7-a8ea-4e92-ac4d-8972b7b2c83b",
+                "maxHeight": 220.0,
+                "memberInputIds": [
+                    "12cb5a4d-5258-407a-bbbd-abe7998df9f5",
+                    "84de0fcf-e88b-4c44-8591-23f4a018f4d1",
+                    "be81bb30-3a64-4f43-aeb2-e2bdcd4bfb36",
+                    "b1b3f383-dd8f-4292-8865-8560943aaf08"
+                ],
+                "memberContainerIds": [],
+                "gap": 15.0,
+                "spaceAfter": null
+            }
+        ],
+        "containerHides": [],
+        "canvasHeight": 1350
+    },
+    "boxFrames": {
+        "830a61dd-190f-4b6e-a645-40e9d2294a33": {
+            "name": "D - Střelec 1 ",
+            "locked": false,
+            "frame": {
+                "x": 259.3332,
+                "y": 949.0647,
+                "width": 253.3589,
+                "height": 32.77
+            }
+        },
+        "ba8514f1-4745-47b6-89d8-65c6a8a4a25a": {
+            "name": "D - Střelec 2",
+            "locked": false,
+            "frame": {
+                "x": 259.3332,
+                "y": 996.8347,
+                "width": 253.3589,
+                "height": 32.77
+            }
+        },
+        "7375f8f3-1781-42e5-b5af-c7cb357ae763": {
+            "name": "D - Střelec 3",
+            "locked": false,
+            "frame": {
+                "x": 259.3332,
+                "y": 1044.6047,
+                "width": 253.3589,
+                "height": 32.77
+            }
+        },
+        "12cb5a4d-5258-407a-bbbd-abe7998df9f5": {
+            "name": "H - Střelec 1 ",
+            "locked": false,
+            "frame": {
+                "x": 582.4525,
+                "y": 949.0647,
+                "width": 253.3589,
+                "height": 32.77
+            }
+        },
+        "84de0fcf-e88b-4c44-8591-23f4a018f4d1": {
+            "name": "H - Střelec 2",
+            "locked": false,
+            "frame": {
+                "x": 584.3044,
+                "y": 996.8347,
+                "width": 253.3589,
+                "height": 32.77
+            }
+        },
+        "be81bb30-3a64-4f43-aeb2-e2bdcd4bfb36": {
+            "name": "H - Střelec 3",
+            "locked": false,
+            "frame": {
+                "x": 584.3044,
+                "y": 1044.6047,
+                "width": 253.3589,
+                "height": 32.77
+            }
+        },
+        "7c7af9a1-abdf-4226-a46b-d0135f8ba242": {
+            "name": "Konec utkání",
+            "locked": true,
+            "frame": {
+                "x": 374.2216,
+                "y": 506.2228,
+                "width": 330.5568,
+                "height": 37.29
+            }
+        },
+        "b1b3f383-dd8f-4292-8865-8560943aaf08": {
+            "name": "H - Střelec 4",
+            "locked": false,
+            "frame": {
+                "x": 584.3044,
+                "y": 1092.3747,
+                "width": 253.3589,
+                "height": 32.77
+            }
+        },
+        "dc856a12-b515-4229-a1df-8500fd370dbd": {
+            "name": "D - Střelec 4",
+            "locked": false,
+            "frame": {
+                "x": 259.3332,
+                "y": 1092.3747,
+                "width": 253.3589,
+                "height": 32.77
+            }
+        },
+        "2d763e40-0353-47ad-8bd5-5961f95c9715": {
+            "name": "-",
+            "locked": true,
+            "frame": {
+                "x": 502.4779,
+                "y": 652.2689,
+                "width": 74.0441,
+                "height": 204.53
+            }
+        }
+    },
+    "scenarios": {
+        "designed": [
+            {
+                "id": "6573ac4d-5d3b-4be4-9455-12b2f0c76fa7",
+                "nested": false,
+                "containerTop": 949.065,
+                "contentBottom": 1125.145,
+                "overflowPx": 0,
+                "textFlow": [
+                    {
+                        "inputId": "830a61dd-190f-4b6e-a645-40e9d2294a33",
+                        "top": 949.065
+                    },
+                    {
+                        "inputId": "ba8514f1-4745-47b6-89d8-65c6a8a4a25a",
+                        "top": 996.835
+                    },
+                    {
+                        "inputId": "7375f8f3-1781-42e5-b5af-c7cb357ae763",
+                        "top": 1044.605
+                    },
+                    {
+                        "inputId": "dc856a12-b515-4229-a1df-8500fd370dbd",
+                        "top": 1092.375
+                    }
+                ]
+            },
+            {
+                "id": "e2ade5b7-a8ea-4e92-ac4d-8972b7b2c83b",
+                "nested": false,
+                "containerTop": 949.065,
+                "contentBottom": 1125.145,
+                "overflowPx": 0,
+                "textFlow": [
+                    {
+                        "inputId": "12cb5a4d-5258-407a-bbbd-abe7998df9f5",
+                        "top": 949.065
+                    },
+                    {
+                        "inputId": "84de0fcf-e88b-4c44-8591-23f4a018f4d1",
+                        "top": 996.835
+                    },
+                    {
+                        "inputId": "be81bb30-3a64-4f43-aeb2-e2bdcd4bfb36",
+                        "top": 1044.605
+                    },
+                    {
+                        "inputId": "b1b3f383-dd8f-4292-8865-8560943aaf08",
+                        "top": 1092.375
+                    }
+                ]
+            }
+        ],
+        "strelec1Wraps": [
+            {
+                "id": "6573ac4d-5d3b-4be4-9455-12b2f0c76fa7",
+                "nested": false,
+                "containerTop": 949.065,
+                "contentBottom": 1157.915,
+                "overflowPx": 0,
+                "textFlow": [
+                    {
+                        "inputId": "830a61dd-190f-4b6e-a645-40e9d2294a33",
+                        "top": 949.065
+                    },
+                    {
+                        "inputId": "ba8514f1-4745-47b6-89d8-65c6a8a4a25a",
+                        "top": 1029.605
+                    },
+                    {
+                        "inputId": "7375f8f3-1781-42e5-b5af-c7cb357ae763",
+                        "top": 1077.375
+                    },
+                    {
+                        "inputId": "dc856a12-b515-4229-a1df-8500fd370dbd",
+                        "top": 1125.145
+                    }
+                ]
+            },
+            {
+                "id": "e2ade5b7-a8ea-4e92-ac4d-8972b7b2c83b",
+                "nested": false,
+                "containerTop": 949.065,
+                "contentBottom": 1125.145,
+                "overflowPx": 0,
+                "textFlow": [
+                    {
+                        "inputId": "12cb5a4d-5258-407a-bbbd-abe7998df9f5",
+                        "top": 949.065
+                    },
+                    {
+                        "inputId": "84de0fcf-e88b-4c44-8591-23f4a018f4d1",
+                        "top": 996.835
+                    },
+                    {
+                        "inputId": "be81bb30-3a64-4f43-aeb2-e2bdcd4bfb36",
+                        "top": 1044.605
+                    },
+                    {
+                        "inputId": "b1b3f383-dd8f-4292-8865-8560943aaf08",
+                        "top": 1092.375
+                    }
+                ]
+            }
+        ],
+        "strelec3And4Hidden": [
+            {
+                "id": "6573ac4d-5d3b-4be4-9455-12b2f0c76fa7",
+                "nested": false,
+                "containerTop": 949.065,
+                "contentBottom": 1029.605,
+                "overflowPx": 0,
+                "textFlow": [
+                    {
+                        "inputId": "830a61dd-190f-4b6e-a645-40e9d2294a33",
+                        "top": 949.065
+                    },
+                    {
+                        "inputId": "ba8514f1-4745-47b6-89d8-65c6a8a4a25a",
+                        "top": 996.835
+                    },
+                    {
+                        "inputId": "7375f8f3-1781-42e5-b5af-c7cb357ae763",
+                        "top": null
+                    },
+                    {
+                        "inputId": "dc856a12-b515-4229-a1df-8500fd370dbd",
+                        "top": null
+                    }
+                ]
+            },
+            {
+                "id": "e2ade5b7-a8ea-4e92-ac4d-8972b7b2c83b",
+                "nested": false,
+                "containerTop": 949.065,
+                "contentBottom": 1125.145,
+                "overflowPx": 0,
+                "textFlow": [
+                    {
+                        "inputId": "12cb5a4d-5258-407a-bbbd-abe7998df9f5",
+                        "top": 949.065
+                    },
+                    {
+                        "inputId": "84de0fcf-e88b-4c44-8591-23f4a018f4d1",
+                        "top": 996.835
+                    },
+                    {
+                        "inputId": "be81bb30-3a64-4f43-aeb2-e2bdcd4bfb36",
+                        "top": 1044.605
+                    },
+                    {
+                        "inputId": "b1b3f383-dd8f-4292-8865-8560943aaf08",
+                        "top": 1092.375
+                    }
+                ]
+            }
+        ]
+    }
+}
