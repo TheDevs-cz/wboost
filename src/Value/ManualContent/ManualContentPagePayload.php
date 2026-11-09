@@ -47,21 +47,7 @@ readonly final class ManualContentPagePayload
             throw new InvalidManualContent('The page must be an object.');
         }
 
-        $name = $data['name'] ?? null;
-
-        if (!is_string($name)) {
-            throw new InvalidManualContent('The page needs a name.');
-        }
-
-        $name = ContentElements::plainLine($name);
-
-        if ($name === '') {
-            throw new InvalidManualContent('Vyplňte název stránky.');
-        }
-
-        if (mb_strlen($name) > ManualContentPage::MAX_NAME_LENGTH) {
-            throw new InvalidManualContent('Název stránky je příliš dlouhý.');
-        }
+        $name = self::name($data['name'] ?? null);
 
         $layout = is_string($data['layout'] ?? null) ? MockupPageLayout::tryFrom($data['layout']) : null;
 
@@ -86,5 +72,30 @@ readonly final class ManualContentPagePayload
         }
 
         return new self($name, $layout, $segments);
+    }
+
+    /**
+     * The page name as every writer accepts it (editor save, "Přidat
+     * stránku", rename): one plain line, not empty, at most 255 chars.
+     *
+     * @throws InvalidManualContent
+     */
+    public static function name(mixed $name): string
+    {
+        if (!is_string($name)) {
+            throw new InvalidManualContent('The page needs a name.');
+        }
+
+        $name = ContentElements::plainLine($name);
+
+        if ($name === '') {
+            throw new InvalidManualContent('Vyplňte název stránky.');
+        }
+
+        if (mb_strlen($name) > ManualContentPage::MAX_NAME_LENGTH) {
+            throw new InvalidManualContent('Název stránky je příliš dlouhý.');
+        }
+
+        return $name;
     }
 }

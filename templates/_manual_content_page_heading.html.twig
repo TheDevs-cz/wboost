@@ -1,9 +1,10 @@
 {# The heading row of a content page in the manual — the same row every
    page has (number · manual · page name · manual type). The page NAME is
    the title here; the page's own headings are elements in its body.
-   Params: manual, content_page, number, edit_url (null for readers). #}
+   Params: manual, content_page, number (null = leave it out: the editor
+   preview of a custom page), edit_url (null for readers). #}
 <div class="page-heading py-3 border-bottom">
-    <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(number) }}</span>
+    {% if number is not null %}<span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(number) }}</span>{% endif %}
     <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
     <span class="d-inline-block pe-4 fs-4 fw-bold">{{ content_page.name }}</span>
     <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>

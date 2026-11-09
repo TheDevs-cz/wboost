@@ -128,7 +128,17 @@ final class ScanStorageTest extends KernelTestCase
      * without their query in BuildStorageReferenceIndex a live intro picture
      * would read as an orphan.
      */
-    public function testImageOfAContentPageIsNotAnOrphan(): void
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function contentPageRoles(): iterable
+    {
+        yield 'intro' => ['intro'];
+        yield 'custom page (P2)' => ['custom'];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('contentPageRoles')]
+    public function testImageOfAContentPageIsNotAnOrphan(string $role): void
     {
         $path = 'manuals/' . TestDataFixture::MANUAL_1_ID . '/content/0199aaaa-0000-7000-8000-000000000001.png';
         $this->write($path, 'content-image');
@@ -136,7 +146,7 @@ final class ScanStorageTest extends KernelTestCase
         self::getContainer()->get(EntityManagerInterface::class)->getConnection()->insert('manual_content_page', [
             'id' => '0199aaaa-0000-7000-8000-0000000000c1',
             'manual_id' => TestDataFixture::MANUAL_1_ID,
-            'role' => 'intro',
+            'role' => $role,
             'name' => 'Úvod',
             'layout' => 'layout-8',
             'segments' => (string) json_encode([

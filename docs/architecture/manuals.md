@@ -640,15 +640,16 @@ width bar was already in place (JSON, see above).
 
 ### Manual content pages — editable intro (P1, 2026-11-09)
 
-Plan + phases: `docs/plans/2026-11-manual-content-pages.md` (P2 custom pages,
-P3 gallery migration, P4 drop `manual.intro_image` are still to come).
+Plan + phases: `docs/plans/2026-11-manual-content-pages.md` (P2 custom pages
+— see the next section; P3 gallery migration, P4 drop `manual.intro_image`
+are still to come).
 
 - **Model.** `ManualContentPage` (`manual_content_page`): `role`
   (`ManualContentPageRole`: `intro` | `custom`), `name` (plain title — printed
   in the page heading row "NN · manual · NAME", NOT a content element),
   `layout` (`MockupPageLayout`, the mockup grid's 11 layouts), `segments`
-  (JSONB via `ManualContentSegmentsDoctrineType`), `position` (reserved for
-  P2: custom pages share one sortable space with mockup pages; the intro is
+  (JSONB via `ManualContentSegmentsDoctrineType`), `position` (custom pages:
+  the position space shared with mockup pages, see P2 below; the intro is
   always first and keeps 0), timestamps. Manual CASCADE; **at most one intro
   per manual** = partial unique index `uniq_manual_content_page_intro … WHERE
   role = 'intro'` (also declared on the entity so the test schema has it).
@@ -685,7 +686,8 @@ P3 gallery migration, P4 drop `manual.intro_image` are still to come).
   `doc.isEmpty()` explicitly — `doc.empty` resolves to the STATIC factory
   `RichTextDoc::empty()` (always truthy).
 - **One partial** `_manual_content_page.html.twig` (+ heading row
-  `_manual_content_page_heading.html.twig`) for the public manual and the
+  `_manual_content_page_heading.html.twig`, + `_manual_content_page_preview.html.twig`
+  for the editor panel) for the public manual and the
   editor's "Náhled v manuálu" panel. CSS `.mcp-*` in `app.css` (both
   entrypoints), own typography/colours. Grid = the mockup 3 × 2 tracks with
   `grid-auto-rows: auto` (rows grow, text never overflows). Image `natural` =
@@ -699,7 +701,9 @@ P3 gallery migration, P4 drop `manual.intro_image` are still to come).
   rich-text element. An admin sees a pencil on the heading row linking to the
   editor.
 - **Editor** `manual_intro_page` (`/manual/{id}/uvodni-stranka`, "Úvodní
-  stránka" tab, first in `_manual_nav`, both manual types, `manual_edit`).
+  stránka" tab, first in `_manual_nav`, both manual types, `manual_edit`;
+  template `manual_content_page_editor.html.twig` + `ManualContentPageEditor`,
+  shared with custom pages since P2).
   A manual without an intro page opens with `IntroContentPageDefaults`
   (title override or "Úvod", description override as rich text, legacy
   `intro_image`) — nothing is written until Save.
@@ -713,7 +717,8 @@ P3 gallery migration, P4 drop `manual.intro_image` are still to come).
   caret + undo), heading = auto-height textarea, sticky toolbar (B/I/U, lists,
   link popover, manual-font select, palette swatches; toolbar buttons
   `preventDefault` on mousedown to keep the selection). Save = ONE POST
-  (`manual_intro_page_save`, form fields `_token` + `payload` JSON) →
+  (`manual_intro_page_save` / `manual_content_page_save`, form fields
+  `_token` + `payload` JSON) →
   `SaveManualContentPage` (upsert; for the intro the existing intro wins over
   the id) → JSON `{state, preview}`; dirty tracking compares key-sorted JSON,
   `beforeunload` guard, Cmd/Ctrl+S. Pictures upload separately
@@ -749,3 +754,67 @@ P3 gallery migration, P4 drop `manual.intro_image` are still to come).
   bold + manual font + palette colour + link + ordered list + undo, drag
   between and within segments, upload, save, reload round-trip, public render,
   dirty flag; screenshots 390/820/1440 × dark/light.
+
+### Manual content pages — custom pages + shared page order (P2, 2026-11-09)
+
+- **Stránky tab** (`manual_mockup_pages`, `/manual/{id}/mockup-pages` — route
+  name/path kept; tab renamed "Stránky", count = mockup + custom pages via
+  `Manual::pagesCount()`; brand manuals only, like the mockup pages always
+  were). ONE sortable list (`GetManualPageList` → `ManualPageListItem`) of
+  mockup pages AND custom content pages; the intro is not in it (own tab,
+  pinned first). Each card has a kind pill ("Mockupy" / "Obsah", plus
+  "Prázdná" for a content page with no content — it is not shown in the
+  manual). Content page thumbnail = `_manual_content_page_thumb.html.twig`:
+  the same canonical grid as `_mockup_page.html.twig`, a slot shows its first
+  picture / stylised text lines / the placeholder (NOT a scaled render —
+  cheap at rail size). "Přidat stránku" is a dropdown: Stránka s mockupy
+  (the old add page) / Obsahová stránka (dialog: name + layout).
+- **Shared order contract.** `manual_mockup_page.position` and
+  `manual_content_page.position` (role `custom`) form ONE position space per
+  manual. Read: `GetManualPageList::forManual()` merges both, sorted by
+  `(position, created_at, id)`. Write: `SortManualPagesController`
+  (`sort_manual_pages`, POST `/manual/{manualId}/stranky/poradi`,
+  `{sorted: ["mockup:<uuid>", "content:<uuid>", …]}`) → `SortManualPages` →
+  position = index in the posted list, both tables in the bus' one Doctrine
+  transaction. Items are TYPED ids (`ManualPageListItem::typedId()` /
+  `parseTypedId()`: the two tables' ids are independent); malformed, untyped,
+  foreign-manual ids and the intro are skipped (the voter only checked the
+  manual in the URL). New pages of either kind append:
+  `ManualPagePositions::next()` = max over both tables + 1 (used by
+  `AddManualMockupPageHandler`, `AddManualContentPageHandler` and a custom
+  page created by `SaveManualContentPage`). The old mockup-only
+  `/sort-manual-mockup-pages/{id}` + `SortManualMockupPages` are gone; both
+  JS controllers (`dragula_controller.js` grid, `manual_mockup_pages_controller.js`
+  rail, `forceFallback: true`) just post the cards' `data-entity-id`.
+- **Migration** `Version20261109170000` renumbered every manual's mockup
+  pages 0…n-1 in their rendered order (`ManualPagePositions::RENUMBER_MOCKUP_PAGES_SQL`,
+  ties by `created_at, id` — prod had one tie and one list starting at 1).
+- **Routes.** Custom pages are addressed by page id, the intro by its manual
+  (it may not exist yet): `add_manual_content_page` POST
+  `/manual/{manualId}/stranky/nova` (name + layout, CSRF
+  `manual_content_page`) → redirect to `manual_content_page` GET
+  `/manual/stranka/{id}` (editor; an intro id redirects to
+  `manual_intro_page`), `manual_content_page_save` POST same path,
+  `rename_manual_content_page` POST `/manual/stranka/{id}/prejmenovat`,
+  `delete_manual_content_page` POST `/manual/stranka/{id}/smazat` (confirm
+  dialog, CSRF; the intro → `IntroContentPageCannotBeDeleted`, 400; uploaded
+  pictures stay in storage as orphans for the scan). All gated by
+  `ManualContentPageVoter::EDIT` (= `ManualVoter::EDIT` on the page's manual),
+  add/sort by `ManualVoter::EDIT`. Name rules shared:
+  `ManualContentPagePayload::name()`.
+- **Editor** = the intro's (`ManualContentPageEditor` builds the parameters
+  and handles the one-POST save for both roles). The "Náhled v manuálu" panel
+  of a custom page omits the page number (it depends on which built-in pages
+  the manual shows).
+- **Public render** (`manual_preview.html.twig`, `manual_pages` from
+  `ManualPreviewTurboStream::previewParameters()`): after the built-in pages,
+  the list in its shared order — mockup pages as before, content pages via
+  the same heading + body partials as the intro (admin pencil → the page's
+  editor). Empty content pages are skipped and take no number; `#page-N`
+  anchors stay consecutive. The manual has no TOC/nav to update.
+- **Storage**: `BuildStorageReferenceIndex` enumerates image elements of
+  every content page regardless of role (`ScanStorageTest` covers both).
+- Pinned by `tests/MessageHandler/Manual/ManualContentPagesTest.php` (add /
+  rename / delete / intro not deletable / mixed sort / renumber SQL / typed
+  ids) and `tests/Controller/Manual/ManualContentPagesControllerTest.php`
+  (routes, voter, list, sort, public order + numbering).

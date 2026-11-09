@@ -12,6 +12,7 @@ use WBoost\Web\Exceptions\ManualNotFound;
 use WBoost\Web\Message\Manual\SaveManualContentPage;
 use WBoost\Web\Repository\ManualContentPageRepository;
 use WBoost\Web\Repository\ManualRepository;
+use WBoost\Web\Services\Manual\ManualPagePositions;
 use WBoost\Web\Services\Manual\ResolveManualContentStyles;
 use WBoost\Web\Value\ManualContent\ContentElement;
 use WBoost\Web\Value\ManualContent\ContentSegment;
@@ -28,6 +29,7 @@ readonly final class SaveManualContentPageHandler
         private ManualContentPageRepository $contentPageRepository,
         private ResolveManualContentStyles $resolveStyles,
         private ClockInterface $clock,
+        private ManualPagePositions $positions,
     ) {
     }
 
@@ -64,7 +66,9 @@ readonly final class SaveManualContentPageHandler
             $message->name,
             $message->layout,
             $segments,
-            0,
+            // The intro is pinned first; a custom page joins the end of the
+            // list it shares with the mockup pages.
+            $message->role === ManualContentPageRole::Intro ? 0 : $this->positions->next($manual->id),
             $now,
         ));
     }

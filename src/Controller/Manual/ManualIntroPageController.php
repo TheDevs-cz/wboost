@@ -9,12 +9,8 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\Manual;
-use WBoost\Web\Repository\ManualContentPageRepository;
-use WBoost\Web\Services\Manual\ManualContentEditorState;
-use WBoost\Web\Services\Manual\ResolveManualContentStyles;
+use WBoost\Web\Services\Manual\ManualContentPageEditor;
 use WBoost\Web\Services\Security\ManualVoter;
-use WBoost\Web\Value\ManualContent\ManualContentPagePayload;
-use WBoost\Web\Value\MockupPageLayout;
 
 /**
  * The intro content page editor ("Úvodní stránka" tab). A manual that has
@@ -23,12 +19,8 @@ use WBoost\Web\Value\MockupPageLayout;
  */
 final class ManualIntroPageController extends AbstractController
 {
-    public const string CSRF_TOKEN_ID = 'manual_content_page';
-
     public function __construct(
-        readonly private ManualContentPageRepository $contentPageRepository,
-        readonly private ResolveManualContentStyles $resolveStyles,
-        readonly private ManualContentEditorState $editorState,
+        readonly private ManualContentPageEditor $editor,
     ) {
     }
 
@@ -36,17 +28,6 @@ final class ManualIntroPageController extends AbstractController
     #[IsGranted(ManualVoter::EDIT, 'manual')]
     public function __invoke(Manual $manual): Response
     {
-        $introPage = $this->contentPageRepository->introFor($manual->id);
-        $styles = $this->resolveStyles->forManual($manual);
-
-        return $this->render('manual_intro_page.html.twig', [
-            'project' => $manual->project,
-            'manual' => $manual,
-            'intro_page' => $introPage,
-            'content_styles' => $styles,
-            'editor_state' => $this->editorState->forIntro($manual, $introPage),
-            'layouts_geometry' => MockupPageLayout::exportGeometry(),
-            'max_payload_bytes' => ManualContentPagePayload::MAX_BYTES,
-        ]);
+        return $this->render('manual_content_page_editor.html.twig', $this->editor->introParameters($manual));
     }
 }

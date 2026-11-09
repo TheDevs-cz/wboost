@@ -29,7 +29,7 @@ readonly final class ManualContentEditorState
     public function forIntro(Manual $manual, null|ManualContentPage $introPage): array
     {
         if ($introPage !== null) {
-            return $this->state($introPage->name, $introPage->layout->value, $introPage->segments);
+            return $this->forPage($introPage);
         }
 
         return $this->state(
@@ -37,6 +37,14 @@ readonly final class ManualContentEditorState
             IntroContentPageDefaults::LAYOUT->value,
             IntroContentPageDefaults::segments($manual->pageDescriptionOverride(ManualPage::Intro), $manual->introImage),
         );
+    }
+
+    /**
+     * @return array{name: string, layout: string, segments: list<array<string, mixed>>}
+     */
+    public function forPage(ManualContentPage $page): array
+    {
+        return $this->state($page->name, $page->layout->value, $page->segments);
     }
 
     /**

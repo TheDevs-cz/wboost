@@ -19,6 +19,7 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 use WBoost\Web\Entity\Manual;
 use WBoost\Web\Message\Manual\UploadManualContentImage;
 use WBoost\Web\Services\Image\NormalizeImageFormat;
+use WBoost\Web\Services\Manual\ManualContentPageEditor;
 use WBoost\Web\Services\Security\ManualVoter;
 use WBoost\Web\Services\UploaderHelper;
 
@@ -51,7 +52,7 @@ final class UploadManualContentImageController extends AbstractController
         Manual $manual,
         Request $request,
     ): Response {
-        if (!$this->isCsrfTokenValid(ManualIntroPageController::CSRF_TOKEN_ID, $request->request->getString('_token'))) {
+        if (!$this->isCsrfTokenValid(ManualContentPageEditor::CSRF_TOKEN_ID, $request->request->getString('_token'))) {
             return new JsonResponse(['error' => 'Platnost formuláře vypršela. Obnovte stránku.'], Response::HTTP_FORBIDDEN);
         }
 

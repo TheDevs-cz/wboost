@@ -14,7 +14,7 @@ use WBoost\Web\Entity\Manual;
 use WBoost\Web\FormData\LogoColorsEditForm;
 use WBoost\Web\FormData\ManualPageTextFormData;
 use WBoost\Web\Query\GetManualFonts;
-use WBoost\Web\Query\GetManualMockupPages;
+use WBoost\Web\Query\GetManualPageList;
 use WBoost\Web\Repository\ManualContentPageRepository;
 use WBoost\Web\Value\LogoColorVariant;
 use WBoost\Web\Value\LogoTypeVariant;
@@ -50,7 +50,7 @@ final readonly class ManualPreviewTurboStream
         private Environment $twig,
         private ManualEditForms $forms,
         private GetManualFonts $getManualFonts,
-        private GetManualMockupPages $getManualMockupPages,
+        private GetManualPageList $getManualPageList,
         private ManualContentPageRepository $contentPageRepository,
         private ResolveManualContentStyles $resolveContentStyles,
     ) {
@@ -73,7 +73,8 @@ final readonly class ManualPreviewTurboStream
             'project' => $manual->project,
             'manual' => $manual,
             'fonts' => $this->getManualFonts->allForManual($manual->id),
-            'mockup_pages' => $this->getManualMockupPages->allForManual($manual->id),
+            // Mockup + custom content pages in their shared order (P2).
+            'manual_pages' => $this->getManualPageList->forManual($manual->id),
             'intro_page' => $this->contentPageRepository->introFor($manual->id),
             'content_styles' => $this->resolveContentStyles->forManual($manual),
         ];

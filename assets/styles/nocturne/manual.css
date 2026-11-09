@@ -185,6 +185,19 @@
 .man-pg .mockup-slot-placeholder { background: var(--surface-2); color: var(--subtle); }
 @media (max-width: 560px) { .man-hint { display: none; } }
 
+/* Content pages P2: the list mixes mockup pages and custom content pages —
+   a kind pill per card and the content page thumbnail
+   (_manual_content_page_thumb.html.twig) on the same canonical grid. */
+.man-kind { flex: none; }
+@media (max-width: 420px) { .man-pgh .man-kind:not(.pch) { display: none; } }
+.mcp-thumb-text { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; gap: max(3px, 1.2cqw); padding: 0 12%; }
+.mcp-thumb-text span { display: block; height: max(2px, .9cqw); border-radius: 999px; background: var(--line-3); }
+.mcp-thumb-text span.h { height: max(4px, 2cqw); width: 62%; margin-bottom: max(2px, .6cqw); background: var(--muted); }
+.mcp-thumb-text span.s { width: 72%; }
+.man-add-content { gap: 10px; }
+.man-add-content .form-label { margin: 0; font-weight: 600; }
+.man-add-content .cap { margin: 0 0 6px; }
+
 /* ---- Mockup page editor chrome (_mockup_page_form_editor) ------------------- */
 .man-editor { display: flex; flex-direction: column; gap: 16px; }
 .man-editor .mockup-layout-picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; }

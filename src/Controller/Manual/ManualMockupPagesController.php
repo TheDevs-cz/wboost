@@ -10,13 +10,18 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\Manual;
-use WBoost\Web\Query\GetManualMockupPages;
+use WBoost\Web\Query\GetManualPageList;
 use WBoost\Web\Services\Security\ManualVoter;
+use WBoost\Web\Value\MockupPageLayout;
 
+/**
+ * The "Stránky" tab: mockup pages + custom content pages in their shared
+ * order (the route name predates P2 and is kept).
+ */
 final class ManualMockupPagesController extends AbstractController
 {
     public function __construct(
-        readonly private GetManualMockupPages $getManualMockupPages,
+        readonly private GetManualPageList $getManualPageList,
     ) {
     }
 
@@ -29,7 +34,8 @@ final class ManualMockupPagesController extends AbstractController
         return $this->render('manual_mockup_pages.html.twig', [
             'project' => $manual->project,
             'manual' => $manual,
-            'pages' => $this->getManualMockupPages->allForManual($manual->id),
+            'pages' => $this->getManualPageList->forManual($manual->id),
+            'layouts_geometry' => MockupPageLayout::exportGeometry(),
         ]);
     }
 }

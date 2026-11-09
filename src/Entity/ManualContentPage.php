@@ -30,8 +30,9 @@ use WBoost\Web\Value\MockupPageLayout;
  * image) laid out on the mockup grid's segments — see
  * `docs/architecture/manuals.md` "Manual content pages". The intro (role
  * `intro`) is the first page and exists at most once per manual (partial
- * unique index). `position` is reserved for custom pages (P2), which share
- * one sortable space with the mockup pages; the intro always stays first.
+ * unique index). Custom pages (role `custom`, P2) share ONE position space
+ * with the manual's mockup pages (`GetManualPageList`, `SortManualPages`);
+ * the intro is not part of it — it always stays first (position 0).
  *
  * `name` is the plain page title printed in the manual's page heading row
  * (number · manual · NAME) and in listings — separate from the content.
@@ -56,7 +57,7 @@ class ManualContentPage
         #[Column(type: UuidType::NAME, unique: true)]
         public UuidInterface $id,
 
-        #[ManyToOne(fetch: 'EXTRA_LAZY')]
+        #[ManyToOne(fetch: 'EXTRA_LAZY', inversedBy: 'contentPages')]
         #[JoinColumn(nullable: false, onDelete: 'CASCADE')]
         readonly public Manual $manual,
 
@@ -95,6 +96,17 @@ class ManualContentPage
         $this->layout = $layout;
         $this->segments = self::fitSegments($layout, $segments);
         $this->updatedAt = $now;
+    }
+
+    public function rename(string $name, DateTimeImmutable $now): void
+    {
+        $this->name = $name;
+        $this->updatedAt = $now;
+    }
+
+    public function isIntro(): bool
+    {
+        return $this->role === ManualContentPageRole::Intro;
     }
 
     public function sort(int $position): void

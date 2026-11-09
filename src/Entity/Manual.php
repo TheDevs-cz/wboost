@@ -6,6 +6,7 @@ namespace WBoost\Web\Entity;
 
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use Doctrine\Common\Collections\Criteria;
 use Doctrine\ORM\Mapping\JoinColumn;
 use Doctrine\ORM\Mapping\ManyToOne;
 use Doctrine\ORM\Mapping\OneToMany;
@@ -30,6 +31,7 @@ use WBoost\Web\Value\LogoScale;
 use WBoost\Web\Value\LogoTypeVariant;
 use WBoost\Web\Value\ManualColor;
 use WBoost\Web\Value\ManualColorType;
+use WBoost\Web\Value\ManualContent\ManualContentPageRole;
 use WBoost\Web\Value\ManualPage;
 use WBoost\Web\Value\ManualPageText;
 use WBoost\Web\Value\ManualType;
@@ -64,6 +66,16 @@ class Manual
     #[Immutable]
     #[OneToMany(targetEntity: ManualMockupPage::class, mappedBy: 'manual', fetch: 'EXTRA_LAZY')]
     public Collection $pages;
+
+    /**
+     * Intro + custom content pages; only read for counting (the pages
+     * themselves are loaded through `ManualContentPageRepository`).
+     *
+     * @var Collection<int, ManualContentPage>
+     */
+    #[Immutable]
+    #[OneToMany(targetEntity: ManualContentPage::class, mappedBy: 'manual', fetch: 'EXTRA_LAZY')]
+    public Collection $contentPages;
 
     #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
     #[Column(options: ['default' => ''])]
@@ -117,6 +129,7 @@ class Manual
         public null|string $introImage,
     ) {
         $this->pages = new ArrayCollection();
+        $this->contentPages = new ArrayCollection();
         $this->fonts = new ArrayCollection();
         $this->paletteLinks = new ArrayCollection();
         $this->logo = Logo::withoutImages();
@@ -267,9 +280,17 @@ class Manual
         return $this->type === ManualType::Brand;
     }
 
+    /**
+     * Pages of the sortable "Stránky" list: mockup pages + custom content
+     * pages (the intro has its own tab).
+     */
     public function pagesCount(): int
     {
-        return $this->pages->count();
+        $customPages = $this->contentPages->matching(
+            Criteria::create()->where(Criteria::expr()->eq('role', ManualContentPageRole::Custom)),
+        );
+
+        return $this->pages->count() + $customPages->count();
     }
 
     public function fontsCount(): int

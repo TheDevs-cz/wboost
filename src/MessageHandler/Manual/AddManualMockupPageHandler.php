@@ -12,6 +12,7 @@ use WBoost\Web\Exceptions\ManualNotFound;
 use WBoost\Web\Message\Manual\AddManualMockupPage;
 use WBoost\Web\Repository\ManualMockupPageRepository;
 use WBoost\Web\Repository\ManualRepository;
+use WBoost\Web\Services\Manual\ManualPagePositions;
 use WBoost\Web\Services\Manual\StoreMockupPageDownload;
 use WBoost\Web\Services\ProvideIdentity;
 
@@ -25,6 +26,7 @@ readonly final class AddManualMockupPageHandler
         private ClockInterface $clock,
         private Filesystem $filesystem,
         private StoreMockupPageDownload $storeMockupPageDownload,
+        private ManualPagePositions $positions,
     ) {
     }
 
@@ -73,7 +75,8 @@ readonly final class AddManualMockupPageHandler
             );
         }
 
-        $nextPosition = $this->manualMockupPageRepository->count($manual->id);
+        // The end of the list shared with custom content pages.
+        $nextPosition = $this->positions->next($manual->id);
 
         $page = new ManualMockupPage(
             $pageId,

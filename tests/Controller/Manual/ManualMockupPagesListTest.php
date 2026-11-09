@@ -41,7 +41,7 @@ final class ManualMockupPagesListTest extends WebTestCase
         $crawler = $browser->request('GET', '/manual/' . TestDataFixture::MANUAL_1_ID . '/mockup-pages');
         $this->assertResponseIsSuccessful();
 
-        $sortUrl = '/sort-manual-mockup-pages/' . TestDataFixture::MANUAL_1_ID;
+        $sortUrl = '/manual/' . TestDataFixture::MANUAL_1_ID . '/stranky/poradi';
 
         // Default view is Náhled; the toggle + the controller hold the sort URL.
         self::assertSelectorExists('.man-mock[data-view="pdf"][data-controller="manual-mockup-pages"][data-manual-mockup-pages-sort-url-value="' . $sortUrl . '"]');

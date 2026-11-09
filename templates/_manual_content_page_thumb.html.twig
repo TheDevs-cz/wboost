@@ -1,0 +1,30 @@
+{# A custom content page as a thumbnail on the Stránky list (card + Náhled
+   rail): the same canonical mockup grid as `_mockup_page.html.twig`, so the
+   two page kinds line up — a slot shows its first picture (cover), a
+   suggestion of text lines when it holds only text, or the empty
+   placeholder. Deliberately NOT a scaled render of the real page (auto row
+   height, real typography): cheap and legible at 150 px.
+   Params: content_page (ManualContentPage). #}
+<div class="mockup-grid-container mcp-thumb">
+    <div class="mockup-grid">
+        {% for slot in content_page.layout.slots %}
+            {% set segment = content_page.segment(loop.index0) %}
+            {% set image = segment.elements|filter(e => e.type == 'image')|first %}
+            {% set has_heading = segment.elements|filter(e => e.type == 'heading' and e.text is not empty)|length > 0 %}
+            {% set has_text = segment.elements|filter(e => e.type == 'richText' and not e.doc.isEmpty())|length > 0 %}
+            <div class="mockup-slot"
+                 style="grid-column: {{ slot.column }} / span {{ slot.columnSpan }}; grid-row: {{ slot.row }} / span {{ slot.rowSpan }};">
+                {% if image %}
+                    <img src="{{ uploaded_asset(image.path) }}" alt="{{ image.alt }}" loading="lazy">
+                {% elseif has_heading or has_text %}
+                    <div class="mcp-thumb-text" aria-hidden="true">
+                        {% if has_heading %}<span class="h"></span>{% endif %}
+                        {% if has_text %}<span></span><span></span><span class="s"></span>{% endif %}
+                    </div>
+                {% else %}
+                    <div class="mockup-slot-placeholder">{{ icon('type') }}</div>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+</div>

@@ -665,24 +665,41 @@
                 {% endif %}
             {% endfor %}
 
-            {% for mockup_page in mockup_pages %}
-                {% set page = page+1 %}
+            {# The manual's own pages after the built-in ones: mockup pages and
+               custom content pages in ONE shared order (content pages P2,
+               GetManualPageList). A content page without content is skipped
+               and takes no page number, like the intro. #}
+            {% for item in manual_pages %}
+                {% if item.mockupPage %}
+                    {% set mockup_page = item.mockupPage %}
+                    {% set page = page+1 %}
 
-                <div class="manual-page border-bottom border-2" id="page-{{ page }}">
-                    <div class="page-heading py-3 border-bottom">
-                        <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
-                        <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
-                        <span class="d-inline-block pe-4 fs-4 fw-bold">{{ mockup_page.name }}</span>
-                        <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
-                        {{ include('_mockup_page_download_button.html.twig', {'extra_class': 'float-end me-3'}) }}
-                    </div>
+                    <div class="manual-page border-bottom border-2" id="page-{{ page }}">
+                        <div class="page-heading py-3 border-bottom">
+                            <span class="d-inline-block pe-4 fs-4">{{ "%02d"|format(page) }}</span>
+                            <span class="d-inline-block pe-4 fs-4">{{ manual.name }}</span>
+                            <span class="d-inline-block pe-4 fs-4 fw-bold">{{ mockup_page.name }}</span>
+                            <span class="d-inline-block float-end fs-4">{{ manual.brandManual ? 'Brand manuál' : 'Logo manuál' }}</span>
+                            {{ include('_mockup_page_download_button.html.twig', {'extra_class': 'float-end me-3'}) }}
+                        </div>
 
-                    <div class="page-content py-4 gx-5 row">
-                        <div class="page-designs col-12">
-                            {{ include('_mockup_page.html.twig') }}
+                        <div class="page-content py-4 gx-5 row">
+                            <div class="page-designs col-12">
+                                {{ include('_mockup_page.html.twig') }}
+                            </div>
                         </div>
                     </div>
-                </div>
+                {% elseif item.contentPage.hasContent %}
+                    {% set page = page+1 %}
+
+                    <div class="manual-page border-bottom border-2" id="page-{{ page }}">
+                        {{ include('_manual_content_page_heading.html.twig', {'content_page': item.contentPage, 'number': page, 'edit_url': can_edit_manual ? path('manual_content_page', {'id': item.contentPage.id}) : null}) }}
+
+                        <div class="page-content py-4">
+                            {{ include('_manual_content_page.html.twig', {'content_page': item.contentPage, 'content_styles': content_styles}) }}
+                        </div>
+                    </div>
+                {% endif %}
             {% endfor %}
         </div>
 

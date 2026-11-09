@@ -98,7 +98,7 @@ final class ManualMockupPageControllerTest extends WebTestCase
         // Listing renders the canonical grid: one filled slot, one placeholder.
         $crawler = $browser->followRedirect();
         $this->assertResponseIsSuccessful();
-        $card = $crawler->filter('[data-entity-id="' . $page->id->toString() . '"]');
+        $card = $crawler->filter('[data-entity-id="mockup:' . $page->id->toString() . '"]');
         self::assertCount(2, $card->filter('.mockup-slot'));
         self::assertCount(1, $card->filter('.mockup-slot img'));
         self::assertCount(1, $card->filter('.mockup-slot-placeholder'));

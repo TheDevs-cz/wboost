@@ -3,7 +3,11 @@
 {% block title %}{{ manual.name }}{% endblock %}
 {% set active_menu_item = 'manuals' %}
 
-{% block page_lead %}První stránka manuálu. Vyberte rozložení a do každého pole přidejte nadpis, text nebo obrázek. Změny uložíte tlačítkem dole.{% endblock %}
+{# One editor for both content page roles (ManualContentPageEditor): the
+   intro (`manual_intro_page`, may not exist yet → content_page null) and
+   custom pages (`manual_content_page`, sorted together with the mockup pages
+   on the Stránky tab). #}
+{% block page_lead %}{% if is_intro %}První stránka manuálu.{% else %}Vlastní stránka manuálu — v manuálu stojí mezi stránkami s mockupy podle pořadí na kartě Stránky.{% endif %} Vyberte rozložení a do každého pole přidejte nadpis, text nebo obrázek. Změny uložíte tlačítkem dole.{% endblock %}
 
 {% block custom_styles %}
     {# The manual's font faces under the family names the rich text stores
@@ -29,7 +33,7 @@
          data-manual-content-editor-geometry-value="{{ layouts_geometry|json_encode }}"
          data-manual-content-editor-fonts-value="{{ content_styles.fonts|json_encode }}"
          data-manual-content-editor-colors-value="{{ content_styles.colors|json_encode }}"
-         data-manual-content-editor-save-url-value="{{ path('manual_intro_page_save', {'manualId': manual.id}) }}"
+         data-manual-content-editor-save-url-value="{{ save_url }}"
          data-manual-content-editor-upload-url-value="{{ path('manual_content_image_upload', {'manualId': manual.id}) }}"
          data-manual-content-editor-csrf-value="{{ csrf_token('manual_content_page') }}"
          data-manual-content-editor-max-file-size-value="10000000"
@@ -41,7 +45,7 @@
                 <span class="cap">Zobrazuje se v záhlaví stránky manuálu vedle čísla stránky.</span>
             </div>
             <div class="man-name">
-                <input type="text" class="form-control" maxlength="255" required placeholder="Např. Úvod"
+                <input type="text" class="form-control" maxlength="255" required placeholder="{{ is_intro ? 'Např. Úvod' : 'Např. Tón komunikace' }}"
                        aria-labelledby="mce-name-title"
                        data-manual-content-editor-target="name"
                        data-action="input->manual-content-editor#nameChanged">
@@ -121,7 +125,7 @@
                 <span class="cap">Uložená podoba stránky tak, jak ji uvidí čtenáři manuálu. Po uložení se obnoví.</span>
             </div>
             <div class="mce-preview" data-manual-content-editor-target="preview">
-                {{ include('_manual_intro_page_preview.html.twig') }}
+                {{ include('_manual_content_page_preview.html.twig') }}
             </div>
         </section>
 

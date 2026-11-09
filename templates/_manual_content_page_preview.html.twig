@@ -1,0 +1,25 @@
+{# "Náhled v manuálu" panel of the content page editor: the SAVED page exactly
+   as the manual renders it (same heading row + `_manual_content_page.html.twig`).
+   Re-rendered by ManualContentPageEditor::save() after every save.
+   Params: manual, content_page (nullable — an intro never saved), is_intro,
+   content_styles. The intro is always page 01; a custom page's number depends
+   on which built-in pages the manual shows, so the preview leaves it out. #}
+{% if content_page and content_page.hasContent %}
+    <div class="mce-preview-page">
+        {{ include('_manual_content_page_heading.html.twig', {'number': is_intro ? 1 : null, 'edit_url': null}) }}
+        <div class="py-4">
+            {{ include('_manual_content_page.html.twig') }}
+        </div>
+    </div>
+{% else %}
+    <div class="empty mce-preview-empty">
+        <span class="ico-c">{{ icon('book') }}</span>
+        {% if is_intro %}
+            <h2>Úvodní stránka se v manuálu nezobrazuje</h2>
+            <p>Zatím nemá žádný obsah. Přidejte nadpis, text nebo obrázek a uložte — stránka se objeví jako první stránka manuálu.</p>
+        {% else %}
+            <h2>Stránka se v manuálu nezobrazuje</h2>
+            <p>Zatím nemá žádný obsah. Přidejte nadpis, text nebo obrázek a uložte — stránka se objeví v manuálu na svém místě v pořadí stránek.</p>
+        {% endif %}
+    </div>
+{% endif %}

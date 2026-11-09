@@ -12,31 +12,31 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\Manual;
-use WBoost\Web\Message\Manual\SortManualMockupPages;
+use WBoost\Web\Message\Manual\SortManualPages;
 use WBoost\Web\Services\Security\ManualVoter;
 
-final class SortManualMockupPagesController extends AbstractController
+/**
+ * The Stránky list's drag & drop: `{sorted: ["mockup:<uuid>", "content:<uuid>", …]}`
+ * — mockup pages and custom content pages in one shared order.
+ */
+final class SortManualPagesController extends AbstractController
 {
     public function __construct(
         readonly private MessageBusInterface $bus,
     ) {
     }
 
-    #[Route(path: '/sort-manual-mockup-pages/{manualId}', name: 'sort_manual_mockup_pages')]
+    #[Route(path: '/manual/{manualId}/stranky/poradi', name: 'sort_manual_pages', methods: ['POST'])]
     #[IsGranted(ManualVoter::EDIT, 'manual')]
     public function __invoke(
         #[MapEntity(id: 'manualId')]
         Manual $manual,
         Request $request,
-    ): JsonResponse
-    {
-        /** @var array{sorted?: array<string>} $data */
+    ): JsonResponse {
         $data = json_decode($request->getContent(), true);
-        $sorted = $data['sorted'] ?? [];
+        $sorted = is_array($data) && is_array($data['sorted'] ?? null) ? $data['sorted'] : [];
 
-        $this->bus->dispatch(
-            new SortManualMockupPages($manual->id, $sorted)
-        );
+        $this->bus->dispatch(new SortManualPages($manual->id, $sorted));
 
         return new JsonResponse(['status' => 'success']);
     }
