@@ -117,7 +117,7 @@ final class DslParser
     public const array CONTAINER_KEYS = ['kind', 'id', 'members', 'children', 'maxHeight', 'gap', 'spaceAfter', 'hidable', 'name', 'userMove', 'repeat'];
 
     /** @var list<string> */
-    public const array REPEAT_KEYS = ['max', 'min', 'default'];
+    public const array REPEAT_KEYS = ['max', 'min', 'default', 'slots'];
 
     /**
      * The `userMove` block ("Uživatel může posunout") — the canvas contract's
@@ -624,7 +624,7 @@ final class DslParser
     }
 
     /**
-     * `repeat: {max, min?, default?}` — "Opakovatelný řádek": the end user may
+     * `repeat: {max, min?, default?, slots?}` — "Opakovatelný řádek": the end user may
      * show between `min` and `max` copies of this (nested) container,
      * `default` on a fresh fill. Whole numbers with
      * `1 ≤ min ≤ default ≤ max ≤ 30`; `min` defaults to 1, `default` to
@@ -669,7 +669,7 @@ final class DslParser
             return null;
         }
 
-        $repeat = ContainerRepeat::fromArray(['max' => $max, 'min' => $min, 'default' => $default]);
+        $repeat = ContainerRepeat::fromArray(['max' => $max, 'min' => $min, 'default' => $default, 'slots' => $this->readRepeatSlots($blockPath, $value)]);
 
         if ($repeat === null) {
             $this->violation($blockPath, DslErrorCode::InvalidValue, sprintf(
@@ -683,6 +683,56 @@ final class DslParser
         }
 
         return $repeat;
+    }
+
+    /**
+     * `repeat.slots` — the legacy ids a MERGED row keeps (the editor's
+     * "Sloučit do opakovaného řádku", {@see ContainerRepeat::$slots}): a list,
+     * one object per row 2, 3, …, mapping an id of the row's tree to the id
+     * that row had before the merge. Written by the editor, round-tripped by
+     * describe/get_design → set_design; an agent never needs to author it —
+     * but dropping it would orphan the old export versions of rows 2+.
+     *
+     * @param array<array-key, mixed> $repeat
+     * @return list<array<string, string>>
+     */
+    private function readRepeatSlots(string $path, array $repeat): array
+    {
+        $value = $repeat['slots'] ?? null;
+
+        if ($value === null) {
+            return [];
+        }
+
+        if (!is_array($value) || !array_is_list($value)) {
+            $this->wrongType($path, 'slots', 'a list of {"<templateId>": "<legacyId>"} objects (or null)', $value);
+
+            return [];
+        }
+
+        $slots = [];
+        foreach ($value as $index => $entry) {
+            if ($entry === []) {
+                $slots[] = [];
+                continue;
+            }
+            if (!is_array($entry) || array_is_list($entry)) {
+                $this->wrongType(self::join($path, 'slots'), (string) $index, 'an object {"<templateId>": "<legacyId>"}', $entry);
+                $slots[] = [];
+                continue;
+            }
+            $map = [];
+            foreach ($entry as $templateId => $legacyId) {
+                if (!is_string($legacyId) || $legacyId === '') {
+                    $this->wrongType(self::join(self::join($path, 'slots'), (string) $index), (string) $templateId, 'a non-empty id string', $legacyId);
+                    continue;
+                }
+                $map[(string) $templateId] = $legacyId;
+            }
+            $slots[] = $map;
+        }
+
+        return $slots;
     }
 
     /**

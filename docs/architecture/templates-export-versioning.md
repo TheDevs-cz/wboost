@@ -78,6 +78,20 @@ version.
   under the rows' DERIVED ids; the seeder expands the variant to find them
   and clamps the count to the row's current `[min, max]` (default when the
   version has none). See templates-containers.md "Repeatable rows".
+- **Merged rows (2026-11-09, P6 "Sloučit do opakovaného řádku")**: a merged
+  row's slots carry the OLD rows' ids (`repeat.slots`), so a pre-merge
+  version's values ("Střelec 3") need no translation — the seeder finds them
+  on the expanded variant under the very keys they were stored with. A
+  version WITHOUT a count shows the rows it has values for
+  (`RepeatableRows::inferredCounts`: at least the default, ≥ k+1 when slot k
+  is addressed), so lowering `default` later never truncates an old version.
+  **Hash / dedup**: the merge never touches history — a stored version keeps
+  its hash. But the FIRST re-export of a pre-merge fill is recorded as a NEW
+  version: the fill page now posts `rowCounts`, so the canonical form gains
+  `rows` (and, when `max` > N, the extra slots' sample texts); every further
+  identical export dedupes against that new version as usual. Deliberately
+  not special-cased (pinned in `ContainerRowMergeTest`): canonicalising
+  `rows` away would make the hash depend on the CURRENT design.
 - **User-moved elements (2026-11-09, M2)**: `ExportFillValues::$offsets` =
   variantId → elementId → `{x, y}` (canvas px of that variant; uniform for
   single / group / document), emitted only when non-empty — every stored

@@ -897,6 +897,19 @@ final class DesignCompilerTest extends TestCase
         self::assertSame(6, \WBoost\Web\Value\CanvasContainer::findById($parsed, 'row')?->repeat?->max);
     }
 
+    public function testAMergedRowCompilesItsLegacySlotsVerbatim(): void
+    {
+        $slots = [['score' => 'old-score-2'], ['score' => 'old-score-3']];
+        $compiled = $this->compile(self::rowsDesign([
+            ['kind' => 'container', 'id' => 'row', 'members' => ['score'], 'repeat' => ['max' => 6, 'default' => 3, 'slots' => $slots]],
+            ['kind' => 'container', 'id' => 'list', 'members' => [], 'children' => ['row'], 'maxHeight' => 600],
+        ]));
+
+        $byId = array_column($compiled->canvas['containers'], null, 'id');
+        self::assertSame(['max' => 6, 'min' => 1, 'default' => 3, 'slots' => $slots], $byId['row']['repeat'] ?? null);
+        self::assertSame($slots, \WBoost\Web\Value\CanvasContainer::findById(\WBoost\Web\Value\CanvasContainer::collectionFromCanvas($compiled->canvas), 'row')?->repeat?->slots);
+    }
+
     public function testRepeatBreakingTheStructureRulesIsDroppedLikeTheEditorDoes(): void
     {
         // Root `repeat` and a second repeatable child are dropped (the

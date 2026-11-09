@@ -485,6 +485,41 @@ final class DslParserTest extends TestCase
     }
 
     /**
+     * A MERGED row (the editor's "Sloučit do opakovaného řádku", P6) keeps
+     * the legacy ids of its old copies in `repeat.slots` — the DSL must
+     * round-trip them, or a get/set cycle would orphan rows 2+ of every old
+     * export.
+     */
+    public function testARepeatableRowRoundTripsItsLegacySlots(): void
+    {
+        $slots = [['score' => 'old-score-2'], ['score' => 'old-score-3', 'row' => 'old-row-3']];
+        $document = DslParser::parse(self::documentWith(
+            self::textElement(['id' => 'score']),
+            ['kind' => 'container', 'id' => 'row', 'members' => ['score'], 'repeat' => ['max' => 6, 'default' => 3, 'slots' => $slots]],
+            ['kind' => 'container', 'id' => 'list', 'members' => [], 'children' => ['row'], 'maxHeight' => 400],
+        ));
+
+        $row = $document->element('row');
+        self::assertInstanceOf(ContainerElement::class, $row);
+        self::assertSame($slots, $row->repeat?->slots);
+        self::assertSame(['max' => 6, 'min' => 1, 'default' => 3], $row->repeat?->toArray(), 'the limits view stays slot-free');
+        self::assertSame(['max' => 6, 'min' => 1, 'default' => 3, 'slots' => $slots], $document->toArray()['elements'][1]['repeat'] ?? null);
+        self::assertSame($document->toArray(), DslParser::parse($document->toArray())->toArray());
+
+        // Malformed slot entries are refused like any other wrong type.
+        self::reject(self::documentWith(
+            self::textElement(['id' => 'score']),
+            ['kind' => 'container', 'id' => 'row', 'members' => ['score'], 'repeat' => ['max' => 6, 'slots' => [['score' => 7]]]],
+            ['kind' => 'container', 'id' => 'list', 'members' => [], 'children' => ['row'], 'maxHeight' => 400],
+        ));
+        self::reject(self::documentWith(
+            self::textElement(['id' => 'score']),
+            ['kind' => 'container', 'id' => 'row', 'members' => ['score'], 'repeat' => ['max' => 6, 'slots' => ['score' => 'x']]],
+            ['kind' => 'container', 'id' => 'list', 'members' => [], 'children' => ['row'], 'maxHeight' => 400],
+        ));
+    }
+
+    /**
      * @return iterable<string, array{mixed}>
      */
     public static function invalidRepeats(): iterable

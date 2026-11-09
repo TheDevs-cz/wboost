@@ -416,7 +416,12 @@ the property controllers above only populate/mutate their (relocated) fields.
   `objX = (contRect.left - layerRect.left) + obj.getBoundingRect().left * scale`.
 - A single-selection **mini-toolbar** (pencil + duplicate / context-toggle / z-order
   / delete) and a **multi-select bar** (6-way align + z-order + delete, for
-  `activeSelection`). Quick actions are wired by `data-action` to the existing
+  `activeSelection`; plus "Vytvořit kontejner" and, since container-rows P6,
+  "Sloučit do opakovaného řádku" — templates-containers.md. A multi-object
+  gesture that must be ONE undo step sets `canvas.wboostHistoryBatch` while it
+  adds / removes objects: `canvas_history_controller` skips its per-event
+  snapshot then, and the gesture's closing `object:modified` takes the one
+  snapshot). Quick actions are wired by `data-action` to the existing
   clipboard/alignment/property controllers. The **pencil** opens a floating
   **popover** holding the full text / image property form (the relocated
   `#font-controls` / `#image-controls` markup — **`id="font-family-control"` must

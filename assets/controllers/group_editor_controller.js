@@ -109,11 +109,27 @@ export default class extends Controller {
         editor.canvas.wboostGroupSurfaces = () => {
             const active = this._variant(this.activeId);
             return {
+                // The row merge (P6) must reach EVERY size or none.
+                hydrated: this._shadowsHydrated === true,
                 active: active ? { id: active.id, label: active.label } : null,
                 others: this.variants
                     .filter((v) => v.id !== this.activeId && v.shadow)
                     .map((v) => ({ id: v.id, label: v.label, height: v.height, shadow: v.shadow })),
             };
+        };
+
+        // "Sloučit do opakovaného řádku" (container-rows P6) rewrites the
+        // sibling shadows itself (the same merge, by id, in every size —
+        // regardless of the multi-edit switches, like a structural change).
+        // Afterwards: rebaseline, so the edit pass the merge's closing
+        // object:modified triggers finds nothing left to propagate (a delta
+        // would move the shadows' objects a second time), mark the touched
+        // sizes dirty + reflow them, one undo point.
+        editor.canvas.wboostGroupShadowsChanged = (variantIds) => {
+            if (!this.sync) return;
+            this.sync.rebaseline();
+            this._afterPropagation(new Set(variantIds));
+            this._scheduleHistoryPush();
         };
 
         // Fabric event hooks on the ONE interactive canvas. Guard everything

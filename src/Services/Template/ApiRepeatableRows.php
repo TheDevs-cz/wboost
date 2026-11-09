@@ -143,7 +143,11 @@ final readonly class ApiRepeatableRows
      * - a row entry key that is no fillable member → `unknown_row_input`.
      *
      * Without `rows` the maps pass through untouched (every row shows its
-     * designed default, values addressed to slot ids keep working).
+     * designed default, values addressed to slot ids keep working) — except
+     * that a row the body addresses BEYOND its default by slot id shows those
+     * rows ({@see RepeatableRows::inferredCounts()}): the case of a row merged
+     * from hand-numbered copies (P6), whose old ids ("Střelec 3") callers
+     * keep sending. The same holds for a row a body's `rows` leaves out.
      *
      * @param array<array-key, mixed> $inputs
      * @param array<array-key, mixed> $images
@@ -158,7 +162,7 @@ final readonly class ApiRepeatableRows
         $shapeColors = self::stringKeyed($shapeColors);
 
         if ($rows === null || $rows === []) {
-            return new AppliedApiRows($inputs, $images, $shapeColors);
+            return new AppliedApiRows($inputs, $images, $shapeColors, self::inferredCounts($variant, $inputs, $images, $shapeColors));
         }
 
         if (!is_array($rows) || array_is_list($rows)) {
@@ -265,7 +269,24 @@ final readonly class ApiRepeatableRows
             $counts[$rowId] = $count;
         }
 
-        return new AppliedApiRows($inputs, $images, $shapeColors, $counts, $origins);
+        return new AppliedApiRows($inputs, $images, $shapeColors, $counts + self::inferredCounts($variant, $inputs, $images, $shapeColors), $origins);
+    }
+
+    /**
+     * Rows addressed past their default by slot id (a merged row's legacy
+     * ids) — see {@see apply()}.
+     *
+     * @param array<string, mixed> $inputs
+     * @param array<string, mixed> $images
+     * @param array<string, mixed> $shapeColors
+     * @return array<string, int>
+     */
+    private static function inferredCounts(TemplateVariant $variant, array $inputs, array $images, array $shapeColors): array
+    {
+        return RepeatableRows::inferredCounts(
+            [RepeatableRows::expand($variant)],
+            [...array_keys($inputs), ...array_keys($images), ...array_keys($shapeColors)],
+        );
     }
 
     /**

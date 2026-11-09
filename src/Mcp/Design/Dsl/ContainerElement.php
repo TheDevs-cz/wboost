@@ -130,7 +130,7 @@ readonly final class ContainerElement implements DesignElement
         }
 
         if ($this->repeat !== null) {
-            $data['repeat'] = $this->repeat->toArray();
+            $data['repeat'] = $this->repeat->toStoredArray();
         }
 
         return $data;

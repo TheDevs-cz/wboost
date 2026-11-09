@@ -343,7 +343,30 @@ export function normalizeRepeat(raw) {
     const def = raw.default === undefined ? min : raw.default;
     if (![max, min, def].every((value) => Number.isInteger(value))) return null;
     if (min < 1 || max > 30 || min > def || def > max) return null;
-    return { max, min, default: def };
+    const slots = normalizeRepeatSlots(raw.slots);
+    return slots.length ? { max, min, default: def, slots } : { max, min, default: def };
+}
+
+/**
+ * `repeat.slots` — the LEGACY ids a merged row keeps ("Sloučit do
+ * opakovaného řádku", container_row_merge.js): one `{templateId: legacyId}`
+ * map per row 2, 3, … (≡ PHP ContainerRepeat::$slots). Kept verbatim through
+ * every save; malformed pairs dropped, a malformed entry becomes `{}` so the
+ * later rows keep their positions, trailing empties trimmed.
+ */
+export function normalizeRepeatSlots(raw) {
+    if (!Array.isArray(raw)) return [];
+    const slots = raw.slice(0, 29).map((entry) => {
+        const map = {};
+        if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
+            Object.keys(entry).forEach((key) => {
+                if (key !== '' && typeof entry[key] === 'string' && entry[key] !== '') map[key] = entry[key];
+            });
+        }
+        return map;
+    });
+    while (slots.length && Object.keys(slots[slots.length - 1]).length === 0) slots.pop();
+    return slots;
 }
 
 /**

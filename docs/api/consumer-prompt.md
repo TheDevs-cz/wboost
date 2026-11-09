@@ -982,7 +982,10 @@ row flowing below the previous one inside `parentContainerId`.
   row. Removing row 2 of 4 = send the list without it (later rows shift up).
 - **Without `rows`** every row shows its `default` count and row 1 keeps
   taking its values from `inputs` / `images` like before (backward
-  compatible). Once you send `rows` for a row, send ALL of that row's values
+  compatible). Exception: a value addressed to a LATER row by its slot id —
+  typically a row merged from hand-numbered copies, whose old ids
+  ("Střelec 3") you may still send — shows at least that many rows (the
+  export history records that count too). Once you send `rows` for a row, send ALL of that row's values
   there: the same member also in `inputs` / `images` / `shapeColors` is a
   `400 ambiguous_row_value`.
 - **Height.** `max` is the hard cap; the rows must also FIT the parent

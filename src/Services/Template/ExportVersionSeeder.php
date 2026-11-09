@@ -146,9 +146,11 @@ readonly final class ExportVersionSeeder
             // colour since dropped from its list, falls back to the design.
             'shapeColorValues' => $this->resolveShapeColorOverrides->forVariant($variant, $values->shapeColors, lenient: true),
             'imageValues' => $imageValues,
-            // Clamped to the rows' CURRENT limits; the default for a row the
-            // version predates (or a version recorded before rows existed).
-            'rowCounts' => RepeatableRows::normalizeCounts([$variant], $values->rows),
+            // Clamped to the rows' CURRENT limits. A version without a count
+            // (recorded before the row existed — a MERGED row's old
+            // hand-numbered values address its slots by their legacy ids)
+            // shows the rows it has values for, at least the default.
+            'rowCounts' => RepeatableRows::normalizeCounts([$variant], $values->rows + RepeatableRows::inferredCounts([$variant], self::addressedIds($values))),
             // The user's element moves, re-clamped to the CURRENT allowance
             // (a move the designer has since forbidden or capped lower is
             // dropped / shortened, never replayed past the limit).
@@ -340,7 +342,7 @@ readonly final class ExportVersionSeeder
             'imageHidden' => $imageHidden,
             'placements' => $placements,
             // ONE shared count per row across the dimensions (Jan, 2026-11-09).
-            'rowCounts' => RepeatableRows::normalizeCounts($memberVariants, $values->rows),
+            'rowCounts' => RepeatableRows::normalizeCounts($memberVariants, $values->rows + RepeatableRows::inferredCounts($memberVariants, self::addressedIds($values))),
             // Element moves are PER DIMENSION (variantId → elementId → {x, y}),
             // each re-clamped to that member's CURRENT allowance.
             'offsets' => self::memberOffsets($memberVariants, $values->offsets),
@@ -364,6 +366,23 @@ readonly final class ExportVersionSeeder
         }
 
         return $offsets;
+    }
+
+    /**
+     * Every id a stored fill holds a value for — the input of
+     * {@see RepeatableRows::inferredCounts()} for versions without a row count.
+     *
+     * @return list<array-key>
+     */
+    private static function addressedIds(ExportFillValues $values): array
+    {
+        return [
+            ...array_keys($values->texts),
+            ...$values->hidden,
+            ...array_keys($values->fonts),
+            ...array_keys($values->images),
+            ...array_keys($values->shapeColors),
+        ];
     }
 
     /**

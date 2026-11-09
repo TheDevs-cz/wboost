@@ -310,7 +310,9 @@ unchanged).
   for member inputIds, image slots (their `images[<id>]` / placement keys
   follow), shapes, decorations and container ids. Computed only in PHP (the
   markup carries them). The namespace is a fill-state key space — never
-  change it (stored versions).
+  change it (stored versions). A MERGED row (P6, below) overrides them per
+  slot with its old rows' ids (`repeat.slots`) — always read a row's real
+  ids off the EXPANDED design, never re-derive them.
 - **Unused rows = hidden rows.** `ResolvedInputOverrides::$rowCounts`
   (`withRowCounts()`) → `effectiveHidden()` adds the deep members of every
   slot ≥ count (`CanvasContainer::inactiveRowMemberIds`; count clamped to
@@ -519,3 +521,94 @@ action P6.
 - **P5–P6 notes**: the editor never materialises slots, so no clone can leak into
   a save; the editor's `fits` is unclamped (prefill), the server's
   `designedCapacity` is clamped to [min, max].
+
+**Repeatable rows — "Sloučit do opakovaného řádku" (2026-11-09, plan P6)** —
+converts EXISTING hand-numbered copies of a row into one repeatable row,
+ONLY by this explicit editor action (Jan's decision 8: nothing automatic),
+keeping the old rows' ids alive so saved exports, drafts, API callers, mfkfm
+and documents keep working. The real cases: "Výsledky turnaje" (five nested
+"Skóre N + Soupeř N" rows) and the "Výsledek" group (single "D/H - Střelec
+1–4" texts per column, two sizes, versions in use).
+
+- **Legacy-id contract** (`repeat.slots`, `ContainerRepeat::$slots`, JS
+  `normalizeRepeatSlots`): `slots[k−1]` maps every id of the TEMPLATE row's
+  tree (member inputIds AND container ids — the row container itself in the
+  `containers` shape) to the id row k+1 had before the merge:
+  `"repeat": {"max": 6, "min": 1, "default": 4, "slots": [{"<skóre1>":
+  "<skóre2>", "<soupeř1>": "<soupeř2>", "<row1>": "<row2>"}, …]}`.
+  `RepeatableRows::expandCanvas` gives slot k those ids instead of the uuid5
+  (objects, slot container ids + member lists, cloned inputs) — only ids of
+  the row's own tree, never an id the design already uses, never one id for
+  two slots (`legacyIdMaps`: a collision falls back to the derived id), and
+  slots ≥ `max` are not materialised (their old values are then ignored —
+  the ⚙ popover warns when max < merged rows). An entry may be partial (the
+  rest of that slot derives). Everything downstream reads ids off the
+  expanded design (fill pages, resolvers, seeders, documents' fill keys,
+  P5's `ApiRepeatableRows::describe`), so nothing else knows about `slots`.
+  Emitted only when set: `ContainerRepeat::toArray()` stays the LIMITS view
+  (layoutData, describe_variant, API); `toStoredArray()` adds `slots` for
+  writers of the design (MCP compiler, decompiled DSL). Kept verbatim through
+  every editor save (`normalizeRepeat`), number edits in ⚙, group sync
+  (`repeat` copied whole) and the projector (unknown keys kept); ⧉ duplicate
+  strips it from the copy (the copy's members have new ids).
+- **Row-count inference** (`RepeatableRows::inferredCounts` /
+  `inferredCountsFor`): a fill WITHOUT a count for a row — a pre-merge export
+  version, an API / MCP body without `rows` — that addresses slot k ≥ 1 (any
+  deep member id or the slot container id) shows `max(default, k+1)` rows,
+  clamped. Applied by `ExportVersionSeeder` (single + group; documents and
+  the export-history API go through it), `ApiRepeatableRows::apply` (render
+  AND the recorded count agree; a body's explicit `rows` win), MCP
+  `VariantFill::texts`. NEVER on web fill posts (they carry every slot's
+  mirror and always the count). So an old version restores all its rows even
+  after the designer lowered `default`.
+- **The action** (`assets/controllers/container_row_merge.js`, pure +
+  dependency-free: the editor, every group shadow and the PHP suite's node
+  harness run the same code): multi-select ONE element per row (or the
+  single texts of a column) → the "Sloučit do opakovaného řádku" button in
+  the multi-select bar (`mergeSelectionIntoRow`; never `disabled` — dimmed,
+  and a click on a non-mergeable selection toasts the reason). Two shapes:
+  `containers` (sibling nested rows of one parent; row 1's container becomes
+  the row) and `texts` (direct members of one container; row 1's element is
+  wrapped in a NEW nested 1-item row, its id minted once and shared by every
+  size). Row 1 = the topmost; it keeps its ids, settings, sample and z-order;
+  rows 2…N leave the design (objects, inputs, definitions); everything
+  designed below the rows in the parent and in each ancestor moves UP by the
+  removed height, so the server's expansion (which pushes it down again)
+  reproduces the drawn geometry. `repeat = {max: max(N, what fits — the
+  smallest size), min 1, default N, slots}`, then the row's ⚙ opens.
+- **Refused, with the reason**: < 2 rows; elements of ONE row; rows in
+  different containers; a mix of rows and single elements; rows not
+  consecutive in the parent's flow; a parent WITHOUT a uniform `gap`
+  (designed gaps would not give the drawn pitch — set the gap first); a parent
+  that already has a repeatable row; rows inside / holding a repeatable row;
+  structural difference (member count / kinds / order, nested groups) or a
+  HARD property difference — anything that changes pixels or value semantics
+  (font, size, colour, align, line height, rich vs plain, lists, uppercase,
+  hidable, locked, picture source, slot permissions, container gap / hide).
+  SOFT differences are listed in a confirm and row 1's wins: geometry (left /
+  relative top / box size beyond 0.5 px — Turnaj "Skóre 3" is 41.77 px
+  narrower, Výsledek H-Střelec 2–4 sit 1.85 px right), max length, font /
+  colour allowlists, gallery folders, user-move allowance. Names, samples and
+  descriptions are expected to differ and are not compared (the merged rows
+  show row 1's sample — Jan's decision 6). Z-order: the expansion paints the
+  rows right above row 1, not where the copies sat (identical unless a copy
+  overlapped another element).
+- **One undo step**: the removals run under `canvas.wboostHistoryBatch`
+  (`canvas_history_controller` skips its per-event snapshot); the closing
+  `object:modified` snapshots once. Group editor: the SAME plan (validated
+  per size — same mode, count, slots, else refused naming the size) is
+  applied to every shadow regardless of the multi-edit switches, then
+  `canvas.wboostGroupShadowsChanged(ids)` rebaselines GroupSync (so the edit
+  pass does not move the shadows a second time), marks the sizes dirty and
+  pushes ONE group history point; `wboostGroupSurfaces().hydrated` gates it
+  (all sizes or none).
+- **Hash / dedup**: see templates-export-versioning.md "Merged rows".
+- Tests: `RepeatableRowsLegacySlotsTest` (expansion, collisions, inference,
+  VO), `ContainerRowMergeTest` (the REAL module via
+  `tests/Fixtures/containers/row-merge-harness.cjs` + `RowMergeFixtures`:
+  structure, old ids after expansion, engine parity at N and cut to 3,
+  version restore single + group incl. a lowered default, the hash contract,
+  MCP, refusals), `ContainerRowMergeRenderTest` (Gotenberg: merged ≡ hand
+  design with the old fill, Turnaj 5 / 3 rows, Výsledek with a hidden
+  scorer), MCP `DslParserTest` / `DesignCompilerTest` /
+  `DesignDecompilerTest` (slots round-trip).

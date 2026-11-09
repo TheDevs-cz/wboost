@@ -72,6 +72,11 @@ final readonly class RepeatableRows
      * tree) in slot `$slot` of row `$rowId`. Slot 0 is the designed row and
      * keeps the original id; slot k ≥ 1 gets a deterministic uuid5 —
      * computed only here (the markup carries the ids, so there is no JS twin).
+     *
+     * A row MERGED from hand-numbered copies (P6) overrides this per slot
+     * with the copies' old ids (`repeat.slots`, applied inside
+     * {@see expandCanvas()} — read the expanded design, not this function,
+     * to learn a merged row's real ids).
      */
     public static function slotId(string $rowId, string $originalId, int $slot): string
     {
@@ -190,6 +195,79 @@ final readonly class RepeatableRows
                 $value = $raw[$container->id] ?? null;
                 $requested = is_int($value) ? $value : (is_string($value) && preg_match('/^\d+$/', $value) === 1 ? (int) $value : null);
                 $counts[$container->id] = $container->repeat->clamp($requested);
+            }
+        }
+
+        return $counts;
+    }
+
+    /**
+     * Row counts IMPLIED by the ids a fill addresses, for fills that carry no
+     * count of their own: an export version recorded before the row existed
+     * (the P6 merge keeps the hand-numbered rows' ids alive as slot ids, so
+     * a 25-version-old "Střelec 3" value addresses slot 2), and an API / MCP
+     * body (no `rows` field yet). A row whose slot k ≥ 1 is addressed — any
+     * deep member id or the slot container id itself (a container hide) —
+     * shows at least k + 1 rows: `max(default, k + 1)` clamped to
+     * `[min, max]`. Rows with nothing addressed beyond slot 0 are LEFT OUT
+     * (callers fall back to the default), so an explicit count always wins:
+     * `$explicit + inferredCounts(…)`.
+     *
+     * NEVER feed it a web fill page's values: those carry every materialised
+     * slot's mirror (sample texts included) and always carry the count.
+     *
+     * @param iterable<TemplateVariant> $variants EXPANDED variants (a group's dimensions share ids — first wins)
+     * @param list<array-key> $addressedIds
+     * @return array<string, int>
+     */
+    public static function inferredCounts(iterable $variants, array $addressedIds): array
+    {
+        if ($addressedIds === []) {
+            return [];
+        }
+
+        $counts = [];
+
+        foreach ($variants as $variant) {
+            if (!str_contains($variant->canvas, '"repeatSlots"')) {
+                continue; // no expanded row — nothing can be addressed
+            }
+            $decoded = json_decode($variant->canvas, true);
+            // A group's dimensions share row ids (and the addressed ids): the
+            // first dimension that infers a count for a row keeps it.
+            $counts += self::inferredCountsFor(CanvasContainer::collectionFromCanvas(is_array($decoded) ? $decoded : []), $addressedIds);
+        }
+
+        return $counts;
+    }
+
+    /**
+     * {@see inferredCounts()} over one EXPANDED container collection.
+     *
+     * @param list<CanvasContainer> $containers
+     * @param list<array-key> $addressedIds
+     * @return array<string, int>
+     */
+    public static function inferredCountsFor(array $containers, array $addressedIds): array
+    {
+        $addressed = array_fill_keys(array_map(strval(...), $addressedIds), true);
+        $counts = [];
+
+        foreach ($containers as $row) {
+            if ($row->repeat === null || $row->repeatSlotIds === []) {
+                continue;
+            }
+
+            for ($slot = count($row->repeatSlotIds) - 1; $slot >= 1; $slot--) {
+                $slotContainer = CanvasContainer::findById($containers, $row->repeatSlotIds[$slot]);
+                if ($slotContainer === null) {
+                    continue;
+                }
+                $ids = [$slotContainer->id, ...$slotContainer->deepMemberInputIds($containers)];
+                if (array_filter($ids, static fn (string $id): bool => isset($addressed[$id])) !== []) {
+                    $counts[$row->id] = $row->repeat->clamp(max($row->repeat->default, $slot + 1));
+                    break;
+                }
             }
         }
 
@@ -370,6 +448,13 @@ final readonly class RepeatableRows
 
         $clonedImageInputs = [];
 
+        // Legacy slot ids (P6 merge) may only be used while nothing in the
+        // design carries them already, and only once across all rows — a
+        // collision falls back to the derived id (never two objects, two
+        // inputs or two containers with one id).
+        $taken = self::idsInDesign($objects, $rawContainers);
+        $claimedLegacy = [];
+
         foreach ($rows as $row) {
             \assert($row->repeat !== null);
             $parent = self::parentOf($collection, $row->id);
@@ -379,6 +464,7 @@ final readonly class RepeatableRows
 
             $treeContainerIds = self::treeContainerIds($collection, $row);
             $memberIds = array_flip($row->deepMemberInputIds($collection));
+            $idMaps = self::legacyIdMaps($row, $memberIds + $treeContainerIds, $taken, $claimedLegacy);
 
             $memberIndexes = [];
             foreach ($objects as $index => $object) {
@@ -414,7 +500,7 @@ final readonly class RepeatableRows
                 foreach ($memberIndexes as $index) {
                     $object = $objects[$index];
                     \assert(is_array($object));
-                    $clones[] = self::translated(self::rekeyed($object, $row->id, $slot), $slot * $pitch);
+                    $clones[] = self::translated(self::rekeyed($object, $row->id, $slot, $idMaps[$slot] ?? []), $slot * $pitch);
                 }
             }
             $insertAt = max($memberIndexes) + 1;
@@ -424,12 +510,12 @@ final readonly class RepeatableRows
             $slotIds = [$row->id];
             $newDefinitions = [];
             for ($slot = 1; $slot < $slots; $slot++) {
-                $slotIds[] = self::slotId($row->id, $row->id, $slot);
+                $slotIds[] = $idMaps[$slot][$row->id] ?? self::slotId($row->id, $row->id, $slot);
                 foreach ($rawContainers as $raw) {
                     if (!is_array($raw) || !is_string($raw['id'] ?? null) || !isset($treeContainerIds[$raw['id']])) {
                         continue;
                     }
-                    $newDefinitions[] = self::slotDefinition($raw, $row->id, $slot);
+                    $newDefinitions[] = self::slotDefinition($raw, $row->id, $slot, $idMaps[$slot] ?? []);
                 }
             }
 
@@ -458,7 +544,7 @@ final readonly class RepeatableRows
             foreach (array_keys($memberIds) as $memberId) {
                 $memberId = (string) $memberId;
                 for ($slot = 1; $slot < $slots; $slot++) {
-                    $derived = self::slotId($row->id, $memberId, $slot);
+                    $derived = $idMaps[$slot][$memberId] ?? self::slotId($row->id, $memberId, $slot);
                     if (isset($textInputsById[$memberId])) {
                         $textInputsById[$derived] = EditorTextInput::fromArray(['inputId' => $derived] + $textInputsById[$memberId]->toArray());
                     }
@@ -511,18 +597,88 @@ final readonly class RepeatableRows
     }
 
     /**
+     * Slot k → template-tree id → the LEGACY id slot k takes instead of the
+     * derived one ({@see ContainerRepeat::$slots}, written by the editor's
+     * "Sloučit do opakovaného řádku"). Only ids of the row's own tree, and
+     * only legacy ids no other object / container / row already uses
+     * (`$taken`, `$claimed` — updated here).
+     *
+     * @param array<array-key, mixed> $treeIds the row's deep member ids + tree container ids (as keys)
+     * @param array<string, true> $taken
+     * @param array<string, true> $claimed
+     * @return array<int, array<string, string>>
+     */
+    private static function legacyIdMaps(CanvasContainer $row, array $treeIds, array $taken, array &$claimed): array
+    {
+        \assert($row->repeat !== null);
+        $maps = [];
+
+        foreach ($row->repeat->slots as $index => $legacy) {
+            $slot = $index + 1;
+            if ($slot >= $row->repeat->max) {
+                break; // a slot the row no longer materialises
+            }
+            foreach ($legacy as $templateId => $legacyId) {
+                if (!isset($treeIds[$templateId]) || isset($taken[$legacyId]) || isset($claimed[$legacyId])) {
+                    continue;
+                }
+                $maps[$slot][$templateId] = $legacyId;
+                $claimed[$legacyId] = true;
+            }
+        }
+
+        return $maps;
+    }
+
+    /**
+     * Every id the design already uses: object inputIds (group children
+     * included) and container ids.
+     *
+     * @param array<int, mixed> $objects
+     * @param array<int, mixed> $containers
+     * @return array<string, true>
+     */
+    private static function idsInDesign(array $objects, array $containers): array
+    {
+        $ids = [];
+        $walk = static function (array $list) use (&$walk, &$ids): void {
+            foreach ($list as $object) {
+                if (!is_array($object)) {
+                    continue;
+                }
+                if (is_string($object['inputId'] ?? null) && $object['inputId'] !== '') {
+                    $ids[$object['inputId']] = true;
+                }
+                if (is_array($object['objects'] ?? null)) {
+                    $walk($object['objects']);
+                }
+            }
+        };
+        $walk($objects);
+
+        foreach ($containers as $container) {
+            if (is_array($container) && is_string($container['id'] ?? null) && $container['id'] !== '') {
+                $ids[$container['id']] = true;
+            }
+        }
+
+        return $ids;
+    }
+
+    /**
      * @param array<array-key, mixed> $raw
+     * @param array<string, string> $legacy template-tree id → this slot's legacy id
      * @return array<array-key, mixed>
      */
-    private static function slotDefinition(array $raw, string $rowId, int $slot): array
+    private static function slotDefinition(array $raw, string $rowId, int $slot, array $legacy = []): array
     {
         $originalId = is_string($raw['id'] ?? null) ? $raw['id'] : '';
-        $raw['id'] = self::slotId($rowId, $originalId, $slot);
+        $raw['id'] = $legacy[$originalId] ?? self::slotId($rowId, $originalId, $slot);
 
         foreach (['memberInputIds', 'memberContainerIds'] as $key) {
             if (is_array($raw[$key] ?? null)) {
                 $raw[$key] = array_map(
-                    static fn (mixed $id): mixed => is_string($id) && $id !== '' ? self::slotId($rowId, $id, $slot) : $id,
+                    static fn (mixed $id): mixed => is_string($id) && $id !== '' ? ($legacy[$id] ?? self::slotId($rowId, $id, $slot)) : $id,
                     $raw[$key],
                 );
             }
@@ -546,18 +702,19 @@ final readonly class RepeatableRows
 
     /**
      * @param array<array-key, mixed> $object
+     * @param array<string, string> $legacy template-tree id → this slot's legacy id
      * @return array<array-key, mixed>
      */
-    private static function rekeyed(array $object, string $rowId, int $slot): array
+    private static function rekeyed(array $object, string $rowId, int $slot, array $legacy = []): array
     {
         if (is_string($object['inputId'] ?? null) && $object['inputId'] !== '') {
-            $object['inputId'] = self::slotId($rowId, $object['inputId'], $slot);
+            $object['inputId'] = $legacy[$object['inputId']] ?? self::slotId($rowId, $object['inputId'], $slot);
         }
 
         if (is_array($object['objects'] ?? null)) {
             foreach ($object['objects'] as $i => $child) {
                 if (is_array($child)) {
-                    $object['objects'][$i] = self::rekeyed($child, $rowId, $slot);
+                    $object['objects'][$i] = self::rekeyed($child, $rowId, $slot, $legacy);
                 }
             }
         }

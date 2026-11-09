@@ -157,7 +157,10 @@ follow. One service, `Services/Template/ApiRepeatableRows`:
   version apply first), feeds `withRowCounts($counts)` and re-tags resolver
   refusals through `AppliedApiRows::tag()` (id → the template id sent, +
   `rowContainerId`, `rowIndex`). No `rows` → maps untouched, every row at
-  its default (backward compatible).
+  its default (backward compatible) — unless the maps address a row's slot
+  k ≥ 1 by id (a P6-merged row's legacy ids): `apply` then adds
+  `RepeatableRows::inferredCounts` (≥ k+1) to `counts`, for rows the body's
+  `rows` does not name too, so the render and the recorded count agree.
 - **Groups:** `assertKnownInGroup()` (a key no member carries →
   `not_repeatable`), each member applies with `groupMember: true` (skips row
   ids it does not carry at all), `ApiExportRenderer::groupMemberValues()`

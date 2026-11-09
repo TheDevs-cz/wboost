@@ -7,6 +7,7 @@ import { designHeight, trimOriginRect } from './canvas_viewport.js';
 import { buildContainerMoveSection } from './canvas_user_move.js';
 import { applyRepeatRules, normalizeRepeat, repeatBlockReason } from './canvas_payload.js';
 import { MAX_ROWS, rowCapacity } from './container_rows.js';
+import { applyRowMerge, planRowMerge } from './container_row_merge.js';
 
 /**
  * Container ("smart text area") authoring for the admin canvas editor.
@@ -52,7 +53,7 @@ import { MAX_ROWS, rowCapacity } from './container_rows.js';
  */
 export default class extends Controller {
     static outlets = ["canvas-editor"];
-    static targets = ["layer", "createButton", "section", "panel", "panelList", "rowButton"];
+    static targets = ["layer", "createButton", "mergeButton", "section", "panel", "panelList", "rowButton"];
 
     /** Zone/panel accent per nesting depth — parent and child containers must
      *  read as DIFFERENT colors at a glance (cycled past depth 2). */
@@ -234,6 +235,7 @@ export default class extends Controller {
         this._closeSettings();
         this._syncSection(active);
         this._syncCreateButton(active);
+        this._syncMergeButton(active);
     }
 
     // --- creating / dissolving / membership --------------------------------
@@ -399,6 +401,202 @@ export default class extends Controller {
             : c));
         defs.push(candidate);
         return repeatBlockReason(defs, candidate);
+    }
+
+    // --- "Sloučit do opakovaného řádku" (container-rows P6) -----------------
+
+    /**
+     * Merge hand-numbered copies of a row into ONE repeatable row (the
+     * multi-select bar). Select one element of each row (or the single texts
+     * of a column); the topmost row stays as the template with
+     * `repeat {max: what fits, ≥ N; min 1; default N; slots}` — `slots`
+     * keeps the removed rows' ids alive as the repeated rows' ids, so saved
+     * exports, drafts, API callers and documents keep landing in the right
+     * row (container_row_merge.js has the contract). In the group editor the
+     * SAME merge (same row id, same slots) is applied to every size, or to
+     * none. Differences that change nothing but a few pixels are listed for
+     * a confirm; real differences refuse with the reason. One undo step.
+     */
+    mergeSelectionIntoRow() {
+        const canvas = this._canvas();
+        if (!canvas) return;
+        const selection = canvas.getActiveObject();
+        if (!selection || (selection.type || '').toLowerCase() !== 'activeselection') {
+            this._mergeToast('Vyberte řádky ke sloučení', ['Označte aspoň dva stejné řádky v kontejneru — z řádku o více prvcích stačí jeden prvek.']);
+            return;
+        }
+
+        const selectedIds = selection.getObjects().map((o) => o.inputId).filter(Boolean);
+        const plan = this._planMergeFor(selection);
+        if (!plan.ok) {
+            this._mergeToast('Řádky nejde sloučit', [plan.reason]);
+            return;
+        }
+
+        // Group editor: every OTHER size must merge the very same rows the
+        // very same way (shared ids → one shared row count on the fill page).
+        const surfaces = typeof canvas.wboostGroupSurfaces === 'function' ? canvas.wboostGroupSurfaces() : null;
+        const siblings = [];
+        if (surfaces) {
+            if (surfaces.hydrated === false) {
+                this._mergeToast('Řádky zatím nejde sloučit', ['Počkejte, než se načtou ostatní velikosti skupiny.']);
+                return;
+            }
+            for (const other of surfaces.others || []) {
+                const otherPlan = planRowMerge({
+                    objects: other.shadow.getObjects(),
+                    containers: Array.isArray(other.shadow.wboostContainers) ? other.shadow.wboostContainers : [],
+                    selectedIds,
+                });
+                if (!otherPlan.ok) {
+                    this._mergeToast(`Řádky nejde sloučit ve velikosti ${other.label}`, [otherPlan.reason]);
+                    return;
+                }
+                const sameMerge = otherPlan.mode === plan.mode && otherPlan.count === plan.count
+                    && otherPlan.templateRowId === plan.templateRowId && otherPlan.templateMemberId === plan.templateMemberId
+                    && JSON.stringify(otherPlan.slots) === JSON.stringify(plan.slots);
+                if (!sameMerge) {
+                    this._mergeToast(`Řádky nejde sloučit ve velikosti ${other.label}`, ['Řádky jsou tam seřazené jinak než v této velikosti — srovnejte jejich pořadí shora dolů.']);
+                    return;
+                }
+                siblings.push({ other, plan: otherPlan });
+            }
+        }
+
+        const soft = [
+            ...plan.soft,
+            ...siblings.flatMap(({ other, plan: otherPlan }) => otherPlan.soft.map((line) => `${other.label} — ${line}`)),
+        ];
+        if (soft.length) {
+            const shown = soft.slice(0, 8).map((line) => `• ${line}`);
+            if (soft.length > shown.length) shown.push(`• … a ${soft.length - shown.length} dalších`);
+            const ok = window.confirm([
+                `Sloučit ${plan.count} řádky do jednoho opakovaného řádku?`,
+                '',
+                'Řádky se v drobnostech liší — sloučené řádky převezmou vzhled a nastavení 1. řádku:',
+                ...shown,
+                '',
+                'Uložené exporty, koncepty i volání API se dál načtou do správných řádků.',
+            ].join('\n'));
+            if (!ok) return;
+        }
+
+        canvas.discardActiveObject();
+        const rowId = plan.mode === 'texts' ? crypto.randomUUID() : plan.templateRowId;
+
+        // ONE undo step: the removals below must not each snapshot
+        // (canvas_history_controller honours the flag); the closing
+        // object:modified takes the single snapshot.
+        canvas.wboostHistoryBatch = true;
+        try {
+            this._applyMerge(canvas, plan, rowId);
+            siblings.forEach(({ other, plan: otherPlan }) => this._applyMerge(other.shadow, otherPlan, rowId));
+        } finally {
+            canvas.wboostHistoryBatch = false;
+        }
+
+        // Max = how many rows FIT (the smallest size decides), never below
+        // the merged count — the fill page opens with all N rows.
+        this._refreshRowInfo();
+        const info = this._rowInfo.get(rowId);
+        const max = Math.max(plan.count, Math.min(MAX_ROWS, info ? info.groupFits : plan.count));
+        [canvas, ...siblings.map(({ other }) => other.shadow)].forEach((target) => {
+            const row = (target.wboostContainers || []).find((c) => c.id === rowId);
+            if (row && row.repeat) row.repeat = { ...row.repeat, max };
+        });
+
+        this._dropDegenerate();
+        this._normalizeDesign();
+        this.renderZones();
+        canvas.requestRenderAll();
+        if (siblings.length && typeof canvas.wboostGroupShadowsChanged === 'function') {
+            canvas.wboostGroupShadowsChanged(siblings.map(({ other }) => other.id));
+        }
+        canvas.fire('object:modified', {});
+        this.canvasEditorOutlet.dispatchSelectionChanged();
+
+        this._mergeToast(`Sloučeno: ${plan.count} řádky → 1 opakovaný řádek`, [
+            `Uživatel uvidí ${plan.count} řádky a může přidávat až do ${max}. Staré exporty se načtou do správných řádků.`,
+        ], true);
+        const row = this._containers().find((c) => c.id === rowId);
+        if (row) this._openSettings(row);
+    }
+
+    /** One canvas (the live one or a group shadow): definitions, removals, moves. */
+    _applyMerge(target, plan, rowId) {
+        const { containers } = applyRowMerge(Array.isArray(target.wboostContainers) ? target.wboostContainers : [], plan, { rowId, max: plan.count });
+        // Definitions FIRST: the removals below then find no container to
+        // prune (and the parent already holds its repeatable row, so it is
+        // never "degenerate" in between).
+        target.wboostContainers = containers;
+        const removed = new Set(plan.removeInputIds);
+        const doomed = target.getObjects().filter((o) => o.inputId && removed.has(o.inputId));
+        if (doomed.length) target.remove(...doomed);
+        target.getObjects().forEach((o) => {
+            const dy = o.inputId ? plan.moves[o.inputId] : undefined;
+            if (typeof dy === 'number' && dy !== 0) {
+                o.set('top', o.top + dy);
+                o.setCoords();
+            }
+        });
+    }
+
+    _planMergeFor(selection) {
+        return planRowMerge({
+            objects: this._objects(),
+            containers: this._containers(),
+            selectedIds: selection.getObjects().map((o) => o.inputId).filter(Boolean),
+            // Members of an ActiveSelection carry relative coords.
+            geometry: (obj) => ({
+                left: this._absLeft(obj),
+                top: this._absTop(obj),
+                width: (obj.width || 0) * (obj.scaleX || 1),
+                height: (obj.height || 0) * (obj.scaleY || 1),
+            }),
+        });
+    }
+
+    _syncMergeButton(activeObject) {
+        if (!this.hasMergeButtonTarget) return;
+        const isSelection = activeObject && (activeObject.type || '').toLowerCase() === 'activeselection';
+        const plan = isSelection ? this._planMergeFor(activeObject) : null;
+        const ok = Boolean(plan && plan.ok);
+        // Never `disabled`: a click on a selection that cannot merge says WHY
+        // (a disabled button swallows the click and, in some browsers, the
+        // tooltip too).
+        this.mergeButtonTarget.setAttribute('aria-disabled', ok ? 'false' : 'true');
+        this.mergeButtonTarget.classList.toggle('is-unavailable', !ok);
+        this.mergeButtonTarget.title = ok
+            ? `Sloučit do opakovaného řádku — ${plan.count} řádky se stanou jedním, který si uživatel přidává (staré exporty zůstanou)`
+            : `Sloučit do opakovaného řádku — ${plan ? plan.reason : 'vyberte aspoň dva stejné řádky v kontejneru'}`;
+    }
+
+    _mergeToast(title, lines, success = false) {
+        let host = document.getElementById('gallery-toast-container');
+        if (!host) {
+            host = document.createElement('div');
+            host.id = 'gallery-toast-container';
+            host.className = 'gallery-toast-container';
+            document.body.appendChild(host);
+        }
+        const toast = document.createElement('div');
+        toast.className = `gallery-toast container-merge-toast${success ? ' container-merge-toast--success' : ''}`;
+        toast.setAttribute('role', success ? 'status' : 'alert');
+        const heading = document.createElement('strong');
+        heading.textContent = title;
+        toast.appendChild(heading);
+        lines.forEach((line) => {
+            const p = document.createElement('div');
+            p.className = 'small';
+            p.textContent = line;
+            toast.appendChild(p);
+        });
+        host.appendChild(toast);
+        requestAnimationFrame(() => toast.classList.add('gallery-toast--show'));
+        setTimeout(() => {
+            toast.classList.remove('gallery-toast--show');
+            setTimeout(() => toast.remove(), 300);
+        }, success ? 6000 : 9000);
     }
 
     _pruneRemoved(obj) {
@@ -1350,7 +1548,12 @@ export default class extends Controller {
             // (its copy lives in the copied parent — one row per parent
             // holds). The duplicated container ITSELF never keeps `repeat`:
             // its copy joins the same parent, which already has its row.
-            if (def.repeat && def.id !== container.id) copy.repeat = { ...def.repeat };
+            // A merged row's legacy `slots` stay with the ORIGINAL: the copy's
+            // members have new ids, and two rows claiming the same legacy ids
+            // would fight over the same stored values.
+            if (def.repeat && def.id !== container.id) {
+                copy.repeat = { max: def.repeat.max, min: def.repeat.min, default: def.repeat.default };
+            }
             containers.push(copy);
         });
 
@@ -1840,6 +2043,15 @@ export default class extends Controller {
             hint.textContent = on
                 ? 'Při vyplňování půjde řádek přidat (+) a odebrat (−). Nový řádek převezme ukázkový text tohoto řádku.'
                 : 'Uživatel si při vyplňování přidá tolik řádků, kolik potřebuje (např. výsledky, střelci).';
+            // A row merged from hand-numbered copies (P6): its slots keep
+            // the old rows' ids — say so, and warn when max cuts them off.
+            const merged = on && Array.isArray(container.repeat.slots) ? container.repeat.slots.length + 1 : 0;
+            if (merged > 1) {
+                hint.textContent += ` Řádek vznikl sloučením ${merged} řádků — jejich uložené hodnoty se načtou do řádků 1–${merged}.`;
+                if (container.repeat.max < merged) {
+                    hint.textContent += ` ⚠ Max. řádků je menší než ${merged}: starší exporty přijdou o řádky ${container.repeat.max + 1}–${merged}.`;
+                }
+            }
             if (!on) return;
             if (document.activeElement !== maxInput) maxInput.value = String(container.repeat.max);
             if (document.activeElement !== defaultInput) defaultInput.value = String(container.repeat.default);
@@ -1861,6 +2073,11 @@ export default class extends Controller {
                 const fits = fitsNow();
                 container.repeat = { max: Math.max(1, Math.min(MAX_ROWS, fits)), min: 1, default: 1 };
             } else {
+                const merged = Array.isArray(container.repeat && container.repeat.slots) ? container.repeat.slots.length + 1 : 0;
+                if (merged > 1 && !window.confirm(`Řádek vznikl sloučením ${merged} řádků. Když opakování zrušíte, uložené exporty už řádky 2–${merged} nenačtou (lze vrátit tlačítkem Zpět). Pokračovat?`)) {
+                    box.checked = true;
+                    return;
+                }
                 delete container.repeat;
                 const layout = this._layout();
                 const items = this._memberObjects(container).length
@@ -1883,7 +2100,8 @@ export default class extends Controller {
 
         const onNumbers = () => {
             const read = (input) => (input.value.trim() === '' ? NaN : Number(input.value));
-            const next = normalizeRepeat({ max: read(maxInput), default: read(defaultInput), min: read(minInput) });
+            // `slots` (a merged row's legacy ids) ride along untouched.
+            const next = normalizeRepeat({ max: read(maxInput), default: read(defaultInput), min: read(minInput), slots: container.repeat ? container.repeat.slots : undefined });
             if (!next) {
                 error.textContent = `Musí platit 1 ≤ min. počet ≤ výchozí počet ≤ max. řádků ≤ ${MAX_ROWS} (celá čísla).`;
                 error.hidden = false;
@@ -1893,7 +2111,7 @@ export default class extends Controller {
             container.repeat = next;
             this.renderZones();
             this.canvasEditorOutlet.markUnsaved();
-            this._renderFitInfo(fit, container);
+            sync();
             return true;
         };
         [maxInput, defaultInput, minInput].forEach((input) => {

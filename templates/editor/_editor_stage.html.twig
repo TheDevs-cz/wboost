@@ -62,6 +62,9 @@
         <button type="button" class="btn btn-sm btn-light" title="Zarovnat dolů" data-action="canvas-alignment#alignBottom"><i class="i i-alv-b s16"></i></button>
         <span class="canvas-mini-toolbar-sep"></span>
         <button type="button" class="btn btn-sm btn-light" title="Vytvořit kontejner" data-canvas-container-target="createButton" data-action="canvas-container#createFromSelection"><i class="i i-view-agenda s16"></i></button>
+        {# Container-rows P6: hand-numbered copies of a row → ONE repeatable
+           row that keeps the old rows' ids (saved exports stay valid). #}
+        <button type="button" class="btn btn-sm btn-light is-unavailable" aria-disabled="true" title="Sloučit do opakovaného řádku" aria-label="Sloučit do opakovaného řádku" data-canvas-container-target="mergeButton" data-action="canvas-container#mergeSelectionIntoRow"><i class="i i-list s16"></i></button>
         <span class="canvas-mini-toolbar-sep"></span>
         {# One opacity for every selected element (the background excluded). #}
         <label class="canvas-mini-toolbar-opacity" data-canvas-opacity-target="row" title="Průhlednost vybraných prvků">

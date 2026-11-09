@@ -620,6 +620,31 @@ final class DesignDecompilerTest extends TestCase
         self::assertSame([], $decompiled->losses);
     }
 
+    public function testAMergedRowDecompilesItsLegacySlots(): void
+    {
+        $slots = [['t1' => 'old-scorer-2'], ['t1' => 'old-scorer-3']];
+        $canvas = [
+            'objects' => [self::textbox(['top' => 0]), self::textbox(['top' => 100])],
+            'containers' => [
+                ['id' => 'list', 'maxHeight' => 400, 'memberInputIds' => [], 'memberContainerIds' => ['row']],
+                ['id' => 'row', 'maxHeight' => 400, 'memberInputIds' => ['t1'], 'repeat' => ['max' => 5, 'min' => 1, 'default' => 3, 'slots' => $slots]],
+            ],
+        ];
+
+        $decompiled = self::decompile($canvas, [self::textInput('t1', 'Střelec'), self::textInput('t2', 'Popisek')], []);
+        $row = null;
+        foreach ($decompiled->document->containerElements() as $container) {
+            if ($container->id === 'row') {
+                $row = $container;
+            }
+        }
+
+        self::assertNotNull($row);
+        self::assertSame($slots, $row->repeat?->slots);
+        self::assertSame(['max' => 5, 'min' => 1, 'default' => 3, 'slots' => $slots], $row->toArray()['repeat'] ?? null, 'get_design hands the agent the slots to send back');
+        self::assertSame([], $decompiled->losses);
+    }
+
     public function testAHidableContainerKeepsItsFlagAndLabel(): void
     {
         $canvas = [

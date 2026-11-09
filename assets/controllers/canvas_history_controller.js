@@ -26,7 +26,11 @@ export default class extends Controller {
         // positions — undo/redo then restored a layout that was never on
         // screen and the next edit "jumped" it back into the flow.
         this._snapshotIfClean = () => {
-            if (outlet.loadingCanvas) return;
+            // `wboostHistoryBatch`: a multi-object gesture (the container
+            // "Sloučit do opakovaného řádku" removes N objects) is ONE undo
+            // step — its own closing object:modified takes the snapshot. Read
+            // at EVENT time: the microtasks below run after the batch ends.
+            if (outlet.loadingCanvas || canvas.wboostHistoryBatch === true) return;
             queueMicrotask(() => {
                 if (!outlet.loadingCanvas) {
                     this.addToHistory();

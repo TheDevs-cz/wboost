@@ -111,11 +111,15 @@ readonly final class VariantFill
             // (and its whole tree) — refused strictly like the REST export.
             ValidateContainerHides::strictForCanvas($variant->canvas, $variant->inputs, $providedInputs);
 
-            return $this->resolveTextOverrides->resolve(
+            $overrides = $this->resolveTextOverrides->resolve(
                 $variant->inputs,
                 $providedInputs,
                 richTextOptions: $this->resolveRichTextOptions->forVariant($variant),
             );
+
+            // A value addressed to row k of a repeatable row (a MERGED row's
+            // legacy "Střelec 3" id) shows at least k + 1 rows.
+            return $overrides->withRowCounts(RepeatableRows::inferredCounts([$variant], array_keys($providedInputs)));
         } catch (InvalidRichTextValue $invalidRichText) {
             throw new ToolCallException(self::withContext(
                 sprintf('%s (%s)', $invalidRichText->getMessage(), $invalidRichText->errorCode),

@@ -595,7 +595,7 @@ within the document. Slugs carry input identity across saves.
 | `shape` userColor block | `target`, `colors`, `free` |
 | `background` element | `kind`, `id`, `asset`, `fill`, `fillable` |
 | `container` element | `kind`, `id`, `members`, `children`, `maxHeight`, `gap`, `spaceAfter`, `hidable`, `name`, `userMove`, `repeat` |
-| `repeat` block | `max`, `min`, `default` |
+| `repeat` block | `max`, `min`, `default`, `slots` |
 | `userMove` block | `vertical`, `horizontal`, `maxUp`, `maxDown`, `maxLeft`, `maxRight` |
 
 ### Enumerated values
@@ -697,6 +697,12 @@ within the document. Slugs carry input identity across saves.
   `repeat_inside_repeat` (no rows inside rows). `repeat_max_overflows` warns
   when `max` rows do not fit and says how many do — `describe_variant` reports
   the same estimate as `fitsRows` after saving.
+  A row the designer MERGED from hand-numbered copies ("Sloučit do
+  opakovaného řádku" in the editor) also carries `slots`: one object per row
+  2, 3, … mapping the row's CANVAS ids (input UUIDs / container ids — not your
+  slugs) to the ids those copies had, so old exports and
+  callers still land in their row. Never author it — but keep it verbatim when
+  you send a decompiled design back, or rows 2+ of every old export are lost.
 - **`userMove`** ("Uživatel může posunout") on a `text` (locked ones too), a
   `shape`, a **decorative** `image` or a **top-level** `container`: the person
   filling the template may move that element (a container: the whole block).

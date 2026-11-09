@@ -124,6 +124,16 @@ means:
   be identical in every size; the ⚙ popover shows "vejde se" per size and the
   smallest decides (`canvas.wboostGroupSurfaces()`). See
   templates-containers.md "Repeatable rows — the admin editor".
+- **"Sloučit do opakovaného řádku"** (container-rows P6) is applied to EVERY
+  size by the container controller itself — the same merge plan by id,
+  validated per size (refused, naming the size, when one size differs), the
+  same new row id — regardless of the multi-edit switches, and only once
+  every shadow is hydrated (`wboostGroupSurfaces().hydrated`). It then calls
+  `canvas.wboostGroupShadowsChanged(ids)`: GroupSync REBASELINES first (the
+  merge's own `object:modified` would otherwise diff the removed rows / moved
+  footers against the old baseline and move the shadows' objects a second
+  time), the sizes are marked dirty + reflowed, one group history point. The
+  active canvas' `object:removed` fan-out still runs and finds nothing.
 - **STRUCTURE** (`projectNewObject`, `removeObject` and the explicit
   per-element "Přenést do ostatních variant" `resync`, renamed from
   "Srovnat podle skupiny" 2026-10-22) goes to
