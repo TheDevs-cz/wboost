@@ -13,7 +13,6 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Csrf\CsrfToken;
 use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
-use Twig\Environment;
 use WBoost\Web\Entity\Manual;
 use WBoost\Web\Entity\ManualContentPage;
 use WBoost\Web\Exceptions\InvalidManualContent;
@@ -27,7 +26,7 @@ use WBoost\Web\Value\MockupPageLayout;
  * The content page editor for both roles — the intro (`manual_intro_page`,
  * addressed by its manual: it may not exist yet) and custom pages
  * (`manual_content_page`, addressed by page id). Same template, same
- * Stimulus controller, same one-POST save answering `{state, preview}`.
+ * Stimulus controller, same one-POST save answering `{state}`.
  */
 readonly final class ManualContentPageEditor
 {
@@ -38,7 +37,6 @@ readonly final class ManualContentPageEditor
         private ManualContentPageRepository $contentPageRepository,
         private ResolveManualContentStyles $resolveStyles,
         private ManualContentEditorState $editorState,
-        private Environment $twig,
         private CsrfTokenManagerInterface $csrfTokenManager,
         private UrlGeneratorInterface $urlGenerator,
         private ManualGalleryPicker $galleryPicker,
@@ -110,12 +108,6 @@ readonly final class ManualContentPageEditor
 
         return new JsonResponse([
             'state' => $page !== null ? $this->editorState->forPage($page) : $this->editorState->forIntro($manual, null),
-            'preview' => $this->twig->render('_manual_content_page_preview.html.twig', [
-                'manual' => $manual,
-                'content_page' => $page,
-                'is_intro' => $role === ManualContentPageRole::Intro,
-                'content_styles' => $this->resolveStyles->forManual($manual),
-            ]),
         ]);
     }
 

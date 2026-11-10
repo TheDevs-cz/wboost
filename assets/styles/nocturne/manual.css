@@ -357,15 +357,9 @@
 .mce-ghost { opacity: .4; }
 .mce-drag { background: #fff; border-color: var(--lav) !important; box-shadow: 0 12px 32px rgba(23,21,27,.18); }
 
-.mce-preview-page { padding: 8px 28px 4px; border-radius: 18px; background: #fff; color: #313a46; border: 1px solid var(--line); overflow-x: auto; }
-.mce-preview-page .page-heading { border-bottom: 1px solid #dee2e6 !important; color: #313a46; }
-.mce-preview-page .page-heading .fs-4 { font-size: 1.35rem !important; }
-.mce-preview-page .mcp-page { min-width: 640px; }
-.mce-preview-empty { margin: 0; }
 
 @media (max-width: 560px) {
     .mce-paper { padding: 14px; }
-    .mce-preview-page { padding: 6px 14px; }
     .mce-tb-hint { display: none; }
     .mce-tb-font { width: 100%; }
 }

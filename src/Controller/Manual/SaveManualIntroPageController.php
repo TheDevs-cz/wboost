@@ -20,8 +20,7 @@ use WBoost\Web\Value\ManualContent\ManualContentPageRole;
 /**
  * Saves the whole intro page in one POST: `payload` = the editor's JSON
  * document (`{name, layout, segments}`), `_token` = CSRF. Answers JSON —
- * the editor stays where it is and swaps in the fresh "Náhled v manuálu"
- * render plus the normalised state (fonts / colours the manual no longer
+ * the editor stays where it is and takes the normalised state (fonts / colours the manual no longer
  * allows are dropped server-side), so its dirty tracking compares against
  * what was really stored. Addressed by the manual: the intro page is
  * created by its first save.

@@ -120,16 +120,6 @@
             <input type="file" accept="image/*" hidden data-manual-content-editor-target="fileInput" data-action="change->manual-content-editor#filePicked">
         </section>
 
-        <section class="man-sec" aria-labelledby="mce-preview-title">
-            <div class="man-sech">
-                <h2 id="mce-preview-title">Náhled v manuálu</h2>
-                <span class="cap">Uložená podoba stránky tak, jak ji uvidí čtenáři manuálu. Po uložení se obnoví.</span>
-            </div>
-            <div class="mce-preview" data-manual-content-editor-target="preview">
-                {{ include('_manual_content_page_preview.html.twig') }}
-            </div>
-        </section>
-
         <div class="man-savebar">
             <span class="cap" data-manual-content-editor-target="status" role="status"></span>
             <span class="mockup-editor-dirty d-none" data-manual-content-editor-target="dirtyBadge">

@@ -117,7 +117,7 @@ function icon(name, size = "s16") {
 export default class extends Controller {
     static targets = [
         "name", "layoutRadio", "stage", "toolbar", "toolbarHint", "fontSelect", "colorList",
-        "linkBox", "linkInput", "linkError", "fileInput", "preview", "status", "dirtyBadge", "saveButton",
+        "linkBox", "linkInput", "linkError", "fileInput", "status", "dirtyBadge", "saveButton",
     ];
 
     static values = {
@@ -945,7 +945,6 @@ export default class extends Controller {
             const json = await response.json().catch(() => ({}));
             if (!response.ok) throw new Error(json.error || "Změnu se nepodařilo uložit. Zkuste to znovu.");
 
-            this.previewTarget.innerHTML = json.preview;
             // The server may have normalised the page (a font / colour the
             // manual no longer allows is dropped): reload only when it did,
             // so the caret and undo history survive an ordinary save.

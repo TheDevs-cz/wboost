@@ -736,9 +736,9 @@ All phases delivered 2026-11-09.
   `doc.isEmpty()` explicitly — `doc.empty` resolves to the STATIC factory
   `RichTextDoc::empty()` (always truthy).
 - **One partial** `_manual_content_page.html.twig` (+ heading row
-  `_manual_content_page_heading.html.twig`, + `_manual_content_page_preview.html.twig`
-  for the editor panel) for the public manual and the
-  editor's "Náhled v manuálu" panel. CSS `.mcp-*` in `app.css` (both
+  `_manual_content_page_heading.html.twig`) for the public manual (the
+  editor's "Náhled v manuálu" panel was removed 2026-11-10 — the editor paper
+  already is the 845 px page). CSS `.mcp-*` in `app.css` (both
   entrypoints), own typography/colours. Grid = the mockup 3 × 2 tracks on a
   **fixed 845 px page since 2026-11-10** (`--mcp-h`, ≥ 768 px viewports; below
   that auto height): two equal rows, text past a slot's height is cut off. The
@@ -860,9 +860,7 @@ All phases delivered 2026-11-09.
   add/sort by `ManualVoter::EDIT`. Name rules shared:
   `ManualContentPagePayload::name()`.
 - **Editor** = the intro's (`ManualContentPageEditor` builds the parameters
-  and handles the one-POST save for both roles). The "Náhled v manuálu" panel
-  of a custom page omits the page number (it depends on which built-in pages
-  the manual shows).
+  and handles the one-POST save for both roles). The save answers `{state}` only.
 - **Public render** (`manual_preview.html.twig`, `manual_pages` from
   `ManualPreviewTurboStream::previewParameters()`): after the built-in pages,
   the list in its shared order — mockup pages as before, content pages via

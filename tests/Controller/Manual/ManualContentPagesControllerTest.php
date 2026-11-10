@@ -57,8 +57,8 @@ final class ManualContentPagesControllerTest extends WebTestCase
         // The Stránky tab is the current one, not Úvodní stránka.
         self::assertSelectorExists('.man-tabs a[href="' . self::LIST_URL . '"][aria-current="page"]');
         self::assertSelectorTextContains('.man-tabs a[href="' . self::LIST_URL . '"] .pd-n', '2');
-        // An empty page previews as "not shown in the manual".
-        self::assertSelectorTextContains('.mce-preview', 'Stránka se v manuálu nezobrazuje');
+        // The editor has no "Náhled v manuálu" panel (removed 2026-11-10).
+        self::assertSelectorNotExists('.mce-preview');
     }
 
     public function testAddRefusesABlankNameAndAnInvalidToken(): void
@@ -87,12 +87,9 @@ final class ManualContentPagesControllerTest extends WebTestCase
         ], [], ['HTTP_ACCEPT' => 'application/json']);
 
         self::assertResponseIsSuccessful();
-        /** @var array{preview: string, state: array{name: string}} $json */
+        /** @var array{state: array{name: string}} $json */
         $json = json_decode((string) $browser->getResponse()->getContent(), true);
         self::assertSame('Naše hodnoty', $json['state']['name']);
-        self::assertStringContainsString('Poctivost', $json['preview']);
-        // A custom page's number depends on the built-in pages: not previewed.
-        self::assertStringNotContainsString('>01<', $json['preview']);
         self::assertSame('custom', $this->connection()->fetchOne('SELECT role FROM manual_content_page WHERE id = ?', [$pageId]));
 
         $this->insertIntro();

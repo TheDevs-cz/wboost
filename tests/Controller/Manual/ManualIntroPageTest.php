@@ -124,9 +124,8 @@ final class ManualIntroPageTest extends WebTestCase
         ]);
 
         self::assertResponseIsSuccessful();
-        /** @var array{preview: string, state: array{name: string}} $json */
+        /** @var array{state: array{name: string}} $json */
         $json = json_decode((string) $browser->getResponse()->getContent(), true);
-        self::assertStringContainsString('mcp-page', $json['preview']);
         self::assertSame('Vítejte', $json['state']['name']);
 
         $page = $this->introPage();
