@@ -26,7 +26,8 @@
        actions reuse the existing clipboard / alignment / property
        controllers via data-action; the pencil opens the full
        options popover below. #}
-    <div class="canvas-mini-toolbar d-none" role="toolbar" data-canvas-floating-toolbar-target="miniToolbar">
+    <div class="canvas-mini-toolbar canvas-mini-toolbar--stack d-none" role="toolbar" data-canvas-floating-toolbar-target="miniToolbar">
+        <div class="canvas-mini-toolbar__row">
         <button type="button" class="btn btn-sm btn-light" title="Upravit" data-action="canvas-floating-toolbar#openPopover"><i class="i i-edit s16"></i></button>
         <button type="button" class="btn btn-sm btn-light d-none" title="Nahradit obrázek z galerie" data-canvas-floating-toolbar-target="replaceImageButton" data-action="canvas-editor#showReplaceImageModal"><i class="i i-image-search s16"></i></button>
         <button type="button" class="btn btn-sm btn-light" title="Duplikovat" data-action="canvas-clipboard#duplicate"><i class="i i-copy s16"></i></button>
@@ -48,6 +49,21 @@
         <button type="button" class="btn btn-sm btn-light" title="Do pozadí" data-action="canvas-alignment#sendToBack"><i class="i i-back s16"></i></button>
         <span class="canvas-mini-toolbar-sep"></span>
         <button type="button" class="btn btn-sm btn-light text-danger" title="Smazat" data-action="canvas-alignment#deleteObject"><i class="i i-trash s16"></i></button>
+        </div>
+        {# The image size slider, under the icons — images only
+           (canvas-image-properties; 100 % = contained in the canvas,
+           logarithmic). #}
+        <div class="canvas-mini-toolbar__size d-none" data-canvas-image-properties-target="quickSize">
+            <label class="sz-ctl" title="Velikost obrázku — 100 % = celý obrázek přizpůsobený plátnu">
+                {{ icon('image', 's12') }}
+                <span class="visually-hidden">Velikost obrázku</span>
+                <input type="range" id="image-quick-size-control" min="0" max="1000" step="1" value="500"
+                       data-canvas-image-properties-target="sizeSlider"
+                       data-action="input->canvas-image-properties#slideSize change->canvas-image-properties#commitSize pointerup->canvas-image-properties#releaseQuickSize">
+                {{ icon('image', 's18') }}
+            </label>
+            <output class="canvas-mini-toolbar__size-value" for="image-quick-size-control" data-canvas-image-properties-target="sizeValue">100 %</output>
+        </div>
     </div>
 
     {# Floating multi-select bar (activeSelection): 6-way align +
@@ -410,9 +426,9 @@
             </div>
 
             {# "Velikost a poloha" — the editor twin of the fill page's image-adjust
-               panel (_fill_image_adjust.html.twig): size slider (100 % =
-               Přizpůsobit = contained in the canvas; logarithmic), exact
-               Š / V / X / Y in the variant's unit with an aspect lock, rotation,
+               panel (_fill_image_adjust.html.twig): exact Š / V / X / Y in
+               the variant's unit with an aspect lock, rotation (the size
+               slider lives under the mini-toolbar's icons),
                Vyplnit. Writes the same native Fabric
                geometry the handles do — canvas-image-properties, math in
                canvas_geometry.js. Hidden for the background layer. Text fields
@@ -420,17 +436,6 @@
                commits and never submits the editor form. #}
             <div class="ed-geo d-none" data-canvas-image-properties-target="geometry">
                 <h3 class="ed-sec-h">Velikost a poloha</h3>
-                <div class="ed-geo__zoom">
-                    <label class="sz-ctl ed-geo__slider" for="image-size-control" title="Velikost obrázku — 100 % = celý obrázek přizpůsobený plátnu">
-                        {{ icon('image', 's12') }}
-                        <span class="visually-hidden">Velikost obrázku</span>
-                        <input type="range" id="image-size-control" min="0" max="1000" step="1" value="500"
-                               data-canvas-image-properties-target="sizeSlider"
-                               data-action="input->canvas-image-properties#slideSize change->canvas-image-properties#commitSize">
-                        {{ icon('image', 's18') }}
-                    </label>
-                    <output class="ed-geo__value" for="image-size-control" data-canvas-image-properties-target="sizeValue">100 %</output>
-                </div>
                 <div class="ed-geo__grid">
                     {% for field in [
                         {key: 'width', label: 'Š', title: 'Šířka'},

@@ -128,7 +128,7 @@ templates-image-placeholders.md "Image adjust"): a section in the IMAGE popover
 math in `canvas_geometry.js` (node-testable; unit helpers re-exported from
 `image_placement.js`).
 
-- **Controls**: the gallery `.sz-ctl` size slider + "NN %", Š / 🔗 / V, X / Y,
+- **Controls**: the gallery `.sz-ctl` size slider + "NN %" (mini-toolbar), Š / 🔗 / V, X / Y,
   rotation (°), Vyplnit (the only quick action since 2026-11-10, here and on
   the fill pages), plus a hint line
   (placeholder: "rozměr rámečku…", editor-locked: "odemkněte"). Typed fields are
@@ -151,6 +151,11 @@ math in `canvas_geometry.js` (node-testable; unit helpers re-exported from
   the 🔗 aspect lock is ON for every newly selected image and keeps the box's
   CURRENT ratio (a stretched image stays stretched); off = one axis only.
   Rotation is about the centre and normalised to (-180, 180].
+- **Slider location (2026-11-10)**: the `sizeSlider` sits under the
+  mini-toolbar's icons (images only, `quickSize` target), not in the popover.
+  The bar holds still while its slider is pressed (`reposition` skips it on
+  `input:active`) and the release blurs the slider so canvas shortcuts keep
+  working.
 - **Vyplnit** covers the BLEED box (a full-bleed picture must reach the cut),
   centres and restores proportions. Rotation is kept.
 - **Writes only native Fabric geometry** (`scaleX/scaleY/angle` +

@@ -443,7 +443,9 @@ export default class extends Controller {
 
         const type = (obj.type || '').toLowerCase();
         const bar = type === 'activeselection' ? this.multiBarTarget : this.miniToolbarTarget;
-        const barShown = bar && !bar.classList.contains('d-none');
+        // Held still while its own size slider is dragged: the image grows
+        // under it, and the bar must not move (or flip) away from the pointer.
+        const barShown = bar && !bar.classList.contains('d-none') && !bar.querySelector('input[type="range"]:active');
         if (barShown) this._placeBar(bar, box, g);
 
         const popover = this._openPopoverEl();

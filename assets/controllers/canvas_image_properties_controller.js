@@ -34,6 +34,8 @@ export default class extends Controller {
         "warning", "editorLocked", "transformLimit", "backgroundHint",
         // "Velikost a poloha" (size slider, W/H/X/Y, aspect lock, rotation).
         "geometry", "sizeSlider", "sizeValue", "geoField", "geoUnit", "aspectLock", "geoHint",
+        // The row under the mini-toolbar's icons holding the size slider.
+        "quickSize",
     ];
 
     canvasEditorOutletConnected(outlet) {
@@ -412,14 +414,14 @@ export default class extends Controller {
         this._pin();
         if (!this._slideBase || this._slideBase.object !== image) {
             const geometry = this._geometryOf(image);
-            this._slideBase = { object: image, geometry, percent: this._percentOf(image, geometry) };
+            this._slideBase = { object: image, geometry, percent: this._percentOf(image, geometry), slider: event.target };
         }
         const { min, max } = this._sliderRange(image, this._slideBase.percent);
         const percent = sliderToPercent(Number(event.target.value), min, max);
         this._applyGeometry(image, zoomBox(this._slideBase.geometry, percent / this._slideBase.percent));
         // Fields follow live; the slider itself is skipped while focused.
         this._syncGeometry();
-        if (this.hasSizeValueTarget) this.sizeValueTarget.textContent = formatPercent(percent);
+        this.sizeValueTargets.forEach((el) => { el.textContent = formatPercent(percent); });
         event.target.setAttribute('aria-valuetext', formatPercent(percent));
         this.canvasEditorOutlet.canvas.requestRenderAll();
         this.dispatch('geometry-live');
@@ -432,6 +434,17 @@ export default class extends Controller {
         if (!this._slideBase) this.slideSize(event);
         this._slideBase = null;
         this._commitGeometry(image);
+    }
+
+    /** Mini-toolbar slider released: give the keyboard back to the canvas
+     *  (Delete, arrows) and let the held-still bar return to the image. Runs
+     *  after the `change` and after the pointer's `:active` state ends. */
+    releaseQuickSize(event) {
+        const slider = event.target;
+        setTimeout(() => {
+            slider.blur();
+            this.dispatch('geometry-live');
+        }, 0);
     }
 
     /** Typed Š / V / X / Y / ° — applied on `change` (blur / Enter). */
@@ -546,6 +559,12 @@ export default class extends Controller {
         const image = this._activeImage();
         const eligible = image && image.isBackground !== true;
         this.geometryTargets.forEach((el) => el.classList.toggle('d-none', !eligible));
+        this.quickSizeTargets.forEach((el) => {
+            if (el.classList.contains('d-none') === !eligible) return;
+            el.classList.toggle('d-none', !eligible);
+            // The mini-toolbar changed height: re-anchor it to the element.
+            this.dispatch('geometry-live');
+        });
         if (!eligible) return;
 
         const locked = image.editorLocked === true;
@@ -571,14 +590,15 @@ export default class extends Controller {
         });
         this.geoUnitTargets.forEach((el) => { el.textContent = unit; });
 
-        if (this.hasSizeSliderTarget && document.activeElement !== this.sizeSliderTarget) {
-            const percent = this._percentOf(image, geometry);
+        const percent = this._percentOf(image, geometry);
+        this.sizeValueTargets.forEach((el) => { el.textContent = formatPercent(percent); });
+        this.sizeSliderTargets.forEach((slider) => {
+            slider.disabled = locked;
+            if (document.activeElement === slider || this._slideBase?.slider === slider) return;
             const { min, max } = this._sliderRange(image, percent);
-            this.sizeSliderTarget.value = String(percentToSlider(percent, min, max));
-            this.sizeSliderTarget.setAttribute('aria-valuetext', formatPercent(percent));
-            if (this.hasSizeValueTarget) this.sizeValueTarget.textContent = formatPercent(percent);
-        }
-        if (this.hasSizeSliderTarget) this.sizeSliderTarget.disabled = locked;
+            slider.value = String(percentToSlider(percent, min, max));
+            slider.setAttribute('aria-valuetext', formatPercent(percent));
+        });
         this.geometryTarget.querySelectorAll('[data-geo-action]').forEach((button) => { button.disabled = locked; });
 
         if (this.hasAspectLockTarget) {

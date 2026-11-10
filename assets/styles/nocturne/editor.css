@@ -282,6 +282,13 @@ a.ed-sync:hover { color: var(--text); }
 .ed .canvas-mini-toolbar-opacity { display: inline-flex; align-items: center; gap: 6px; margin: 0 4px; color: var(--text-2); font-size: 12px; font-variant-numeric: tabular-nums; }
 .ed .canvas-mini-toolbar-opacity .form-range { width: 88px; height: 18px; }
 .ed .canvas-mini-toolbar-opacity__value { min-width: 38px; text-align: right; }
+/* Element bar: the icons, and under them an image's quick size slider. */
+.canvas-mini-toolbar--stack { flex-direction: column; align-items: stretch; }
+.canvas-mini-toolbar__row { display: flex; align-items: center; gap: 2px; }
+.ed .canvas-mini-toolbar__size { display: flex; align-items: center; gap: 6px; padding: 0 6px; }
+.ed .canvas-mini-toolbar__size .sz-ctl { display: flex; flex: 1 1 auto; min-width: 0; height: 28px; padding: 0; gap: 8px; }
+.ed .canvas-mini-toolbar__size .sz-ctl input { flex: 1 1 auto; width: auto; min-width: 0; margin: 0; }
+.ed .canvas-mini-toolbar__size-value { flex: 0 0 44px; text-align: right; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--muted); }
 .i-flip { --i: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M12 3v18'/><path d='M9 7L3 17h6z'/><path d='M15 7l6 10h-6z'/></svg>"); }
 
 /* ---- inspector (the floating property popovers, prototype screen 21) ---- */
@@ -322,14 +329,10 @@ a.ed-sync:hover { color: var(--text); }
 .ed-acts .btn { flex: 1; }
 
 /* "Velikost a poloha" in the image popover (canvas-image-properties) — the
-   editor twin of the fill page's `.fill-adjust` body: the gallery `.sz-ctl`
-   slider, a Š·🔗·V / X·Y / ° field grid and the fit buttons. */
+   editor twin of the fill page's `.fill-adjust` body: a Š·🔗·V / X·Y / °
+   field grid and the Vyplnit button. */
 .ed-geo { display: flex; flex-direction: column; gap: 8px; }
 .ed-geo .ed-sec-h { margin-top: 0; }
-.ed-geo__zoom { display: flex; align-items: center; gap: 6px; }
-.ed .ed-geo__slider.sz-ctl { display: flex; flex: 1 1 auto; min-width: 0; height: 32px; padding: 0 2px; gap: 8px; }
-.ed .ed-geo__slider.sz-ctl input { flex: 1 1 auto; width: auto; min-width: 0; margin: 0; }
-.ed-geo__value { flex: 0 0 52px; text-align: right; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--muted); }
 .ed-geo__grid { display: grid; grid-template-columns: minmax(0, 1fr) 32px minmax(0, 1fr); gap: 6px; align-items: center; }
 .ed-geo__field { position: relative; display: flex; align-items: center; margin: 0; }
 .ed .ed-insp .ed-geo__field .form-control { min-height: 32px; height: 32px; padding: 0 30px 0 26px; border-radius: 10px; font-size: 13px; font-variant-numeric: tabular-nums; }
