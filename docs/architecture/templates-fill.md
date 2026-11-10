@@ -183,7 +183,7 @@ pages instead of a pencil per member. Contracts:
 
 All three pages: the container sheet's "Řádek n" blocks (`fill_row_sheet.js`,
 2026-11-10: head + cards framed as one block by classes — the cards stay flat
-— collapsible, drag the grip or its ↑ / ↓ keys to reorder, red Odstranit),
+— collapsible, only each row's first slot starts expanded, drag the grip or its ↑ / ↓ keys to reorder, red Odstranit),
 "+ Přidat řádek" (max + a probe-layout height gate, the reason shown under
 it), a "+ Řádek" chip under the last active row on the preview, only the
 active rows' boxes / cards / toggles shown, ONE undo step per action

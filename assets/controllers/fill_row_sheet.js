@@ -48,7 +48,10 @@ export class FillRowSheet {
         this.groups = groups;
         this.onMove = onMove;
         this.onStep = onStep;
-        this.collapsed = new Set();
+        // A freshly opened sheet shows only each row's FIRST slot expanded;
+        // the rest start collapsed (summary in the head). A focused field
+        // (reveal) or a newly added row opens its block.
+        this.collapsed = new Set(groups.filter((group) => group.slot > 0).map((group) => key(group.rowId, group.slot)));
         this.drag = null;
 
         this.groups.forEach((group) => {
