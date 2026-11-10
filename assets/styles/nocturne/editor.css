@@ -150,7 +150,7 @@ a.ed-sync:hover { color: var(--text); }
 }
 
 /* left panel: tabs over the layer / container lists (radio tabs, CSS counts) */
-.ed .ed-left { display: flex; flex-direction: column; gap: 8px; padding: 4px 12px 14px; border: 0; border-radius: 0; background: var(--surface); box-shadow: none; counter-reset: ed-layers ed-containers; }
+.ed .ed-left { display: flex; flex-direction: column; gap: 8px; padding: 4px 12px 14px; border: 0; border-radius: 0; background: var(--surface); box-shadow: none; }
 @media (max-width: 991.98px) { .ed .ed-left { border-bottom: 1px solid var(--line); } }
 .ed-ltab-input { position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; }
 .ed-tabs { order: -1; display: flex; gap: 20px; margin: 0 4px; border-bottom: 1px solid var(--line); }
@@ -161,10 +161,6 @@ a.ed-sync:hover { color: var(--text); }
 .ed-left:has(#ed-tab-layers:checked) .ed-tabs label[for="ed-tab-layers"]::after,
 .ed-left:has(#ed-tab-containers:checked) .ed-tabs label[for="ed-tab-containers"]::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; border-radius: 2px; background: var(--lav); }
 .ed-left:has(.ed-ltab-input:focus-visible) .ed-tabs { outline: 2px solid var(--lav-line); outline-offset: 2px; border-radius: 6px; }
-.ed-count--layers::before { content: counter(ed-layers); }
-.ed-count--containers::before { content: counter(ed-containers); }
-.ed .canvas-layer-row { counter-increment: ed-layers; }
-.ed .container-panel-row { counter-increment: ed-containers; }
 /* The inactive pane stays RENDERED (visibility, not display) — a display:none
    subtree would not increment the tab counts. */
 .ed-left:has(#ed-tab-layers:checked) .ed-lpane--containers,

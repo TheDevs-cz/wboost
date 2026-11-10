@@ -532,10 +532,9 @@ outlines and zones keep their colours).
   (`zoomOutButton`/`scaleDisplay`/`zoomInButton`). These used to be the left
   panel's buttons — same actions, same controller root.
 - **Left panel** `_editor_left_panel.html.twig`: "Vrstvy n / Kontejnery n"
-  tabs are two radios + `:has()` (no JS) and the counts are CSS counters over
-  the controller-built rows (the tab strip comes after the lists in the DOM
-  and is moved up with `order`; the hidden pane uses `visibility`, not
-  `display`, so it still counts). Layer rows use mask icons and a lavender
+  tabs are two radios + `:has()` (no JS); the counts are written by the
+  controllers that build the rows (CSS counters over dynamic rows stayed 0 in
+  some browsers). Layer rows use mask icons and a lavender
   **client-input dot** (`canvas-layer-row__input`: unlocked text, image
   placeholder, recolourable shape).
 - **Inspector** = the existing floating popovers restyled (`.ed-insp`): header

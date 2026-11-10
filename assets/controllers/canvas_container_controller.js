@@ -53,7 +53,7 @@ import { applyRowMerge, planRowMerge } from './container_row_merge.js';
  */
 export default class extends Controller {
     static outlets = ["canvas-editor"];
-    static targets = ["layer", "createButton", "mergeButton", "section", "panel", "panelList", "rowButton"];
+    static targets = ["layer", "createButton", "mergeButton", "section", "panel", "panelList", "panelCount", "rowButton"];
 
     /** Zone/panel accent per nesting depth — parent and child containers must
      *  read as DIFFERENT colors at a glance (cycled past depth 2). */
@@ -1118,6 +1118,7 @@ export default class extends Controller {
     _renderPanel() {
         if (!this.hasPanelTarget || !this.hasPanelListTarget) return;
         const zonesById = new Map(this._zones.map((entry) => [entry.container.id, entry]));
+        if (this.hasPanelCountTarget) this.panelCountTarget.textContent = String(zonesById.size);
         this.panelTarget.classList.toggle('d-none', zonesById.size === 0);
         this.panelListTarget.textContent = '';
         if (zonesById.size === 0) return;

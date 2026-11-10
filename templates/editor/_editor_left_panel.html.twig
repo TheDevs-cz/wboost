@@ -4,10 +4,9 @@
    editor/_editor_tools.html.twig. Shared by both editors.
 
    Tabs are two radios + CSS (`:has()` in editor.css) — no JS, so they can't
-   fight the Stimulus targets inside. The counts are CSS counters over the
-   rows the controllers build; that is why the tab strip comes AFTER the lists
-   in the DOM (a counter only shows what was counted before it) and is moved
-   on top with `order`. The radios carry `form="ed-no-form"` so they never
+   fight the Stimulus targets inside. The counts are written by the
+   controllers that build the rows (CSS counters over dynamic rows stayed 0
+   in some browsers). The radios carry `form="ed-no-form"` so they never
    join the editor form's POST. #}
 {# Sticky only below lg — in the app-shell layout the surrounding column is the
    scroll container, where a sticky card would offset itself as you scroll it. #}
@@ -35,8 +34,8 @@
     </div>
 
     <div class="ed-tabs" role="tablist" aria-label="Panel editoru">
-        <label for="ed-tab-layers" role="tab">Vrstvy <span class="pd-n ed-count ed-count--layers" aria-hidden="true"></span></label>
-        <label for="ed-tab-containers" role="tab">Kontejnery <span class="pd-n ed-count ed-count--containers" aria-hidden="true"></span></label>
+        <label for="ed-tab-layers" role="tab">Vrstvy <span class="pd-n ed-count" aria-hidden="true" data-canvas-layers-target="count">0</span></label>
+        <label for="ed-tab-containers" role="tab">Kontejnery <span class="pd-n ed-count" aria-hidden="true" data-canvas-container-target="panelCount">0</span></label>
     </div>
 
     {% if group_mode|default(false) %}

@@ -53,7 +53,7 @@ export default class extends Controller {
         "canvas-editor", "canvas-floating-toolbar",
         "canvas-input-properties", "canvas-image-properties", "canvas-shape-properties",
     ];
-    static targets = ["list", "stage"];
+    static targets = ["list", "stage", "count"];
 
     // Outlet callbacks can fire before connect() — initialize state here.
     initialize() {
@@ -140,6 +140,7 @@ export default class extends Controller {
         this._clearHover();
         const objects = canvas.getObjects();
         this.listTarget.replaceChildren();
+        if (this.hasCountTarget) this.countTarget.textContent = String(objects.length);
 
         if (!objects.length) {
             const empty = document.createElement('p');
