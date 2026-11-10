@@ -225,11 +225,6 @@ export function buildContainerMoveSection(container, { unit, idPrefix, onChange 
     wrap.appendChild(axisRow('vertical', '↕ Svisle', [['maxUp', '↑', 'Maximální posun nahoru'], ['maxDown', '↓', 'Maximální posun dolů']]));
     wrap.appendChild(axisRow('horizontal', '↔ Vodorovně', [['maxLeft', '←', 'Maximální posun doleva'], ['maxRight', '→', 'Maximální posun doprava']]));
 
-    const hint = document.createElement('p');
-    hint.className = 'ed-umove__hint';
-    hint.textContent = 'Posouvá se celý blok, včetně vnořených kontejnerů. Prázdné pole = kamkoli, kontejner ale zůstane na ploše. 0 = tímto směrem ne.';
-    wrap.appendChild(hint);
-
     sync();
     return wrap;
 }

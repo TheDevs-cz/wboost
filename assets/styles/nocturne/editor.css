@@ -264,6 +264,7 @@ a.ed-sync:hover { color: var(--text); }
 .container-zone-popover .ed-umove .ed-geo__field .form-control { min-height: 32px; height: 32px; padding: 0 30px 0 26px; border-radius: 10px; font-size: 13px; font-variant-numeric: tabular-nums; }
 .ed-umove__hint { margin: 0; font-size: 12px; line-height: 1.35; color: var(--muted); }
 .ed-umove--container { margin: 4px 0 10px; }
+.ed-umove--container .ed-umove__limits.is-off { display: none; }
 
 /* ---- floating chrome: mini toolbar + multi-select bar ------------------- */
 .ed .canvas-mini-toolbar { gap: 2px; padding: 5px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line-2); box-shadow: var(--shadow-3); }

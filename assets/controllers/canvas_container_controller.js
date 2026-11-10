@@ -1715,7 +1715,7 @@ export default class extends Controller {
         gapInput.min = '0';
         gapInput.step = '1';
         gapInput.placeholder = 'z návrhu';
-        gapInput.className = 'form-control form-control-sm mb-1';
+        gapInput.className = 'form-control form-control-sm mb-2';
         gapInput.value = (typeof container.gap === 'number' && isFinite(container.gap))
             ? String(Math.round(container.gap * 10) / 10)
             : '';
@@ -1739,11 +1739,6 @@ export default class extends Controller {
         });
         el.appendChild(gapInput);
 
-        const gapHint = document.createElement('div');
-        gapHint.className = 'form-text small mb-2';
-        gapHint.textContent = 'Prázdné = mezery podle návrhu. S jednotnou mezerou určuje svislá poloha prvků jen jejich pořadí.';
-        el.appendChild(gapHint);
-
         // Space AFTER the container: the clearance it keeps when pushing the
         // container below it / against the bottom of the canvas.
         const afterLabel = document.createElement('label');
@@ -1756,7 +1751,7 @@ export default class extends Controller {
         afterInput.min = '0';
         afterInput.step = '1';
         afterInput.placeholder = '0';
-        afterInput.className = 'form-control form-control-sm mb-1';
+        afterInput.className = 'form-control form-control-sm mb-2';
         afterInput.value = (typeof container.spaceAfter === 'number' && isFinite(container.spaceAfter))
             ? String(Math.round(container.spaceAfter * 10) / 10)
             : '';
@@ -1779,17 +1774,12 @@ export default class extends Controller {
         });
         el.appendChild(afterInput);
 
-        const afterHint = document.createElement('div');
-        afterHint.className = 'form-text small mb-2';
-        afterHint.textContent = 'Minimální odstup od dalšího kontejneru pod ním a od spodního okraje plátna.';
-        el.appendChild(afterHint);
-
         // Whole-container hide ("Lze skrýt"): the fill pages + API then offer
         // ONE toggle that hides the container with everything inside it
         // (texts, images, shapes, nested containers). The label is what the
         // fill page's toggle row says.
         const hideRow = document.createElement('div');
-        hideRow.className = 'form-check mb-1';
+        hideRow.className = 'form-check mb-2';
         const hideInput = document.createElement('input');
         hideInput.type = 'checkbox';
         hideInput.className = 'form-check-input';
@@ -1798,7 +1788,7 @@ export default class extends Controller {
         const hideLabel = document.createElement('label');
         hideLabel.className = 'form-check-label small';
         hideLabel.htmlFor = hideInput.id;
-        hideLabel.textContent = 'Lze skrýt celý kontejner';
+        hideLabel.textContent = 'Schovatelnost';
         hideRow.appendChild(hideInput);
         hideRow.appendChild(hideLabel);
         el.appendChild(hideRow);
@@ -1807,16 +1797,11 @@ export default class extends Controller {
         nameInput.type = 'text';
         nameInput.maxLength = 80;
         nameInput.placeholder = 'Popisek přepínače, např. „Bublina s citací“';
-        nameInput.className = 'form-control form-control-sm mb-1';
+        nameInput.className = 'form-control form-control-sm mb-2';
         nameInput.setAttribute('aria-label', 'Popisek přepínače pro skrytí kontejneru');
         nameInput.value = typeof container.name === 'string' ? container.name : '';
         nameInput.hidden = !hideInput.checked;
         el.appendChild(nameInput);
-
-        const hideHint = document.createElement('div');
-        hideHint.className = 'form-text small mb-2';
-        hideHint.textContent = 'Při vyplňování a v API půjde kontejner skrýt jedním přepínačem — zmizí se vším, co obsahuje.';
-        el.appendChild(hideHint);
 
         hideInput.addEventListener('change', () => {
             if (hideInput.checked) {
@@ -1884,7 +1869,7 @@ export default class extends Controller {
         if (!nested) {
             const maxLabel = document.createElement('label');
             maxLabel.className = 'form-label small mb-1';
-            maxLabel.textContent = 'Max. výška (px)';
+            maxLabel.textContent = 'Maximální výška kontejneru (px)';
             el.appendChild(maxLabel);
 
             const maxInput = document.createElement('input');
@@ -1904,11 +1889,6 @@ export default class extends Controller {
                 if (canvas) canvas.fire('object:modified', {});
             });
             el.appendChild(maxInput);
-
-            const maxHint = document.createElement('div');
-            maxHint.className = 'form-text small mb-0';
-            maxHint.textContent = 'Limit obsahu při vyplňování. U vnořených kontejnerů platí limit toho vnějšího.';
-            el.appendChild(maxHint);
         } else {
             const nestedHint = document.createElement('div');
             nestedHint.className = 'form-text small mb-0';

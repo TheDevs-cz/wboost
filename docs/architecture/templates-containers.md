@@ -209,7 +209,7 @@ Per surface:
   `TemplateContainerImageSlotTest`, `ResolvedCanvasContainerTest`.
 
 **Whole-container hide (2026-11-09)** — opt-in per container, the
-"bubble + its text" request: the designer ticks "Lze skrýt celý kontejner"
+"bubble + its text" request: the designer ticks "Schovatelnost"
 (+ a label) in the ⚙ popover → `hidable: true` / `name` on the definition
 (emitted only when set — `sanitizedContainers`, `CanvasContainer::toArray`,
 the MCP compiler all omit them otherwise, so untouched JSON stays
