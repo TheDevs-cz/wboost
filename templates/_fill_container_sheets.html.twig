@@ -29,6 +29,7 @@
     {% set label = sheet.name ?: 'Skupina polí' %}
     {% set count = sheet.fieldIds|length %}
     <div class="fill-sheet__head" data-fill-sheet="{{ sheet.id }}" data-sheet-entries="{{ sheet.entries|json_encode }}">
+        <span class="i i-grip s14 fill-popover__drag fill-sheet__drag" data-popover-drag-handle role="button" aria-label="Přesunout okno" title="Přesunout okno"></span>
         <span class="fill-sheet__lead">
             {{ icon('layers', 's16') }}
             <span class="fill-sheet__title" id="fill-sheet-title-{{ sheet.id }}">{{ label }}</span>

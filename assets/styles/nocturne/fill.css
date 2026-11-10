@@ -245,6 +245,8 @@ textarea.fill-popover__input { min-height: 44px; padding: 10px 12px; border-radi
 /* ---------- Container sheet (one pencil per container) ---------- */
 .fill-form.fill-js.fill-sheet-open .fill-popovers { padding: 0 14px 14px; background: var(--surface-2); color: var(--text); border: 1px solid var(--line-2); border-radius: 18px; box-shadow: var(--shadow-4); scrollbar-width: thin; }
 .fill-sheet__head { gap: 8px; padding: 12px 0 10px; border-bottom: 1px solid var(--line); background: var(--surface-2); }
+.fill-sheet__drag { flex: none; }
+@media (max-width: 700px) { .fill-sheet__drag { display: none; } }
 .fill-sheet__lead { display: inline-flex; align-items: center; gap: 8px; flex: 1 1 auto; min-width: 0; color: var(--lav-ink); }
 .fill-sheet__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 600; color: var(--text); }
 .fill-sheet__count { flex: none; font-size: 12px; color: var(--subtle); }

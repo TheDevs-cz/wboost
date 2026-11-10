@@ -1016,6 +1016,9 @@ export default class extends Controller {
             onStep: (row, slot, action) => this._rowAction({ params: { row, slot } }, action),
         });
 
+        // Like a popover: its grip moves the sheet off whatever it covers.
+        makeDraggable(head.querySelector("[data-popover-drag-handle]"), panel);
+
         this._sheetId = sheetId;
         this._sheetBox = box;
         this._sheetMembers = members;
@@ -1057,6 +1060,7 @@ export default class extends Controller {
         this.element.classList.remove("fill-sheet-open");
         if (this.hasPanelTarget) {
             const panel = this.panelTarget;
+            resetDrag(panel);
             panel.style.removeProperty("top");
             panel.style.removeProperty("left");
             panel.removeAttribute("role");
@@ -1117,6 +1121,7 @@ export default class extends Controller {
             panel.style.removeProperty("left");
             return;
         }
+        if (isDragged(panel)) return;
         const box = this._sheetBox;
         if (!box || box.style.display === "none") return;
         const rect = box.getBoundingClientRect();
