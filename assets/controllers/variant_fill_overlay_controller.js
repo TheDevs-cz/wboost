@@ -8,6 +8,7 @@ import { FillHistory } from "./fill_history.js";
 import { FillElementMove } from "./fill_element_move.js";
 import { NEUTRAL_PLACEMENT } from "./image_placement.js";
 import { applyPlan, canApply, inactiveIds, parseRows, plan, pristineImageState, slotIndex } from "./fill_rows.js";
+import { FillRowSheet, rowGroups } from "./fill_row_sheet.js";
 
 /**
  * Click-into-preview placeholder overlay of the fill pages — the ONE editing
@@ -1008,6 +1009,13 @@ export default class extends Controller {
         });
         members.forEach((element) => element.classList.add("is-in-sheet"));
 
+        this._rowSheet = new FillRowSheet(panel, rowGroups(entries, (entry) => (
+            entry.kind === "section" ? this._sheetSection(sheetId, entry.id) : this._sheetCard(entry.id)
+        )), {
+            onMove: (row, slot, to) => this._rowAction({ params: { row, slot, to } }, "move"),
+            onStep: (row, slot, action) => this._rowAction({ params: { row, slot } }, action),
+        });
+
         this._sheetId = sheetId;
         this._sheetBox = box;
         this._sheetMembers = members;
@@ -1036,6 +1044,10 @@ export default class extends Controller {
         if (event && typeof event.preventDefault === "function") event.preventDefault();
         if (this._sheetId === null) return;
         const sheetId = this._sheetId;
+        if (this._rowSheet) {
+            this._rowSheet.destroy();
+            this._rowSheet = null;
+        }
         (this._sheetMembers || []).forEach((element) => {
             element.classList.remove("is-in-sheet", "is-sheet-target");
             element.style.removeProperty("order");
@@ -1067,6 +1079,7 @@ export default class extends Controller {
     _focusSheetField(inputId) {
         const card = this._sheetCard(inputId);
         if (!card || !this.hasPanelTarget) return;
+        if (this._rowSheet) this._rowSheet.reveal(card);
         const panel = this.panelTarget;
         const head = this._sheetHead(this._sheetId);
         const headHeight = head ? head.offsetHeight : 0;
@@ -1569,6 +1582,7 @@ export default class extends Controller {
                 button.disabled = !canApply(row, rowState.count, button.dataset.rowAction, slot);
             });
         });
+        if (this._rowSheet) this._rowSheet.refresh();
 
         panel.querySelectorAll("[data-fill-sheet-row-add]").forEach((holder) => {
             const rowState = state[holder.dataset.rowId];
@@ -1682,17 +1696,9 @@ export default class extends Controller {
         this._rowAction(event, "remove");
     }
 
-    moveRowUp(event) {
-        this._rowAction(event, "up");
-    }
-
-    moveRowDown(event) {
-        this._rowAction(event, "down");
-    }
-
     /** One row action = one permutation of the fill state = ONE undo step. */
     _rowAction(event, action) {
-        if (event) {
+        if (event && event.preventDefault) {
             event.preventDefault();
             event.stopPropagation();
         }
@@ -1702,7 +1708,8 @@ export default class extends Controller {
         const slot = Number.isInteger(event.params.slot) ? event.params.slot : null;
         const count = this._rowCount(rowId, row);
         if (action === "add" && !this._rowAddState(rowId, row, count).ok) return;
-        const rowPlan = plan(row, count, action, slot);
+        const to = Number.isInteger(event.params.to) ? event.params.to : null;
+        const rowPlan = plan(row, count, action, slot, to);
         if (!rowPlan) return;
 
         const trigger = event.currentTarget || null;
@@ -1711,10 +1718,12 @@ export default class extends Controller {
         if (action === "add") focusSlot = count;
         else if (action === "up") focusSlot = slot - 1;
         else if (action === "down") focusSlot = slot + 1;
+        else if (action === "move") focusSlot = to;
 
         this._history.transact((state) => applyPlan(state, row, rowPlan, {
             pristineImage: (path, role, value) => pristineImageState(path, value, NEUTRAL_PLACEMENT),
         })).then(() => {
+            if (this._rowSheet) this._rowSheet.permute(rowId, rowPlan.sources);
             this._recomputeLayout();
             this._afterRowAction(rowId, row, action, focusSlot, chipSheet);
         });
@@ -1745,8 +1754,9 @@ export default class extends Controller {
         }
         const section = Array.from(this.panelTarget.querySelectorAll(".fill-sheet__section[data-row]"))
             .find((element) => element.dataset.row === rowId && parseInt(element.dataset.slot, 10) === focusSlot);
-        const wanted = action === "remove" ? "remove" : action;
-        const button = section ? section.querySelector(`[data-row-action="${wanted}"]`) : null;
+        const button = section
+            ? section.querySelector(action === "remove" ? '[data-row-action="remove"]' : "[data-row-grip]")
+            : null;
         if (button && !button.disabled) {
             button.focus({ preventScroll: false });
             return;

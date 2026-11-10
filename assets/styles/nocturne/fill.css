@@ -262,12 +262,33 @@ textarea.fill-popover__input { min-height: 44px; padding: 10px 12px; border-radi
 .fill-form.fill-js.fill-sheet-open .fill-popovers > .fill-popover.is-sheet-target { border-color: var(--lav); box-shadow: 0 0 0 3px var(--lav-glow); }
 
 /* ---------- Repeatable rows (container-rows P4) ---------- */
-.fill-sheet__section--row { gap: 8px; margin-bottom: 4px; padding-top: 10px; font-size: 13px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text-2); }
+/* One row = one framed block: the flat cards cannot have a wrapper (the sheet
+   only orders them), so the head and the members draw the frame together.
+   -8px cancels the sheet's flex gap between them. */
+.fill-sheet__section--row { gap: 8px; margin: 8px 0 0 calc(var(--sheet-depth, 0) * 10px); padding: 6px 6px 6px 4px; border: 1px solid var(--line-2); border-radius: 14px 14px 0 0; background: var(--surface-3); font-size: 13px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text-2); cursor: pointer; }
+.fill-sheet__section--row.is-collapsed,
+.fill-popovers.is-rows-dragging > .fill-sheet__section--row { border-radius: 14px; }
+.fill-sheet__section--row .fill-sheet__section-name { flex: none; }
+.fill-sheet__row-summary { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 400; color: var(--muted); }
+.fill-sheet__row-grip { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 30px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--subtle); cursor: grab; touch-action: none; }
+.fill-sheet__row-grip:hover:not(:disabled) { color: var(--text); }
+.fill-sheet__row-grip:active:not(:disabled) { cursor: grabbing; }
+.fill-sheet__row-grip:disabled { opacity: .3; cursor: default; }
+.fill-sheet__row-grip:focus-visible { outline: 2px solid var(--lav-ink); outline-offset: 2px; }
+.fill-sheet__section--row [data-row-toggle] .i { transition: transform var(--dur-1) var(--ease); }
+.fill-sheet__section--row.is-collapsed [data-row-toggle] .i { transform: rotate(-90deg); }
+.fill-form.fill-js.fill-sheet-open .fill-popovers > :is(.fill-popover, .fill-sheet__section).is-in-sheet.is-row-member { margin: -8px 0 0 calc(var(--row-depth, 0) * 10px); border: solid var(--line-2); border-width: 1px 1px 0; border-top-color: var(--line); border-radius: 0; background: var(--surface); }
+.fill-form.fill-js.fill-sheet-open .fill-popovers > :is(.fill-popover, .fill-sheet__section).is-in-sheet.is-row-member.is-row-last { border-bottom-width: 1px; border-radius: 0 0 14px 14px; }
+.fill-form.fill-js.fill-sheet-open .fill-popovers > .fill-popover.is-in-sheet.is-row-member.is-sheet-target { position: relative; z-index: 1; border-color: var(--lav); }
+.fill-form.fill-js.fill-sheet-open .fill-popovers > :is(.fill-popover, .fill-sheet__section).is-row-collapsed,
+.fill-form.fill-js.fill-sheet-open .fill-popovers.is-rows-dragging > :is(.fill-popover, .fill-sheet__section).is-row-member { display: none; }
+.fill-popovers.is-rows-dragging { user-select: none; }
+.fill-sheet__section--row.is-row-dragging { opacity: .5; }
+.fill-sheet__row-drop { position: absolute; left: 14px; right: 14px; z-index: 3; height: 3px; border-radius: 3px; background: var(--lav); pointer-events: none; }
 .fill-sheet__row-index { flex: none; display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: var(--lav-deep); color: var(--lav-ink); font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .fill-sheet__row-tools { flex: none; display: inline-flex; align-items: center; gap: 2px; margin-left: auto; }
 .fill-sheet__row-btn { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease); }
 .fill-sheet__row-btn:hover:not(:disabled) { background: var(--surface-3); color: var(--text); }
-.fill-sheet__row-btn--remove:hover:not(:disabled) { background: var(--rose-deep); color: var(--rose-ink); }
 .fill-sheet__row-btn:disabled { opacity: .3; cursor: default; }
 .fill-sheet__row-btn:focus-visible { outline: 2px solid var(--lav-ink); outline-offset: 2px; }
 .fill-sheet__row-add { flex-wrap: wrap; gap: 4px 10px; margin: 2px 0 4px calc(var(--sheet-depth, 0) * 10px); }

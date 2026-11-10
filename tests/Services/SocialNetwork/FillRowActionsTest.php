@@ -96,6 +96,23 @@ final class FillRowActionsTest extends KernelTestCase
         self::assertSame('Soupeř A', $down['state']['fields'][$this->text(self::SOUPER, 1)]);
     }
 
+    public function testDraggingARowLandsItThereAndShiftsTheRowsBetween(): void
+    {
+        [$down, $up, $noop] = $this->runSteps([
+            ['row' => self::ROW, 'count' => 4, 'action' => 'move', 'slot' => 0, 'to' => 2],
+            ['row' => self::ROW, 'count' => 4, 'action' => 'move', 'slot' => 3, 'to' => 1],
+            ['row' => self::ROW, 'count' => 4, 'action' => 'move', 'slot' => 1, 'to' => 1],
+        ]);
+
+        self::assertSame(['count' => 4, 'sources' => [[0, 1], [1, 2], [2, 0]]], $down['plan']);
+        self::assertSame('Soupeř B', $down['state']['fields'][$this->text(self::SOUPER, 0)]);
+        self::assertSame('Soupeř C', $down['state']['fields'][$this->text(self::SOUPER, 1)]);
+        self::assertSame('Soupeř A', $down['state']['fields'][$this->text(self::SOUPER, 2)]);
+
+        self::assertSame(['count' => 4, 'sources' => [[3, 2], [2, 1], [1, 3]]], $up['plan']);
+        self::assertNull($noop['plan'], 'dropped where it started');
+    }
+
     public function testAddingOnlyRaisesTheCountAndTheLimitsHold(): void
     {
         [$add, $atMax, $atMin, $topUp, $lastDown, $outside] = $this->runSteps([

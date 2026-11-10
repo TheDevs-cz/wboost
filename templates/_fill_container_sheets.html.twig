@@ -18,11 +18,12 @@
     when it is hidable (the same `hiddenValues[<id>]` mirror as its panel row).
 
     Repeatable rows (container-rows P4): a row's materialised slots are
-    sections with `row` + `slot` — headed "Řádek n" with ↑ / ↓ / − — and a
-    `rowAdd` entry ("+ Přidat řádek") follows the row's last slot. The
+    sections with `row` + `slot` — headed "Řádek n" with a drag grip, Odstranit
+    and a collapse toggle (fill_row_sheet.js frames head + cards as one block)
+    — and a `rowAdd` entry ("+ Přidat řádek") follows the row's last slot. The
     overlay shows only the ACTIVE rows (`rowCounts[<row>]`) and enables the
     buttons (min / max / the height gate); every action is ONE undo step
-    (variant-fill-overlay#addRow / removeRow / moveRowUp / moveRowDown).
+    (variant-fill-overlay#addRow / removeRow, drag & grip arrow keys).
 #}
 {% for sheet in sheets %}
     {% set label = sheet.name ?: 'Skupina polí' %}
@@ -66,8 +67,13 @@
              data-fill-sheet-section="{{ sheet.id }}" data-section-id="{{ entry.id }}" style="--sheet-depth: {{ entry.depth }}"
              {% if row_slot %}data-row="{{ entry.row }}" data-slot="{{ entry.slot }}"{% endif %}>
             {% if row_slot %}
+                <button type="button" class="fill-sheet__row-grip" data-row-grip
+                    title="Přetažením změníte pořadí"
+                    aria-label="Přesunout řádek {{ row_slot }} (šipkami nahoru a dolů)"
+                >{{ icon('grip', 's14') }}</button>
                 <span class="fill-sheet__row-index" aria-hidden="true">{{ row_slot }}</span>
                 <span class="fill-sheet__section-name">Řádek {{ row_slot }}</span>
+                <span class="fill-sheet__row-summary" data-row-summary hidden></span>
             {% elseif entry.name %}<span class="fill-sheet__section-name">{{ entry.name }}</span>{% endif %}
             {% if entry.hidable %}
                 <button type="button"
@@ -82,27 +88,16 @@
             {% endif %}
             {% if row_slot %}
                 <span class="fill-sheet__row-tools" role="group" aria-label="Řádek {{ row_slot }}">
-                    <button type="button" class="fill-sheet__row-btn"
-                        data-row-action="up"
-                        title="Posunout výš" aria-label="Posunout řádek {{ row_slot }} výš"
-                        data-action="variant-fill-overlay#moveRowUp"
-                        data-variant-fill-overlay-row-param="{{ entry.row }}"
-                        data-variant-fill-overlay-slot-param="{{ entry.slot }}"
-                    >{{ icon('arrow-up', 's14') }}</button>
-                    <button type="button" class="fill-sheet__row-btn"
-                        data-row-action="down"
-                        title="Posunout níž" aria-label="Posunout řádek {{ row_slot }} níž"
-                        data-action="variant-fill-overlay#moveRowDown"
-                        data-variant-fill-overlay-row-param="{{ entry.row }}"
-                        data-variant-fill-overlay-slot-param="{{ entry.slot }}"
-                    >{{ icon('arrow-down', 's14') }}</button>
-                    <button type="button" class="fill-sheet__row-btn fill-sheet__row-btn--remove"
+                    <button type="button" class="btn btn-danger xs"
                         data-row-action="remove"
-                        title="Odebrat řádek" aria-label="Odebrat řádek {{ row_slot }}"
+                        aria-label="Odstranit řádek {{ row_slot }}"
                         data-action="variant-fill-overlay#removeRow"
                         data-variant-fill-overlay-row-param="{{ entry.row }}"
                         data-variant-fill-overlay-slot-param="{{ entry.slot }}"
-                    >{{ icon('minus', 's14') }}</button>
+                    >Odstranit</button>
+                    <button type="button" class="fill-sheet__row-btn" data-row-toggle
+                        aria-expanded="true" title="Sbalit řádek" aria-label="Sbalit řádek"
+                    >{{ icon('chev-down', 's14') }}</button>
                 </span>
             {% endif %}
         </div>

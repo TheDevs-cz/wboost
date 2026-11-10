@@ -28,7 +28,7 @@ const input = JSON.parse(fs.readFileSync(0, 'utf8'));
 
     const out = input.steps.map((step) => {
         const row = input.rows[step.row];
-        const plan = rows.plan(row, step.count, step.action, step.slot === undefined ? null : step.slot);
+        const plan = rows.plan(row, step.count, step.action, step.slot === undefined ? null : step.slot, step.to === undefined ? null : step.to);
         if (!plan) return { plan: null, state: null, inactive: [] };
         const state = rows.applyPlan(input.state, row, plan, {
             pristineImage: (keys, role, value) => rows.pristineImageState(keys, value, input.neutral),

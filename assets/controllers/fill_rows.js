@@ -25,7 +25,9 @@
  *  - remove row i: rows i+1… shift UP one slot with all their values, the
  *    freed last slot resets to pristine (sample text, designed font, not
  *    hidden, no picture);
- *  - up / down: swap the two slots' values.
+ *  - up / down: swap the two slots' values;
+ *  - move (drag & drop) row i to position j: the row lands there, the rows
+ *    between shift one slot towards i.
  */
 
 /** The named field carrying a row's count. */
@@ -77,7 +79,7 @@ export function inactiveIds(row, count) {
  * Is `action` allowed on `slot` of a row showing `count` rows? Adding is
  * checked against `max` only — the height gate is the caller's.
  */
-export function canApply(row, count, action, slot = null) {
+export function canApply(row, count, action, slot = null, to = null) {
     switch (action) {
         case "add":
             return count < row.max;
@@ -87,6 +89,9 @@ export function canApply(row, count, action, slot = null) {
             return Number.isInteger(slot) && slot > 0 && slot < count;
         case "down":
             return Number.isInteger(slot) && slot >= 0 && slot < count - 1;
+        case "move":
+            return Number.isInteger(slot) && Number.isInteger(to)
+                && slot >= 0 && slot < count && to >= 0 && to < count && slot !== to;
         default:
             return false;
     }
@@ -97,11 +102,17 @@ export function canApply(row, count, action, slot = null) {
  * = reset to pristine). Slots not in `sources` keep their values. Null when
  * the action is not allowed.
  */
-export function plan(row, count, action, slot = null) {
-    if (!canApply(row, count, action, slot)) return null;
+export function plan(row, count, action, slot = null, to = null) {
+    if (!canApply(row, count, action, slot, to)) return null;
     const sources = new Map();
     if (action === "add") {
         return { count: count + 1, sources };
+    }
+    if (action === "move") {
+        const step = slot < to ? 1 : -1;
+        for (let target = slot; target !== to; target += step) sources.set(target, target + step);
+        sources.set(to, slot);
+        return { count, sources };
     }
     if (action === "remove") {
         for (let target = slot; target < count - 1; target++) sources.set(target, target + 1);

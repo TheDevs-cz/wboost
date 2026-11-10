@@ -143,9 +143,9 @@ final class RepeatableRowsFillUiTest extends WebTestCase
         self::assertCount(5, $sections, 'one "Řádek n" section per materialised row');
         self::assertSame(['0', '1', '2', '3', '4'], $sections->each(static fn (Crawler $s): string => (string) $s->attr('data-slot')));
         self::assertStringContainsString('Řádek 3', $sections->eq(2)->text());
-        foreach (['moveRowUp', 'moveRowDown', 'removeRow'] as $action) {
-            self::assertCount(5, $sections->filter(sprintf('button[data-action="variant-fill-overlay#%s"][data-variant-fill-overlay-row-param="%s"]', $action, $rowId)), $action);
-        }
+        self::assertCount(5, $sections->filter(sprintf('button[data-action="variant-fill-overlay#removeRow"][data-variant-fill-overlay-row-param="%s"]', $rowId)), 'Odstranit');
+        self::assertCount(5, $sections->filter('button[data-row-grip]'), 'drag grip');
+        self::assertCount(5, $sections->filter('button[data-row-toggle]'), 'collapse toggle');
         self::assertCount(1, $crawler->filter(sprintf('[data-fill-sheet-row-add][data-row-id="%s"] button[data-action="variant-fill-overlay#addRow"]', $rowId)));
         self::assertCount($surfaces, $crawler->filter(sprintf('button.fill-row-chip[data-row-chip="%s"][hidden]', $rowId)), 'one canvas chip per surface, shown by the overlay');
 
