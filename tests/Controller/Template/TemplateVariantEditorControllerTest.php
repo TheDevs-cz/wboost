@@ -38,8 +38,9 @@ final class TemplateVariantEditorControllerTest extends WebTestCase
         // The shared editor wires the same Stimulus controllers as the social module.
         self::assertSelectorExists('[data-controller~="canvas-editor"]');
         self::assertSelectorExists('[data-controller~="canvas-image-properties"]');
-        // The canvas is sized by the TemplateDimension in PIXELS (A4 mm at 300 DPI).
-        self::assertSelectorExists('canvas#c[width="2480"][height="3508"]');
+        // The canvas is sized by the TemplateDimension in PIXELS (A4 mm at 300 DPI)
+        // plus the fixed 3 mm bleed (35 px) on every side.
+        self::assertSelectorExists('canvas#c[width="2550"][height="3578"]');
         // Gallery folder toggle in the image-properties panel.
         self::assertSelectorExists('#image-dir-' . TestDataFixture::FILE_DIRECTORY_ALLOWED_ID);
         self::assertSelectorExists('[data-canvas-editor-target="imageInputs"]');

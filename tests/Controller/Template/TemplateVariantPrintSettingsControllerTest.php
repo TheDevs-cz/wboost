@@ -21,17 +21,16 @@ final class TemplateVariantPrintSettingsControllerTest extends WebTestCase
         return '/template-variant/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '/print-settings';
     }
 
-    public function testSavesBleedAndCropMarksWithoutTouchingTheSize(): void
+    public function testSavesCropMarksWithoutTouchingTheSizeOrBleed(): void
     {
         $client = self::createClient();
         TestingLogin::logInAsUser($client, TestDataFixture::ADMIN_USER_EMAIL);
 
         $crawler = $client->request('GET', $this->url());
         self::assertResponseIsSuccessful();
-        self::assertSelectorExists('input[name="template_variant_print_settings_form[bleed]"]');
+        self::assertSelectorNotExists('input[name="template_variant_print_settings_form[bleed]"]');
 
         $form = $crawler->selectButton('Uložit')->form([
-            'template_variant_print_settings_form[bleed]' => '5',
             'template_variant_print_settings_form[cropMarks]' => '1',
         ]);
         $client->submit($form);
@@ -40,22 +39,9 @@ final class TemplateVariantPrintSettingsControllerTest extends WebTestCase
 
         $variant = self::getContainer()->get(TemplateVariantRepository::class)
             ->get(Uuid::fromString(TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID));
-        self::assertSame(5.0, $variant->dimension->bleedMm);
+        self::assertSame(3.0, $variant->dimension->bleedMm);
         self::assertTrue($variant->dimension->cropMarks);
         self::assertSame(2480, $variant->dimension->width());
-    }
-
-    public function testRejectsAnAbsurdBleed(): void
-    {
-        $client = self::createClient();
-        TestingLogin::logInAsUser($client, TestDataFixture::ADMIN_USER_EMAIL);
-
-        $crawler = $client->request('GET', $this->url());
-        $client->submit($crawler->selectButton('Uložit')->form([
-            'template_variant_print_settings_form[bleed]' => '50',
-        ]));
-
-        self::assertResponseStatusCodeSame(422);
     }
 
     public function testUserWithoutEditRightsIsDenied(): void

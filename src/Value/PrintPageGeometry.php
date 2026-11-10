@@ -10,8 +10,8 @@ namespace WBoost\Web\Value;
  * around it and the crop-mark margin outside that.
  *
  * Two separate things surround the trim:
- *  - the BLEED (`bleed`, "spadávka" in the UI, default 3 mm, the designer's
- *    input): how far the artwork runs past the cut line;
+ *  - the BLEED (`bleed`, a fixed {@see TemplateDimension::PRINT_BLEED_MM}):
+ *    how far the artwork runs past the cut line;
  *  - the CROP-MARK MARGIN: a FIXED {@see MARK_MARGIN_MM} band outside the
  *    bleed that holds the crop marks — no input, it never moves with the
  *    bleed. Without crop marks there is no margin (page = bleed box).

@@ -165,7 +165,7 @@ Returns a **plain JSON array** (no pagination; null fields are kept on purpose):
         "width": 1080,                                 // canvas PIXELS (mm/cm rasterize at 300 DPI) — the coordinate space of frames/offsets
         "height": 1080,                                // use width/height for the preview box aspect ratio
         "printFormat": false,                          // true for mm / cm variants — they ALSO export a print PDF (`format: "pdf"`, see Step 3)
-        "bleedMm": 0,                                  // print bleed per side in mm (0 = none; always 0 for px) — drawn PAST the canvas edges, see "Background slots"
+        "bleedMm": 3,                                  // read-only print bleed per side in mm (fixed: 3 for mm / cm, 0 for px) — drawn PAST the canvas edges, see "Background slots"
         "cropMarks": false,                            // the print PDF carries crop marks
         "previewImageUrl": null,                        // nullable — cached DEFAULT render (zero user input), store URL
         "backgroundImageUrl": "http://localhost:19000/.../background-....png",  // store URL, nullable (layer-mode variants may have none)
@@ -327,10 +327,10 @@ so what previews fine exports fine. The difference is what they ARE:
   history"). Call it only when the user actually downloads.
 - **`/export` with `"format": "pdf"`** (2026-10-30) returns the **print PDF**
   instead (`application/pdf`): PDF/X-1a:2001, CMYK Coated FOGRA39, with the
-  variant's bleed (`bleedMm`) and crop marks (`cropMarks`). `bleedMm` is the
-  bleed ONLY; the crop marks sit in a fixed 5 mm margin outside it (since
-  2026-11-08), so the PDF page = trim + 2 × bleed + 2 × 5 mm when
-  `cropMarks` is on (210 × 99 mm, bleed 3 → 226 × 115 mm). Same body, same
+  fixed 3 mm bleed and the variant's crop marks (`cropMarks`). The crop marks
+  sit in a fixed 5 mm margin outside the bleed, so the PDF page = trim +
+  2 × 3 mm + 2 × 5 mm when `cropMarks` is on (210 × 99 mm → 226 × 115 mm).
+  Same body, same
   strict validation, same usage/history recording. Only for print formats
   (`printFormat: true`, i.e. mm / cm); a px variant answers 400
   `pdf_not_available`, any other `format` value 400 `invalid_format`. Offer
@@ -339,23 +339,20 @@ so what previews fine exports fine. The difference is what they ARE:
   the same `format`; its PDF ZIP (`{group} - PDF.zip`) holds the print-format
   members only.
 - **`PATCH /api/template-variants/{id}/print-setup`** (2026-11-09) sets the
-  bleed + crop marks of a **standalone** print variant — the web's
-  "Tiskové nastavení". Body `{bleedMm?, cropMarks?}` (`application/json` or
-  `application/merge-patch+json`; an absent key keeps its value): `bleedMm`
-  a number 0–20 mm per side, `cropMarks` a boolean. Answers 200
-  `{id, unit, printFormat, bleedMm, bleedPx, cropMarks}` (`bleedPx` = the
-  bleed in canvas px at 300 DPI); the templates listing reports the new
-  values on `variants[]`. Needs edit rights on the template (owner / admin;
-  403 otherwise). Structured `400 {error, code}`: `invalid_bleed` (not a
-  number, < 0 or > 20 — never clamped), `invalid_crop_marks`,
-  `missing_print_setup` (neither key), `print_setup_not_available` (px /
-  social variant), `document_page` + `documentId` (a page of a multi-page
-  document follows its document — `PATCH /api/template-documents/{id}`
-  instead). A grouped variant is accepted and only that dimension changes
-  (groups have no shared print setup, as on the web). The export takes no
-  bleed override — it always prints with the stored setup, because the
-  artwork has to be designed into the bleed. If your UI lets users set it,
-  default to 3 mm + crop marks.
+  crop marks of a **standalone** print variant — the web's "Tiskové
+  nastavení". Body `{cropMarks?}` (`application/json` or
+  `application/merge-patch+json`; absent keeps its value). **The bleed is
+  fixed at 3 mm since 2026-11-10: `bleedMm` is no longer an input**, a client
+  still sending it is ignored without an error. Answers 200
+  `{id, unit, printFormat, bleedMm, bleedPx, cropMarks}` (`bleedMm` read-only,
+  `bleedPx` = the bleed in canvas px at 300 DPI); the templates listing reports
+  the same values on `variants[]`. Needs edit rights on the template (owner /
+  admin; 403 otherwise). Structured `400 {error, code}`: `invalid_crop_marks`,
+  `missing_print_setup` (empty body), `print_setup_not_available` (px / social
+  variant), `document_page` + `documentId` (a page of a multi-page document
+  follows its document — `PATCH /api/template-documents/{id}` instead). A
+  grouped variant is accepted and only that dimension changes (groups have no
+  shared print setup, as on the web).
 
 > Build this URL from `API_BASE` + the variant `id`. Don't reuse the response's
 > `exportUrl` string from a container (its host is `localhost`).
@@ -445,7 +442,7 @@ over the whole canvas** (least scale that covers it), **anchored top-left**
 (overflow crops away bottom-right). No transform is accepted — the limit flags
 are always `false`; send the shorthand string or `{ "imageId": "..." }` only
 (`{ "hide": true }` works when `hidable`). `frame` is the full canvas rect —
-**plus the print bleed on every side for a print variant with `bleedMm > 0`**
+**plus the print bleed on every side for a print variant**
 (then `frame.x`/`frame.y` are NEGATIVE, e.g. -35 for 3 mm, and width/height
 exceed the canvas), so your preview overlay can treat it like any other slot;
 just draw the fill with
@@ -1408,26 +1405,22 @@ hide them from a "templates" list and present the document instead.
 - **Writes** (designer + project owner; others get 403). Each answers the
   document as it is afterwards:
   - `POST /api/projects/{projectId}/template-documents`
-    `{name, categoryId?, dimension {unit, unitWidth, unitHeight, preset?, bleedMm?, cropMarks?}, templateIds?}` → 201.
+    `{name, categoryId?, dimension {unit, unitWidth, unitHeight, preset?, cropMarks?}, templateIds?}` → 201.
     `preset` accepts `"4:5"` / `"9:16"` only — `"1:1"` is retired for new
     formats (400; send `px` 1080 × 1080 instead). Existing variants still
     report `preset: "1:1"`.
-    **Print setup (mm / cm only, 2026-11-09):** `bleedMm` = bleed ("spadávka")
-    per side, a number 0–20 mm (the web form's range); `cropMarks` = boolean,
-    crop marks in a fixed 5 mm margin outside the bleed. **Omitted → 0 mm and
-    no crop marks** (unchanged default, kept for existing callers — the web
-    forms default to 3 mm + marks, so send `bleedMm: 3, cropMarks: true` for
-    the usual print setup, or ask your user). Refusals are structured
-    `400 {error, code}`: `invalid_bleed` (not a number, < 0 or > 20 — never
-    clamped), `invalid_crop_marks` (not a boolean), `print_setup_not_available`
-    (a `bleedMm > 0` or `cropMarks: true` on a px / preset document; an
-    explicit `0` / `false` there is accepted). The response's `bleedMm` /
-    `cropMarks` report what was stored.
-  - `PATCH /api/template-documents/{id}` `{name?, categoryId?, bleedMm?, cropMarks?}`
+    **Print setup (mm / cm only, 2026-11-10):** the bleed is fixed at 3 mm per
+    side; `bleedMm` is no longer an input and is ignored if sent (the response
+    reports it read-only). `cropMarks` = boolean, crop marks in a fixed 5 mm
+    margin outside the bleed; **omitted → no crop marks**, so send
+    `cropMarks: true` for the usual print setup. Refusals are structured
+    `400 {error, code}`: `invalid_crop_marks` (not a boolean),
+    `print_setup_not_available` (`cropMarks: true` on a px / preset document).
+  - `PATCH /api/template-documents/{id}` `{name?, categoryId?, cropMarks?}`
     — an absent key is left untouched; `categoryId: null` removes the
-    category. `bleedMm` / `cropMarks` apply to the document AND every page,
-    validated like on create (same three 400 codes, `bleedMm: null` = 0); a
-    refused print setup changes nothing, not even the name in the same body.
+    category. `cropMarks` applies to the document AND every page, validated
+    like on create (same two 400 codes; `null` = off); a refused value
+    changes nothing, not even the name in the same body.
   - `PUT /api/template-documents/{id}/pages` `{templateIds: [...]}` — the WHOLE
     ordered list: attach, detach and reorder in one call. A detached template
     returns to the listing.

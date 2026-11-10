@@ -38,7 +38,7 @@
             height: form.variant.height,
         }) }}
 
-        {{ include('_print_settings_fields.html.twig', { bleed_field: form.variant.bleed, crop_marks_field: form.variant.cropMarks }) }}
+        {{ include('_print_settings_fields.html.twig', { crop_marks_field: form.variant.cropMarks }) }}
 
         {{ include('_background_gallery_picker.html.twig', { field: form.variant.backgroundImageId }) }}
     </section>

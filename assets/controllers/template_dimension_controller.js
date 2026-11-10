@@ -16,15 +16,12 @@ import { Controller } from '@hotwired/stimulus';
  * again (`clearPreset` action) — the size stays, it just stops being "the
  * Instagram format" and becomes a free-form dimension.
  *
- * The optional `bleed` / `cropMarks` targets (print setup for the PDF
- * export) follow the preset kind: an Instagram preset clears both, a print
- * format restores the usual 3 mm bleed + crop marks. The `printFields`
- * wrapper only shows for print units (mm / cm) — px is a screen format.
+ * The optional `cropMarks` target (the only print-setup choice; the bleed is
+ * a fixed 3 mm on the server) follows the preset kind: an Instagram preset
+ * clears it, a print format ticks it again. The `printFields` wrapper only shows for print units (mm / cm) — px is a screen format.
  */
 export default class extends Controller {
-    static targets = ['unit', 'width', 'height', 'preset', 'bleed', 'cropMarks', 'printFields'];
-
-    static DEFAULT_BLEED_MM = 3;
+    static targets = ['unit', 'width', 'height', 'preset', 'cropMarks', 'printFields'];
 
     applyPreset(event) {
         event.preventDefault();
@@ -39,12 +36,8 @@ export default class extends Controller {
             this.presetTarget.value = preset ?? '';
         }
 
-        const print = !preset;
-        if (this.hasBleedTarget) {
-            this.bleedTarget.value = print ? this.constructor.DEFAULT_BLEED_MM : 0;
-        }
         if (this.hasCropMarksTarget) {
-            this.cropMarksTarget.checked = print;
+            this.cropMarksTarget.checked = !preset;
         }
 
         [this.unitTarget, this.widthTarget, this.heightTarget].forEach((element) => {

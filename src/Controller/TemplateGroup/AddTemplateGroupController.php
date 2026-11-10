@@ -64,7 +64,6 @@ final class AddTemplateGroupController extends AbstractController
                     $row->unit = $sourceVariant->dimension->unit;
                     $row->width = $sourceVariant->dimension->unitWidth;
                     $row->height = $sourceVariant->dimension->unitHeight;
-                    $row->bleed = $sourceVariant->dimension->bleedMm;
                     $row->cropMarks = $sourceVariant->dimension->cropMarks;
 
                     $data->customDimensions = [$row];

@@ -181,7 +181,7 @@ final class FindTemplatesTest extends WebTestCase
         // Whole `unit*` sizes arrive as JSON integers — PHP drops a float's
         // zero fraction and the SDK owns the encode flags.
         self::assertSame(
-            ['label' => '210 × 297 mm', 'preset' => null, 'unit' => 'mm', 'unitWidth' => 210, 'unitHeight' => 297, 'width' => 2480, 'height' => 3508, 'printFormat' => true, 'bleedMm' => 0, 'bleedPx' => 0, 'cropMarks' => false],
+            ['label' => '210 × 297 mm', 'preset' => null, 'unit' => 'mm', 'unitWidth' => 210, 'unitHeight' => 297, 'width' => 2480, 'height' => 3508, 'printFormat' => true, 'bleedMm' => 3, 'bleedPx' => 35, 'cropMarks' => false],
             $variant['dimension'],
         );
 

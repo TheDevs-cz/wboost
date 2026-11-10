@@ -146,24 +146,23 @@ answers 400, and the format is recorded on `export_event.format`). Target: what 
 one flattened **300 ppi CMYK raster** + vector crop marks, exactly the
 structure of the Illustrator-exported reference file.
 
-- **Print setup lives on `TemplateDimension`** (`bleedMm`, `cropMarks`;
-  0 / false for every pre-existing variant; add forms default to 3 mm +
-  marks, an Instagram preset clears both; "Tiskové nastavení" page edits an
-  existing variant — so do `PATCH /api/template-variants/{id}/print-setup`
-  and MCP `set_print_setup`, same message, see `api-templates.md`). **Bleed ≠ crop-mark margin (2026-11-08)**: `bleedMm`
-  ("Spadávka", the ONLY input) is how far the artwork runs past the cut; the
-  crop marks live in a FIXED 5 mm band OUTSIDE the bleed
-  (`PrintPageGeometry::MARK_MARGIN_MM`, no input) — each mark sits on a trim
-  line, starts at the bleed edge (never on artwork) and runs to the media
-  edge. Page = trim + 2 × bleed + 2 × 5 mm (210 × 99 mm, bleed 3 →
-  MediaBox 226 × 115 mm, BleedBox inset 5 mm, TrimBox inset 8 mm); without
-  marks the page is the BleedBox. Before, the marks sat at max(3 mm, bleed),
-  27 pt long, so the single input was used as the MARK margin (every prod
-  print row stored 5 mm) — `Version20261108230000` moved those 5 mm + marks
-  rows to 3 mm. `withPrintSettings()` keeps px dimensions without a
-  print setup, so the rule cannot be bypassed by a form post. **The bleed is
-  not part of the canvas**:
-  coordinates stay trim-relative and the bleed is the area past the edges.
+- **Print setup lives on `TemplateDimension`**: `bleedMm` + `cropMarks`.
+  **The bleed is not an input (2026-11-10)**: `TemplateDimension::PRINT_BLEED_MM`
+  = 3 mm for every mm / cm dimension, 0 for px, set by the constructor and
+  nowhere else (`Version20261110100000` moved all rows to it). The only choice
+  is `cropMarks` (`withCropMarks()`, which keeps px without marks; add forms
+  default to on, an Instagram preset clears it; the "Tiskové nastavení" page,
+  `PATCH /api/template-variants/{id}/print-setup` and MCP `set_print_setup`
+  change it through one message, see `api-templates.md`). **Bleed ≠ crop-mark
+  margin (2026-11-08)**: `bleedMm` is how far the artwork runs past the cut;
+  the crop marks live in a FIXED 5 mm band OUTSIDE the bleed
+  (`PrintPageGeometry::MARK_MARGIN_MM`) — each mark sits on a trim line, starts
+  at the bleed edge (never on artwork) and runs to the media edge. Page = trim
+  + 2 × 3 mm + 2 × 5 mm (210 × 99 mm → MediaBox 226 × 115 mm, BleedBox inset
+  5 mm, TrimBox inset 8 mm); without marks the page is the BleedBox. The owner
+  calls the 5 mm band "spadávka" and the 3 mm "posun"; the code's `bleed` is
+  the 3 mm. **The bleed is not part of the canvas**: coordinates stay
+  trim-relative and the bleed is the area past the edges.
 - **Raster passes go through the ordinary renderer** with a `PrintLayer`
   (`renderToBytes(..., printLayer:)`, never cached): the render template
   widens the canvas by `bleed_px` per side and shifts the viewport by it, so

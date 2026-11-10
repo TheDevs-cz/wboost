@@ -32,3 +32,4 @@ Status: `open` · `wip` (agent working) · `done` (on main) ·
 | F20 | Editor gallery modal | "Vyberte obrázek" modal (editor) lacks the tile-size slider the standalone gallery has — add it | done | 61ee6f51 | subagent |
 | F21 | Gallery picker (phone) | At 390 px the picker toolbar's "Nová složka" button overflows; fill-page pickers (single/group/document) still have no size slider | done | 9ca367d5 | found by the F20 agent |
 | F22 | Templates listing | Drop the "Naposledy exportováno / Zatím neexportováno" line from the template cards (Nejpoužívanější keep the 30-day count) | done | (this commit) | orchestrator |
+| F23 | Print templates | 2026-11-10: remove the bleed input — print formats always have the 3 mm posun (`bleedMm`) inside the fixed 5 mm spadávka band for the crop marks; only "Ořezové značky" stays; API/MCP ignore a sent `bleedMm` | done | (this commit) | migration `Version20261110100000` |

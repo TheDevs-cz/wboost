@@ -40,10 +40,8 @@
         <div class="tp-print" data-template-dimension-target="printFields">
             <div class="tp-print-row">
                 {% if is_new %}
-                    {{ form_row(dimension.bleed, { value: 3, attr: { 'data-template-dimension-target': 'bleed' }, row_attr: { class: 'mb-0 tp-bleed' } }) }}
                     {{ form_row(dimension.cropMarks, { checked: true, attr: { 'data-template-dimension-target': 'cropMarks' }, row_attr: { class: 'form-check mb-0' } }) }}
                 {% else %}
-                    {{ form_row(dimension.bleed, { attr: { 'data-template-dimension-target': 'bleed' }, row_attr: { class: 'mb-0 tp-bleed' } }) }}
                     {{ form_row(dimension.cropMarks, { attr: { 'data-template-dimension-target': 'cropMarks' }, row_attr: { class: 'form-check mb-0' } }) }}
                 {% endif %}
             </div>

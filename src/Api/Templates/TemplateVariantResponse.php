@@ -55,7 +55,7 @@ final readonly class TemplateVariantResponse
         // Print format (mm / cm): the variant also exports a print PDF
         // (`format: "pdf"` on export). False for px (screen) formats.
         public bool $printFormat = false,
-        // Print setup of the PDF: bleed per side in mm (0 = none) and whether
+        // Print setup of the PDF: bleed per side in mm (fixed: 3 for print, 0 for px) and whether
         // crop marks are drawn. Always 0 / false for screen formats. The
         // bleed is drawn past the canvas edges — canvas coordinates stay the
         // trim's, so the background slot's frame starts at -bleed px.

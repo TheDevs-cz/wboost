@@ -172,12 +172,12 @@ final class TemplateDocumentPagesControllerTest extends WebTestCase
         $a = TemplateDocumentTestData::a4Template($this->em(), 'A');
         $documentId = TemplateDocumentTestData::document($this->em(), $this->bus(), [$a['template']]);
 
-        $client->request('POST', '/template-document/' . $documentId . '/print-settings', ['_token' => $this->token($client), 'bleed' => '5', 'cropMarks' => '1']);
+        $client->request('POST', '/template-document/' . $documentId . '/print-settings', ['_token' => $this->token($client), 'cropMarks' => '1']);
         self::assertResponseRedirects();
 
         $document = $this->em()->find(TemplateDocument::class, $documentId);
         self::assertInstanceOf(TemplateDocument::class, $document);
-        self::assertSame(5.0, $document->pages()[0]->variant->dimension->bleedMm);
+        self::assertTrue($document->pages()[0]->variant->dimension->cropMarks);
     }
 
     private function adminClient(): KernelBrowser

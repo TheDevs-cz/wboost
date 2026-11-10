@@ -52,7 +52,14 @@ final readonly class TemplateVariantPrintSetupProcessor implements ProcessorInte
         $body = $request instanceof Request ? json_decode($request->getContent(), true) : null;
 
         try {
-            $this->printSetup->change($variant, is_array($body) ? $body : []);
+            $provided = is_array($body) ? $body : [];
+
+            // A body with only the retired `bleedMm` is an older client: fine.
+            if (!array_key_exists('cropMarks', $provided) && !array_key_exists('bleedMm', $provided)) {
+                throw new InvalidPrintSetup('Provide "cropMarks".', 'missing_print_setup');
+            }
+
+            $this->printSetup->change($variant, $provided);
         } catch (InvalidPrintSetup $refused) {
             return new JsonResponse([
                 'error' => $refused->getMessage(),

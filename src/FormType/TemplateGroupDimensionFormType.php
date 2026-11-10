@@ -63,15 +63,6 @@ final class TemplateGroupDimensionFormType extends AbstractType
             'attr' => ['min' => 0, 'step' => 'any'],
         ]);
 
-        $builder->add('bleed', NumberType::class, [
-            'label' => 'Spadávka (mm)',
-            'required' => false,
-            'html5' => true,
-            'scale' => 1,
-            'empty_data' => '0',
-            'attr' => ['min' => 0, 'max' => TemplateGroupDimensionFormData::MAX_BLEED_MM, 'step' => 'any'],
-        ]);
-
         $builder->add('cropMarks', CheckboxType::class, [
             'label' => 'Ořezové značky',
             'required' => false,

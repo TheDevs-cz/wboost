@@ -148,13 +148,14 @@ final class DocumentToolsTest extends WebTestCase
         self::assertCount(2, $duplicated['pages']);
         self::assertNotSame($duplicated['pages'][0]['variantId'], $duplicated['pages'][1]['variantId']);
 
-        $printed = $this->ok('manage_document', ['action' => 'set_print', 'documentId' => $document['id'], 'bleedMm' => 3, 'cropMarks' => true]);
+        $printed = $this->ok('manage_document', ['action' => 'set_print', 'documentId' => $document['id'], 'cropMarks' => true]);
         self::assertNotNull($printed['dimension']);
         self::assertSame(3, (int) $printed['dimension']['bleedMm']);
         self::assertTrue($printed['dimension']['cropMarks']);
 
-        $missing = $this->call('manage_document', ['action' => 'set_print', 'documentId' => $document['id']]);
-        self::assertTrue($missing['isError'] ?? false);
+        $kept = $this->ok('manage_document', ['action' => 'set_print', 'documentId' => $document['id']]);
+        self::assertNotNull($kept['dimension']);
+        self::assertTrue($kept['dimension']['cropMarks'], 'An omitted cropMarks keeps the value.');
 
         $categorized = $this->ok('manage_document', ['action' => 'rename', 'documentId' => $document['id'], 'categoryId' => TestDataFixture::TEMPLATE_CATEGORY_1_ID]);
         self::assertSame('Leták', $categorized['name'], 'An omitted name stays.');
@@ -179,12 +180,11 @@ final class DocumentToolsTest extends WebTestCase
     }
 
     /**
-     * A print document created without bleedMm gets 0 mm + no marks (the API
-     * default) AND a `missing_bleed` warning saying so and how to change it;
-     * a given bleed, or a screen format, gets no such noise. Out-of-range
-     * values are refused (the web form's 0–20 mm), not clamped.
+     * The bleed is fixed: every print document reports 3 mm whatever was sent
+     * (a retired bleedMm is ignored, never refused); crop marks stay a choice
+     * and a screen format still refuses them.
      */
-    public function testPrintSetupWarningsAndValidation(): void
+    public function testBleedIsFixedAndARetiredOneIgnored(): void
     {
         $this->makeDesigner();
         $create = fn (array $dimension): array => $this->call('manage_document', [
@@ -195,39 +195,30 @@ final class DocumentToolsTest extends WebTestCase
         ]);
 
         $omitted = $this->payload($create(['unit' => 'mm', 'unitWidth' => 210, 'unitHeight' => 99]));
-        self::assertEquals(0, $omitted['dimension']['bleedMm']);
-        self::assertFalse($omitted['dimension']['cropMarks']);
-        self::assertSame(['missing_bleed'], array_column($omitted['warnings'], 'code'));
-        self::assertStringContainsString('set_print', $omitted['warnings'][0]['message']);
-        self::assertStringContainsString('3 mm', $omitted['warnings'][0]['message']);
+        self::assertEquals(3, $omitted['dimension']['bleedMm']);
+        self::assertFalse($omitted['dimension']['cropMarks'], 'An omitted cropMarks stays the API default: none.');
 
-        $given = $this->payload($create(['unit' => 'mm', 'unitWidth' => 210, 'unitHeight' => 99, 'bleedMm' => 3, 'cropMarks' => true]));
-        self::assertEquals(3, $given['dimension']['bleedMm']);
-        self::assertSame([], $given['warnings']);
+        foreach ([25, -1, 0] as $bleed) {
+            $sent = $this->payload($create(['unit' => 'mm', 'unitWidth' => 210, 'unitHeight' => 99, 'bleedMm' => $bleed]));
+            self::assertEquals(3, $sent['dimension']['bleedMm']);
+        }
 
-        $deliberatelyNone = $this->payload($create(['unit' => 'cm', 'unitWidth' => 21, 'unitHeight' => 9.9, 'bleedMm' => 0]));
-        self::assertSame([], $deliberatelyNone['warnings'], 'An explicit 0 is the user\'s choice, not a missing bleed.');
+        $screen = $this->payload($create(['unit' => 'px', 'unitWidth' => 1080, 'unitHeight' => 1350, 'bleedMm' => 3]));
+        self::assertEquals(0, $screen['dimension']['bleedMm']);
 
-        $screen = $this->payload($create(['unit' => 'px', 'unitWidth' => 1080, 'unitHeight' => 1350]));
-        self::assertSame([], $screen['warnings'], 'Screen formats have no bleed to miss.');
+        $screenWithMarks = $create(['unit' => 'px', 'unitWidth' => 1080, 'unitHeight' => 1350, 'cropMarks' => true]);
+        self::assertTrue($screenWithMarks['isError'] ?? false);
+        self::assertStringContainsString('print_setup_not_available', $screenWithMarks['content'][0]['text']);
 
-        $screenWithBleed = $create(['unit' => 'px', 'unitWidth' => 1080, 'unitHeight' => 1350, 'bleedMm' => 3]);
-        self::assertTrue($screenWithBleed['isError'] ?? false);
-        self::assertStringContainsString('print_setup_not_available', $screenWithBleed['content'][0]['text']);
+        $ignored = $this->payload($this->call('manage_document', ['action' => 'set_print', 'documentId' => $omitted['id'], 'bleedMm' => 25]));
+        self::assertEquals(3, $ignored['dimension']['bleedMm']);
+        self::assertFalse($ignored['dimension']['cropMarks'], 'A lone bleedMm changes nothing.');
 
-        $tooMuch = $create(['unit' => 'mm', 'unitWidth' => 210, 'unitHeight' => 99, 'bleedMm' => 25]);
-        self::assertTrue($tooMuch['isError'] ?? false);
-        self::assertStringContainsString('invalid_bleed', $tooMuch['content'][0]['text']);
-
-        $setTooMuch = $this->call('manage_document', ['action' => 'set_print', 'documentId' => $omitted['id'], 'bleedMm' => 25]);
-        self::assertTrue($setTooMuch['isError'] ?? false, 'set_print refuses instead of clamping.');
-
-        $fixed = $this->payload($this->call('manage_document', ['action' => 'set_print', 'documentId' => $omitted['id'], 'bleedMm' => 3, 'cropMarks' => true]));
-        self::assertEquals(3, $fixed['dimension']['bleedMm']);
-        self::assertSame([], $fixed['warnings'], 'Only "create" reports a missing bleed.');
+        $marked = $this->payload($this->call('manage_document', ['action' => 'set_print', 'documentId' => $omitted['id'], 'cropMarks' => true]));
+        self::assertTrue($marked['dimension']['cropMarks']);
     }
 
-    public function testToolDescriptionTeachesAskingForBleed(): void
+    public function testToolDescriptionSaysTheBleedIsFixed(): void
     {
         $browser = $this->browser();
         $sessionId = TestingMcpClient::connect($browser, TestDataFixture::MCP_TOKEN_ACTIVE);
@@ -238,14 +229,14 @@ final class DocumentToolsTest extends WebTestCase
         $tools = $payload['result']['tools'] ?? [];
         $description = array_column($tools, 'description', 'name')['manage_document'] ?? '';
 
-        self::assertStringContainsString('ASK the user', $description);
-        self::assertStringContainsString('missing_bleed', $description);
-        self::assertStringContainsString('3 mm', $description);
+        self::assertStringNotContainsString('ASK the user', $description);
+        self::assertStringNotContainsString('missing_bleed', $description);
+        self::assertStringContainsString('FIXED at 3 mm', $description);
     }
 
     /**
      * @param array{isError?: bool, content: list<array{text: string, resource: array{mimeType: string, blob: string}}>} $result
-     * @return array{id: string, dimension: array{bleedMm: float|int, cropMarks: bool}, warnings: list<array{code: string, message: string}>}
+     * @return array{id: string, dimension: array{bleedMm: float|int, cropMarks: bool}}
      */
     private function payload(array $result): array
     {
@@ -253,7 +244,7 @@ final class DocumentToolsTest extends WebTestCase
         $payload = json_decode($result['content'][0]['text'], true, 512, JSON_THROW_ON_ERROR);
         self::assertIsArray($payload);
 
-        /** @var array{id: string, dimension: array{bleedMm: float|int, cropMarks: bool}, warnings: list<array{code: string, message: string}>} $payload */
+        /** @var array{id: string, dimension: array{bleedMm: float|int, cropMarks: bool}} $payload */
         return $payload;
     }
 

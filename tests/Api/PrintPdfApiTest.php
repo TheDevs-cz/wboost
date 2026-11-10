@@ -41,7 +41,7 @@ final class PrintPdfApiTest extends ApiTestCase
 
         $a4 = $variants[TestDataFixture::GROUPED_FREEFORM_VARIANT_ID];
         self::assertTrue($a4['printFormat']);
-        self::assertEquals(0, $a4['bleedMm']);
+        self::assertEquals(3, $a4['bleedMm']);
         self::assertFalse($a4['cropMarks']);
         self::assertFalse($variants[TestDataFixture::GROUPED_PRESET_VARIANT_ID]['printFormat']);
     }

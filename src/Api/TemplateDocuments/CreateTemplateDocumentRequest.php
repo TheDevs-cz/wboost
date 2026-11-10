@@ -10,7 +10,7 @@ final class CreateTemplateDocumentRequest
 
     public null|string $categoryId = null;
 
-    /** @var array<string, mixed> `{unit, unitWidth, unitHeight, preset?, bleedMm?, cropMarks?}` */
+    /** @var array<string, mixed> `{unit, unitWidth, unitHeight, preset?, cropMarks?}` */
     public array $dimension = [];
 
     /** @var list<string> */

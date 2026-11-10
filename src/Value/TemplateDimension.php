@@ -16,18 +16,26 @@ use Doctrine\ORM\Mapping\Embeddable;
  * Physical units are rasterized at {@see DimensionUnit::PRINT_DPI}
  * (print quality).
  *
- * It also carries the variant's print setup for the PDF export: a bleed
- * ("spadávka") in millimetres and whether crop marks are drawn. Both are
- * optional (0 / false = plain trim-size PDF) and exist only for PRINT
- * formats (mm / cm) — a px canvas is a screen format: no PDF export, and
- * {@see withPrintSettings()} keeps it without a print setup. The bleed is
- * NOT part of the canvas: canvas coordinates stay trim-relative, the bleed
- * is extra canvas area around them (negative / past-edge coordinates)
- * that only the print render and the editor's bleed zone show.
+ * It also carries the variant's print setup for the PDF export, which exists
+ * only for PRINT formats (mm / cm) — a px canvas is a screen format with no
+ * PDF export and no print setup. The bleed (how far the artwork runs past the
+ * trim, where the crop marks start) is NOT a choice: {@see PRINT_BLEED_MM} for
+ * every print format and 0 for px, set here and nowhere else. The only choice
+ * is whether crop marks are drawn ({@see withCropMarks()}). The bleed is NOT
+ * part of the canvas: canvas coordinates stay trim-relative, the bleed is
+ * extra canvas area around them (negative / past-edge coordinates) that only
+ * the print render and the editor's bleed zone show.
  */
 #[Embeddable]
 final class TemplateDimension
 {
+    /** The one bleed a print format has, per side. */
+    public const float PRINT_BLEED_MM = 3.0;
+
+    /** Derived from the unit; a column so SQL readers and old rows see it. */
+    #[Column(options: ['default' => 0])]
+    readonly public float $bleedMm;
+
     /**
      * The size properties are deliberately NOT named `width`/`height`: Twig
      * resolves `dimension.width` to a public property before the `width()`
@@ -47,21 +55,18 @@ final class TemplateDimension
         #[Column(nullable: true)]
         readonly public null|DimensionPreset $preset = null,
 
-        #[Column(options: ['default' => 0])]
-        readonly public float $bleedMm = 0.0,
-
         #[Column(options: ['default' => false])]
         readonly public bool $cropMarks = false,
     ) {
+        $this->bleedMm = $unit === DimensionUnit::Px ? 0.0 : self::PRINT_BLEED_MM;
     }
 
-    public function withPrintSettings(float $bleedMm, bool $cropMarks): self
+    /**
+     * A screen format has no crop marks, whatever is asked for.
+     */
+    public function withCropMarks(bool $cropMarks): self
     {
-        if (!$this->isPrintFormat()) {
-            return new self($this->unit, $this->unitWidth, $this->unitHeight, $this->preset);
-        }
-
-        return new self($this->unit, $this->unitWidth, $this->unitHeight, $this->preset, max(0.0, $bleedMm), $cropMarks);
+        return new self($this->unit, $this->unitWidth, $this->unitHeight, $this->preset, $this->isPrintFormat() && $cropMarks);
     }
 
     /**

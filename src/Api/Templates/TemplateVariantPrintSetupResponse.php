@@ -31,7 +31,7 @@ use ApiPlatform\OpenApi\Model\Operation as OpenApiOperation;
             normalizationContext: ['skip_null_values' => false],
             name: 'api_template_variant_print_setup',
             openapi: new OpenApiOperation(
-                summary: 'Set the bleed / crop marks of a standalone print (mm / cm) variant: `{bleedMm?: 0–20, cropMarks?: bool}` (absent key = unchanged). 400 `{error, code}`: invalid_bleed, invalid_crop_marks, missing_print_setup, print_setup_not_available (px), document_page (+ documentId — change the document instead).',
+                summary: 'Set the crop marks of a standalone print (mm / cm) variant: `{cropMarks?: bool}` (absent key = unchanged). The bleed is fixed at 3 mm; a `bleedMm` key is ignored. 400 `{error, code}`: invalid_crop_marks, missing_print_setup, print_setup_not_available (px), document_page (+ documentId — change the document instead).',
             ),
         ),
     ],

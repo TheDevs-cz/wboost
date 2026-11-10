@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace WBoost\Web\FormData;
 
 use Symfony\Component\Validator\Constraints\Callback;
-use Symfony\Component\Validator\Constraints\NotNull;
-use Symfony\Component\Validator\Constraints\Range;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
 use WBoost\Web\Value\TemplateDimension;
 use WBoost\Web\Value\DimensionUnit;
@@ -16,7 +14,6 @@ final class TemplateGroupDimensionFormData
 {
     private const int MAX_CANVAS_PIXELS = 10000;
     private const int MIN_CANVAS_PIXELS = 16;
-    public const int MAX_BLEED_MM = 20;
 
     /**
      * Set by the preset buttons (Instagram formats). When present it WINS
@@ -34,14 +31,10 @@ final class TemplateGroupDimensionFormData
     public null|float $height = 297;
 
     /**
-     * Print setup for the PDF export — bleed ("spadávka") on each side in mm
-     * and crop marks. Defaults to the usual 3 mm + marks; 0 / unticked gives
-     * a plain trim-size PDF. Picking an Instagram preset clears both (JS).
+     * Crop marks in the print PDF (the bleed is fixed, see
+     * {@see TemplateDimension::PRINT_BLEED_MM}). On by default; picking an
+     * Instagram preset clears it (JS).
      */
-    #[NotNull]
-    #[Range(min: 0, max: self::MAX_BLEED_MM)]
-    public null|float $bleed = 3.0;
-
     public bool $cropMarks = true;
 
     // Project-gallery FileUpload id from the background picker widget.
@@ -95,6 +88,6 @@ final class TemplateGroupDimensionFormData
             $dimension = new TemplateDimension($this->unit, $this->width, $this->height);
         }
 
-        return $dimension->withPrintSettings($this->bleed ?? 0.0, $this->cropMarks);
+        return $dimension->withCropMarks($this->cropMarks);
     }
 }

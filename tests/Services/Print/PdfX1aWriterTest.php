@@ -22,12 +22,12 @@ final class PdfX1aWriterTest extends TestCase
 {
     /**
      * Two separate things around the trim: the BLEED (artwork past the cut,
-     * the designer's "Spadávka", default 3 mm) and, outside it, a FIXED 5 mm
+     * a fixed 3 mm) and, outside it, a FIXED 5 mm
      * crop-mark margin. Page = trim + 2 × bleed + 2 × 5 mm.
      */
     public function testGeometryFollowsThePrintSetup(): void
     {
-        $voucher = PrintPageGeometry::fromDimension((new TemplateDimension(DimensionUnit::Mm, 210, 99))->withPrintSettings(3, true));
+        $voucher = PrintPageGeometry::fromDimension(new TemplateDimension(DimensionUnit::Mm, 210, 99, cropMarks: true));
 
         self::assertEqualsWithDelta(595.276, $voucher->trimWidth, 0.001);
         self::assertEqualsWithDelta(8.504, $voucher->bleed, 0.001);
@@ -39,18 +39,13 @@ final class PdfX1aWriterTest extends TestCase
         self::assertBoxMm([5, 5, 221, 110], $voucher->bleedBox());
         self::assertBoxMm([8, 8, 218, 107], $voucher->trimBox());
 
-        // A bigger bleed grows the page; the mark margin stays 5 mm.
-        $wide = PrintPageGeometry::fromDimension((new TemplateDimension(DimensionUnit::Mm, 210, 99))->withPrintSettings(5, true));
-        self::assertBoxMm([0, 0, 230, 119], $wide->mediaBox());
-        self::assertBoxMm([5, 5, 225, 114], $wide->bleedBox());
-
         // No marks = no mark margin: the page is the bleed box.
-        $noMarks = PrintPageGeometry::fromDimension((new TemplateDimension(DimensionUnit::Mm, 210, 99))->withPrintSettings(3, false));
+        $noMarks = PrintPageGeometry::fromDimension(new TemplateDimension(DimensionUnit::Mm, 210, 99));
         self::assertBoxMm([0, 0, 216, 105], $noMarks->mediaBox());
         self::assertSame($noMarks->bleedBox(), $noMarks->mediaBox());
 
-        $plain = PrintPageGeometry::fromDimension(new TemplateDimension(DimensionUnit::Mm, 210, 297));
-        self::assertSame(0.0, $plain->margin(), 'no bleed, no marks: the page IS the trim');
+        $plain = PrintPageGeometry::fromDimension(new TemplateDimension(DimensionUnit::Px, 1080, 1080));
+        self::assertSame(0.0, $plain->margin(), 'px has no bleed and no marks: the page IS the trim');
         self::assertSame($plain->trimBox(), $plain->mediaBox());
 
         // Social formats map to paper at 300 DPI: 1080 px = 259.2 pt.

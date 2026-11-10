@@ -9,8 +9,8 @@
     <span class="td-meta">
         <span class="tp-var tp-var-doc">{{ icon('book', 's12') }}Dokument {{ document.dimension.label }}</span>
         <span class="tp-var">{{ page_count }} {{ page_word }}</span>
-        {% if document.dimension.isPrintFormat and (document.dimension.bleedMm > 0 or document.dimension.cropMarks) %}
-            <span class="tp-var">spadávka {{ document.dimension.bleedMm }} mm{{ document.dimension.cropMarks ? ', ořezové značky' : '' }}</span>
+        {% if document.dimension.isPrintFormat and document.dimension.cropMarks %}
+            <span class="tp-var">ořezové značky</span>
         {% endif %}
     </span>
 {% endblock %}
@@ -220,13 +220,11 @@
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zavřít"></button>
                         </div>
                         <div class="modal-body">
-                            <label class="form-label" for="documentBleed">Spadávka (mm)</label>
-                            <input class="form-control" id="documentBleed" type="number" name="bleed" min="0" max="20" step="any" value="{{ document.dimension.bleedMm }}">
-                            <div class="form-check mt-2">
+                            <div class="form-check">
                                 <input class="form-check-input" id="documentCropMarks" type="checkbox" name="cropMarks" value="1" {{ document.dimension.cropMarks ? 'checked' : '' }}>
                                 <label class="form-check-label" for="documentCropMarks">Ořezové značky</label>
                             </div>
-                            <p class="text-muted small mt-2 mb-0">Spadávka = přesah grafiky za hranu formátu (obvykle 3&nbsp;mm). Ořezové značky se kreslí do pevného 5mm okraje za spadávkou.</p>
+                            <p class="text-muted small mt-2 mb-0">Grafika vždy přesahuje za hranu formátu o pevné 3&nbsp;mm. Ořezové značky se kreslí do pevného 5mm okraje vně tohoto přesahu.</p>
                             <p class="text-muted small mt-1 mb-0">Platí pro celý dokument — uloží se i do všech jeho stránek, aby tiskové PDF nemíchalo různá nastavení.</p>
                         </div>
                         <div class="modal-footer">

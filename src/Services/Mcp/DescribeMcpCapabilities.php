@@ -250,16 +250,16 @@ readonly final class DescribeMcpCapabilities
             'manage_document' => [
                 'Sestavit vícestránkový dokument',
                 'Asistent může z existujících šablon složit dokument, změnit pořadí stran, přidat '
-                . 'prázdnou stranu k navržení, stranu zduplikovat, nastavit spadávku a ořezové '
+                . 'prázdnou stranu k navržení, stranu zduplikovat, zapnout ořezové '
                 . 'značky nebo propojit společná pole napříč stranami. Skládat '
                 . 'dokumenty může jen ten, kdo projekt vlastní a má roli grafika; mazat odsud nejde '
                 . '— odpojená strana zůstane mezi šablonami.',
             ],
             'set_print_setup' => [
-                'Nastavit spadávku a ořezové značky',
-                'Asistent může tiskové šabloně (v mm nebo cm) nastavit spadávku a ořezové značky '
-                . 'pro tiskové PDF. Když spadávku nezadáte, zeptá se — běžně se používají 3 mm '
-                . 's ořezovými značkami. Stránky dokumentu se řídí nastavením dokumentu; měnit '
+                'Zapnout ořezové značky',
+                'Asistent může tiskové šabloně (v mm nebo cm) zapnout nebo vypnout ořezové značky '
+                . 'pro tiskové PDF. Přesah grafiky za hranu formátu je vždy pevných 3 mm. '
+                . 'Stránky dokumentu se řídí nastavením dokumentu; měnit '
                 . 'to může jen ten, kdo smí šablonu upravovat.',
             ],
             default => null,

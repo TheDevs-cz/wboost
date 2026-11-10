@@ -156,15 +156,12 @@ final class PrintPdfRendererGotenbergTest extends KernelTestCase
         $variant = self::getContainer()->get(TemplateVariantRepository::class)
             ->get(Uuid::fromString(TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID));
 
-        $variant->changePrintSettings(3.0, true);
-
         $reflection = new \ReflectionProperty(TemplateVariant::class, 'dimension');
         $reflection->setValue($variant, new \WBoost\Web\Value\TemplateDimension(
             \WBoost\Web\Value\DimensionUnit::Mm,
             148,
             210,
             null,
-            3.0,
             true,
         ));
 

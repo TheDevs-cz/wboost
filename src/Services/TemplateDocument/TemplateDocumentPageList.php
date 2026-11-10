@@ -68,13 +68,13 @@ readonly final class TemplateDocumentPageList
     }
 
     /**
-     * One PDF never mixes print setups: a page takes the document's bleed +
-     * crop marks when it joins (no-op for screen formats).
+     * One PDF never mixes print setups: a page takes the document's crop
+     * marks when it joins (no-op for screen formats).
      */
     public static function applyPrintSetup(TemplateDocument $document, TemplateVariant $variant): void
     {
         if ($document->dimension->isPrintFormat()) {
-            $variant->changePrintSettings($document->dimension->bleedMm, $document->dimension->cropMarks);
+            $variant->changeCropMarks($document->dimension->cropMarks);
         }
     }
 }

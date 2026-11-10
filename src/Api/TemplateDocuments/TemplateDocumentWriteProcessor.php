@@ -140,23 +140,19 @@ final readonly class TemplateDocumentWriteProcessor implements ProcessorInterfac
             ? self::optionalUuid($data->categoryId, 'categoryId')
             : $document->category?->id;
 
-        $print = null;
+        $cropMarks = null;
 
-        if (array_key_exists('bleedMm', $provided) || array_key_exists('cropMarks', $provided)) {
-            // Validated BEFORE the rename is dispatched, so a refused print
-            // setup changes nothing. The raw body values are checked — the DTO
-            // would already have coerced them.
-            $print = self::printSettings(
-                $document->dimension,
-                array_key_exists('bleedMm', $provided) ? $provided['bleedMm'] : $document->dimension->bleedMm,
-                array_key_exists('cropMarks', $provided) ? $provided['cropMarks'] : $document->dimension->cropMarks,
-            );
+        if (array_key_exists('cropMarks', $provided)) {
+            // Validated BEFORE the rename is dispatched, so a refused value
+            // changes nothing. The raw body value is checked — the DTO would
+            // already have coerced it.
+            $cropMarks = self::cropMarks($document->dimension, $provided['cropMarks']);
         }
 
         $this->dispatch(new EditTemplateDocument($document->id, $name, $categoryId));
 
-        if ($print !== null) {
-            $this->dispatch(new EditTemplateDocumentPrintSettings($document->id, $print[0], $print[1]));
+        if ($cropMarks !== null) {
+            $this->dispatch(new EditTemplateDocumentPrintSettings($document->id, $cropMarks));
         }
 
         return $this->respond($document->id);
@@ -266,14 +262,12 @@ final readonly class TemplateDocumentWriteProcessor implements ProcessorInterfac
     }
 
     /**
-     * @return array{float, bool}
-     *
      * @throws InvalidTemplateDocumentChange
      */
-    private static function printSettings(TemplateDimension $dimension, mixed $bleedMm, mixed $cropMarks): array
+    private static function cropMarks(TemplateDimension $dimension, mixed $cropMarks): bool
     {
         try {
-            return DocumentWriteInput::printSettings($dimension, $bleedMm, $cropMarks);
+            return DocumentWriteInput::cropMarks($dimension, $cropMarks);
         } catch (InvalidPrintSetup $invalid) {
             throw new InvalidTemplateDocumentChange($invalid->getMessage(), $invalid->reason);
         }

@@ -18,8 +18,8 @@ use WBoost\Web\Message\Template\EditTemplateVariantPrintSettings;
 use WBoost\Web\Services\Security\TemplateVariantVoter;
 
 /**
- * "Tiskové nastavení" — bleed + crop marks of an existing variant (the
- * add forms set them at creation; before this page they were fixed).
+ * "Tiskové nastavení" — the crop marks of an existing variant (the add forms
+ * set them at creation).
  */
 final class TemplateVariantPrintSettingsController extends AbstractController
 {
@@ -46,7 +46,6 @@ final class TemplateVariantPrintSettingsController extends AbstractController
         if ($form->isSubmitted() && $form->isValid()) {
             $this->bus->dispatch(new EditTemplateVariantPrintSettings(
                 $variant->id,
-                $data->bleed ?? 0.0,
                 $data->cropMarks,
             ));
 

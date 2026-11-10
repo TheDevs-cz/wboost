@@ -263,35 +263,32 @@ MCP:
   - A file over 25 MB is refused and the reply points to the fill URL.
   - The file comes back as an `EmbeddedResource` blob.
 - Body parsing shared with the API: `Services/TemplateDocument/DocumentWriteInput`.
-- **Print setup validation (2026-11-09)**: `DocumentWriteInput::printSettings()`
-  is the ONE rule for API create / PATCH and MCP create / `set_print`:
-  `bleedMm` 0–`TemplateVariantFormData::MAX_BLEED_MM` (20, the web form's
-  Range) else `invalid_bleed`, `cropMarks` bool else `invalid_crop_marks`,
-  px / preset with a real setup → `print_setup_not_available`
+- **Print setup validation (2026-11-10)**: the bleed is fixed
+  (`TemplateDimension::PRINT_BLEED_MM`, see `templates-render.md`), so
+  `bleedMm` is no longer an input anywhere: a client still sending it (any
+  value, any type, even on px) is IGNORED, never refused; responses keep
+  reporting it read-only. `DocumentWriteInput::cropMarks()` is the ONE rule
+  for API create / PATCH and MCP create / `set_print`: a bool else
+  `invalid_crop_marks`, `true` on px / preset → `print_setup_not_available`
   (`Exceptions\InvalidPrintSetup`; the API maps it to
   `InvalidTemplateDocumentChange` → structured 400, MCP to a tool error
-  naming the code). Out of range is REFUSED, no longer clamped (it used to
-  clamp to 20 — documented as 0–10). An omitted bleed stays 0 mm / no marks
-  on both surfaces (API compatibility); MCP `create` of a print document
-  without `dimension.bleedMm` adds `warnings: [{code: "missing_bleed",
-  message}]` to its answer (`DocumentSummaryResponse::$warnings`, empty
-  everywhere else), and the tool description + server instructions tell the
-  agent to ASK for the bleed, suggesting 3 mm + crop marks.
+  naming the code). An omitted `cropMarks` is false on create and keeps the
+  value on update. `invalid_bleed` and the MCP `missing_bleed` warning are gone.
 - **Standalone variant print setup (2026-11-09)**:
   `PATCH /api/template-variants/{variantId}/print-setup`
   (`Api/Templates/TemplateVariantPrintSetup{Request,Response,Processor}`) and
   MCP `set_print_setup` (`Mcp/Tool/SetPrintSetupTool`, `templates:design`)
   both go through `Services/Template/VariantPrintSetup`, which dispatches the
-  web form's `EditTemplateVariantPrintSettings` (its handler re-fits the
-  background layer to the new bleed box). Absent key = keep; validation =
-  `DocumentWriteInput::printSettings()` + `missing_print_setup`,
-  `print_setup_not_available` (px — the web page 404s too) and
+  web form's `EditTemplateVariantPrintSettings`. Absent `cropMarks` = keep;
+  validation = `DocumentWriteInput::cropMarks()` + `print_setup_not_available` (px — the web page 404s too) and
   `document_page` (+ `documentId`: pages follow their document,
-  `TemplateDocumentPageList::applyPrintSetup`). Access: API
+  `TemplateDocumentPageList::applyPrintSetup`). REST answers an empty body
+  with `missing_print_setup` (a lone `bleedMm` is an older client and a
+  no-op); MCP cannot tell them apart, so an absent `cropMarks` is a no-op
+  there. Access: API
   `ApiSubjectLoader::variant()` + `TemplateVariantVoter::EDIT` (403); MCP
   `DesignVariants::editable()` — NOT `writable()`, so grouped variants are
   accepted and change only themselves, exactly like the web form (a group
   has no print setup of its own; every member dimension carries its own).
-  The request DTO's fields are `mixed` so wrong types reach the structured
-  `invalid_bleed` / `invalid_crop_marks` instead of the serializer's 400.
-  The export (`format: "pdf"`) takes no bleed override, by design.
+  The request DTO's field is `mixed` so a wrong type reaches the structured
+  `invalid_crop_marks` instead of the serializer's 400.

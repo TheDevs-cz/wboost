@@ -43,7 +43,7 @@ final class TemplateDocumentHandlersTest extends KernelTestCase
     {
         $first = $this->a4Template('Strana A');
         $second = $this->a4Template('Strana B');
-        $documentId = $this->createDocument([$second, $first], bleedMm: 3.0, cropMarks: true);
+        $documentId = $this->createDocument([$second, $first], cropMarks: true);
 
         $document = $this->document($documentId);
         $pages = $document->pages();
@@ -51,8 +51,7 @@ final class TemplateDocumentHandlersTest extends KernelTestCase
         self::assertCount(2, $pages);
         self::assertTrue($pages[0]->template->id->equals($second));
         self::assertTrue($pages[1]->template->id->equals($first));
-        self::assertSame(3.0, $pages[0]->variant->dimension->bleedMm, 'An attached print page takes the document bleed.');
-        self::assertTrue($pages[0]->variant->dimension->cropMarks);
+        self::assertTrue($pages[0]->variant->dimension->cropMarks, 'An attached print page takes the document crop marks.');
     }
 
     public function testAGroupedTemplateCannotBeAPage(): void
@@ -108,7 +107,7 @@ final class TemplateDocumentHandlersTest extends KernelTestCase
     {
         $a = $this->a4Template('A');
         $b = $this->a4Template('B');
-        $documentId = $this->createDocument([$a, $b], bleedMm: 2.0);
+        $documentId = $this->createDocument([$a, $b], cropMarks: true);
 
         $templateId = Uuid::uuid7();
         $variantId = Uuid::uuid7();
@@ -119,7 +118,7 @@ final class TemplateDocumentHandlersTest extends KernelTestCase
         $variant = $this->em()->find(TemplateVariant::class, $variantId);
         self::assertInstanceOf(TemplateVariant::class, $variant);
         self::assertTrue($variant->dimension->hasSameSizeAs(new TemplateDimension(DimensionUnit::Mm, 210, 297)));
-        self::assertSame(2.0, $variant->dimension->bleedMm);
+        self::assertTrue($variant->dimension->cropMarks);
     }
 
     public function testSharedFieldsValidateAndDetachDropsBindings(): void
@@ -192,11 +191,10 @@ final class TemplateDocumentHandlersTest extends KernelTestCase
         $a = $this->a4Template('A');
         $documentId = $this->createDocument([$a]);
 
-        $this->dispatch(new EditTemplateDocumentPrintSettings($documentId, 5.0, true));
+        $this->dispatch(new EditTemplateDocumentPrintSettings($documentId, true));
 
         $document = $this->document($documentId);
-        self::assertSame(5.0, $document->dimension->bleedMm);
-        self::assertSame(5.0, $document->pages()[0]->variant->dimension->bleedMm);
+        self::assertTrue($document->dimension->cropMarks);
         self::assertTrue($document->pages()[0]->variant->dimension->cropMarks);
     }
 
@@ -208,7 +206,6 @@ final class TemplateDocumentHandlersTest extends KernelTestCase
         DimensionUnit $unit = DimensionUnit::Mm,
         float $width = 210,
         float $height = 297,
-        float $bleedMm = 0.0,
         bool $cropMarks = false,
     ): UuidInterface {
         $documentId = Uuid::uuid7();
@@ -217,7 +214,7 @@ final class TemplateDocumentHandlersTest extends KernelTestCase
             Uuid::fromString(TestDataFixture::PROJECT_1_ID),
             'Nabídka',
             null,
-            new TemplateDimension($unit, $width, $height, null, $bleedMm, $cropMarks),
+            new TemplateDimension($unit, $width, $height, null, $cropMarks),
             $templateIds,
         ));
 

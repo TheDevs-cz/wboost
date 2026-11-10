@@ -27,7 +27,7 @@ controllers surface them as flash via `DispatchDocumentChange`.
   UNIQUE(template_id) on a reorder. Kept pages move, dropped pages go (their
   bindings with them, `TemplateDocument::removePage`), new ones attach.
 - **Print setup is the document's**: attaching (or "Tiskové nastavení
-  dokumentu") writes the document's bleed + crop marks into the page variant —
+  dokumentu") writes the document's crop marks into the page variant —
   one PDF never mixes setups.
 - **Deleting a page's variant is refused** (`DeleteTemplateVariantHandler`) —
   the page row would otherwise CASCADE away silently. Deleting the template
@@ -273,9 +273,8 @@ API: `GET /api/template-documents/{id}/export-versions`,
 `mcp` on its drafts) and `export_document` `versionId` (the stored fill as
 the base, `fields` / `pages` override key by key — `Mcp/Fill/DocumentFillInput`).
 `manage_document` also has `duplicate_page` (the web's CopyTemplate +
-InsertTemplateDocumentPage) and `set_print` (validated, never clamped —
-see "Print setup validation" in `api-templates.md`; a print `create`
-without bleed answers a `missing_bleed` warning). Still no MCP delete (the
+InsertTemplateDocumentPage) and `set_print` (crop marks only — see "Print
+setup validation" in `api-templates.md`). Still no MCP delete (the
 "drafts, never destruction" rule): detach via `set_pages`, delete on the web.
 
 **Shared text vs page-level switches** (`DocumentApiValues::sharedText`): a

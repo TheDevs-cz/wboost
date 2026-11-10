@@ -12,13 +12,12 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\TemplateDocument;
-use WBoost\Web\FormData\TemplateVariantFormData;
 use WBoost\Web\Message\TemplateDocument\EditTemplateDocumentPrintSettings;
 use WBoost\Web\Services\Security\TemplateDocumentVoter;
 
 /**
- * "Tiskové nastavení dokumentu": bleed + crop marks for the document AND every
- * page variant at once.
+ * "Tiskové nastavení dokumentu": crop marks for the document AND every page
+ * variant at once.
  */
 final class TemplateDocumentPrintSettingsController extends AbstractController
 {
@@ -42,10 +41,7 @@ final class TemplateDocumentPrintSettingsController extends AbstractController
             throw $this->createNotFoundException();
         }
 
-        $bleed = (float) str_replace(',', '.', $request->request->getString('bleed', '0'));
-        $bleed = max(0.0, min((float) TemplateVariantFormData::MAX_BLEED_MM, $bleed));
-
-        $this->bus->dispatch(new EditTemplateDocumentPrintSettings($document->id, $bleed, $request->request->getBoolean('cropMarks')));
+        $this->bus->dispatch(new EditTemplateDocumentPrintSettings($document->id, $request->request->getBoolean('cropMarks')));
 
         $this->addFlash('success', 'Tiskové nastavení uloženo pro všechny stránky.');
 

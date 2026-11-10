@@ -99,9 +99,9 @@ class TemplateDocument
         $this->position = $position;
     }
 
-    public function changePrintSettings(float $bleedMm, bool $cropMarks): void
+    public function changeCropMarks(bool $cropMarks): void
     {
-        $this->dimension = $this->dimension->withPrintSettings($bleedMm, $cropMarks);
+        $this->dimension = $this->dimension->withCropMarks($cropMarks);
     }
 
     /**

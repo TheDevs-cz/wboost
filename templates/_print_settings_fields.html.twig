@@ -1,12 +1,11 @@
-{# Print setup of one dimension (PDF export): bleed in mm + crop marks.
-   Expects `bleed_field` + `crop_marks_field`; the inputs are
-   template-dimension targets so the preset buttons can reset them, and the
+{# Print setup of one dimension (PDF export): crop marks; the bleed is fixed
+   (TemplateDimension::PRINT_BLEED_MM). Expects `crop_marks_field`; the input
+   is a template-dimension target so the preset buttons can reset it, and the
    wrapper is hidden while the unit is px (a screen format has no print
    setup — the server ignores it there anyway). #}
 <div class="tp-print" data-template-dimension-target="printFields">
     <div class="tp-print-row">
-        {{ form_row(bleed_field, { attr: { 'data-template-dimension-target': 'bleed' }, row_attr: { class: 'mb-0 tp-bleed' } }) }}
         {{ form_row(crop_marks_field, { attr: { 'data-template-dimension-target': 'cropMarks' }, row_attr: { class: 'form-check mb-0' } }) }}
     </div>
-    <p class="tp-hint">Pro tiskové PDF (jen formáty v mm / cm): spadávka je přesah grafiky za hranu formátu (obvykle 3&nbsp;mm). Ořezové značky ukazují tiskárně, kde řezat — kreslí se do pevného 5mm okraje za spadávkou, takže grafiku nepřekrývají. 0&nbsp;mm a bez značek = PDF přesně ve formátu.</p>
+    <p class="tp-hint">Pro tiskové PDF (jen formáty v mm / cm): grafika vždy přesahuje za hranu formátu o pevné 3&nbsp;mm. Ořezové značky ukazují tiskárně, kde řezat — kreslí se do pevného 5mm okraje vně tohoto přesahu, takže grafiku nepřekrývají.</p>
 </div>

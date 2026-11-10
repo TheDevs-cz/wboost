@@ -171,7 +171,7 @@ final class GetContextTest extends WebTestCase
             $byLabel['1:1'],
         );
         self::assertSame(
-            ['label' => '210 × 297 mm', 'preset' => null, 'unit' => 'mm', 'unitWidth' => 210, 'unitHeight' => 297, 'width' => 2480, 'height' => 3508, 'printFormat' => true, 'bleedMm' => 0, 'bleedPx' => 0, 'cropMarks' => false, 'variantCount' => 2],
+            ['label' => '210 × 297 mm', 'preset' => null, 'unit' => 'mm', 'unitWidth' => 210, 'unitHeight' => 297, 'width' => 2480, 'height' => 3508, 'printFormat' => true, 'bleedMm' => 3, 'bleedPx' => 35, 'cropMarks' => false, 'variantCount' => 2],
             $byLabel['210 × 297 mm'],
         );
         self::assertSame(
