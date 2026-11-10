@@ -12,7 +12,7 @@
         ['Telefon', lead.phone],
         ['Firma nebo organizace', lead.company],
         ['Web nebo portfolio', lead.website],
-        ['Chtějí vyzkoušet', lead.interests|length > 0 ? lead.interests|join(', ') : null],
+        ['Zájem', lead.interests|length > 0 ? lead.interests|join(', ') : null],
         ['Mají grafika', lead.hasDesigner is same as(true) ? 'ano' : (lead.hasDesigner is same as(false) ? 'ne' : null)],
         ['Jméno grafika', lead.designerName],
         ['E-mail grafika', lead.designerEmail],
@@ -29,7 +29,7 @@
                     <tr>
                         <td style="padding: 32px;">
                             <p style="margin: 0 0 16px; color: #333; font-size: 15px; line-height: 1.5;">
-                                Odkud: <strong>{{ lead.source.label }}</strong>. Na tento e-mail stačí odpovědět – odpověď půjde přímo tazateli.
+                                Odkud: <strong>{{ lead.source.label }}</strong>.{% if lead.email %} Na tento e-mail stačí odpovědět – odpověď půjde přímo tazateli.{% endif %}
                             </p>
 
                             <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8f9fa; border-radius: 6px; margin-bottom: 24px;">

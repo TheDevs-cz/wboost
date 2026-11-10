@@ -20,15 +20,15 @@ use WBoost\Web\Value\LandingLeadSource;
 
 /**
  * The one write endpoint behind the static landing site (landing/README.md):
- * the contact forms on `/` and `/klienti` and the chat bubble on `/klienti`
- * POST here. The path is NOT in the landing's Traefik rule, so it reaches the
+ * the contact wizard and the "Napsat historku" form on `/` POST here. The path is NOT in the landing's Traefik rule, so it reaches the
  * app on the same origin — no CORS.
  *
  * No CSRF token: the pages are static files with no session to bind one to,
  * and a forged submission can do nothing a visitor cannot do by hand. Abuse is
- * bounded by the per-address rate limit, a honeypot field and a time trap:
- * the pages' script sends `dwell` (ms since page load), so a post without it
- * — or sooner than a person can fill a form — came from a bot (WEB-4S).
+ * bounded by the per-address rate limit, a honeypot field, a link check and a
+ * time trap: the pages' script sends `dwell` (ms since page load), so a post
+ * without it — or sooner than a person can fill a form — came from a bot
+ * (WEB-4S).
  *
  * Invalid input is answered with a plain 422 JSON body rather than an
  * HttpException — every thrown 4xx is booked as a Sentry issue, and a typo in
@@ -48,6 +48,20 @@ final class LandingLeadController extends AbstractController
     /** Set by `wbSendLead` in landing/src/landing/site.js, never a form input. */
     private const string DWELL_FIELD = 'dwell';
     private const int MIN_DWELL_MS = 2000;
+
+    /** A real story or question carries at most one link; link spam carries many. */
+    private const int MAX_LINKS = 1;
+
+    /**
+     * The wizard's radio values, stored as readable labels in `interests`.
+     *
+     * @var array<string, array<string, string>>
+     */
+    private const array CHOICES = [
+        'intent' => ['pristup' => 'Chce přístup', 'online-call' => 'Chce online call', 'betatester' => 'Chce být betatester'],
+        'clients' => ['1-5' => '1–5 klientů', '6-15' => '6–15 klientů', 'vic' => 'Víc než 15 klientů'],
+        'call_time' => ['dopoledne' => 'Hovor dopoledne', 'odpoledne' => 'Hovor odpoledne', 'kdykoliv' => 'Hovor kdykoliv'],
+    ];
 
     private const int MAX_LINE = 255;
     private const int MAX_MESSAGE = 5000;
@@ -78,6 +92,11 @@ final class LandingLeadController extends AbstractController
         $email = $this->line($payload, 'email');
         $name = $this->line($payload, 'name');
         $message = $this->text($payload, 'message');
+
+        if ($this->isLinkSpam($name, $message)) {
+            return $this->respond($request, $source, []);
+        }
+
         $hasDesigner = match ($this->line($payload, 'hasDesigner')) {
             'Ano' => true,
             'Ne' => false,
@@ -88,12 +107,14 @@ final class LandingLeadController extends AbstractController
         $errors = [];
 
         if ($email === null) {
-            $errors['email'] = 'Vyplňte prosím e-mail.';
+            if ($source !== LandingLeadSource::Story) {
+                $errors['email'] = 'Vyplňte prosím e-mail.';
+            }
         } elseif ($this->isEmail($email) === false) {
             $errors['email'] = 'Tohle nevypadá jako e-mailová adresa.';
         }
 
-        if ($source === LandingLeadSource::Chat) {
+        if ($source === LandingLeadSource::Chat || $source === LandingLeadSource::Story) {
             if ($message === null) {
                 $errors['message'] = 'Napište nám prosím zprávu.';
             }
@@ -105,7 +126,7 @@ final class LandingLeadController extends AbstractController
             $errors['designerEmail'] = 'Tohle nevypadá jako e-mailová adresa.';
         }
 
-        if ($errors !== [] || $email === null) {
+        if ($errors !== []) {
             return $this->respond($request, $source, $errors);
         }
 
@@ -159,7 +180,8 @@ final class LandingLeadController extends AbstractController
     }
 
     /**
-     * The tag input on /klienti submits one comma-joined hidden field.
+     * What the lead wants: the wizard's radio choices as labels, plus the
+     * comma-joined hidden field the retired /klienti tag input submitted.
      *
      * @param InputBag<bool|float|int|string> $payload
      *
@@ -167,14 +189,18 @@ final class LandingLeadController extends AbstractController
      */
     private function interests(InputBag $payload): array
     {
-        $joined = $this->line($payload, 'interests');
+        $interests = [];
 
-        if ($joined === null) {
-            return [];
+        foreach (self::CHOICES as $field => $labels) {
+            $label = $labels[$this->line($payload, $field) ?? ''] ?? null;
+
+            if ($label !== null) {
+                $interests[] = $label;
+            }
         }
 
         $interests = array_values(array_unique(array_filter(
-            array_map(trim(...), explode(',', $joined)),
+            [...$interests, ...array_map(trim(...), explode(',', $this->line($payload, 'interests') ?? ''))],
             static fn (string $interest): bool => $interest !== '',
         )));
 
@@ -189,6 +215,14 @@ final class LandingLeadController extends AbstractController
         $dwell = $this->line($payload, self::DWELL_FIELD);
 
         return $dwell === null || ctype_digit($dwell) === false || (int) $dwell < self::MIN_DWELL_MS;
+    }
+
+    private function isLinkSpam(null|string $name, null|string $message): bool
+    {
+        $link = '~https?://|www\.~i';
+
+        return ($name !== null && preg_match($link, $name) === 1)
+            || preg_match_all($link, $message ?? '') > self::MAX_LINKS;
     }
 
     private function isEmail(string $value): bool
@@ -210,9 +244,6 @@ final class LandingLeadController extends AbstractController
             return $response;
         }
 
-        $page = $source === LandingLeadSource::Designers ? '/' : '/klienti';
-        $anchor = $source === LandingLeadSource::Designers ? '#kontakt' : '#formular';
-
-        return new RedirectResponse($page . ($errors === [] ? '?odeslano' : '?chyba') . $anchor, Response::HTTP_SEE_OTHER);
+        return new RedirectResponse('/' . ($errors === [] ? '?odeslano' : '?chyba') . '#kontakt', Response::HTTP_SEE_OTHER);
     }
 }

@@ -12,16 +12,20 @@ enum LandingLeadSource: string
     /** The contact form on `/` — the page for graphic designers. */
     case Designers = 'grafici';
 
-    /** The "Vyzkoušejte si to" form on `/klienti`. */
+    /** The "Napsat historku" form on `/`: e-mail and name are optional. */
+    case Story = 'historka';
+
+    /** The retired "Vyzkoušejte si to" form on `/klienti`; kept for stored rows. */
     case Clients = 'klienti';
 
-    /** The "Máte dotaz?" chat bubble on `/klienti`. */
+    /** The retired "Máte dotaz?" chat bubble on `/klienti`; kept for stored rows. */
     case Chat = 'chat';
 
     public function label(): string
     {
         return match ($this) {
             self::Designers => 'Grafici (/)',
+            self::Story => 'Historka (/)',
             self::Clients => 'Klienti (/klienti)',
             self::Chat => 'Chat (/klienti)',
         };

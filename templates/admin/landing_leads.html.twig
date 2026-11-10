@@ -20,7 +20,7 @@
         <div class="empty">
             <span class="ico-c">{{ icon('inbox-in') }}</span>
             <h2>Zatím nepřišla žádná poptávka z wboost.cz.</h2>
-            <p>Jakmile někdo vyplní formulář na webu nebo napíše do chatu, uvidíte ho tady.</p>
+            <p>Jakmile někdo vyplní formulář na webu, uvidíte ho tady.</p>
         </div>
     {% else %}
         {% set sources = {} %}
@@ -44,23 +44,23 @@
                     {% for lead in leads %}
                         {% set is_new = (('now'|date('U')) - (lead.createdAt|date('U'))) < 7 * 86400 %}
                         <li class="ld-row" data-chip-filter-target="item" data-group="{{ lead.source.value }}">
-                            <span class="av{{ is_new ? ' req' }}" aria-hidden="true">{{ adm.person_initials(lead.name, lead.email) }}</span>
+                            <span class="av{{ is_new ? ' req' }}" aria-hidden="true">{{ adm.person_initials(lead.name ?: (lead.email ? null : 'Anonym'), lead.email) }}</span>
                             <div class="ld-main">
                                 <div class="ld-top">
-                                    <b class="ld-name">{{ lead.name ?: lead.email }}</b>
+                                    <b class="ld-name">{{ lead.name ?: lead.email ?: 'Anonym' }}</b>
                                     {% if lead.company %}<span class="ld-co">{{ lead.company }}</span>{% endif %}
                                     <span class="pill r-user">{{ lead.source.label }}</span>
                                     {% if is_new %}<span class="pill mint">Nová</span>{% endif %}
                                 </div>
                                 <div class="ld-contact">
-                                    <a href="mailto:{{ lead.email }}">{{ icon('mail', 's14') }}{{ lead.email }}</a>
+                                    {% if lead.email %}<a href="mailto:{{ lead.email }}">{{ icon('mail', 's14') }}{{ lead.email }}</a>{% endif %}
                                     {% if lead.phone %}<a href="tel:{{ lead.phone|replace({' ': ''}) }}">{{ lead.phone }}</a>{% endif %}
                                     {% if lead.website %}<span>{{ icon('link', 's14') }}{{ lead.website }}</span>{% endif %}
                                 </div>
                                 {% if lead.interests|length > 0 or lead.hasDesigner is not null %}
                                     <div class="ld-tags">
                                         {% if lead.interests|length > 0 %}
-                                            <span class="ld-k">Chtějí vyzkoušet:</span>
+                                            <span class="ld-k">Zájem:</span>
                                             {% for interest in lead.interests %}<span class="tag">{{ interest }}</span>{% endfor %}
                                         {% endif %}
                                         {% if lead.hasDesigner is same as(true) %}

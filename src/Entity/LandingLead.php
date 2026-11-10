@@ -16,7 +16,7 @@ use Ramsey\Uuid\UuidInterface;
 use WBoost\Web\Value\LandingLeadSource;
 
 /**
- * A contact left on the static landing site (`/`, `/klienti`) — see
+ * A contact or story left on the static landing site (`/`) — see
  * landing/README.md. Stored even though it is also e-mailed, so a lead is never
  * lost to a mail failure; listed at /admin/landing-leads.
  */
@@ -36,8 +36,8 @@ class LandingLead
         #[Column(type: 'string', enumType: LandingLeadSource::class)]
         readonly public LandingLeadSource $source,
 
-        #[Column]
-        readonly public string $email,
+        #[Column(nullable: true)]
+        readonly public null|string $email,
 
         #[Column(type: Types::DATETIME_IMMUTABLE)]
         readonly public DateTimeImmutable $createdAt,

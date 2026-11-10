@@ -59,9 +59,12 @@ readonly final class CaptureLandingLeadHandler
 
         $email = (new Email())
             ->to(...$this->landingLeadRecipients)
-            ->replyTo(new Address($message->email, $message->name ?? ''))
-            ->subject(sprintf('Nová poptávka z wboost.cz – %s', $message->name ?? $message->email))
+            ->subject(sprintf('Nová poptávka z wboost.cz – %s', $message->name ?? $message->email ?? $message->source->label()))
             ->html($html);
+
+        if ($message->email !== null) {
+            $email->replyTo(new Address($message->email, $message->name ?? ''));
+        }
 
         $this->mailer->send($email);
     }

@@ -154,6 +154,105 @@ final class LandingLeadControllerTest extends WebTestCase
         self::assertSame([], $this->leads());
     }
 
+    public function testWizardChoicesAreStoredAsReadableInterests(): void
+    {
+        $browser = self::createClient();
+
+        $this->post($browser, [
+            'source' => 'grafici',
+            'name' => 'Jana',
+            'email' => 'jana@example.com',
+            'intent' => 'online-call',
+            'clients' => '6-15',
+            'call_time' => 'dopoledne',
+        ]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+        self::assertSame(['Chce online call', '6–15 klientů', 'Hovor dopoledne'], $this->onlyLead()->interests);
+    }
+
+    public function testUnknownWizardChoiceIsIgnored(): void
+    {
+        $browser = self::createClient();
+
+        $this->post($browser, ['source' => 'grafici', 'name' => 'Jana', 'email' => 'jana@example.com', 'intent' => 'nonsense']);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+        self::assertSame([], $this->onlyLead()->interests);
+    }
+
+    public function testStoryNeedsNeitherNameNorEmail(): void
+    {
+        $browser = self::createClient();
+
+        $this->post($browser, ['source' => 'historka', 'message' => 'Klient mi jednou napsal, že logo je moc modré.']);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+        $lead = $this->onlyLead();
+        self::assertSame(LandingLeadSource::Story, $lead->source);
+        self::assertNull($lead->email);
+        self::assertNull($lead->name);
+
+        $email = self::getMailerMessage();
+        self::assertNotNull($email);
+        self::assertEmailHasHeader($email, 'To');
+        self::assertEmailNotHasHeader($email, 'Reply-To');
+    }
+
+    public function testStoryWithoutMessageIsRejected(): void
+    {
+        $browser = self::createClient();
+
+        $this->post($browser, ['source' => 'historka', 'name' => 'Jana']);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        self::assertSame([], $this->leads());
+    }
+
+    public function testStoryWithBadOptionalEmailIsRejected(): void
+    {
+        $browser = self::createClient();
+
+        $this->post($browser, ['source' => 'historka', 'message' => 'Dlouhá historka o klientovi.', 'email' => 'nope']);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        self::assertSame([], $this->leads());
+    }
+
+    /**
+     * @return iterable<string, array{0: array<string, string>}>
+     */
+    public static function provideLinkSpam(): iterable
+    {
+        yield 'two links in the message' => [['message' => 'Cheap https://a.example and www.b.example now']];
+        yield 'link as a name' => [['message' => 'Dlouhá historka o klientovi.', 'name' => 'https://spam.example']];
+    }
+
+    /**
+     * @param array<string, string> $spam
+     */
+    #[DataProvider('provideLinkSpam')]
+    public function testLinkSpamPretendsSuccessButStoresNothing(array $spam): void
+    {
+        $browser = self::createClient();
+
+        $this->post($browser, ['source' => 'historka', ...$spam]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+        self::assertSame([], $this->leads());
+        self::assertEmailCount(0);
+    }
+
+    public function testOneLinkInAStoryIsFine(): void
+    {
+        $browser = self::createClient();
+
+        $this->post($browser, ['source' => 'historka', 'message' => 'Podívejte se: https://example.com/plakat']);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+        self::assertCount(1, $this->leads());
+    }
+
     public function testHoneypotPretendsSuccessButStoresNothing(): void
     {
         $browser = self::createClient();
@@ -204,7 +303,7 @@ final class LandingLeadControllerTest extends WebTestCase
         self::assertResponseRedirects('/?odeslano#kontakt', Response::HTTP_SEE_OTHER);
 
         $browser->request('POST', '/poptavka', ['source' => 'klienti', 'email' => 'bad', 'dwell' => self::DWELL]);
-        self::assertResponseRedirects('/klienti?chyba#formular', Response::HTTP_SEE_OTHER);
+        self::assertResponseRedirects('/?chyba#kontakt', Response::HTTP_SEE_OTHER);
     }
 
     public function testOnlyPostIsRouted(): void

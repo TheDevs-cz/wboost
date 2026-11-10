@@ -13,7 +13,7 @@ readonly final class CaptureLandingLead
      */
     public function __construct(
         public LandingLeadSource $source,
-        public string $email,
+        public null|string $email,
         public null|string $name = null,
         public null|string $phone = null,
         public null|string $company = null,
