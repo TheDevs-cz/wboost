@@ -12,17 +12,19 @@ use WBoost\Web\Value\DimensionUnit;
 use WBoost\Web\Value\PrintPageGeometry;
 
 /**
- * A new print template / group size / document starts with crop marks; the
- * 3 mm bleed and the 5 mm crop-mark margin outside it are not inputs at all.
+ * A new print template / group size / document starts with a 5 mm bleed +
+ * crop marks; the "Spadávka" input changes ONLY the bleed, the marks' 3 mm
+ * offset and 5 mm length are constants of the print pipeline.
  *
  * @covers \WBoost\Web\FormData\TemplateVariantFormData
  * @covers \WBoost\Web\FormData\TemplateGroupDimensionFormData
  */
 final class PrintSetupDefaultsTest extends TestCase
 {
-    public function testNewPrintFormatsGetTheFixedBleedAndMarks(): void
+    public function testNewPrintFormatsDefaultToFiveMillimetreBleedAndMarks(): void
     {
         foreach ([new TemplateVariantFormData(), new TemplateGroupDimensionFormData(), (new TemplateDocumentFormData())->dimension] as $data) {
+            self::assertSame(5.0, $data->bleed);
             self::assertTrue($data->cropMarks);
         }
 
@@ -32,12 +34,25 @@ final class PrintSetupDefaultsTest extends TestCase
         $data->height = 99;
 
         $dimension = $data->dimension();
-        self::assertSame(3.0, $dimension->bleedMm);
+        self::assertSame(5.0, $dimension->bleedMm);
         self::assertTrue($dimension->cropMarks);
 
-        // 210 × 99 mm + 2 × 3 mm bleed + 2 × 5 mm mark margin.
+        // 210 × 99 mm + 2 × max(5 mm bleed, 8 mm marks).
         [, , $width, $height] = PrintPageGeometry::fromDimension($dimension)->mediaBox();
         self::assertEqualsWithDelta(226.0, $width / 72 * 25.4, 0.0001);
         self::assertEqualsWithDelta(115.0, $height / 72 * 25.4, 0.0001);
+    }
+
+    public function testTheInputChangesOnlyTheBleed(): void
+    {
+        $data = new TemplateVariantFormData();
+        $data->unit = DimensionUnit::Mm;
+        $data->width = 210;
+        $data->height = 99;
+        $data->bleed = 1.5;
+
+        $geometry = PrintPageGeometry::fromDimension($data->dimension());
+        self::assertEqualsWithDelta(1.5, $geometry->bleed / 72 * 25.4, 0.0001);
+        self::assertEqualsWithDelta(8.0, $geometry->margin() / 72 * 25.4, 0.0001, 'the marks need 8 mm whatever the bleed');
     }
 }

@@ -263,29 +263,26 @@ MCP:
   - A file over 25 MB is refused and the reply points to the fill URL.
   - The file comes back as an `EmbeddedResource` blob.
 - Body parsing shared with the API: `Services/TemplateDocument/DocumentWriteInput`.
-- **Print setup validation (2026-11-10)**: the bleed is fixed
-  (`TemplateDimension::PRINT_BLEED_MM`, see `templates-render.md`), so
-  `bleedMm` is no longer an input anywhere: a client still sending it (any
-  value, any type, even on px) is IGNORED, never refused; responses keep
-  reporting it read-only. `DocumentWriteInput::cropMarks()` is the ONE rule
-  for API create / PATCH and MCP create / `set_print`: a bool else
-  `invalid_crop_marks`, `true` on px / preset → `print_setup_not_available`
+- **Print setup validation (2026-11-10)**: `DocumentWriteInput::printSettings()`
+  is the ONE rule for API create / PATCH and MCP create / `set_print`: `bleedMm`
+  a number from 0 to `TemplateDimension::MAX_PRINT_BLEED_MM` (10; refused,
+  never clamped: `invalid_bleed`), `cropMarks` a bool (`invalid_crop_marks`), a
+  real setup on px / preset → `print_setup_not_available`
   (`Exceptions\InvalidPrintSetup`; the API maps it to
   `InvalidTemplateDocumentChange` → structured 400, MCP to a tool error
-  naming the code). An omitted `cropMarks` is false on create and keeps the
-  value on update. `invalid_bleed` and the MCP `missing_bleed` warning are gone.
+  naming the code). On create an omitted `bleedMm` is 5 for a print format and
+  0 for px; an omitted `cropMarks` is false. On update, absent keeps the value.
 - **Standalone variant print setup (2026-11-09)**:
   `PATCH /api/template-variants/{variantId}/print-setup`
   (`Api/Templates/TemplateVariantPrintSetup{Request,Response,Processor}`) and
   MCP `set_print_setup` (`Mcp/Tool/SetPrintSetupTool`, `templates:design`)
   both go through `Services/Template/VariantPrintSetup`, which dispatches the
-  web form's `EditTemplateVariantPrintSettings`. Absent `cropMarks` = keep;
-  validation = `DocumentWriteInput::cropMarks()` + `print_setup_not_available` (px — the web page 404s too) and
-  `document_page` (+ `documentId`: pages follow their document,
-  `TemplateDocumentPageList::applyPrintSetup`). REST answers an empty body
-  with `missing_print_setup` (a lone `bleedMm` is an older client and a
-  no-op); MCP cannot tell them apart, so an absent `cropMarks` is a no-op
-  there. Access: API
+  web's `EditTemplateVariantPrintSettings` (whose handler re-fits the background
+  through `ApplyPrintSettings`). An absent key keeps its value, both absent →
+  `missing_print_setup`; validation = `DocumentWriteInput::printSettings()` +
+  `print_setup_not_available` (px — the web modal does not exist there either)
+  and `document_page` (+ `documentId`: pages follow their document,
+  `TemplateDocumentPageList::applyPrintSetup`). Access: API
   `ApiSubjectLoader::variant()` + `TemplateVariantVoter::EDIT` (403); MCP
   `DesignVariants::editable()` — NOT `writable()`, so grouped variants are
   accepted and change only themselves, exactly like the web form (a group

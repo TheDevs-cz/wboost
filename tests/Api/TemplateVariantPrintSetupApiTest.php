@@ -24,11 +24,11 @@ use WBoost\Web\Tests\TestingApiAuthentication;
  */
 final class TemplateVariantPrintSetupApiTest extends ApiTestCase
 {
-    public function testSetsCropMarksAndReportsTheFixedBleed(): void
+    public function testSetsAndReadsBleedAndCropMarks(): void
     {
         [$client, $headers] = $this->client();
 
-        $response = $this->patch($client, $headers, TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID, ['cropMarks' => true]);
+        $response = $this->patch($client, $headers, TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID, ['bleedMm' => 3, 'cropMarks' => true]);
         self::assertSame(200, $response->getStatusCode(), $response->getContent(false));
         $body = $response->toArray();
         self::assertSame(TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID, $body['id']);
@@ -37,6 +37,7 @@ final class TemplateVariantPrintSetupApiTest extends ApiTestCase
         self::assertSame(35, $body['bleedPx'], '3 mm at 300 DPI.');
         self::assertTrue($body['cropMarks']);
 
+        // An omitted key keeps its value.
         $marksOff = $this->patch($client, $headers, TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID, ['cropMarks' => false])->toArray();
         self::assertEquals(3, $marksOff['bleedMm']);
         self::assertFalse($marksOff['cropMarks']);
@@ -48,45 +49,26 @@ final class TemplateVariantPrintSetupApiTest extends ApiTestCase
         self::assertFalse($variants[TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID]['cropMarks']);
     }
 
-    /**
-     * `bleedMm` is no longer an input: whatever an older client still sends
-     * is ignored without an error and without touching the crop marks.
-     */
-    public function testARetiredBleedIsIgnored(): void
-    {
-        [$client, $headers] = $this->client();
-        $variant = TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID;
-
-        $this->patch($client, $headers, $variant, ['cropMarks' => true]);
-
-        foreach ([0, 5, 25, -1, 'lots', null] as $bleed) {
-            $response = $this->patch($client, $headers, $variant, ['bleedMm' => $bleed]);
-            self::assertSame(200, $response->getStatusCode(), json_encode($bleed, JSON_THROW_ON_ERROR));
-            self::assertEquals(3, $response->toArray()['bleedMm']);
-            self::assertTrue($response->toArray()['cropMarks'], 'A lone bleedMm changes nothing.');
-        }
-    }
-
     public function testRefusalsAreStructured(): void
     {
         [$client, $headers] = $this->client();
         $variant = TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID;
 
-        foreach ([[['cropMarks' => 'yes'], 'invalid_crop_marks'], [[], 'missing_print_setup']] as [$body, $code]) {
+        foreach ([[['bleedMm' => 10.5], 'invalid_bleed'], [['bleedMm' => 25], 'invalid_bleed'], [['bleedMm' => -1], 'invalid_bleed'], [['bleedMm' => 'lots'], 'invalid_bleed'], [['cropMarks' => 'yes'], 'invalid_crop_marks'], [[], 'missing_print_setup']] as [$body, $code]) {
             $refused = $this->patch($client, $headers, $variant, $body);
             self::assertSame(400, $refused->getStatusCode(), json_encode($body, JSON_THROW_ON_ERROR));
             self::assertSame($code, $refused->toArray(false)['code']);
         }
 
-        $screen = $this->patch($client, $headers, TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID, ['cropMarks' => false]);
+        $screen = $this->patch($client, $headers, TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID, ['bleedMm' => 3]);
         self::assertSame(400, $screen->getStatusCode());
         self::assertSame('print_setup_not_available', $screen->toArray(false)['code']);
 
-        self::assertSame(404, $this->patch($client, $headers, Uuid::uuid7()->toString(), ['cropMarks' => true])->getStatusCode());
+        self::assertSame(404, $this->patch($client, $headers, Uuid::uuid7()->toString(), ['bleedMm' => 3])->getStatusCode());
 
         $unchanged = $this->em()->find(TemplateVariant::class, Uuid::fromString($variant));
         self::assertInstanceOf(TemplateVariant::class, $unchanged);
-        self::assertFalse($unchanged->dimension->cropMarks, 'No refusal wrote anything.');
+        self::assertEquals(0, $unchanged->dimension->bleedMm, 'No refusal wrote anything.');
     }
 
     /**
@@ -99,7 +81,7 @@ final class TemplateVariantPrintSetupApiTest extends ApiTestCase
         $page = TemplateDocumentTestData::a4Template($this->em(), 'Úvod');
         $documentId = TemplateDocumentTestData::document($this->em(), self::getContainer()->get(MessageBusInterface::class), [$page['template']]);
 
-        $refused = $this->patch($client, $headers, $page['variant']->toString(), ['cropMarks' => true]);
+        $refused = $this->patch($client, $headers, $page['variant']->toString(), ['bleedMm' => 3]);
         self::assertSame(400, $refused->getStatusCode());
         $body = $refused->toArray(false);
         self::assertSame('document_page', $body['code']);
@@ -108,20 +90,20 @@ final class TemplateVariantPrintSetupApiTest extends ApiTestCase
 
     /**
      * Like the web form: a grouped variant's print setup is its own (every
-     * group dimension carries its own crop marks) — nothing propagates.
+     * group dimension carries its own bleed) — nothing propagates.
      */
     public function testGroupedVariantKeepsItsOwnPrintSetup(): void
     {
         [$client, $headers] = $this->client();
 
-        $response = $this->patch($client, $headers, TestDataFixture::GROUPED_FREEFORM_VARIANT_ID, ['cropMarks' => true]);
+        $response = $this->patch($client, $headers, TestDataFixture::GROUPED_FREEFORM_VARIANT_ID, ['bleedMm' => 5, 'cropMarks' => true]);
         self::assertSame(200, $response->getStatusCode(), $response->getContent(false));
-        self::assertTrue($response->toArray()['cropMarks']);
+        self::assertEquals(5, $response->toArray()['bleedMm']);
 
         $this->em()->clear();
         $sibling = $this->em()->find(TemplateVariant::class, Uuid::fromString(TestDataFixture::GROUPED_PRESET_VARIANT_ID));
         self::assertInstanceOf(TemplateVariant::class, $sibling);
-        self::assertFalse($sibling->dimension->cropMarks);
+        self::assertEquals(0, $sibling->dimension->bleedMm);
     }
 
     /**

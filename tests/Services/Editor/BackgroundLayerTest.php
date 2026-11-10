@@ -65,6 +65,31 @@ final class BackgroundLayerTest extends TestCase
         self::assertEqualsWithDelta(2.55, $object['scaleX'], 0.0001);
     }
 
+    public function testRecoverForBleedFollowsTheAutomaticCoverOnly(): void
+    {
+        $auto = $this->backgroundLayer->applyToCanvas('{}', $this->backgroundLayer->buildObject('https://assets/bg.png', 'bg.png', 1000, 1000, 1748, 2480));
+
+        $recovered = $this->backgroundLayer->recoverForBleed($auto, 1748, 2480, 0, 35);
+        self::assertNotNull($recovered);
+        $object = self::firstObject($recovered);
+        self::assertSame(-35, $object['left']);
+        self::assertSame(-35, $object['top']);
+        self::assertEqualsWithDelta(2.55, $object['scaleX'], 0.0001);
+
+        // …and back again.
+        $back = $this->backgroundLayer->recoverForBleed($recovered, 1748, 2480, 35, 0);
+        self::assertNotNull($back);
+        self::assertSame(0, self::firstObject($back)['left']);
+
+        // A background the designer moved is their composition: untouched.
+        $moved = str_replace('"left":0,', '"left":120,', $auto);
+        self::assertNotSame($auto, $moved);
+        self::assertNull($this->backgroundLayer->recoverForBleed($moved, 1748, 2480, 0, 35));
+
+        self::assertNull($this->backgroundLayer->recoverForBleed('{}', 1748, 2480, 0, 35), 'no background layer');
+        self::assertNull($this->backgroundLayer->recoverForBleed($auto, 1748, 2480, 35, 35), 'bleed unchanged');
+    }
+
     public function testBuildObjectWithUnknownNaturalSizeFallsBackToFullBleedStretch(): void
     {
         $object = $this->backgroundLayer->buildObject(
@@ -210,6 +235,21 @@ final class BackgroundLayerTest extends TestCase
         $object = $this->objects($document)[$index] ?? null;
         self::assertIsArray($object);
 
+        return $object;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function firstObject(string $canvasJson): array
+    {
+        $decoded = json_decode($canvasJson, true);
+        self::assertIsArray($decoded);
+        self::assertIsArray($decoded['objects'] ?? null);
+        $object = $decoded['objects'][0] ?? null;
+        self::assertIsArray($object);
+
+        /** @var array<string, mixed> $object */
         return $object;
     }
 }

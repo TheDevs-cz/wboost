@@ -640,10 +640,11 @@ editor module must keep:
   group create + add-dimension / projector), the render template's canvas-mode
   cover (in EVERY render, so PNG and PDF crop the same placement), and the
   background SLOT fill (`PlaceholderFrame::backgroundCover()` — renderer, fill
-  page, API frame with a negative origin). Changing the bleed on "Tiskové
-  nastavení" re-covers a layer background only if it still sits at its
-  automatic cover (`BackgroundLayer::recoverForBleed`) — a hand-placed one is
-  the designer's composition.
+  page, API frame with a negative origin). Changing the bleed ("Nastavení
+  tisku", API, MCP, a document pushing its setup onto a page; all through
+  `Services/Template/ApplyPrintSettings`) re-covers a layer background only if
+  it still sits at its automatic cover (`BackgroundLayer::recoverForBleed`) — a
+  hand-placed one is the designer's composition.
 
 ### Image popover — "Složky galerie pro uživatele" folder tree (2026-11-09)
 

@@ -15,6 +15,7 @@ readonly final class EditTemplateDocumentPrintSettingsHandler
 {
     public function __construct(
         private TemplateDocumentRepository $documentRepository,
+        private TemplateDocumentPageList $pageList,
     ) {
     }
 
@@ -24,10 +25,10 @@ readonly final class EditTemplateDocumentPrintSettingsHandler
     public function __invoke(EditTemplateDocumentPrintSettings $message): void
     {
         $document = $this->documentRepository->get($message->documentId);
-        $document->changeCropMarks($message->cropMarks);
+        $document->changePrintSettings($message->bleedMm, $message->cropMarks);
 
         foreach ($document->pages() as $page) {
-            TemplateDocumentPageList::applyPrintSetup($document, $page->variant);
+            $this->pageList->applyPrintSetup($document, $page->variant);
         }
     }
 }

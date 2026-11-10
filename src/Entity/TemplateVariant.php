@@ -121,11 +121,11 @@ class TemplateVariant
 
     /**
      * The size never changes after creation (the whole design is laid out
-     * for it) and the bleed is fixed; only the crop marks are editable.
+     * for it); only the print setup — bleed + crop marks — is editable.
      */
-    public function changeCropMarks(bool $cropMarks): void
+    public function changePrintSettings(float $bleedMm, bool $cropMarks): void
     {
-        $this->dimension = $this->dimension->withCropMarks($cropMarks);
+        $this->dimension = $this->dimension->withPrintSettings($bleedMm, $cropMarks);
     }
 
     public function edit(null|string $backgroundImagePath): void

@@ -10,6 +10,7 @@ readonly final class EditTemplateVariantPrintSettings
 {
     public function __construct(
         public UuidInterface $variantId,
+        public float $bleedMm,
         public bool $cropMarks,
     ) {
     }

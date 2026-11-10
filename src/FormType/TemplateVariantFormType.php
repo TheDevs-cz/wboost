@@ -15,6 +15,7 @@ use Symfony\Component\OptionsResolver\OptionsResolver;
 use WBoost\Web\FormData\TemplateVariantFormData;
 use WBoost\Web\Value\DimensionPreset;
 use WBoost\Web\Value\DimensionUnit;
+use WBoost\Web\Value\TemplateDimension;
 
 /**
  * @extends AbstractType<TemplateVariantFormData>
@@ -58,6 +59,15 @@ final class TemplateVariantFormType extends AbstractType
             'html5' => true,
             'scale' => 2,
             'attr' => ['min' => 0, 'step' => 'any'],
+        ]);
+
+        $builder->add('bleed', NumberType::class, [
+            'label' => 'Spadávka (mm)',
+            'required' => false,
+            'html5' => true,
+            'scale' => 1,
+            'empty_data' => '0',
+            'attr' => ['min' => 0, 'max' => TemplateDimension::MAX_PRINT_BLEED_MM, 'step' => 'any'],
         ]);
 
         $builder->add('cropMarks', CheckboxType::class, [

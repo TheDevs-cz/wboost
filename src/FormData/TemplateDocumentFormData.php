@@ -11,7 +11,7 @@ use Symfony\Component\Validator\Constraints\Valid;
 /**
  * "Nový dokument": name, category and the ONE page size every page renders in
  * (+ its print setup) — the dimension block is the add-variant form's, so its
- * validation (px bounds, presets) stays single-sourced.
+ * validation (px bounds, presets, bleed range) stays single-sourced.
  */
 final class TemplateDocumentFormData
 {

@@ -26,9 +26,9 @@ controllers surface them as flash via `DispatchDocumentChange`.
   INSERTs before DELETEs within one flush, so delete-all + re-insert would trip
   UNIQUE(template_id) on a reorder. Kept pages move, dropped pages go (their
   bindings with them, `TemplateDocument::removePage`), new ones attach.
-- **Print setup is the document's**: attaching (or "Tiskové nastavení
-  dokumentu") writes the document's crop marks into the page variant —
-  one PDF never mixes setups.
+- **Print setup is the document's**: attaching (or the document's "Nastavení
+  tisku") writes the document's bleed + crop marks into the page variant, and
+  re-fits an automatic background to the new bleed — one PDF never mixes setups.
 - **Deleting a page's variant is refused** (`DeleteTemplateVariantHandler`) —
   the page row would otherwise CASCADE away silently. Deleting the template
   (or "Smazat stránku") is fine: CASCADE removes the page row.
@@ -273,7 +273,7 @@ API: `GET /api/template-documents/{id}/export-versions`,
 `mcp` on its drafts) and `export_document` `versionId` (the stored fill as
 the base, `fields` / `pages` override key by key — `Mcp/Fill/DocumentFillInput`).
 `manage_document` also has `duplicate_page` (the web's CopyTemplate +
-InsertTemplateDocumentPage) and `set_print` (crop marks only — see "Print
+InsertTemplateDocumentPage) and `set_print` (bleed + crop marks — see "Print
 setup validation" in `api-templates.md`). Still no MCP delete (the
 "drafts, never destruction" rule): detach via `set_pages`, delete on the web.
 

@@ -6,6 +6,7 @@ namespace WBoost\Web\Tests\Controller\Template;
 
 use Ramsey\Uuid\Uuid;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Repository\TemplateVariantRepository;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Tests\TestingLogin;
@@ -21,27 +22,63 @@ final class TemplateVariantPrintSettingsControllerTest extends WebTestCase
         return '/template-variant/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '/print-settings';
     }
 
-    public function testSavesCropMarksWithoutTouchingTheSizeOrBleed(): void
+    private function listUrl(): string
+    {
+        return '/template/' . TestDataFixture::CUSTOM_TEMPLATE_1_ID . '/variants';
+    }
+
+    public function testTheModalSavesBleedAndCropMarksWithoutTouchingTheSize(): void
     {
         $client = self::createClient();
         TestingLogin::logInAsUser($client, TestDataFixture::ADMIN_USER_EMAIL);
 
-        $crawler = $client->request('GET', $this->url());
+        $crawler = $client->request('GET', $this->listUrl());
         self::assertResponseIsSuccessful();
-        self::assertSelectorNotExists('input[name="template_variant_print_settings_form[bleed]"]');
+        $modal = $crawler->filter('#printSettings' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID);
+        self::assertCount(1, $modal);
+        self::assertStringContainsString('Nastavení tisku', $modal->text());
 
-        $form = $crawler->selectButton('Uložit')->form([
-            'template_variant_print_settings_form[cropMarks]' => '1',
-        ]);
-        $client->submit($form);
+        $client->request('POST', $this->url(), ['_token' => $modal->filter('input[name="_token"]')->attr('value'), 'bleed' => '5', 'cropMarks' => '1']);
+        self::assertResponseRedirects($this->listUrl());
 
-        self::assertResponseRedirects('/template/' . TestDataFixture::CUSTOM_TEMPLATE_1_ID . '/variants');
-
-        $variant = self::getContainer()->get(TemplateVariantRepository::class)
-            ->get(Uuid::fromString(TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID));
-        self::assertSame(3.0, $variant->dimension->bleedMm);
+        $variant = $this->variant();
+        self::assertSame(5.0, $variant->dimension->bleedMm);
         self::assertTrue($variant->dimension->cropMarks);
         self::assertSame(2480, $variant->dimension->width());
+    }
+
+    public function testBleedIsClampedToTheMaximum(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::ADMIN_USER_EMAIL);
+
+        $crawler = $client->request('GET', $this->listUrl());
+        $token = $crawler->filter('#printSettings' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . ' input[name="_token"]')->attr('value');
+
+        $client->request('POST', $this->url(), ['_token' => $token, 'bleed' => '50', 'cropMarks' => '0']);
+
+        self::assertResponseRedirects($this->listUrl());
+        self::assertSame(10.0, $this->variant()->dimension->bleedMm);
+    }
+
+    public function testAnInvalidTokenIsRefused(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::ADMIN_USER_EMAIL);
+
+        $client->request('POST', $this->url(), ['_token' => 'x', 'bleed' => '5']);
+
+        self::assertResponseStatusCodeSame(403);
+    }
+
+    public function testAGetLandsOnTheVariantsPage(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::ADMIN_USER_EMAIL);
+
+        $client->request('GET', $this->url());
+
+        self::assertResponseRedirects($this->listUrl());
     }
 
     public function testUserWithoutEditRightsIsDenied(): void
@@ -62,5 +99,11 @@ final class TemplateVariantPrintSettingsControllerTest extends WebTestCase
         $client->request('GET', '/template-variant/' . TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID . '/print-settings');
 
         self::assertResponseStatusCodeSame(404);
+    }
+
+    private function variant(): TemplateVariant
+    {
+        return self::getContainer()->get(TemplateVariantRepository::class)
+            ->get(Uuid::fromString(TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID));
     }
 }

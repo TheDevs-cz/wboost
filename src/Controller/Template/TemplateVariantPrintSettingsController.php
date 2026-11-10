@@ -12,14 +12,13 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\TemplateVariant;
-use WBoost\Web\FormData\TemplateVariantPrintSettingsFormData;
-use WBoost\Web\FormType\TemplateVariantPrintSettingsFormType;
 use WBoost\Web\Message\Template\EditTemplateVariantPrintSettings;
 use WBoost\Web\Services\Security\TemplateVariantVoter;
 
 /**
- * "Tiskové nastavení" — the crop marks of an existing variant (the add forms
- * set them at creation).
+ * Saves the "Nastavení tisku" modal of an existing variant (the add forms set
+ * the print setup at creation). A GET lands on the variants page, which holds
+ * the modal; old links to the former standalone page keep working.
  */
 final class TemplateVariantPrintSettingsController extends AbstractController
 {
@@ -39,26 +38,22 @@ final class TemplateVariantPrintSettingsController extends AbstractController
             throw $this->createNotFoundException('Print settings exist only for print (mm / cm) formats.');
         }
 
-        $data = TemplateVariantPrintSettingsFormData::fromDimension($variant->dimension);
-        $form = $this->createForm(TemplateVariantPrintSettingsFormType::class, $data);
-        $form->handleRequest($request);
-
-        if ($form->isSubmitted() && $form->isValid()) {
-            $this->bus->dispatch(new EditTemplateVariantPrintSettings(
-                $variant->id,
-                $data->cropMarks,
-            ));
-
-            $this->addFlash('success', 'Tiskové nastavení bylo uloženo.');
-
+        if (!$request->isMethod('POST')) {
             return $this->redirectToRoute('template_variants', ['templateId' => $variant->template->id]);
         }
 
-        return $this->render('template_variant_print_settings.html.twig', [
-            'form' => $form,
-            'variant' => $variant,
-            'template' => $variant->template,
-            'project' => $variant->template->project,
-        ]);
+        if (!$this->isCsrfTokenValid('template_variant_print_settings', $request->request->getString('_token'))) {
+            throw $this->createAccessDeniedException('Invalid CSRF token.');
+        }
+
+        $this->bus->dispatch(new EditTemplateVariantPrintSettings(
+            $variant->id,
+            (float) str_replace(',', '.', $request->request->getString('bleed', '0')),
+            $request->request->getBoolean('cropMarks'),
+        ));
+
+        $this->addFlash('success', 'Nastavení tisku bylo uloženo.');
+
+        return $this->redirectToRoute('template_variants', ['templateId' => $variant->template->id]);
     }
 }

@@ -146,23 +146,30 @@ answers 400, and the format is recorded on `export_event.format`). Target: what 
 one flattened **300 ppi CMYK raster** + vector crop marks, exactly the
 structure of the Illustrator-exported reference file.
 
-- **Print setup lives on `TemplateDimension`**: `bleedMm` + `cropMarks`.
-  **The bleed is not an input (2026-11-10)**: `TemplateDimension::PRINT_BLEED_MM`
-  = 3 mm for every mm / cm dimension, 0 for px, set by the constructor and
-  nowhere else (`Version20261110100000` moved all rows to it). The only choice
-  is `cropMarks` (`withCropMarks()`, which keeps px without marks; add forms
-  default to on, an Instagram preset clears it; the "Tiskové nastavení" page,
-  `PATCH /api/template-variants/{id}/print-setup` and MCP `set_print_setup`
-  change it through one message, see `api-templates.md`). **Bleed ≠ crop-mark
-  margin (2026-11-08)**: `bleedMm` is how far the artwork runs past the cut;
-  the crop marks live in a FIXED 5 mm band OUTSIDE the bleed
-  (`PrintPageGeometry::MARK_MARGIN_MM`) — each mark sits on a trim line, starts
-  at the bleed edge (never on artwork) and runs to the media edge. Page = trim
-  + 2 × 3 mm + 2 × 5 mm (210 × 99 mm → MediaBox 226 × 115 mm, BleedBox inset
-  5 mm, TrimBox inset 8 mm); without marks the page is the BleedBox. The owner
-  calls the 5 mm band "spadávka" and the 3 mm "posun"; the code's `bleed` is
-  the 3 mm. **The bleed is not part of the canvas**: coordinates stay
-  trim-relative and the bleed is the area past the edges.
+- **Print setup lives on `TemplateDimension`**: `bleedMm` + `cropMarks`. Chosen
+  in the **"Nastavení tisku" modal** (2026-11-10, `_print_settings.html.twig` +
+  `print_settings_controller.js`, pure maths in `print_settings_geometry.js`;
+  on the add forms and, with a read-only size, for an existing variant /
+  document), `PATCH /api/template-variants/{id}/print-setup` and MCP
+  `set_print_setup` / `manage_document`, see `api-templates.md`.
+  **Geometry (`PrintPageGeometry`, in the owner's terms)**: *spadávka* =
+  `bleedMm`, 0 = off, otherwise per side, 0–10 mm
+  (`TemplateDimension::MAX_PRINT_BLEED_MM`; new print formats start at
+  `DEFAULT_PRINT_BLEED_MM` = 5 + marks; stored rows keep their value, prod's
+  3 mm stays until someone edits it; `withPrintSettings` keeps px at 0 / no
+  marks). *Ořezové značky* = on/off; each lies on a trim line, starts *posun*
+  = `MARK_OFFSET_MM` (3) from the trim and is `MARK_LENGTH_MM` (5) long, both
+  constants, ending 8 mm from the trim, drawn OVER the artwork when the bleed
+  is above 3 mm (the white halo). Per side, page margin = marks ?
+  max(bleed, 3 + 5) : bleed; BleedBox inset = margin − bleed; TrimBox inset =
+  margin; outside the BleedBox is paper. 100 × 100 mm: 5 + marks = 116 × 116,
+  10 + marks = 120 × 120, 5 = 110 × 110, 10 = 120 × 120, none = 100 × 100,
+  marks only = 116 × 116. The `print_settings_geometry.js` twin is pinned by
+  `PrintSettingsGeometryContractTest`. **The bleed is not part of the canvas**:
+  coordinates stay trim-relative and the bleed is the area past the edges.
+  The modal's preview draws bleed and marks at true scale but shrinks a trim
+  longer than 100 mm to 100 mm (same proportions), or an A3's bleed would be
+  a hairline; its caption always states the real size.
 - **Raster passes go through the ordinary renderer** with a `PrintLayer`
   (`renderToBytes(..., printLayer:)`, never cached): the render template
   widens the canvas by `bleed_px` per side and shifts the viewport by it, so

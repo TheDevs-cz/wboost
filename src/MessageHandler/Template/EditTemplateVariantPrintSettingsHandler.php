@@ -8,12 +8,14 @@ use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use WBoost\Web\Exceptions\TemplateVariantNotFound;
 use WBoost\Web\Message\Template\EditTemplateVariantPrintSettings;
 use WBoost\Web\Repository\TemplateVariantRepository;
+use WBoost\Web\Services\Template\ApplyPrintSettings;
 
 #[AsMessageHandler]
 readonly final class EditTemplateVariantPrintSettingsHandler
 {
     public function __construct(
         private TemplateVariantRepository $variantRepository,
+        private ApplyPrintSettings $applyPrintSettings,
     ) {
     }
 
@@ -22,6 +24,6 @@ readonly final class EditTemplateVariantPrintSettingsHandler
      */
     public function __invoke(EditTemplateVariantPrintSettings $message): void
     {
-        $this->variantRepository->get($message->variantId)->changeCropMarks($message->cropMarks);
+        ($this->applyPrintSettings)($this->variantRepository->get($message->variantId), $message->bleedMm, $message->cropMarks);
     }
 }

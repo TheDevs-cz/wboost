@@ -14,6 +14,7 @@ use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use WBoost\Web\FormData\TemplateGroupDimensionFormData;
 use WBoost\Web\Value\DimensionUnit;
+use WBoost\Web\Value\TemplateDimension;
 use WBoost\Web\Value\DimensionPreset;
 
 /**
@@ -61,6 +62,15 @@ final class TemplateGroupDimensionFormType extends AbstractType
             'html5' => true,
             'scale' => 2,
             'attr' => ['min' => 0, 'step' => 'any'],
+        ]);
+
+        $builder->add('bleed', NumberType::class, [
+            'label' => 'Spadávka (mm)',
+            'required' => false,
+            'html5' => true,
+            'scale' => 1,
+            'empty_data' => '0',
+            'attr' => ['min' => 0, 'max' => TemplateDimension::MAX_PRINT_BLEED_MM, 'step' => 'any'],
         ]);
 
         $builder->add('cropMarks', CheckboxType::class, [

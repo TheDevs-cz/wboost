@@ -4,26 +4,30 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Value;
 
-
 /**
  * A print PDF page in PostScript points: the trim (final format), the bleed
- * around it and the crop-mark margin outside that.
+ * around it and the crop marks.
  *
- * Two separate things surround the trim:
- *  - the BLEED (`bleed`, a fixed {@see TemplateDimension::PRINT_BLEED_MM}):
- *    how far the artwork runs past the cut line;
- *  - the CROP-MARK MARGIN: a FIXED {@see MARK_MARGIN_MM} band outside the
- *    bleed that holds the crop marks — no input, it never moves with the
- *    bleed. Without crop marks there is no margin (page = bleed box).
+ *  - the BLEED (`bleed`, "spadávka", {@see TemplateDimension::$bleedMm}): how
+ *    far the artwork runs past the cut line. 0 = none.
+ *  - the CROP MARKS: each lies on a trim line, starts a fixed
+ *    {@see MARK_OFFSET_MM} ("posun") from the trim and is a fixed
+ *    {@see MARK_LENGTH_MM} long. Neither is an input. They do not depend on
+ *    the bleed, so with a bleed above 3 mm they are drawn over the artwork:
+ *    that is what the white {@see MARK_HALO_PT} under the 0.25 pt
+ *    registration-colour hairline is for (as Illustrator draws them).
  *
- * So page = trim + 2 × bleed + 2 × 5 mm. Each mark lies on a trim line, starts
- * at the bleed edge (never on artwork) and runs to the media edge: 0.25 pt
- * registration-colour hairline over a white 1.25 pt halo (as Illustrator
- * draws them).
+ * Per side the page margin is max(bleed, 3 + 5) with marks and the bleed
+ * without them. BleedBox inset = margin − bleed, TrimBox inset = margin, and
+ * whatever lies outside the BleedBox stays paper.
+ *
+ * `assets/controllers/print_settings_geometry.js` computes the same for the
+ * "Nastavení tisku" preview; PrintSettingsGeometryContractTest pins the two.
  */
 final readonly class PrintPageGeometry
 {
-    public const float MARK_MARGIN_MM = 5.0;
+    public const float MARK_OFFSET_MM = 3.0;
+    public const float MARK_LENGTH_MM = 5.0;
     public const float MARK_WEIGHT_PT = 0.25;
     public const float MARK_HALO_PT = 1.25;
 
@@ -59,19 +63,16 @@ final readonly class PrintPageGeometry
     }
 
     /**
-     * Distance from the trim line to where a crop mark starts: the bleed edge.
+     * Distance from the trim line to where a crop mark starts.
      */
     public function markOffset(): float
     {
-        return $this->bleed;
+        return self::mmToPt(self::MARK_OFFSET_MM);
     }
 
-    /**
-     * Length of a crop mark: the whole fixed margin outside the bleed.
-     */
     public function markLength(): float
     {
-        return self::mmToPt(self::MARK_MARGIN_MM);
+        return self::mmToPt(self::MARK_LENGTH_MM);
     }
 
     /**
@@ -80,7 +81,7 @@ final readonly class PrintPageGeometry
     public function margin(): float
     {
         return $this->cropMarks
-            ? $this->bleed + $this->markLength()
+            ? max($this->bleed, $this->markOffset() + $this->markLength())
             : $this->bleed;
     }
 

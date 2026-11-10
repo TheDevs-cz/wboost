@@ -84,11 +84,11 @@ return App::config([
             "id": "pozadi", "fill": "#ffffff"} (a colour or gradient) or "asset": "<gallery id>"
             (a picture). It is the editor's locked "Pozadí" layer covering the whole canvas
             incl. the print bleed; never draw the background as a full-canvas shape.
-            Print formats (mm / cm) also export a print PDF: the artwork always runs a fixed
-            3 mm past the cut (the bleed, not configurable), and crop marks are optional, drawn
-            in a fixed 5 mm margin outside it. Set them with manage_document "set_print" for a
-            document or set_print_setup for a standalone variant. Screen formats (px) have no
-            bleed.
+            Print formats (mm / cm) also export a print PDF with a bleed ("spadávka": how far
+            the artwork runs past the cut, 0–10 mm, 5 mm by default on a new print document) and
+            optional crop marks (fixed: 3 mm from the cut, 5 mm long). Set them with
+            manage_document "set_print" for a document or set_print_setup for a standalone
+            variant. Screen formats (px) have no bleed.
             INSTRUCTIONS,
 
         'client_transports' => [

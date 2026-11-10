@@ -67,25 +67,28 @@ readonly final class ManageDocumentTool
      * Answers the document as it is afterwards, with editorUrl / fillUrl.
      *
      * Actions:
-     * - "create": projectId, name, dimension {unit: "mm"|"cm"|"px", unitWidth, unitHeight, cropMarks?} or {preset: "4:5"|"9:16"} (1:1 is retired — use px 1080×1080), templateIds? (existing templates to attach as the first pages — each needs a variant of exactly that size; synchronized/grouped templates and pages of another document are refused). For mm / cm see "Print setup" below.
+     * - "create": projectId, name, dimension {unit: "mm"|"cm"|"px", unitWidth, unitHeight, bleedMm?, cropMarks?} or {preset: "4:5"|"9:16"} (1:1 is retired — use px 1080×1080), templateIds? (existing templates to attach as the first pages — each needs a variant of exactly that size; synchronized/grouped templates and pages of another document are refused). For mm / cm send bleedMm + cropMarks (see "Print setup" below).
      * - "rename": documentId, name?, categoryId? (a category of the project — find_templates templates[].categoryId; "" removes it). An omitted one stays.
      * - "set_pages": documentId, templateIds — the WHOLE ordered page list: attach, detach (the template stays, it just leaves the document) and reorder in one call.
      * - "add_page": documentId, name?, position? (0-based; default last) — a BLANK page in the document size. Its variantId is in the answer (the page at that position): design it next with set_design.
      * - "set_fields": documentId, fields [{id?, name, kind: "text"|"image"|"shape", bindings: [{pageId, inputId}]}] — the WHOLE list of shared fields: one value the user types once, filled into the bound input on every page. Keep a field's id to keep it; at most one binding per page. text binds any editable text input (plain, rich, list, checklist — the field accepts the richest value EVERY binding accepts, its fields[].textMode; a checklist binds only to checklists), image binds image slots, shape binds recolourable shapes (one colour). Input ids come from describe_variant of the page's variantId.
      * - "duplicate_page": documentId, pageId, position? (0-based; default right after the original) — a copy of the page (its own template, same design, same input ids — values still stay per page).
-     * - "set_print": documentId, cropMarks? — crop marks of the document AND every page (mm / cm documents only); omitted keeps the value.
+     * - "set_print": documentId, bleedMm? (0–10), cropMarks? — print setup of the document AND every page (mm / cm documents only); an omitted one keeps its value.
      *
-     * Print setup (mm / cm documents only — they export a print PDF): the bleed
-     * is FIXED at 3 mm per side and cannot be changed — the artwork runs that
-     * far PAST the cut, so a picture or colour reaching the paper edge never
-     * ends in a white hairline. cropMarks adds the cut marks, drawn in a fixed
-     * 5 mm margin outside the bleed (PDF page = trim + 2 × 3 mm + 2 × 5 mm);
-     * omitted on "create" means no marks, so send cropMarks: true for a
-     * document going to a printer. Artwork meant to reach the paper edge must
-     * extend dimension.bleedPx past every canvas edge (set_design; the
-     * background element does it by itself). Screen formats (px, presets)
-     * have NO print setup: cropMarks: true is refused
-     * (print_setup_not_available).
+     * Print setup (mm / cm documents only — they export a print PDF): bleedMm
+     * ("spadávka", 0–10 mm, per side; 0 = none; 5 when omitted on "create") is
+     * how far the artwork runs PAST the cut — the printer trims it off, so a
+     * picture or colour reaching the paper edge never ends in a white
+     * hairline. cropMarks adds the cut marks (omitted on "create" = no marks,
+     * so send cropMarks: true for a document going to a printer): each sits on
+     * a trim line, starts a fixed 3 mm from the trim and is a fixed 5 mm long,
+     * over the artwork when the bleed is larger than 3 mm. PDF page = trim +
+     * 2 × max(bleed, 8 mm) with marks, trim + 2 × bleed without. Artwork meant
+     * to reach the paper edge must extend dimension.bleedPx past every canvas
+     * edge (set_design; the background element does it by itself). Screen
+     * formats (px, presets) have NO bleed: leave both out — a bleed > 0 or
+     * cropMarks: true is refused (print_setup_not_available), and an
+     * out-of-range value is refused (invalid_bleed), never clamped.
      *
      * Pages never share values implicitly — not even duplicated pages with
      * identical input ids; only a shared field joins them.
@@ -94,12 +97,13 @@ readonly final class ManageDocumentTool
      * @param null|string $projectId For "create": the project (get_context projects[].id).
      * @param null|string $documentId For every action except "create".
      * @param null|string $name For "create" / "rename"; optional page name for "add_page".
-     * @param null|array<string, mixed> $dimension For "create": the page size every page renders in, plus — for mm / cm — cropMarks.
+     * @param null|array<string, mixed> $dimension For "create": the page size every page renders in, plus — for mm / cm — its print setup bleedMm (0–10, default 5) + cropMarks. Ask the user for the bleed when they have not given one (3 mm + crop marks is the common default).
      * @param null|list<string> $templateIds For "create" / "set_pages": template ids in page order.
      * @param null|int $position For "add_page" / "duplicate_page": 0-based insert position.
      * @param null|list<mixed> $fields For "set_fields".
      * @param null|string $pageId For "duplicate_page": documents[].pages[].pageId.
      * @param null|string $categoryId For "rename": the category ("" = none).
+     * @param null|float $bleedMm For "set_print": bleed per side in mm, 0–10 (5 is the default). For "create" put it inside dimension instead.
      * @param null|bool $cropMarks For "set_print": crop marks in the print PDF. For "create" put it inside dimension instead.
      */
     #[McpTool(name: 'manage_document')]
@@ -117,6 +121,7 @@ readonly final class ManageDocumentTool
         #[Schema(type: 'array', items: ['type' => 'object'])]
         null|array $fields = null,
         null|string $pageId = null,
+        null|float $bleedMm = null,
         null|bool $cropMarks = null,
         null|string $categoryId = null,
     ): DocumentSummaryResponse {
@@ -128,7 +133,7 @@ readonly final class ManageDocumentTool
                 'add_page' => $this->addPage(self::required($documentId, 'documentId'), $name, $position),
                 'set_fields' => $this->setFields(self::required($documentId, 'documentId'), $fields),
                 'duplicate_page' => $this->duplicatePage(self::required($documentId, 'documentId'), self::required($pageId, 'pageId'), $position),
-                'set_print' => $this->setPrint(self::required($documentId, 'documentId'), $cropMarks),
+                'set_print' => $this->setPrint(self::required($documentId, 'documentId'), $bleedMm, $cropMarks),
                 default => throw new ToolCallException('action must be one of: create, rename, set_pages, add_page, set_fields, duplicate_page, set_print.'),
             };
         } catch (InvalidPrintSetup $invalid) {
@@ -287,18 +292,23 @@ readonly final class ManageDocumentTool
         return $document->id;
     }
 
-    private function setPrint(string $documentId, null|bool $cropMarks): UuidInterface
+    private function setPrint(string $documentId, null|float $bleedMm, null|bool $cropMarks): UuidInterface
     {
         $document = $this->loader->writable($documentId);
         $dimension = $document->dimension;
 
         if (!$dimension->isPrintFormat()) {
-            throw new ToolCallException('Crop marks exist only for print documents (mm / cm); this one is a screen (px) format (print_setup_not_available).');
+            throw new ToolCallException('Bleed and crop marks exist only for print documents (mm / cm); this one is a screen (px) format (print_setup_not_available).');
         }
 
-        if ($cropMarks !== null) {
-            $this->dispatch(new EditTemplateDocumentPrintSettings($document->id, DocumentWriteInput::cropMarks($dimension, $cropMarks)));
+        if ($bleedMm === null && $cropMarks === null) {
+            throw new ToolCallException('"set_print" needs bleedMm and/or cropMarks.');
         }
+
+        // Refused, never clamped: the same 0–10 mm rule as the web form + API.
+        [$bleed, $marks] = DocumentWriteInput::printSettings($dimension, $bleedMm ?? $dimension->bleedMm, $cropMarks ?? $dimension->cropMarks);
+
+        $this->dispatch(new EditTemplateDocumentPrintSettings($document->id, $bleed, $marks));
 
         return $document->id;
     }

@@ -60,7 +60,7 @@ use DateTimeImmutable;
             security: "is_granted('IS_AUTHENTICATED_FULLY')",
             normalizationContext: ['skip_null_values' => false],
             name: 'api_template_document_create',
-            openapi: new OpenApiOperation(summary: 'Create a document: `{name, categoryId?, dimension {unit, unitWidth, unitHeight, preset?, cropMarks?}, templateIds?}` — the templates become its first pages (designer + project owner).'),
+            openapi: new OpenApiOperation(summary: 'Create a document: `{name, categoryId?, dimension {unit, unitWidth, unitHeight, preset?, bleedMm?, cropMarks?}, templateIds?}` — the templates become its first pages (designer + project owner).'),
         ),
         new Patch(
             uriTemplate: '/template-documents/{documentId}',

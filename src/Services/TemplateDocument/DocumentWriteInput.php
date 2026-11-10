@@ -28,9 +28,10 @@ final class DocumentWriteInput
     private const int MAX_CANVAS_PIXELS = 10000;
 
     /**
-     * `{unit, unitWidth, unitHeight, preset?, cropMarks?}` — a preset wins over
-     * the unit size. A `bleedMm` key from an older client is ignored: the bleed
-     * is fixed ({@see TemplateDimension::PRINT_BLEED_MM}).
+     * `{unit, unitWidth, unitHeight, preset?, bleedMm?, cropMarks?}` — a preset
+     * wins over the unit size. An omitted `bleedMm` is the default for a new
+     * print format ({@see TemplateDimension::DEFAULT_PRINT_BLEED_MM}), an
+     * omitted `cropMarks` is no marks; a screen format has neither.
      *
      * @param array<array-key, mixed> $data
      */
@@ -44,7 +45,7 @@ final class DocumentWriteInput
 
         if ($preset !== null) {
             $dimension = TemplateDimension::fromPreset($preset);
-            self::cropMarks($dimension, $data['cropMarks'] ?? false);
+            self::printSettings($dimension, $data['bleedMm'] ?? 0.0, $data['cropMarks'] ?? false);
 
             return $dimension;
         }
@@ -58,7 +59,12 @@ final class DocumentWriteInput
         }
 
         $plain = new TemplateDimension($unit, (float) $width, (float) $height);
-        $dimension = $plain->withCropMarks(self::cropMarks($plain, $data['cropMarks'] ?? false));
+        [$bleed, $cropMarks] = self::printSettings(
+            $plain,
+            array_key_exists('bleedMm', $data) ? $data['bleedMm'] : ($plain->isPrintFormat() ? TemplateDimension::DEFAULT_PRINT_BLEED_MM : 0.0),
+            array_key_exists('cropMarks', $data) ? $data['cropMarks'] : false,
+        );
+        $dimension = $plain->withPrintSettings($bleed, $cropMarks);
 
         foreach ([$dimension->width(), $dimension->height()] as $pixels) {
             if ($pixels < self::MIN_CANVAS_PIXELS || $pixels > self::MAX_CANVAS_PIXELS) {
@@ -70,26 +76,35 @@ final class DocumentWriteInput
     }
 
     /**
-     * Validates crop marks for `$dimension` — the ONE rule both the REST API
-     * and MCP apply on create and update: a boolean, and a screen format
-     * (px / preset) accepts only "none", so a caller cannot believe a social
-     * post got crop marks. `null` means none.
+     * Validates a print setup for `$dimension` — the ONE rule both the REST
+     * API and MCP apply on create and update: `bleedMm` a number in the web
+     * form's 0–{@see TemplateDimension::MAX_PRINT_BLEED_MM} mm (refused, never clamped), `cropMarks` a
+     * boolean, and a screen format (px / preset) accepts only "none"
+     * (0 / false), so a caller cannot believe a social post got a bleed.
+     * `null` means none.
+     *
+     * @return array{float, bool}
      *
      * @throws InvalidPrintSetup
      */
-    public static function cropMarks(TemplateDimension $dimension, mixed $cropMarks): bool
+    public static function printSettings(TemplateDimension $dimension, mixed $bleedMm, mixed $cropMarks): array
     {
+        if ($bleedMm !== null && (!is_int($bleedMm) && !is_float($bleedMm) || $bleedMm < 0 || $bleedMm > TemplateDimension::MAX_PRINT_BLEED_MM)) {
+            throw new InvalidPrintSetup(sprintf('"bleedMm" must be a number of millimetres from 0 to %d (got %s).', TemplateDimension::MAX_PRINT_BLEED_MM, json_encode($bleedMm) ?: '?'), 'invalid_bleed');
+        }
+
         if ($cropMarks !== null && !is_bool($cropMarks)) {
             throw new InvalidPrintSetup(sprintf('"cropMarks" must be true or false (got %s).', json_encode($cropMarks) ?: '?'), 'invalid_crop_marks');
         }
 
+        $bleed = (float) ($bleedMm ?? 0.0);
         $marks = $cropMarks ?? false;
 
-        if (!$dimension->isPrintFormat() && $marks) {
-            throw new InvalidPrintSetup('Crop marks exist only for print formats (mm / cm); a screen (px / preset) format has no print PDF. Omit cropMarks.', 'print_setup_not_available');
+        if (!$dimension->isPrintFormat() && ($bleed > 0.0 || $marks)) {
+            throw new InvalidPrintSetup('Bleed and crop marks exist only for print formats (mm / cm); a screen (px / preset) format has no print PDF. Omit bleedMm / cropMarks.', 'print_setup_not_available');
         }
 
-        return $marks;
+        return [$bleed, $marks];
     }
 
     /**

@@ -37,15 +37,11 @@
             {{ form_row(dimension.width, { attr: { 'data-template-dimension-target': 'width' }, row_attr: { class: 'mb-0' } }) }}
             {{ form_row(dimension.height, { attr: { 'data-template-dimension-target': 'height' }, row_attr: { class: 'mb-0' } }) }}
         </div>
-        <div class="tp-print" data-template-dimension-target="printFields">
-            <div class="tp-print-row">
-                {% if is_new %}
-                    {{ form_row(dimension.cropMarks, { checked: true, attr: { 'data-template-dimension-target': 'cropMarks' }, row_attr: { class: 'form-check mb-0' } }) }}
-                {% else %}
-                    {{ form_row(dimension.cropMarks, { attr: { 'data-template-dimension-target': 'cropMarks' }, row_attr: { class: 'form-check mb-0' } }) }}
-                {% endif %}
-            </div>
-        </div>
+        {% if is_new %}
+            {{ include('_print_settings.html.twig', { bleed_field: dimension.bleed, crop_marks_field: dimension.cropMarks, bleed_value: constant('WBoost\\Web\\Value\\TemplateDimension::DEFAULT_PRINT_BLEED_MM'), crop_marks_checked: true }) }}
+        {% else %}
+            {{ include('_print_settings.html.twig', { bleed_field: dimension.bleed, crop_marks_field: dimension.cropMarks }) }}
+        {% endif %}
         {{ include('_background_gallery_picker.html.twig', { field: dimension.backgroundImageId }) }}
     </div>
 {% endmacro %}

@@ -368,7 +368,7 @@
                    print formats (mm / cm) only: the same form, the pressed
                    button posts format=pdf. #}
                 {% if variant.dimension.isPrintFormat %}
-                    <button type="submit" name="format" value="pdf" class="btn btn-tertiary xs" data-variant-fill-overlay-target="exportButton" title="PDF pro tisk (CMYK, přesah 3 mm, ořezové značky podle nastavení varianty)">
+                    <button type="submit" name="format" value="pdf" class="btn btn-tertiary xs" data-variant-fill-overlay-target="exportButton" title="PDF pro tisk (CMYK, spadávka a ořezové značky podle nastavení varianty)">
                         {{ icon('file', 's14') }}PDF pro tisk
                     </button>
                 {% endif %}

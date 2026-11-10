@@ -136,12 +136,16 @@ readonly final class ExportVariantTool
      * FOGRA39), with the variant's STORED bleed and crop marks
      * (describe_variant dimension.bleedMm / bleedPx / cropMarks) — and is only
      * available for print formats (mm / cm, dimension.printFormat true). The
-     * bleed is a fixed 3 mm past the cut on every side; crop marks sit in a
-     * fixed 5 mm margin outside it (PDF page = trim + 2 × 3 mm + 2 × 5 mm).
-     * Design artwork that should reach the paper edge
+     * bleed ("spadávka", 0–10 mm) is how far the artwork runs past the cut on
+     * every side; each crop mark starts 3 mm from the trim and is 5 mm long
+     * (PDF page = trim + 2 × max(bleed, 8 mm) with marks, trim + 2 × bleed
+     * without). Design artwork that should reach the paper edge
      * to extend into the bleed (negative coordinates / past the canvas size
-     * by dimension.bleedPx). A document's crop marks are changed with
-     * manage_document "set_print", a standalone variant's with set_print_setup.
+     * by dimension.bleedPx). This tool takes no bleed override; a document's
+     * bleed is changed with manage_document "set_print", a standalone
+     * variant's with set_print_setup. If a print variant
+     * reports bleedMm 0 and the artwork reaches the edge, tell the user
+     * before exporting.
      *
      * The reply is a JSON summary followed by the PNG (or the PDF as an
      * embedded resource). Nothing about the template is changed — this only draws. A variant id this account cannot

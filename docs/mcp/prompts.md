@@ -79,10 +79,10 @@ long edge, and not counted as an export. Iterate here as much as you like.
 3508 for A4 at 300 DPI). Needs the `templates:export` scope, and **is** recorded
 in the project's usage report, so ask for it once, at the end. For a print
 format (mm / cm) ask for **"PDF pro tisk"** and the assistant passes
-`format: "pdf"`: the print PDF (PDF/X-1a, CMYK FOGRA39, a fixed 3 mm bleed +
-the variant's crop marks) comes back as an embedded file. The crop marks
-always sit in a fixed 5 mm margin outside the bleed, so the page is
-trim + 2 × 3 mm + 2 × 5 mm. Artwork meant to reach the paper
+`format: "pdf"`: the print PDF (PDF/X-1a, CMYK FOGRA39, the variant's bleed +
+crop marks) comes back as an embedded file. Each crop mark starts 3 mm from the
+trim and is 5 mm long, so the page is trim + 2 × max(bleed, 8 mm) with marks
+and trim + 2 × bleed without. Artwork meant to reach the paper
 edge should extend into the bleed (`dimension.bleedPx` past every canvas edge)
 — the design linter accepts it there.
 
@@ -270,24 +270,24 @@ the document's size), then "set_fields" binding the name input of each page
 a chat; longer ones from the web fill page). Pages never share values on their
 own — only through a shared field.
 
-**Print setup.** Every mm / cm format has a fixed 3 mm bleed; it is not
-configurable (a `bleedMm` sent by an older client is ignored, and responses
-still report it). The only choice is `cropMarks`: cut marks in a fixed 5 mm
-margin outside the bleed. An omitted `cropMarks` means no marks on `create`,
-so ask for them when the document goes to a printer:
+**Print setup.** A mm / cm format has a bleed (`bleedMm`, 0–10 mm per side, 0 =
+none, 5 when omitted on `create`) and optional `cropMarks` (each mark starts
+3 mm from the trim and is 5 mm long; omitted on `create` = no marks, so ask for
+them when the document goes to a printer):
 
-> Udělej tiskový leták A5 s ořezovými značkami z šablon …
+> Udělej tiskový leták A5 s ořezovými značkami a spadávkou 3 mm z šablon …
 
-`manage_document` "set_print" with `cropMarks` changes it for the document and
-every page; `cropMarks: true` on a px document is refused
-(`print_setup_not_available`).
+`manage_document` "set_print" with `bleedMm` and/or `cropMarks` changes it for
+the document and every page; a bleed above 0 or `cropMarks: true` on a px
+document is refused (`print_setup_not_available`), a value outside 0–10 too
+(`invalid_bleed`, never clamped).
 
 A **single print template** (not a document) works the same way:
 
-> Zapni plakátu A3 ořezové značky.
+> Nastav plakátu A3 spadávku 5 mm a ořezové značky.
 
-`set_print_setup` with `variantId` and `cropMarks: true`. A variant of a
-synchronized group changes only that size; a document page is refused with
+`set_print_setup` with `variantId`, `bleedMm` and/or `cropMarks`. A variant of
+a synchronized group changes only that size; a document page is refused with
 `document_page` — change the document with `set_print`.
 
 ## Two things to say out loud in any prompt

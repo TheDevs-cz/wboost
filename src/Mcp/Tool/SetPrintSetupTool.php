@@ -16,7 +16,7 @@ use WBoost\Web\Repository\TemplateVariantRepository;
 use WBoost\Web\Services\Template\VariantPrintSetup;
 
 /**
- * `set_print_setup` — crop marks of a standalone print variant, the
+ * `set_print_setup` — bleed + crop marks of a standalone print variant, the
  * MCP twin of `PATCH /api/template-variants/{id}/print-setup` (same
  * {@see VariantPrintSetup} service, same codes). A separate tool rather than
  * a `set_design` flag: the print setup is not part of the design document
@@ -38,35 +38,48 @@ readonly final class SetPrintSetupTool
     }
 
     /**
-     * Sets the CROP MARKS of one print-format template variant (unit mm / cm —
-     * describe_variant dimension.printFormat true), used by the print PDF
-     * (export_variant format "pdf").
+     * Sets the PRINT SETUP of one print-format template variant (unit mm / cm —
+     * describe_variant dimension.printFormat true): its bleed and crop marks,
+     * used by the print PDF (export_variant format "pdf").
      *
-     * cropMarks adds the cut marks, drawn in a fixed 5 mm margin outside the
-     * bleed (PDF page = trim + 2 × 3 mm + 2 × 5 mm). The bleed itself is fixed
-     * at 3 mm per side and cannot be changed: artwork meant to reach the paper
-     * edge must extend dimension.bleedPx past every canvas edge (set_design).
+     * bleedMm ("spadávka", 0–10 mm per side, 0 = none) is how far the artwork
+     * runs PAST the cut — the printer trims it off, so a picture or colour
+     * reaching the paper edge never ends in a white hairline. cropMarks adds
+     * the cut marks: each sits on a trim line, starts a fixed 3 mm from the
+     * trim and is a fixed 5 mm long, over the artwork when the bleed is larger
+     * than 3 mm. PDF page = trim + 2 × max(bleed, 8 mm) with marks, trim +
+     * 2 × bleed without. Changing the bleed re-fits the background layer to
+     * the new bleed box; other artwork meant to reach the edge must extend
+     * dimension.bleedPx past every canvas edge (set_design). A print variant
+     * reporting bleedMm 0 has no bleed at all; mention it before a print
+     * export when artwork reaches the edge.
      *
-     * An omitted value keeps the current setting. Refusals name their code:
-     * invalid_crop_marks, print_setup_not_available (a px / social format —
-     * those have no print PDF), document_page (the variant is a
+     * An omitted value keeps its current setting. Refusals name their code:
+     * invalid_bleed (outside 0–10, never clamped), invalid_crop_marks,
+     * missing_print_setup (neither given), print_setup_not_available (a px /
+     * social format — those have no bleed), document_page (the variant is a
      * page of a multi-page document, whose pages all follow the document: use
      * manage_document "set_print" with the documentId the message names). A
      * variant of a synchronized group is accepted and changes only this
      * dimension, as on the web.
      *
      * @param string $variantId UUID of the print variant (find_templates / describe_variant).
+     * @param null|float $bleedMm Bleed per side in mm, 0–10 (0 = none). Omit to keep.
      * @param null|bool $cropMarks Crop marks in the print PDF. Omit to keep.
      */
     #[McpTool(name: 'set_print_setup')]
     public function __invoke(
         string $variantId,
+        null|float $bleedMm = null,
         null|bool $cropMarks = null,
     ): SetPrintSetupResponse {
         $variant = $this->variants->editable($variantId);
 
         try {
-            $this->printSetup->change($variant, $cropMarks !== null ? ['cropMarks' => $cropMarks] : []);
+            $this->printSetup->change($variant, array_filter(
+                ['bleedMm' => $bleedMm, 'cropMarks' => $cropMarks],
+                static fn (null|float|bool $value): bool => $value !== null,
+            ));
         } catch (InvalidPrintSetup $refused) {
             throw new ToolCallException(sprintf(
                 '%s (%s%s)',
@@ -98,7 +111,7 @@ readonly final class SetPrintSetupTool
                 cropMarks: $dimension->cropMarks,
             ),
             status: sprintf(
-                'Print setup: fixed %s mm bleed per side, %s. The print PDF (export_variant format "pdf") uses it from now on.',
+                'Saved: bleed %s mm per side, %s. The print PDF (export_variant format "pdf") uses it from now on.',
                 rtrim(rtrim(number_format($dimension->bleedMm, 2, '.', ''), '0'), '.'),
                 $dimension->cropMarks ? 'with crop marks' : 'no crop marks',
             ),

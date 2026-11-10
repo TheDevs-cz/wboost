@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Tests\Services\Print;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use Psr\Clock\ClockInterface;
 use Ramsey\Uuid\Uuid;
@@ -127,6 +128,63 @@ final class PrintPdfRendererGotenbergTest extends KernelTestCase
         self::assertGreaterThan(90, min($page2(22.6772 - 8.504 - 7.087, 617.9528)), 'page 2 has its own crop marks');
     }
 
+    /**
+     * The owner's 100 × 100 mm cases through the whole pipeline: the real
+     * boxes, ink up to the BleedBox and paper outside it.
+     *
+     * @return array<string, array{float, bool, float, float}> bleed, marks, media, bleed inset (mm)
+     */
+    public static function printSetups(): array
+    {
+        return [
+            'bleed 5 + marks' => [5.0, true, 116.0, 3.0],
+            'bleed 10 + marks' => [10.0, true, 120.0, 0.0],
+            'bleed 5, no marks' => [5.0, false, 110.0, 0.0],
+            'bleed off, no marks' => [0.0, false, 100.0, 0.0],
+            'bleed off + marks' => [0.0, true, 116.0, 8.0],
+        ];
+    }
+
+    #[DataProvider('printSetups')]
+    public function testPageBoxesAndInkFollowThePrintSetup(float $bleed, bool $marks, float $media, float $bleedInset): void
+    {
+        self::bootKernel();
+
+        $variant = $this->craftedVariant(100, 100, $bleed, $marks);
+        $pdf = $this->printRenderer()->render($variant, new ResolvedInputOverrides([], []), null, 'Tisk – test');
+
+        $pt = static fn (float $mm): float => $mm / 25.4 * 72;
+        $number = static fn (float $mm): string => rtrim(rtrim(number_format($pt($mm), 4, '.', ''), '0'), '.');
+        $trimInset = ($media - 100) / 2;
+
+        self::assertStringContainsString(sprintf('/MediaBox [ 0 0 %s %s ]', $number($media), $number($media)), $pdf);
+        self::assertStringContainsString(sprintf('/TrimBox [ %1$s %1$s %2$s %2$s ]', $number($trimInset), $number($trimInset + 100)), $pdf);
+        self::assertStringContainsString(sprintf('/BleedBox [ %1$s %1$s %2$s %2$s ]', $number($bleedInset), $number($media - $bleedInset)), $pdf);
+
+        $ink = $this->separations($pdf);
+        $middle = $pt($media / 2);
+
+        self::assertGreaterThan(50, $ink($middle, $middle)['c'], 'the trim is printed');
+
+        if ($bleed >= 2) {
+            self::assertGreaterThan(50, $ink($pt($bleedInset + 1), $pt($media * 0.4))['c'], 'ink reaches into the bleed');
+        }
+
+        if ($bleedInset >= 2) {
+            self::assertLessThan(5, $ink($pt($bleedInset - 1), $pt($media * 0.4))['c'], 'paper outside the BleedBox');
+        }
+
+        if ($marks) {
+            // On the trim line, between 3 and 8 mm from the trim, every plate.
+            // A hairline at 72 ppi lands on one of the neighbouring pixels.
+            $strongest = max(array_map(
+                static fn (int $offset): int => min($ink($pt($trimInset - 5.5), $pt($trimInset) + $offset)),
+                [-1, 0, 1],
+            ));
+            self::assertGreaterThan(50, $strongest, 'crop mark in registration colour');
+        }
+    }
+
     public function testScreenPdf(): void
     {
         self::bootKernel();
@@ -151,18 +209,21 @@ final class PrintPdfRendererGotenbergTest extends KernelTestCase
         self::assertGreaterThan(50, $ink(30, 495)['c']);
     }
 
-    private function craftedVariant(): TemplateVariant
+    private function craftedVariant(float $mmWidth = 148, float $mmHeight = 210, float $bleedMm = 3.0, bool $cropMarks = true): TemplateVariant
     {
         $variant = self::getContainer()->get(TemplateVariantRepository::class)
             ->get(Uuid::fromString(TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID));
 
+        $variant->changePrintSettings(3.0, true);
+
         $reflection = new \ReflectionProperty(TemplateVariant::class, 'dimension');
         $reflection->setValue($variant, new \WBoost\Web\Value\TemplateDimension(
             \WBoost\Web\Value\DimensionUnit::Mm,
-            148,
-            210,
+            $mmWidth,
+            $mmHeight,
             null,
-            true,
+            $bleedMm,
+            $cropMarks,
         ));
 
         $width = $variant->dimension->width();

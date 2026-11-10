@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace WBoost\Web\FormData;
 
 use Symfony\Component\Validator\Constraints\Callback;
+use Symfony\Component\Validator\Constraints\Range;
 use Symfony\Component\Validator\Constraints\NotNull;
 use Symfony\Component\Validator\Constraints\Positive;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
@@ -43,10 +44,14 @@ final class TemplateVariantFormData
     public null|float $height = 297;
 
     /**
-     * Crop marks in the print PDF (the bleed is fixed, see
-     * {@see TemplateDimension::PRINT_BLEED_MM}). On by default; picking an
-     * Instagram preset clears it (JS).
+     * Print setup for the PDF export — bleed ("spadávka") on each side in mm
+     * and crop marks. Defaults to 5 mm + marks; 0 / unticked gives
+     * a plain trim-size PDF. Picking an Instagram preset clears both (JS).
      */
+    #[NotNull]
+    #[Range(min: 0, max: TemplateDimension::MAX_PRINT_BLEED_MM)]
+    public null|float $bleed = TemplateDimension::DEFAULT_PRINT_BLEED_MM;
+
     public bool $cropMarks = true;
 
     // Project-gallery FileUpload id from the background picker widget —
@@ -91,6 +96,6 @@ final class TemplateVariantFormData
             $dimension = new TemplateDimension($this->unit, $this->width, $this->height);
         }
 
-        return $dimension->withCropMarks($this->cropMarks);
+        return $dimension->withPrintSettings($this->bleed ?? 0.0, $this->cropMarks);
     }
 }

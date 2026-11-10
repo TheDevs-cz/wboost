@@ -70,7 +70,7 @@ final class TemplateDocumentTestData
             Uuid::fromString(TestDataFixture::PROJECT_1_ID),
             $name,
             null,
-            new TemplateDimension(DimensionUnit::Mm, 210, 297, null, true),
+            new TemplateDimension(DimensionUnit::Mm, 210, 297, null, 3.0, true),
             $templateIds,
         ));
 

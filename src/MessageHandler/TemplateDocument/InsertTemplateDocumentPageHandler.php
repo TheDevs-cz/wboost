@@ -23,6 +23,7 @@ readonly final class InsertTemplateDocumentPageHandler
         private TemplateDocumentRepository $documentRepository,
         private TemplateVariantRepository $variantRepository,
         private TemplateDocumentRules $rules,
+        private TemplateDocumentPageList $pageList,
     ) {
     }
 
@@ -53,7 +54,7 @@ readonly final class InsertTemplateDocumentPageHandler
             $page->moveTo($index >= $position ? $index + 1 : $index);
         }
 
-        TemplateDocumentPageList::applyPrintSetup($document, $variant);
+        $this->pageList->applyPrintSetup($document, $variant);
         $document->addPage(new TemplateDocumentPage($message->pageId, $document, $variant->template, $variant, $position));
     }
 }

@@ -24,49 +24,45 @@ final class SetPrintSetupTest extends WebTestCase
 {
     private null|KernelBrowser $browser = null;
 
-    public function testSetsCropMarksAndReportsTheFixedBleed(): void
+    public function testSetsBleedAndCropMarks(): void
     {
-        $set = $this->payload($this->call(TestDataFixture::MCP_TOKEN_ACTIVE, ['variantId' => TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID, 'cropMarks' => true]));
+        $set = $this->payload($this->call(TestDataFixture::MCP_TOKEN_ACTIVE, ['variantId' => TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID, 'bleedMm' => 3, 'cropMarks' => true]));
         self::assertSame(TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID, $set['variantId']);
         self::assertEquals(3, $set['dimension']['bleedMm']);
         self::assertSame(35, $set['dimension']['bleedPx']);
         self::assertTrue($set['dimension']['cropMarks']);
 
         $kept = $this->payload($this->call(TestDataFixture::MCP_TOKEN_ACTIVE, ['variantId' => TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID, 'cropMarks' => false]));
-        self::assertEquals(3, $kept['dimension']['bleedMm']);
+        self::assertEquals(3, $kept['dimension']['bleedMm'], 'An omitted value keeps its setting.');
         self::assertFalse($kept['dimension']['cropMarks']);
 
-        $grouped = $this->payload($this->call(TestDataFixture::MCP_TOKEN_ACTIVE, ['variantId' => TestDataFixture::GROUPED_FREEFORM_VARIANT_ID, 'cropMarks' => true]));
-        self::assertTrue($grouped['dimension']['cropMarks'], 'A grouped variant has its own print setup, like on the web.');
-    }
-
-    public function testARetiredBleedIsIgnored(): void
-    {
-        $variant = TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID;
-        $this->call(TestDataFixture::MCP_TOKEN_ACTIVE, ['variantId' => $variant, 'cropMarks' => true]);
-
-        foreach ([25, -1, 0] as $bleed) {
-            $set = $this->payload($this->call(TestDataFixture::MCP_TOKEN_ACTIVE, ['variantId' => $variant, 'bleedMm' => $bleed]));
-            self::assertEquals(3, $set['dimension']['bleedMm']);
-            self::assertTrue($set['dimension']['cropMarks'], 'A lone bleedMm changes nothing.');
-        }
+        $grouped = $this->payload($this->call(TestDataFixture::MCP_TOKEN_ACTIVE, ['variantId' => TestDataFixture::GROUPED_FREEFORM_VARIANT_ID, 'bleedMm' => 5]));
+        self::assertEquals(5, $grouped['dimension']['bleedMm'], 'A grouped variant has its own print setup, like on the web.');
     }
 
     public function testRefusals(): void
     {
-        $screen = $this->call(TestDataFixture::MCP_TOKEN_ACTIVE, ['variantId' => TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID, 'cropMarks' => false]);
+        $variant = TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID;
+
+        foreach ([[['bleedMm' => 10.5], 'invalid_bleed'], [['bleedMm' => 25], 'invalid_bleed'], [['bleedMm' => -1], 'invalid_bleed'], [[], 'missing_print_setup']] as [$arguments, $code]) {
+            $refused = $this->call(TestDataFixture::MCP_TOKEN_ACTIVE, ['variantId' => $variant] + $arguments);
+            self::assertTrue($refused['isError'] ?? false);
+            self::assertStringContainsString($code, $refused['content'][0]['text']);
+        }
+
+        $screen = $this->call(TestDataFixture::MCP_TOKEN_ACTIVE, ['variantId' => TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID, 'bleedMm' => 3]);
         self::assertTrue($screen['isError'] ?? false);
         self::assertStringContainsString('print_setup_not_available', $screen['content'][0]['text']);
 
         $page = TemplateDocumentTestData::a4Template($this->em(), 'Úvod');
         $documentId = TemplateDocumentTestData::document($this->em(), self::getContainer()->get(MessageBusInterface::class), [$page['template']]);
-        $documentPage = $this->call(TestDataFixture::MCP_TOKEN_ACTIVE, ['variantId' => $page['variant']->toString(), 'cropMarks' => true]);
+        $documentPage = $this->call(TestDataFixture::MCP_TOKEN_ACTIVE, ['variantId' => $page['variant']->toString(), 'bleedMm' => 3]);
         self::assertTrue($documentPage['isError'] ?? false);
         self::assertStringContainsString('document_page', $documentPage['content'][0]['text']);
         self::assertStringContainsString($documentId->toString(), $documentPage['content'][0]['text']);
         self::assertStringContainsString('set_print', $documentPage['content'][0]['text']);
 
-        $unknown = $this->call(TestDataFixture::MCP_TOKEN_ACTIVE, ['variantId' => Uuid::uuid7()->toString(), 'cropMarks' => true]);
+        $unknown = $this->call(TestDataFixture::MCP_TOKEN_ACTIVE, ['variantId' => Uuid::uuid7()->toString(), 'bleedMm' => 3]);
         self::assertTrue($unknown['isError'] ?? false);
     }
 
@@ -74,14 +70,14 @@ final class SetPrintSetupTest extends WebTestCase
     {
         $browser = $this->browser();
         $sessionId = TestingMcpClient::connect($browser, TestDataFixture::MCP_TOKEN_READ_ONLY);
-        TestingMcpClient::request($browser, 'tools/call', ['name' => 'set_print_setup', 'arguments' => ['variantId' => TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID, 'cropMarks' => true]], $sessionId, TestDataFixture::MCP_TOKEN_READ_ONLY);
+        TestingMcpClient::request($browser, 'tools/call', ['name' => 'set_print_setup', 'arguments' => ['variantId' => TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID, 'bleedMm' => 3]], $sessionId, TestDataFixture::MCP_TOKEN_READ_ONLY);
 
         $content = (string) $browser->getResponse()->getContent();
         self::assertStringContainsString('templates:design', $content);
         self::assertStringNotContainsString('"bleedPx":35', $content);
     }
 
-    public function testDescriptionSaysTheBleedIsFixed(): void
+    public function testDescriptionExplainsTheBleed(): void
     {
         $browser = $this->browser();
         $sessionId = TestingMcpClient::connect($browser, TestDataFixture::MCP_TOKEN_ACTIVE);
@@ -91,9 +87,9 @@ final class SetPrintSetupTest extends WebTestCase
         $payload = json_decode((string) $browser->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
         $description = array_column($payload['result']['tools'] ?? [], 'description', 'name')['set_print_setup'] ?? '';
 
-        self::assertStringNotContainsString('ASK the user', $description);
-        self::assertStringContainsString('cannot be changed', $description);
-        self::assertStringContainsString('cropMarks', $description);
+        self::assertStringContainsString('0–10 mm', $description);
+        self::assertStringContainsString('max(bleed, 8 mm)', $description);
+        self::assertStringContainsString('crop marks', $description);
     }
 
     /**

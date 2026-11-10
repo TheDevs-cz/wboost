@@ -72,27 +72,22 @@ final class TemplateDimensionTest extends TestCase
         self::assertSame('1080 × 1920 px', $dimension->label());
     }
 
-    public function testBleedIsFixedByTheUnit(): void
+    public function testPrintSettingsDefaultToNone(): void
     {
-        foreach ([new TemplateDimension(DimensionUnit::Mm, 210, 297), new TemplateDimension(DimensionUnit::Cm, 21, 29.7)] as $print) {
-            self::assertSame(TemplateDimension::PRINT_BLEED_MM, $print->bleedMm);
-            self::assertTrue($print->hasBleed());
-            self::assertFalse($print->cropMarks);
-        }
+        $dimension = new TemplateDimension(DimensionUnit::Mm, 210, 297);
 
-        $screen = new TemplateDimension(DimensionUnit::Px, 1080, 1080);
-
-        self::assertSame(0.0, $screen->bleedMm);
-        self::assertFalse($screen->hasBleed());
-        self::assertSame(0, $screen->bleedPixels());
+        self::assertSame(0.0, $dimension->bleedMm);
+        self::assertFalse($dimension->cropMarks);
+        self::assertFalse($dimension->hasBleed());
+        self::assertSame(0, $dimension->bleedPixels());
     }
 
     public function testBleedConvertsAtPrintResolutionForPrintFormatsOnly(): void
     {
         // 3 mm at 300 DPI = 35.43 px → 35.
-        $mm = (new TemplateDimension(DimensionUnit::Mm, 210, 297))->withCropMarks(true);
-        $cm = (new TemplateDimension(DimensionUnit::Cm, 21, 29.7))->withCropMarks(true);
-        $px = TemplateDimension::fromPreset(DimensionPreset::InstagramPost)->withCropMarks(true);
+        $mm = (new TemplateDimension(DimensionUnit::Mm, 210, 297))->withPrintSettings(3, true);
+        $cm = (new TemplateDimension(DimensionUnit::Cm, 21, 29.7))->withPrintSettings(3, true);
+        $px = TemplateDimension::fromPreset(DimensionPreset::InstagramPost)->withPrintSettings(3, true);
 
         self::assertTrue($mm->isPrintFormat());
         self::assertSame(35, $mm->bleedPixels());
@@ -106,5 +101,12 @@ final class TemplateDimensionTest extends TestCase
         // Canvas size is the TRIM size — the bleed never enters it.
         self::assertSame(2480, $mm->width());
         self::assertSame(3508, $mm->height());
+    }
+
+    public function testNegativeBleedClampsToZero(): void
+    {
+        $dimension = (new TemplateDimension(DimensionUnit::Mm, 210, 297))->withPrintSettings(-2, false);
+
+        self::assertSame(0.0, $dimension->bleedMm);
     }
 }

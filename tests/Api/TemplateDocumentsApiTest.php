@@ -37,7 +37,7 @@ final class TemplateDocumentsApiTest extends ApiTestCase
             'headers' => $headers,
             'json' => [
                 'name' => 'Cenová nabídka',
-                'dimension' => ['unit' => 'mm', 'unitWidth' => 210, 'unitHeight' => 297, 'cropMarks' => true],
+                'dimension' => ['unit' => 'mm', 'unitWidth' => 210, 'unitHeight' => 297, 'bleedMm' => 3, 'cropMarks' => true],
                 'templateIds' => [$a['template']->toString(), $b['template']->toString()],
             ],
         ]);
@@ -105,9 +105,10 @@ final class TemplateDocumentsApiTest extends ApiTestCase
     }
 
     /**
-     * The bleed is fixed and reported read-only; a `bleedMm` from an older
-     * client is ignored, never refused. Crop marks stay validated and a
-     * screen format still refuses them — as structured 400s.
+     * Bleed ("spadávka") + crop marks: an omitted bleed keeps the historical
+     * API default (0 mm, no marks), a given one is validated against the web
+     * form's range (0–20 mm) instead of clamped, and a screen format refuses
+     * a real print setup — all as structured 400s.
      */
     public function testPrintSetupIsValidatedAndReadable(): void
     {
@@ -122,10 +123,10 @@ final class TemplateDocumentsApiTest extends ApiTestCase
         $omittedBody = $omitted->toArray();
         $omittedId = $omittedBody['id'];
         self::assertIsString($omittedId);
-        self::assertEquals(3, $omittedBody['bleedMm'], 'Every print document has the fixed bleed.');
-        self::assertFalse($omittedBody['cropMarks'], 'An omitted cropMarks keeps the API default: none.');
+        self::assertEquals(5, $omittedBody['bleedMm'], 'A print create without a bleed gets the default.');
+        self::assertFalse($omittedBody['cropMarks']);
 
-        $printed = $create(['unit' => 'mm', 'unitWidth' => 210, 'unitHeight' => 99, 'cropMarks' => true])->toArray();
+        $printed = $create(['unit' => 'mm', 'unitWidth' => 210, 'unitHeight' => 99, 'bleedMm' => 3, 'cropMarks' => true])->toArray();
         self::assertEquals(3, $printed['bleedMm']);
         self::assertTrue($printed['cropMarks']);
         self::assertIsString($printed['id']);
@@ -133,23 +134,22 @@ final class TemplateDocumentsApiTest extends ApiTestCase
         self::assertEquals(3, $read['bleedMm']);
         self::assertTrue($read['cropMarks']);
 
-        foreach ([25, -1, 'lots', 0] as $bleed) {
-            $ignored = $create(['unit' => 'mm', 'unitWidth' => 210, 'unitHeight' => 99, 'bleedMm' => $bleed]);
-            self::assertSame(201, $ignored->getStatusCode(), sprintf('bleedMm %s is ignored.', var_export($bleed, true)));
-            self::assertEquals(3, $ignored->toArray()['bleedMm']);
+        foreach ([11, 25, -1, 'lots'] as $bleed) {
+            $tooMuch = $create(['unit' => 'mm', 'unitWidth' => 210, 'unitHeight' => 99, 'bleedMm' => $bleed]);
+            self::assertSame(400, $tooMuch->getStatusCode(), sprintf('bleedMm %s is outside 0–10 mm.', var_export($bleed, true)));
+            self::assertSame('invalid_bleed', $tooMuch->toArray(false)['code']);
         }
 
         $badMarks = $create(['unit' => 'mm', 'unitWidth' => 210, 'unitHeight' => 99, 'cropMarks' => 'yes']);
         self::assertSame(400, $badMarks->getStatusCode());
         self::assertSame('invalid_crop_marks', $badMarks->toArray(false)['code']);
 
-        $screen = $create(['unit' => 'px', 'unitWidth' => 1080, 'unitHeight' => 1350, 'cropMarks' => true]);
+        $screen = $create(['unit' => 'px', 'unitWidth' => 1080, 'unitHeight' => 1350, 'bleedMm' => 3, 'cropMarks' => true]);
         self::assertSame(400, $screen->getStatusCode());
         self::assertSame('print_setup_not_available', $screen->toArray(false)['code']);
 
-        $screenNone = $create(['unit' => 'px', 'unitWidth' => 1080, 'unitHeight' => 1350, 'bleedMm' => 3, 'cropMarks' => false]);
-        self::assertSame(201, $screenNone->getStatusCode(), 'A bleedMm on px is ignored like any other.');
-        self::assertEquals(0, $screenNone->toArray()['bleedMm']);
+        $screenNone = $create(['unit' => 'px', 'unitWidth' => 1080, 'unitHeight' => 1350, 'bleedMm' => 0, 'cropMarks' => false]);
+        self::assertSame(201, $screenNone->getStatusCode(), 'An explicit "no print setup" is harmless on px.');
         $screenId = $screenNone->toArray()['id'];
         self::assertIsString($screenId);
 
@@ -158,16 +158,16 @@ final class TemplateDocumentsApiTest extends ApiTestCase
             'json' => $body,
         ]);
 
-        $patched = $patch($omittedId, ['bleedMm' => 20, 'cropMarks' => true]);
+        $patched = $patch($omittedId, ['bleedMm' => 10, 'cropMarks' => true]);
         self::assertSame(200, $patched->getStatusCode());
-        self::assertEquals(3, $patched->toArray()['bleedMm']);
-        self::assertTrue($patched->toArray()['cropMarks']);
+        self::assertEquals(10, $patched->toArray()['bleedMm']);
 
-        $ignoredPatch = $patch($omittedId, ['bleedMm' => 21]);
-        self::assertSame(200, $ignoredPatch->getStatusCode(), 'A lone bleedMm is a no-op.');
-        self::assertTrue($ignoredPatch->toArray()['cropMarks']);
+        $refused = $patch($omittedId, ['bleedMm' => 11]);
+        self::assertSame(400, $refused->getStatusCode(), 'Out of range is refused, not clamped.');
+        self::assertSame('invalid_bleed', $refused->toArray(false)['code']);
+        self::assertEquals(10, $client->request('GET', '/api/template-documents/' . $omittedId, ['headers' => $headers])->toArray()['bleedMm']);
 
-        $screenPatch = $patch($screenId, ['cropMarks' => true]);
+        $screenPatch = $patch($screenId, ['bleedMm' => 3]);
         self::assertSame(400, $screenPatch->getStatusCode());
         self::assertSame('print_setup_not_available', $screenPatch->toArray(false)['code']);
     }

@@ -72,7 +72,7 @@
                                         {% endif %}
                                         <a href="{{ path('copy_template_variant', {'variantId': variant.id}) }}" class="dropdown-item">{{ icon('copy', 's16') }}Duplikovat</a>
                                         {% if variant.dimension.isPrintFormat and is_granted('template_variant_edit', variant) %}
-                                            <a href="{{ path('template_variant_print_settings', {'variantId': variant.id}) }}" class="dropdown-item">{{ icon('file', 's16') }}Tiskové nastavení</a>
+                                            <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#printSettings{{ variant.id }}">{{ icon('file', 's16') }}Nastavení tisku</button>
                                         {% endif %}
                                         <div class="dropdown-divider"></div>
                                         <a href="#"
@@ -112,6 +112,17 @@
                     </li>
                 {% endfor %}
             </ul>
+
+            {% for variant in variants %}
+                {% if is_granted('project_edit', project) and variant.dimension.isPrintFormat and is_granted('template_variant_edit', variant) %}
+                    {{ include('_print_settings.html.twig', {
+                        dimension: variant.dimension,
+                        action: path('template_variant_print_settings', {'variantId': variant.id}),
+                        csrf: csrf_token('template_variant_print_settings'),
+                        modal_id: 'printSettings' ~ variant.id,
+                    }) }}
+                {% endif %}
+            {% endfor %}
         {% endif %}
     </div>
 {% endblock %}

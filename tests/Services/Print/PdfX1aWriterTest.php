@@ -21,31 +21,45 @@ use WBoost\Web\Value\TemplateDimension;
 final class PdfX1aWriterTest extends TestCase
 {
     /**
-     * Two separate things around the trim: the BLEED (artwork past the cut,
-     * a fixed 3 mm) and, outside it, a FIXED 5 mm
-     * crop-mark margin. Page = trim + 2 × bleed + 2 × 5 mm.
+     * The bleed is the artwork past the cut; a crop mark starts a fixed 3 mm
+     * from the trim and is a fixed 5 mm long, so the margin is max(bleed, 8 mm).
      */
     public function testGeometryFollowsThePrintSetup(): void
     {
-        $voucher = PrintPageGeometry::fromDimension(new TemplateDimension(DimensionUnit::Mm, 210, 99, cropMarks: true));
+        $dimension = new TemplateDimension(DimensionUnit::Mm, 210, 99);
 
-        self::assertEqualsWithDelta(595.276, $voucher->trimWidth, 0.001);
-        self::assertEqualsWithDelta(8.504, $voucher->bleed, 0.001);
-        // The marks start where the bleed ends — never on artwork…
-        self::assertEqualsWithDelta(8.504, $voucher->markOffset(), 0.001);
-        // …and live in the fixed 5 mm margin outside it.
-        self::assertEqualsWithDelta(5.0, self::ptToMm($voucher->margin() - $voucher->bleed), 0.0001);
-        self::assertBoxMm([0, 0, 226, 115], $voucher->mediaBox());
-        self::assertBoxMm([5, 5, 221, 110], $voucher->bleedBox());
-        self::assertBoxMm([8, 8, 218, 107], $voucher->trimBox());
+        $stored = PrintPageGeometry::fromDimension($dimension->withPrintSettings(3, true));
+        self::assertEqualsWithDelta(595.276, $stored->trimWidth, 0.001);
+        self::assertEqualsWithDelta(8.504, $stored->bleed, 0.001);
+        self::assertEqualsWithDelta(3.0, self::ptToMm($stored->markOffset()), 0.0001);
+        self::assertEqualsWithDelta(5.0, self::ptToMm($stored->markLength()), 0.0001);
+        self::assertBoxMm([0, 0, 226, 115], $stored->mediaBox());
+        self::assertBoxMm([5, 5, 221, 110], $stored->bleedBox());
+        self::assertBoxMm([8, 8, 218, 107], $stored->trimBox());
+
+        // Up to 8 mm the marks set the margin, the page does not grow…
+        $default = PrintPageGeometry::fromDimension($dimension->withPrintSettings(5, true));
+        self::assertBoxMm([0, 0, 226, 115], $default->mediaBox());
+        self::assertBoxMm([3, 3, 223, 112], $default->bleedBox());
+
+        // …past it the bleed does, and the marks lie inside the artwork.
+        $wide = PrintPageGeometry::fromDimension($dimension->withPrintSettings(10, true));
+        self::assertBoxMm([0, 0, 230, 119], $wide->mediaBox());
+        self::assertBoxMm([0, 0, 230, 119], $wide->bleedBox());
+        self::assertEqualsWithDelta(3.0, self::ptToMm($wide->markOffset()), 0.0001);
 
         // No marks = no mark margin: the page is the bleed box.
-        $noMarks = PrintPageGeometry::fromDimension(new TemplateDimension(DimensionUnit::Mm, 210, 99));
+        $noMarks = PrintPageGeometry::fromDimension($dimension->withPrintSettings(3, false));
         self::assertBoxMm([0, 0, 216, 105], $noMarks->mediaBox());
         self::assertSame($noMarks->bleedBox(), $noMarks->mediaBox());
 
-        $plain = PrintPageGeometry::fromDimension(new TemplateDimension(DimensionUnit::Px, 1080, 1080));
-        self::assertSame(0.0, $plain->margin(), 'px has no bleed and no marks: the page IS the trim');
+        // Marks without a bleed still need their 8 mm of paper.
+        $marksOnly = PrintPageGeometry::fromDimension($dimension->withPrintSettings(0, true));
+        self::assertBoxMm([0, 0, 226, 115], $marksOnly->mediaBox());
+        self::assertBoxMm([8, 8, 218, 107], $marksOnly->bleedBox());
+
+        $plain = PrintPageGeometry::fromDimension($dimension);
+        self::assertSame(0.0, $plain->margin(), 'no bleed, no marks: the page IS the trim');
         self::assertSame($plain->trimBox(), $plain->mediaBox());
 
         // Social formats map to paper at 300 DPI: 1080 px = 259.2 pt.
@@ -138,7 +152,7 @@ final class PdfX1aWriterTest extends TestCase
         self::assertSame(3, substr_count($pdf, '/MediaBox '));
         self::assertSame(3, substr_count($pdf, '/TrimBox '));
         self::assertSame(3, substr_count($pdf, '/BleedBox '));
-        self::assertSame(2, substr_count($pdf, '/MediaBox [ 0 0 145.3545 245.3545 ]'));
+        self::assertSame(2, substr_count($pdf, '/MediaBox [ 0 0 145.3543 245.3543 ]'));
         self::assertSame(1, substr_count($pdf, '/MediaBox [ 0 0 300 150 ]'));
         // ONE output intent, ONE embedded profile, ONE Info.
         self::assertSame(1, substr_count($pdf, '/Type /OutputIntent'));

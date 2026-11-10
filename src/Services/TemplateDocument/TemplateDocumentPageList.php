@@ -10,6 +10,7 @@ use WBoost\Web\Entity\TemplateDocumentPage;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Exceptions\InvalidTemplateDocumentChange;
 use WBoost\Web\Services\ProvideIdentity;
+use WBoost\Web\Services\Template\ApplyPrintSettings;
 
 /**
  * Replaces a document's page list by DIFFING it — never delete-all +
@@ -24,6 +25,7 @@ readonly final class TemplateDocumentPageList
     public function __construct(
         private TemplateDocumentRules $rules,
         private ProvideIdentity $provideIdentity,
+        private ApplyPrintSettings $applyPrintSettings,
     ) {
     }
 
@@ -62,19 +64,19 @@ readonly final class TemplateDocumentPageList
             }
 
             [$template, $variant] = $attach[$templateId->toString()];
-            self::applyPrintSetup($document, $variant);
+            $this->applyPrintSetup($document, $variant);
             $document->addPage(new TemplateDocumentPage($this->provideIdentity->next(), $document, $template, $variant, $position));
         }
     }
 
     /**
-     * One PDF never mixes print setups: a page takes the document's crop
-     * marks when it joins (no-op for screen formats).
+     * One PDF never mixes print setups: a page takes the document's bleed +
+     * crop marks when it joins (no-op for screen formats).
      */
-    public static function applyPrintSetup(TemplateDocument $document, TemplateVariant $variant): void
+    public function applyPrintSetup(TemplateDocument $document, TemplateVariant $variant): void
     {
         if ($document->dimension->isPrintFormat()) {
-            $variant->changeCropMarks($document->dimension->cropMarks);
+            ($this->applyPrintSettings)($variant, $document->dimension->bleedMm, $document->dimension->cropMarks);
         }
     }
 }

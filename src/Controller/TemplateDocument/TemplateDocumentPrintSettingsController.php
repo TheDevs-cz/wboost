@@ -16,8 +16,8 @@ use WBoost\Web\Message\TemplateDocument\EditTemplateDocumentPrintSettings;
 use WBoost\Web\Services\Security\TemplateDocumentVoter;
 
 /**
- * "Tiskové nastavení dokumentu": crop marks for the document AND every page
- * variant at once.
+ * "Nastavení tisku" of a document: bleed + crop marks for the document AND every
+ * page variant at once.
  */
 final class TemplateDocumentPrintSettingsController extends AbstractController
 {
@@ -41,9 +41,11 @@ final class TemplateDocumentPrintSettingsController extends AbstractController
             throw $this->createNotFoundException();
         }
 
-        $this->bus->dispatch(new EditTemplateDocumentPrintSettings($document->id, $request->request->getBoolean('cropMarks')));
+        $bleed = (float) str_replace(',', '.', $request->request->getString('bleed', '0'));
 
-        $this->addFlash('success', 'Tiskové nastavení uloženo pro všechny stránky.');
+        $this->bus->dispatch(new EditTemplateDocumentPrintSettings($document->id, $bleed, $request->request->getBoolean('cropMarks')));
+
+        $this->addFlash('success', 'Nastavení tisku uloženo pro všechny stránky.');
 
         return $this->redirectToRoute('template_document', ['documentId' => $document->id]);
     }
