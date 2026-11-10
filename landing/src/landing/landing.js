@@ -71,7 +71,19 @@
     let c = N,
       timer = null,
       userPaused = false,
+      hovered = false,
       inView = false;
+    // WCAG 2.2.2: autoplay holds while the pointer or keyboard focus is in the carousel
+    const hold = (h) => () => {
+      hovered = h;
+      run();
+    };
+    loop.addEventListener('pointerenter', hold(true));
+    loop.addEventListener('pointerleave', hold(false));
+    loop.addEventListener('focusin', hold(true));
+    loop.addEventListener('focusout', (e) => {
+      if (!loop.contains(e.relatedTarget)) hold(false)();
+    });
     const place = (jump) => {
       const w = all[0].getBoundingClientRect().width;
       const tx = loop.clientWidth / 2 - (c + 0.5) * w + (innerWidth <= 600 ? 0 : w * 0.18);
@@ -81,7 +93,9 @@
         li.classList.toggle('on', k === c);
         li.classList.toggle('near', Math.abs(k - c) === 1);
         li.classList.toggle('settled', !!jump && k === c);
+        // off-screen slides are hidden from screen readers AND the tab order
         li.setAttribute('aria-hidden', k === c ? 'false' : 'true');
+        li.inert = k !== c;
       });
       count.textContent = (c % N) + 1 + ' / ' + N;
       if (jump) {
@@ -106,7 +120,7 @@
     const run = () => {
       clearInterval(timer);
       timer = null;
-      if (!userPaused && inView && !RM) timer = setInterval(() => go(1), 8000);
+      if (!userPaused && !hovered && inView && !RM) timer = setInterval(() => go(1), 8000);
     };
     const setPaused = (p) => {
       userPaused = p;
@@ -1071,6 +1085,7 @@ document.addEventListener('click', (e) => {
   function step(k) {
     st.forEach((b, i) => {
       b.classList.toggle('on', i === k);
+      b.setAttribute('aria-pressed', i === k);
       b.querySelector('.dv-bar i').style.width = i <= k ? '100%' : '0';
     });
     cap.style.opacity = 0;
