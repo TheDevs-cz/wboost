@@ -1,0 +1,55 @@
+{# Print setup on the ADD forms (template, variant, group, group dimension,
+   document): inline "Tisk" row — Spadávka toggle + − n mm + stepper (shown
+   only while on) and Ořezové značky — driven by print_inline_controller.js.
+   The stepper input IS the Symfony `bleed` widget (0 = no bleed), the marks
+   checkbox IS the `cropMarks` widget. Lives inside a `template-dimension`
+   wrapper (hidden with its `printFields` target while the unit is px).
+   Existing variants / documents keep the "Nastavení tisku" modal
+   (_print_settings.html.twig).
+
+   Params: bleed_field, crop_marks_field, optionally bleed_value +
+   crop_marks_checked for a collection prototype (no data to take them from). #}
+{% set geometry = 'WBoost\\Web\\Value\\PrintPageGeometry' %}
+{% set limits = 'WBoost\\Web\\Value\\TemplateDimension' %}
+{% set uid = bleed_field.vars.id %}
+{% set bleed_attr = {
+    'class': 'tp-stepper-input',
+    'aria-label': 'Spadávka v mm',
+    'data-print-inline-target': 'bleed',
+    'data-template-dimension-target': 'bleed',
+    'data-default-bleed': constant(limits ~ '::DEFAULT_PRINT_BLEED_MM'),
+    'data-action': 'change->print-inline#sync blur->print-inline#normalize',
+} %}
+{% set marks_attr = {
+    'data-print-inline-target': 'marks',
+    'data-template-dimension-target': 'cropMarks',
+    'data-action': 'change->print-inline#render',
+} %}
+
+<div class="tp-print" data-template-dimension-target="printFields"
+     data-controller="print-inline"
+     data-print-inline-max-value="{{ constant(limits ~ '::MAX_PRINT_BLEED_MM') }}"
+     data-print-inline-default-value="{{ constant(limits ~ '::DEFAULT_PRINT_BLEED_MM') }}"
+     data-print-inline-offset-value="{{ constant(geometry ~ '::MARK_OFFSET_MM') }}"
+     data-print-inline-length-value="{{ constant(geometry ~ '::MARK_LENGTH_MM') }}">
+    <span class="tp-print-title">Tisk</span>
+    <div class="tp-print-row">
+        <div class="form-check tp-print-check">
+            <input class="form-check-input" type="checkbox" id="{{ uid }}_on"
+                   data-print-inline-target="toggle" data-action="change->print-inline#toggle">
+            <label class="form-check-label" for="{{ uid }}_on">Spadávka</label>
+        </div>
+        <div class="tp-stepper" data-print-inline-target="stepper">
+            <button type="button" class="tp-stepper-btn" aria-label="Ubrat milimetr" data-action="print-inline#decrement">{{ icon('minus', 's16') }}</button>
+            {{ bleed_value is defined ? form_widget(bleed_field, { value: bleed_value, attr: bleed_attr }) : form_widget(bleed_field, { attr: bleed_attr }) }}
+            <span class="tp-stepper-unit" aria-hidden="true">mm</span>
+            <button type="button" class="tp-stepper-btn" aria-label="Přidat milimetr" data-action="print-inline#increment">{{ icon('plus', 's16') }}</button>
+        </div>
+        {# The form theme renders the checkbox as its own .form-check + label. #}
+        <div class="tp-print-marks">
+            {{ crop_marks_checked is defined ? form_widget(crop_marks_field, { checked: crop_marks_checked, attr: marks_attr }) : form_widget(crop_marks_field, { attr: marks_attr }) }}
+        </div>
+        <span class="tp-print-summary" data-print-inline-target="summary"></span>
+    </div>
+    {{ form_errors(bleed_field) }}
+</div>

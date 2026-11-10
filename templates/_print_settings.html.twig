@@ -1,61 +1,31 @@
-{# "Nastavení tisku": the shared print setup (PDF export) modal, driven by
-   print_settings_controller.js. The modal's inputs are a draft; the values
-   that count are the bleedField / marksField targets.
+{# "Nastavení tisku": the print setup (PDF export) modal of an EXISTING variant /
+   document, driven by print_settings_controller.js. The add forms use the
+   inline row instead (_print_settings_inline.html.twig). The modal's inputs
+   are a draft; the values that count are the bleedField / marksField hidden
+   inputs, posted by "Uložit".
 
-   On an add form, inside a `template-dimension` wrapper and inside the page's
-   <form> (so no <form> here): pass `bleed_field` + `crop_marks_field`, and
-   optionally `bleed_value` + `crop_marks_checked` for a collection prototype,
-   which has no data to take them from. Renders the button + one-line summary
-   and is hidden with the template-dimension `printFields` target while the
-   unit is px.
-
-   On an existing variant / document, OUTSIDE any other <form>, pass
-   `dimension`, `action` (POST `bleed`, `cropMarks`, `_token`), `csrf`,
-   `modal_id`, optionally `note`. The caller's button opens it with
-   data-bs-toggle="modal"; the size is read-only. #}
-{% set is_add_form = bleed_field is defined %}
-{% set modal_id = is_add_form ? bleed_field.vars.id ~ '_modal' : modal_id %}
+   Render OUTSIDE any other <form>; pass `dimension`, `action` (POST `bleed`,
+   `cropMarks`, `_token`), `csrf`, `modal_id`, optionally `note`. The caller's
+   button opens it with data-bs-toggle="modal"; the size is read-only. #}
 {% set geometry = 'WBoost\\Web\\Value\\PrintPageGeometry' %}
 {% set limits = 'WBoost\\Web\\Value\\TemplateDimension' %}
 
-<div {% if is_add_form %}class="tp-print" data-template-dimension-target="printFields"{% endif %}
-     data-controller="print-settings"
-     data-print-settings-locked-value="{{ is_add_form ? 'false' : 'true' }}"
-     {% if not is_add_form %}
-        {% set unit_factor = dimension.unit.value == 'cm' ? 10 : 1 %}
-        data-print-settings-width-mm-value="{{ (dimension.unitWidth * unit_factor)|round(2) }}"
-        data-print-settings-height-mm-value="{{ (dimension.unitHeight * unit_factor)|round(2) }}"
-     {% endif %}
+{% set unit_factor = dimension.unit.value == 'cm' ? 10 : 1 %}
+<div data-controller="print-settings"
+     data-print-settings-width-mm-value="{{ (dimension.unitWidth * unit_factor)|round(2) }}"
+     data-print-settings-height-mm-value="{{ (dimension.unitHeight * unit_factor)|round(2) }}"
      data-print-settings-offset-value="{{ constant(geometry ~ '::MARK_OFFSET_MM') }}"
      data-print-settings-length-value="{{ constant(geometry ~ '::MARK_LENGTH_MM') }}"
      data-print-settings-max-bleed-value="{{ constant(limits ~ '::MAX_PRINT_BLEED_MM') }}"
      data-print-settings-default-bleed-value="{{ constant(limits ~ '::DEFAULT_PRINT_BLEED_MM') }}">
 
-    {% if is_add_form %}
-        <div class="tp-print-row">
-            <button type="button" class="btn btn-tertiary sm" data-bs-toggle="modal" data-bs-target="#{{ modal_id }}">{{ icon('file', 's16') }}Nastavení tisku</button>
-            <span class="tp-print-summary" data-print-settings-target="summary"></span>
-        </div>
-        {{ form_errors(bleed_field) }}
-        <div hidden>
-            {% set bleed_attr = { 'data-print-settings-target': 'bleedField', 'data-template-dimension-target': 'bleed', 'data-default-bleed': constant(limits ~ '::DEFAULT_PRINT_BLEED_MM') } %}
-            {% set marks_attr = { 'data-print-settings-target': 'marksField', 'data-template-dimension-target': 'cropMarks' } %}
-            {{ bleed_value is defined ? form_widget(bleed_field, { value: bleed_value, attr: bleed_attr }) : form_widget(bleed_field, { attr: bleed_attr }) }}
-            {{ crop_marks_checked is defined ? form_widget(crop_marks_field, { checked: crop_marks_checked, attr: marks_attr }) : form_widget(crop_marks_field, { attr: marks_attr }) }}
-        </div>
-    {% endif %}
-
     <div class="modal fade" id="{{ modal_id }}" tabindex="-1" aria-hidden="true" aria-labelledby="{{ modal_id }}_title"
          data-print-settings-target="modal" data-action="keydown.enter->print-settings#enter">
         <div class="modal-dialog modal-dialog-centered ps-dialog">
-            {% if is_add_form %}
-                <div class="modal-content">
-            {% else %}
                 <form class="modal-content" method="post" action="{{ action }}" data-print-settings-target="form">
                     <input type="hidden" name="_token" value="{{ csrf }}">
                     <input type="hidden" name="bleed" value="{{ dimension.bleedMm }}" data-print-settings-target="bleedField">
                     <input type="hidden" name="cropMarks" value="{{ dimension.cropMarks ? '1' : '0' }}" data-print-settings-target="marksField">
-            {% endif %}
 
                 <div class="modal-header">
                     <h4 class="modal-title" id="{{ modal_id }}_title">Nastavení tisku</h4>
@@ -115,11 +85,7 @@
                     <button type="button" class="btn btn-primary sm" data-action="print-settings#save">Uložit</button>
                 </div>
 
-            {% if is_add_form %}
-                </div>
-            {% else %}
                 </form>
-            {% endif %}
         </div>
     </div>
 </div>

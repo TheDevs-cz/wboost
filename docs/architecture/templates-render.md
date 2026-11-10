@@ -147,10 +147,13 @@ one flattened **300 ppi CMYK raster** + vector crop marks, exactly the
 structure of the Illustrator-exported reference file.
 
 - **Print setup lives on `TemplateDimension`**: `bleedMm` + `cropMarks`. Chosen
-  in the **"Nastavení tisku" modal** (2026-11-10, `_print_settings.html.twig` +
-  `print_settings_controller.js`, pure maths in `print_settings_geometry.js`;
-  on the add forms and, with a read-only size, for an existing variant /
-  document), `PATCH /api/template-variants/{id}/print-setup` and MCP
+  on the **add forms inline** ("Tisk" row: Spadávka toggle + − n mm + stepper
+  that writes the `bleed` widget itself, 0 = off, + Ořezové značky + "PDF w × h"
+  summary; `_print_settings_inline.html.twig` + `print_inline_controller.js`,
+  2026-11-10) and for an **existing variant / document** in the
+  **"Nastavení tisku" modal** (`_print_settings.html.twig` +
+  `print_settings_controller.js`, read-only size, live preview; pure maths
+  in `print_settings_geometry.js`), `PATCH /api/template-variants/{id}/print-setup` and MCP
   `set_print_setup` / `manage_document`, see `api-templates.md`.
   **Geometry (`PrintPageGeometry`, in the owner's terms)**: *spadávka* =
   `bleedMm`, 0 = off, otherwise per side, 0–10 mm

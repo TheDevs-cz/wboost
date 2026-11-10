@@ -3,7 +3,7 @@
  * tests/Value/PrintSettingsGeometryContractTest.php.
  *
  * Input (stdin, JSON): { module: "<path>", setups: [{width, height, bleed, marks, offset, length}] }
- * Output (stdout, JSON): per setup { layout, info, summary, svg }.
+ * Output (stdout, JSON): per setup { layout, info, svg }.
  */
 'use strict';
 
@@ -23,7 +23,6 @@ const input = JSON.parse(fs.readFileSync(0, 'utf8'));
     process.stdout.write(JSON.stringify(input.setups.map((setup) => ({
         layout: geometry.computeLayout(setup),
         info: geometry.infoParts(setup),
-        summary: geometry.summaryText(setup),
         svg: geometry.previewSvg(setup, 1),
     }))));
 })();

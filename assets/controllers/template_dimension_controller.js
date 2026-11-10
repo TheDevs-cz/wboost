@@ -46,6 +46,11 @@ export default class extends Controller {
             this.cropMarksTarget.checked = print;
         }
 
+        // The inline print row (print-inline) follows its fields on change.
+        [this.hasBleedTarget && this.bleedTarget, this.hasCropMarksTarget && this.cropMarksTarget].forEach((element) => {
+            if (element) element.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+
         [this.unitTarget, this.widthTarget, this.heightTarget].forEach((element) => {
             element.dispatchEvent(new Event('change', { bubbles: true }));
         });

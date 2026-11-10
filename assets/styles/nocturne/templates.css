@@ -170,10 +170,24 @@
 .tp-chip:hover { border-color: var(--lav); background: var(--lav-deep); }
 .tp-chip:focus-visible { outline: 2px solid var(--lav-ink); outline-offset: 2px; }
 .tp-dims { display: grid; grid-template-columns: repeat(3, minmax(0, 160px)); gap: 12px; align-items: end; }
-.tp-print { display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 16px; background: var(--surface-2); }
+/* Inline "Tisk" row of the add forms (_print_settings_inline.html.twig). */
+.tp-print { display: flex; flex-direction: column; gap: 10px; }
 .tp-print.d-none { display: none !important; }
-.tp-print-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 24px; }
-.tp-print-row { align-items: center; }
+.tp-print-title { font-size: 15px; font-weight: 600; color: var(--text); }
+.tp-print-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; min-height: 44px; }
+.tp-print-check, .tp-print-marks .form-check { display: flex; align-items: center; gap: 10px; min-height: 0; margin: 0; padding: 0; }
+.tp-print-check .form-check-input, .tp-print-marks .form-check-input { margin: 0; flex: none; }
+.tp-print-check .form-check-label, .tp-print-marks .form-check-label { font-size: 15px; }
+.tp-stepper { display: inline-flex; align-items: center; gap: 2px; height: 44px; padding: 0 6px; margin-left: -10px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--line-2); }
+.tp-stepper[hidden] { display: none; }
+.tp-stepper-btn { display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 10px; background: transparent; color: var(--text); cursor: pointer; }
+.tp-stepper-btn:hover:not(:disabled) { background: var(--surface-3); }
+.tp-stepper-btn:disabled { opacity: .35; cursor: default; }
+.tp-stepper .tp-stepper-input { width: 44px; min-height: 0; height: 32px; box-shadow: none; padding: 0; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 15px; font-weight: 600; text-align: center; font-variant-numeric: tabular-nums; -moz-appearance: textfield; appearance: textfield; }
+.tp-stepper-input::-webkit-outer-spin-button, .tp-stepper-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.tp-stepper .tp-stepper-input:focus { outline: none; box-shadow: none; }
+.tp-stepper:focus-within { border-color: var(--lav); }
+.tp-stepper-unit { padding-right: 4px; font-size: 14px; color: var(--muted); }
 .tp-print-summary { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
 /* "Nastavení tisku" modal (_print_settings.html.twig) */
 .ps-dialog { --bs-modal-width: 800px; }

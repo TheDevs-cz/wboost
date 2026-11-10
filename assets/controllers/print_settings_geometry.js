@@ -52,21 +52,6 @@ export function infoParts(setup) {
     return { size: `${formatMm(mediaWidth)} × ${formatMm(mediaHeight)} mm`, clauses };
 }
 
-/** The one line next to the button on the add forms. */
-export function summaryText(setup) {
-    const parts = [setup.bleed > 0 ? `Spadávka ${formatMm(setup.bleed)} mm` : 'Bez spadávky'];
-
-    if (setup.marks) {
-        parts.push('ořezové značky');
-    }
-
-    if (isValidSize(setup)) {
-        parts.push(`PDF ${infoParts(setup).size}`);
-    }
-
-    return parts.join(' · ');
-}
-
 /**
  * The preview drawing. Bleed and marks are true millimetres; a trim longer
  * than PREVIEW_LONG_SIDE_MM is drawn shrunk to that (same proportions), or an

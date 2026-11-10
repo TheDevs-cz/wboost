@@ -88,7 +88,6 @@ final class PrintSettingsGeometryContractTest extends TestCase
         [$result] = self::runHarness([['width' => 210, 'height' => 297, 'bleed' => 2.5, 'marks' => false]]);
 
         self::assertSame('215 × 302 mm', $result['info']['size']);
-        self::assertSame('Spadávka 2,5 mm · PDF 215 × 302 mm', $result['summary']);
     }
 
     public function testThePreviewShrinksOnlyTheTrim(): void
@@ -117,7 +116,7 @@ final class PrintSettingsGeometryContractTest extends TestCase
     /**
      * @param list<array{width: int, height: int, bleed: float|int, marks: bool}> $setups
      *
-     * @return list<array{layout: array{mediaWidth: float, bleedInset: float}, info: array{size: string, clauses: list<string>}, summary: string, svg: string}>
+     * @return list<array{layout: array{mediaWidth: float, bleedInset: float}, info: array{size: string, clauses: list<string>}, svg: string}>
      */
     private static function runHarness(array $setups): array
     {
@@ -135,7 +134,7 @@ final class PrintSettingsGeometryContractTest extends TestCase
         ], JSON_THROW_ON_ERROR));
         $process->mustRun();
 
-        /** @var list<array{layout: array{mediaWidth: float, bleedInset: float}, info: array{size: string, clauses: list<string>}, summary: string, svg: string}> */
+        /** @var list<array{layout: array{mediaWidth: float, bleedInset: float}, info: array{size: string, clauses: list<string>}, svg: string}> */
         return json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR);
     }
 }

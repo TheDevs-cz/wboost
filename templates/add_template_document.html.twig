@@ -39,7 +39,7 @@
             social_label: 'Sociální sítě (karusel)',
         }) }}
 
-        {{ include('_print_settings.html.twig', { bleed_field: form.dimension.bleed, crop_marks_field: form.dimension.cropMarks }) }}
+        {{ include('_print_settings_inline.html.twig', { bleed_field: form.dimension.bleed, crop_marks_field: form.dimension.cropMarks }) }}
     </section>
 
     {{ form_rest(form) }}

@@ -1,29 +1,22 @@
 import { Controller } from '@hotwired/stimulus';
-import { clampBleed, formatMm, infoParts, isValidSize, previewSvg, summaryText } from './print_settings_geometry.js';
+import { clampBleed, formatMm, infoParts, isValidSize, previewSvg } from './print_settings_geometry.js';
 
 /**
- * "Nastavení tisku": one modal for every place a print setup is chosen
- * (`templates/_print_settings.html.twig`).
+ * "Nastavení tisku": the print setup modal of an existing variant / document
+ * (`templates/_print_settings.html.twig`; the add forms use the inline row,
+ * print_inline_controller.js).
  *
  * The modal's inputs are a DRAFT with no `name`. The committed values live in
- * the `bleedField` / `marksField` targets: the Symfony widgets on the add
- * forms, hidden inputs on an existing variant / document. Every open starts
- * from them and "Zrušit" just closes; "Uložit" writes them back, and where the
- * partial brought its own <form> also submits it. On an add form the modal
- * sits INSIDE the page's form, hence no nested <form>, type="button" only and
- * Enter handled here.
- *
- * The size is read-only on an existing design (`locked`). On an add form it
- * mirrors the page's unit / width / height fields (cm shown as mm) and writes
- * edits back to them on save.
+ * the hidden `bleedField` / `marksField` inputs: every open starts from them,
+ * "Zrušit" just closes, "Uložit" writes them back and submits the form. The
+ * size is read-only.
  */
 let instances = 0;
 
 export default class extends Controller {
-    static targets = ['modal', 'form', 'width', 'height', 'bleedToggle', 'bleedRow', 'bleed', 'marks', 'preview', 'caption', 'legendBleed', 'legendMarks', 'infoSize', 'infoRest', 'summary', 'bleedField', 'marksField'];
+    static targets = ['modal', 'form', 'width', 'height', 'bleedToggle', 'bleedRow', 'bleed', 'marks', 'preview', 'caption', 'legendBleed', 'legendMarks', 'infoSize', 'infoRest', 'bleedField', 'marksField'];
 
     static values = {
-        locked: Boolean,
         widthMm: Number,
         heightMm: Number,
         offset: Number,
@@ -39,57 +32,24 @@ export default class extends Controller {
         this.modalTarget.addEventListener('show.bs.modal', this.onShow);
         this.modalTarget.addEventListener('hidden.bs.modal', this.onHidden);
 
-        // Unit / size / presets on the add form feed the summary line.
-        this.dimensionRoot = this.element.closest('[data-controller~="template-dimension"]');
-        this.onDimensionEdit = () => this.renderSummary();
-        this.dimensionRoot?.addEventListener('input', this.onDimensionEdit);
-        this.dimensionRoot?.addEventListener('change', this.onDimensionEdit);
-
         this.loadDraft();
-        this.renderSummary();
     }
 
     disconnect() {
         this.modalTarget.removeEventListener('show.bs.modal', this.onShow);
         this.modalTarget.removeEventListener('hidden.bs.modal', this.onHidden);
-        this.dimensionRoot?.removeEventListener('input', this.onDimensionEdit);
-        this.dimensionRoot?.removeEventListener('change', this.onDimensionEdit);
     }
 
-    /** Checkbox on the add forms, hidden "1" / "0" on the existing ones. */
     readMarks() {
-        const field = this.marksFieldTarget;
-
-        return field.type === 'checkbox' ? field.checked : field.value === '1';
+        return this.marksFieldTarget.value === '1';
     }
 
     writeMarks(marks) {
-        const field = this.marksFieldTarget;
-
-        if (field.type === 'checkbox') {
-            field.checked = marks;
-        } else {
-            field.value = marks ? '1' : '0';
-        }
-    }
-
-    pageField(name) {
-        return this.dimensionRoot?.querySelector(`[data-template-dimension-target~="${name}"]`) ?? null;
-    }
-
-    unitFactor() {
-        return this.pageField('unit')?.value === 'cm' ? 10 : 1;
+        this.marksFieldTarget.value = marks ? '1' : '0';
     }
 
     committedSize() {
-        if (this.lockedValue) {
-            return { width: this.widthMmValue, height: this.heightMmValue };
-        }
-
-        const factor = this.unitFactor();
-        const mm = (name) => (parseFloat(this.pageField(name)?.value ?? '') || 0) * factor;
-
-        return { width: mm('width'), height: mm('height') };
+        return { width: this.widthMmValue, height: this.heightMmValue };
     }
 
     committedSetup() {
@@ -118,8 +78,8 @@ export default class extends Controller {
 
         this.widthTarget.value = setup.width > 0 ? Math.round(setup.width * 100) / 100 : '';
         this.heightTarget.value = setup.height > 0 ? Math.round(setup.height * 100) / 100 : '';
-        this.widthTarget.disabled = this.lockedValue;
-        this.heightTarget.disabled = this.lockedValue;
+        this.widthTarget.disabled = true;
+        this.heightTarget.disabled = true;
         this.bleedToggleTarget.checked = setup.bleed > 0;
         this.bleedTarget.value = setup.bleed > 0 ? setup.bleed : this.defaultBleedValue;
         this.marksTarget.checked = setup.marks;
@@ -138,7 +98,7 @@ export default class extends Controller {
         this.render();
     }
 
-    /** Enter must save the draft, not submit the form around the modal. */
+    /** Enter saves the normalised draft (not a raw native submit). */
     enter(event) {
         if (event.target instanceof HTMLInputElement) {
             event.preventDefault();
@@ -152,34 +112,7 @@ export default class extends Controller {
 
         this.bleedFieldTarget.value = setup.bleed;
         this.writeMarks(setup.marks);
-
-        if (!this.lockedValue) {
-            this.writeSizeBack(setup);
-        }
-
-        this.renderSummary();
-
-        if (this.hasFormTarget) {
-            this.formTarget.requestSubmit();
-
-            return;
-        }
-
-        window.bootstrap.Modal.getOrCreateInstance(this.modalTarget).hide();
-    }
-
-    writeSizeBack({ width, height }) {
-        const factor = this.unitFactor();
-
-        for (const [name, mm] of [['width', width], ['height', height]]) {
-            const field = this.pageField(name);
-
-            if (field && mm > 0 && Math.abs((parseFloat(field.value) || 0) * factor - mm) > 0.001) {
-                field.value = Math.round(mm / factor * 10000) / 10000;
-                field.dispatchEvent(new Event('input', { bubbles: true }));
-                field.dispatchEvent(new Event('change', { bubbles: true }));
-            }
-        }
+        this.formTarget.requestSubmit();
     }
 
     render() {
@@ -202,11 +135,5 @@ export default class extends Controller {
         const { size, clauses } = infoParts(setup);
         this.infoSizeTarget.textContent = size;
         this.infoRestTarget.textContent = clauses.map((clause) => ` · ${clause}`).join('');
-    }
-
-    renderSummary() {
-        if (this.hasSummaryTarget) {
-            this.summaryTarget.textContent = summaryText(this.committedSetup());
-        }
     }
 }
