@@ -265,7 +265,7 @@ textarea.fill-popover__input { min-height: 44px; padding: 10px 12px; border-radi
 /* One row = one framed block: the flat cards cannot have a wrapper (the sheet
    only orders them), so the head and the members draw the frame together.
    -8px cancels the sheet's flex gap between them. */
-.fill-sheet__section--row { gap: 8px; margin: 8px 0 0 calc(var(--sheet-depth, 0) * 10px); padding: 6px 6px 6px 4px; border: 1px solid var(--line-2); border-radius: 14px 14px 0 0; background: var(--surface-3); font-size: 13px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text-2); cursor: pointer; }
+.fill-sheet__section--row { flex: none; gap: 8px; margin: 8px 0 0 calc(var(--sheet-depth, 0) * 10px); padding: 6px 6px 6px 4px; border: 1px solid var(--line-2); border-radius: 14px 14px 0 0; background: var(--surface-3); font-size: 13px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text-2); cursor: pointer; }
 .fill-sheet__section--row.is-collapsed,
 .fill-popovers.is-rows-dragging > .fill-sheet__section--row { border-radius: 14px; }
 .fill-sheet__section--row .fill-sheet__section-name { flex: none; }
