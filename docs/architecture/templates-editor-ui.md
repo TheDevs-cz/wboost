@@ -129,7 +129,8 @@ math in `canvas_geometry.js` (node-testable; unit helpers re-exported from
 `image_placement.js`).
 
 - **Controls**: the gallery `.sz-ctl` size slider + "NN %", Š / 🔗 / V, X / Y,
-  rotation (°), Vyplnit / Přizpůsobit / Vycentrovat, plus a hint line
+  rotation (°), Vyplnit (the only quick action since 2026-11-10 — the fill
+  page keeps Přizpůsobit / Vycentrovat), plus a hint line
   (placeholder: "rozměr rámečku…", editor-locked: "odemkněte"). Typed fields are
   `type=text inputmode=decimal` (a Czech decimal comma works); they apply on
   `change` / Enter (Enter `preventDefault`s — the editor sits in the save
@@ -151,8 +152,7 @@ math in `canvas_geometry.js` (node-testable; unit helpers re-exported from
   CURRENT ratio (a stretched image stays stretched); off = one axis only.
   Rotation is about the centre and normalised to (-180, 180].
 - **Vyplnit** covers the BLEED box (a full-bleed picture must reach the cut),
-  **Přizpůsobit** contains in the trim — both centre and restore proportions;
-  **Vycentrovat** centres on the trim. Rotation is kept.
+  centres and restores proportions. Rotation is kept.
 - **Writes only native Fabric geometry** (`scaleX/scaleY/angle` +
   `setPositionByOrigin` centre) — the same thing the handles write, so no
   canvas-JSON key, no MCP DSL mirror, group sync / containers / layers see an

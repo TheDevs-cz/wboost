@@ -413,7 +413,7 @@
                panel (_fill_image_adjust.html.twig): size slider (100 % =
                Přizpůsobit = contained in the canvas; logarithmic), exact
                Š / V / X / Y in the variant's unit with an aspect lock, rotation,
-               Vyplnit / Přizpůsobit / Vycentrovat. Writes the same native Fabric
+               Vyplnit. Writes the same native Fabric
                geometry the handles do — canvas-image-properties, math in
                canvas_geometry.js. Hidden for the background layer. Text fields
                (not type=number) so a Czech decimal comma is accepted; Enter
@@ -469,10 +469,6 @@
                 <div class="ed-geo__actions">
                     <button type="button" class="btn btn-tertiary xs" data-geo-action="cover" data-action="canvas-image-properties#fillCanvas"
                             title="Zvětšit tak, aby obrázek pokryl celé plátno (včetně spadávky), a vycentrovat">Vyplnit</button>
-                    <button type="button" class="btn btn-tertiary xs" data-geo-action="contain" data-action="canvas-image-properties#fitCanvas"
-                            title="Celý obrázek na plátno, vycentrovaný (= 100 %)">Přizpůsobit</button>
-                    <button type="button" class="btn btn-tertiary xs" data-geo-action="center" data-action="canvas-image-properties#centerOnCanvas"
-                            title="Posunout obrázek doprostřed plátna">Vycentrovat</button>
                 </div>
                 <p class="cap ed-geo__hint d-none" data-canvas-image-properties-target="geoHint"></p>
             </div>

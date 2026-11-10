@@ -86,6 +86,7 @@
 .fi-clean[aria-pressed="true"] { background: var(--lav-deep); border-color: var(--lav-line); color: var(--lav-ink); }
 .fi-autob[aria-pressed="true"] { color: var(--lav-ink); border-color: var(--lav-line); background: var(--lav-deep); }
 .fi-zoom, .fi-hist { display: inline-flex; align-items: center; gap: 2px; padding: 2px; border-radius: 999px; border: 1px solid var(--line-2); }
+.fi-hist { border: 0; }
 .fi-zoom .btn, .fi-hist .btn { --n-btn-h: 30px; min-height: 30px; }
 .fi-zoom .btn.icon, .fi-hist .btn.icon { width: 30px; height: 30px; }
 .fi-zl { min-width: 58px; font-variant-numeric: tabular-nums; }

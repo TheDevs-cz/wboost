@@ -4,7 +4,7 @@ import { applyEditorLock } from "./canvas_custom_properties.js";
 import { designWidth, designHeight, bleedOf } from "./canvas_viewport.js";
 import { pinPopover } from "./popover_drag.js";
 import {
-    boxOf, containFactor, coverFactor, formatPercent, moveBox, normalizeAngle,
+    boxOf, coverFactor, formatPercent, moveBox, normalizeAngle,
     percentToSlider, pxPerUnit, resizeBox, roundTo, sizePercent, sizePercentMax,
     sizePercentMin, sliderToPercent, unitDecimals, zoomBox,
 } from "./canvas_geometry.js";
@@ -394,7 +394,7 @@ export default class extends Controller {
     //
     // The image counterpart of the fill page's image-adjust panel (same
     // vocabulary: size slider with 100 % = Přizpůsobit, Š / V / X / Y in the
-    // variant's unit, Vyplnit / Přizpůsobit / Vycentrovat). Every control
+    // variant's unit, Vyplnit — the only quick action here). Every control
     // writes the SAME native Fabric geometry the transform handles do
     // (scaleX / scaleY / position / angle) — nothing new is stored, so save,
     // render, group sync, containers and the MCP decompiler see an ordinary
@@ -484,23 +484,6 @@ export default class extends Controller {
         const bleed = bleedOf(canvas);
         const area = { width: designWidth(canvas) + 2 * bleed, height: designHeight(canvas) + 2 * bleed };
         this._fitTo(image, coverFactor(this._natural(image), area));
-    }
-
-    /** "Přizpůsobit": the whole picture inside the trim, centred (= 100 %). */
-    fitCanvas() {
-        const image = this._geometryImage();
-        if (!image) return;
-        this._fitTo(image, containFactor(this._natural(image), this._design()));
-    }
-
-    /** "Vycentrovat": centre on the trim, size kept. */
-    centerOnCanvas() {
-        const image = this._geometryImage();
-        if (!image) return;
-        const design = this._design();
-        this._pin();
-        this._applyGeometry(image, { centerX: design.width / 2, centerY: design.height / 2 });
-        this._commitGeometry(image);
     }
 
     _fitTo(image, factor) {
