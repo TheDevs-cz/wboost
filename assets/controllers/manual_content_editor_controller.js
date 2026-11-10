@@ -164,12 +164,29 @@ export default class extends Controller {
             }
         };
         document.addEventListener("keydown", this.onKeydown);
+
+        // The formatting bar floats above the focused text element (it used to
+        // be a sticky bar over the paper). Any press outside that element and
+        // the bar closes it; scroll/resize re-anchor it.
+        this.onOutsidePress = (event) => {
+            if (!this.activeView) return;
+            const anchor = this.activeView.dom.closest(".mce-el");
+            if (this.toolbarTarget.contains(event.target) || anchor?.contains(event.target)) return;
+            this.setActiveView(null);
+        };
+        this.onReflow = () => this.queuePlaceToolbar();
+        document.addEventListener("pointerdown", this.onOutsidePress, true);
+        window.addEventListener("scroll", this.onReflow, true);
+        window.addEventListener("resize", this.onReflow);
     }
 
     disconnect() {
         window.removeEventListener("beforeunload", this.onBeforeUnload);
         window.removeEventListener("asset-selected", this.onAssetSelected);
         document.removeEventListener("keydown", this.onKeydown);
+        document.removeEventListener("pointerdown", this.onOutsidePress, true);
+        window.removeEventListener("scroll", this.onReflow, true);
+        window.removeEventListener("resize", this.onReflow);
         this.destroyStage();
     }
 
@@ -496,7 +513,10 @@ export default class extends Controller {
             dispatchTransaction: (transaction) => {
                 view.updateState(view.state.apply(transaction));
                 if (transaction.docChanged) this.changed();
-                if (this.activeView === view) this.paintToolbar();
+                if (this.activeView === view) {
+                    this.paintToolbar();
+                    this.queuePlaceToolbar();
+                }
             },
             handleDOMEvents: {
                 focus: () => { this.setActiveView(view); return false; },
@@ -679,6 +699,45 @@ export default class extends Controller {
         this.activeView = view;
         if (!view) this.linkBoxTarget.hidden = true;
         this.paintToolbar();
+        this.toolbarTarget.classList.toggle("is-open", !!view);
+        this.placeToolbar();
+    }
+
+    queuePlaceToolbar() {
+        if (this.placeFrame) return;
+        this.placeFrame = requestAnimationFrame(() => {
+            this.placeFrame = null;
+            this.placeToolbar();
+        });
+    }
+
+    // Fixed-position bar above the active text element (below it when there is
+    // no room above), clamped into the viewport; hidden while the element is
+    // scrolled fully out of view.
+    placeToolbar() {
+        const bar = this.toolbarTarget;
+        const anchor = this.activeView?.dom.closest(".mce-el");
+        if (!anchor || !anchor.isConnected) {
+            bar.classList.remove("is-open");
+            return;
+        }
+        const gap = 8;
+        const edge = 16;
+        const rect = anchor.getBoundingClientRect();
+        const visible = rect.bottom > edge && rect.top < window.innerHeight - edge;
+        bar.classList.toggle("is-open", visible);
+        if (!visible) return;
+
+        const width = bar.offsetWidth;
+        const height = bar.offsetHeight;
+        let top = rect.top - height - gap;
+        if (top < edge) {
+            const below = rect.bottom + gap;
+            top = below + height <= window.innerHeight - edge ? below : edge;
+        }
+        const maxLeft = Math.max(edge, document.documentElement.clientWidth - width - edge);
+        bar.style.top = `${Math.round(top)}px`;
+        bar.style.left = `${Math.round(Math.min(Math.max(rect.left, edge), maxLeft))}px`;
     }
 
     command(name) {
@@ -762,6 +821,7 @@ export default class extends Controller {
         this.linkErrorTarget.hidden = true;
         this.linkBoxTarget.hidden = false;
         this.linkInputTarget.focus();
+        this.queuePlaceToolbar();
     }
 
     linkKey(event) {
@@ -771,6 +831,7 @@ export default class extends Controller {
         } else if (event.key === "Escape") {
             this.linkBoxTarget.hidden = true;
             this.activeView?.focus();
+            this.queuePlaceToolbar();
         }
     }
 

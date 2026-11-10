@@ -767,7 +767,7 @@ All phases delivered 2026-11-09.
   per-segment vertical align, element delete, SortableJS within and between
   segments (`group`, `forceFallback: true`, own ghost/drag classes —
   element DOM nodes are only MOVED, never rebuilt, so ProseMirror views keep
-  caret + undo), heading = auto-height textarea, sticky toolbar (B/I/U, lists,
+  caret + undo), heading = auto-height textarea, floating toolbar (fixed, anchored above the focused text `.mce-el`, flips below / clamps to the viewport, closes on a press outside; B/I/U, lists,
   link popover, manual-font select, palette swatches; toolbar buttons
   `preventDefault` on mousedown to keep the selection). Save = ONE POST
   (`manual_intro_page_save` / `manual_content_page_save`, form fields
