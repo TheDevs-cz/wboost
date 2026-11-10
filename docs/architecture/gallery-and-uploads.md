@@ -182,7 +182,8 @@ existing user root folder literally named "Manuál" is adopted.
   no-ops (it re-plans after each manual to prove it). Attachments are not
   pictures and stay out. Run on prod 2026-11-09.
 - **Purge guard — manuals.** `GetGalleryImageManualUsage` (exact match on
-  key: mockup `images`, content `path` / `galleryImageId`; NOT
+  key: mockup `images`, content element + page background `path` /
+  `galleryImageId`; NOT
   project-scoped) → `PurgeFileUploadHandler`
   refuses with `FileUploadInUse::$manualSites` **even when forced**; the cron
   skips and names the manual; the Koš tile says "V manuálu: …", hides

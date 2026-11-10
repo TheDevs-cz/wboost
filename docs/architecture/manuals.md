@@ -874,6 +874,43 @@ All phases delivered 2026-11-09.
   ids) and `tests/Controller/Manual/ManualContentPagesControllerTest.php`
   (routes, voter, list, sort, public order + numbering).
 
+### Manual content pages — page background (2026-11-10)
+
+- **Model.** `manual_content_page.background` (JSONB, nullable, additive
+  migration `Version20261110140000`; Doctrine type
+  `ManualContentBackgroundDoctrineType` → `ContentPageBackground {path,
+  galleryImageId, fit}`, `ContentBackgroundFit` `cover` (default, "Vyplnit")
+  | `contain` ("Celý obrázek")). Same picture contract as `ImageElement`:
+  strict path pattern (`ImageElement::isValidPath`), the save handler
+  re-resolves `galleryImageId` (project check, row key replaces the path)
+  else requires the key under this manual / project
+  (`SaveManualContentPageHandler::resolvePicture()`, shared with image
+  elements). Payload/state key `background` (null or absent = none); the
+  editor state adds display-only `url` + `unavailable`.
+- **Render.** `_manual_content_page.html.twig` puts it on the 845 px
+  `.mcp-page` (`.mcp-bg` + `.mcp-bg-cover|contain`, app.css: `center top`,
+  `no-repeat`); the editor paints the same classes on its paper `.mcp-page`.
+  An unavailable background (Koš / row gone) is simply not drawn — for
+  editors too; the editor row says why. A background alone is content
+  (`hasContent()` / `hasContentShowing()`, whose callback now takes
+  `(path, galleryImageId)`), so such a page renders and is numbered. The
+  Stránky list thumbnail does not show it.
+- **Editor UI.** "Pozadí stránky" row above the paper in Obsah: thumb +
+  "Z galerie" / "Nahrát" when empty; Vyplnit / Celý obrázek `.seg`, replace
+  from gallery / upload, remove when set. Same upload endpoint and gallery
+  modal as image elements (`{background: true}` target).
+- **Storage / purge guard.** `BuildStorageReferenceIndex`
+  (`manual_content_page.background`), `GetGalleryImageManualUsage` (key OR
+  `galleryImageId`), `ManualImageAvailability` (its row query includes it).
+  `ManualGalleryImport` does not look at it (backgrounds postdate the import
+  and always carry a gallery id).
+- Pinned by `ManualIntroPageTest` (save / render / editor state / remove,
+  refusals), `ManualContentPageTest`, `ScanStorageTest::testBackgroundOfAContentPageIsNotAnOrphan`,
+  `PurgeManualReferencedFileTest::testAPageBackgroundKeepsItsPicture`.
+  Browser-verified 2026-11-10 (puppeteer, local): upload, cover → contain,
+  save, reload, public render (computed `cover`/`contain`, `50% 0%`,
+  `no-repeat`), remove + save; 1440 / 390 × dark / light, no horizontal scroll.
+
 ### Manual pictures in the project gallery (P3, 2026-11-09)
 
 Full contract in `gallery-and-uploads.md` "Manual pictures live in the

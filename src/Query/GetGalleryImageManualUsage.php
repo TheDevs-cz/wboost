@@ -13,8 +13,8 @@ use WBoost\Web\Value\GalleryImageManualSite;
 /**
  * Which manuals still show a gallery image — the manual half of the purge
  * guard (content pages P3). A manual references a picture by its storage
- * KEY (mockup `images`, content image `path`) and a
- * content image element also by `galleryImageId`; both are matched exactly.
+ * KEY (mockup `images`, content image `path`, page background `path`) and a
+ * content image element / background also by `galleryImageId`; both are matched exactly.
  *
  * Deliberately NOT scoped to the file's project: the guard protects a
  * storage object, and the same key is reachable from any row that names it.
@@ -63,6 +63,14 @@ readonly final class GetGalleryImageManualUsage
                 ) AS el(value)
                 WHERE el.value->>'type' = 'image'
                   AND (el.value->>'path' IN (:paths) OR el.value->>'galleryImageId' IN (:ids))
+
+                UNION ALL
+
+                SELECT m.id, m.name, cp.background->>'path', cp.background->>'galleryImageId'
+                FROM manual_content_page cp
+                JOIN manual m ON m.id = cp.manual_id
+                WHERE jsonb_typeof(cp.background) = 'object'
+                  AND (cp.background->>'path' IN (:paths) OR cp.background->>'galleryImageId' IN (:ids))
                 SQL,
             ['paths' => $paths, 'ids' => $ids],
             ['paths' => ArrayParameterType::STRING, 'ids' => ArrayParameterType::STRING],

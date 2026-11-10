@@ -18,6 +18,7 @@ use WBoost\Web\Entity\ManualFont;
 use WBoost\Web\Repository\ManualContentPageRepository;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Tests\TestingLogin;
+use WBoost\Web\Value\ManualContent\ContentBackgroundFit;
 use WBoost\Web\Value\ManualContent\RichTextElement;
 use WBoost\Web\Value\ManualFontType;
 
@@ -51,7 +52,7 @@ final class ManualIntroPageTest extends WebTestCase
         self::assertCount(1, $editor);
 
         $state = json_decode((string) $editor->attr('data-manual-content-editor-state-value'), true);
-        self::assertSame(['name' => 'Úvod', 'layout' => 'layout-7', 'segments' => [['verticalAlign' => 'top', 'elements' => []]]], $state);
+        self::assertSame(['name' => 'Úvod', 'layout' => 'layout-7', 'segments' => [['verticalAlign' => 'top', 'elements' => []]], 'background' => null], $state);
 
         // Palette colours of project 1 are what the colour picker offers.
         /** @var list<array{color: string, name: string}> $colors */
@@ -165,6 +166,68 @@ final class ManualIntroPageTest extends WebTestCase
         // Emptied → the manual shows no intro page again.
         $crawler = $browser->request('GET', self::PREVIEW_URL);
         self::assertCount(0, $crawler->filter('.mcp-page'));
+    }
+
+    public function testSaveStoresThePageBackgroundWhichTheManualRenders(): void
+    {
+        $browser = self::createClient();
+        TestingLogin::logInAsUser($browser, TestDataFixture::USER_1_EMAIL);
+        $this->writeImage(self::IMAGE);
+
+        // A background alone is content: the page renders.
+        $this->save($browser, ['name' => 'Úvod', 'layout' => 'layout-7', 'segments' => [['elements' => []]],
+            'background' => ['path' => self::IMAGE, 'fit' => 'contain', 'url' => 'ignored', 'unavailable' => null]]);
+        self::assertResponseIsSuccessful();
+
+        /** @var array{state: array{background: array{path: string, fit: string, url: string, galleryImageId: null|string}}} $json */
+        $json = json_decode((string) $browser->getResponse()->getContent(), true);
+        self::assertSame(self::IMAGE, $json['state']['background']['path']);
+        self::assertSame('contain', $json['state']['background']['fit']);
+        self::assertStringEndsWith(self::IMAGE, $json['state']['background']['url']);
+
+        $background = $this->introPage()?->background;
+        self::assertNotNull($background);
+        self::assertSame(self::IMAGE, $background->path);
+        self::assertSame(ContentBackgroundFit::Contain, $background->fit);
+
+        $crawler = $browser->request('GET', self::PREVIEW_URL);
+        $page = $crawler->filter('#page-1 .mcp-page.mcp-bg.mcp-bg-contain');
+        self::assertCount(1, $page);
+        self::assertStringContainsString('background-image: url(', (string) $page->attr('style'));
+        self::assertStringContainsString('test\\2E png', (string) $page->attr('style'));
+
+        // The editor starts from it.
+        $crawler = $browser->request('GET', self::EDITOR_URL);
+        /** @var array{background: array{fit: string}} $state */
+        $state = json_decode((string) $crawler->filter('[data-manual-content-editor-state-value]')->attr('data-manual-content-editor-state-value'), true);
+        self::assertSame('contain', $state['background']['fit']);
+
+        // Removed → no background, and the page is empty again.
+        $this->save($browser, ['name' => 'Úvod', 'layout' => 'layout-7', 'segments' => [['elements' => [['id' => 'h', 'type' => 'heading', 'level' => 1, 'text' => 'Ahoj']]]], 'background' => null]);
+        self::assertResponseIsSuccessful();
+        self::assertNull($this->introPage()?->background);
+        $crawler = $browser->request('GET', self::PREVIEW_URL);
+        self::assertCount(0, $crawler->filter('.mcp-page.mcp-bg'));
+    }
+
+    public function testRejectsABackgroundOfAnotherManualOrWithAnUnknownFit(): void
+    {
+        $browser = self::createClient();
+        TestingLogin::logInAsUser($browser, TestDataFixture::USER_1_EMAIL);
+
+        $this->save($browser, ['name' => 'Úvod', 'layout' => 'layout-7', 'segments' => [['elements' => []]],
+            'background' => ['path' => 'manuals/' . TestDataFixture::MANUAL_2_ID . '/intro-1.png', 'fit' => 'cover']]);
+        self::assertResponseStatusCodeSame(422);
+
+        $this->save($browser, ['name' => 'Úvod', 'layout' => 'layout-7', 'segments' => [['elements' => []]],
+            'background' => ['path' => self::IMAGE, 'fit' => 'repeat']]);
+        self::assertResponseStatusCodeSame(422);
+
+        $this->save($browser, ['name' => 'Úvod', 'layout' => 'layout-7', 'segments' => [['elements' => []]],
+            'background' => ['path' => 'https://evil.example/x.png', 'fit' => 'cover']]);
+        self::assertResponseStatusCodeSame(422);
+
+        self::assertNull($this->introPage());
     }
 
     public function testReadersSeeNoEditPencil(): void

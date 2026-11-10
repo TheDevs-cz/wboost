@@ -17,7 +17,7 @@ use WBoost\Web\Value\StorageReferenceIndex;
  * (`project.icon`, `*.background_image`, `*.preview_image_path`, …), JSON
  * documents holding paths (`manual.logo`, `manual_mockup_page.images`, its
  * `download_file` / `image_downloads` attachments, the image elements of
- * `manual_content_page.segments`, `font.faces`) and the canvas
+ * `manual_content_page.segments` + `.background`, `font.faces`) and the canvas
  * JSONB, which embeds gallery images as full public URLs. **A path missing
  * from this list makes a live file look like an orphan**, so any new writer
  * must be added here as well.
@@ -182,6 +182,17 @@ readonly final class BuildStorageReferenceIndex
                      CASE WHEN jsonb_typeof(seg.value->'elements') = 'array' THEN seg.value->'elements' ELSE '[]'::jsonb END
                  ) AS el(value)
                  WHERE el.value->>'type' = 'image' AND el.value->>'path' IS NOT NULL",
+                $ownerColumns,
+                sprintf($ownerJoin, 'm.project_id'),
+            ),
+
+            // A content page's whole-page background picture (null = none).
+            'manual_content_page.background' => sprintf(
+                "SELECT cp.background->>'path' AS path, %s
+                 FROM manual_content_page cp
+                 JOIN manual m ON m.id = cp.manual_id
+                 %s
+                 WHERE jsonb_typeof(cp.background) = 'object' AND cp.background->>'path' IS NOT NULL",
                 $ownerColumns,
                 sprintf($ownerJoin, 'm.project_id'),
             ),

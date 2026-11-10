@@ -2678,6 +2678,11 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     line-height: 1.6;
 }
 
+/* Optional whole-page background picture (ManualContentPage::$background). */
+.mcp-bg { background-repeat: no-repeat; background-position: center top; }
+.mcp-bg-cover { background-size: cover; }
+.mcp-bg-contain { background-size: contain; }
+
 .mcp-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));

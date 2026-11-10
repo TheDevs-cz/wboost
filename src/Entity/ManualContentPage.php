@@ -16,8 +16,10 @@ use Doctrine\ORM\Mapping\UniqueConstraint;
 use JetBrains\PhpStorm\Immutable;
 use Ramsey\Uuid\Doctrine\UuidType;
 use Ramsey\Uuid\UuidInterface;
+use WBoost\Web\Doctrine\ManualContentBackgroundDoctrineType;
 use WBoost\Web\Doctrine\ManualContentSegmentsDoctrineType;
 use WBoost\Web\Value\ManualContent\ContentElement;
+use WBoost\Web\Value\ManualContent\ContentPageBackground;
 use WBoost\Web\Value\ManualContent\ContentSegment;
 use WBoost\Web\Value\ManualContent\ImageElement;
 use WBoost\Web\Value\ManualContent\ManualContentPageRole;
@@ -36,6 +38,7 @@ use WBoost\Web\Value\MockupPageLayout;
  *
  * `name` is the plain page title printed in the manual's page heading row
  * (number · manual · NAME) and in listings — separate from the content.
+ * `background` is an optional whole-page picture (2026-11-10).
  */
 #[Entity]
 #[Index(name: 'idx_manual_content_page_manual', columns: ['manual_id'])]
@@ -82,6 +85,10 @@ class ManualContentPage
 
         #[Column(type: Types::DATETIME_IMMUTABLE)]
         readonly public DateTimeImmutable $createdAt,
+
+        #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+        #[Column(type: ManualContentBackgroundDoctrineType::NAME, nullable: true)]
+        public null|ContentPageBackground $background = null,
     ) {
         $this->updatedAt = $createdAt;
         $this->segments = self::fitSegments($layout, $segments);
@@ -90,11 +97,12 @@ class ManualContentPage
     /**
      * @param list<ContentSegment> $segments
      */
-    public function edit(string $name, MockupPageLayout $layout, array $segments, DateTimeImmutable $now): void
+    public function edit(string $name, MockupPageLayout $layout, array $segments, null|ContentPageBackground $background, DateTimeImmutable $now): void
     {
         $this->name = $name;
         $this->layout = $layout;
         $this->segments = self::fitSegments($layout, $segments);
+        $this->background = $background;
         $this->updatedAt = $now;
     }
 
@@ -129,22 +137,28 @@ class ManualContentPage
      */
     public function hasContent(): bool
     {
-        return $this->hasContentShowing(static fn (ImageElement $image): bool => true);
+        return $this->hasContentShowing(static fn (string $path, null|string $galleryImageId): bool => true);
     }
 
     /**
-     * Same, but an image counts only when $imageShows says so — readers get
-     * nothing for a picture in the gallery Koš / without its gallery row, so
-     * a page holding only such pictures is empty FOR THEM (content pages P4).
+     * Same, but a picture (image element or the page background) counts only
+     * when $imageShows says so — readers get nothing for a picture in the
+     * gallery Koš / without its gallery row, so a page holding only such
+     * pictures is empty FOR THEM (content pages P4). A background alone is
+     * content: the page shows it.
      *
-     * @param callable(ImageElement): bool $imageShows
+     * @param callable(string $path, null|string $galleryImageId): bool $imageShows
      */
     public function hasContentShowing(callable $imageShows): bool
     {
+        if ($this->background !== null && $imageShows($this->background->path, $this->background->galleryImageId)) {
+            return true;
+        }
+
         foreach ($this->segments as $segment) {
             foreach ($segment->elements as $element) {
                 if ($element instanceof ImageElement) {
-                    if ($imageShows($element)) {
+                    if ($imageShows($element->path, $element->galleryImageId)) {
                         return true;
                     }
 

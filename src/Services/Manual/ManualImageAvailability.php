@@ -92,11 +92,17 @@ final class ManualImageAvailability implements ResetInterface
         $intro = $this->contentPageRepository->introFor($manual->id);
 
         foreach ([...($intro !== null ? [$intro] : []), ...$this->contentPageRepository->customFor($manual->id)] as $page) {
-            foreach ($page->imageElements() as $element) {
-                $paths[] = $element->path;
+            $pictures = $page->imageElements();
 
-                if ($element->galleryImageId !== null) {
-                    $ids[] = $element->galleryImageId;
+            if ($page->background !== null) {
+                $pictures[] = $page->background;
+            }
+
+            foreach ($pictures as $picture) {
+                $paths[] = $picture->path;
+
+                if ($picture->galleryImageId !== null) {
+                    $ids[] = $picture->galleryImageId;
                 }
             }
         }

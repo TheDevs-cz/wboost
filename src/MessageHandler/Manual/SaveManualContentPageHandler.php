@@ -18,6 +18,7 @@ use WBoost\Web\Repository\ManualRepository;
 use WBoost\Web\Services\Manual\ManualPagePositions;
 use WBoost\Web\Services\Manual\ResolveManualContentStyles;
 use WBoost\Web\Value\ManualContent\ContentElement;
+use WBoost\Web\Value\ManualContent\ContentPageBackground;
 use WBoost\Web\Value\ManualContent\ContentSegment;
 use WBoost\Web\Value\ManualContent\ImageElement;
 use WBoost\Web\Value\ManualContent\ManualContentPageRole;
@@ -45,6 +46,7 @@ readonly final class SaveManualContentPageHandler
     {
         $manual = $this->manualRepository->get($message->manualId);
         $segments = $this->sanitize($message->segments, $manual, $this->resolveStyles->forManual($manual));
+        $background = $message->background !== null ? $this->sanitizeBackground($message->background, $manual) : null;
         $now = $this->clock->now();
 
         $page = $this->contentPageRepository->find($message->pageId);
@@ -58,7 +60,7 @@ readonly final class SaveManualContentPageHandler
                 throw new InvalidManualContent('The page belongs to another manual.');
             }
 
-            $page->edit($message->name, $message->layout, $segments, $now);
+            $page->edit($message->name, $message->layout, $segments, $background, $now);
 
             return;
         }
@@ -74,6 +76,7 @@ readonly final class SaveManualContentPageHandler
             // list it shares with the mockup pages.
             $message->role === ManualContentPageRole::Intro ? 0 : $this->positions->next($manual->id),
             $now,
+            $background,
         ));
     }
 
@@ -119,8 +122,31 @@ readonly final class SaveManualContentPageHandler
      */
     private function sanitizeImage(ImageElement $element, Manual $manual): ImageElement
     {
-        if ($element->galleryImageId !== null) {
-            $file = $this->fileUploadRepository->find(Uuid::fromString($element->galleryImageId));
+        [$galleryImageId, $path] = $this->resolvePicture($element->path, $element->galleryImageId, $manual);
+
+        return $element->withGalleryImage($galleryImageId, $path);
+    }
+
+    /**
+     * The page background follows exactly the image element rules.
+     *
+     * @throws InvalidManualContent
+     */
+    private function sanitizeBackground(ContentPageBackground $background, Manual $manual): ContentPageBackground
+    {
+        [$galleryImageId, $path] = $this->resolvePicture($background->path, $background->galleryImageId, $manual);
+
+        return $background->withGalleryImage($galleryImageId, $path);
+    }
+
+    /**
+     * @return array{null|string, string} the gallery row id + the key to store
+     * @throws InvalidManualContent
+     */
+    private function resolvePicture(string $path, null|string $galleryImageId, Manual $manual): array
+    {
+        if ($galleryImageId !== null) {
+            $file = $this->fileUploadRepository->find(Uuid::fromString($galleryImageId));
 
             if ($file !== null) {
                 if (!$file->project->id->equals($manual->project->id)) {
@@ -132,14 +158,17 @@ readonly final class SaveManualContentPageHandler
                     throw new InvalidManualContent('This gallery picture can not be used in a manual.');
                 }
 
-                return $element->withGalleryImage($file->id->toString(), $file->path);
+                return [$file->id->toString(), $file->path];
             }
         }
 
-        if (!$element->belongsToManual($manual->id->toString()) && !$element->isGalleryUploadOf($manual->project->id->toString())) {
+        $ownKey = str_starts_with($path, 'manuals/' . strtolower($manual->id->toString()) . '/')
+            || str_starts_with($path, 'file-upload/' . strtolower($manual->project->id->toString()) . '/');
+
+        if (!$ownKey) {
             throw new InvalidManualContent('The picture belongs to another manual.');
         }
 
-        return $element;
+        return [$galleryImageId, $path];
     }
 }

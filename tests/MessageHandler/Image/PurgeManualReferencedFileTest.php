@@ -24,7 +24,9 @@ use WBoost\Web\Query\GetGalleryImageUsage;
 use WBoost\Web\Repository\FileUploadRepository;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Value\FileSource;
+use WBoost\Web\Value\ManualContent\ContentBackgroundFit;
 use WBoost\Web\Value\ManualContent\ContentImageFit;
+use WBoost\Web\Value\ManualContent\ContentPageBackground;
 use WBoost\Web\Value\ManualContent\ContentSegment;
 use WBoost\Web\Value\ManualContent\ImageElement;
 use WBoost\Web\Value\ManualContent\ManualContentPageRole;
@@ -81,6 +83,17 @@ final class PurgeManualReferencedFileTest extends KernelTestCase
         $this->contentPage(new ImageElement('i', 'manuals/' . TestDataFixture::MANUAL_1_ID . '/content/other.png', ContentImageFit::Natural, '', $file->id->toString()));
 
         $this->assertForcedPurgeRefused($file);
+    }
+
+    public function testAPageBackgroundKeepsItsPicture(): void
+    {
+        $byKey = $this->trashedManualFile();
+        $this->backgroundPage(new ContentPageBackground($byKey->path));
+        $this->assertForcedPurgeRefused($byKey);
+
+        $byId = $this->trashedManualFile();
+        $this->backgroundPage(new ContentPageBackground('manuals/' . TestDataFixture::MANUAL_1_ID . '/content/other.png', ContentBackgroundFit::Contain, $byId->id->toString()));
+        $this->assertForcedPurgeRefused($byId);
     }
 
     public function testTheCronSkipsAManualPictureAndNamesTheManual(): void
@@ -174,6 +187,14 @@ final class PurgeManualReferencedFileTest extends KernelTestCase
         $this->em()->persist(new ManualContentPage(Uuid::uuid7(), $this->manual(), ManualContentPageRole::Custom, 'Stránka', MockupPageLayout::Layout7, [
             new ContentSegment(elements: [$image]),
         ], 5, new DateTimeImmutable()));
+        $this->em()->flush();
+    }
+
+    private function backgroundPage(ContentPageBackground $background): void
+    {
+        $this->em()->persist(new ManualContentPage(Uuid::uuid7(), $this->manual(), ManualContentPageRole::Custom, 'Pozadí', MockupPageLayout::Layout7, [
+            new ContentSegment(),
+        ], 6, new DateTimeImmutable(), $background));
         $this->em()->flush();
     }
 

@@ -168,6 +168,34 @@ final class ScanStorageTest extends KernelTestCase
         self::assertSame(TestDataFixture::PROJECT_1_ID, $row['project_id']);
     }
 
+    public function testBackgroundOfAContentPageIsNotAnOrphan(): void
+    {
+        $path = 'manuals/' . TestDataFixture::MANUAL_1_ID . '/content/0199aaaa-0000-7000-8000-0000000000b9.png';
+        $this->write($path, 'background-image');
+
+        self::getContainer()->get(EntityManagerInterface::class)->getConnection()->insert('manual_content_page', [
+            'id' => '0199aaaa-0000-7000-8000-0000000000c2',
+            'manual_id' => TestDataFixture::MANUAL_1_ID,
+            'role' => 'custom',
+            'name' => 'Pozadí',
+            'layout' => 'layout-7',
+            'segments' => (string) json_encode([['verticalAlign' => 'top', 'elements' => []]]),
+            'background' => (string) json_encode(['path' => $path, 'galleryImageId' => null, 'fit' => 'cover']),
+            'position' => 3,
+            'created_at' => '2026-11-10 12:00:00',
+            'updated_at' => '2026-11-10 12:00:00',
+        ]);
+
+        self::getContainer()->get(ScanStorage::class)->scan();
+
+        $row = $this->row($path);
+
+        self::assertNotNull($row);
+        self::assertFalse((bool) $row['orphaned']);
+        self::assertSame('manual_content_page.background', $row['referenced_by']);
+        self::assertSame(TestDataFixture::PROJECT_1_ID, $row['project_id']);
+    }
+
     public function testDatabaseRowsPointingAtMissingFilesAreReportedAsDangling(): void
     {
         // The fixtures reference `fixtures/in-allowed.png`; not writing it means

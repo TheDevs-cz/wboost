@@ -9,7 +9,6 @@ use WBoost\Web\Entity\Manual;
 use WBoost\Web\Entity\ManualContentPage;
 use WBoost\Web\Services\Manual\ManualImageAvailability;
 use WBoost\Web\Services\Manual\RichTextHtmlRenderer;
-use WBoost\Web\Value\ManualContent\ImageElement;
 use WBoost\Web\Value\ManualContent\ManualContentStyles;
 use WBoost\Web\Value\ManualContent\RichTextDoc;
 
@@ -51,7 +50,7 @@ readonly final class ManualContentExtension
         }
 
         return $page->hasContentShowing(
-            fn (ImageElement $image): bool => $this->availability->state($page->manual, $image->path, $image->galleryImageId) === null,
+            fn (string $path, null|string $galleryImageId): bool => $this->availability->state($page->manual, $path, $galleryImageId) === null,
         );
     }
 

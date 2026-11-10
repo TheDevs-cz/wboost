@@ -12,6 +12,7 @@ use WBoost\Web\Doctrine\EmailTextInputsDoctrineType;
 use WBoost\Web\Doctrine\ExportFillValuesDoctrineType;
 use WBoost\Web\Doctrine\FontFacesDoctrineType;
 use WBoost\Web\Doctrine\LogoDoctrineType;
+use WBoost\Web\Doctrine\ManualContentBackgroundDoctrineType;
 use WBoost\Web\Doctrine\ManualContentSegmentsDoctrineType;
 use WBoost\Web\Doctrine\ManualPageTextsDoctrineType;
 use WBoost\Web\Doctrine\MockupPageDownloadDoctrineType;
@@ -31,6 +32,7 @@ return App::config([
                 EditorImageInputsDoctrineType::NAME => EditorImageInputsDoctrineType::class,
                 ManualPageTextsDoctrineType::NAME => ManualPageTextsDoctrineType::class,
                 ManualContentSegmentsDoctrineType::NAME => ManualContentSegmentsDoctrineType::class,
+                ManualContentBackgroundDoctrineType::NAME => ManualContentBackgroundDoctrineType::class,
                 MockupPageDownloadDoctrineType::NAME => MockupPageDownloadDoctrineType::class,
                 MockupPageDownloadsDoctrineType::NAME => MockupPageDownloadsDoctrineType::class,
                 EmailTextInputsDoctrineType::NAME => EmailTextInputsDoctrineType::class,

@@ -32,6 +32,8 @@ import {
  * the very document SaveManualIntroPageController accepts, one segment per
  * slot of the chosen MockupPageLayout. Elements: heading {level 1–3, text},
  * richText {doc: ProseMirror JSON}, image {path, galleryImageId, fit, alt}.
+ * `background` = null | {path, galleryImageId, fit: cover|contain} — the
+ * whole-page picture, picked / uploaded exactly like an image element.
  *
  * The stage reuses the public render's classes (`.mcp-grid` / `.mcp-seg` /
  * `.mcp-h*` / `.mcp-rt` / `.mcp-img-*`, app.css) so it looks like the manual.
@@ -118,6 +120,7 @@ export default class extends Controller {
     static targets = [
         "name", "layoutRadio", "stage", "toolbar", "toolbarHint", "fontSelect", "colorList",
         "linkBox", "linkInput", "linkError", "fileInput", "status", "dirtyBadge", "saveButton",
+        "page", "bgThumb", "bgEmpty", "bgSet", "bgNote",
     ];
 
     static values = {
@@ -206,6 +209,8 @@ export default class extends Controller {
         });
 
         this.placeSegments();
+        this.background = state.background ? { ...state.background } : null;
+        this.paintBackground();
         this.savedSnapshot = stableStringify(this.serialize());
         this.refreshDirty();
     }
@@ -219,7 +224,10 @@ export default class extends Controller {
                 .map((item) => this.elementJson(item)),
         }));
 
-        return { name: this.nameTarget.value.trim(), layout: this.layout, segments };
+        const bg = this.background;
+        const background = bg ? { path: bg.path, galleryImageId: bg.galleryImageId ?? null, fit: bg.fit } : null;
+
+        return { name: this.nameTarget.value.trim(), layout: this.layout, segments, background };
     }
 
     elementJson(item) {
@@ -597,7 +605,8 @@ export default class extends Controller {
         }
 
         const placeholder = el("div", "mce-uploading", { text: `Nahrávám ${file.name}…` });
-        (target.item ? target.item.body : target.segment.list).appendChild(placeholder);
+        if (target.background) this.bgNoteTarget.after(placeholder);
+        else (target.item ? target.item.body : target.segment.list).appendChild(placeholder);
 
         try {
             const body = new FormData();
@@ -618,7 +627,10 @@ export default class extends Controller {
 
     /** Puts a picture into the element being replaced, or a new element at the end of the segment. */
     placeImage(target, { path, url, galleryImageId }) {
-        if (target.item) {
+        if (target.background) {
+            this.background = { path, url, galleryImageId, fit: this.background?.fit || "cover", unavailable: null };
+            this.paintBackground();
+        } else if (target.item) {
             Object.assign(target.item.data, { path, url, galleryImageId, unavailable: null });
             this.paintImage(target.item);
         } else {
@@ -627,6 +639,60 @@ export default class extends Controller {
             this.paintImage(item);
         }
         this.changed();
+    }
+
+    // ---- page background ---------------------------------------------------------
+
+    pickBackground() {
+        this.openGallery({ background: true });
+    }
+
+    uploadBackground() {
+        this.uploadTarget = { background: true };
+        this.fileInputTarget.value = "";
+        this.fileInputTarget.click();
+    }
+
+    backgroundFit(event) {
+        if (!this.background) return;
+        this.background.fit = event.currentTarget.dataset.fit;
+        this.paintBackground();
+        this.changed();
+    }
+
+    removeBackground() {
+        this.background = null;
+        this.paintBackground();
+        this.changed();
+    }
+
+    /** Paints the page like _manual_content_page.html.twig: an unavailable picture is not drawn. */
+    paintBackground() {
+        if (!this.hasPageTarget) return;
+        const bg = this.background;
+        const reason = bg?.unavailable || null;
+        const shows = !!bg && !reason && !!bg.url;
+        const url = shows ? `url(${cssString(bg.url)})` : "";
+
+        this.pageTarget.classList.toggle("mcp-bg", shows);
+        this.pageTarget.classList.toggle("mcp-bg-cover", shows && bg.fit === "cover");
+        this.pageTarget.classList.toggle("mcp-bg-contain", shows && bg.fit === "contain");
+        this.pageTarget.style.backgroundImage = url;
+        this.bgThumbTarget.style.backgroundImage = url;
+        this.bgThumbTarget.classList.toggle("is-set", shows);
+
+        this.bgEmptyTarget.hidden = !!bg;
+        this.bgSetTarget.hidden = !bg;
+        this.bgSetTarget.querySelectorAll("[data-fit]").forEach((button) => {
+            const on = !!bg && button.dataset.fit === bg.fit;
+            button.classList.toggle("on", on);
+            button.setAttribute("aria-pressed", String(on));
+        });
+
+        this.bgNoteTarget.hidden = reason === null;
+        this.bgNoteTarget.textContent = reason === "trashed"
+            ? "Pozadí je v koši galerie – čtenáři ho nevidí. Obnovte ho v galerii, nebo vyberte jiné."
+            : (reason ? "Pozadí už v galerii není – čtenáři ho nevidí. Vyberte jiné." : "");
     }
 
     // ---- gallery picker ----------------------------------------------------------
@@ -963,8 +1029,10 @@ export default class extends Controller {
     }
 
     stripUrls(state) {
+        const bg = state.background || null;
         return {
             ...state,
+            background: bg ? { path: bg.path, galleryImageId: bg.galleryImageId ?? null, fit: bg.fit } : null,
             segments: state.segments.map((segment) => ({
                 ...segment,
                 elements: segment.elements.map(({ url, unavailable, ...rest }) => (rest.type === "image" ? { ...rest, galleryImageId: rest.galleryImageId ?? null } : rest)),

@@ -89,6 +89,7 @@ readonly final class ManualContentPageEditor
                 $payload->name,
                 $payload->layout,
                 $payload->segments,
+                $payload->background,
             ));
         } catch (InvalidManualContent $exception) {
             return new JsonResponse(['error' => $exception->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);

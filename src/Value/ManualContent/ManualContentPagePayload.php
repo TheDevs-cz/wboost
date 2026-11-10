@@ -10,7 +10,7 @@ use WBoost\Web\Value\MockupPageLayout;
 
 /**
  * The whole content page as the editor POSTs it — one JSON document
- * `{name, layout, segments}`. Strict: exactly one segment per layout slot,
+ * `{name, layout, segments, background}` (`background` null / absent = none). Strict: exactly one segment per layout slot,
  * a bounded size, every element valid.
  */
 readonly final class ManualContentPagePayload
@@ -25,6 +25,7 @@ readonly final class ManualContentPagePayload
         public string $name,
         public MockupPageLayout $layout,
         public array $segments,
+        public null|ContentPageBackground $background = null,
     ) {
     }
 
@@ -71,7 +72,7 @@ readonly final class ManualContentPagePayload
             throw new InvalidManualContent('Too many elements on one page.');
         }
 
-        return new self($name, $layout, $segments);
+        return new self($name, $layout, $segments, ContentPageBackground::fromArray($data['background'] ?? null));
     }
 
     /**

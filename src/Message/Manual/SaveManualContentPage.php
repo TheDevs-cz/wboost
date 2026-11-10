@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace WBoost\Web\Message\Manual;
 
 use Ramsey\Uuid\UuidInterface;
+use WBoost\Web\Value\ManualContent\ContentPageBackground;
 use WBoost\Web\Value\ManualContent\ContentSegment;
 use WBoost\Web\Value\ManualContent\ManualContentPageRole;
 use WBoost\Web\Value\MockupPageLayout;
@@ -26,6 +27,7 @@ readonly final class SaveManualContentPage
         public string $name,
         public MockupPageLayout $layout,
         public array $segments,
+        public null|ContentPageBackground $background = null,
     ) {
     }
 }

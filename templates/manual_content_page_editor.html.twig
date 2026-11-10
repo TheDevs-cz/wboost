@@ -81,6 +81,27 @@
                 <span class="cap">Prvky přidáte tlačítkem „Přidat prvek“ v poli, pořadí změníte přetažením za úchyt — i mezi poli. Text formátujete lištou, která se ukáže v textu, do kterého kliknete; písma a barvy nabízí jen z tohoto manuálu.</span>
             </div>
 
+            {# Whole-page background (ManualContentPage::$background): same
+               gallery / upload flow as an image element. #}
+            <div class="mce-bg" role="group" aria-labelledby="mce-bg-title">
+                <span class="mce-bg-thumb" aria-hidden="true" data-manual-content-editor-target="bgThumb">{{ icon('image', 's16') }}</span>
+                <span class="mce-bg-label" id="mce-bg-title">Pozadí stránky</span>
+                <div class="mce-bg-tools" data-manual-content-editor-target="bgEmpty">
+                    <button type="button" class="btn btn-ghost xs" data-action="manual-content-editor#pickBackground">{{ icon('image-search', 's14') }}Z galerie</button>
+                    <button type="button" class="btn btn-ghost xs" data-action="manual-content-editor#uploadBackground">{{ icon('upload', 's14') }}Nahrát</button>
+                </div>
+                <div class="mce-bg-tools" hidden data-manual-content-editor-target="bgSet">
+                    <span class="seg soft mce-bg-fit" role="group" aria-label="Velikost pozadí">
+                        <button type="button" data-fit="cover" data-action="manual-content-editor#backgroundFit" title="Vyplní celou stránku, přesah se ořízne">Vyplnit</button>
+                        <button type="button" data-fit="contain" data-action="manual-content-editor#backgroundFit" title="Celý obrázek, zarovnaný nahoru">Celý obrázek</button>
+                    </span>
+                    <button type="button" class="btn btn-ghost icon xs" title="Vybrat jiné pozadí z galerie" aria-label="Vybrat jiné pozadí z galerie" data-action="manual-content-editor#pickBackground">{{ icon('image-search', 's14') }}</button>
+                    <button type="button" class="btn btn-ghost icon xs" title="Nahrát jiné pozadí" aria-label="Nahrát jiné pozadí" data-action="manual-content-editor#uploadBackground">{{ icon('upload', 's14') }}</button>
+                    <button type="button" class="btn btn-ghost icon xs mce-el-del" title="Odebrat pozadí" aria-label="Odebrat pozadí" data-action="manual-content-editor#removeBackground">{{ icon('trash', 's14') }}</button>
+                </div>
+                <div class="mce-img-unavailable mce-bg-note" role="status" hidden data-manual-content-editor-target="bgNote"></div>
+            </div>
+
             <div class="mce-toolbar" role="toolbar" aria-label="Formátování textu" data-manual-content-editor-target="toolbar" aria-disabled="true">
                 <button type="button" class="btn btn-ghost icon xs mce-tb" data-cmd="bold" title="Tučně (Ctrl+B)" aria-label="Tučně" aria-pressed="false"><b>B</b></button>
                 <button type="button" class="btn btn-ghost icon xs mce-tb" data-cmd="italic" title="Kurzíva (Ctrl+I)" aria-label="Kurzíva" aria-pressed="false"><i>I</i></button>
@@ -112,7 +133,7 @@
             </div>
 
             <div class="mce-paper">
-                <div class="mcp-page">
+                <div class="mcp-page" data-manual-content-editor-target="page">
                     <div class="mcp-grid mce-stage" data-manual-content-editor-target="stage"></div>
                 </div>
             </div>
