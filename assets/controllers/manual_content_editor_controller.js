@@ -165,19 +165,17 @@ export default class extends Controller {
         };
         document.addEventListener("keydown", this.onKeydown);
 
-        // The formatting bar floats above the focused text element (it used to
-        // be a sticky bar over the paper). Any press outside that element and
-        // the bar closes it; scroll/resize re-anchor it.
+        // The formatting bar sits inside the focused text element (it used to
+        // be a sticky bar over the paper); a press outside both closes it.
+        this.toolbarHome = document.createComment("mce-toolbar");
+        this.toolbarTarget.before(this.toolbarHome);
         this.onOutsidePress = (event) => {
             if (!this.activeView) return;
             const anchor = this.activeView.dom.closest(".mce-el");
             if (this.toolbarTarget.contains(event.target) || anchor?.contains(event.target)) return;
             this.setActiveView(null);
         };
-        this.onReflow = () => this.queuePlaceToolbar();
         document.addEventListener("pointerdown", this.onOutsidePress, true);
-        window.addEventListener("scroll", this.onReflow, true);
-        window.addEventListener("resize", this.onReflow);
     }
 
     disconnect() {
@@ -185,8 +183,6 @@ export default class extends Controller {
         window.removeEventListener("asset-selected", this.onAssetSelected);
         document.removeEventListener("keydown", this.onKeydown);
         document.removeEventListener("pointerdown", this.onOutsidePress, true);
-        window.removeEventListener("scroll", this.onReflow, true);
-        window.removeEventListener("resize", this.onReflow);
         this.destroyStage();
     }
 
@@ -513,10 +509,7 @@ export default class extends Controller {
             dispatchTransaction: (transaction) => {
                 view.updateState(view.state.apply(transaction));
                 if (transaction.docChanged) this.changed();
-                if (this.activeView === view) {
-                    this.paintToolbar();
-                    this.queuePlaceToolbar();
-                }
+                if (this.activeView === view) this.paintToolbar();
             },
             handleDOMEvents: {
                 focus: () => { this.setActiveView(view); return false; },
@@ -703,41 +696,20 @@ export default class extends Controller {
         this.placeToolbar();
     }
 
-    queuePlaceToolbar() {
-        if (this.placeFrame) return;
-        this.placeFrame = requestAnimationFrame(() => {
-            this.placeFrame = null;
-            this.placeToolbar();
-        });
-    }
-
-    // Fixed-position bar above the active text element (below it when there is
-    // no room above), clamped into the viewport; hidden while the element is
-    // scrolled fully out of view.
+    // The formatting bar lives INSIDE the focused text element, between its
+    // header and the text (one DOM node, moved — its listeners stay). With no
+    // active text it is parked hidden in its original slot.
     placeToolbar() {
         const bar = this.toolbarTarget;
         const anchor = this.activeView?.dom.closest(".mce-el");
         if (!anchor || !anchor.isConnected) {
             bar.classList.remove("is-open");
+            if (this.toolbarHome && bar.parentNode !== this.toolbarHome.parentNode) this.toolbarHome.after(bar);
             return;
         }
-        const gap = 8;
-        const edge = 16;
-        const rect = anchor.getBoundingClientRect();
-        const visible = rect.bottom > edge && rect.top < window.innerHeight - edge;
-        bar.classList.toggle("is-open", visible);
-        if (!visible) return;
-
-        const width = bar.offsetWidth;
-        const height = bar.offsetHeight;
-        let top = rect.top - height - gap;
-        if (top < edge) {
-            const below = rect.bottom + gap;
-            top = below + height <= window.innerHeight - edge ? below : edge;
-        }
-        const maxLeft = Math.max(edge, document.documentElement.clientWidth - width - edge);
-        bar.style.top = `${Math.round(top)}px`;
-        bar.style.left = `${Math.round(Math.min(Math.max(rect.left, edge), maxLeft))}px`;
+        const head = anchor.querySelector(":scope > .mce-el-bar");
+        if (head && head.nextSibling !== bar) head.after(bar);
+        bar.classList.add("is-open");
     }
 
     command(name) {
@@ -821,7 +793,6 @@ export default class extends Controller {
         this.linkErrorTarget.hidden = true;
         this.linkBoxTarget.hidden = false;
         this.linkInputTarget.focus();
-        this.queuePlaceToolbar();
     }
 
     linkKey(event) {
@@ -831,7 +802,6 @@ export default class extends Controller {
         } else if (event.key === "Escape") {
             this.linkBoxTarget.hidden = true;
             this.activeView?.focus();
-            this.queuePlaceToolbar();
         }
     }
 

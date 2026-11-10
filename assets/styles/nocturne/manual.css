@@ -277,7 +277,7 @@
    always light, so the paper re-scopes the light tokens for the element
    chrome inside it in both themes; the content itself is styled by the
    shared `.mcp-*` rules in app.css (same as the public render). ---------- */
-.mce-toolbar { position: fixed; top: 0; left: 0; z-index: 1040; display: none; width: max-content; max-width: min(760px, calc(100vw - 32px)); flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 10px; border-radius: 18px; background: var(--surface-2); border: 1px solid var(--line-2); box-shadow: var(--shadow-2); }
+.mce-toolbar { position: sticky; top: 8px; z-index: 15; display: none; margin: 2px 0 10px; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line-2); }
 .mce-toolbar.is-open { display: flex; }
 .mce-toolbar.is-idle .mce-tb, .mce-toolbar.is-idle .mce-tb-font, .mce-toolbar.is-idle .mce-tb-colors { opacity: .45; }
 .mce-tb { font-size: 15px; font-weight: 600; }
