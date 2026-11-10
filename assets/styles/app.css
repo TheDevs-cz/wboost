@@ -2664,11 +2664,14 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
 
 /*
  * Manual content pages (intro + custom pages, `_manual_content_page.html.twig`)
- * — the mockup grid's 3 × 2 slots with AUTO row height. Shared by the public
- * manual (app_plain, always light) and the Nocturne editor's preview panel, so
- * it carries its own typography and colours instead of inheriting either skin.
+ * — the mockup grid's 3 × 2 slots on a FIXED 845 px page (screens narrower
+ * than 768 px keep auto height: three columns that narrow cannot hold a page).
+ * Shared by the public manual (app_plain, always light) and the Nocturne
+ * editor's preview panel, so it carries its own typography and colours instead
+ * of inheriting either skin.
  */
 .mcp-page {
+    --mcp-h: 845px;
     container-type: inline-size;
     color: #313a46;
     font-size: 1.125rem;
@@ -2691,6 +2694,15 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
 
 .mcp-va-center { justify-content: center; }
 .mcp-va-bottom { justify-content: flex-end; }
+
+@media (min-width: 768px) {
+    .mcp-page { height: var(--mcp-h); overflow: hidden; }
+    .mcp-grid { height: 100%; grid-template-rows: repeat(2, minmax(0, 1fr)); }
+    .mcp-seg { min-height: 0; overflow: hidden; }
+    /* A natural picture scales to fit its slot instead of being cut off. */
+    .mcp-rows-1 .mcp-img-natural img { max-height: calc((var(--mcp-h) - 2.609cqw) / 2); }
+    .mcp-rows-2 .mcp-img-natural img { max-height: var(--mcp-h); }
+}
 
 .mcp-h {
     margin: 0;

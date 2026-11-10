@@ -292,6 +292,8 @@ export default class extends Controller {
             const slot = slots[index];
             segment.node.style.gridColumn = `${slot.column} / span ${slot.columnSpan}`;
             segment.node.style.gridRow = `${slot.row} / span ${slot.rowSpan}`;
+            segment.node.classList.toggle("mcp-rows-1", slot.rowSpan === 1);
+            segment.node.classList.toggle("mcp-rows-2", slot.rowSpan === 2);
             segment.slot = slot;
             this.stageTarget.appendChild(segment.node);
         });

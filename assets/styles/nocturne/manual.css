@@ -303,9 +303,20 @@
     --rose-deep: #FCE4E8; --rose-ink: #A3334B;
     color-scheme: light;
     padding: 28px; border-radius: 18px; background: #fff; border: 1px solid var(--line); color: #313a46;
-    overflow-x: auto;
 }
-.mce-stage { min-width: 640px; }
+/* Sideways scroll only where three columns cannot fit: any overflow here also
+   clips the "Přidat prvek" menu. */
+@media (max-width: 767.98px) {
+    .mce-paper { overflow-x: auto; }
+    .mce-stage { min-width: 640px; }
+}
+/* The editing page starts at the manual's 845 px and grows only if the editing
+   chrome needs it, so no element can end up out of reach. */
+@media (min-width: 768px) {
+    .mce-paper .mcp-page { height: auto; min-height: var(--mcp-h); overflow: visible; }
+    .mce-paper .mcp-grid { height: auto; min-height: var(--mcp-h); grid-template-rows: repeat(2, minmax(min-content, 1fr)); }
+    .mce-paper .mcp-seg { overflow: visible; }
+}
 .mce-seg { gap: 10px; padding: 10px; border-radius: 12px; outline: 1.5px dashed #D3D8E5; outline-offset: -1px; min-height: 140px; }
 .mce-seg:hover, .mce-seg:focus-within { outline-color: #B9B0E3; }
 .mce-els { display: flex; flex-direction: column; gap: 1.25rem; min-height: 56px; }

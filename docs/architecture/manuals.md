@@ -739,9 +739,12 @@ All phases delivered 2026-11-09.
   `_manual_content_page_heading.html.twig`, + `_manual_content_page_preview.html.twig`
   for the editor panel) for the public manual and the
   editor's "Náhled v manuálu" panel. CSS `.mcp-*` in `app.css` (both
-  entrypoints), own typography/colours. Grid = the mockup 3 × 2 tracks with
-  `grid-auto-rows: auto` (rows grow, text never overflows). Image `natural` =
-  own ratio, `max-width:100%`, centred — byte-for-byte the legacy intro look;
+  entrypoints), own typography/colours. Grid = the mockup 3 × 2 tracks on a
+  **fixed 845 px page since 2026-11-10** (`--mcp-h`, ≥ 768 px viewports; below
+  that auto height): two equal rows, text past a slot's height is cut off. The
+  editor stage has `min-height` 845 px instead, growing only when its editing
+  chrome needs it. Image `natural` = own ratio, `max-width:100%` + a max-height
+  of its slot (`.mcp-rows-1|2`, scaled, never cut), centred;
   `cover` = slot width cropped to the slot's canonical ratio (inline
   `aspect-ratio`).
 - **Manual numbering: "no content → no page".** The intro renders (and takes
