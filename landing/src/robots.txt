@@ -9,5 +9,6 @@ Disallow: /oauth/
 Disallow: /stahnout-logo/
 Disallow: /stahnout-mockup/
 Disallow: /media/cache/
+Disallow: /landing/demo/
 
 Sitemap: https://wboost.cz/sitemap.xml

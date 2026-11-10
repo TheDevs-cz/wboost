@@ -24,6 +24,9 @@ final class LandingContractTest extends KernelTestCase
 {
     private const LANDING_SRC = __DIR__ . '/../../landing/src';
 
+    /** Retired pages nginx 301s to `/` (landing/nginx.conf): routed to the landing, but no file. */
+    private const REDIRECTED_SLUGS = ['klienti'];
+
     /** Paths the landing owns; every other root-relative href points at the app. */
     private const LANDING_OWNED = ['/landing/', '/robots.txt', '/sitemap.xml', '/favicon'];
 
@@ -143,7 +146,7 @@ final class LandingContractTest extends KernelTestCase
      */
     public function testTheTraefikRuleIsInSyncWithThePageSet(): void
     {
-        $slugs = [];
+        $slugs = self::REDIRECTED_SLUGS;
 
         foreach ($this->pages() as $url => $file) {
             if ($url !== '/') {

@@ -1,13 +1,12 @@
 # `landing/` — the wboost.cz marketing site
 
-A **standalone static site**: two marketing pages (`/` for graphic designers,
-`/klienti` for their clients) plus two legal pages. Plain HTML, CSS and JS, two
-self-hosted woff2 faces (Montserrat, normal + italic), one SVG icon sprite and
-three WebP illustrations. **No PHP, no Twig, no Symfony, no Node, no build step,
-no framework, no CDN.** It never imports from `assets/`, never reads
-`templates/`, never calls `path()` — you could delete the whole Symfony app and
-these pages would still open in a browser (the lead forms would just fail
-gracefully with an e-mail fallback).
+A **standalone static site**: one marketing page (`/`, for graphic designers and
+studios) plus two legal pages. Plain HTML, CSS and JS, self-hosted woff2 faces
+(Biotic and three display faces used inside the hero's mock posters). **No PHP,
+no Twig, no Symfony, no Node, no build step, no framework, no CDN.** It never
+imports from `assets/`, never reads `templates/`, never calls `path()` — you
+could delete the whole Symfony app and these pages would still open in a browser
+(the lead forms would just fail gracefully with an e-mail fallback).
 
 It shares a domain with the application and nothing else. That creates exactly
 three couplings, and `tests/Controller/LandingContractTest.php` (the only file
@@ -20,22 +19,21 @@ in `tests/` that knows this directory exists) puts an assertion on each:
 
 ## Leads (`POST /poptavka`)
 
-The contact form on `/`, the "Vyzkoušejte si to" form on `/klienti` and the
-"Máte dotaz?" chat bubble on `/klienti` all post to the app's
-`LandingLeadController` (same origin — the path is not in the landing's Traefik
-rule). Each lead is stored in `landing_lead`, e-mailed to `LANDING_LEAD_EMAILS`
-(default `info@wantoo.cz`, Reply-To = the visitor) and listed for admins at
-`/admin/landing-leads` ("Poptávky z webu"). Spam guards: a hidden `fax`
-honeypot, a `dwell` time trap (`wbSendLead` in `site.js` sends the ms since page
-load; the app silently drops posts under 2 s or without it) and the
-`landing_lead` rate limiter (20 / hour / IP). The forms submit with `fetch()`
-and `Accept: application/json` (201 / 422 with field errors / 429). Without JS
-there is no `dwell`, so a `<noscript>` note points visitors to e-mail instead;
-the native `?odeslano` / `?chyba` redirect is still answered but only matters
-for the dropped-bot case.
-The chat is not real-time: it holds the first message, asks for an e-mail and
-then delivers it as a `source=chat` lead. On `:8091` in dev the endpoint 404s
-(nginx, not the app) — test it on the app port or via request interception.
+Two forms on `/`, same origin (the path is not in the landing's Traefik rule):
+the three-step contact wizard (`source=grafici`) and "Napsat historku"
+(`source=historka`, name and e-mail optional). Each lead is stored in
+`landing_lead`, e-mailed to `LANDING_LEAD_EMAILS` (default `info@wantoo.cz`,
+Reply-To = the visitor when there is an address) and listed at
+`/admin/landing-leads`. The wizard's radios (`intent`, `clients`, `call_time`)
+are stored as readable labels in `interests`.
+
+Spam guards, all silent (a bot gets the normal 201 and nothing is stored or sent):
+a hidden `fax` honeypot on both forms, a `dwell` time trap (`WB.sendLead` in
+`landing.js` sends the ms since page load; posts under 2 s or without it are
+dropped) and a link check (more than one link in the message, or any link in the
+name). Plus the `landing_lead` rate limiter (20 / hour / IP, 429). Without JS
+there is no `dwell`, so a `<noscript>` note points visitors to e-mail. Any change
+to a field the server REQUIRES must ship landing-first.
 
 ## Look at it
 
@@ -57,23 +55,26 @@ landing port in dev. Expected.
 ```
 landing/
   Dockerfile          FROM nginx:alpine — build context is this directory
-  nginx.conf          caching + gzip only; security headers come from Traefik
+  nginx.conf          caching + gzip + the /klienti → / redirect; security headers come from Traefik
   traefik-rule.txt    the router rule the page set implies (asserted by the test)
   src/                the document root, and the only thing inside the image
-    index.html                     →  /                (pro grafiky)
-    klienti.html                   →  /klienti         (pro firmy, obce a organizace)
+    index.html                     →  /
     ochrana-osobnich-udaju.html    →  /ochrana-osobnich-udaju
     obchodni-podminky.html         →  /obchodni-podminky
     robots.txt · sitemap.xml
     landing/
-      site.css · site.js           shared: tokens, nav, sections, steps, forms, FAQ, footer, lead submit
-      home.css · home.js           `/` only: calculator, tabs, "Co právě tvoříme"
-      klienti.css · klienti.js     `/klienti` only: calculator, dialogs, tag input, chat
-      rz-demo.js                   `/klienti` live poster → every-format mock-ups (verbatim port)
-      icons.svg                    Lucide 0.469 sprite: <svg class="i"><use href="/landing/icons.svg#name"/></svg>
-      fonts/ montserrat(-italic).woff2 (variable, Latin + Latin Ext. subset) · OFL-montserrat.txt
-      img/   wboost-logo-{dark,white}.svg · hero-editor / hero-illustration / ai-mcp .webp · og-cover(-klienti).png
+      landing.css · landing.js     everything `/` needs (tokens, sections, hero timeline, carousel, calculator, forms)
+      legal.css                    long-form layout of the legal pages, on top of landing.css
+      demo/app.html                the app demo, lazy-loaded into the "Jak to vypadá" iframe
+      fonts/                       biotic-*.woff2 + the hero posters' display faces
+      img/                         wboost-logo.svg · hero-*.webp · avatars/*.webp · og-cover.png
 ```
+
+**The demo is deliberately loaded as a blob** (`demoUrl()` in `landing.js`):
+Traefik's `public-edge` sends `X-Frame-Options: DENY` on every real URL, so a
+plain `<iframe src>` would be refused on prod. A blob document has no headers,
+but it also cannot resolve root-relative URLs, which is why the demo keeps its
+fonts inlined. `robots.txt` and a meta tag keep it out of search results.
 
 `src/*.html` is the page set and the filesystem is its source of truth:
 `index.html` serves `/`, every other `<slug>.html` serves `/<slug>` extensionless.
@@ -112,33 +113,16 @@ change outside it deploys only the app. See D61 and
 
 ## Design source
 
-Claude Design export `wboost_system` (Jan's `~/Downloads/wboost_system`):
-`ui_kits/landing/Wboost LP v3.html` → `index.html`, `ui_kits/landing/LP -
-klienti.html` → `klienti.html`, tokens from `tokens/*.css`, brand rules in its
-`readme.md` (Montserrat only, indigo `#737EED` action colour, mint for "live",
-Czech quotes, no emoji). The port keeps every value 1:1; the export's inline
-styles and `[style*=…]` media-query hooks became named classes. Verified by
-pixel diff against the export at 1440 / 1024 / 390 (section geometry identical,
-remaining diffs are line breaks from the added `&nbsp;` after one-letter
-prepositions). Deliberate departures from the export:
+Claude Design artifact "Wboost: Vrať si klienty" (2026-11-10), generated into
+these files once and maintained by hand since. Verified by pixel diff against the
+artifact at 1440 / 820 / 390 px (identical section geometry, ≤ 0.003 % pixels).
+Deliberate departures: the live-chat bubble is left out for now, dead code from
+earlier variants was removed, Outfit in the demo is self-hosted instead of
+Google Fonts, and `/klienti` 301s to `/` (a route with no file, see
+`REDIRECTED_SLUGS` in the contract test).
 
-- copy slips fixed (approved 2026-10-14) and the hero CTA's dead `#s8` → `#kontakt`;
-- the floating "Co právě tvoříme" / chat wrappers no longer swallow clicks over
-  their invisible closed panels (a real bug in the export);
-- "Co právě tvoříme" uses its specified smaller phone size and "Nahrát obrázek"
-  keeps icon + label on one line (both were lost to cascade order in the export);
-- footers carry the legal links; forms carry a one-line privacy note;
-- unreachable "Správně" detail dialogs and dead CSS/JS were dropped.
+## Before relying on the legal pages
 
-Breakpoints are the design's: 1080 (burger), 900 (one column), 860, 820, 560;
-above 1260 the column is `zoom`ed 1.12 → 1.32 exactly as designed.
-
-## Still open before launch
-
-- **Placeholders shipped on purpose** (Jan, 2026-10-14): client-logo boxes on
-  both pages, the two "Foto" circles in "Kdo za tím stojí?", the FAQ answer
-  "Kolik to stojí?" (green `[DOPLNIT]`). Replace when the content exists.
-- **Both legal pages are still shells** (`[DOPLNIT]`, incl. the date) — now
-  linked from every footer and from the privacy note under the forms.
-- The `/klienti` calculator uses 2 500 Kč / month and 4 formats per output
-  (`klienti.js`, confirmed for launch).
+Both legal pages were drafted from what the product really does, without a
+lawyer. Have them reviewed, in particular retention periods, invoice due dates,
+termination and the liability cap in the terms.

@@ -1,0 +1,17 @@
+/* Wboost landing — long-form legal pages, on top of landing.css. */
+.legal-nav { margin-left: auto; }
+
+.doc { position: relative; padding: clamp(48px, 8vw, 96px) 0 clamp(64px, 10vw, 120px); }
+.doc-body { max-width: 760px; }
+.doc-body h1 { margin: 20px 0 8px; font-size: var(--fs-d2); font-weight: 900; line-height: 1.05; letter-spacing: -0.02em; }
+.doc-updated { margin: 0 0 32px; color: var(--muted); font-size: var(--fs-sm); }
+.doc-perex { margin: 0 0 48px; color: var(--text-2); font-size: var(--fs-lead); font-weight: 300; line-height: 1.5; }
+
+.doc-body section { padding: 32px 0; border-top: 1px solid var(--line); }
+.doc-body h2 { display: flex; gap: 14px; align-items: baseline; margin: 0 0 16px; font-size: var(--fs-d3); font-weight: 700; line-height: 1.2; }
+.doc-body h2 span { color: var(--lav); font-size: var(--fs-sm); font-weight: 500; }
+.doc-body p, .doc-body ul { margin: 0 0 14px; color: var(--text-2); font-size: var(--fs-body); font-weight: 300; line-height: 1.65; }
+.doc-body ul { padding-left: 22px; }
+.doc-body li { margin-bottom: 6px; }
+.doc-body li::marker { color: var(--lav); }
+.doc-body a { color: var(--lav); text-underline-offset: 3px; }
