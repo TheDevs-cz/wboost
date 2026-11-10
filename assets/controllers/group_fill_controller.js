@@ -1510,7 +1510,7 @@ export default class extends Controller {
     /**
      * One `ImageAdjustToolbar` per toolbar (dimension × slot) — the shared
      * `_fill_image_adjust.html.twig` body: zoom slider, width/height/X/Y in
-     * the dimension's unit, rotation, Vyplnit / Přizpůsobit / Vycentrovat.
+     * the dimension's unit, rotation, Vyplnit.
      * It speaks canvas px; this page stores the pan as a FRACTION of the
      * frame, converted here against THIS dimension's frame.
      */

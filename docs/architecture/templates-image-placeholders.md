@@ -118,8 +118,7 @@ response's `directoryId` is null for root uploads.
   range 25 % … max(400 %, 2× cover)), width/height (aspect locked) and the
   unrotated picture's top-left X/Y from the CANVAS origin in the variant's
   unit (mm/cm 300 DPI, px for screen formats; `image_placement.js`
-  `placementToBox` and inverses), rotation, Vyplnit (cover + centre) /
-  Přizpůsobit (contain + centre) / Vycentrovat. Nothing new is stored: every
+  `placementToBox` and inverses), rotation, Vyplnit (cover + centre). Nothing new is stored: every
   control maps onto the same `scale`/`offsetX|Y`(`Ratio`)/`rotation` the drag
   writes, so render, export, history and drafts are untouched (API contract
   unchanged). Every resize — handles, slider, typed size — scales about the

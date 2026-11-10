@@ -80,12 +80,6 @@
     {% if slot.allowResize %}
         <button type="button" class="btn btn-tertiary xs" data-adjust-action="cover"
                 title="Zvětšit tak, aby obrázek vyplnil celou oblast (okraje se oříznou)">Vyplnit</button>
-        <button type="button" class="btn btn-tertiary xs" data-adjust-action="contain"
-                title="Zmenšit tak, aby byl vidět celý obrázek">Přizpůsobit</button>
-    {% endif %}
-    {% if slot.allowMove %}
-        <button type="button" class="btn btn-tertiary xs" data-adjust-action="center"
-                title="Posunout obrázek doprostřed oblasti">Vycentrovat</button>
     {% endif %}
 </div>
 {% if hint|default('') %}

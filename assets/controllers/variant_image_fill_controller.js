@@ -47,8 +47,8 @@ const HISTORY_FIELDS = ['imageId', 'scale', 'offsetX', 'offsetY', 'rotation', 'h
  *
  * Image adjust (2026-11-08): selecting a picked picture opens its
  * `[data-image-adjust]` panel (`_fill_image_adjust.html.twig` — zoom slider,
- * width/height/X/Y in the variant's unit, rotation, Vyplnit / Přizpůsobit /
- * Vycentrovat) and the `ImageAdjustHandles` layer, which replaces Fabric's
+ * width/height/X/Y in the variant's unit, rotation, Vyplnit) and the
+ * `ImageAdjustHandles` layer, which replaces Fabric's
  * own controls: those are painted inside the canvas bitmap, so a corner
  * pushed past the canvas edge could never be grabbed again. Every path —
  * drag, handles, slider, typed numbers, arrow keys — lands in the same Fabric

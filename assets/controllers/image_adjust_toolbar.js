@@ -177,15 +177,11 @@ export class ImageAdjustToolbar {
 
         if (action === 'cover') {
             this.applyPatch({ scale: coverRelativeScale(state.frame, state.natural), ...this._centred(state) }, { final: true });
-        } else if (action === 'contain') {
-            this.applyPatch({ scale: 1, ...this._centred(state) }, { final: true });
-        } else if (action === 'center') {
-            this.applyPatch({ offsetX: 0, offsetY: 0 }, { final: true });
         }
         this.sync();
     }
 
-    /** Fill / fit recentre too — a covered picture is only gap-free centred.
+    /** Fill recentres too — a covered picture is only gap-free centred.
      *  Slots that forbid moving are always centred anyway (no offset field). */
     _centred(state) {
         return state.allowMove === false ? {} : { offsetX: 0, offsetY: 0 };

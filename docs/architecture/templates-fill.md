@@ -77,7 +77,7 @@ Vrstvy panel and the API `layerIndex` are unaffected. Contracts:
   outside ghost + toolbar, Escape or × closes it, and it hides while the
   picture is dragged. Since 2026-11-08 the toolbar body is the shared
   `_fill_image_adjust.html.twig` (zoom slider, W/H/X/Y in the dimension's
-  unit, rotation, Vyplnit / Přizpůsobit / Vycentrovat — see
+  unit, rotation, Vyplnit — see
   templates-image-placeholders.md "Image adjust"), and it is positioned
   against the WINDOW (below the visible frame, else above), free to hang
   outside the card. Stand-ins exist only for PICKED pictures, so the

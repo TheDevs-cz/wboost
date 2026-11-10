@@ -129,8 +129,8 @@ math in `canvas_geometry.js` (node-testable; unit helpers re-exported from
 `image_placement.js`).
 
 - **Controls**: the gallery `.sz-ctl` size slider + "NN %", Š / 🔗 / V, X / Y,
-  rotation (°), Vyplnit (the only quick action since 2026-11-10 — the fill
-  page keeps Přizpůsobit / Vycentrovat), plus a hint line
+  rotation (°), Vyplnit (the only quick action since 2026-11-10, here and on
+  the fill pages), plus a hint line
   (placeholder: "rozměr rámečku…", editor-locked: "odemkněte"). Typed fields are
   `type=text inputmode=decimal` (a Czech decimal comma works); they apply on
   `change` / Enter (Enter `preventDefault`s — the editor sits in the save

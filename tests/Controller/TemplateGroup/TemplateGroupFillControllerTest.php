@@ -156,15 +156,18 @@ final class TemplateGroupFillControllerTest extends WebTestCase
             self::assertNotNull($toolbar->attr('hidden'));
             // The shared image-adjust body (_fill_image_adjust.html.twig):
             // slot allows move + resize, not rotate — zoom slider, W/H + X/Y
-            // in the dimension's unit, fill / fit / centre, close; no rotation.
+            // in the dimension's unit, fill, close; no rotation.
             self::assertNotEmpty($toolbar->attr('data-unit'));
             self::assertCount(1, $toolbar->filter('input[type="range"][data-adjust="scale"]'));
             self::assertCount(0, $toolbar->filter('[data-adjust="rotation"]'));
             foreach (['width', 'height', 'x', 'y'] as $field) {
                 self::assertCount(1, $toolbar->filter('input[type="number"][data-adjust="' . $field . '"]'));
             }
-            foreach (['cover', 'contain', 'center', 'close'] as $action) {
+            foreach (['cover', 'close'] as $action) {
                 self::assertCount(1, $toolbar->filter('[data-adjust-action="' . $action . '"]'));
+            }
+            foreach (['contain', 'center'] as $action) {
+                self::assertCount(0, $toolbar->filter('[data-adjust-action="' . $action . '"]'));
             }
             // The controls are never posted: only the hidden placement fields are.
             self::assertCount(0, $toolbar->filter('input[name]'));
