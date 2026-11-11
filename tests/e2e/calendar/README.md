@@ -49,7 +49,7 @@ The dev database is usually a copy of production, so the scripts work only in th
 - `ensureFixture()` (run by `run.cjs`) registers the user `USER_EMAIL` through
   `bin/console app:user:register` (a plain user, not an admin — it sees no other project) and inserts
   the project `PROJECT_ID` „E2E Kalendáře“ owned by it, with the module Kalendáře switched on.
-  Kalendáře is an admin-only preview module, so it is written straight into `project.modules`
+  The module is opt-in, so for speed it is written straight into `project.modules`
   instead of going through „Objevte další moduly“.
 - `purgeCalendars()` deletes every calendar of that project before and after a run; scripts also
   delete what they create through the UI.

@@ -178,11 +178,9 @@ dashboard render a module only when `project.hasModule(...)` — Twig reaches th
 enum via `enum('WBoost\\Web\\Value\\ProjectModule')`. **Galerie, Fonty and
 Paleta barev are not modules** (other modules draw on them — always shown).
 
-**Kalendáře** (`calendars`, built 2026-11 — `calendars.md`) is a module **in
-preview**: `ProjectModule::isInPreview()` is true for it, so the discover page
-offers it to admins only and `EnableProjectModuleController` refuses anyone
-else; it is not in `defaults()` and got no backfill. Launching it = returning
-false there. Its workspace (`calendar_workspace`) is in the `shell_force_rail`
+**Kalendáře** (`calendars`, built and launched 2026-11-11 — `calendars.md`) is an
+ordinary opt-in module: not in `defaults()`, no backfill, owners switch it on from
+"Objevte další moduly". Its workspace (`calendar_workspace`) is in the `shell_force_rail`
 list of `base.html.twig` like the canvas editors, and its nav item sits after
 Jídelníčky (`active_menu_item = 'calendars'`).
 

@@ -66,7 +66,7 @@ const quote = (text) => `'${String(text).replace(/'/g, "''")}'`;
 
 /**
  * Creates the e2e user and its project (module Kalendáře switched on) when they are missing.
- * The module is an admin-only preview, so it is written straight into `project.modules` instead
+ * The module is opt-in, so for speed it is written straight into `project.modules` instead
  * of going through the UI. Skipped with E2E_NO_FIXTURE=1 (then USER_EMAIL / USER_PASS / PROJECT_ID
  * must point at an existing account and a project of it that has the module).
  */

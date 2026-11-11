@@ -27,8 +27,7 @@ use WBoost\Web\Services\Security\ProjectVoter;
  * Every refusal ends with its reason code in parentheses — the same
  * `message (reason)` shape `manage_document` uses.
  *
- * Deliberately NOT gated on the project's module list or on the module being
- * in preview ({@see \WBoost\Web\Value\ProjectModule::isInPreview()}): like
+ * Deliberately NOT gated on the project's module list: like
  * every item page, the REST API and the other MCP tools, access follows the
  * voters alone. The module switch only decides what the web navigation shows.
  */

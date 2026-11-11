@@ -27,19 +27,17 @@
 #}
 {% block content %}
     {% set can_enable = is_granted('project_edit', project) %}
-    {# modules still in preview (ProjectModule::isInPreview) are offered to admins only #}
-    {% set offered_modules = project.disabledModules|filter(m => not m.inPreview or is_granted('ROLE_ADMIN')) %}
 
     <section class="pd-box" aria-labelledby="modsH">
         <div class="pd-box-h">
             <div>
-                <h2 id="modsH">Dostupné moduly <span class="pd-n">{{ offered_modules|length }}</span></h2>
+                <h2 id="modsH">Dostupné moduly <span class="pd-n">{{ project.disabledModules|length }}</span></h2>
                 <span class="cap">Zapnutím se modul objeví v menu projektu. O zapnutí dostanou e-mail administrátoři; vypnout ho mohou jen oni a žádná data se tím nesmažou.</span>
             </div>
         </div>
 
         <div class="pd-mods">
-            {% for module in offered_modules %}
+            {% for module in project.disabledModules %}
                 <div class="pd-mod" data-module="{{ module.value }}">
                     <span class="pd-ico" aria-hidden="true">{{ icon(module.icon) }}</span>
                     <span class="who"><b>{{ module.label }}</b><span class="cap">{{ module.description }}</span></span>

@@ -328,15 +328,11 @@ directory first, removes the row, then `deleteDirectory`),
 the Fonty page — `templates-text-inputs.md`). A new path-storing column
 needs all the storage ones — `storage-inventory.md`.
 
-### The preview gate — Kalendáře is admin-only until launch
+### Module switch
 
-`ProjectModule::isInPreview()` returns true for `Calendars`: only admins see
-it on "Objevte další moduly" and may switch it on
-(`EnableProjectModuleController` refuses others), so `main` deploys while the
-work is in flight. It is not in `ProjectModule::defaults()`. **To launch:**
-make `isInPreview()` return false (or delete the method and its two callers:
-the controller check and the filter in `project_modules.html.twig`) and adjust
-`ProjectModulesTest`. Nothing else is gated: `#[RequiresProjectModule]` sits on
+Kalendáře launched publicly on 2026-11-11 (the build-time admin-only preview
+gate `ProjectModule::isInPreview()` is gone). It is an ordinary opt-in module,
+not in `ProjectModule::defaults()`. Nothing beyond the list page is gated: `#[RequiresProjectModule]` sits on
 the list page only — the workspace, the `/k/{token}` link and the MCP tools
 follow the voters alone, like every other module's item pages (see
 `app-shell.md`).
@@ -653,5 +649,4 @@ Deliberately not built (handoff §2), with the room left for them:
 - **Page size UI**, an **asset sweeper** (unreferenced uploads — also the only
   way a calendar that reached the 2 GB client cap could get room again), **client
   autosave** (explicit save can lose work on mobile browsers that skip
-  `beforeunload`), **design conflict detection**, and the **launch** itself
-  (the preview gate above).
+  `beforeunload`), **design conflict detection**.

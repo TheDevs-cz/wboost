@@ -110,26 +110,12 @@ final class ProjectModulesTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSelectorExists('[data-module="email_signatures"] button[type="submit"]');
         self::assertSelectorExists('[data-module="weekly_menus"] button[type="submit"]');
-        // Kalendáře is in preview (ProjectModule::isInPreview): admins only.
-        self::assertSelectorNotExists('[data-module="calendars"]');
+        // Kalendáře is an ordinary module (launched 2026-11-11) — no teaser row.
+        self::assertSelectorExists('[data-module="calendars"] button[type="submit"]');
         self::assertSelectorNotExists('.pd-mod-soon');
-        self::assertSelectorTextSame('#modsH .pd-n', '2');
+        self::assertSelectorTextSame('#modsH .pd-n', '3');
         self::assertSelectorNotExists('[data-module="manuals"]');
         self::assertSelectorNotExists('[data-module="templates"]');
-    }
-
-    public function testPreviewModuleIsOfferedToAdminsOnly(): void
-    {
-        $client = self::createClient();
-        TestingLogin::logInAsUser($client, TestDataFixture::USER_2_EMAIL);
-        $client->request('POST', sprintf('/project/%s/modules/calendars/enable', self::PROJECT_2), ['_token' => 'x']);
-        self::assertResponseStatusCodeSame(403);
-
-        TestingLogin::logInAsUser($client, TestDataFixture::ADMIN_USER_EMAIL);
-        $client->request('GET', sprintf('/project/%s/modules', self::PROJECT_2));
-        self::assertResponseIsSuccessful();
-        self::assertSelectorExists('[data-module="calendars"] button[type="submit"]');
-        self::assertSelectorTextSame('#modsH .pd-n', '3');
     }
 
     public function testOwnerEnablesModuleAndAdminsAreEmailed(): void

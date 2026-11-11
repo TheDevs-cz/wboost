@@ -47,10 +47,6 @@ final class EnableProjectModuleController extends AbstractController
         ProjectModule $module,
         Request $request,
     ): Response {
-        if ($module->isInPreview() && !$this->isGranted('ROLE_ADMIN')) {
-            throw $this->createAccessDeniedException('This module is not available yet.');
-        }
-
         if (!$this->isCsrfTokenValid(self::CSRF_TOKEN_ID, $request->request->getString('_token'))) {
             throw $this->createAccessDeniedException('Invalid CSRF token.');
         }
