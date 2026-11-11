@@ -55,13 +55,17 @@ final class CalendarsControllerTest extends WebTestCase
         self::assertStringContainsString('Grafik', $unfinished->filter('[data-cal-action="history"]')->text());
         self::assertCount(0, $finished->filter('[data-cal-action="history"]'));
 
-        // The JSON the list controller completes the card from.
-        /** @var array{calendar: array<string, mixed>, assets: array<mixed>, urls: array<string, string>} $doc */
+        // The card carries addresses only; its document is fetched when the
+        // card scrolls into view (testCardDocumentIsFetchedLazily).
+        /** @var array<string, mixed> $doc */
         $doc = json_decode($finished->filter('script[data-calendar-list-target="doc"]')->text(null, false), true, 64, JSON_THROW_ON_ERROR);
-        self::assertSame(TestDataFixture::CALENDAR_2_ID, $doc['calendar']['id']);
-        self::assertSame('photoLeft', $doc['calendar']['preset']);
-        self::assertTrue($doc['calendar']['finished']);
-        self::assertSame('/calendar/' . TestDataFixture::CALENDAR_2_ID . '/history', $doc['urls']['history']);
+        self::assertSame([
+            'urls' => [
+                'workspace' => '/calendar/' . TestDataFixture::CALENDAR_2_ID,
+                'history' => '/calendar/' . TestDataFixture::CALENDAR_2_ID . '/history',
+                'card' => '/calendar/' . TestDataFixture::CALENDAR_2_ID . '/card',
+            ],
+        ], $doc);
 
         /** @var array<string, mixed> $env */
         $env = json_decode($crawler->filter('script[data-calendar-list-target="env"]')->text(null, false), true, 64, JSON_THROW_ON_ERROR);
@@ -73,6 +77,75 @@ final class CalendarsControllerTest extends WebTestCase
 
         // Delete is asked for in a dialog and posts with a CSRF token.
         self::assertSelectorExists(sprintf('#cal-delete-%1$s form[action="/calendar/%1$s/delete"] input[name="_token"]', TestDataFixture::CALENDAR_1_ID));
+    }
+
+    /**
+     * The list used to embed every calendar's whole document (content of up
+     * to 2 MB each) and to run one assets query per calendar. Its size and
+     * query count no longer depend on what the calendars hold.
+     */
+    public function testCardDocumentIsFetchedLazily(): void
+    {
+        $browser = self::createClient();
+        TestingLogin::logInAsUser($browser, TestDataFixture::USER_1_EMAIL);
+
+        $workspace = '/calendar/' . TestDataFixture::CALENDAR_2_ID;
+        $token = self::csrf(self::bootstrap($browser, $workspace));
+        $photo = self::upload($browser, $workspace . '/asset', $token, 'photo', self::jpeg(40, 20), 'naves.jpg');
+        self::assertIsString($photo['id']);
+        self::save($browser, $workspace . '/save', ['content' => [
+            ['c' => 'pageCaptions', 'id' => 'w05', 'v' => ['text' => 'Popisek-jen-v-dokumentu'], 'label' => '5. týden'],
+            ['c' => 'pagePhotos', 'id' => 'w05', 'v' => ['asset' => $photo['id'], 'zoom' => 1, 'px' => 0.5, 'py' => 0.5], 'label' => '5. týden'],
+        ]], $token);
+        self::assertResponseIsSuccessful();
+
+        $browser->enableProfiler();
+        $browser->request('GET', self::LIST_URL);
+        self::assertResponseIsSuccessful();
+        $html = (string) $browser->getResponse()->getContent();
+        self::assertStringNotContainsString('Popisek-jen-v-dokumentu', $html);
+        self::assertStringNotContainsString($photo['id'], $html);
+        self::assertStringNotContainsString('"layout"', $html);
+
+        $profile = $browser->getProfile();
+        self::assertInstanceOf(\Symfony\Component\HttpKernel\Profiler\Profile::class, $profile);
+        $collector = $profile->getCollector('db');
+        self::assertInstanceOf(\Doctrine\Bundle\DoctrineBundle\DataCollector\DoctrineDataCollector::class, $collector);
+        $assetQueries = 0;
+        $allQueries = 0;
+
+        foreach ($collector->getQueries() as $connectionQueries) {
+            self::assertIsIterable($connectionQueries);
+
+            foreach ($connectionQueries as $query) {
+                $sql = is_array($query) ? ($query['sql'] ?? '') : '';
+                $assetQueries += is_string($sql) && str_contains($sql, 'calendar_asset') ? 1 : 0;
+                $allQueries++;
+            }
+        }
+
+        self::assertGreaterThan(0, $allQueries, 'The profiler saw the queries of the request.');
+        self::assertSame(0, $assetQueries, 'The list reads no assets.');
+
+        // The card's own document: what the workspace bootstrap carries, minus the session.
+        $browser->request('GET', $workspace . '/card');
+        self::assertResponseIsSuccessful();
+        $card = self::json($browser);
+        self::assertSame(['calendar', 'assets'], array_keys($card));
+        self::assertSame(TestDataFixture::CALENDAR_2_ID, self::dig($card, 'calendar', 'id'));
+        self::assertSame('photoLeft', self::dig($card, 'calendar', 'preset'));
+        self::assertSame('Popisek-jen-v-dokumentu', self::dig($card, 'calendar', 'content', 'pageCaptions', 'w05', 'text'));
+        self::assertSame('naves.jpg', self::dig($card, 'assets', $photo['id'], 'name'));
+        self::assertStringNotContainsString(TestDataFixture::CALENDAR_2_TOKEN, (string) $browser->getResponse()->getContent());
+
+        // A read-only member may read it; a stranger may not.
+        TestingLogin::logInAsUser($browser, TestDataFixture::SHARED_USER_EMAIL);
+        $browser->request('GET', $workspace . '/card');
+        self::assertResponseIsSuccessful();
+
+        TestingLogin::logInAsUser($browser, TestDataFixture::USER_2_EMAIL);
+        $browser->request('GET', $workspace . '/card');
+        self::assertResponseStatusCodeSame(403);
     }
 
     public function testEmptyStateAndModuleGuard(): void

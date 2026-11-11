@@ -285,7 +285,7 @@ file from another project loads without pictures.
 | `calendars` | GET `/project/{projectId}/calendars` | `ProjectVoter::VIEW` + `#[RequiresProjectModule(Calendars)]` |
 | `calendar_create` | POST `/project/{projectId}/calendars/create` | `ProjectVoter::EDIT` + CSRF |
 | `calendar_workspace` | GET `/calendar/{calendarId}` | `CalendarVoter::VIEW` (mode from `CalendarAccess`) |
-| `calendar_save` / `calendar_asset_upload` / `calendar_history` | POST `…/save`, POST `…/asset`, GET `…/history` | `CalendarVoter::VIEW` |
+| `calendar_save` / `calendar_asset_upload` / `calendar_history` / `calendar_card` | POST `…/save`, POST `…/asset`, GET `…/history`, GET `…/card` | `CalendarVoter::VIEW` |
 | `calendar_document_text` / `calendar_layout_import` / `calendar_client_link` / `calendar_delete` | POST `…/document-text`, `…/layout-import`, `…/client-link`, `…/delete` | `CalendarVoter::EDIT` |
 | `calendar_client` (+ `_save`, `_asset`, `_history`) | `/k/{token}` (+ `/save`, `/asset`, `/history`) | public; the token is the credential |
 
@@ -297,12 +297,22 @@ its twin); both families call the same three services (`CalendarSaver`,
 `CalendarAssetUploader`, `CalendarHistoryList`). `security.php`'s public-path
 regex carries `k/[a-f0-9]{64}`.
 
+**The list page embeds no calendar document.** Next to each card there are
+only its addresses (`{ urls: { workspace, history, card } }`); the
+`calendar-list` controller fetches `calendar_card` (`{ calendar, assets }` —
+`CalendarDocument::card`, never the client token) when the card scrolls into
+view and then fills the summary line and the thumbnail. The page's size and
+query count therefore do not depend on what the calendars hold (it used to
+carry every document — up to 2 MB each — and run one assets query per card).
+`data-cal-ready="1"` on the list = every card in view at load is complete.
+
 Templates: `templates/calendar/list.html.twig` (works without JS: create and
-delete are plain forms), `workspace.html.twig` (empty `page_title_row`,
+delete are plain forms; the summary then is the server's short `Týdenní ·
+2027`), `workspace.html.twig` (empty `page_title_row`,
 `inner-wide`, forced rail — `calendar_workspace` is in `base.html.twig`'s
 `shell_force_rail` list), `client.html.twig` (standalone, `noindex`),
 `_not_ready.html.twig` (a client before a layout exists: no controller starts).
-All inner DOM is built by JS from one
+All inner DOM of the workspace and the client page is built by JS from one
 `<script type="application/json">` bootstrap = `CalendarDocument::forCalendar`.
 
 ### Storage and font registrations (done; keep in sync)

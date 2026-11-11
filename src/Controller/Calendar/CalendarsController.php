@@ -20,8 +20,14 @@ use WBoost\Web\Value\ProjectModule;
 /**
  * Projekt › Kalendáře — the list of a project's calendars (the module's
  * landing page). Cards are completed by the `calendar-list` Stimulus
- * controller from the JSON emitted next to each one (thumbnail, summary);
- * without it the page still lists, opens, creates and deletes calendars.
+ * controller (thumbnail, summary); without it the page still lists, opens,
+ * creates and deletes calendars.
+ *
+ * The page carries NO calendar document: next to each card there are only
+ * its addresses, and the controller fetches `urls.card`
+ * ({@see CalendarCardController}) when the card scrolls into view. Embedding
+ * the documents made the page as large as all calendars together and cost
+ * one assets query per card.
  */
 final class CalendarsController extends AbstractController
 {
@@ -50,11 +56,10 @@ final class CalendarsController extends AbstractController
                 'last_change_by' => $row->lastChangeBy?->label(),
                 'last_change_at' => $row->lastChangeAt,
                 'doc_json' => CalendarDocument::encode([
-                    'calendar' => $this->document->calendar($calendar),
-                    'assets' => $this->document->assets($calendar),
                     'urls' => [
                         'workspace' => $this->generateUrl('calendar_workspace', $id),
                         'history' => $this->generateUrl('calendar_history', $id),
+                        'card' => $this->generateUrl('calendar_card', $id),
                     ],
                 ]),
             ];

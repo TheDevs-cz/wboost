@@ -14,14 +14,21 @@ const PRESET_WORDS = { photoLeft: 'fotka vlevo', photoRight: 'fotka vpravo', two
 /**
  * Projekt › Kalendáře (docs/calendar/architecture.md §D.3). The page works
  * without this controller (open, create, delete are plain links and forms);
- * it completes every card from the JSON next to it:
+ * it completes every card:
  *
  *   env    <script type="application/json"> shared by all cards: { projectName, fonts, palette, currentYear, … }
  *   card   li.cal-card[data-calendar-id]
- *   doc    <script type="application/json"> per card: { calendar, assets, urls: { workspace, history } }
+ *   doc    <script type="application/json"> per card: { urls: { workspace, history, card } } — addresses only
  *   thumb  .cal-thumb  ← inline SVG of the first week page (the cover while no layout exists), lazy
  *   meta   .cal-meta   ← "Týdenní · 2027 · fotka vlevo · 55 stran"
  *   time   <time datetime> ← relative time ("před 5 min")
+ *
+ * The page carries no calendar document. A card fetches its own
+ * (`urls.card` → `{ calendar, assets }`) when it scrolls into view, then
+ * fills `meta` and `thumb`; until then — and if the fetch fails — the
+ * server-rendered summary stays. `data-cal-ready="1"` is set on the element
+ * once every card that was in view at the start is complete (document
+ * fetched, fonts usable, thumbnail drawn or queued).
  *
  * `[data-cal-action="history"]` opens Historie; the toast left in
  * sessionStorage['wb-cal-toast'] by Dokončit is shown once.
@@ -36,15 +43,22 @@ export default class extends Controller {
         const accent = palette.find((c) => c !== '#FFFFFF' && c !== '#000000') || null;
         const measurer = createCanvasMeasurer();
         this.thumbs = [];
-        const families = new Set();
+        this.abort = typeof AbortController === 'function' ? new AbortController() : null;
+        const signal = this.abort ? this.abort.signal : undefined;
 
-        for (const card of this.cardTargets) {
+        /** Fetches the card's document and completes the card; never rejects. */
+        const complete = async (card) => {
             const script = this.docTargets.find((el) => card.contains(el));
             const thumb = this.thumbTargets.find((el) => card.contains(el));
             const meta = this.metaTargets.find((el) => card.contains(el));
-            if (!script) continue;
             try {
-                const data = JSON.parse(script.textContent);
+                const url = script ? (JSON.parse(script.textContent).urls || {}).card : null;
+                if (!url) return;
+                const response = await fetch(url, { credentials: 'same-origin', headers: { Accept: 'application/json' }, signal });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = await response.json();
+                if (!this.thumbs) return; // disconnected meanwhile
+
                 const env = { ...shared, fonts, accent, assets: data.assets || {} };
                 const doc = normalizeDocument(data.calendar, env);
                 const pages = buildPages(doc);
@@ -54,24 +68,49 @@ export default class extends Controller {
                         .filter((part) => part !== null && part !== undefined)
                         .join(' · ');
                 }
-                if (thumb) {
-                    const page = design.layout ? weekPages(pages)[0] : pages[0];
-                    thumb.style.aspectRatio = `${design.page.width} / ${design.page.height}`;
-                    if (page) this.thumbs.push(mountLazyThumb(thumb, () => renderThumb(doc, page, { env, measurer })));
-                    if (design.layout) for (const family of usedFamilies(design.layout)) families.add(family);
-                }
+                if (!thumb) return;
+                const page = design.layout ? weekPages(pages)[0] : pages[0];
+                thumb.style.aspectRatio = `${design.page.width} / ${design.page.height}`;
+                if (!page) return;
+                const lazy = mountLazyThumb(thumb, () => renderThumb(doc, page, { env, measurer }));
+                this.thumbs.push(lazy);
+                // text is measured with the project's fonts: draw again once they are usable
+                await ensureFontsLoaded(fonts, design.layout ? usedFamilies(design.layout) : []).catch(() => null);
+                lazy.refresh();
             } catch (error) {
-                console.error('[calendar] card failed', error);
+                if (!signal || !signal.aborted) console.error('[calendar] card failed', error);
             }
-        }
+        };
 
-        // text is measured with the project's fonts: draw again once they are usable
-        ensureFontsLoaded(fonts, [...families])
-            .catch(() => null)
-            .then(() => {
-                for (const thumb of this.thumbs) thumb.refresh();
-                this.element.dataset.calReady = '1';
+        const ready = (loads) => {
+            Promise.all(loads).then(() => {
+                if (this.thumbs) this.element.dataset.calReady = '1';
             });
+        };
+
+        if (typeof IntersectionObserver === 'function') {
+            let first = true;
+            this.cardObserver = new IntersectionObserver(
+                (entries) => {
+                    const loads = [];
+                    for (const entry of entries) {
+                        if (!entry.isIntersecting) continue;
+                        this.cardObserver.unobserve(entry.target);
+                        loads.push(complete(entry.target));
+                    }
+                    // the first delivery reports every card: the ones in view make the page "ready"
+                    if (first) {
+                        first = false;
+                        ready(loads);
+                    }
+                },
+                { rootMargin: '200px' },
+            );
+            for (const card of this.cardTargets) this.cardObserver.observe(card);
+            if (!this.cardTargets.length) ready([]);
+        } else {
+            ready(this.cardTargets.map(complete));
+        }
 
         for (const time of this.timeTargets) {
             const text = relativeTime(time.getAttribute('datetime'));
@@ -102,7 +141,10 @@ export default class extends Controller {
 
     disconnect() {
         this.element.removeEventListener('click', this.onClick);
+        if (this.cardObserver) this.cardObserver.disconnect();
+        this.cardObserver = null;
+        if (this.abort) this.abort.abort();
         for (const thumb of this.thumbs) thumb.destroy();
-        this.thumbs = [];
+        this.thumbs = null;
     }
 }

@@ -5,9 +5,11 @@
 
     Server-rendered and usable as it is: open, create, delete (with a
     confirmation), last change. The `calendar-list` Stimulus controller
-    completes each card from the JSON next to it — thumbnail of the first
-    week page into `.cal-thumb`, the summary line into `.cal-meta`, relative
-    time, the history dialog — and from the shared `env` emitted once.
+    completes each card — thumbnail of the first week page into `.cal-thumb`,
+    the summary line into `.cal-meta`, relative time, the history dialog —
+    from the shared `env` emitted once and from the card's document, which it
+    fetches from `urls.card` when the card scrolls into view (the JSON next
+    to a card holds addresses only).
 #}
 
 {% set active_menu_item = 'calendars' %}

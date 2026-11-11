@@ -123,6 +123,20 @@ readonly final class CalendarDocument
     }
 
     /**
+     * What one card of the list page fetches to draw itself
+     * ({@see \WBoost\Web\Controller\Calendar\CalendarCardController}).
+     *
+     * @return array{calendar: array<string, mixed>, assets: \stdClass}
+     */
+    public function card(Calendar $calendar): array
+    {
+        return [
+            'calendar' => $this->calendar($calendar),
+            'assets' => $this->assets($calendar),
+        ];
+    }
+
+    /**
      * The part of `env` every calendar of a project shares — the list page
      * emits it once.
      *
