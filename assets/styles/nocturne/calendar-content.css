@@ -1,8 +1,8 @@
 /* ==========================================================================
    Nocturne — Kalendáře: step-4 grid, page list, page panel, photos / QR / special tools.
    Owner: phase P6a (docs/calendar/architecture.md §D.9). Tokens only.
-   Loads after calendar.css; these rules replace its stub block "P6a — step-4
-   frame, page list", which can be deleted there.
+   Loads after calendar.css (whose stub block "P6a — step-4 frame, page list"
+   is gone).
 
    Classes: .cal-s4 (step-4 frame on .cal-b5) · .cal-thh / .cal-thl / .cal-th*
    (page list, shared with step 5) · .cal-spam (plus menu) · .cal-m4* (page in
@@ -167,8 +167,8 @@
 @media (max-width: 960px) {
     .cal-s4 { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; align-content: start; }
     .cal-s4 > .cal-b5-main { order: 1; overflow: visible; }
-    .cal-s4 > .cal-b5-list { order: 2; flex-direction: row; align-items: flex-start; gap: 6px; padding: 10px 16px; overflow-x: auto; overflow-y: hidden; border-right: 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-    .cal-s4 > .cal-b5-side { order: 3; overflow: visible; border-left: 0; }
+    .cal-s4 > .cal-b5-list { order: 2; max-height: 70vh; flex-direction: row; align-items: flex-start; gap: 6px; padding: 10px 16px; overflow-x: auto; overflow-y: hidden; border-right: 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    .cal-s4 > .cal-b5-side { order: 3; grid-column: 1 / -1; overflow: visible; border-left: 0; border-top: 1px solid var(--line); }
     .cal-s4 .cal-thh, .cal-s4 .cal-thl { flex-direction: row; align-items: flex-start; flex: none; }
     .cal-s4 .cal-th { flex: none; width: 124px; }
     .cal-s4 .cal-thaddw { align-self: center; padding: 0 2px; }

@@ -3,8 +3,7 @@
    Owner: phase P4 (docs/calendar/architecture.md §D.6, §D.9). Tokens only —
    the two fixed colours are the print chrome of the page (bleed hatch, trim
    line), which is the same in both themes like the page itself.
-   Loads after calendar.css and overrides its "P4" stub block completely, so
-   that block can be deleted there.
+   Loads after calendar.css (whose "P4" stub block is gone).
    DOM: assets/calendar/ui/editor/{index,stage,overlay,layers}.js.
    ========================================================================== */
 
