@@ -1,6 +1,151 @@
 /* ==========================================================================
    Nocturne — Kalendáře: step-3 grid, layers, stage, overlay, hint, zoom.
-   Owner: phase P4 (docs/calendar/architecture.md §D.9). Tokens only.
-   Loads after calendar.css — the stub rules there for this area are deleted
-   by the owner once the real styles live here.
+   Owner: phase P4 (docs/calendar/architecture.md §D.6, §D.9). Tokens only —
+   the two fixed colours are the print chrome of the page (bleed hatch, trim
+   line), which is the same in both themes like the page itself.
+   Loads after calendar.css and overrides its "P4" stub block completely, so
+   that block can be deleted there.
+   DOM: assets/calendar/ui/editor/{index,stage,overlay,layers}.js.
    ========================================================================== */
+
+/* ---- Step-3 frame ------------------------------------------------------- */
+.cal-b3 { display: grid; grid-template-columns: 240px minmax(0, 1fr) 312px; min-height: 0; }
+.cal-b3:has(.cal-stage.panel-off) { grid-template-columns: 240px minmax(0, 1fr); }
+.cal-b3:has(.cal-stage.panel-off) > .cal-right { display: none; }
+.cal-left, .cal-right { min-width: 0; min-height: 0; overflow-y: auto; background: var(--surface); }
+.cal-left { border-right: 1px solid var(--line); }
+.cal-right { border-left: 1px solid var(--line); }
+.cal-center { display: grid; min-width: 0; min-height: 0; overflow: hidden; }
+
+/* ---- Vrstvy --------------------------------------------------------------- */
+.cal-layers { display: flex; flex-direction: column; gap: 6px; padding: 8px 8px 16px; }
+.cal-layers.is-busy { opacity: .6; pointer-events: none; }
+.cal-layh { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 40px; padding: 0 2px 0 10px; }
+.cal-layh h3 { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-2); }
+.cal-lay { display: flex; }
+.cal-laym { position: absolute; z-index: 20; top: calc(100% + 2px); left: 0; right: 0; display: flex; flex-direction: column; gap: 2px; padding: 6px; border-radius: 16px; background: var(--surface-2); border: 1px solid var(--line-2); box-shadow: var(--shadow-3); }
+.cal-laym-i { display: flex; align-items: flex-start; gap: 10px; width: 100%; padding: 8px 10px; border: 0; border-radius: 10px; background: none; color: var(--text); font: inherit; font-size: 13px; line-height: 1.35; text-align: left; overflow-wrap: anywhere; cursor: pointer; }
+.cal-laym-i:hover, .cal-laym-i:focus-visible { background: var(--surface-3); outline: 0; }
+.cal-laym-i > .i { flex: none; margin-top: 1px; color: var(--muted); }
+.cal-laym-i .cap { display: block; }
+
+.cal-els { display: flex; flex-direction: column; gap: 2px; padding: 0; }
+.cal-eli { display: flex; flex-direction: column; min-width: 0; border-radius: 10px; }
+.cal-elr { position: relative; display: flex; align-items: center; gap: 2px; min-height: 36px; padding: 0 2px 0 0; border: 0; border-radius: 10px; background: none; color: var(--text-2); font: inherit; font-size: 13px; text-align: left; cursor: default; transition: background var(--dur-2); }
+.cal-elr:hover { background: var(--surface-2); }
+.cal-elr.sel, .cal-elr.sel:hover { background: var(--lav-deep); color: var(--lav-ink); font-weight: 400; }
+.cal-grip { display: grid; place-items: center; flex: none; width: 18px; margin-left: 2px; color: var(--subtle); opacity: .5; cursor: grab; transition: opacity var(--dur-2); }
+.cal-elr:hover .cal-grip, .cal-elr:focus-within .cal-grip { opacity: 1; }
+.cal-elr.fixed .cal-grip { opacity: .5; cursor: default; }
+.cal-eln { flex: 1; display: flex; align-items: center; gap: 10px; min-width: 0; height: 36px; padding: 0 6px 0 4px; border: 0; border-radius: 8px; background: none; color: var(--text-2); font: inherit; font-size: 13px; font-weight: 500; text-align: left; cursor: pointer; }
+.cal-eln:focus-visible { outline: 2px solid var(--lav-ink); outline-offset: -2px; }
+.cal-eln > .i { flex: none; }
+.cal-elt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-elr.sel .cal-eln { color: var(--lav-ink); font-weight: 600; }
+.cal-elr.off .cal-eln { color: var(--subtle); }
+.cal-elr .btn.icon.xs { flex: none; width: 28px; min-height: 28px; height: 28px; color: var(--muted); }
+.cal-elr .btn.icon.xs:hover { color: var(--text); }
+.cal-tw .i { transition: transform var(--dur-2); }
+.cal-tw.open .i { transform: rotate(180deg); }
+.cal-els-fixed { margin-top: 2px; padding-top: 4px; border-top: 1px solid var(--line); }
+.cal-parts { display: flex; flex-direction: column; gap: 1px; margin: 2px 0 6px 22px; padding-left: 12px; border-left: 1px solid var(--line-2); }
+.cal-pgrp { padding: 4px 2px 0; font-size: 11px; color: var(--muted); }
+.cal-part { min-height: 30px; padding: 4px 10px; border: 0; border-radius: 8px; background: none; color: var(--muted); font: inherit; font-size: 13px; line-height: 1.25; text-align: left; cursor: pointer; }
+.cal-part.sub { margin-left: 14px; }
+.cal-part:hover { background: var(--surface-2); color: var(--text); }
+.cal-part:focus-visible { outline: 2px solid var(--lav-ink); outline-offset: -2px; }
+.cal-part.sel, .cal-part.sel:hover { background: var(--pch-deep); color: var(--pch-ink); font-weight: 600; }
+/* drag reorder (SortableJS, forceFallback): the placeholder in the list is the drop indicator */
+.cal-eli.cal-el-ghost { background: var(--lav-deep); box-shadow: inset 0 0 0 1.5px var(--lav); }
+.cal-eli.cal-el-ghost > * { opacity: .35; }
+.cal-eli.cal-el-drag { background: var(--surface-3); border-radius: 10px; box-shadow: var(--shadow-3); opacity: .95; }
+.cal-eli.cal-el-drag .cal-parts { display: none; }
+
+/* ---- Stage ---------------------------------------------------------------- */
+.cal-stage { position: relative; display: flex; flex-direction: column; align-items: stretch; min-width: 0; min-height: 0; overflow: hidden; background: var(--bg); }
+.cal-stage-bar { display: flex; flex-wrap: nowrap; align-items: center; justify-content: center; gap: 12px; flex: none; min-height: 44px; padding: 6px 48px 0; font-size: 13px; }
+.cal-stage-note { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-stage-note b { font-weight: 600; color: var(--text-2); }
+.cal-pgsep { flex: none; width: 1px; height: 20px; margin: 0 4px; background: var(--line-2); }
+.cal-link { flex: none; display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface); color: var(--muted); font: inherit; font-size: 13px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: background var(--dur-2), color var(--dur-2), border-color var(--dur-2); }
+.cal-link:hover { color: var(--text); }
+.cal-link:focus-visible { outline: 2px solid var(--lav-ink); outline-offset: 2px; }
+.cal-link.on { background: var(--lav-deep); border-color: transparent; color: var(--lav-ink); }
+.cal-zm { flex: none; display: inline-flex; align-items: center; gap: 2px; padding: 2px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface); }
+.cal-zm .btn.icon.xs { width: 28px; min-height: 28px; height: 28px; }
+.cal-zm .btn:disabled { opacity: .35; }
+.cal-zmv { min-width: 56px; height: 28px; padding: 0 6px; border: 0; border-radius: 999px; background: none; color: var(--text-2); font: inherit; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; cursor: pointer; }
+.cal-zmv:hover { background: var(--surface-2); color: var(--text); }
+.cal-zmv:focus-visible { outline: 2px solid var(--lav-ink); outline-offset: -2px; }
+
+.cal-cvw { flex: 1 1 0; min-height: 0; display: grid; place-items: safe center; padding: 16px 32px; overflow: auto; overscroll-behavior: contain; }
+.cal-cv { position: relative; flex: none; border-radius: 2px; background: #fff; box-shadow: var(--shadow-3); cursor: default; user-select: none; -webkit-user-select: none; touch-action: none; }
+.cal-cv .cal-page-svg, .cal-cv .cal-chrome-host { position: absolute; inset: 0; pointer-events: none; }
+.cal-cv .cal-page-svg svg, .cal-cv .cal-chrome { display: block; width: 100%; height: 100%; }
+.cal-stage.dragging .cal-cv, .cal-stage.dragging .cal-cv * { cursor: grabbing !important; }
+.cal-stage.dragging .cal-cv[data-drag="n"], .cal-stage.dragging .cal-cv[data-drag="n"] *, .cal-stage.dragging .cal-cv[data-drag="s"], .cal-stage.dragging .cal-cv[data-drag="s"] * { cursor: ns-resize !important; }
+.cal-stage.dragging .cal-cv[data-drag="e"], .cal-stage.dragging .cal-cv[data-drag="e"] *, .cal-stage.dragging .cal-cv[data-drag="w"], .cal-stage.dragging .cal-cv[data-drag="w"] * { cursor: ew-resize !important; }
+.cal-stage.dragging .cal-cv[data-drag="nw"], .cal-stage.dragging .cal-cv[data-drag="nw"] *, .cal-stage.dragging .cal-cv[data-drag="se"], .cal-stage.dragging .cal-cv[data-drag="se"] * { cursor: nwse-resize !important; }
+.cal-stage.dragging .cal-cv[data-drag="ne"], .cal-stage.dragging .cal-cv[data-drag="ne"] *, .cal-stage.dragging .cal-cv[data-drag="sw"], .cal-stage.dragging .cal-cv[data-drag="sw"] * { cursor: nesw-resize !important; }
+
+.cal-hint { flex: none; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0 6px; min-height: 40px; margin: 0; padding: 0 16px 4px; text-align: center; }
+.cal-hint .btn { --n-btn-h: 22px; min-height: 0; height: 22px; padding: 0 8px; }
+
+/* collapse handle of the properties column (step 3) */
+.cal-rc { position: absolute; z-index: 6; top: 12px; right: 12px; display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--text-2); box-shadow: var(--shadow-2); cursor: pointer; }
+.cal-rc:hover { background: var(--surface-3); color: var(--text); }
+.cal-rc:focus-visible { outline: 2px solid var(--lav-ink); outline-offset: 2px; }
+
+/* ---- Overlay: selection frame, handles, tag, part boxes, guides ------------ */
+.cal-ovl { position: absolute; width: 0; height: 0; overflow: visible; pointer-events: none; }
+.cal-ovl > .cal-sel, .cal-ovl > .cal-pboxes, .cal-ovl > .cal-gds { pointer-events: none; }
+.cal-ovl-parts > * { pointer-events: auto; }
+.cal-sel { position: absolute; box-sizing: border-box; border: 2px solid var(--lav); border-radius: 2px; pointer-events: none; }
+.cal-sel[hidden] { display: none; }
+.cal-sel.dim { border-style: dashed; opacity: .6; }
+.cal-sel.other { border-width: 1px; border-style: dashed; opacity: .45; }
+.cal-h { position: absolute; box-sizing: border-box; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: var(--surface); border: 2px solid var(--lav); pointer-events: auto; }
+/* a larger invisible grab area around every handle (direction classes are prefixed: the kit owns `.sw`) */
+.cal-h::before { content: ''; position: absolute; inset: -6px; border-radius: 50%; }
+.cal-sel.tight .cal-h::before { content: none; }
+.cal-sel.dim .cal-h { display: none; }
+/* centred exactly on the corners and edge centres of the box: offsets are measured from the padding
+   box, which lies 2 px (the frame's border) inside the box */
+.cal-h-nw { left: -2px; top: -2px; cursor: nwse-resize; }
+.cal-h-n { left: 50%; top: -2px; cursor: ns-resize; }
+.cal-h-ne { left: calc(100% + 2px); top: -2px; cursor: nesw-resize; }
+.cal-h-e { left: calc(100% + 2px); top: 50%; cursor: ew-resize; }
+.cal-h-se { left: calc(100% + 2px); top: calc(100% + 2px); cursor: nwse-resize; }
+.cal-h-s { left: 50%; top: calc(100% + 2px); cursor: ns-resize; }
+.cal-h-sw { left: -2px; top: calc(100% + 2px); cursor: nesw-resize; }
+.cal-h-w { left: -2px; top: 50%; cursor: ew-resize; }
+.cal-tag { position: absolute; left: -2px; top: calc(100% + 8px); padding: 3px 9px; border-radius: 999px; background: var(--lav); color: var(--on-accent); font-size: 11px; font-weight: 700; line-height: 1.3; white-space: nowrap; pointer-events: none; }
+.cal-sel.tag-in .cal-tag { top: auto; bottom: 8px; left: 8px; }
+.cal-pboxes, .cal-gds { position: absolute; left: 0; top: 0; width: 0; height: 0; }
+.cal-pbox { position: absolute; box-sizing: border-box; border: 1.5px dashed var(--pch); border-radius: 3px; background: color-mix(in srgb, var(--pch) 12%, transparent); }
+.cal-gd { position: absolute; background: var(--rose); }
+.cal-gd.v { width: 1px; margin-left: -.5px; }
+.cal-gd.hz { height: 1px; margin-top: -.5px; }
+
+/* ---- Narrower windows ------------------------------------------------------- */
+@media (max-width: 1150px) {
+    .cal-link { gap: 0; padding: 0 9px; }
+    .cal-link-t { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+    .cal-stage-bar .cal-pgsep, .cal-stage-note { display: none; }
+}
+@media (max-width: 1100px) {
+    .cal-b3 { grid-template-columns: 190px minmax(0, 1fr) 270px; }
+    .cal-b3:has(.cal-stage.panel-off) { grid-template-columns: 190px minmax(0, 1fr); }
+    .cal-cvw { padding: 12px 32px; }
+}
+@media (max-width: 960px) {
+    /* the side panels stack under the page instead of disappearing (handoff §8) */
+    .cal-b3, .cal-b3:has(.cal-stage.panel-off) { grid-template-columns: minmax(0, 1fr); align-content: start; }
+    .cal-b3 .cal-center { order: -1; overflow: visible; }
+    .cal-b3:has(.cal-stage.panel-off) > .cal-right { display: block; }
+    .cal-left, .cal-right { border: 0; border-top: 1px solid var(--line); overflow: visible; }
+    .cal-rc { display: none; }
+    .cal-stage { min-height: 0; }
+    .cal-stage-bar { padding: 6px 16px 0; }
+    .cal-cvw { flex: none; }
+}
