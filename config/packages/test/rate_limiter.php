@@ -55,6 +55,9 @@ return App::config([
             'landing_lead' => [
                 'storage_service' => 'limiter.storage.test_in_memory',
             ],
+            'calendar_client_upload' => [
+                'storage_service' => 'limiter.storage.test_in_memory',
+            ],
         ],
     ],
 ]);

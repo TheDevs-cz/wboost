@@ -66,6 +66,26 @@ return App::config([
 
                 'cache_pool' => 'cache.landing_lead',
             ],
+
+            /*
+             * Photo uploads through the public client link of a calendar
+             * (UploadClientCalendarAssetController, POST /k/{token}/asset).
+             * Whoever holds the link stores files of up to 10 MB with no
+             * account, so the endpoint must not become free storage. The
+             * controller consumes one token per request under the key
+             * "link token + address".
+             *
+             * 200 per hour: a municipal clerk fills ~55 week photos in one
+             * bulk upload, may repeat the whole batch and still replace a
+             * few dozen single photos within the hour.
+             */
+            'calendar_client_upload' => [
+                'policy' => 'sliding_window',
+                'limit' => 200,
+                'interval' => '1 hour',
+
+                'cache_pool' => 'cache.calendar_client_upload',
+            ],
         ],
     ],
 ]);

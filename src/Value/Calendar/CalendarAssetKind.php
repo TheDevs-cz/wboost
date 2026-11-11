@@ -18,9 +18,14 @@ enum CalendarAssetKind: string
     case Image = 'image';
     case Page = 'page';
 
-    /** A client (link holder / read-only member) uploads photos and event icons only. */
+    /**
+     * A client (link holder / read-only member) uploads photos only — the one
+     * kind that is always a raster (`CalendarAssetUploader` refuses an SVG as
+     * a photo). No client tool needs any other kind: custom icons belong to
+     * the layout, which a client cannot change.
+     */
     public function clientMayUpload(): bool
     {
-        return $this === self::Photo || $this === self::Icon;
+        return $this === self::Photo;
     }
 }

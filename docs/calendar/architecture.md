@@ -664,7 +664,7 @@ its own `#[IsGranted]`; every POST checks the CSRF token id `calendar`
 | `calendar_delete` | POST `/calendar/{calendarId}/delete` | `CalendarVoter::EDIT` + CSRF | 302 → `calendars` with flash `Kalendář „{name}“ smazán` |
 | `calendar_client` | GET `/k/{token}` | public | standalone client page |
 | `calendar_client_save` | POST `/k/{token}/save` | public (token) | §C.5, actor = client |
-| `calendar_client_asset` | POST `/k/{token}/asset` | public (token) | §C.7, kinds `photo`, `icon` only |
+| `calendar_client_asset` | POST `/k/{token}/asset` | public (token) | §C.7, kind `photo` only; rate limited per link + address (`calendar_client_upload`, 200 / hour → 429 `{ error }`) |
 | `calendar_client_history` | GET `/k/{token}/history` | public (token) | as `calendar_history` |
 
 `{token}` has the requirement `[a-f0-9]{64}`; an unknown token is a 404. `{calendarId}` has the
@@ -816,7 +816,7 @@ Labels the client sends: page-keyed collections → the page title (`5. týden`,
 `CalendarAssetUploader`): multipart `_token`, `kind`, `file`. A file over 10 MB is refused first with
 `Soubor je větší než 10 MB.`; a refused kind for a client is 403.
 
-1. CSRF → actor → kind allowed for the actor (client: `photo`, `icon`).
+1. CSRF → actor → kind allowed for the actor (client: `photo` only, so a client can never store an SVG).
 2. `kind = page` and the upload is a PDF (`%PDF` magic, ≤ 10 MB) → `RasterizePdfPage` → continue with
    the PNG bytes. Otherwise validate with `Image(maxSize: self::MAX_SIZE)` (`MAX_SIZE = '10m'`, the
    decimal 10 MB; JS mirror `env.maxFileSize = 10000000` — record this mirror in
