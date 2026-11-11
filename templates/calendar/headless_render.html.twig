@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="cs">
+<head>
+    <meta charset="utf-8">
+    <title>calendar page</title>
+    {# One calendar page drawn by the calendar's own renderer inside Gotenberg's
+       Chromium (Services/Calendar/CalendarPageRenderer). Self-contained: the ES
+       modules are an import map of data: URLs, fonts and pictures are data URIs. #}
+    <style>
+        html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #FFFFFF; overflow: hidden; }
+        #page { width: 100vw; height: 100vh; }
+        #page svg { display: block; }
+    </style>
+    <script type="importmap">{{ import_map|raw }}</script>
+    <script type="application/json" id="boot">{{ boot|raw }}</script>
+    <script type="application/json" id="fonts">{{ font_faces|raw }}</script>
+</head>
+<body>
+    <div id="page"></div>
+    <script type="module">
+        import { renderHeadless } from 'wbcal/headless/render.js';
+
+        const boot = JSON.parse(document.getElementById('boot').textContent);
+        // Project faces as FontFace objects, loaded BEFORE anything is measured (a canvas never
+        // triggers a declarative @font-face) — the way template_variant_render.html.twig does it.
+        const fontFaces = JSON.parse(document.getElementById('fonts').textContent);
+        await Promise.all(fontFaces.map(async (face) => {
+            try {
+                const fontFace = new FontFace(face.family, 'url("' + face.src + '")');
+                await fontFace.load();
+                document.fonts.add(fontFace);
+            } catch (fontError) {
+                // one corrupt face must not take the page down: that family falls back
+                console.warn('Font load failed: ' + face.family, fontError);
+            }
+        }));
+        // An uncaught rejection is what tells Gotenberg (failOnConsoleExceptions) the render failed.
+        await renderHeadless(boot, document.getElementById('page'));
+        // a beat for the paint (a timer, not requestAnimationFrame: a headless tab may never get a frame)
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        window.calendarRendered = true;
+    </script>
+</body>
+</html>
