@@ -1,0 +1,375 @@
+{
+    "v": 1,
+    "boxes": {
+        "head": {
+            "x": -5,
+            "y": -5,
+            "w": 320,
+            "h": 32
+        },
+        "photo": {
+            "x": -5,
+            "y": 27,
+            "w": 202,
+            "h": 123
+        },
+        "cal": {
+            "x": 197,
+            "y": 27,
+            "w": 118,
+            "h": 112
+        },
+        "month": {
+            "x": 203,
+            "y": 12.5,
+            "w": 101,
+            "h": 14.5
+        },
+        "wk": {
+            "x": 203,
+            "y": 139,
+            "w": 101,
+            "h": 4.5
+        },
+        "cap": {
+            "x": 5,
+            "y": 135,
+            "w": 93,
+            "h": 5.5
+        },
+        "logo": {
+            "x": 168.5,
+            "y": 31,
+            "w": 23.5,
+            "h": 23.5
+        },
+        "qr": {
+            "x": 170.5,
+            "y": 116.5,
+            "w": 21,
+            "h": 21
+        }
+    },
+    "order": [
+        "qr",
+        "logo",
+        "cap",
+        "wk",
+        "month",
+        "head",
+        "cal",
+        "photo"
+    ],
+    "styles": {
+        "photo": {
+            "source": "client",
+            "radius": 0,
+            "border": {
+                "on": false,
+                "width": 0.7,
+                "color": "#FFFFFF"
+            },
+            "shadow": {
+                "on": false,
+                "blur": 3,
+                "opacity": 35,
+                "dx": 1.5,
+                "dy": 2,
+                "color": "#000000"
+            }
+        },
+        "cap": {
+            "family": null,
+            "weight": 400,
+            "size": 9,
+            "color": "#6E6977",
+            "align": "start",
+            "valign": "middle",
+            "pad": 3,
+            "bg": {
+                "colorOn": true,
+                "color": "#D2CED8",
+                "colorOpacity": 100,
+                "gradient": {
+                    "on": false,
+                    "type": "linear",
+                    "angle": 90,
+                    "stops": [
+                        {
+                            "color": "#FFFFFF",
+                            "opacity": 100,
+                            "pos": 0
+                        },
+                        {
+                            "color": "#FFFFFF",
+                            "opacity": 100,
+                            "pos": 100
+                        }
+                    ]
+                },
+                "imageOn": false,
+                "asset": null,
+                "fit": "cover",
+                "imageOpacity": 100
+            }
+        },
+        "logo": {
+            "asset": null,
+            "fit": "contain"
+        },
+        "head": {
+            "bg": {
+                "colorOn": true,
+                "color": "#CBC7D1",
+                "colorOpacity": 100,
+                "gradient": {
+                    "on": false,
+                    "type": "linear",
+                    "angle": 90,
+                    "stops": [
+                        {
+                            "color": "#CBC7D1",
+                            "opacity": 100,
+                            "pos": 0
+                        },
+                        {
+                            "color": "#F6F5F8",
+                            "opacity": 100,
+                            "pos": 100
+                        }
+                    ]
+                },
+                "imageOn": false,
+                "asset": null,
+                "fit": "cover",
+                "imageOpacity": 100
+            },
+            "text": {
+                "family": null,
+                "weight": 800,
+                "size": 15,
+                "color": "#2B2830"
+            }
+        },
+        "month": {
+            "family": null,
+            "weight": 800,
+            "size": 15,
+            "color": "#2B2830",
+            "align": "end",
+            "upper": true,
+            "pad": 3,
+            "bg": {
+                "colorOn": false,
+                "color": "#FFFFFF",
+                "colorOpacity": 100,
+                "gradient": {
+                    "on": false,
+                    "type": "linear",
+                    "angle": 90,
+                    "stops": [
+                        {
+                            "color": "#FFFFFF",
+                            "opacity": 100,
+                            "pos": 0
+                        },
+                        {
+                            "color": "#CBC7D1",
+                            "opacity": 100,
+                            "pos": 100
+                        }
+                    ]
+                },
+                "imageOn": false,
+                "asset": null,
+                "fit": "cover",
+                "imageOpacity": 100
+            }
+        },
+        "wk": {
+            "family": null,
+            "weight": 400,
+            "size": 9.5,
+            "color": "#6E6977",
+            "align": "end",
+            "form": "a"
+        },
+        "qr": {
+            "perPage": false,
+            "asset": null
+        },
+        "bg": {
+            "colorOn": true,
+            "color": "#F6F5F8",
+            "colorOpacity": 100,
+            "gradient": {
+                "on": false,
+                "type": "linear",
+                "angle": 90,
+                "stops": [
+                    {
+                        "color": "#F6F5F8",
+                        "opacity": 100,
+                        "pos": 0
+                    },
+                    {
+                        "color": "#CBC7D1",
+                        "opacity": 100,
+                        "pos": 100
+                    }
+                ]
+            },
+            "imageOn": false,
+            "asset": null,
+            "fit": "cover",
+            "imageOpacity": 100
+        },
+        "cal": {
+            "bg": {
+                "color": null,
+                "opacity": 100
+            },
+            "satColor": "#2F78B7",
+            "sunColor": "#BE3A2E",
+            "numberSide": "end",
+            "numAlign": null,
+            "dayFormat": "full",
+            "dayPosition": "side",
+            "dayAlign": null,
+            "iconSize": 6,
+            "iconGrid": "4",
+            "iconCellW": null,
+            "iconCells": {},
+            "placeLabels": false,
+            "emptyIconSlot": true
+        },
+        "lines": {
+            "on": true,
+            "width": 1,
+            "style": "solid",
+            "color": "#D7D3DC"
+        },
+        "num": {
+            "family": null,
+            "weight": 800,
+            "size": 28,
+            "color": "#2B2830"
+        },
+        "numSat": {
+            "family": null,
+            "weight": 800,
+            "size": 28,
+            "color": "#2F78B7"
+        },
+        "numSun": {
+            "family": null,
+            "weight": 800,
+            "size": 28,
+            "color": "#BE3A2E"
+        },
+        "numHol": {
+            "family": null,
+            "weight": 800,
+            "size": 28,
+            "color": "#BE3A2E"
+        },
+        "day": {
+            "family": null,
+            "weight": 600,
+            "size": 11,
+            "color": "#6E6977"
+        },
+        "name": {
+            "family": null,
+            "weight": 400,
+            "size": 9.5,
+            "color": "#2B2830"
+        },
+        "hol": {
+            "family": null,
+            "weight": 400,
+            "size": 8,
+            "color": "#BE3A2E",
+            "wrapWidth": null
+        },
+        "ev": {
+            "family": null,
+            "weight": 600,
+            "size": 8,
+            "color": "#2E5A8C",
+            "align": null,
+            "valign": "top",
+            "box": null
+        },
+        "time": {
+            "family": null,
+            "weight": 400,
+            "size": 8,
+            "color": "#6E6977",
+            "position": "text",
+            "align": null,
+            "valign": "bottom"
+        },
+        "shift": {
+            "family": null,
+            "weight": 600,
+            "size": 8,
+            "color": "#6E6977",
+            "bgMode": "alt",
+            "bg": null
+        },
+        "placeText": {
+            "family": null,
+            "weight": 600,
+            "size": 7.5,
+            "color": "#6E6977"
+        },
+        "moon": {
+            "color": "#2B2830",
+            "size": 5,
+            "valign": "middle",
+            "phases": [
+                true,
+                true,
+                true,
+                true
+            ],
+            "icons": [
+                null,
+                null,
+                null,
+                null
+            ]
+        },
+        "icons": {
+            "order": [
+                "waste",
+                "moon"
+            ],
+            "ev": {
+                "name": "Akce",
+                "asset": null,
+                "perEvent": false
+            },
+            "time": {
+                "asset": null,
+                "color": "#2B2830"
+            },
+            "season": {
+                "mode": "four",
+                "asset": null,
+                "assets": [
+                    null,
+                    null,
+                    null,
+                    null
+                ],
+                "color": "#2B2830"
+            }
+        },
+        "waste": {
+            "kinds": {}
+        },
+        "offsets": {}
+    }
+}
