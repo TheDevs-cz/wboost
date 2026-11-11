@@ -163,7 +163,48 @@ function layoutFrame(c, f) {
     // towards the number: right-aligned when the text column lies left of the numbers
     const textAnchor = textCol.x + textCol.w / 2 < numCol.x + numCol.w / 2 ? 'end' : 'start';
 
-    const holWrapW = Math.min(S.hol.wrapWidth || colW, colW);
+    // E.6.5 text blocks of the normal mode, measured up front: the default event box ends at the widest line
+    const eventsOn = Boolean(features.events);
+    const defaultEvBox = eventsOn && !compact && !S.ev.box;
+    const dS = sz('day');
+    const nmS = sz('name');
+    let blocks = null;
+    let holWrapW = Math.min(S.hol.wrapWidth || colW, colW);
+    let textWidest = 0;
+    if (!compact) {
+        const dayFont = font('day');
+        const nameFont = font('name');
+        const holFont = font('hol');
+        const timeFont = font('time');
+        const widest = (list) => list.reduce((m, line) => Math.max(m, width(line.text, line.font)), 0);
+        blocks = infos.map((info) => {
+            const dayColor = info.holiday || info.wd === 6 ? S.cal.sunColor : info.wd === 5 ? S.cal.satColor : S.day.color;
+            const lines = [];
+            if (!above) lines.push({ part: 'day', text: dayLabel(info), font: dayFont, fill: dayColor });
+            const nameLines = wrapText(info.names, colW, nameFont, measurer, { maxLines: 2 });
+            for (const line of nameLines) lines.push({ part: 'name', text: line, font: nameFont, fill: S.name.color });
+            return { lines, nameLines: nameLines.length };
+        });
+        // beside a default event box a long holiday wraps at half the column, so the events keep their room
+        // — but never so narrow that a wrapped holiday would leave its row
+        if (defaultEvBox && !S.hol.wrapWidth) {
+            holWrapW = Math.min(colW, Math.max(colW / 2, ...blocks.map((b) => widest(b.lines))));
+            const fits = (wrapW) => blocks.every((block, i) => {
+                const used = block.lines.reduce((sum, line) => sum + 1.22 * line.font.sizeMm, 0);
+                return used + wrapText(infos[i].holiday, wrapW, holFont, measurer).length * 1.22 * holFont.sizeMm <= rh - 0.4;
+            });
+            while (holWrapW < colW && !fits(holWrapW)) holWrapW = Math.min(colW, holWrapW + 2);
+        }
+        blocks.forEach((block, i) => {
+            const info = infos[i];
+            for (const line of wrapText(info.holiday, holWrapW, holFont, measurer)) block.lines.push({ part: 'hol', text: line, font: holFont, fill: S.hol.color });
+            const timeText = info.timeTexts.join(' · ');
+            if (timeText && S.time.position === 'text') block.lines.push({ part: 'time', text: timeText, font: timeFont, fill: S.time.color });
+            textWidest = Math.max(textWidest, widest(block.lines));
+        });
+    }
+    // the same box in both frames of a page: the page-wide widest text wins
+    const evTextW = Math.min(colW, Math.max(textWidest, c.evTextW || 0));
     const holWrap = { x: textAnchor === 'end' ? textCol.x + textCol.w - holWrapW : textCol.x, w: holWrapW };
 
     const offsets = S.offsets || {};
@@ -172,7 +213,6 @@ function layoutFrame(c, f) {
     const Hc = rh - 1.2;
     const cells = grid ? gridCells(grid, cellW, Hc) : [];
     const cellConf = (grid && S.cal.iconCells && S.cal.iconCells[grid]) || {};
-    const eventsOn = Boolean(features.events);
 
     const rows = infos.map((info, i) => {
         const t = inner.y + i * rh;
@@ -361,19 +401,9 @@ function layoutFrame(c, f) {
             if (eventsOn && info.eventsDropped > 0) eventOverflow = true;
         } else {
             // E.6.5 stacked text block
-            const dS = sz('day');
-            const nmS = sz('name');
-            const nameFont = font('name');
-            const holFont = font('hol');
             const timeFont = font('time');
-            const nameLines = wrapText(info.names, colW, nameFont, measurer, { maxLines: 2 });
-            const holLines = wrapText(info.holiday, holWrapW, holFont, measurer);
-            const lines = [];
-            if (!above) lines.push({ part: 'day', text: dayLabel(info), font: font('day'), fill: dayColor });
-            for (const line of nameLines) lines.push({ part: 'name', text: line, font: nameFont, fill: S.name.color });
-            for (const line of holLines) lines.push({ part: 'hol', text: line, font: holFont, fill: S.hol.color });
-            if (timeText && S.time.position === 'text') lines.push({ part: 'time', text: timeText, font: timeFont, fill: S.time.color });
-            const base = 1.22 * ((above ? 0 : dS) + nmS * Math.max(1, nameLines.length));
+            const { lines, nameLines } = blocks[i];
+            const base = 1.22 * ((above ? 0 : dS) + nmS * Math.max(1, nameLines));
             let total = 0;
             for (const line of lines) total += 1.22 * line.font.sizeMm;
             let y = t + (rh - base) / 2;
@@ -383,18 +413,29 @@ function layoutFrame(c, f) {
                 text(line.part, tx, y, line.text, line.font, textAnchor, line.fill);
                 y += 0.22 * line.font.sizeMm;
             }
-            // lines beyond weekday + one name line (holiday, time, a wrapped name) reach into the default event area
-            const extraEnd = total > base + 0.01 ? y : null;
 
             // E.6.6 event box
             if (eventsOn) {
                 const evFont = font('ev');
                 const eS = evFont.sizeMm;
                 const stored = S.ev.box;
-                const by = stored ? stored.y : Math.min(rh - 1.5 * eS, (rh + base) / 2 + 0.35 * nmS);
-                const bx = stored ? stored.x : 0;
-                const bw = stored ? Math.max(K.EVBOX_MIN_W, stored.w) : colW;
-                const bh = stored ? Math.max(K.EVBOX_MIN_H, stored.h) : Math.max(K.EVBOX_MIN_H, rh - 0.6 - by);
+                let bx;
+                let by;
+                let bw;
+                let bh;
+                if (stored) {
+                    bx = stored.x;
+                    by = stored.y;
+                    bw = Math.max(K.EVBOX_MIN_W, stored.w);
+                    bh = Math.max(K.EVBOX_MIN_H, stored.h);
+                } else {
+                    // default: the free part of the text column beside the day text, the whole row height
+                    const free = textFlow[1] - textFlow[0] - evTextW - K.EVBOX_GAP;
+                    bw = Math.max(K.EVBOX_MIN_W, free);
+                    bx = side === 'middle' ? textFlow[1] - textFlow[0] - bw : 0;
+                    by = K.EVBOX_PAD_Y;
+                    bh = Math.max(K.EVBOX_MIN_H, rh - 2 * K.EVBOX_PAD_Y);
+                }
                 const s = span(textFlow[0] + bx, textFlow[0] + bx + bw);
                 const off = offsetOf('ev');
                 const raw = { x: s.x, y: t + by, w: bw, h: bh };
@@ -403,13 +444,12 @@ function layoutFrame(c, f) {
                 for (const event of info.events) evLines.push(...wrapText(event.text, bw, evFont, measurer));
                 const lh = 1.2 * eS;
                 const blockH = evLines.length * lh;
-                const align = S.ev.align || textAnchor;
+                const align = S.ev.align || opposite(textAnchor);
                 const ex = anchorX(raw, align);
-                let top = S.ev.valign === 'middle' ? raw.y + (bh - blockH) / 2 : S.ev.valign === 'bottom' ? raw.y + bh - blockH : raw.y;
-                // default box only: events never print over the day's own holiday / time lines
-                if (!stored && extraEnd !== null && evLines.length && top < extraEnd) top = extraEnd;
+                // a block taller than its box starts at the top, so it never prints over the row above
+                const top = blockH > bh ? raw.y : S.ev.valign === 'middle' ? raw.y + (bh - blockH) / 2 : S.ev.valign === 'bottom' ? raw.y + bh - blockH : raw.y;
                 evLines.forEach((line, j) => text('ev', ex, top + j * lh + 0.86 * eS, line, evFont, align, S.ev.color));
-                eventOverflow = evLines.length > 0 && (Math.max(0, top - raw.y) + blockH > bh + 0.15 || blockH > bh + 0.15);
+                eventOverflow = evLines.length > 0 && blockH > bh + 0.15;
                 if (info.eventsDropped > 0) eventOverflow = true;
             }
 
@@ -475,6 +515,7 @@ function layoutFrame(c, f) {
         iconZone: keys.length ? { x: zoneSpan.x + iconOffset.x, w: iconsW, cols, cellW } : null,
         numberColumn: { x: numCol.x, w: numCol.w },
         evOffset: { ...offsetOf('ev') },
+        textWidest,
         styles: S,
         rows,
     };
@@ -498,9 +539,21 @@ export function layoutWeekPage(doc, page, opts) {
         const b = layout.boxes[key];
         boxes[key] = { x: b.x, y: b.y, w: b.w, h: b.h };
     }
-    const frames = [];
-    for (let f = 0; f < page.week.frames.length; f++) {
-        if (layout.boxes[f === 1 ? 'cal2' : 'cal']) frames.push(layoutFrame(c, f));
+    const build = () => {
+        const list = [];
+        for (let f = 0; f < page.week.frames.length; f++) {
+            if (layout.boxes[f === 1 ? 'cal2' : 'cal']) list.push(layoutFrame(c, f));
+        }
+        return list;
+    };
+    let frames = build();
+    if (frames.length > 1 && design.features.events && !layout.styles.ev.box) {
+        // both frames of a 14-day page get the same default event box
+        const widest = Math.max(...frames.map((f) => f.textWidest));
+        if (frames.some((f) => f.textWidest < widest - 0.01)) {
+            c.evTextW = widest;
+            frames = build();
+        }
     }
 
     const month = monthTextSpec(layout.styles, fonts, page.week.monthText);

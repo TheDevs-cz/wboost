@@ -300,7 +300,7 @@ bg:    fill({ colorOn: true, color: '#F6F5F8', stops: ['#F6F5F8', '#CBC7D1'] })
 cal:   { bg: { color: null, opacity: 100 }, satColor: sat, sunColor: red, numberSide: 'end', numAlign: null, dayFormat: 'full', dayPosition: 'side', dayAlign: null,
          iconSize: 6, iconGrid: '4', iconCellW: null, iconCells: {}, placeLabels: false, emptyIconSlot: true }
 lines: { on: true, width: 1, style: 'solid', color: line }
-hol.wrapWidth: null;  ev: { align: null, valign: 'top', box: null };  time: { position: 'text', align: null, valign: 'bottom' }
+hol.wrapWidth: null;  ev: { align: null, valign: 'middle', box: null };  time: { position: 'text', align: null, valign: 'bottom' }
 shift: { bgMode: 'alt', bg: null }
 moon:  { color: ink, size: 5, valign: 'middle', phases: [true, true, true, true], icons: [null, null, null, null] }
 icons: { order: ['waste', 'moon'], ev: { name: 'Akce', asset: null, perEvent: false }, time: { asset: null, color: ink }, season: { mode: 'four', asset: null, assets: [null, null, null, null], color: ink } }
@@ -487,6 +487,7 @@ All mm unless noted; converted from the prototype's raw units at 0.31 mm per uni
 | `ZONE_END_GAP` | 2 | 6 u | gap between the icon zone and the text column |
 | `EMPTY_SLOT`, `EMPTY_SLOT_W` | 6, 7.5 | 20, 24 u | empty dashed icon slot |
 | `EVBOX_MIN_W`, `EVBOX_MIN_H` | 6, 1.5 | 20 × 4 u | event box minimum |
+| `EVBOX_GAP`, `EVBOX_PAD_Y` | 3, 1 | — | default event box: gap to the widest day text, inset from the row top / bottom (§E.6.6) |
 | `ICON_CELL_MIN` | 2 | 6 u | minimum icon cell width |
 | `HOL_WRAP_MIN` | 6 | 20 u | minimum holiday wrap width |
 | `PART_SNAP_BACK` | 0.3 | 0.75 u | part offset snaps to 0 inside this |
@@ -1033,7 +1034,7 @@ type Warning = { pageIndex: number; kind: 'portrait' | 'dpi' | 'icons' | 'event'
 
 `layoutWeekPage` returns more than `WeekGeometry` promises. Stable extras the UI may use:
 `frames[].box` (the unclipped stored box), `frames[].textAnchor` (`'start' | 'end'`, the text column's
-anchor), `frames[].numberColumn: { x, w }`, `frames[].evOffset: { x, y }` (the `ev` offset applied in
+anchor), `frames[].numberColumn: { x, w }`, `frames[].textWidest` (widest day-text line of the frame, mm), `frames[].evOffset: { x, y }` (the `ev` offset applied in
 that frame). Renderer-internal and free to change: `frames[].styles` (the frame's possibly flipped
 styles), `rows[].items` (draw list: `text` / `rect` / `line` / `icon` / `slot` with final coordinates
 and a `rect` bounding box), `rows[].info` (the `DayInfo`). `iconZone.cols` in row (compact) mode is
@@ -1558,7 +1559,7 @@ physical span is `frame.textColumn`; the text anchor is towards the number.
 **E.6.5 Text block (normal mode).** Lines, top to bottom: weekday (unless `above`; `dayFormat`
 chooses full or short; colour `sunColor` on a holiday or Sunday, `satColor` on Saturday, else
 `day.color`) · name line(s) = `wrapText(info.names, colW, name, m, { maxLines: 2 })` · holiday lines =
-`wrapText(info.holiday, min(S.hol.wrapWidth ?? colW, colW), hol, m)` — **never truncated** · time
+`wrapText(info.holiday, min(S.hol.wrapWidth ?? colW, colW), hol, m)` (narrower beside a default event box, §E.6.6) — **never truncated** · time
 texts joined ` · ` when `S.time.position === 'text'`. Each line advances `size`, draws, then
 `0.22·size`. Vertical start: `base = 1.22·((above ? 0 : sz('day')) + sz('name')·max(1, nameLines))` (a day without a
 name day is centred like its neighbours),
@@ -1568,16 +1569,25 @@ pass `t + rh − 0.5`, centre the whole block instead, but never start above `t 
 `maxLines` joins the remainder onto the last line. `holWrap` = the wrap span anchored like the text.
 
 **E.6.6 Event box and separate time text (normal mode).** Events `info.events` (max 4), size
-`eS = sz('ev')`. Default box (when `S.ev.box` is null): flow `x = 0` from the text column's zone-side
-edge, `w = colW`, `y = min(rh − 1.5·eS, (rh + base)/2 + 0.35·sz('name'))`, `h = rh − 0.6 − y`.
-Stored box: `{ x, y, w ≥ EVBOX_MIN_W, h ≥ EVBOX_MIN_H }`, `x` in flow direction from the same edge.
-Then the part offset `offsets.ev` is added. Lines = every event text wrapped to `w`; line height
-`1.2·eS`; horizontal anchor `S.ev.align ?? (towards the number)`; block placed by `S.ev.valign`.
+`eS = sz('ev')`. **Default box** (when `S.ev.box` is null) — the free area of the row *beside* the day
+text, as the client's printed calendars do (reference `chotebuz-7d-week-06.png`, edge-cases PDF p. 1):
+`textW` = the widest line of any text block (weekday, name lines, holiday lines, time text) of **the
+page** (both frames of a 14-day page share the larger value, so the box mirrors exactly), capped to
+`colW`. Number side `start` / `end`: flow `x = 0` from the text column's zone-side edge (i.e. right
+after the icon zone, or after `ROW_PAD` when nothing is reserved), `w = colW − textW − EVBOX_GAP`.
+Number side `middle`: the far part of the text column, `x = textW + EVBOX_GAP`, same `w`. Always
+`w ≥ EVBOX_MIN_W` (a page whose day text leaves less cannot avoid touching it — the overflow warning
+tells), `y = EVBOX_PAD_Y`, `h = rh − 2·EVBOX_PAD_Y`. While the default box is in use and
+`hol.wrapWidth` is null, a holiday wraps at `max(colW / 2, widest weekday / name line)` instead of
+`colW`, widened in 2 mm steps (up to `colW`) until every wrapped holiday of the frame stays inside
+its row — so a long holiday name does not take the events' room.
+Stored box: `{ x, y, w ≥ EVBOX_MIN_W, h ≥ EVBOX_MIN_H }`, `x` in flow direction from the same edge,
+used exactly as placed. Then the part offset `offsets.ev` is added. Lines = every event text wrapped
+to `w`, the events stacked; line height `1.2·eS`; horizontal anchor `S.ev.align ?? (away from the
+number)`; block placed by `S.ev.valign` (default `middle`), but a block taller than the box starts at
+the box top so it never prints over the row above.
 `eventOverflow = lines·1.2·eS > h + 0.15 || info.eventsDropped > 0`. Text is clipped by nothing and
-never moves other parts. With the **default** box only (`S.ev.box === null`), on a day whose text block
-has lines beyond weekday + one name line (holiday, time text, a wrapped name) the event lines start
-under that block instead of printing over it, and the lost height counts towards `eventOverflow` —
-so such a day warns instead of overlapping. A stored box is always used exactly as placed. Time text with `position: 'sep'`: size `min(sz('time'), 0.4·rh)`, anchored
+never moves other parts. Time text with `position: 'sep'`: size `min(sz('time'), 0.4·rh)`, anchored
 at the text column's left / centre / right by `S.time.align ?? (away from the number)`, vertically
 `top`: `t + 1 + size`, `middle`: `t + rh/2 + 0.36·size`, `bottom`: `t + rh − 1 − 0.2·size`.
 

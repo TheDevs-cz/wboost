@@ -57,6 +57,8 @@ export const K = Object.freeze({
     EMPTY_SLOT_W: 7.5,
     EVBOX_MIN_W: 6,
     EVBOX_MIN_H: 1.5,
+    EVBOX_GAP: 3,
+    EVBOX_PAD_Y: 1,
     ICON_CELL_MIN: 2,
     HOL_WRAP_MIN: 6,
     PART_SNAP_BACK: 0.3,

@@ -88,7 +88,7 @@ export function defaultStyles(env = {}) {
         day: text(600, 11, mut),
         name: text(400, 9.5, ink),
         hol: { ...text(400, 8, red), wrapWidth: null },
-        ev: { ...text(600, 8, accent), align: null, valign: 'top', box: null },
+        ev: { ...text(600, 8, accent), align: null, valign: 'middle', box: null },
         time: { ...text(400, 8, mut), position: 'text', align: null, valign: 'bottom' },
         shift: { ...text(600, 8, mut), bgMode: 'alt', bg: null },
         placeText: text(600, 7.5, mut),

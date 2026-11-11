@@ -72,16 +72,16 @@ export default async function (t, load) {
     });
 
     t.test('C8 event text that does not fit its box', async () => {
-        const long = 'Velmi dlouhý název obecní akce, který se do jednoho řádku pole pro akce rozhodně nevejde';
+        const long = 'Velmi dlouhý název obecní akce, který se do pole pro akce rozhodně nevejde, protože pokračuje dál a dál a ještě dál, až za okraj řádku a ještě o kus dál, a pořád nekončí';
         const one = await makeDoc(load, { features: { events: true }, content: { events: { e1: { date: '2026-12-30', name: long, club: null, icon: null }, e0: { date: '2026-12-29', name: 'Krátká', club: null, icon: null } } } });
         const page = first(one);
         assert.deepEqual(pageWarnings(one, page, base), [{ pageIndex: page.index, kind: 'event', target: { date: '2026-12-30' }, message: '30. 12. — text akce se nevejde do pole pro akce' }]);
         const events = {};
-        for (let i = 0; i < 3; i++) events[`e${i}`] = { date: '2026-12-30', name: `Akce číslo ${i + 1}`, club: null, icon: null };
+        for (let i = 0; i < 3; i++) events[`e${i}`] = { date: '2026-12-30', name: `Akce číslo ${i + 1} s delším popisem místa a času konání`, club: null, icon: null };
         const many = await makeDoc(load, { features: { events: true }, content: { events } });
         assert.deepEqual(pageWarnings(many, first(many), base).map((w) => w.message), ['30. 12. — 3 akce se nevejde do pole pro akce']);
         // a taller box takes them
-        const roomy = await makeDoc(load, { features: { events: true }, content: { events }, styles: (l) => { l.styles.ev.box = { x: 0, y: 1, w: 60, h: 14 }; } });
+        const roomy = await makeDoc(load, { features: { events: true }, content: { events }, styles: (l) => { l.styles.ev.box = { x: 0, y: 0.5, w: 110, h: 14.5 }; } });
         assert.deepEqual(pageWarnings(roomy, first(roomy), base), []);
         // the feature switched off: stored events neither print nor warn
         const off = await makeDoc(load, { features: { events: false }, content: { events } });
@@ -91,7 +91,7 @@ export default async function (t, load) {
     t.test('allWarnings: only pages with warnings, keyed by page index; nothing for non-week pages', async () => {
         const content = {
             pagePhotos: { w03: { asset: 'p', zoom: 1, px: 0.5, py: 0.5 }, w10: { asset: 'p', zoom: 1, px: 0.5, py: 0.5 }, gone: { asset: 'p', zoom: 1, px: 0.5, py: 0.5 } },
-            events: { e1: { date: '2027-06-01', name: 'Velmi dlouhý název obecní akce, který se do jednoho řádku pole pro akce rozhodně nevejde', club: null, icon: null } },
+            events: { e1: { date: '2027-06-01', name: 'Velmi dlouhý název obecní akce, který se do pole pro akce rozhodně nevejde, protože pokračuje dál a dál a ještě dál, až za okraj řádku a ještě o kus dál, a pořád nekončí', club: null, icon: null } },
         };
         const doc = await makeDoc(load, { features: { events: true }, content });
         const pages = buildPages(doc);

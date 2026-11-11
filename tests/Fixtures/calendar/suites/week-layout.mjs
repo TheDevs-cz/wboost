@@ -276,35 +276,93 @@ export default async function (t, load) {
         near(assert, geo(over).frames[0].holWrap.w, b.frames[0].textColumn.w, 'capped', 1e-9);
     });
 
-    t.test('events: the box exists in every row, text wraps inside it and overflow is flagged', async () => {
+    t.test('default event box: the free row area beside the day text, whole row height, no overlap', async () => {
+        const LONG = 'Velmi dlouhý název obecní akce, který se do pole pro akce rozhodně nevejde, protože pokračuje dál a dál a ještě dál, až za okraj řádku a ještě o kus dál';
         const content = { events: {
             e1: { date: '2026-12-29', name: 'Koncert', club: null, icon: null },
-            e2: { date: '2026-12-30', name: 'Velmi dlouhý název obecní akce, který se do jednoho řádku pole pro akce rozhodně nevejde', club: null, icon: null },
+            e2: { date: '2026-12-30', name: LONG, club: null, icon: null },
+            e3: { date: '2027-01-02', name: 'Novoroční turnaj ve stolním tenise', club: null, icon: null },
         } };
+        const overlap = (a, b) => a.x < b.x + b.w - 0.01 && b.x < a.x + a.w - 0.01 && a.y < b.y + b.h - 0.01 && b.y < a.y + a.h - 0.01;
+        for (const o of [{}, { preset: 'photoRight' }, { type: 'fortnight' }, { styles: (l) => { l.styles.cal.numberSide = 'middle'; } }, { styles: (l) => { l.styles.cal.numberSide = 'start'; } }, { styles: (l) => { l.styles.cal.dayPosition = 'above'; } }, { features: { events: true, moon: false }, styles: (l) => { l.styles.cal.emptyIconSlot = false; } }]) {
+            const doc = await makeDoc(load, { features: { events: true }, content, ...o });
+            const g = geo(doc);
+            const label = JSON.stringify(o.preset || o.type || (o.styles ? String(o.styles) : 'photoLeft'));
+            const first = g.frames[0].rows[0].eventBox;
+            for (const f of g.frames) {
+                for (const row of f.rows) {
+                    const box = row.eventBox;
+                    assert.ok(box, `${label} ${row.date} has a box`);
+                    near(assert, box.y, row.y + K.EVBOX_PAD_Y, 'whole row minus the padding', 1e-9);
+                    near(assert, box.h, row.h - 2 * K.EVBOX_PAD_Y, 'height', 1e-9);
+                    near(assert, box.w, first.w, 'the same width in every row and frame', 1e-6);
+                    assert.ok(box.x >= f.textColumn.x - 0.01 && box.x + box.w <= f.textColumn.x + f.textColumn.w + 0.01, `${label}: inside the text column`);
+                    // a page whose day text leaves less than the minimum box width cannot avoid touching it
+                    if (box.w <= K.EVBOX_MIN_W + 0.01) continue;
+                    for (const r of f.rows) {
+                        for (const item of r.items) {
+                            if (item.part === 'ev' || item.part === 'line' || (item.part === 'shift' && item.type === 'rect')) continue;
+                            assert.ok(!overlap({ ...box, y: r.y + K.EVBOX_PAD_Y }, item.rect), `${label} ${r.date}: the box overlaps ${item.part} "${item.text || item.type}"`);
+                        }
+                    }
+                }
+                if (f.iconZone) assert.ok(first.x >= 0 && (f.rows[0].eventBox.x >= f.iconZone.x + f.iconZone.w - 0.01 || f.rows[0].eventBox.x + f.rows[0].eventBox.w <= f.iconZone.x + 0.01), `${label}: clear of the icon zone`);
+            }
+            // aligned away from the number side
+            const f0 = frameOf(g, '2026-12-29');
+            const ev = itemsOf(rowOf(g, '2026-12-29'), 'ev')[0];
+            assert.equal(ev.anchor, f0.textAnchor === 'end' ? 'start' : 'end', `${label}: away from the number`);
+        }
+
         const doc = await makeDoc(load, { features: { events: true }, content });
         const g = geo(doc);
         const f = g.frames[0];
-        for (const row of f.rows) {
-            assert.ok(row.eventBox, `${row.date} has a box`);
-            near(assert, row.eventBox.x, f.textColumn.x, 'default box spans the text column', 1e-9);
-            near(assert, row.eventBox.w, f.textColumn.w, 'default width', 1e-9);
-            assert.ok(row.eventBox.y > row.y && row.eventBox.y + row.eventBox.h <= row.y + row.h, 'inside the row');
-            near(assert, row.eventBox.y - row.y, f.rows[0].eventBox.y - f.rows[0].y, 'same place in every row', 1e-9);
-        }
         const short = rowOf(g, '2026-12-29');
+        near(assert, short.eventBox.x, f.textColumn.x, 'starts at the zone side of the text column', 1e-9);
+        near(assert, short.eventBox.w, f.textColumn.w - f.textWidest - K.EVBOX_GAP, 'ends a gap before the widest day text of the page', 1e-9);
+        assert.ok(short.eventBox.w > 20, `room for events: ${short.eventBox.w}`);
         assert.equal(short.eventOverflow, false);
         assert.deepEqual(itemsOf(short, 'ev').map((i) => i.text), ['Koncert']);
+        // a two-line event fits the default 7-day row without a warning
+        const two = rowOf(g, '2027-01-02');
+        const twoLines = itemsOf(two, 'ev');
+        assert.equal(twoLines.length, 2, twoLines.map((l) => l.text).join(' | '));
+        assert.equal(two.eventOverflow, false);
+        for (const line of twoLines) assert.ok(line.rect.y >= two.y && line.rect.y + line.rect.h <= two.y + two.h, 'inside its row');
+        // a very long one warns, and starts at the top of the box instead of printing over the row above
         const long = rowOf(g, '2026-12-30');
         assert.equal(long.eventOverflow, true);
         const lines = itemsOf(long, 'ev');
-        assert.ok(lines.length > 1);
-        assert.equal(lines.map((l) => l.text).join(' '), content.events.e2.name);
+        assert.equal(lines.map((l) => l.text).join(' '), LONG);
         for (const line of lines) insideX(line.rect, { x: long.eventBox.x, w: long.eventBox.w }, 'event line');
+        assert.ok(lines[0].rect.y >= long.y, 'never above its own row');
         assert.equal(rowOf(g, '2026-12-28').eventOverflow, false, 'a day without events never overflows');
-        // event text never moves other parts
+        // the long holiday of 1 January keeps to its side and stays in its row
+        const ny = rowOf(g, '2027-01-01');
+        for (const item of itemsOf(ny, 'hol')) assert.ok(item.rect.y >= ny.y && item.rect.y + item.rect.h <= ny.y + ny.h + 0.01, 'holiday inside its row');
+        // event text never moves the weekday or the number
         const plain = geo(await makeDoc(load));
-        for (const part of ['day', 'name', 'num']) assert.deepEqual(partRect(long, part), partRect(rowOf(plain, '2026-12-30'), part));
+        for (const part of ['day', 'num']) assert.deepEqual(partRect(long, part), partRect(rowOf(plain, '2026-12-30'), part));
         assert.equal(rowOf(plain, '2026-12-30').eventBox, null, 'no box while events are off');
+    });
+
+    t.test('default event box: four events stack as lines; 14-day frames mirror it', async () => {
+        const events = {};
+        for (let i = 0; i < 4; i++) events[`e${i}`] = { date: '2027-01-05', name: `Akce ${i + 1}`, club: null, icon: null };
+        events.left = { date: '2026-12-29', name: 'Koncert', club: null, icon: null };
+        const week = await makeDoc(load, { features: { events: true }, content: { events } });
+        const row = rowOf(geo(week, '2027-01-05'), '2027-01-05');
+        assert.deepEqual(itemsOf(row, 'ev').map((i) => i.text), ['Akce 1', 'Akce 2', 'Akce 3', 'Akce 4']);
+        assert.equal(row.eventOverflow, false);
+        const fort = await makeDoc(load, { type: 'fortnight', features: { events: true }, content: { events } });
+        const g = geo(fort, '2027-01-05');
+        const [f1, f2] = g.frames;
+        const W = fort.design.page.width;
+        const b1 = f1.rows[1].eventBox;
+        const b2 = f2.rows[1].eventBox;
+        near(assert, b2.x, W - (b1.x + b1.w), 'mirrored box', 1e-6);
+        near(assert, b2.w, b1.w, 'same width', 1e-6);
+        assert.deepEqual([itemsOf(f1.rows[1], 'ev')[0].anchor, itemsOf(f2.rows[1], 'ev')[0].anchor], ['end', 'start']);
     });
 
     t.test('the event box follows styles.ev.box (flow-anchored) and its offset', async () => {
@@ -336,7 +394,8 @@ export default async function (t, load) {
         const gd = geo(def);
         const stored = P.defaultEventBox(gd.frames[0], gd.frames[0].rows[0]);
         assert.equal(stored.x, 0);
-        near(assert, stored.w, gd.frames[0].textColumn.w, 'w', 0.051);
+        near(assert, stored.w, gd.frames[0].textColumn.w - gd.frames[0].textWidest - K.EVBOX_GAP, 'w', 0.051);
+        assert.deepEqual([stored.y, Math.round((stored.h + 2) * 10) / 10], [K.EVBOX_PAD_Y, Math.round(gd.frames[0].rowHeight * 10) / 10]);
     });
 
     t.test('more than four events on a day: four are laid out, the overflow is flagged', async () => {
