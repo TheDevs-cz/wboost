@@ -17,8 +17,9 @@ names, comments. **One style, many pages**: pages carry content overrides
 only, never their own layout.
 
 **The one sentence to remember: the browser generates and renders, the server
-stores and guards.** The server never builds a page, knows no page size and no
-feature default. It validates shapes, enforces roles, merges content item by
+stores and guards.** PHP never builds a page, knows no page size and no
+feature default (where the server needs them — the MCP tools — it runs the
+calendar's own JavaScript: § "Server-side model and headless render"). It validates shapes, enforces roles, merges content item by
 item under a row lock, records history, stores files.
 
 ## Data model
@@ -407,8 +408,9 @@ everything else. ~15 000 lines.
 | `ui/` | DOM modules: `dom.js` kit, `topbar`, `step1`, `step2`, `step4`, `step5` (+ overlay, popover), `pagelist`, `pagepanel`, `thumb`, `warnings`, `history`, `client-link`, `editor/*` (stage, overlay, parts overlay, keys, layers, props, props-kal), `controls/*`, `tools/*` | DOM |
 
 **Rule: nothing outside `ui/` and `state/api.js` touches `window`, `document`,
-`fetch` or timers** (exception: `createCanvasMeasurer()` /
-`ensureFontsLoaded()`). Everything else must import cleanly in node — that is
+`fetch` or timers** (exceptions: `createCanvasMeasurer()` /
+`ensureFontsLoaded()`, and `headless/render.js` — the Gotenberg entry, which
+is handed its root element and waits for pictures with a timer). Everything else must import cleanly in node — that is
 what the node suites rely on. Pure functions never mutate their arguments.
 Months are 1-based, weekday `0 = Monday`, dates go through `generate/dates.js`
 (never `new Date(y, m, d)` local time). All user text is escaped through
@@ -556,48 +558,148 @@ Waste rhythms follow ISO week parity (so they shift across a 53-week year).
   not fit the grid, event overflow — all derived from geometry + the asset
   map, nothing stored, never blocking.
 
-## MCP — `src/Mcp/Tool/{ListCalendars,GetCalendar,UpdateCalendarContent}Tool.php`
+## Server-side model and headless render
 
-Scopes `calendars:read` and `calendars:write` (write ⇒ read; **no implication
-to or from the template scopes**, so a calendar-only token cannot call
-`get_context` — hence `list_calendars` without a project lists every reachable
-project's calendars).
+Two things let a calendar be authored and looked at WITHOUT a browser. Neither
+moves a rule out of `assets/calendar/`.
 
-- `list_calendars(projectId?)`, `get_calendar(calendarId)` — the latter is
-  `CalendarDocument` minus `layout.styles`, minus everything of the browser
-  session, and **never the client token** (it grants anonymous write access).
-- `update_calendar_content(calendarId, operations[])` — operations
-  `{collection, id, value|null, label?}` are re-encoded as the web payload's
-  `content` list and go through `CalendarSavePayload::fromJson` and the
-  `SaveCalendar` message: **one write path**, same validation, merge, history,
-  revision. The payload has no `design` and no `finish`, and an operation with
-  any other key is refused, so a design change cannot be phrased. A missing
-  `value` is refused rather than read as a delete.
-- Actor = `CalendarAccess::forUser` (the web rule): EDIT → designer, a member
-  with only VIEW → **client**, held to the client whitelist by the handler.
-- Refusals are `message (reason)`: `invalid_calendar_id`, `calendar_not_found`
-  (identical for "not yours"), `invalid_project_id`, `project_not_found`,
-  `no_operations`, `invalid_operation`, `invalid_content` (quotes the Czech
-  `InvalidCalendarChange` text), `designer_only`.
-- Not module-gated and not preview-gated (voters only). What limits exposure
-  before launch: the scopes are not in `User::DEFAULT_MCP_SCOPES`, so an OAuth
-  grant gets them only after an admin ticks them for the user; PATs are minted
-  by the operator. The public `/ai` page and the consent screen do describe
-  them (`DescribeMcpCapabilities`, `DescribeConsentScopes` — both exhaustive).
+**The model in node — `Services/Calendar/CalendarModelBridge` →
+`resources/calendar/model.mjs`.** PHP pipes `{ calendar, assets, env: { fonts,
+palette, currentYear }, commands }` into the script; the script builds the pure
+store (`state/store.js`, designer mode, estimator measurer, an api that never
+sends) from `normalizeDocument()`, runs the commands as store calls and answers
+the payload `buildPayload()` would POST, the materialised design, optionally
+the page list, the warnings and the mm view box of a page. Commands:
+`configure` (`changeType`, `changeYear`, `setPrint`, `setFeature`,
+`setDesign`), `preset` (`choosePreset`, or `replaceLayout(defaultLayout())`
+for a reset), `layout` (a validated patch of boxes / order / styles applied in
+one `store.change()`, normalised and clamped), `replace_layout`
+(`replaceLayout`), `step`. A refused command answers `{ ok: false, code,
+message }` → `CalendarModelRefused`; a broken run → `CalendarModelUnavailable`
+(503). The bridge **never writes**: the caller sends the payload through
+`CalendarSavePayload::fromJson` → `SaveCalendar`.
+
+- Node is part of the application image (`ghcr.io/thedevs-cz/php:8.5-wboost`,
+  the base of dev, CI and production; production runs node 26, checked
+  2026-11-11) and `resources/` is copied into it (`tests/` is not — the script
+  must not move there). Needs node ≥ 22.7, like the suites.
+- One spawn ≈ 60–100 ms, once per MCP calendar call. No web request uses it.
+- What only the script knows (keep in sync with the UI when a control is
+  added): the `ENUMS` table of word-valued style keys and the patch rules
+  (unknown key → refusal naming the key and its siblings; `family` must be a
+  project face; `*color` keys are `#RRGGBB`; `null` only where
+  `defaultStyles()` has `null`; `OPEN_MAPS` entries merge one level, `null`
+  removes). Box and style **keys** are read from the calendar's own layout at
+  run time — nothing is listed twice.
+- **Auto-grow is estimated there.** Měsíc / Číslo týdne grow to their widest
+  text with the estimator measurer (no fonts in node); the browser regrows them
+  with real metrics at the next committed change.
+- JSON objects that pass through PHP arrays come back as lists when empty or
+  keyed `0…n` (`iconCells["4"] = {"0": …}`); the script reads such lists as
+  maps (`asMap`). The payload itself is decoded as `stdClass`, so stored maps
+  stay objects.
+
+**The renderer in Chromium — `Services/Calendar/CalendarPageRenderer`.** One
+page as PNG / WebP through Gotenberg, the vehicle of the template renders:
+`templates/calendar/headless_render.html.twig` loads
+`assets/calendar/headless/render.js` (`normalizeDocument` → `buildPages` →
+`renderPage` with the **canvas** measurer after `ensureFontsLoaded`) — the
+workspace's pipeline, so the picture is what the web shows. Self-contained:
+`CalendarModuleInliner` rewrites every relative import of `model/ generate/
+render/ editor/ headless/` to a bare `wbcal/…` specifier and ships the sources
+as an import map of `data:` URLs (Gotenberg flattens uploaded files and
+`file://` modules are blocked — an import map needs neither); fonts and the
+pictures the page shows are data URIs (`AssetInliner`; the preview derivative
+when there is one). The page list, the view box (→ viewport size) and the
+warnings come from the node model, because a screenshot call can hand no data
+back. A render error is an uncaught exception → Gotenberg 409
+(`failOnConsoleExceptions`); a busy renderer → `TemplateRenderUnavailable`,
+classified by `TemplateVariantImageRenderer::isRendererOverloaded`. Buffered
+bytes only, never a streamed response. Without project fonts the fallback face
+is Chromium's sans-serif, not Outfit (not shipped to Gotenberg).
+
+## MCP — `src/Mcp/Tool/*Calendar*Tool.php`
+
+Seven tools; a calendar can be authored end to end from an AI client. Scopes
+`calendars:read` and `calendars:write` (write ⇒ read; **no implication to or
+from the template scopes**, so a calendar-only token cannot call `get_context`
+— hence `list_calendars` without a project lists every reachable project's
+calendars and `get_calendar` carries the project's fonts and palette).
+
+| Tool | Scope | Does |
+|---|---|---|
+| `list_calendars(projectId?)` | read | the calendars of one / every reachable project |
+| `get_calendar(calendarId, historyLimit?)` | read | `CalendarDocument` materialised by the model: settings, layout **with styles**, `pages` (page keys), content, assets, fonts, palette, history (≤ 200). Never the client token. Falls back to the stored values (`pages: null`) when the model cannot run |
+| `render_calendar_page(calendarId, page, bleed?, marks?, sampleTexts?)` | read | JSON summary + WebP (1600 px) of one stored page |
+| `manage_calendar(action, …)` | write | `create` (`CreateCalendar`, then the settings), `configure` (name, year, type, features, print, linkElements), `finish`, `client_link` (get = `RecordCalendarHistory` LINK_COPIED, `regenerate` = `RegenerateCalendarClientLink`), `import_layout` (`ImportCalendarLayout::plan` + `CopyCalendarAsset` + history, then `replace_layout`) |
+| `set_calendar_layout(calendarId, preset?, reset?, boxes?, order?, styles?)` | write | preset → default layout (or mirror / reset), then a validated patch |
+| `upload_calendar_asset(calendarId, kind, fileBase64, filename)` | write | `CalendarAssetUploader::storeFile()` — the method both web routes end in |
+| `update_calendar_content(calendarId, operations[])` | write | item operations `{collection, id, value\|null, label?}` re-encoded as the web payload's `content` list |
+
+- **One write path.** Design tools phrase model commands; `Mcp/Fill/CalendarWriter`
+  runs the model, parses its payload with `CalendarSavePayload::fromJson` and
+  dispatches `SaveCalendar` — same validation (`CalendarDesignRules`, asset
+  ownership), row lock, history (`Upravil vzhled a nastavení`, coalesced per
+  10 minutes), revision. Content goes the same way without the model. No tool
+  mutates a `Calendar`. A command that changes nothing saves nothing.
+- **Roles are the web's** (`CalendarAccess::forUser`): EDIT → designer; a
+  member with only VIEW → **client** — refused every design call
+  (`designer_only`, checked in `CalendarWriter::designer()` and again by the
+  handler), held to the client collections and to `photo` uploads.
+  `create` needs `ProjectVoter::EDIT`.
+- **`create` validates before it creates**: the settings run on a blank
+  document (`runDocument`) first, so a refused request leaves no calendar. If
+  the server still refuses the save afterwards, the error names the created
+  calendar's id.
+- **The client link** is handed out by `manage_calendar` `client_link` only —
+  write scope + designer role, recorded in the history — never by a read.
+- **No delete**, by rule: no tool removes a calendar or an asset.
+- Refusals are `message (reason)`. Loader: `invalid_calendar_id`,
+  `calendar_not_found` (identical for "not yours"), `invalid_project_id`,
+  `project_not_found`. Content: `no_operations`, `invalid_operation`,
+  `invalid_content` (quotes the Czech `InvalidCalendarChange` text),
+  `designer_only`. Design: the model's codes (`unknown_preset`,
+  `preset_type_mismatch`, `no_layout`, `unknown_box`, `invalid_box`,
+  `not_hideable`, `invalid_order`, `unknown_style_key`,
+  `invalid_style_value`, `unknown_font`, `invalid_color`, `unknown_feature`,
+  `invalid_print`, `invalid_year`, `invalid_type`, `invalid_name`),
+  `invalid_design` (the server's rule, Czech text), `model_unavailable`, and
+  per tool `invalid_action`, `missing_argument`, `nothing_to_do`,
+  `not_a_sibling`, `layout_type_mismatch`, `source_has_no_layout`,
+  `invalid_kind`, `invalid_file`, `file_too_large`, `upload_refused`,
+  `unknown_page`, `renderer_busy`, `render_failed`.
+- Not module-gated (voters only): a calendar created in a project whose
+  Kalendáře module is off exists and is reachable by its URL, but the project
+  navigation does not show the list until the module is switched on.
+- Exposure: the scopes are not in `User::DEFAULT_MCP_SCOPES`, so an OAuth grant
+  gets them only after an admin ticks them for the user; PATs are minted by
+  the operator. **`calendars:write` meant "content only" until 2026-11-11** —
+  a grant made before then now also covers the design (role permitting); the
+  consent screen and `/ai` texts say so (`DescribeConsentScopes`,
+  `DescribeMcpCapabilities` — both exhaustive).
 - Adding a tool or scope touches: `McpScope::grants()`, `DescribeConsentScopes`,
   `DescribeMcpCapabilities`, `EditUserFormType` + `admin/edit_user.html.twig`,
   `plugin/wboost/skills/wboost/SKILL.md` + `references/tools.md`,
   `config/packages/mcp.php` instructions, `docs/mcp/connect.md`,
-  `McpScopeTest`. Tests: `tests/Mcp/Tool/CalendarToolsTest.php`.
+  `McpScopeTest`, `ScopeFilteringTest`. Tests: `tests/Mcp/Tool/CalendarToolsTest.php`
+  (read + content), `CalendarDesignToolsTest.php` (design, uploads, render —
+  the render itself is `#[Group('gotenberg')]`), helpers `CalendarMcpTesting`;
+  `tests/Services/Calendar/CalendarModuleInlinerTest.php`.
 
-No MCP tool creates, renames, deletes or redesigns a calendar, uploads a file
-or renders a page (rendering is browser-only).
+**Not MCP-controllable**, and why: deleting a calendar or an asset (rule);
+the page size (no web UI either — `design.page` is not offered); a layout
+*file* (`exportLayoutFile` / `parseLayoutFile` are a browser download / upload
+— an agent reads `layout` and writes it back instead) and therefore a layout
+from another project; `.docx` → text for a special page (send the text; the
+`page` upload takes an image or a PDF); the editor's undo stack, selection,
+zoom, snap and link behaviour (interaction, not data); a print export (does
+not exist on the web yet).
 
 ## Tests
 
 | Layer | Where | Run |
 |---|---|---|
-| PHP | `tests/Controller/Calendar`, `tests/MessageHandler/Calendar`, `tests/Services/Calendar`, `tests/Mcp/Tool/CalendarToolsTest.php`; fixtures `CALENDAR_{1,2,3}_ID` (+ tokens) in `TestDataFixture`, helpers `CalendarTesting` | `docker compose exec web vendor/bin/phpunit tests/Controller/Calendar …` |
+| PHP | `tests/Controller/Calendar`, `tests/MessageHandler/Calendar`, `tests/Services/Calendar`, `tests/Mcp/Tool/Calendar{Tools,DesignTools}Test.php`; fixtures `CALENDAR_{1,2,3}_ID` (+ tokens) in `TestDataFixture`, helpers `CalendarTesting` | `docker compose exec web vendor/bin/phpunit tests/Controller/Calendar …` |
 | Node suites (every pure rule) | `tests/Fixtures/calendar/suites/*.mjs` + `harness.mjs`, `helpers.mjs` | in CI through `tests/Calendar/CalendarJsTest.php` (data provider globs the suites; a new suite file needs no PHP edit, a suite without a test fails); by hand `node tests/Fixtures/calendar/harness.mjs --all` or `… <suite>` |
 | Contract | `tests/Calendar/CalendarSeedContractTest.php` (PHP seed vs `BUILTIN_WASTE` via `dump-defaults.mjs`) | CI |
 | e2e (real pointer, asserts in mm) | `tests/e2e/calendar/*.e2e.cjs`, `lib/harness.cjs`, `lib/editor.cjs` | `node tests/e2e/calendar/run.cjs [filter]` — **not in CI** |
@@ -696,9 +798,10 @@ Deliberately not built (handoff §2), with the room left for them:
 - **Excel import** for Odpady and Akce a spolky (rule-based, postponed).
 - **Print PDF export.** The renderer is dimensionally exact (mm viewBox, bleed,
   crop marks), but nothing produces a file; `Services/Print/` (PDF/X-1a,
-  FOGRA39 — `templates-render.md`) is the pipeline to reuse, and rendering is
-  browser-only today, so a server export needs the page SVGs from the client
-  or a headless render.
+  FOGRA39 — `templates-render.md`) is the pipeline to reuse; the headless
+  render (`CalendarPageRenderer`, a screen-resolution picture today) is the
+  vehicle — a print export would ask Gotenberg for a PDF of the same page at
+  trim + bleed + marks.
 - **Cover, back and special pages** are drawn as far as the prototype goes;
   their content is not editable beyond the special-page settings (layout
   variant, position, name, uploaded graphic / text).

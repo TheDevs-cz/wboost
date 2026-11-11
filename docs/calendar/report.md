@@ -124,7 +124,15 @@ owned by the parallel hardening work).
 9. ~~One Měsíc and one Číslo týdne on a 14-day page, although the client's real calendars print them per column.~~ Changed on launch day (2026-11-11, product owner's decision): a 14-day page follows the samples — month and week number once per column, each element with two frames (`month` / `month2`, `wk` / `wk2`) that share one style; calendars stored before the change are migrated when opened (`docs/architecture/calendars.md` → "Layout").
 10. A page's own QR code wins in both modes.
 11. Phone: day rows are the tap targets in step 5.
-12. MCP tools list_calendars, get_calendar, update_calendar_content (content only).
+12. MCP: seven tools — list_calendars, get_calendar, render_calendar_page (calendars:read);
+    manage_calendar, set_calendar_layout, upload_calendar_asset, update_calendar_content
+    (calendars:write). A calendar can be created, configured, laid out, styled, filled, finished
+    and LOOKED AT without a browser; deleting stays on the web. Defaults and generation stay in
+    JS: the server runs the calendar's own store in node (resources/calendar/model.mjs) for the
+    save payload and its own renderer in Gotenberg's Chromium for the picture
+    (docs/architecture/calendars.md § "Server-side model and headless render"). Extended
+    2026-11-11 from the three content-only tools the module launched with; calendars:write
+    therefore now covers the design too (designer role only).
 13. Kalendáře is an admin-only preview module until launch.
 14. The public /ai page and the consent screen already describe the calendar tools.
 Plus architecture §G.1 items 1–33 unchanged, except: seasons (item 17) are now computed; PDF special
