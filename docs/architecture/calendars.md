@@ -337,7 +337,7 @@ everything else. ~15 000 lines.
 | Dir | Role | Purity |
 |---|---|---|
 | `model/` | defaults + limits (`defaults.js`), element / part vocabulary (`elements.js`), fonts, presets + mirroring (`layouts.js`), `normalizeDocument` + layout files (`normalize.js`), content collections (`content.js`) | pure |
-| `generate/` | dates (UTC, ISO weeks, Easter), Czech tables (name days, holidays, plurals), page list + page keys (`pages.js`), moon (Meeus ch. 49, Czech civil date), DST + seasons, waste rules, shifts, `dayInfo` (`day.js`) | pure |
+| `generate/` | dates (UTC, ISO weeks, Easter), Czech tables (name days, holidays, plurals), page list + page keys (`pages.js`), moon (Meeus ch. 49, Czech civil date), DST + seasons (`time.js`: equinoxes / solstices by Meeus ch. 27, Czech civil date — never a fixed date), waste rules, shifts, `dayInfo` (`day.js`) | pure |
 | `render/` | `renderPage(doc, page, opts) → SVG string` (`page.js`), week geometry (`week-layout.js`) and markup (`week.js`), cover / back / special pages (`special.js`), built-in icons, `measure.js`, `warnings.js` | pure except the two marked functions in `measure.js` |
 | `editor/` | geometry, hit test, snap, link, drag sessions, part bars, bleed adaptation, auto-grow, zoom | pure |
 | `state/` | `store.js`, `undo.js`, `payload.js` (pure, node-tested) and `api.js` (fetch) | pure except `api.js` |
@@ -598,7 +598,12 @@ or renders a page (rendering is browser-only).
   client view or thumbnails.
 - **Moon phases are computed astronomically** on their Czech civil date (the
   prototype's mean-cycle approximation was off by a day too often). The `moon`
-  suite pins published 2026–2028 instants.
+  suite pins published 2026–2028 instants. **Season starts are computed the
+  same way** (`seasonInstants`, suite `generation`: Meeus' own example + the
+  24 instants of 2025–2030): autumn begins on 23 September in 2026, 2027 and
+  2030, summer on 20 June in 2028. `time.js` carries its own copy of the two
+  small conversions (`deltaT`, Czech UTC offset) that are private in
+  `moon.js` — change both together.
 - **Never hand uploaded bytes to Imagick unchecked** — not even
   `pingImageBlob`. ImageMagick renders SVG through Inkscape and runs MVG / MSL;
   go through `NormalizeImageFormat` / `ImageDecodeLimits::pixelSize`, which

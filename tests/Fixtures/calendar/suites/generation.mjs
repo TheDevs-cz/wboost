@@ -191,10 +191,51 @@ export default async function (t, load) {
         assert.deepEqual(time.timeTexts('2027-03-28', { timeChange: false, seasons: true }), []);
         assert.deepEqual(time.timeTexts('2027-03-20', f), ['Začátek jara']);
         assert.deepEqual(time.timeTexts('2027-06-21', f), ['Začátek léta']);
-        assert.deepEqual(time.timeTexts('2027-09-22', f), ['Začátek podzimu']);
-        assert.deepEqual(time.timeTexts('2027-12-21', f), ['Začátek zimy']);
-        assert.deepEqual(time.timeTexts('2027-12-21', { timeChange: true, seasons: false }), []);
-        assert.deepEqual([time.seasonStart('2027-03-20'), time.seasonStart('2027-06-21'), time.seasonStart('2027-09-22'), time.seasonStart('2027-12-21'), time.seasonStart('2027-12-22')], [0, 1, 2, 3, null]);
+        // 2027: the autumn equinox is on 23 September and the winter solstice on 22 December
+        assert.deepEqual(time.timeTexts('2027-09-23', f), ['Začátek podzimu']);
+        assert.deepEqual(time.timeTexts('2027-12-22', f), ['Začátek zimy']);
+        assert.deepEqual(time.timeTexts('2027-09-22', f), []);
+        assert.deepEqual(time.timeTexts('2027-12-22', { timeChange: true, seasons: false }), []);
+        assert.deepEqual([time.seasonStart('2027-03-20'), time.seasonStart('2027-06-21'), time.seasonStart('2027-09-23'), time.seasonStart('2027-12-22'), time.seasonStart('2027-12-21')], [0, 1, 2, 3, null]);
+    });
+
+    t.test('seasons start at the astronomical equinox / solstice, on its Czech civil date', () => {
+        // Meeus, Astronomical Algorithms, example 27.a: June solstice 1962 = JDE 2437837.39245
+        // (21 June 1962, 21:24:42 TD) — the algorithm's own published check.
+        assert.ok(Math.abs(time.seasonJde(1962, 1) - 2437837.39245) < 0.00002, String(time.seasonJde(1962, 1)));
+
+        // published instants (UTC); [season, date, time, Czech civil date]
+        const KNOWN = [
+            [0, '2025-03-20', '09:01', '2025-03-20'], [1, '2025-06-21', '02:42', '2025-06-21'], [2, '2025-09-22', '18:19', '2025-09-22'], [3, '2025-12-21', '15:03', '2025-12-21'],
+            [0, '2026-03-20', '14:46', '2026-03-20'], [1, '2026-06-21', '08:24', '2026-06-21'], [2, '2026-09-23', '00:05', '2026-09-23'], [3, '2026-12-21', '20:50', '2026-12-21'],
+            [0, '2027-03-20', '20:25', '2027-03-20'], [1, '2027-06-21', '14:11', '2027-06-21'], [2, '2027-09-23', '06:02', '2027-09-23'], [3, '2027-12-22', '02:42', '2027-12-22'],
+            [0, '2028-03-20', '02:17', '2028-03-20'], [1, '2028-06-20', '20:02', '2028-06-20'], [2, '2028-09-22', '11:45', '2028-09-22'], [3, '2028-12-21', '08:20', '2028-12-21'],
+            [0, '2029-03-20', '08:02', '2029-03-20'], [1, '2029-06-21', '01:48', '2029-06-21'], [2, '2029-09-22', '17:38', '2029-09-22'], [3, '2029-12-21', '14:14', '2029-12-21'],
+            // 23:27 UTC is 01:27 the next day in Czech summer time
+            [0, '2030-03-20', '13:52', '2030-03-20'], [1, '2030-06-21', '07:31', '2030-06-21'], [2, '2030-09-22', '23:27', '2030-09-23'], [3, '2030-12-21', '20:09', '2030-12-21'],
+        ];
+        for (const [season, date, clock, local] of KNOWN) {
+            const want = Date.parse(`${date}T${clock}:00Z`);
+            const got = time.seasonInstants(Number(date.slice(0, 4)))[season];
+            assert.ok(Math.abs(got.utcMs - want) <= 120000, `${date} ${clock}: got ${new Date(got.utcMs).toISOString()}`);
+            assert.equal(got.date, local);
+            assert.equal(time.seasonStart(local), season);
+        }
+
+        // exactly four season days a year, each season once
+        for (let year = 2020; year <= 2040; year++) {
+            const hits = [];
+            for (let d = dates.iso(year, 1, 1); d <= dates.iso(year, 12, 31); d = dates.addDays(d, 1)) {
+                const season = time.seasonStart(d);
+                if (season !== null) hits.push(season);
+            }
+            assert.deepEqual(hits, [0, 1, 2, 3], String(year));
+        }
+
+        // the dates the fixed table got wrong
+        assert.equal(time.seasonStart('2026-09-22'), null);
+        assert.equal(time.seasonStart('2028-06-21'), null);
+        assert.equal(time.seasonStart('2028-06-20'), 1);
     });
 
     t.test('G12 week number forms change every week page', async () => {
