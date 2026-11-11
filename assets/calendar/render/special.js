@@ -521,7 +521,7 @@ function signature(c, sign, x, y, sizeMm, anchor) {
  * `solid` groups (the highlighted block) never split.
  */
 function measureGroup(c, id, group, s, cw) {
-    const lineH = s * 1.36;
+    const lineH = s * 1.3;
     const regular = c.body(s);
     const bold = c.body(s, true);
     const highlight = group.highlight === true;
@@ -710,7 +710,7 @@ function flowGroups(c, groups, area, cols, o = {}) {
     for (const [size, split] of attempts) {
         sizeMm = size * c.u;
         measured = groups.map(([id, group]) => measureGroup(c, id, group, sizeMm, cw));
-        gapY = sizeMm * 1.25;
+        gapY = sizeMm * 1.1;
         const full = fillColumns(measured, cols, area.h, gapY, split);
         if (full.columns > cols || full.overflow) continue;
         best = full;
