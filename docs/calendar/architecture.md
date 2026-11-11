@@ -1112,7 +1112,7 @@ whose header states what the owner must keep. The table is the index.
 | `ui/tools/index.js` | `TOOLS: { key, label, icon, feature \| null, clientAllowed }[]` (keys `photos waste events names moon shifts qr`); `visibleTools(ctx)` (client: the four client tools whose feature is on); `openTool(key, ctx): { close() } \| null` — opens the `xl` modal (`.cal-tool-modal[data-tool-modal]`), sets `ui.tool`, shows the feature-off notice + **Zapnout** (`[data-cal-action="feature-on"]`, toast `Zapnuto`) and otherwise mounts the tool into the modal body (`[data-tool-body]`); `mountToolbar(root, ctx, { step }): { el, destroy() }` (`div.cal-tools` of `button[data-tool]`, appended to `root`; the step adds the warning chip, Odkaz pro klienta, Historie beside it). | P3 |
 | `ui/tools/photos.js`, `qr.js`, `special.js` | Fotky a popisky, QR kódy: `mountPhotosTool(root, ctx)`, `mountQrTool(root, ctx)` — `root` is the modal body, the modal frame and the feature-off notice belong to `tools/index.js` (the photo / QR specific notices of map §8.10 are the tool's own). Speciální stránky panel: `mountSpecialPanel(root, ctx)` (right aside of step 4, not a modal). | P3 stub → P6a |
 | `ui/tools/waste.js`, `events.js`, `names.js`, `moon.js`, `shifts.js`, `datepicker.js` | The other five tools: `mountWasteTool`, `mountEventsTool`, `mountNamesTool`, `mountMoonTool`, `mountShiftsTool` `(root, ctx): { destroy() }` (same contract as the photo tool; view state that survives a re-open goes to `ui.toolState.<tool>`: waste `{ kind, ym }`, events `{ filter, view, ym }`, moon `{ view, ym }`). `datepicker.js` is the P6b-internal kit: the month grid `mountDatePicker(root, { year, ym \| month, min, max, isMarked, onPick, counts?, color?, onMonth? }): { setMonth, refresh, setColor, ym, destroy }`, `monthNav` (month header + strip with count badges), `dateField` (native date input held to `dateLimits`; half-typed dates are ignored, a refused or out-of-range date is put back), `textField`, `keyedList` (rows are updated in place and never moved under a focused field), `czDate`, `readToolState` / `writeToolState`. Edits: one `putItem` per changed item on `input`; the moon tool derives the minimal `moonEdits` from the wanted list (editing a phase back leaves no edit); removing a waste kind also removes its `wasteExtras`, removing a club sets `club: null` on its events. Test hooks (`data-waste-*`, `data-weekday`, `data-date`, `data-month` + `data-count`, `data-club-*`, `data-event-*`, `data-ev-*`, `data-name-*`, `data-moon-*`, `data-shift-*`) are listed in each file's header. | P6b |
-| `ui/step5.js`, `ui/step5-overlay.js`, `ui/popover.js` | Step 5 frame, page buttons, floating editors: `mountStep5(root, ctx)` (also the whole client view; shows `ui.previewPage`; the forward button of the top bar is not its business), `mountStep5Overlay(overlayRoot, ctx): { update(geometry, scale, page), destroy() }`, `openPopover(options): { el, close() }` (both P7a-internal). | P3 stub → P7a |
+| `ui/step5.js`, `ui/step5-overlay.js`, `ui/popover.js` | Step 5 frame, page buttons, floating editors: `mountStep5(root, ctx)` (also the whole client view; shows `ui.previewPage`; the forward button of the top bar is not its business; `.cal-b6[data-view="print \| trim"]` tells whether bleed / crop marks are drawn), `mountStep5Overlay(overlayRoot, ctx, { controls, picture }): { update(geometry, scale, page, view), outerSides(geometry), destroy() }`, `openPopover({ title, body, anchor \| at, confirmLabel?, onConfirm?, onClose?, kind?, returnFocus? }): { el, close(), setContent(next), confirm() }` + `closePopover()` (one popover at a time, `.cal-pop[data-cal-popover="plus \| waste \| event \| comment \| caption"]`; all P7a-internal — exact contracts in the file headers). | P7a |
 | `ui/warnings.js`, `ui/history.js`, `ui/client-link.js` | `warningChip(ctx, { onClick }): { el, destroy() }` (`button[data-cal-action="warnings"]`, hidden at zero, self-updating; the step decides what a click does), `openWarnings(ctx, { onPick?(pageIndex) }): { close() }`; `openHistory({ name, load: () => Promise<Entry[]> }): { close() }` (no `Ctx` — the list page calls it with `fetchHistory`); `openClientLink(ctx): { close() }`. Dialogs carry `data-cal-dialog="warnings \| history \| client-link"`. P3 ships working basic versions of the chip, the warnings list and Historie. | P3 stub → P7b |
 
 Stubs written by P3 export the final signatures and render a neutral placeholder, so later phases only
@@ -1346,14 +1346,19 @@ kalendáře.`, the Vrstvy list while nothing is selected, and the properties wit
 - **Step 5** (`ui/step5.js`): toolbar (designer: all seven tools, disabled ones dimmed; client: the
   four allowed tools whose feature is on), **Odkaz pro klienta** (designer), warning chip, **Historie**.
   Large page: designer → `renderPage(…, { marks: print.marks, bleed: B > 0, quality: 'full', placeholders: 'frames' })`,
-  client → trimmed. Thumbnails on the right. `ui/step5-overlay.js` positions, from `WeekGeometry`:
-  photo controls (upload / replace, zoom slider 100–300 %, remove; drag inside the frame pans:
-  `px`, `py` change by `−Δ / (drawn size − frame size)` clamped to 0–1), the caption pencil, a plus
+  client → trimmed; it is fitted into the stage (by width, and by height where the workspace is one
+  screen high) with a gutter beside it for the day buttons, and re-rendered only when its markup
+  changes. Thumbnails on the right. The photo controls (upload / replace, zoom slider 100–300 %,
+  remove) sit in the page head beside previous / next. `ui/step5-overlay.js` positions, from
+  `WeekGeometry`: a drag surface over the photo frame (dragging pans:
+  `px`, `py` change by `−Δ / (drawn size − frame size)` clamped to 0–1; while the pointer or the
+  slider moves only the photo's `<image>` is moved, the item is written once on release), the caption pencil, a plus
   button per row on the outer side of its frame (left of a frame whose centre is left of `W / 2`,
-  else right), comment bubbles with counts, warning marks. Popovers (`ui/popover.js`, draggable by the
-  grip through `assets/controllers/popover_drag.js`, Enter confirms from inputs, Esc / close discards,
-  empty event name or comment keeps focus and saves nothing): plus menu → Odpad (`wasteExtras`
-  insert), Akce (`events` insert), Komentář (`comments` insert); the plus menu also lists that day's
+  else right), then outwards the row's warning mark and the comment bubble with its count. Popovers (`ui/popover.js`, draggable by the
+  grip through `assets/controllers/popover_drag.js`, clamped into the viewport, Enter confirms from inputs and selects
+  (Ctrl / ⌘ + Enter from the comment textarea), Esc / close discards,
+  empty event name or comment keeps focus and saves nothing; an opening modal closes the popover): plus menu → Odpad (`wasteExtras`
+  insert; offered only while waste is on and a kind is switched on), Akce (`events` insert; only while events are on), Komentář (`comments` insert; the editor shows the day's thread — the bubble opens the same editor); the chosen editor replaces the menu in place. The plus menu also lists that day's
   extra collections and events with a remove button (handoff §10.14); caption editor with the
   `n / 80 znaků` counter. A replaced photo resets `zoom` / `px` / `py`.
 - **Dokončit / Uložit vzhled**: `store.save({ finish: true })` → store the toast
@@ -1410,7 +1415,8 @@ stack under the page (handoff §8). Check 390 / 820 / 1440 px in both themes wit
 | `[data-feature="<key>"]`, `[data-feature-all]`, `[data-type="week\|fortnight"]`, `[data-year="<y>"]`, `[data-print="bleed\|bleedMm\|marks"]`, `[data-preset="<preset>"]` | steps 1–2 (`data-feature*` / `data-print` sit on the hidden native input — click its `label`) |
 | `[data-tool="<key>"]` | content tool buttons (`photos`, `waste`, `events`, `names`, `moon`, `shifts`, `qr`) |
 | `[data-page-thumb="<index>"]` (+ `data-warn="<n>"`, `data-overridden`) | page thumbnails in steps 4 and 5 |
-| `[data-day-plus="<date>"]`, `[data-day-comments="<date>"]`, `[data-photo-zoom]`, `[data-caption-edit]` | step-5 overlay |
+| `[data-day-plus="<date>"]`, `[data-day-comments="<date>"]`, `[data-day-warning="<date>"]`, `[data-photo-warning]`, `[data-photo-surface]`, `[data-photo-upload]` (file input), `[data-photo-zoom]`, `[data-photo-remove]`, `[data-caption-edit]` | step-5 overlay and photo controls |
+| `.cal-pop[data-cal-popover="<kind>"]`, `[data-popover-grip]`, `[data-popover-confirm]`, `[data-popover-close]`, `[data-plus-option="waste\|event\|comment"]`, `[data-day-remove="<collection>/<id>"]`, `[data-field="kind\|name\|club\|text\|caption"]`, `[data-counter]` | step-5 floating editors |
 | `.toast-n` | toasts |
 
 ---
