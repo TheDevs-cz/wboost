@@ -3,8 +3,7 @@
    Owner: phase P7a (docs/calendar/architecture.md §D.9). Tokens only — the
    three mark colours on the page (plus / warning / comment) sit on the white
    paper in both themes, so they use the accent tokens with a paper ring.
-   Loads after calendar.css; the selectors below win over its "P7a — step-5
-   frame" stub block, which can be deleted.
+   Loads after calendar.css (whose "P7a — step-5 frame" stub block is gone).
    ========================================================================== */
 
 /* ---- Frame: tool row · page · thumbnails ------------------------------- */
@@ -55,6 +54,15 @@
 .cal-5b.wr { background: var(--rose); color: var(--on-accent); cursor: help; }
 .cal-5b.cm { background: var(--pch); color: var(--on-accent); font-variant-numeric: tabular-nums; }
 .cal-5b.cm:hover { transform: scale(1.1); }
+
+/* compact day rows (phones): the row is the button of the plus menu, the marks fit the row */
+.cal-5row { position: absolute; box-sizing: border-box; padding: 0; border: 0; border-radius: 3px; background: transparent; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background var(--dur-2); }
+.cal-5row:hover, .cal-5row:active { background: color-mix(in oklab, var(--lav) 22%, transparent); }
+.cal-5row:focus-visible { outline: 2px solid var(--lav); outline-offset: 0; background: color-mix(in oklab, var(--lav) 22%, transparent); }
+.cal-5o.compact .cal-5b { font-size: 9px; box-shadow: 0 0 0 1.5px #fff; }
+.cal-5tap { display: flex; align-items: center; gap: 6px; flex-basis: 100%; margin: 0; }
+.cal-5tap[hidden] { display: none; }
+.cal-5tap .i { flex: none; color: var(--lav-ink); }
 
 /* ---- Floating editors (ui/popover.js) ---------------------------------- */
 .cal-pop { position: fixed; z-index: 1040; display: flex; flex-direction: column; gap: 12px; width: min(360px, calc(100vw - 24px)); max-height: calc(100vh - 24px); padding: 12px 14px 14px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line-2); box-shadow: var(--shadow-3); color: var(--text); }

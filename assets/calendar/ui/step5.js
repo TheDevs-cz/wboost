@@ -39,6 +39,8 @@ const GUTTER = 88;
 const GUTTER_NARROW = 68;
 const GUTTER_MIN = 24;
 const GUTTER_NONE = 12;
+// compact day rows (overlay.isCompact): no plus buttons, only two small marks beside a row
+const GUTTER_COMPACT = 40;
 const NARROW = 700;
 const PAD_Y = 16;
 
@@ -61,7 +63,9 @@ export function mountStep5(root, ctx) {
     const prev = h('button', { type: 'button', class: 'btn icon sm btn-ghost', 'aria-label': 'Předchozí strana', 'data-cal-action': 'page-prev', onClick: () => go(-1) }, icon('chev-left', 's16'));
     const next = h('button', { type: 'button', class: 'btn icon sm btn-ghost', 'aria-label': 'Další strana', 'data-cal-action': 'page-next', onClick: () => go(1) }, icon('chev-right', 's16'));
     const controlsSlot = h('div', { class: 'cal-5ctl' });
-    const head = h('div', { class: 'cal-5h' }, h('div', { class: 'cal-5nav' }, prev, h('span', { class: 'cal-5t', 'aria-live': 'polite' }, title, range, counter), next), controlsSlot);
+    // shown while the day rows themselves are the buttons (phones, see step5-overlay.js "compact")
+    const tapHint = h('p', { class: 'cap cal-5tap', hidden: true }, icon('plus', 's14'), 'Klepněte na den a přidejte odpad, akci nebo komentář.');
+    const head = h('div', { class: 'cal-5h' }, h('div', { class: 'cal-5nav' }, prev, h('span', { class: 'cal-5t', 'aria-live': 'polite' }, title, range, counter), next), controlsSlot, tapHint);
     const centre = h('section', { class: 'cal-b6-main' }, head, stage);
     const side = h('aside', { class: 'cal-b6-list' });
     const frame = h('div', { class: 'cal-b6' }, row, centre, side);
@@ -103,10 +107,13 @@ export function mountStep5(root, ctx) {
     let scale = 0;
     let lastMarkup = null;
 
-    /** Fits the page into the stage: by width, and by height too where the workspace is one screen high. */
+    /**
+     * Fits the page into the stage: by width, and by height too where the workspace is one screen
+     * high. Returns whether the day rows are compact at the fitted size.
+     */
     function fit(v, geometry) {
         const width = stage.clientWidth;
-        if (!width) return;
+        if (!width) return false;
         const narrow = width < NARROW;
         const sides = overlay.outerSides(geometry);
         const stacked = window.matchMedia('(max-width: 960px)').matches;
@@ -124,18 +131,29 @@ export function mountStep5(root, ctx) {
             s = Math.max(0.2, Math.min(K.FIT_MAX, maxByHeight, (width - left - right) / v.box.w));
             inside = margin * s;
         }
+        // rows too low for a button each: the rows become the buttons, the freed gutter goes to
+        // the page. Decided at the size the page would have WITH buttons, so it cannot flip back.
+        const compact = overlay.isCompact(geometry, s);
+        if (compact) {
+            const room = Math.max(GUTTER_NONE, GUTTER_COMPACT - margin * s);
+            left = sides.left ? room : GUTTER_NONE;
+            right = sides.right ? room : GUTTER_NONE;
+            s = Math.max(0.2, Math.min(K.FIT_MAX, maxByHeight, (width - left - right) / v.box.w));
+        }
         scale = s;
         stage.style.paddingLeft = `${left}px`;
         stage.style.paddingRight = `${right}px`;
         wrapper.style.width = `${Math.round(v.box.w * s * 100) / 100}px`;
         wrapper.style.height = `${Math.round(v.box.h * s * 100) / 100}px`;
+        return compact;
     }
 
     function layout() {
         const page = current();
         const v = view();
         const geometry = page ? store.geometry(page) : null;
-        fit(v, geometry);
+        v.compact = fit(v, geometry);
+        tapHint.hidden = !v.compact;
         overlay.update(geometry, scale, page, v);
     }
 

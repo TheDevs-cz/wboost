@@ -1,7 +1,7 @@
 // Everything a user can do ON the large step-5 page (handoff §4.7, §10.14; architecture §D.7
 // "Step 5"). Owner: phase P7a; used only by `step5.js`. CSS: calendar-preview.css.
 //
-// `mountStep5Overlay(overlayRoot, ctx, opts): { update(geometry, scale, page, view), outerSides(geometry), destroy() }`
+// `mountStep5Overlay(overlayRoot, ctx, opts): { update(geometry, scale, page, view), outerSides(geometry), isCompact(geometry, scale), destroy() }`
 //   overlayRoot    element lying exactly over the page picture (its origin = the SVG's top-left)
 //   opts.controls  element that receives the photo controls row (`.cal-5ph`)
 //   opts.picture   `() => SVGElement | null` — the page SVG; used ONLY to move the photo's
@@ -10,13 +10,22 @@
 //   update(geometry, scale, page, view)
 //                  `geometry` = `store.geometry(page)` (null for a non-week page), `scale` = px per
 //                  mm, `view = { box: viewBox in mm, area: { x0, y0, x1, y1 } }` — `area` is the
-//                  part of the page that is drawn (bleed box for the designer, trim for the client)
+//                  part of the page that is drawn (bleed box for the designer, trim for the client);
+//                  `view.compact` = the day rows are too low for a button each (see below)
+//   isCompact(geometry, scale)
+//                  true when a day row is lower than `COMPACT_ROW` px at this scale (a phone, most of
+//                  all a 14-day page): round buttons per row would overlap their neighbours. Then
+//                  the ROW ITSELF is the button — `button.cal-5row[data-day-row="<date>"]` lies over
+//                  each day row and opens the same plus menu — there are no `[data-day-plus]`
+//                  buttons, and the warning / comment marks shrink to the row height.
+//                  `.cal-5o.compact` marks the mode; `step5.js` narrows the gutters and shows the hint.
 //
 // What it draws (elements are reused between updates, so focus survives a re-render):
 //   .cal-5ps[data-photo-surface]      drag surface over the photo frame: dragging pans the crop
 //   [data-photo-upload] (file input), [data-photo-zoom] (range 100–300), [data-photo-remove]
 //   [data-caption-edit]               pencil at the caption → caption editor (`n / 80 znaků`)
 //   [data-day-plus="<date>"]          plus per day row, on the OUTER side of its frame
+//   [data-day-row="<date>"]           compact mode only: the day row as the button of the plus menu
 //   [data-day-comments="<date>"]      bubble with the number of comments → the thread
 //   [data-day-warning="<date>"], [data-photo-warning]   warning marks (title = the messages)
 // Popovers carry `data-cal-popover="plus | waste | event | comment | caption"`; inside:
@@ -32,12 +41,15 @@ import { newId, sorted } from '../model/content.js';
 import { isElementVisible } from '../model/elements.js';
 import { h, icon, relativeTime } from './dom.js';
 import { closePopover, openPopover } from './popover.js';
+import { dayWarnings, photoWarnings, warningTip } from './warnings.js';
 
 const CAPTION_MAX = 80;
 const EVENT_MAX = 80;
 const COMMENT_MAX = 500;
 const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const GAP = 6;
+/** Below this row height (px) the per-day buttons are replaced by tappable rows. */
+export const COMPACT_ROW = 20;
 const DRAG_PX = 3;
 
 const clamp01 = (v) => Math.min(1, Math.max(0, v));
@@ -374,11 +386,11 @@ export function mountStep5Overlay(overlayRoot, ctx, opts = {}) {
 
     function openPlus(date, anchor) {
         let pop = null;
-        pop = openPopover({ ...plusContent(date, () => pop), anchor, returnFocus: refocus(`[data-day-plus="${date}"]`) });
+        pop = openPopover({ ...plusContent(date, () => pop), anchor, returnFocus: refocus(`[data-day-plus="${date}"], [data-day-row="${date}"]`) });
     }
 
     function openComments(date, anchor) {
-        openPopover({ ...commentContent(date), anchor, returnFocus: refocus(`[data-day-comments="${date}"], [data-day-plus="${date}"]`) });
+        openPopover({ ...commentContent(date), anchor, returnFocus: refocus(`[data-day-comments="${date}"], [data-day-plus="${date}"], [data-day-row="${date}"]`) });
     }
 
     function openCaption(anchor) {
@@ -460,20 +472,23 @@ export function mountStep5Overlay(overlayRoot, ctx, opts = {}) {
         }
 
         if (week) {
-            const warnings = store.warnings().get(page.index) || [];
+            const warningsByDate = dayWarnings(ctx, page.index);
             const comments = store.dayContext().commentsByDate;
             const W = d.page.width;
+            const compact = view.compact === true;
+            overlayRoot.classList.toggle('compact', compact);
             let size = 22;
-            for (const frame of geometry.frames) size = Math.min(size, Math.max(16, Math.floor(frame.rowHeight * scale) - 2));
+            // compact: only marks are left, and they must fit their row
+            for (const frame of geometry.frames) size = Math.min(size, compact ? Math.max(8, Math.min(14, Math.floor(frame.rowHeight * scale) - 2)) : Math.max(16, Math.floor(frame.rowHeight * scale) - 2));
             overlayRoot.style.setProperty('--cal-5b', `${size}px`);
-            const step = size + 4;
+            const step = size + (compact ? 2 : 4);
 
             // warning mark of the photo
-            const photoWarnings = warnings.filter((w) => w.target && w.target.el === 'photo');
-            if (photoOn && photoWarnings.length) {
+            const ofPhoto = photoWarnings(ctx, page.index);
+            if (photoOn && ofPhoto.length) {
                 const box = d.layout.boxes.photo;
                 const mark = node('warn:photo', seen, () => h('span', { class: 'cal-5b wr', 'data-photo-warning': true, role: 'img' }, '!'));
-                mark.title = photoWarnings.map((w) => w.message).join(' · ');
+                mark.title = warningTip(ofPhoto);
                 mark.setAttribute('aria-label', mark.title);
                 put(mark, X(Math.max(box.x, view.area.x0)) + 8, Y(Math.max(box.y, view.area.y0)) + 8);
             }
@@ -496,15 +511,28 @@ export function mountStep5Overlay(overlayRoot, ctx, opts = {}) {
                 for (const row of frame.rows) {
                     const y = Y(row.y + row.h / 2) - size / 2;
                     const date = row.date;
-                    const plus = node(`plus:${date}`, seen, () =>
-                        h('button', { type: 'button', class: 'cal-5b pl', 'data-day-plus': date, 'aria-label': 'Přidat do dne', title: 'Přidat odpad, akci nebo komentář', onClick: (event) => openPlus(date, event.currentTarget) }, icon('plus', 's14')),
-                    );
-                    put(plus, edge, y);
-                    let slot = 1;
-                    const rowWarnings = warnings.filter((w) => w.target && w.target.date === date);
-                    if (rowWarnings.length) {
+                    let slot = 0;
+                    if (compact) {
+                        // the row is the button: the whole day, as wide as its frame
+                        const x0 = Math.max(frame.box.x, view.area.x0);
+                        const x1 = Math.min(frame.box.x + frame.box.w, view.area.x1);
+                        const hit = node(`row:${date}`, seen, () =>
+                            h('button', { type: 'button', class: 'cal-5row', 'data-day-row': date, 'aria-label': `Přidat do dne ${dayLabel(date)}`, title: 'Přidat odpad, akci nebo komentář', onClick: (event) => openPlus(date, event.currentTarget) }),
+                        );
+                        put(hit, X(x0), Y(row.y));
+                        hit.style.width = `${Math.max(0, Math.round((x1 - x0) * scale * 10) / 10)}px`;
+                        hit.style.height = `${Math.max(0, Math.round(row.h * scale * 10) / 10)}px`;
+                    } else {
+                        const plus = node(`plus:${date}`, seen, () =>
+                            h('button', { type: 'button', class: 'cal-5b pl', 'data-day-plus': date, 'aria-label': 'Přidat do dne', title: 'Přidat odpad, akci nebo komentář', onClick: (event) => openPlus(date, event.currentTarget) }, icon('plus', 's14')),
+                        );
+                        put(plus, edge, y);
+                        slot = 1;
+                    }
+                    const rowWarnings = warningsByDate.get(date);
+                    if (rowWarnings) {
                         const mark = node(`warn:${date}`, seen, () => h('span', { class: 'cal-5b wr', 'data-day-warning': date, role: 'img' }, '!'));
-                        mark.title = rowWarnings.map((w) => w.message).join(' · ');
+                        mark.title = warningTip(rowWarnings);
                         mark.setAttribute('aria-label', mark.title);
                         put(mark, edge + dir * step * slot, y);
                         slot += 1;
@@ -518,6 +546,8 @@ export function mountStep5Overlay(overlayRoot, ctx, opts = {}) {
                     }
                 }
             }
+        } else {
+            overlayRoot.classList.remove('compact');
         }
 
         for (const [key, el] of [...nodes]) {
@@ -530,6 +560,7 @@ export function mountStep5Overlay(overlayRoot, ctx, opts = {}) {
     return {
         update,
         outerSides: (geometry) => outerSides(geometry, design().page.width),
+        isCompact: (geometry, scale) => Boolean(geometry) && geometry.frames.some((frame) => frame.rowHeight * scale < COMPACT_ROW),
         destroy() {
             closePopover();
             controls.remove();
