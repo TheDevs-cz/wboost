@@ -73,6 +73,23 @@ final class CalendarModuleInliner
     }
 
     /**
+     * A short hash of everything the headless pages run — the module sources
+     * and the templates around them. A PDF export remembers it: a file made
+     * by an older renderer is not handed out again as "unchanged".
+     */
+    public function fingerprint(): string
+    {
+        $hash = hash_init('xxh128');
+        hash_update($hash, $this->importMap());
+
+        foreach (['headless_print.html.twig', 'headless_render.html.twig'] as $template) {
+            hash_update($hash, (string) @file_get_contents(dirname($this->root, 2) . '/templates/calendar/' . $template));
+        }
+
+        return hash_final($hash);
+    }
+
+    /**
      * Relative import specifiers of one module → bare `wbcal/<dir>/<file>.js`.
      *
      * @param string $directory the module's directory relative to `assets/calendar` (`render`)

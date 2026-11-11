@@ -14,10 +14,7 @@ use WBoost\Web\Entity\Calendar;
 use WBoost\Web\Exceptions\CalendarModelRefused;
 use WBoost\Web\Exceptions\CalendarModelUnavailable;
 use WBoost\Web\Exceptions\TemplateRenderUnavailable;
-use WBoost\Web\Query\GetFonts;
-use WBoost\Web\Repository\CalendarAssetRepository;
 use WBoost\Web\Services\Editor\TemplateVariantImageRenderer;
-use WBoost\Web\Services\SocialNetwork\AssetInliner;
 use WBoost\Web\Value\Calendar\CalendarPageRender;
 use WBoost\Web\Value\RenderImageFormat;
 
@@ -29,7 +26,7 @@ use WBoost\Web\Value\RenderImageFormat;
  *
  * Self-contained like those: the ES modules travel in an import map of
  * `data:` URLs ({@see CalendarModuleInliner}), the project fonts and every
- * picture the page shows as data URIs ({@see AssetInliner}) — Chromium there
+ * picture the page shows as data URIs ({@see CalendarRenderAssets}) — Chromium there
  * has no route to Minio and needs none.
  *
  * The page list, the mm view box and the warnings come from
@@ -46,17 +43,12 @@ final class CalendarPageRenderer
 
     public const int MAX_LONG_EDGE = 3000;
 
-    /** @var array<string, null|string> font path → data URI (immutable per path; lives as long as the worker) */
-    private array $fonts = [];
-
     public function __construct(
         private readonly GotenbergScreenshotInterface $gotenberg,
         private readonly CalendarModelBridge $model,
         private readonly CalendarModuleInliner $modules,
         private readonly CalendarDocument $document,
-        private readonly CalendarAssetRepository $assetRepository,
-        private readonly AssetInliner $assetInliner,
-        private readonly GetFonts $getFonts,
+        private readonly CalendarRenderAssets $assets,
     ) {
     }
 
@@ -103,7 +95,7 @@ final class CalendarPageRenderer
 
         $boot = [
             'calendar' => $this->document->calendar($calendar),
-            'assets' => $this->inlinedAssets($calendar, $pageKey),
+            'assets' => $this->assets->inlined($calendar, [$pageKey]),
             'env' => [
                 'fonts' => $this->document->fonts($calendar->project),
                 'palette' => $this->document->palette($calendar->project),
@@ -125,7 +117,7 @@ final class CalendarPageRenderer
                 ->content('calendar/headless_render.html.twig', [
                     'import_map' => $this->modules->importMap(),
                     'boot' => CalendarDocument::encode($boot),
-                    'font_faces' => json_encode($this->fontFaces($calendar, $model->design), JSON_THROW_ON_ERROR | JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_SLASHES),
+                    'font_faces' => json_encode($this->assets->fontFaces($calendar, $model->design), JSON_THROW_ON_ERROR | JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_SLASHES),
                 ])
                 ->width($width)
                 ->height($height)
@@ -166,125 +158,7 @@ final class CalendarPageRenderer
         );
     }
 
-    /**
-     * The asset map of the bootstrap with data URIs for the pictures THIS
-     * page can show: everything the layout refers to, every content item's
-     * picture except the per-page ones of other pages. The others keep their
-     * sizes (the model reads them) but carry no URL.
-     */
-    private function inlinedAssets(Calendar $calendar, string $pageKey): \stdClass
-    {
-        $needed = [];
-
-        if ($calendar->layout !== null) {
-            foreach (CalendarLayoutAssets::ids($calendar->layout, false) as $id) {
-                $needed[$id] = true;
-            }
-        }
-
-        foreach ($calendar->content as $collection => $items) {
-            if (!is_array($items)) {
-                continue;
-            }
-
-            $perPage = in_array($collection, ['pagePhotos', 'pageImages', 'pageQr'], true);
-
-            foreach ($items as $id => $item) {
-                if (!is_array($item)) {
-                    continue;
-                }
-
-                if ($perPage && (string) $id !== $pageKey) {
-                    continue;
-                }
-
-                if ($collection === 'specialPages' && 'sp:' . $id !== $pageKey) {
-                    continue;
-                }
-
-                foreach (['asset', 'icon', 'head', 'bg'] as $key) {
-                    if (is_string($item[$key] ?? null)) {
-                        $needed[strtolower($item[$key])] = true;
-                    }
-                }
-            }
-        }
-
-        $map = [];
-
-        foreach ($this->assetRepository->forCalendar($calendar->id) as $asset) {
-            $info = $this->document->asset($asset);
-            $id = $asset->id->toString();
-            $dataUri = isset($needed[strtolower($id)])
-                // the preview derivative (≤ 1600 px) is plenty for a screenshot of this size
-                ? $this->assetInliner->inlineImage($asset->previewPath ?? $asset->path)
-                : null;
-
-            $info['url'] = $dataUri ?? '';
-            $info['previewUrl'] = null;
-            $map[$id] = $info;
-        }
-
-        return (object) $map;
-    }
-
-    /**
-     * The project faces the layout uses, as data URIs for `FontFace` objects.
-     *
-     * @return list<array{family: string, src: string}>
-     */
-    private function fontFaces(Calendar $calendar, \stdClass $design): array
-    {
-        $used = [];
-        self::collectFamilies($design->layout ?? null, $used);
-
-        $faces = [];
-        $paths = [];
-
-        foreach ($this->getFonts->allForProject($calendar->project->id) as $font) {
-            foreach ($font->faces as $face) {
-                $paths[$font->faceFamily($face)] = $face->filePath;
-            }
-        }
-
-        foreach ($paths as $family => $path) {
-            if (!isset($used[$family])) {
-                continue;
-            }
-
-            if (!array_key_exists($path, $this->fonts)) {
-                $this->fonts[$path] = $this->assetInliner->inlineFont($path);
-            }
-
-            if ($this->fonts[$path] !== null) {
-                $faces[] = ['family' => $family, 'src' => $this->fonts[$path]];
-            }
-        }
-
-        return $faces;
-    }
-
-    /**
-     * @param array<string, true> $families
-     */
-    private static function collectFamilies(mixed $node, array &$families): void
-    {
-        if ($node instanceof \stdClass) {
-            foreach (get_object_vars($node) as $key => $value) {
-                if ($key === 'family' && is_string($value) && $value !== '') {
-                    $families[$value] = true;
-                } else {
-                    self::collectFamilies($value, $families);
-                }
-            }
-        } elseif (is_array($node)) {
-            foreach ($node as $value) {
-                self::collectFamilies($value, $families);
-            }
-        }
-    }
-
-    private static function errorBody(ClientException $exception): string
+    public static function errorBody(ClientException $exception): string
     {
         $previous = $exception->getPrevious();
 
