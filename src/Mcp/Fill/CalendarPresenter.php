@@ -8,6 +8,7 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use WBoost\Web\Entity\Calendar;
 use WBoost\Web\Mcp\Response\CalendarChangeResponse;
 use WBoost\Web\Mcp\Response\CalendarDesignResponse;
+use WBoost\Web\Mcp\Response\CalendarExportResponse;
 use WBoost\Web\Value\Calendar\CalendarModelResult;
 
 /**
@@ -28,7 +29,7 @@ readonly final class CalendarPresenter
      * @param list<string> $notes
      * @param list<CalendarChangeResponse> $recorded
      */
-    public function design(Calendar $calendar, CalendarModelResult $model, array $changed, array $notes, array $recorded, null|string $clientUrl = null): CalendarDesignResponse
+    public function design(Calendar $calendar, CalendarModelResult $model, array $changed, array $notes, array $recorded, null|string $clientUrl = null, null|CalendarExportResponse $export = null): CalendarDesignResponse
     {
         $design = $model->design;
 
@@ -52,6 +53,7 @@ readonly final class CalendarPresenter
             recorded: $recorded,
             url: $this->workspaceUrl($calendar),
             clientUrl: $clientUrl,
+            export: $export,
         );
     }
 

@@ -375,7 +375,8 @@ manage_calendar "create"      → a new calendar (settings + optionally a preset
       ├ upload_calendar_asset        → a file → assetId (then reference it)
       ├ update_calendar_content      → add / replace / delete content items
       ├ render_calendar_page         → LOOK at a page after every change
-      └ manage_calendar "finish"     → done; "client_link" → the link for the client
+      ├ manage_calendar "finish"     → done; "client_link" → the link for the client
+      └ manage_calendar "export_pdf" → the whole calendar as a PDF; poll "export_status"
 ```
 
 Authoring a calendar from nothing, in order: `create` (with `preset`) →
@@ -412,6 +413,16 @@ Design rules:
 - **Designer only.** With `role: "client"` (project only shared with the
   account) every design call is refused with `designer_only`; content of the
   client collections and photo uploads still work.
+- **PDF.** `manage_calendar` `export_pdf` with `variant: "print"` (every page
+  with the bleed and crop marks the calendar's print settings switch on,
+  photos at uploaded resolution — for the print shop) or `"approval"`
+  (trimmed pages, small file — for e-mail). Text and shapes are vector; colours
+  are RGB. It exports what is SAVED and runs in the background (about a second
+  per page): poll `export_status` with `export.exportId` every few seconds
+  until `status` is `done`, then give `export.downloadUrl` to the user (a
+  secret link — the user only). `failed` carries a Czech `error`; ask again to
+  retry. An unchanged calendar is answered at once with the existing file.
+  Any role may export; it is recorded in the history.
 - **The client link is a secret** — `manage_calendar` `client_link` returns
   it; give it to the user only. `regenerate: true` only when asked: the old
   link dies at once.
@@ -446,8 +457,8 @@ Content rules:
   reporting success.
 - **Comments are permanent**: insert only, never edited or deleted; the server
   sets author and time.
-- **Not available:** deleting a calendar or an uploaded file; a print export
-  (PDF) of a calendar; changing the page size; importing a layout from a
+- **Not available:** deleting a calendar or an uploaded file; a CMYK / PDF/X
+  file (the export is RGB); changing the page size; importing a layout from a
   layout *file* or from another project; extracting text from a .docx for a
   special page (send the text itself); the web editor's undo.
 

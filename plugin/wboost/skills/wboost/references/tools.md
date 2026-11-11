@@ -498,10 +498,11 @@ client link is never returned here (`manage_calendar` `client_link`).
 `pages[].kind` is `cover` | `special` | `week` | `back`; `pages[].key` is the
 page key content and `render_calendar_page` use.
 
-## `manage_calendar(action, projectId?, calendarId?, name?, year?, type?, features?, print?, preset?, linkElements?, fromCalendarId?, regenerate?)`
+## `manage_calendar(action, projectId?, calendarId?, name?, year?, type?, features?, print?, preset?, linkElements?, fromCalendarId?, regenerate?, variant?, exportId?)`
 
-Scope `calendars:write`, **designer role**. Every action is the web's own
-message; the answer is the design as stored now.
+Scope `calendars:write`, **designer role** (the two export actions: any
+role). Every action is the web's own message; the answer is the design as
+stored now.
 
 | action | arguments | does |
 |---|---|---|
@@ -510,6 +511,15 @@ message; the answer is the design as stored now.
 | `finish` | `calendarId` | "Dokončit": `finished: true`, the web opens it in step 5; needs a layout |
 | `client_link` | `calendarId`, `regenerate?` | answers `clientUrl` (anonymous write access to the content — a secret); `regenerate: true` kills the old link |
 | `import_layout` | `calendarId`, `fromCalendarId` | replaces the layout by that of another calendar of the same project and type; its pictures are copied |
+| `export_pdf` | `calendarId`, `variant` (`print` \| `approval`) | starts a PDF export of the whole SAVED calendar (or answers the existing file of an unchanged one) → `export`. `print`: bleed + crop marks as the print settings say, photos at uploaded resolution; `approval`: trimmed pages, screen-size photos. Vector text and shapes, RGB. Recorded in the history. Needs a layout |
+| `export_status` | `calendarId`, `exportId` | → `export` of that job |
+
+`export`: `{ "exportId", "variant", "status": "queued" | "running" | "done" | "failed",
+"pagesDone", "pagesTotal", "revision", "fileName", "sizeBytes", "downloadUrl", "error" }` —
+`downloadUrl` (only when `done`) is the PDF itself, reachable without an account: give it to the
+user, nobody else. `error` (only when `failed`) is a Czech sentence; call `export_pdf` again to
+retry. Poll `export_status` every few seconds — about a second per page. Only the newest six
+exports of a calendar are kept (`export_not_found` afterwards).
 
 - `name` 1–60 chars. `year` 2000–2100 — a change shifts every dated item,
   drops 29 February items when the new year has none and clears moon edits.

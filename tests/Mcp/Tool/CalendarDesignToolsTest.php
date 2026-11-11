@@ -250,6 +250,65 @@ final class CalendarDesignToolsTest extends WebTestCase
         self::assertSame(['Vygeneroval nový odkaz pro klienta'], array_column(self::arr($regenerated['recorded']), 'what'));
     }
 
+    /**
+     * `export_pdf` is the web's „Stáhnout PDF“: the same request (reuse of an
+     * unchanged export, the history line, the job — synchronous in tests,
+     * drawn by the fake producer), answered with the job to poll and, once it
+     * is done, the file's storage address.
+     */
+    public function testExportPdfStartsTheWebsExportAndStatusReportsIt(): void
+    {
+        $started = $this->ok('manage_calendar', ['action' => 'export_pdf', 'calendarId' => TestDataFixture::CALENDAR_2_ID, 'variant' => 'print']);
+        $export = self::arr($started['export']);
+
+        self::assertSame('print', $export['variant']);
+        self::assertSame('done', $export['status']);
+        self::assertSame($export['pagesTotal'], $export['pagesDone']);
+        self::assertSame(0, $export['revision']);
+        self::assertSame('Obecní kalendář - tisk.pdf', $export['fileName']);
+        self::assertNull($export['error']);
+        self::assertMatchesRegularExpression('~/calendars/' . TestDataFixture::CALENDAR_2_ID . '/exports/[0-9a-f]{40}\.pdf$~', self::str($export['downloadUrl']));
+        self::assertSame([], $started['changed']);
+        self::assertSame(['Stáhl PDF pro tisk'], array_column(self::arr($started['recorded']), 'what'));
+        self::assertSame(0, $this->calendar(TestDataFixture::CALENDAR_2_ID)->revision, 'An export changes nothing in the calendar.');
+
+        $status = $this->ok('manage_calendar', ['action' => 'export_status', 'calendarId' => TestDataFixture::CALENDAR_2_ID, 'exportId' => $export['exportId']]);
+        self::assertSame($export, $status['export']);
+        self::assertSame([], $status['recorded']);
+
+        // Unchanged calendar, same variant → the same export; the other variant is a file of its own.
+        $again = $this->ok('manage_calendar', ['action' => 'export_pdf', 'calendarId' => TestDataFixture::CALENDAR_2_ID, 'variant' => 'print']);
+        self::assertSame($export['exportId'], self::dig($again, 'export', 'exportId'));
+        $approval = $this->ok('manage_calendar', ['action' => 'export_pdf', 'calendarId' => TestDataFixture::CALENDAR_2_ID, 'variant' => 'approval']);
+        self::assertNotSame($export['exportId'], self::dig($approval, 'export', 'exportId'));
+        self::assertSame('Obecní kalendář - náhled.pdf', self::dig($approval, 'export', 'fileName'));
+
+        // Whoever may open the calendar may export it — the client role too (it still needs the write scope).
+        $byClient = $this->ok('manage_calendar', ['action' => 'export_pdf', 'calendarId' => TestDataFixture::CALENDAR_2_ID, 'variant' => 'print'], TestDataFixture::MCP_TOKEN_CALENDARS_SHARED_USER);
+        self::assertSame($export['exportId'], self::dig($byClient, 'export', 'exportId'));
+        self::assertSame(['client'], array_column(self::arr($byClient['recorded']), 'who'));
+        self::assertSame(['Stáhl PDF pro tisk'], array_column(self::arr($byClient['recorded']), 'what'));
+    }
+
+    public function testExportRefusals(): void
+    {
+        $base = ['calendarId' => TestDataFixture::CALENDAR_2_ID];
+
+        self::assertStringEndsWith('(missing_argument)', $this->refused('manage_calendar', $base + ['action' => 'export_pdf']));
+        self::assertStringEndsWith('(missing_argument)', $this->refused('manage_calendar', $base + ['action' => 'export_status']));
+        self::assertStringEndsWith('(no_layout)', $this->refused('manage_calendar', ['action' => 'export_pdf', 'calendarId' => TestDataFixture::CALENDAR_1_ID, 'variant' => 'print']));
+        self::assertStringEndsWith('(export_not_found)', $this->refused('manage_calendar', $base + ['action' => 'export_status', 'exportId' => 'nope']));
+        self::assertStringEndsWith('(calendar_not_found)', $this->refused('manage_calendar', ['action' => 'export_pdf', 'calendarId' => TestDataFixture::CALENDAR_3_ID, 'variant' => 'print']));
+
+        // An export id is only an address inside its own calendar.
+        $this->ok('set_calendar_layout', ['calendarId' => TestDataFixture::CALENDAR_1_ID, 'preset' => 'photoLeft']);
+        $other = $this->ok('manage_calendar', ['action' => 'export_pdf', 'calendarId' => TestDataFixture::CALENDAR_1_ID, 'variant' => 'approval']);
+        self::assertStringEndsWith('(export_not_found)', $this->refused('manage_calendar', $base + ['action' => 'export_status', 'exportId' => self::dig($other, 'export', 'exportId')]));
+
+        // Nothing of the refused calls reached the calendar.
+        self::assertSame([], self::getContainer()->get(CalendarHistoryRepository::class)->latest(Uuid::fromString(TestDataFixture::CALENDAR_2_ID), 10));
+    }
+
     public function testImportLayoutTakesOverASiblingsLayoutWithItsPictures(): void
     {
         // The source's logo is a picture of the SOURCE calendar.

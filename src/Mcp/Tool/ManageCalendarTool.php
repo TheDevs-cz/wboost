@@ -7,28 +7,38 @@ namespace WBoost\Web\Mcp\Tool;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
 use Mcp\Exception\ToolCallException;
+use Psr\Clock\ClockInterface;
+use Ramsey\Uuid\Uuid;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Messenger\MessageBusInterface;
 use WBoost\Web\Entity\Calendar;
+use WBoost\Web\Entity\CalendarExport;
 use WBoost\Web\Entity\Project;
 use WBoost\Web\Entity\User;
 use WBoost\Web\Mcp\Fill\CalendarLoader;
 use WBoost\Web\Mcp\Fill\CalendarPresenter;
 use WBoost\Web\Mcp\Fill\CalendarWriter;
+use WBoost\Web\Exceptions\CalendarExportNotFound;
 use WBoost\Web\Mcp\Response\CalendarDesignResponse;
+use WBoost\Web\Mcp\Response\CalendarExportResponse;
 use WBoost\Web\Mcp\Security\McpScope;
 use WBoost\Web\Mcp\Security\McpToolScope;
 use WBoost\Web\Message\Calendar\CreateCalendar;
 use WBoost\Web\Message\Calendar\RecordCalendarHistory;
 use WBoost\Web\Message\Calendar\RegenerateCalendarClientLink;
+use WBoost\Web\Repository\CalendarExportRepository;
 use WBoost\Web\Repository\CalendarRepository;
+use WBoost\Web\Services\Calendar\CalendarAccess;
 use WBoost\Web\Services\Calendar\CalendarContentSeed;
 use WBoost\Web\Services\Calendar\CalendarDocument;
+use WBoost\Web\Services\Calendar\CalendarExports;
 use WBoost\Web\Services\Calendar\CalendarModelBridge;
 use WBoost\Web\Services\Calendar\DescribeCalendarChange;
 use WBoost\Web\Services\Calendar\ImportCalendarLayout;
 use WBoost\Web\Services\ProvideIdentity;
 use WBoost\Web\Services\Security\ProjectVoter;
+use WBoost\Web\Value\Calendar\CalendarExportStatus;
+use WBoost\Web\Value\Calendar\CalendarExportVariant;
 
 /**
  * `manage_calendar` — a calendar's life and settings: one tool with an
@@ -42,12 +52,16 @@ use WBoost\Web\Services\Security\ProjectVoter;
  * klienta" dialog does. There is deliberately NO delete: deleting a calendar
  * stays on the web.
  *
- * All of it is the designer's — {@see CalendarWriter::designer()}.
+ * All of it is the designer's — {@see CalendarWriter::designer()} — except the
+ * two export actions: on the web whoever may open a calendar may take it away
+ * as a PDF, so `export_pdf` / `export_status` ask for no role. They live here
+ * (write scope) rather than beside `render_calendar_page` because an export is
+ * not a look: it is recorded in the history and stores a file.
  */
 #[McpToolScope(McpScope::CalendarsWrite)]
 readonly final class ManageCalendarTool
 {
-    private const array ACTIONS = ['create', 'configure', 'finish', 'client_link', 'import_layout'];
+    private const array ACTIONS = ['create', 'configure', 'finish', 'client_link', 'import_layout', 'export_pdf', 'export_status'];
 
     public function __construct(
         private CalendarLoader $loader,
@@ -60,6 +74,10 @@ readonly final class ManageCalendarTool
         private MessageBusInterface $bus,
         private Security $security,
         private ProvideIdentity $provideIdentity,
+        private CalendarExports $exports,
+        private CalendarExportRepository $exportRepository,
+        private CalendarAccess $access,
+        private ClockInterface $clock,
     ) {
     }
 
@@ -130,14 +148,15 @@ readonly final class ManageCalendarTool
      * invalid_calendar_id, calendar_not_found, designer_only, invalid_name,
      * invalid_year, invalid_type, unknown_feature, invalid_print,
      * unknown_preset, preset_type_mismatch, no_layout, not_a_sibling,
-     * layout_type_mismatch, source_has_no_layout, invalid_design (the server's
-     * own rule, quoted in Czech), model_unavailable (retry).
+     * layout_type_mismatch, source_has_no_layout, invalid_variant,
+     * export_not_found, invalid_design (the server's own rule, quoted in
+     * Czech), model_unavailable (retry).
      *
      * Example: {"action": "create", "projectId": "…", "name": "Kalendář obce
      * Lhota 2027", "year": 2027, "type": "week", "features": {"events": true,
      * "waste": true}, "preset": "photoLeft"}
      *
-     * @param string $action create | configure | finish | client_link | import_layout
+     * @param string $action create | configure | finish | client_link | import_layout | export_pdf | export_status
      * @param null|string $projectId For "create": UUID of the project (list_calendars calendars[].projectId, or get_context projects[].id).
      * @param null|string $calendarId For every action except "create": UUID of the calendar (list_calendars calendars[].id).
      * @param null|string $name For "create" / "configure": the calendar's name, 1–60 characters.
@@ -149,6 +168,8 @@ readonly final class ManageCalendarTool
      * @param null|bool $linkElements For "configure": the editor's "Propojit prvky" switch.
      * @param null|string $fromCalendarId For "import_layout": UUID of the calendar whose layout to take over (same project, same type).
      * @param null|bool $regenerate For "client_link": true replaces the link with a new one — the old link stops working immediately.
+     * @param null|string $variant For "export_pdf": "print" (for the print shop) or "approval" (small file for approval).
+     * @param null|string $exportId For "export_status": export.exportId of an earlier "export_pdf".
      */
     #[McpTool(name: 'manage_calendar')]
     public function __invoke(
@@ -169,6 +190,9 @@ readonly final class ManageCalendarTool
         null|bool $linkElements = null,
         null|string $fromCalendarId = null,
         null|bool $regenerate = null,
+        #[Schema(enum: ['print', 'approval'])]
+        null|string $variant = null,
+        null|string $exportId = null,
     ): CalendarDesignResponse {
         $configure = self::configureCommand($name, $year, $type, $features, $print, $linkElements);
 
@@ -178,6 +202,8 @@ readonly final class ManageCalendarTool
             'finish' => $this->finish(self::required($calendarId, 'calendarId', $action)),
             'client_link' => $this->clientLink(self::required($calendarId, 'calendarId', $action), $regenerate === true),
             'import_layout' => $this->importLayout(self::required($calendarId, 'calendarId', $action), self::required($fromCalendarId, 'fromCalendarId', $action)),
+            'export_pdf' => $this->exportPdf(self::required($calendarId, 'calendarId', $action), self::required($variant, 'variant', $action)),
+            'export_status' => $this->exportStatus(self::required($calendarId, 'calendarId', $action), self::required($exportId, 'exportId', $action)),
             default => throw new ToolCallException(sprintf('action must be one of: %s. (invalid_action)', implode(', ', self::ACTIONS))),
         };
     }
@@ -287,6 +313,82 @@ readonly final class ManageCalendarTool
             $regenerate ? ['A new client link was generated — the previous link no longer works.'] : [],
             $this->writer->recordedSince($calendar, $known),
             $this->document->clientUrl($calendar),
+        );
+    }
+
+    private function exportPdf(string $calendarId, string $variant): CalendarDesignResponse
+    {
+        $calendar = $this->loader->viewable($calendarId);
+        $chosen = CalendarExportVariant::tryFrom($variant);
+
+        if ($chosen === null) {
+            throw new ToolCallException('variant must be "print" (every page with bleed and crop marks as set, full-resolution photos) or "approval" (trimmed pages, a small file). (invalid_variant)');
+        }
+
+        if ($calendar->layout === null) {
+            throw new ToolCallException('The calendar has no layout yet, so there is nothing to export. Choose one first: set_calendar_layout with preset "photoLeft", "photoRight" (7 days) or "twoSided" (14 days). (no_layout)');
+        }
+
+        $known = $this->writer->historyIds($calendar);
+
+        try {
+            $model = $this->model->run($calendar);
+            // The web's own request: reuse of an unchanged export, the history line, the job.
+            $export = $this->exports->request($calendar, $chosen, $this->access->forUser($calendar));
+        } catch (\Throwable $failure) {
+            throw CalendarWriter::refusal($failure);
+        }
+
+        return $this->presenter->design(
+            $calendar,
+            $model,
+            [],
+            [$export->isDownloadable()
+                ? 'The PDF is ready: give export.downloadUrl to the user.'
+                : 'The export runs in the background. Call manage_calendar "export_status" with export.exportId every few seconds until status is "done" (or "failed").'],
+            $this->writer->recordedSince($calendar, $known),
+            export: $this->describeExport($export),
+        );
+    }
+
+    private function exportStatus(string $calendarId, string $exportId): CalendarDesignResponse
+    {
+        $calendar = $this->loader->viewable($calendarId);
+
+        try {
+            // looked up inside ITS calendar: an id of another calendar's export is unknown here
+            $export = $this->exportRepository->getOfCalendar($calendar->id, Uuid::isValid($exportId) ? Uuid::fromString($exportId) : throw new CalendarExportNotFound());
+        } catch (CalendarExportNotFound) {
+            throw new ToolCallException('This calendar has no export with that id (only the newest few are kept). Start a new one with manage_calendar "export_pdf". (export_not_found)');
+        }
+
+        try {
+            $model = $this->model->run($calendar);
+        } catch (\Throwable $failure) {
+            throw CalendarWriter::refusal($failure);
+        }
+
+        return $this->presenter->design($calendar, $model, [], [], [], export: $this->describeExport($export));
+    }
+
+    private function describeExport(CalendarExport $export): CalendarExportResponse
+    {
+        $stalled = $export->isStale($this->clock->now());
+        $failed = $stalled || $export->status === CalendarExportStatus::Failed;
+
+        return new CalendarExportResponse(
+            exportId: $export->id->toString(),
+            variant: $export->variant->value,
+            status: $failed ? CalendarExportStatus::Failed->value : $export->status->value,
+            pagesDone: $export->progressDone,
+            pagesTotal: $export->progressTotal,
+            revision: $export->calendarRevision,
+            fileName: CalendarExports::fileName($export->calendar, $export->variant)->name,
+            sizeBytes: $export->isDownloadable() ? $export->sizeBytes : null,
+            // An AI client has no web session: the file is handed out by its storage address
+            // (an unguessable key; the object carries its own download name).
+            downloadUrl: $export->isDownloadable() ? $this->exports->storageUrl($export) : null,
+            error: $failed ? ($stalled ? CalendarExports::STALLED : ($export->error ?? CalendarExports::FAILED)) : null,
         );
     }
 

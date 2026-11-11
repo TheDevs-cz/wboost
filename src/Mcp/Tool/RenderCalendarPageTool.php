@@ -28,8 +28,8 @@ use WBoost\Web\Value\RenderImageFormat;
  * Chromium ({@see CalendarPageRenderer}) from what is STORED — the same code,
  * fonts and measuring as the web workspace, so an agent judges the real
  * result, not a server-side imitation. It only draws: nothing is saved,
- * nothing is recorded, and there is no export counting (calendars have no
- * print export yet).
+ * nothing is recorded. The PDF of the whole calendar is `manage_calendar`
+ * "export_pdf".
  *
  * Read scope, like `render_variant`: a client role may look too.
  *

@@ -95,8 +95,10 @@ return App::config([
             its pages (page keys), all content, uploaded files, the project's fonts.
             A calendar has ONE layout for all its week pages. manage_calendar creates a
             calendar and changes its settings (name, year, type 7/14 days, feature switches,
-            print), finishes it, imports another calendar's layout and hands out the client
-            link; set_calendar_layout applies a preset (photoLeft / photoRight / twoSided) and
+            print), finishes it, imports another calendar's layout, hands out the client
+            link and exports the whole calendar as a PDF (export_pdf, then poll
+            export_status; "print" = bleed and crop marks for the print shop, "approval" =
+            a small trimmed file); set_calendar_layout applies a preset (photoLeft / photoRight / twoSided) and
             patches boxes (mm from the top-left trim corner), stacking order and styles (pt,
             #RRGGBB, project font faces); upload_calendar_asset stores a photo, logo, icon,
             QR or picture and returns the asset id to reference; update_calendar_content adds,

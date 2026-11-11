@@ -53,6 +53,8 @@ readonly final class CalendarDesignResponse
         public string $url,
         /** Only from manage_calendar "client_link": the public link the client fills the calendar in through. Whoever has it can write content without an account — hand it to the user, do not publish it. */
         public null|string $clientUrl = null,
+        /** Only from manage_calendar "export_pdf" / "export_status": the PDF export job. */
+        public null|CalendarExportResponse $export = null,
     ) {
     }
 }

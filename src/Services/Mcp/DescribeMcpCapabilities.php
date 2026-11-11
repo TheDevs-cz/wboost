@@ -292,7 +292,9 @@ readonly final class DescribeMcpCapabilities
                 . '(7 nebo 14 dní na stranu), spadávku a ořezové značky a co všechno se má tisknout '
                 . '(akce, odpady, fáze měsíce…). Umí také kalendář dokončit, převzít rozvržení z jiného '
                 . 'kalendáře téhož projektu a předat vám odkaz pro klienta. Smí to jen ten, kdo může '
-                . 'projekt upravovat; smazat kalendář odsud nejde.',
+                . 'projekt upravovat; smazat kalendář odsud nejde. Hotový kalendář umí také vyexportovat '
+                . 'do PDF — pro tisk (se spadávkou a ořezovými značkami) nebo jako malý náhled '
+                . 'k odsouhlasení — a dát vám odkaz ke stažení; to smí každý, kdo kalendář vidí.',
             ],
             'set_calendar_layout' => [
                 'Navrhnout vzhled kalendáře',
