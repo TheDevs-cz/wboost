@@ -1,6 +1,122 @@
 /* ==========================================================================
    Nocturne — Kalendáře: step-5 frame, page overlay buttons, popovers.
-   Owner: phase P7a (docs/calendar/architecture.md §D.9). Tokens only.
-   Loads after calendar.css — the stub rules there for this area are deleted
-   by the owner once the real styles live here.
+   Owner: phase P7a (docs/calendar/architecture.md §D.9). Tokens only — the
+   three mark colours on the page (plus / warning / comment) sit on the white
+   paper in both themes, so they use the accent tokens with a paper ring.
+   Loads after calendar.css; the selectors below win over its "P7a — step-5
+   frame" stub block, which can be deleted.
    ========================================================================== */
+
+/* ---- Frame: tool row · page · thumbnails ------------------------------- */
+.cal-b6 { display: grid; grid-template-columns: minmax(0, 1fr) 208px; grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
+.cal-b6 > .cal-t4 { grid-column: 1 / -1; }
+.cal-b6 .cal-5acts { display: flex; align-items: center; gap: 8px; margin-left: auto; padding-left: 12px; flex: none; }
+.cal-b6 .cal-b6-main { display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 0; min-width: 0; min-height: 0; padding: 0; overflow: hidden; }
+.cal-b6 .cal-b6-list { display: flex; flex-direction: column; gap: 6px; min-height: 0; padding: 10px; overflow-y: auto; background: var(--surface); border-left: 1px solid var(--line); }
+
+/* ---- Page head: previous / title / next + photo controls --------------- */
+.cal-5h { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; min-height: 56px; padding: 8px 16px; }
+.cal-5nav { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.cal-5t { display: inline-flex; align-items: baseline; gap: 6px; min-width: 0; white-space: nowrap; font-size: 14px; }
+.cal-5t b { font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; }
+.cal-5t .cal-5n { min-width: 0; text-align: left; font-variant-numeric: tabular-nums; }
+.cal-5ctl { display: flex; min-width: 0; margin-left: auto; }
+.cal-5ph { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; min-width: 0; }
+.cal-5ph[hidden], .cal-5ph [hidden] { display: none; }
+.cal-5up { cursor: pointer; }
+.cal-5up:focus-within { box-shadow: 0 0 0 3px var(--lav-glow); }
+.cal-5up.busy { opacity: .6; pointer-events: none; }
+.cal-5z { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+.cal-5z input[type="range"] { width: 130px; }
+.cal-5zv { min-width: 44px; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--text-2); }
+
+/* ---- Stage: the page fitted by step5.js (width / height set inline) ---- */
+.cal-5stage { flex: 1; display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 0; padding: 16px 88px; overflow: hidden; }
+.cal-b6 .cal-5w { position: relative; flex: none; width: auto; }
+.cal-5w .cal-page-svg { width: 100%; height: 100%; background: #fff; box-shadow: var(--shadow-3); }
+.cal-5w .cal-page-svg svg { display: block; width: 100%; height: 100%; }
+.cal-5o { position: absolute; inset: 0; pointer-events: none; --cal-5b: 22px; }
+.cal-5o > * { pointer-events: auto; }
+
+/* photo drag surface */
+.cal-5ps { position: absolute; touch-action: none; }
+.cal-5ps[hidden] { display: none; }
+.cal-5ps.can { cursor: grab; }
+.cal-5ps.can.drag { cursor: grabbing; }
+
+/* round buttons and marks on the page */
+.cal-5b { position: absolute; box-sizing: border-box; display: grid; place-items: center; width: var(--cal-5b); height: var(--cal-5b); padding: 0; border: 0; border-radius: 50%; font: inherit; font-size: 12px; font-weight: 700; line-height: 1; cursor: pointer; box-shadow: var(--shadow-2); transition: opacity var(--dur-2), background var(--dur-2), color var(--dur-2), transform var(--dur-1); }
+.cal-5b > .i { display: block; width: 14px; height: 14px; }
+.cal-5b:focus-visible { outline: 2px solid var(--lav); outline-offset: 2px; }
+.cal-5b.pl { background: var(--surface); color: var(--text-2); border: 1px solid var(--line-3); opacity: .85; }
+.cal-5b.pl:hover, .cal-5b.pl:focus-visible { opacity: 1; background: var(--lav); border-color: var(--lav); color: var(--on-accent); }
+.cal-5b.pen { background: var(--lav); color: var(--on-accent); }
+.cal-5b.pen:hover { transform: scale(1.1); }
+.cal-5b.wr { background: var(--rose); color: var(--on-accent); cursor: help; }
+.cal-5b.cm { background: var(--pch); color: var(--on-accent); font-variant-numeric: tabular-nums; }
+.cal-5b.cm:hover { transform: scale(1.1); }
+
+/* ---- Floating editors (ui/popover.js) ---------------------------------- */
+.cal-pop { position: fixed; z-index: 1040; display: flex; flex-direction: column; gap: 12px; width: min(360px, calc(100vw - 24px)); max-height: calc(100vh - 24px); padding: 12px 14px 14px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line-2); box-shadow: var(--shadow-3); color: var(--text); }
+.cal-pop-h { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.cal-pop-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 600; }
+.cal-pop-sp { flex: 1; }
+.cal-pop-grip { display: grid; place-items: center; flex: none; width: 20px; height: 28px; color: var(--subtle); cursor: grab; touch-action: none; }
+.cal-pop-grip:active, .cal-pop-grip.is-dragging { cursor: grabbing; color: var(--text-2); }
+.cal-pop .cal-pop-ok { flex: none; background: var(--mnt); border-color: var(--mnt); color: var(--on-accent); box-shadow: 0 6px 18px var(--mnt-glow); }
+.cal-pop .cal-pop-ok:hover { background: color-mix(in oklab, var(--mnt) 86%, white); }
+.cal-pop .cal-pop-ok[hidden] { display: none; }
+.cal-pop-x { flex: none; color: var(--muted); }
+.cal-pop-b { display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow-y: auto; }
+.cal-pop-form { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.cal-pop .inp input, .cal-pop .inp select { font-size: 15px; }
+.cal-pop .inp.area { height: auto; padding: 0; align-items: stretch; }
+.cal-pop .inp.area textarea { flex: 1; min-width: 0; min-height: 76px; padding: 10px 12px; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; font-size: 15px; resize: vertical; }
+.cal-pop .inp.area textarea::placeholder { color: var(--subtle); }
+.cal-5cnt { align-self: flex-end; margin-top: -4px; font-variant-numeric: tabular-nums; }
+
+/* plus menu: three choices + what the day already has */
+.cal-5ch { display: grid; gap: 8px; }
+.cal-5ch button { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; padding: 12px 6px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font: inherit; font-size: 13px; text-align: center; cursor: pointer; transition: background var(--dur-2), border-color var(--dur-2); }
+.cal-5ch button:hover { background: var(--surface-2); border-color: var(--line-3); }
+.cal-5ch button:focus-visible { outline: 0; border-color: var(--lav); box-shadow: 0 0 0 3px var(--lav-glow); }
+.cal-5ch button .i { color: var(--lav-ink); }
+.cal-5ch button b { font-weight: 600; }
+.cal-5ch button .cap { font-size: 11px; line-height: 1.25; }
+.cal-5day { display: flex; flex-direction: column; gap: 4px; padding-top: 10px; border-top: 1px solid var(--line); }
+.cal-5day h4 { margin: 0; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.cal-5day ul { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.cal-5day li { display: flex; align-items: center; gap: 8px; min-height: 34px; font-size: 13px; }
+.cal-5day li > .i { flex: none; color: var(--muted); }
+.cal-5day li > span:not(.i) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-5day li .btn { flex: none; }
+
+/* comment thread */
+.cal-5cms { display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; }
+.cal-5cm { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 10px; background: var(--surface-2); font-size: 13px; }
+.cal-5cm b { font-size: 12px; font-weight: 600; color: var(--text-2); }
+.cal-5cm > span:not(.cap) { overflow-wrap: anywhere; white-space: pre-wrap; }
+
+/* ---- Narrow screens: thumbnails become a strip under the page ---------- */
+@media (max-width: 1180px) {
+    .cal-b6 { grid-template-columns: minmax(0, 1fr) 168px; }
+}
+@media (max-width: 960px) {
+    .cal-b6 { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto; }
+    .cal-b6 .cal-b6-main { overflow: visible; }
+    .cal-5stage { flex: none; padding-top: 12px; padding-bottom: 20px; }
+    .cal-b6 .cal-b6-list { border-left: 0; border-top: 1px solid var(--line); max-height: none; overflow: visible; }
+    .cal-b6 .cal-b6-list .cal-thl { flex-direction: row; overflow-x: auto; }
+    .cal-b6 .cal-b6-list .cal-th { flex: none; width: 132px; }
+}
+@media (max-width: 700px) {
+    .cal-5h { padding: 8px 12px; }
+    .cal-5ctl { margin-left: 0; width: 100%; }
+    .cal-5ph { flex-wrap: nowrap; width: 100%; }
+    .cal-5up { flex: none; --bs-btn-padding-x: 12px; }
+    .cal-5z { flex: 1; min-width: 0; }
+    .cal-5z input[type="range"] { flex: 1; width: auto; min-width: 40px; }
+    .cal-5z > .i { display: none; }
+    .cal-5hint { display: none; }
+    .cal-b6 .cal-5acts .btn { --bs-btn-padding-x: 10px; }
+}
