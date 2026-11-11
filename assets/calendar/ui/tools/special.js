@@ -18,7 +18,8 @@
 // DOM hooks: `[data-special="<id>"]` (+ class `on` / `sel`), `[data-special-on]` (native checkbox —
 // click its label), `[data-special-preview]`, `[data-special-position] [data-value]`,
 // `[data-special-year] [data-value]`, `[data-special-layout="<n>"]`, `[data-special-name]`,
-// `[data-special-file]`, `[data-special-delete]`, `.cal-grip` (drag handle),
+// `[data-special-file]`, `[data-special-delete]`, `[data-special-edit]` („Upravit obsah“ — opens
+// the page with its content fields, `ui/pagecontent.js`), `.cal-grip` (drag handle),
 // `[data-cal-action="feature-on"]`.
 
 import Sortable from 'sortablejs';
@@ -173,7 +174,24 @@ export function mountSpecialPanel(root, ctx) {
             icon('eye', 's14'),
             'Náhled',
         );
-        const head = h('div', { class: 'cal-sph' }, h('span', { class: 'cal-grip', title: 'Přetáhněte pro změnu pořadí', 'aria-hidden': 'true' }, icon('grip', 's14')), parts.check, h('span', { class: 'cal-spa' }, item.on ? parts.preview : null));
+        // texts, photo and contacts of a generated page are edited on the page itself
+        parts.edit = generated
+            ? h(
+                  'button',
+                  {
+                      type: 'button',
+                      class: 'btn xs btn-ghost',
+                      'data-special-edit': '',
+                      onClick: () => {
+                          const index = store.pages().findIndex((page) => page.key === `sp:${id}`);
+                          if (index >= 0) store.setUi({ contentView: index });
+                      },
+                  },
+                  icon('edit', 's14'),
+                  'Upravit obsah',
+              )
+            : null;
+        const head = h('div', { class: 'cal-sph' }, h('span', { class: 'cal-grip', title: 'Přetáhněte pro změnu pořadí', 'aria-hidden': 'true' }, icon('grip', 's14')), parts.check, h('span', { class: 'cal-spa' }, item.on ? parts.edit : null, item.on ? parts.preview : null));
         const children = [head];
 
         if (item.on) {

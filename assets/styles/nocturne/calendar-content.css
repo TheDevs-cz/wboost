@@ -161,6 +161,48 @@
 .cal-splp svg { display: block; width: 100%; height: auto; }
 .cal-splc .cap { color: inherit; font-size: 11px; font-weight: 600; line-height: 1.3; }
 
+/* ---- Page content: cover, back, special pages (ui/pagecontent.js) ------------ */
+.cal-p4c { min-width: 0; }
+.cal-pc { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.cal-pc [hidden] { display: none !important; }
+.cal-pcl { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; }
+.cal-cnt { flex: none; font-size: 11px; font-variant-numeric: tabular-nums; color: var(--subtle); }
+.cal-pcn { margin: 0; line-height: 1.45; }
+.cal-pc .inp.area { height: auto; padding: 0; align-items: stretch; }
+.cal-pc .inp.area textarea { flex: 1; min-width: 0; min-height: 64px; padding: 9px 12px; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; font-size: 14px; line-height: 1.5; resize: vertical; }
+.cal-pc .inp.area textarea::placeholder { color: var(--subtle); }
+.cal-pcf { display: flex; gap: 4px; margin: -2px 0 -2px -8px; }
+.cal-pcf .btn b, .cal-pcf .btn i { display: inline-grid; place-items: center; width: 16px; font-family: Georgia, 'Times New Roman', serif; font-size: 14px; }
+.cal-pc .seg.full button { padding: 0 6px; font-size: 12px; white-space: nowrap; }
+.cal-pc .cal-spl { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
+/* crop preview: the frame of the page, the photo dragged inside it */
+.cal-crop { position: relative; max-width: 100%; border-radius: 8px; overflow: hidden; background: repeating-conic-gradient(var(--surface-2) 0% 25%, var(--surface-3, var(--line)) 0% 50%) 50% / 14px 14px; box-shadow: 0 0 0 1px var(--line-2); cursor: grab; touch-action: none; user-select: none; }
+.cal-crop:active { cursor: grabbing; }
+.cal-crop img { position: absolute; display: block; max-width: none; pointer-events: none; }
+.cal-cropc { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; }
+.cal-cropc .cal-5z { flex: 1; min-width: 0; }
+.cal-cropc .cal-5z input[type="range"] { flex: 1; width: auto; min-width: 60px; }
+/* groups of lines */
+.cal-gs { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.cal-gs:empty { display: none; }
+.cal-g { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 8px 8px 8px 6px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); }
+.cal-g.open { border-color: var(--line-3); }
+.cal-g.hl { box-shadow: inset 3px 0 0 var(--lav); }
+.cal-g.drag, .cal-gl.drag { opacity: .45; }
+.cal-gh, .cal-gl { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.cal-gh .inp { flex: 1; min-width: 0; }
+.cal-gh .inp input { font-weight: 600; }
+.cal-g .cal-grip { display: grid; place-items: center; flex: none; width: 18px; height: 28px; color: var(--subtle); cursor: grab; touch-action: none; }
+.cal-g .cal-grip:active { cursor: grabbing; }
+.cal-gls { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.cal-gl .inp { min-width: 0; height: 32px; }
+.cal-gl .inp input { font-size: 13px; }
+.cal-gll { flex: 0 1 34%; }
+.cal-glv { flex: 1 1 66%; }
+.cal-gf { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 10px; padding-left: 18px; }
+.cal-gf .cal-check { font-size: 12px; }
+.cal-gadd { align-self: flex-start; }
+
 /* ---- Narrow screens: panels stack under the page (handoff §8) -------------- */
 @media (max-width: 1180px) {
     .cal-s4 { grid-template-columns: 148px minmax(0, 1fr) 340px; }

@@ -11,7 +11,11 @@
 //   - buttons: `[data-tool]` (`ui/tools/index.js` decides which the role gets),
 //     `[data-cal-action="export-pdf"]` (every role — „Stáhnout PDF“, `ui/export.js`),
 //     `[data-cal-action="client-link"]` (designer), `[data-cal-action="history"]`,
-//     `[data-cal-action="warnings"]` (the chip of `ui/warnings.js`), `page-prev`, `page-next`
+//     `[data-cal-action="warnings"]` (the chip of `ui/warnings.js`), `page-prev`, `page-next`,
+//     `[data-cal-action="page-content"]` („Upravit obsah stránky“ — on the cover, the back and the
+//     generated special pages, for the designer and the client: opens the fields of
+//     `ui/pagecontent.js` in the popover `[data-cal-popover="page-content"]`; they write as you
+//     type, the page behind redraws, and the popover follows the shown page)
 //   - everything on the page itself (photo, caption, day buttons, comments) is
 //     `ui/step5-overlay.js`; this module gives it the page geometry and the room it needs
 //
@@ -31,7 +35,8 @@ import { openClientLink } from './client-link.js';
 import { openExport } from './export.js';
 import { openHistory } from './history.js';
 import { mountPageList } from './pagelist.js';
-import { closePopover } from './popover.js';
+import { hasPageContent, mountPageContent } from './pagecontent.js';
+import { closePopover, openPopover } from './popover.js';
 import { mountStep5Overlay } from './step5-overlay.js';
 import { mountToolbar } from './tools/index.js';
 import { openWarnings, warningChip } from './warnings.js';
@@ -67,7 +72,32 @@ export function mountStep5(root, ctx) {
     const controlsSlot = h('div', { class: 'cal-5ctl' });
     // shown while the day rows themselves are the buttons (phones, see step5-overlay.js "compact")
     const tapHint = h('p', { class: 'cap cal-5tap', hidden: true }, icon('plus', 's14'), 'Klepněte na den a přidejte odpad, akci nebo komentář.');
-    const head = h('div', { class: 'cal-5h' }, h('div', { class: 'cal-5nav' }, prev, h('span', { class: 'cal-5t', 'aria-live': 'polite' }, title, range, counter), next), controlsSlot, tapHint);
+    // texts, photo and contacts of the cover / back / special pages: the same fields as in step 4
+    let contentPopover = null;
+    const contentButton = h('button', { type: 'button', class: 'btn sm btn-tertiary cal-5pc', 'data-cal-action': 'page-content', hidden: true, onClick: () => openContent() }, icon('edit', 's16'), 'Upravit obsah stránky');
+    function openContent() {
+        const page = current();
+        if (!page || !hasPageContent(page)) return;
+        const host = h('div', { class: 'cal-pop-form cal-pcpop' });
+        const editor = mountPageContent(host, ctx, { page: current });
+        const shown = page.key;
+        const popover = openPopover({
+            title: `Obsah — ${page.title}`,
+            body: host,
+            anchor: contentButton,
+            kind: 'page-content',
+            wide: true,
+            align: 'end',
+            closeLabel: 'Zavřít',
+            returnFocus: () => contentButton,
+            onClose: () => {
+                editor.destroy();
+                if (contentPopover && contentPopover.popover === popover) contentPopover = null;
+            },
+        });
+        contentPopover = { popover, key: shown };
+    }
+    const head = h('div', { class: 'cal-5h' }, h('div', { class: 'cal-5nav' }, prev, h('span', { class: 'cal-5t', 'aria-live': 'polite' }, title, range, counter), next), controlsSlot, contentButton, tapHint);
     const centre = h('section', { class: 'cal-b6-main' }, head, stage);
     const side = h('aside', { class: 'cal-b6-list' });
     const frame = h('div', { class: 'cal-b6' }, row, centre, side);
@@ -189,6 +219,9 @@ export function mountStep5(root, ctx) {
         counter.textContent = `· ${index + 1} / ${count}`;
         prev.disabled = index <= 0;
         next.disabled = index >= count - 1;
+        contentButton.hidden = !page || !hasPageContent(page);
+        // the popover belongs to the page it was opened for
+        if (contentPopover && (!page || page.key !== contentPopover.key)) contentPopover.popover.close();
         layout();
     }
 

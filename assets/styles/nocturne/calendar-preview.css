@@ -77,6 +77,10 @@
 
 /* ---- Floating editors (ui/popover.js) ---------------------------------- */
 .cal-pop { position: fixed; z-index: 1040; display: flex; flex-direction: column; gap: 12px; width: min(360px, calc(100vw - 24px)); max-height: calc(100vh - 24px); padding: 12px 14px 14px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line-2); box-shadow: var(--shadow-3); color: var(--text); }
+.cal-pop.wide { width: min(460px, calc(100vw - 24px)); max-height: min(78vh, calc(100vh - 24px)); }
+.cal-pop.wide .cal-pop-b { margin: 0 -6px; padding: 2px 6px 4px; scrollbar-width: thin; }
+.cal-pcpop { gap: 0; }
+.cal-5pc[hidden] { display: none; }
 .cal-pop-h { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .cal-pop-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 600; }
 .cal-pop-sp { flex: 1; }
@@ -135,6 +139,10 @@
     .cal-b6 .cal-b6-list .cal-th { flex: none; width: 132px; }
 }
 @media (max-width: 700px) {
+    /* a whole form on a phone: a sheet docked to the bottom, the page stays visible above it */
+    .cal-pop.wide { left: 8px !important; right: 8px; top: auto !important; bottom: 8px; width: auto; max-height: 58vh; }
+    .cal-pop.wide .cal-pop-grip { display: none; }
+    .cal-5pc { width: 100%; justify-content: center; }
     .cal-5h { padding: 8px 12px; }
     .cal-5ctl { margin-left: 0; width: 100%; }
     .cal-5ph { flex-wrap: nowrap; width: 100%; }

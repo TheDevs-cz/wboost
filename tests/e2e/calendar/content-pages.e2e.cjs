@@ -261,7 +261,10 @@ module.exports = {
             await page.click('[data-cal-action="page-prev"]');
             assert.equal(await text(page, '[data-page-title]'), 'Titulní strana');
             assert.equal(await page.$eval('[data-cal-action="page-prev"]', (el) => el.disabled), true, 'no page before the cover');
-            assert.equal(await shown(page, '.cal-p4b'), `Titulní strana strana 1 z ${total} Tato strana nemá nic k doplnění — vzhled určuje styl z kroku 3.`);
+            // the cover carries its own content fields (special-content.e2e.cjs); it never says "nothing to fill in"
+            assert.equal(await shown(page, '.cal-p4h'), `Titulní strana strana 1 z ${total}`);
+            assert.deepEqual(await page.$$eval('.cal-p4b [data-page-content="cover"] [data-content-field]', (nodes) => nodes.map((n) => n.dataset.contentField)), ['title', 'subtitle', 'note']);
+            assert.doesNotMatch(await shown(page, '.cal-p4b'), /nemá nic k doplnění/);
             await showPage(page, total - 1);
             assert.equal(await page.$eval('[data-cal-action="page-next"]', (el) => el.disabled), true, 'no page after the back page');
             assert.match(await stageSvg(page), /PŘEHLED ROKU \d{4}/);
@@ -490,7 +493,7 @@ module.exports = {
             await h.waitToast(page, 'Zapnuto');
             assert.equal((await h.state(page)).design.features.specialPages, true);
             assert.equal(await text(page, '.cal-spb > .cap'), 'Zaškrtnuté stránky se vygenerují automaticky. Pořadí změníte přetažením.');
-            assert.deepEqual(await page.$$eval('[data-special]', (nodes) => nodes.map((n) => `${n.dataset.special}:${n.querySelector('.cal-check-t').textContent}`)), ['intro:Úvodní slovo', 'contacts:Důležité kontakty', 'year:Roční kalendárium', 'waste:Plánovací kalendář svozu odpadů']);
+            assert.deepEqual(await page.$$eval('[data-special]', (nodes) => nodes.map((n) => `${n.dataset.special}:${n.querySelector('.cal-check-t').textContent}`)), ['intro:Úvodní slovo', 'contacts:Důležité kontakty', 'year:Roční kalendárium', 'waste:Plánovací kalendář svozu odpadů', 'notes:Poznámky']);
             assert.equal((await h.cal(page, (c) => c.pages())).length, total, 'nothing is switched on by the feature itself');
             assert.equal(await visible(page, '[data-special-empty]'), true);
             assert.equal(await text(page, '[data-special-empty]'), 'Zapněte některou speciální stránku vpravo.');
@@ -506,6 +509,9 @@ module.exports = {
             assert.equal(await text(page, '[data-page-title]'), 'Úvodní slovo');
             assert.match(await stageSvg(page), /ÚVODNÍ SLOVO/);
             assert.equal(await page.$eval('[data-special="intro"]', (el) => el.classList.contains('on') && el.classList.contains('sel')), true);
+            // the page's texts are edited on the page itself: „Upravit obsah“ leads there (special-content.e2e.cjs)
+            assert.equal(await text(page, '[data-special="intro"] [data-special-edit]'), 'Upravit obsah');
+            assert.equal(await exists(page, '[data-special="contacts"] [data-special-edit]'), false, 'not while the page is off');
 
             // layouts as thumbnails
             assert.deepEqual(await page.$$eval('[data-special="intro"] [data-special-layout] .cap', (nodes) => nodes.map((n) => n.textContent)), ['Fotka + text', 'Jen text', 'Portrét + dva sloupce']);
@@ -541,7 +547,7 @@ module.exports = {
             await waitCal(page, (c) => c.pages()[1].key === 'sp:contacts');
             pages = await h.cal(page, (c) => c.pages());
             assert.deepEqual(pages.slice(1, 3).map((p) => p.key), ['sp:contacts', 'sp:intro']);
-            assert.deepEqual(await page.$$eval('[data-special]', (nodes) => nodes.map((n) => n.dataset.special)), ['contacts', 'intro', 'year', 'waste']);
+            assert.deepEqual(await page.$$eval('[data-special]', (nodes) => nodes.map((n) => n.dataset.special)), ['contacts', 'intro', 'year', 'waste', 'notes']);
             await page.waitForFunction(() => document.querySelector('[data-page-thumb="1"] .cal-thn b')?.textContent.includes('Důležité kontakty'));
 
             // Náhled chooses the page in the middle
@@ -586,7 +592,7 @@ module.exports = {
             await page.waitForSelector('.cal-spam');
             assert.equal(await page.$eval('[data-cal-action="special-add"]', (el) => `${el.getAttribute('aria-label')}|${el.getAttribute('aria-expanded')}`), 'Přidat speciální stránku|true');
             const menu = await page.$$eval('.cal-spam > *', (nodes) => nodes.map((n) => n.textContent.replace(/\s+/g, ' ').trim()));
-            assert.deepEqual(menu, ['Plánovací kalendář svozu odpadůVygeneruje se automaticky', 'Nahrát grafikuHotová strana jako PDF nebo obrázek', 'Text z WorduVysází se do stylu kalendáře']);
+            assert.deepEqual(menu, ['Plánovací kalendář svozu odpadůVygeneruje se automaticky', 'PoznámkyVygeneruje se automaticky', 'Nahrát grafikuHotová strana jako PDF nebo obrázek', 'Text z WorduVysází se do stylu kalendáře']);
             await h.shot(page, 'step4-plus-menu');
             // Esc closes the menu, not the view
             await page.keyboard.press('Escape');

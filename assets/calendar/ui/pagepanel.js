@@ -10,6 +10,9 @@
 //                       own code, „Jiný QR kód jen pro tuto stranu“ over the shared code otherwise —
 //                       a page's own code wins in both modes
 // and „Vrátit na styl“, which removes every override of the page.
+// The cover, the back and the generated special pages show their CONTENT first — titles, texts,
+// photo, contact groups, layout of the cover (`ui/pagecontent.js`, shared with step 5); that is
+// content of the page, not an override, so „Vrátit na styl“ and the „Upraveno“ pill ignore it.
 //
 // Contract: `mountPagePanel(root, ctx, opts: { pageIndex: number }): { destroy() }` — one mount per
 // shown page; `ui/step4.js` destroys and re-mounts it when the page changes. All edits are content
@@ -21,6 +24,7 @@
 
 import { clearPageOverrides, pageHasOverrides } from '../model/content.js';
 import { h, icon } from './dom.js';
+import { hasPageContent, mountPageContent } from './pagecontent.js';
 import { CAPTION_MAX, fileTile, setPageCaption, setPagePhoto, uploadAsset } from './tools/photos.js';
 import { QR_ACCEPT } from './tools/qr.js';
 import { pageWarnings } from './warnings.js';
@@ -33,6 +37,10 @@ export function mountPagePanel(root, ctx, opts = {}) {
     let signature = null;
     let captionInput = null;
     let parts = null;
+    // mounted once and re-attached by every rebuild: a field being typed in keeps its focus when a
+    // warning of the page appears or goes
+    const contentHost = h('div', { class: 'cal-p4c' });
+    const contentEditor = mountPageContent(contentHost, ctx, { page: () => store.pages()[opts.pageIndex] || null });
 
     const state = () => store.getState();
     const page = () => store.pages()[opts.pageIndex] || null;
@@ -186,7 +194,7 @@ export function mountPagePanel(root, ctx, opts = {}) {
             }
         }
         // the note about client photos alone is not something to fill in
-        const fillable = fields().some((field) => field !== 'photo-note');
+        const fillable = fields().some((field) => field !== 'photo-note') || hasPageContent(current);
         const empty = fillable || sections.length ? null : h('p', { class: 'cap' }, 'Tato strana nemá nic k doplnění — vzhled určuje styl z kroku 3.');
         const reset = h(
             'button',
@@ -203,7 +211,7 @@ export function mountPagePanel(root, ctx, opts = {}) {
 
         parts = { key, pill, reset, syncs };
         body.dataset.pagePanel = key;
-        body.replaceChildren(...[head, warningBox, ...sections, empty, reset].filter(Boolean));
+        body.replaceChildren(...[head, warningBox, hasPageContent(current) ? contentHost : null, ...sections, empty, reset].filter(Boolean));
         sync();
     }
 
@@ -226,6 +234,7 @@ export function mountPagePanel(root, ctx, opts = {}) {
     return {
         destroy() {
             unsubscribe();
+            contentEditor.destroy();
             root.replaceChildren();
         },
     };

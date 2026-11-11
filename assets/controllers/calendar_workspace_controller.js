@@ -5,6 +5,7 @@ import { visibleBoxKeys } from '../calendar/model/elements.js';
 import { normalizeDocument } from '../calendar/model/normalize.js';
 import { pluralPages } from '../calendar/generate/czech.js';
 import { createCanvasMeasurer, ensureFontsLoaded, usedFamilies } from '../calendar/render/measure.js';
+import { specialFamilies } from '../calendar/render/special.js';
 import { createApi } from '../calendar/state/api.js';
 import { createStore } from '../calendar/state/store.js';
 import { choiceDialog, confirmDialog, h, toast } from '../calendar/ui/dom.js';
@@ -104,7 +105,8 @@ export default class extends Controller {
         this.installHook();
 
         const layout = store.getState().doc.design.layout;
-        ensureFontsLoaded(env.fonts, layout ? usedFamilies(layout) : env.fonts.map((f) => f.family))
+        // the cover, back and special pages also draw with the sibling cuts (bold, italic) of the layout's fonts
+        ensureFontsLoaded(env.fonts, layout ? [...usedFamilies(layout), ...specialFamilies(store.getState().doc, env.fonts)] : env.fonts.map((f) => f.family))
             .catch(() => null)
             .then(() => {
                 if (!this.store) return;

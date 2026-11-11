@@ -12,6 +12,12 @@
 //   options.onClose        called once when the popover is gone, whatever closed it
 //   options.kind           value of `data-cal-popover` (e2e hook)
 //   options.returnFocus    `() => Element | null` — receives focus after closing
+//   options.wide           a larger popover for a whole form (`.cal-pop.wide`; a sheet docked to
+//                          the bottom of a phone screen, so the page above stays visible)
+//   options.align          'end' = opened flush with the right edge of the window instead of
+//                          centred under the anchor
+//   options.closeLabel     aria-label / tooltip of the close button (default „Zavřít bez uložení“;
+//                          a popover whose fields write as you type says „Zavřít“)
 //
 // Behaviour: `position: fixed`, always clamped into the viewport (on open, on content change, after
 // a drag, on window resize); draggable by its grip (`makeDraggable` of the shared
@@ -44,9 +50,9 @@ export function openPopover(options) {
     const okText = h('span');
     const ok = h('button', { type: 'button', class: 'btn xs cal-pop-ok', 'data-popover-confirm': true, hidden: true, onClick: () => confirm() }, icon('check', 's14'), okText);
     const grip = h('span', { class: 'cal-pop-grip', 'data-popover-grip': true, title: 'Přetažením přesunete', 'aria-hidden': 'true' }, icon('grip', 's14'));
-    const close = h('button', { type: 'button', class: 'btn icon xs btn-ghost cal-pop-x', 'data-popover-close': true, 'aria-label': 'Zavřít bez uložení', onClick: () => api.close() }, icon('x', 's16'));
+    const close = h('button', { type: 'button', class: 'btn icon xs btn-ghost cal-pop-x', 'data-popover-close': true, 'aria-label': options.closeLabel || 'Zavřít bez uložení', title: options.closeLabel || null, onClick: () => api.close() }, icon('x', 's16'));
     const bodyEl = h('div', { class: 'cal-pop-b' });
-    const el = h('div', { class: 'cal-pop', role: 'dialog', 'aria-label': options.title || '' }, h('div', { class: 'cal-pop-h' }, grip, titleEl, h('span', { class: 'cal-pop-sp' }), ok, close), bodyEl);
+    const el = h('div', { class: `cal-pop${options.wide ? ' wide' : ''}`, role: 'dialog', 'aria-label': options.title || '' }, h('div', { class: 'cal-pop-h' }, grip, titleEl, h('span', { class: 'cal-pop-sp' }), ok, close), bodyEl);
 
     function clamp() {
         const rect = el.getBoundingClientRect();
@@ -63,7 +69,8 @@ export function openPopover(options) {
         const rect = el.getBoundingClientRect();
         let top = anchor.bottom + GAP;
         if (top + rect.height > window.innerHeight - EDGE) top = anchor.top - rect.height - GAP;
-        el.style.left = `${anchor.left + (anchor.width || 0) / 2 - rect.width / 2}px`;
+        // `align: 'end'`: flush with the right edge of the window (a form that should leave the page visible)
+        el.style.left = options.align === 'end' ? `${window.innerWidth - rect.width - EDGE}px` : `${anchor.left + (anchor.width || 0) / 2 - rect.width / 2}px`;
         el.style.top = `${top}px`;
         clamp();
     }
