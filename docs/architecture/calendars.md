@@ -651,7 +651,12 @@ it, the texts and every other shape stay as they are.
 
 Print gets `placeholders: 'none'` (nothing invented goes on paper — an empty
 photo frame stays empty), approval `'frames'` (the grey "a photo is missing"
-frame, as on screen). The hole row is drawn in both, as step 5 draws it.
+frame, as on screen). **The row of binding holes is NOT drawn in the print
+file** (`holes: false` of `renderPage`, set by `CalendarPdfRenderer` for the
+print variant only): the holes are punched at the bindery, and white squares
+printed over the header art would be a print defect. The approval file shows
+the finished product, so it keeps them — as does every screen (the page
+renderer's default stays `holes: true`).
 
 ### Pipeline — `Services/Calendar/`
 

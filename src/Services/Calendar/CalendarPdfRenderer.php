@@ -122,6 +122,10 @@ final class CalendarPdfRenderer
             // Paper gets nothing invented: an empty photo frame stays empty in the print file.
             // The approval file shows the grey frame, as the screen does — "a photo is missing here".
             'placeholders' => $plan->variant === CalendarExportVariant::Print ? 'none' : 'frames',
+            // The row of binding holes is a picture of the finished product: the holes are
+            // punched at the bindery, and white squares printed over the header would be a
+            // print defect. The approval file (and every screen) keeps showing them.
+            'holes' => $plan->variant !== CalendarExportVariant::Print,
         ];
 
         $html = $this->twig->render('calendar/headless_print.html.twig', [

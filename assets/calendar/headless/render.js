@@ -70,7 +70,7 @@ export async function renderHeadless(boot, root) {
  * The pages of a PDF chunk: one `<div class="sheet">` per page key, in the given order. The
  * template sizes a sheet in mm (the view box of the chosen variant) and breaks the page after it.
  *
- * @param boot  `{ calendar, assets, env, pageKeys: string[], bleed?, marks?, placeholders?: 'frames' | 'none' }` — the server
+ * @param boot  `{ calendar, assets, env, pageKeys: string[], bleed?, marks?, holes?: boolean, placeholders?: 'frames' | 'none' }` — the server
  *              decides which file of an asset travels (the upload or its preview) and hands it as `url`
  * @param root  the element that receives the sheets
  * @returns the rendered page keys; throws when a key matches no page
@@ -100,6 +100,8 @@ export async function renderHeadlessSheets(boot, root) {
             bleed: boot.bleed === true || boot.marks === true,
             marks: boot.marks === true,
             placeholders: boot.placeholders === 'none' ? 'none' : 'frames',
+            // the binding holes are punched at the bindery: a print file must not paint them over the header art
+            holes: boot.holes !== false,
             quality: 'full',
         });
         markup += `<div class="sheet">${svg}</div>`;

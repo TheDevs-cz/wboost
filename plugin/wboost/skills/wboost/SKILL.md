@@ -415,8 +415,9 @@ Design rules:
   client collections and photo uploads still work.
 - **PDF.** `manage_calendar` `export_pdf` with `variant: "print"` (every page
   with the bleed and crop marks the calendar's print settings switch on,
-  photos at uploaded resolution — for the print shop) or `"approval"`
-  (trimmed pages, small file — for e-mail). Text and shapes are vector; colours
+  photos at uploaded resolution, no binding-hole row — for the print shop) or
+  `"approval"` (trimmed pages as the finished calendar looks, small file — for
+  e-mail). Text and shapes are vector; colours
   are RGB. It exports what is SAVED and runs in the background (about a second
   per page): poll `export_status` with `export.exportId` every few seconds
   until `status` is `done`, then give `export.downloadUrl` to the user (a

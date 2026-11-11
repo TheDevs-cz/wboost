@@ -110,6 +110,21 @@ readonly final class ManageCalendarTool
      *   (boxes, order, styles, its pictures are copied) of ANOTHER calendar of
      *   the same project and the same type, replacing this calendar's layout.
      *   Content is not touched.
+     * - "export_pdf": calendarId, variant — starts a PDF export of the WHOLE
+     *   calendar as it is saved now and answers export {exportId, status, …}.
+     *   variant "print" = every page with the calendar's print settings (bleed
+     *   and crop marks when they are on), photos at their uploaded resolution,
+     *   WITHOUT the row of binding holes (they are punched at the bindery) —
+     *   the file for the print shop; "approval" = trimmed pages as the finished
+     *   calendar looks (binding holes drawn) with screen-size photos — a small
+     *   file to e-mail for approval. Text and shapes are vector in both;
+     *   colours are RGB. The export runs in the background (about a second per
+     *   page): poll "export_status" every few seconds until status is "done",
+     *   then give export.downloadUrl to the user. An unchanged calendar is
+     *   answered at once with the file that already exists. Any role may
+     *   export (also an account the project is only shared with). It is
+     *   recorded in the history. Needs a layout.
+     * - "export_status": calendarId, exportId — where that export is.
      *
      * Settings:
      * - name: 1–60 characters.

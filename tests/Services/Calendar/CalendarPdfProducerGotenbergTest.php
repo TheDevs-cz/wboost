@@ -118,6 +118,12 @@ final class CalendarPdfProducerGotenbergTest extends WebTestCase
         // The ONLY raster in the file is the photo — at the pixels it was uploaded with, its JPEG data untouched.
         $images = self::images($file);
         self::assertSame([[self::PHOTO_WIDTH, self::PHOTO_HEIGHT, 'DCTDecode']], $images);
+        // The binding holes are punched at the bindery — the print file must not paint them.
+        // Week 5's page: the centre of the first hole is the header's own colour.
+        $page = (int) array_search('w05', $pageKeys, true) + 1;
+        [$hole, $between] = $this->holeProbe($gs, $file, $page, 13.0);
+        self::assertSame($between, $hole, 'no hole squares in the print file');
+
         // the document title (UTF-16BE in the Info dictionary of the appended update)
         self::assertStringContainsString('/Title <FEFF' . strtoupper(bin2hex(mb_convert_encoding('Obecní kalendář', 'UTF-16BE', 'UTF-8'))) . '>', (string) file_get_contents($file));
     }
@@ -155,6 +161,10 @@ final class CalendarPdfProducerGotenbergTest extends WebTestCase
 
         self::assertSame([], $info['notEmbedded']);
         self::assertStringContainsString('Pondělí', $this->text($gs, $file));
+        // The approval file shows the finished product: the row of holes is drawn.
+        [$hole, $between] = $this->holeProbe($gs, $file, (int) array_search('w05', $pageKeys, true) + 1, 0.0);
+        self::assertNotSame($between, $hole, 'the hole squares are in the approval file');
+
         // the ≤ 1600 px preview, as a JPEG (Chromium would store a WebP losslessly — megabytes)
         self::assertSame([[1600, 1067, 'DCTDecode']], self::images($file));
     }
@@ -236,6 +246,33 @@ final class CalendarPdfProducerGotenbergTest extends WebTestCase
             'fonts' => array_keys($names),
             'notEmbedded' => array_keys($notEmbedded),
         ];
+    }
+
+    /**
+     * The colour in the middle of the first binding hole and in the gap
+     * right of it (default page: 38 holes of 4.3 mm, pitch 8, 4 mm from the
+     * top, the row centred → the first hole starts at x = 4.85 mm).
+     *
+     * @param float $inset distance of the trim from the sheet's edge, mm
+     *
+     * @return array{string, string} two `r,g,b` strings
+     */
+    private function holeProbe(string $gs, string $file, int $page, float $inset): array
+    {
+        $png = $this->directory . '/probe.png';
+        $dpi = 254; // 10 px per mm
+        (new Process([$gs, '-q', '-dBATCH', '-dNOPAUSE', '-sDEVICE=png16m', '-r' . $dpi, '-dFirstPage=' . $page, '-dLastPage=' . $page, '-o', $png, $file]))->setTimeout(120)->mustRun();
+
+        $image = new \Imagick($png);
+        $at = static function (float $xMm, float $yMm) use ($image, $inset): string {
+            $color = $image->getImagePixelColor((int) round(($inset + $xMm) * 10), (int) round(($inset + $yMm) * 10))->getColor();
+
+            return sprintf('%d,%d,%d', $color['r'], $color['g'], $color['b']);
+        };
+        $probe = [$at(4.85 + 2.15, 4 + 2.15), $at(4.85 + 4.3 + 1.85, 4 + 2.15)];
+        $image->clear();
+
+        return $probe;
     }
 
     private function text(string $gs, string $file): string

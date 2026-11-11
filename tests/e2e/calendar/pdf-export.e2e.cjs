@@ -71,6 +71,15 @@ const pdfImages = (file) =>
         .map((c) => ({ page: Number(c[0]), type: c[2], width: Number(c[3]), height: Number(c[4]), enc: c[8] }))
         .filter((image) => image.type === 'image');
 
+/** `r,g,b` of the pixel at a point given in mm from the top-left corner of the sheet (one-pixel PPM from pdftoppm). */
+function pixelAt(file, pageNo, xMm, yMm) {
+    const dpi = 254; // 10 px per mm
+    const out = execFileSync('pdftoppm', ['-r', String(dpi), '-f', String(pageNo), '-l', String(pageNo), '-x', String(Math.round(xMm * 10)), '-y', String(Math.round(yMm * 10)), '-W', '1', '-H', '1', file], { maxBuffer: 1024 * 1024 });
+    return [...out.subarray(out.length - 3)].join(',');
+}
+/** Colours in the middle of the first binding hole and in the gap right of it (default page; `inset` = trim from the sheet edge, mm). */
+const holeProbe = (file, pageNo, inset) => [pixelAt(file, pageNo, inset + 4.85 + 2.15, inset + 4 + 2.15), pixelAt(file, pageNo, inset + 4.85 + 4.3 + 1.85, inset + 4 + 2.15)];
+
 const near = (actual, expected, tol, label) => assert.ok(Math.abs(actual - expected) <= tol, `${label}: expected ${expected} ± ${tol}, got ${actual}`);
 const exists = async (page, selector) => (await page.$(selector)) !== null;
 const boot = (page) => page.evaluate(() => JSON.parse(document.querySelector('[data-calendar-workspace-target="bootstrap"]').textContent));
@@ -289,6 +298,9 @@ module.exports = {
                 assert.match(all, /Foto w\d\d: výhled na obec, archiv/);
 
                 const first = weekPage(built.big);
+                // the binding holes are punched at the bindery: the print file does not paint them
+                const [hole, gap] = holeProbe(printFile, first, M);
+                assert.equal(hole, gap, 'no hole squares in the print file');
                 png(printFile, first, 'pdf-week-print-big', 110);
                 png(printFile, weekPage(Object.keys(built.photos)[1]), 'pdf-week-print-cropped', 110);
                 png(printFile, 1, 'pdf-week-print-cover', 80);
@@ -317,6 +329,9 @@ module.exports = {
                 }
                 assert.ok(pdfFonts(approvalFile).every((f) => f.embedded));
                 assert.match(run('pdftotext', [approvalFile, '-']), /Pondělí/);
+                // …while the approval file shows the finished product, holes included
+                const [hole, gap] = holeProbe(approvalFile, built.pages.findIndex((p) => p.key === built.big) + 1, 0);
+                assert.notEqual(hole, gap, 'the hole squares are in the approval file');
                 const ratio = fs.statSync(approvalFile).size / fs.statSync(printFile).size;
                 assert.ok(ratio < 0.5, `approval is ${Math.round(ratio * 100)} % of the print file`);
                 png(approvalFile, built.pages.findIndex((p) => p.key === built.big) + 1, 'pdf-week-approval-big', 110);

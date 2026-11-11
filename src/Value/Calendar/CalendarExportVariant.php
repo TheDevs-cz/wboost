@@ -13,12 +13,14 @@ enum CalendarExportVariant: string
     /**
      * „Pro tisk“: every page with the calendar's print settings — bleed and
      * crop marks when they are on — and the photos as they were uploaded.
+     * Without the row of binding holes (they are punched, not printed).
      */
     case Print = 'print';
 
     /**
-     * „Náhled k odsouhlasení“: trimmed pages, photos from the preview
-     * derivatives — a file small enough to e-mail.
+     * „Náhled k odsouhlasení“: trimmed pages as the finished product looks
+     * (binding holes drawn), photos from the preview derivatives — a file
+     * small enough to e-mail.
      */
     case Approval = 'approval';
 

@@ -511,7 +511,7 @@ stored now.
 | `finish` | `calendarId` | "Dokončit": `finished: true`, the web opens it in step 5; needs a layout |
 | `client_link` | `calendarId`, `regenerate?` | answers `clientUrl` (anonymous write access to the content — a secret); `regenerate: true` kills the old link |
 | `import_layout` | `calendarId`, `fromCalendarId` | replaces the layout by that of another calendar of the same project and type; its pictures are copied |
-| `export_pdf` | `calendarId`, `variant` (`print` \| `approval`) | starts a PDF export of the whole SAVED calendar (or answers the existing file of an unchanged one) → `export`. `print`: bleed + crop marks as the print settings say, photos at uploaded resolution; `approval`: trimmed pages, screen-size photos. Vector text and shapes, RGB. Recorded in the history. Needs a layout |
+| `export_pdf` | `calendarId`, `variant` (`print` \| `approval`) | starts a PDF export of the whole SAVED calendar (or answers the existing file of an unchanged one) → `export`. `print`: bleed + crop marks as the print settings say, photos at uploaded resolution, no binding-hole row (punched at the bindery); `approval`: trimmed pages as the finished calendar looks (holes drawn), screen-size photos. Vector text and shapes, RGB. Recorded in the history. Needs a layout |
 | `export_status` | `calendarId`, `exportId` | → `export` of that job |
 
 `export`: `{ "exportId", "variant", "status": "queued" | "running" | "done" | "failed",
