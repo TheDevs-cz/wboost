@@ -60,6 +60,7 @@ commit when you change a contract described there — not this file.
 | `manuals.md` | mockup page grid + attachments, logo own-page variants, colours (RAL), logo width cascade, page texts |
 | `templates-documents.md` | multi-page documents: `TemplateDocument` / pages / shared fields, invariants (`TemplateDocumentRules`), diffing page list, rollout switch, listing cards, document page, editor page strip, fill keys, multi-page PDF export |
 | `storage-inventory.md` | `storage_object` scan, `BuildStorageReferenceIndex` (add every new path-storing column there!), project deletion storage cleanup |
+| `calendars.md` | Kalendáře module: `calendar` / `calendar_asset` / `calendar_history`, design vs content JSON, save contract + item merge, roles + client link `/k/{token}`, `assets/calendar/**` (model / generate / render / editor / state / ui), `window.__calendar`, node suites + e2e (`tests/e2e/calendar/`), preview gate (`ProjectModule::isInPreview`), calendar MCP tools |
 
 ### Design system (Nocturne UI) — read BEFORE touching templates or CSS
 
@@ -77,6 +78,7 @@ Prototype + reference screenshots: `docs/redesign/prototype/`,
 | `buttons.css`, `forms.css`, `chips.css`, `cards.css`, `dialogs.css`, `menus.css`, `tables.css`, `feedback.css`, `page.css` | shared kit + Bootstrap class restyles (`.btn-*`, `.form-control`, `.modal`, `.dropdown-menu`, `.table`, `.alert`, `.head`, tabs) |
 | `shell.css` | sidebar / rail / phone drawer + top bar (`templates/_shell/`) |
 | `auth.css`, `projects.css`, `manual.css`, `gallery.css`, `fonts.css`, `templates.css`, `admin.css`, `email.css`, `weekly-menu.css` | one file per screen area |
+| `calendar.css`, `calendar-editor.css`, `calendar-controls.css`, `calendar-content.css`, `calendar-tools.css`, `calendar-preview.css`, `calendar-dialogs.css` | Kalendáře: list + shell + steps 1–2 / step-3 editor / property panels / step 4 / content tools / step 5 / warnings, history, client link |
 | `fill.css`, `editor.css` | fill pages + canvas editors — imported AFTER `app.css` on purpose |
 
 Twig helpers: `icon()`, `initials()`, `shell_projects()`; page blocks
@@ -127,6 +129,7 @@ design DSL), `docs/plans/` (historical plans, not current truth).
   synchronization groups (`TemplateVariant`, `TemplateCategory`,
   `TemplateGroup`)
 - **EmailSignatureTemplate**: Email signature templates with variants
+- **Calendar**: Desk calendars (module Kalendáře, admin-only preview) — one design + item-wise merged content, assets and change history
 - **User**: User management with authentication and profiles
 
 ### Key Architectural Patterns
