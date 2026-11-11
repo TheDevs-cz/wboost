@@ -94,11 +94,7 @@ module.exports = {
             await p.waitForSelector(`.cal-5w svg[data-page="${key}"]`, { timeout: 5000 });
         }
 
-        /** A step change stores the step silently; let that request finish before the next change. */
-        async function stepTo(n) {
-            await h.gotoStep(page, n);
-            await page.waitForNetworkIdle({ idleTime: 200, timeout: 10000 });
-        }
+        const stepTo = (n) => h.gotoStep(page, n);
 
         async function history() {
             await page.click('[data-cal-action="history"]');

@@ -641,6 +641,10 @@ export function createStore({ doc, env, api, measurer }) {
         }
         const request = runSave(opts).then((result) => {
             if (inFlight === request) inFlight = null;
+            // the step moved while this request was on its way (5 → 1 → 5 faster than the round
+            // trip): the answer kept the local step, and nothing but the step is unsaved — store it
+            // now, silently, so the last step chosen is the one a reload opens
+            if (result.ok && designer && !followUp && state.dirtyDesign.has('step') && !isDirty()) save();
             return result;
         });
         inFlight = request;

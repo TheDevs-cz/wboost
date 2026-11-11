@@ -220,9 +220,10 @@ export default async function (t, load) {
         open();
         await new Promise((r) => setTimeout(r, 5));
         assert.equal(store.getState().doc.design.step, saved, 'the answer of the older save does not move the user back');
-        assert.equal(store.getState().dirtyDesign.has('step'), true, 'and the local value goes out with the next save');
-        await store.save();
+        assert.equal(store.getState().dirtyDesign.has('step'), false, 'and the local value is stored by a silent follow-up save');
         assert.equal(server.doc.design.step, saved);
+        assert.equal(server.requests.length, 2);
+        assert.deepEqual(server.requests[1], { design: { step: saved } });
         // the same for the layout: an undo during the save of the change it undoes
         const before = store.getState().doc.design.layout;
         store.change((layout) => ({ ...layout, boxes: { ...layout.boxes, logo: { ...layout.boxes.logo, x: 10 } } }));
@@ -234,6 +235,50 @@ export default async function (t, load) {
         await first;
         assert.equal(store.getState().doc.design.layout.boxes.logo.x, before.boxes.logo.x, 'the undo survives the answer');
         assert.equal(store.isDirty(), true, 'and is unsaved');
+    });
+
+    t.test('store: rapid step changes end on the last step chosen, silently, whatever the timing', async () => {
+        const { store, server, events } = await makeStore({});
+        const tick = () => new Promise((r) => setTimeout(r, 5));
+        await store.save({ finish: true }); // the calendar is on step 5
+        events.length = 0;
+        const sequences = [[1, 5], [3, 1, 3], [1, 3, 5], [4, 5, 4, 1, 5], [1, 2, 3, 4], [4, 1, 4, 1]];
+        for (const sequence of sequences) {
+            // a) every change while the first request is still on its way
+            let open;
+            server.gate = new Promise((resolve) => (open = resolve));
+            for (const step of sequence) store.setStep(step);
+            server.gate = null;
+            open();
+            await tick();
+            await tick();
+            const last = sequence[sequence.length - 1];
+            assert.equal(store.getState().doc.design.step, last, `${sequence}: the user stays on the last step`);
+            assert.equal(server.doc.design.step, last, `${sequence}: the server stores the last step`);
+            assert.equal(store.getState().dirtyDesign.size, 0, `${sequence}: nothing is left unsaved`);
+            // b) the answers arrive between the changes
+            for (const step of sequence) {
+                store.setStep(step);
+                await Promise.resolve();
+            }
+            await tick();
+            await tick();
+            assert.equal(store.getState().doc.design.step, last);
+            assert.equal(server.doc.design.step, last);
+            assert.equal(store.getState().dirtyDesign.size, 0);
+        }
+        assert.equal(events.filter((e) => e.type === 'status').length, 0, 'a step-only change never touches the save status');
+        assert.equal(store.getState().status, 'clean');
+        // a failed silent save: no error state, no retry loop; the step goes out with the next save
+        server.fail = 'boom';
+        const before = server.requests.length;
+        store.setStep(2);
+        await tick();
+        assert.equal(server.requests.length, before + 1);
+        assert.equal(store.getState().status, 'clean');
+        server.fail = null;
+        await store.save();
+        assert.equal(server.doc.design.step, 2);
     });
 
     t.test('store: steps 3–5 need a layout; finish marks the calendar finished', async () => {
