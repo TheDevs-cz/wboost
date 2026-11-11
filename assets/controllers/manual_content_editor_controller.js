@@ -905,6 +905,8 @@ export default class extends Controller {
         const paint = bg && bg.type !== "image" ? paintCss(bg) : "";
 
         const page = this.pageTarget;
+        // Editing chrome switches to frosted chips on a painted page.
+        page.classList.toggle("mce-has-bg", shows || !!paint);
         page.classList.toggle("mcp-bg", shows);
         page.classList.toggle("mcp-bg-cover", shows && image.fit === "cover");
         page.classList.toggle("mcp-bg-contain", shows && image.fit === "contain");

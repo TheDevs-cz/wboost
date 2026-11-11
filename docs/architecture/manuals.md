@@ -957,6 +957,11 @@ All phases delivered 2026-11-09.
   kinds keeps each kind's last value for the session (`bgMemory`). Barva /
   Přechod are disabled when the palette is empty. One shared popover
   (`bgPop`), closes on outside press / Escape.
+- **Chrome on a painted page.** `paintBackground()` toggles `.mce-has-bg` on
+  the paper `.mcp-page` whenever a colour / gradient / picture shows; the
+  editing chrome (element header bars, "Přidat prvek", align buttons) then
+  sits on frosted white chips and segment outlines turn white, so it stays
+  legible on any background (it used light-page greys before).
 - Pinned by `ContentPageBackgroundTest`, `ManualIntroPageTest::testSaveStoresAPaletteColourOrGradientBackground`.
   Browser-verified 2026-11-11 (puppeteer, local): every kind, angle preset,
   radial centre, stop popover, swap, drop-zone upload (name + pixel size),
