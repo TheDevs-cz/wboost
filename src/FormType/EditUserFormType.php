@@ -29,7 +29,7 @@ final class EditUserFormType extends AbstractType
         'Vytvářet a přepisovat šablony (templates:design)' => McpScope::TemplatesDesign->value,
         'Nahrávat obrázky do galerie (gallery:write)' => McpScope::GalleryWrite->value,
         'Prohlížet kalendáře (calendars:read)' => McpScope::CalendarsRead->value,
-        'Upravovat obsah kalendářů (calendars:write)' => McpScope::CalendarsWrite->value,
+        'Vytvářet a upravovat kalendáře (calendars:write)' => McpScope::CalendarsWrite->value,
     ];
 
     public function buildForm(FormBuilderInterface $builder, array $options): void

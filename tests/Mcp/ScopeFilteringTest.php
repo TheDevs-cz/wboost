@@ -178,7 +178,7 @@ final class ScopeFilteringTest extends WebTestCase
         $client = self::createClient();
 
         self::assertSame(
-            ['get_calendar', 'list_calendars', 'update_calendar_content'],
+            ['get_calendar', 'list_calendars', 'manage_calendar', 'render_calendar_page', 'set_calendar_layout', 'update_calendar_content', 'upload_calendar_asset'],
             self::listTools($client, TestDataFixture::MCP_TOKEN_CALENDARS_SHARED_USER),
         );
 

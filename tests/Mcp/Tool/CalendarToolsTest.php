@@ -4,12 +4,9 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Tests\Mcp\Tool;
 
-use Doctrine\ORM\EntityManagerInterface;
 use Ramsey\Uuid\Uuid;
-use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
-use WBoost\Web\Entity\Calendar;
 use WBoost\Web\Repository\CalendarHistoryRepository;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Tests\Mcp\TestingMcpClient;
@@ -40,9 +37,9 @@ use WBoost\Web\Value\Calendar\CalendarAuthorKind;
  */
 final class CalendarToolsTest extends WebTestCase
 {
-    private const string EVENT_ID = 'Ab3dEf6hIj9kLm2n';
+    use CalendarMcpTesting;
 
-    private null|KernelBrowser $browser = null;
+    private const string EVENT_ID = 'Ab3dEf6hIj9kLm2n';
 
     public function testListsTheCalendarsOfAProject(): void
     {
@@ -99,7 +96,7 @@ final class CalendarToolsTest extends WebTestCase
         );
     }
 
-    public function testReadsACalendarWithoutItsStylesOrItsClientLink(): void
+    public function testReadsACalendarWithItsStylesAndPagesButNeverItsClientLink(): void
     {
         $result = $this->call('get_calendar', ['calendarId' => TestDataFixture::CALENDAR_2_ID]);
         self::assertFalse($result['isError'] ?? false, $result['content'][0]['text']);
@@ -114,22 +111,53 @@ final class CalendarToolsTest extends WebTestCase
         self::assertContains('shiftOps', self::arr($calendar['writableCollections']));
         self::assertSame('photoLeft', $calendar['preset']);
 
-        // The layout says where things are — never how they look.
-        self::assertSame(['boxes', 'order'], array_keys(self::arr($calendar['layout'])));
+        // The layout as the browser sees it: where things are AND how they
+        // look — the tree set_calendar_layout patches.
+        self::assertSame(['v', 'boxes', 'order', 'styles'], array_keys(self::arr($calendar['layout'])));
         self::assertArrayHasKey('photo', self::arr(self::dig($calendar, 'layout', 'boxes')));
+        self::assertIsNumeric(self::dig($calendar, 'layout', 'styles', 'num', 'size'));
+        self::assertArrayHasKey('order', self::arr(self::dig($calendar, 'layout', 'styles', 'icons')));
+
+        // Never-saved settings come back materialised by the calendar model.
+        self::assertTrue(self::dig($calendar, 'features', 'captions'));
+        self::assertFalse(self::dig($calendar, 'features', 'events'));
+        self::assertSame(['bleed' => true, 'bleedMm' => 5, 'marks' => true], $calendar['print']);
+        self::assertEquals(310, self::dig($calendar, 'page', 'width'));
+
+        // The generated pages of 2027, 7 days: cover, 53 week pages, back.
+        $pages = self::arr($calendar['pages']);
+        self::assertCount(55, $pages);
+        self::assertSame(['index' => 0, 'key' => 'cover', 'kind' => 'cover', 'title' => 'Titulní strana', 'subtitle' => ''], $pages[0]);
+        self::assertSame(['index' => 1, 'key' => 'pre', 'kind' => 'week', 'title' => '53. týden', 'subtitle' => '28. 12. – 3. 1.', 'from' => '2026-12-28', 'to' => '2027-01-03'], $pages[1]);
+        self::assertSame('w01', self::dig($pages, 2, 'key'));
+        self::assertSame('back', self::dig($pages, 54, 'key'));
+
+        self::assertIsArray($calendar['fonts']);
+        self::assertIsArray($calendar['palette']);
 
         // The seeded content: four built-in waste kinds, switched off.
         self::assertSame(1, self::dig($calendar, 'content', 'v'));
         self::assertEqualsCanonicalizing(['kom', 'bio', 'plast', 'papir'], array_keys(self::arr(self::dig($calendar, 'content', 'wasteKinds'))));
         self::assertFalse(self::dig($calendar, 'content', 'wasteKinds', 'kom', 'on'));
 
-        // Never-saved settings and an empty asset map are OBJECTS, not lists.
-        self::assertStringContainsString('"features": {}', $text);
+        // An empty asset map is an OBJECT, not a list.
         self::assertStringContainsString('"assets": {}', $text);
 
-        // The client link is a secret that grants anonymous write access.
+        // The client link is a secret that grants anonymous write access: a
+        // read never shows it (manage_calendar "client_link" does, to a designer).
         self::assertStringNotContainsString(TestDataFixture::CALENDAR_2_TOKEN, $text);
-        self::assertStringNotContainsString('"styles"', $text);
+        self::assertStringNotContainsString('clientUrl', $text);
+    }
+
+    public function testACalendarWithoutALayoutReadsAsSuchAndHistoryCanBeLimited(): void
+    {
+        $calendar = $this->ok('get_calendar', ['calendarId' => TestDataFixture::CALENDAR_1_ID, 'historyLimit' => 0]);
+
+        self::assertNull($calendar['layout']);
+        self::assertNull($calendar['preset']);
+        self::assertSame(1, $calendar['step']);
+        self::assertSame([], $calendar['history']);
+        self::assertCount(55, self::arr($calendar['pages']));
     }
 
     public function testACalendarOfAForeignProjectIsIndistinguishableFromAnUnknownOne(): void
@@ -333,8 +361,8 @@ final class CalendarToolsTest extends WebTestCase
     }
 
     /**
-     * `calendars:read` sees EXACTLY the two read tools — the calendar pair
-     * implies no template scope — and is refused the write tool at the gate.
+     * `calendars:read` sees EXACTLY the three read tools — the calendar pair
+     * implies no template scope — and is refused the write tools at the gate.
      */
     public function testCalendarReadTokenSeesTheReadToolsAndCannotWrite(): void
     {
@@ -346,7 +374,7 @@ final class CalendarToolsTest extends WebTestCase
         $listing = self::decode((string) $browser->getResponse()->getContent());
         $names = array_column(self::arr(self::dig($listing, 'result', 'tools')), 'name');
         sort($names);
-        self::assertSame(['get_calendar', 'list_calendars'], $names);
+        self::assertSame(['get_calendar', 'list_calendars', 'render_calendar_page'], $names);
 
         self::assertNotSame([], $this->ok('list_calendars', [], $token)['calendars']);
 
@@ -395,130 +423,5 @@ final class CalendarToolsTest extends WebTestCase
         $payload = $this->ok('update_calendar_content', ['calendarId' => $calendarId, 'operations' => $operations], $token);
 
         return $payload;
-    }
-
-    /**
-     * A successful call, decoded.
-     *
-     * @param array<string, mixed> $arguments
-     * @return array<string, mixed>
-     */
-    private function ok(string $tool, array $arguments, string $token = TestDataFixture::MCP_TOKEN_ACTIVE): array
-    {
-        $result = $this->call($tool, $arguments, $token);
-        self::assertFalse($result['isError'] ?? false, $result['content'][0]['text']);
-
-        return self::decode($result['content'][0]['text']);
-    }
-
-    /**
-     * A refused call: the refusal's text.
-     *
-     * @param array<string, mixed> $arguments
-     */
-    private function refused(string $tool, array $arguments, string $token = TestDataFixture::MCP_TOKEN_ACTIVE): string
-    {
-        $result = $this->call($tool, $arguments, $token);
-        self::assertTrue($result['isError'] ?? false, sprintf('%s was expected to be refused: %s', $tool, $result['content'][0]['text']));
-
-        return $result['content'][0]['text'];
-    }
-
-    /**
-     * @param array<string, mixed> $arguments
-     * @return array{isError?: bool, content: list<array{text: string}>}
-     */
-    private function call(string $tool, array $arguments, string $token = TestDataFixture::MCP_TOKEN_ACTIVE): array
-    {
-        $response = $this->raw($tool, $arguments, $token);
-        self::assertSame(Response::HTTP_OK, $response->getStatusCode(), (string) $response->getContent());
-
-        $payload = self::decode((string) $response->getContent());
-        self::assertArrayNotHasKey('error', $payload, (string) $response->getContent());
-        self::assertIsArray($payload['result']);
-
-        /** @var array{isError?: bool, content: list<array{text: string}>} $result */
-        $result = $payload['result'];
-
-        return $result;
-    }
-
-    /**
-     * @param array<string, mixed> $arguments
-     */
-    private function raw(string $tool, array $arguments, string $token): Response
-    {
-        $browser = $this->browser();
-        $sessionId = TestingMcpClient::connect($browser, $token);
-        // An empty argument map must travel as `{}` — `[]` is a JSON list.
-        TestingMcpClient::request($browser, 'tools/call', ['name' => $tool, 'arguments' => $arguments === [] ? new \stdClass() : $arguments], $sessionId, $token);
-
-        return $browser->getResponse();
-    }
-
-    /**
-     * The calendar as stored now — the identity map is cleared first, so this
-     * is the database's answer and not the entity the request left behind.
-     */
-    private function calendar(string $calendarId): Calendar
-    {
-        $this->browser();
-        $entityManager = self::getContainer()->get(EntityManagerInterface::class);
-        $entityManager->clear();
-
-        $calendar = $entityManager->find(Calendar::class, Uuid::fromString($calendarId));
-        self::assertInstanceOf(Calendar::class, $calendar);
-
-        return $calendar;
-    }
-
-    private function browser(): KernelBrowser
-    {
-        return $this->browser ??= self::createClient();
-    }
-
-    /**
-     * One value deep inside a decoded answer; null when the path ends early.
-     */
-    private static function dig(mixed $value, int|string ...$path): mixed
-    {
-        foreach ($path as $key) {
-            if (!is_array($value) || !array_key_exists($key, $value)) {
-                return null;
-            }
-
-            $value = $value[$key];
-        }
-
-        return $value;
-    }
-
-    /**
-     * @return array<array-key, mixed>
-     */
-    private static function arr(mixed $value): array
-    {
-        self::assertIsArray($value);
-
-        return $value;
-    }
-
-    private static function str(mixed $value): string
-    {
-        self::assertIsString($value);
-
-        return $value;
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private static function decode(string $json): array
-    {
-        $decoded = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
-        self::assertIsArray($decoded);
-
-        /** @var array<string, mixed> $decoded */
-        return $decoded;
     }
 }

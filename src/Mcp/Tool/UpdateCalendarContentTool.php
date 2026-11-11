@@ -38,12 +38,14 @@ use WBoost\Web\Value\Calendar\CalendarSavePayload;
  * `CalendarContentRules`, history, revision). Nothing is validated or written
  * here a second time; this class only translates names and refusals.
  *
- * ## No design, by construction
+ * ## No design through THIS tool, by construction
  *
  * The payload built here has no `design` key and no `finish`, and an
  * operation is refused for any key but `collection` / `id` / `value` /
  * `label`, so there is no spelling of a request that reaches the design half
- * of the handler.
+ * of the handler. (The design has its own tools — `manage_calendar`,
+ * `set_calendar_layout` — which reach the same handler through the calendar
+ * model; see {@see \WBoost\Web\Mcp\Fill\CalendarWriter}.)
  *
  * ## The actor is the web's
  *
@@ -78,10 +80,12 @@ readonly final class UpdateCalendarContentTool
 
     /**
      * Adds, replaces or deletes CONTENT items of a desk calendar: events,
-     * extra names, waste collection, photo captions, comments and so on. It
-     * cannot change the calendar's design (name, year, type, features, layout,
-     * styles), cannot upload files and cannot create or delete calendars —
-     * those stay on the web. Call get_calendar first.
+     * extra names, waste collection, page photos and captions, comments, shift
+     * tables, special pages and so on. It does not change the calendar's
+     * design — settings are manage_calendar, the layout and styles
+     * set_calendar_layout — and it does not upload: upload_calendar_asset
+     * stores a file and returns the asset id an item refers to. Call
+     * get_calendar first.
      *
      * operations: a list of {"collection", "id", "value", "label"?}.
      * - value = the WHOLE item (every key listed below, no others) to create or
@@ -91,7 +95,7 @@ readonly final class UpdateCalendarContentTool
      * - id: for a new item invent one — 8 to 40 characters of A–Z a–z 0–9 _ -
      *   (16 random letters and digits is what the web uses). For page-keyed
      *   collections the id IS the page key ("w05", "pre", "post", "cover",
-     *   "back", "sp:<id>" — see get_calendar).
+     *   "back", "sp:<id>" — get_calendar pages[].key lists them).
      * - label: optional short text for the history line only — the date as
      *   "1. 6." for dated items, the page title ("5. týden") for page items.
      *
@@ -103,8 +107,9 @@ readonly final class UpdateCalendarContentTool
      *
      * Dates are "YYYY-MM-DD" and must lie between 1 December of the previous
      * year and 31 January of the next year. Weekdays are 0 = Monday … 6 =
-     * Sunday. An asset is the id of a file from get_calendar assets, or null
-     * where allowed. `pos` is the order within a collection (0, 1, 2 …).
+     * Sunday. An asset is the id of a file uploaded to THIS calendar
+     * (upload_calendar_asset; get_calendar assets lists them), or null where
+     * allowed. `pos` is the order within a collection (0, 1, 2 …).
      *
      * Collections and their items (all keys required):
      * - events {date, name ≤80, club: clubId|null, icon: assetId|null} — an
@@ -136,12 +141,18 @@ readonly final class UpdateCalendarContentTool
      *   on, layout 0–20, position: "front"|"back", nextYear, name ≤60,
      *   asset|null, text ≤6000|null, fileName ≤120|null, pos} — the generated
      *   pages use the fixed ids intro, contacts, year, waste.
+     *   A special page appears only while on is true AND the feature
+     *   specialPages is on; "image" pages show their uploaded asset (kind
+     *   "page"), "text" pages their text. Its page key is "sp:<id>".
      * - pageImages {head: asset|null, bg: asset|null}, pageQr {asset} — a page's
      *   own header / background picture and QR code (id = page key).
      *
      * Content of a feature that is switched off (get_calendar features) is
-     * stored but not printed — only the designer can switch a feature on, on
-     * the web.
+     * stored but not printed: events need the feature events, wasteKinds /
+     * wasteExtras waste, shiftOps shifts, specialPages specialPages, pageQr qr,
+     * pageCaptions captions, moonEdits moon. Switch a feature on with
+     * manage_calendar "configure" (designer). Look at the result with
+     * render_calendar_page.
      *
      * Returns results[] (one per operation: created | updated | deleted |
      * unchanged), the touched collections as stored now, the history lines this
@@ -255,7 +266,7 @@ readonly final class UpdateCalendarContentTool
 
             if ($unknown !== []) {
                 throw self::invalidOperation($index, sprintf(
-                    'unknown key "%s" — an operation has only collection, id, value and label; a calendar\'s design cannot be changed through this tool',
+                    'unknown key "%s" — an operation has only collection, id, value and label; a calendar\'s settings are changed with manage_calendar and its layout with set_calendar_layout',
                     mb_substr((string) reset($unknown), 0, 40),
                 ));
             }

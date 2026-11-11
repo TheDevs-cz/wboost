@@ -169,8 +169,8 @@ Pick the narrowest that does the job.
 | `templates:export` | `export_variant` — the full-size lossless PNG | **implies** `templates:read`; exports are counted in the usage report |
 | `templates:design` | `preview_design`, `set_design` — author a variant's design; `upload_font` — add a font file (a variable font is expanded into its cuts) | **implies** `templates:read`; also needs you to OWN the project (`upload_font`: to be able to edit it) |
 | `gallery:write` | `upload_image` — add a picture to a project's gallery | implies **nothing**: grant it alongside another scope if the agent should also browse |
-| `calendars:read` | `list_calendars`, `get_calendar` — desk calendars (module Kalendáře): settings, content, uploaded files, recent history | implies **nothing**, and no template scope implies it — a calendar-only agent needs no `get_context` |
-| `calendars:write` | `update_calendar_content` — add / replace / delete a calendar's content items (events, names, waste collection, captions, comments) | **implies** `calendars:read`; never changes the design; a member the project is only shared with writes as a calendar *client* (client collections only) |
+| `calendars:read` | `list_calendars`, `get_calendar`, `render_calendar_page` — desk calendars (module Kalendáře): settings, layout and styles, pages, content, uploaded files, history, a rendered picture of any page | implies **nothing**, and no template scope implies it — a calendar-only agent needs no `get_context` |
+| `calendars:write` | `manage_calendar` (create, configure, finish, client link, import a layout), `set_calendar_layout` (preset, boxes, order, styles), `upload_calendar_asset`, `update_calendar_content` | **implies** `calendars:read`; the design needs the *designer* role (may edit the project) — a member the project is only shared with stays a calendar *client* (content of the client collections + photos); nothing deletes a calendar |
 
 A tool the credential lacks the scope for is **not listed** to the client at all,
 and is refused (403 `insufficient_scope`) if called anyway.
@@ -321,7 +321,7 @@ refreshes it.
 
 ## What the tools can and cannot do
 
-Nine tools:
+Twenty-one tools (the calendar ones are listed last):
 
 | tool | scope | what it does |
 |---|---|---|
@@ -336,8 +336,12 @@ Nine tools:
 | `set_design` | `templates:design` | replace a variant's design, guarded against destroying what it cannot express |
 | `upload_font` | `templates:design` | add a TTF/OTF/WOFF font to a project; a variable font becomes one face per named instance (Inter → 18 cuts); the reply lists the exact font strings to design with |
 | `list_calendars` | `calendars:read` | the desk calendars of one project, or of every project the account can reach |
-| `get_calendar` | `calendars:read` | one calendar: settings, all content collections, uploaded files, the newest history lines (never the layout styles or the client link) |
-| `update_calendar_content` | `calendars:write` | item-wise content changes through the web's own save (same validation, merge and history); no design changes, no uploads, no calendar create / delete |
+| `get_calendar` | `calendars:read` | one calendar as the browser sees it: settings, the layout with every style, the page list (page keys), all content collections, uploaded files, the project's fonts and colours, history lines (never the client link) |
+| `render_calendar_page` | `calendars:read` | a WebP picture of one page (cover, any week, a special page, back) drawn by the calendar's own renderer in headless Chromium — optionally with bleed / crop marks; saves nothing |
+| `manage_calendar` | `calendars:write` | `create` a calendar, `configure` it (name, year, type, feature switches, print), `finish` it, `client_link` (get / regenerate), `import_layout` from a sibling calendar — designer only, no delete |
+| `set_calendar_layout` | `calendars:write` | apply a preset (`photoLeft` / `photoRight` / `twoSided`) and patch boxes (mm), stacking order and styles; unknown keys are refused by name — designer only |
+| `upload_calendar_asset` | `calendars:write` | store a photo / logo / icon / QR / picture / special-page graphic with the calendar (base64, the web's upload rules) and get its asset id; a client may upload photos |
+| `update_calendar_content` | `calendars:write` | item-wise content changes through the web's own save (same validation, merge and history) |
 
 **Nothing here deletes anything** — not a template, not a variant, not a picture, not a font.
 Gallery pictures can be added but never removed, moved or renamed from a client;

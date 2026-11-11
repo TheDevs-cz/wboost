@@ -34,7 +34,8 @@ use WBoost\Web\Value\Calendar\CalendarListRow;
  * is NOT gated on the project's module list or on the module's preview state
  * (see {@see CalendarLoader}): a calendar that exists is listed.
  *
- * Read-only: creating, renaming and deleting calendars stay on the web.
+ * Read-only. Calendars are created and set up with `manage_calendar`;
+ * deleting one stays on the web.
  */
 #[McpToolScope(McpScope::CalendarsRead)]
 readonly final class ListCalendarsTool
@@ -50,8 +51,7 @@ readonly final class ListCalendarsTool
      * Lists desk calendars ("Kalendáře"): spiral-bound calendars a designer
      * builds for a client (typically a municipality), one page per week or per
      * two weeks, whose dates, name days and public holidays the system fills in.
-     * Start here — the id of a row is what get_calendar and
-     * update_calendar_content take.
+     * Start here — the id of a row is what every other calendar tool takes.
      *
      * Omit projectId to list the calendars of EVERY project this account can
      * reach (ordered by project name, newest calendar first); pass a project id
@@ -61,12 +61,14 @@ readonly final class ListCalendarsTool
      * Each row: id, projectId + projectName, name, year, type ("week" = 7 days
      * per page, "fortnight" = 14 days per page), finished (false = the designer
      * is still setting up the look), hasLayout (false = no page layout yet —
-     * content can be stored, but there is nothing to look at), updatedAt, who
+     * content can be stored, but there is nothing to look at until
+     * set_calendar_layout applies a preset), updatedAt, who
      * changed it last (lastChangeBy "designer" | "client", lastChangeAt) and
      * url — the web workspace, to hand to the user.
      *
-     * This tool only reads. Calendars cannot be created, renamed, deleted or
-     * redesigned from an AI client; that is done on the web.
+     * This tool only reads. manage_calendar creates and configures calendars,
+     * set_calendar_layout designs them, update_calendar_content fills them in,
+     * render_calendar_page shows a page. Deleting a calendar is done on the web.
      *
      * @param null|string $projectId UUID of one project to narrow the listing to (calendars[].projectId of an earlier call, or get_context projects[].id). Omit to list every reachable project's calendars.
      */

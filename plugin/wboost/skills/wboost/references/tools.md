@@ -24,8 +24,8 @@ called anyway.
 | `templates:export` | `export_variant`, `export_document`, `document_history` |
 | `templates:design` | `preview_design`, `set_design`, `manage_document`, `upload_font`, `set_print_setup` |
 | `gallery:write` | `upload_image` |
-| `calendars:read` | `list_calendars`, `get_calendar` |
-| `calendars:write` | `update_calendar_content` |
+| `calendars:read` | `list_calendars`, `get_calendar`, `render_calendar_page` |
+| `calendars:write` | `manage_calendar`, `set_calendar_layout`, `upload_calendar_asset`, `update_calendar_content` |
 
 Each row lists the tools that **declare** that scope. Implication is separate and
 runs one way: `templates:export` and `templates:design` each also grant
@@ -459,36 +459,171 @@ newest calendar first).
 }
 ```
 
-Read-only. Calendars are created, renamed and deleted on the web.
+Read-only. `manage_calendar` creates and configures; deleting stays on the web.
 
-## `get_calendar(calendarId)`
+## `get_calendar(calendarId, historyLimit?)`
 
-Scope `calendars:read`. One calendar: settings, the whole content, uploaded
-files, the newest 20 history lines.
+Scope `calendars:read`. One calendar as the browser sees it — every default
+filled in by the calendar model.
 
 ```jsonc
 {
   "id", "projectId", "projectName", "name", "year", "type", "finished",
+  "step",                               // the web workspace step it opens in: 1 Typ … 5 Náhled
   "revision",                           // +1 per save
   "updatedAt",
   "role",                               // "designer" | "client" — this account, for this calendar
   "writableCollections": ["events", "…"],
   "preset",                             // "photoLeft" | "photoRight" | "twoSided" | null
   "features": { "captions", "weekNumbers", "moon", "timeChange", "seasons",
-                "waste", "events", "shifts", "specialPages", "qr" },   // {} = defaults: first three on
-  "print": { "bleed", "bleedMm", "marks" },                          // {} = never saved
-  "page":  { "width", "height", "bandHeight", "holes" },             // mm; {} = 310 × 145
-  "layout": { "boxes": { "photo": { "x", "y", "w", "h" }, "…" }, "order": ["…"] },   // mm, read-only; null = none yet
+                "waste", "events", "shifts", "specialPages", "qr" },   // all ten, booleans
+  "print": { "bleed", "bleedMm", "marks" },
+  "page":  { "width", "height", "bandHeight", "holes" },             // mm
+  "layout": { "v": 1,
+              "boxes": { "photo": { "x", "y", "w", "h" }, "logo": { "…", "hidden"? }, "…" },   // mm from the top-left trim corner
+              "order": ["qr", "logo", "…"],                           // stacking, top first
+              "styles": { /* see set_calendar_layout */ } },          // null = no layout yet
+  "pages": [{ "index", "key", "kind", "title", "subtitle", "from"?, "to"? }],   // null only if the page list could not be computed
   "content": { "v": 1, "<collection>": { "<id>": { /* item */ } } },
   "assets": { "<assetId>": { "url", "previewUrl", "width", "height", "mime", "name", "description", "kind" } },
-  "history": [{ "who", "what", "at" }], // newest first; "what" is a Czech sentence
+  "fonts": [{ "family", "fontName", "faceName", "weight", "style" }],  // family = the exact string a text style takes
+  "palette": ["#RRGGBB"],
+  "history": [{ "who", "what", "at" }], // newest first; "what" is a Czech sentence; historyLimit 0–200 (default 20)
   "url"
 }
 ```
 
 Maps are objects even when empty; a collection never written is absent. The
-layout's styles and the client link are never returned. Pages are generated in
-the browser and not listed — address them by page key (below).
+client link is never returned here (`manage_calendar` `client_link`).
+`pages[].kind` is `cover` | `special` | `week` | `back`; `pages[].key` is the
+page key content and `render_calendar_page` use.
+
+## `manage_calendar(action, projectId?, calendarId?, name?, year?, type?, features?, print?, preset?, linkElements?, fromCalendarId?, regenerate?)`
+
+Scope `calendars:write`, **designer role**. Every action is the web's own
+message; the answer is the design as stored now.
+
+| action | arguments | does |
+|---|---|---|
+| `create` | `projectId` + optional `name`, `year`, `type`, `features`, `print`, `preset` | a new calendar ("Stolní kalendář ‹next year›", `week`, no layout) with the given settings applied; `preset` gives it a layout at once. Settings are checked first — a refused call creates nothing |
+| `configure` | `calendarId` + any of `name`, `year`, `type`, `features`, `print`, `linkElements` | changes only what is named |
+| `finish` | `calendarId` | "Dokončit": `finished: true`, the web opens it in step 5; needs a layout |
+| `client_link` | `calendarId`, `regenerate?` | answers `clientUrl` (anonymous write access to the content — a secret); `regenerate: true` kills the old link |
+| `import_layout` | `calendarId`, `fromCalendarId` | replaces the layout by that of another calendar of the same project and type; its pictures are copied |
+
+- `name` 1–60 chars. `year` 2000–2100 — a change shifts every dated item,
+  drops 29 February items when the new year has none and clears moon edits.
+- `type`: `week` (presets `photoLeft`, `photoRight`) | `fortnight` (`twoSided`).
+  A change resets element positions to the new type's default; styles stay.
+- `features`: any of the ten switches. Content of an off feature is stored,
+  not printed.
+- `print`: `{bleed?, bleedMm? 0–10, marks?}`.
+- The page size has no setting.
+
+```jsonc
+{
+  "calendarId", "projectId", "name", "year", "type", "finished", "step", "revision", "updatedAt",
+  "preset", "features", "print", "page", "layout",   // as in get_calendar
+  "changed": ["created", "name", "layout", "…"],     // [] = nothing changed, nothing saved
+  "notes": ["…"],                                    // clamped values, a reset / mirrored layout, dropped items — read them
+  "recorded": [{ "who", "what", "at" }],
+  "url",
+  "clientUrl"                                        // only from "client_link"; else null
+}
+```
+
+Reason codes: `invalid_action`, `missing_argument`, `nothing_to_do`,
+`invalid_project_id`, `project_not_found`, `invalid_calendar_id`,
+`calendar_not_found`, `designer_only`, `invalid_name`, `invalid_year`,
+`invalid_type`, `unknown_feature`, `invalid_print`, `unknown_preset`,
+`preset_type_mismatch`, `no_layout`, `not_a_sibling`, `layout_type_mismatch`,
+`source_has_no_layout`, `invalid_design`, `model_unavailable`.
+
+## `set_calendar_layout(calendarId, preset?, reset?, boxes?, order?, styles?)`
+
+Scope `calendars:write`, **designer role**. One layout serves every week page.
+Arguments are applied in this order; the call is atomic.
+
+- `preset`: `photoLeft` | `photoRight` (7 days), `twoSided` (14 days). No
+  layout yet → the browser's default layout for it. Has one → `photoLeft` ↔
+  `photoRight` mirrors it and keeps the styling; `reset: true` applies the
+  untouched default instead.
+- `boxes`: `{"<element>": {x?, y?, w?, h?, hidden?}}` — mm from the top-left
+  trim corner, 0.1 mm steps, inside `[-bleed, size + bleed]`, min 6 × 4.
+  Elements `photo`, `cap`, `logo`, `head`, `month`, `cal`, `wk`, `qr` (+ the
+  second-week frames a 14-day layout lists). `hidden` only on `logo`, `month`,
+  `wk`, `qr`.
+- `order`: every key of `layout.order` once, top layer first.
+- `styles`: a partial `layout.styles` — objects merge, scalars and lists
+  replace. Sizes and line widths in pt (type 3–60), lengths in mm, opacity
+  0–100, colours `#RRGGBB`, `family` = a `get_calendar` `fonts[].family` or
+  `null`.
+
+| style group | keys |
+|---|---|
+| text styles `num` `numSat` `numSun` `numHol` `day` `name` `hol` `ev` `time` `shift` `placeText` `month` `wk` `cap` `head.text` | `family`, `weight`, `size`, `color` (+ `hol.wrapWidth`; `ev.align/valign/box`; `time.position/align/valign`; `shift.bgMode/bg`; `month.align/upper/pad/bg`; `wk.align/form`; `cap.align/valign/pad/bg`) |
+| `cal` | `numberSide`, `numAlign`, `dayFormat`, `dayPosition`, `dayAlign`, `satColor`, `sunColor`, `bg {color, opacity}`, `iconSize`, `iconGrid`, `iconCellW`, `iconCells`, `placeLabels`, `emptyIconSlot` |
+| `lines` | `on`, `width`, `style`, `color` |
+| fills `bg`, `head.bg`, `month.bg`, `cap.bg` | `colorOn`, `color`, `colorOpacity`, `gradient {on, type, angle, stops[{color, opacity, pos}]}`, `imageOn`, `asset`, `fit`, `imageOpacity` |
+| `photo` | `source`, `radius`, `border {on, width, color}`, `shadow {on, blur, opacity, dx, dy, color}` |
+| `logo`, `qr` | `logo {asset, fit}`, `qr {perPage, asset}` |
+| `moon` | `color`, `size`, `valign`, `phases[4]`, `icons[4]` |
+| `icons` | `order` (of `waste`, `moon`, `ev`, `time`, `season`), `ev {name, asset, perEvent}`, `time {asset, color}`, `season {mode, asset, assets[4], color}` |
+| `waste.kinds`, `offsets` | maps keyed by waste kind id / part name: an entry merges one level, `null` removes it |
+
+Enumerations: `align` `start`\|`middle`\|`end`; `valign` `top`\|`middle`\|`bottom`;
+`numberSide` `start`\|`end`; `dayFormat` `full`\|`short`; `dayPosition`
+`side`\|`above`; `iconGrid` `4`\|`2x2`\|`1+2`\|`2+1`; `lines.style`
+`solid`\|`dash`\|`dot`; `wk.form` `a`\|`b`\|`c`; `time.position` `text`\|`sep`;
+`shift.bgMode` `alt`\|`all`\|`none`; `fit` `cover`\|`contain`; `photo.source`
+`client`\|`self`; `icons.season.mode` `four`\|`one`; `gradient.type`
+`linear`\|`radial`.
+
+Answer: the `manage_calendar` shape. Reason codes: `invalid_calendar_id`,
+`calendar_not_found`, `designer_only`, `nothing_to_do`, `unknown_preset`,
+`preset_type_mismatch`, `no_layout`, `unknown_box`, `invalid_box`,
+`not_hideable`, `invalid_order`, `unknown_style_key`, `invalid_style_value`,
+`unknown_font`, `invalid_color`, `invalid_design`, `model_unavailable`.
+
+## `upload_calendar_asset(calendarId, kind, fileBase64, filename)`
+
+Scope `calendars:write`. `kind`: `photo` (JPEG / PNG / WebP / phone HEIC; never
+SVG), `logo`, `icon`, `qr`, `image` (header / background picture), `page` (a
+special page's graphic; a PDF's first page is rasterised). base64 only (a
+`data:` URI is tolerated), about 3 MB over MCP, 10 MB hard limit. A `client`
+role uploads `photo` only. Uploading changes nothing in the calendar.
+
+```jsonc
+{
+  "calendarId", "assetId", "kind", "url", "previewUrl",
+  "width", "height",                    // of what was stored; null for SVG
+  "mime", "name", "description",        // description = the caption embedded in the file
+  "next"                                // where to reference the id
+}
+```
+
+Reason codes: `invalid_calendar_id`, `calendar_not_found`, `invalid_kind`,
+`invalid_file`, `file_too_large`, `upload_refused`, `designer_only`.
+
+## `render_calendar_page(calendarId, page, bleed?, marks?, sampleTexts?)`
+
+Scope `calendars:read`. `page` = a `get_calendar` `pages[].key`. Returns a JSON
+block, then a WebP (1600 px long edge) of the page as stored.
+
+```jsonc
+{
+  "calendarId", "calendarName",
+  "page", "kind", "title", "subtitle", "from", "to",
+  "format": "image/webp", "width", "height",
+  "viewMm": { "x", "y", "w", "h" },     // what the picture shows; negative x / y with bleed or marks
+  "pxPerMm",
+  "warnings": ["…"],                    // Czech: portrait photo, photo under 200 dpi, icons / events that do not fit
+  "pageKeys": ["cover", "pre", "w01", "…"]
+}
+```
+
+Reason codes: `invalid_calendar_id`, `calendar_not_found`, `no_layout`,
+`unknown_page`, `model_unavailable`, `renderer_busy`, `render_failed`.
 
 ## `update_calendar_content(calendarId, operations)`
 
@@ -501,7 +636,8 @@ Ids: `A–Z a–z 0–9 _ -`, up to 40 characters; invent 16 random ones for a n
 item. Page-keyed collections use the page key as the id: `wNN` (ISO week of the
 page's Monday, `w05`), `pre`, `post`, `cover`, `back`, `sp:<specialPageId>`.
 Dates `YYYY-MM-DD` within `[year−1-12-01, year+1-01-31]`. Weekdays `0` Monday
-… `6` Sunday. Assets are ids from `get_calendar` `assets`.
+… `6` Sunday. Assets are ids of files uploaded to this calendar
+(`upload_calendar_asset`; listed in `get_calendar` `assets`).
 
 | collection | item | who |
 |---|---|---|
@@ -545,8 +681,8 @@ Refusals end with a reason code in parentheses:
 | `invalid_content` | the item breaks the rules above; the quoted Czech sentence names the collection and field (`Neplatná data kalendáře (events › date).`) |
 | `designer_only` | a `client` role touched a designer-only collection |
 
-Nothing here changes the design, uploads a file, or creates / deletes a
-calendar.
+This tool never changes the design or uploads a file — see `manage_calendar`,
+`set_calendar_layout`, `upload_calendar_asset`. Nothing deletes a calendar.
 
 ## `manage_document(action, projectId?, documentId?, name?, dimension?, templateIds?, position?, fields?, pageId?, bleedMm?, cropMarks?, categoryId?)`
 

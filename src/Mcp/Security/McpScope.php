@@ -34,10 +34,16 @@ enum McpScope: string
     /** Upload new pictures into a project's gallery. */
     case GalleryWrite = 'gallery:write';
 
-    /** Read a project's desk calendars (module Kalendáře): settings, content, uploaded files. */
+    /** Read a project's desk calendars (module Kalendáře): settings, layout, content, uploaded files, a rendered page. */
     case CalendarsRead = 'calendars:read';
 
-    /** Change a calendar's CONTENT (events, name days, waste collection, captions, comments…) — never its design. */
+    /**
+     * Author calendars: create one, change its settings, layout and styles,
+     * upload its files, fill in its content, finish it, hand out the client
+     * link. What a token may actually do is still its user's ROLE: a member
+     * the project is only shared with stays a calendar client (content and
+     * photos only). Never deletes.
+     */
     case CalendarsWrite = 'calendars:write';
 
     /**

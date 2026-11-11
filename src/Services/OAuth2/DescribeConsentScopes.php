@@ -168,14 +168,16 @@ readonly final class DescribeConsentScopes
             ],
             McpScope::CalendarsRead => [
                 'Prohlížet vaše kalendáře',
-                'Aplikace uvidí stolní kalendáře vašich projektů: jejich nastavení, obsah '
-                . '(akce, svozy odpadu, popisky, komentáře) a nahrané fotky. Nic nemění.',
+                'Aplikace uvidí stolní kalendáře vašich projektů: jejich nastavení, vzhled, obsah '
+                . '(akce, svozy odpadu, popisky, komentáře), nahrané fotky a náhledy stran. Nic nemění.',
             ],
             McpScope::CalendarsWrite => [
-                'Upravovat obsah kalendářů',
-                'Aplikace může do kalendářů doplňovat a měnit obsah — akce, jména, svozy odpadu, '
-                . 'popisky a komentáře. Vzhled kalendáře měnit nemůže. Změny uvidí každý, kdo má '
-                . 'ke kalendáři přístup, a zapíšou se do jeho historie.',
+                'Vytvářet a upravovat kalendáře',
+                'Aplikace může zakládat kalendáře, měnit jejich nastavení, rozvržení a vzhled, nahrávat '
+                . 'do nich fotky a další soubory, doplňovat obsah (akce, jména, svozy odpadu, popisky, '
+                . 'komentáře), kalendář dokončit a získat odkaz pro klienta. Kde je vám projekt jen '
+                . 'nasdílený, smí jen to, co klient: obsah a fotky. Mazat kalendáře nemůže. Změny uvidí '
+                . 'každý, kdo má ke kalendáři přístup, a zapíšou se do jeho historie.',
             ],
         };
 

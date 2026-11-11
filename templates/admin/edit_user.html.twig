@@ -20,8 +20,8 @@
     'templates:export': 'Vyplní šablonu a stáhne výsledný obrázek.',
     'templates:design': 'Mění design šablon.',
     'gallery:write': 'Přidává obrázky do galerie projektu.',
-    'calendars:read': 'Vidí kalendáře projektu a jejich obsah.',
-    'calendars:write': 'Doplňuje obsah kalendářů (akce, svozy, popisky). Vzhled nemění.',
+    'calendars:read': 'Vidí kalendáře projektu, jejich vzhled, obsah a náhledy stran.',
+    'calendars:write': 'Zakládá kalendáře, mění nastavení a vzhled, nahrává soubory a doplňuje obsah. Nemaže.',
 } %}
 {% set owned = projects|filter(p => p.isOwner) %}
 {% set shared = projects|filter(p => not p.isOwner) %}

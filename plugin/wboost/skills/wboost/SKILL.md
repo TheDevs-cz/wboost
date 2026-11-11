@@ -1,6 +1,6 @@
 ---
 name: wboost
-description: Use when working with wboost brand templates — listing the user's wboost projects, brand fonts and colours; finding a template variant; filling its text and image placeholders; previewing and exporting the finished PNG; filling and exporting multi-page documents as one PDF; uploading a picture to a project gallery; authoring a variant's design from scratch; or reading a desk calendar (Kalendáře) and filling in its content — events, waste collection days, extra names, photo captions, comments. Covers the seventeen wboost MCP tools (get_context, find_templates, describe_variant, list_gallery, render_variant, export_variant, export_document, document_history, upload_image, upload_font, preview_design, set_design, manage_document, set_print_setup, list_calendars, get_calendar, update_calendar_content), the ids-never-names rule, container overflow, the design DSL, the acknowledgeLosses overwrite guard, and the whole-item rule of calendar content.
+description: Use when working with wboost brand templates — listing the user's wboost projects, brand fonts and colours; finding a template variant; filling its text and image placeholders; previewing and exporting the finished PNG; filling and exporting multi-page documents as one PDF; uploading a picture to a project gallery; authoring a variant's design from scratch; or creating, designing and filling a desk calendar (Kalendáře) — its settings, layout and styles, photos, events, waste collection days, extra names, captions, comments — and looking at its rendered pages. Covers the twenty-one wboost MCP tools (get_context, find_templates, describe_variant, list_gallery, render_variant, export_variant, export_document, document_history, upload_image, upload_font, preview_design, set_design, manage_document, set_print_setup, list_calendars, get_calendar, render_calendar_page, manage_calendar, set_calendar_layout, upload_calendar_asset, update_calendar_content), the ids-never-names rule, container overflow, the design DSL, the acknowledgeLosses overwrite guard, and the whole-item rule of calendar content.
 ---
 
 # wboost templates
@@ -9,7 +9,7 @@ wboost is a brand-manual and template platform. A designer authors a **template
 variant** — a canvas with text placeholders, picture slots and brand assets —
 and it is filled with the user's copy and exported as a finished image.
 
-This connector gives you seventeen tools across four jobs:
+This connector gives you twenty-one tools across four jobs:
 
 - **read** what the account holds (`get_context`, `find_templates`,
   `describe_variant`, `list_gallery`);
@@ -21,9 +21,12 @@ This connector gives you seventeen tools across four jobs:
   (`upload_image`, `upload_font`, `preview_design`, `set_design`,
   `manage_document`), and set a print variant's bleed + crop marks
   (`set_print_setup`);
-- **desk calendars** — a separate module with its own scopes: read a
-  calendar and fill in its content (`list_calendars`, `get_calendar`,
-  `update_calendar_content`). See [Desk calendars](#desk-calendars-kalendáře).
+- **desk calendars** — a separate module with its own scopes: create a
+  calendar, set it up, design its layout, upload its pictures, fill in its
+  content and look at any page (`list_calendars`, `get_calendar`,
+  `render_calendar_page`, `manage_calendar`, `set_calendar_layout`,
+  `upload_calendar_asset`, `update_calendar_content`). See
+  [Desk calendars](#desk-calendars-kalendáře).
 
 Which of those you can actually do depends on the scopes the connection was
 granted; `get_context` echoes them back and a tool you lack the scope for is not
@@ -344,28 +347,76 @@ file. Each page carries its `variantId` — `describe_variant`,
 ## Desk calendars (Kalendáře)
 
 A separate module from templates, with its own scopes: `calendars:read`
-(`list_calendars`, `get_calendar`) and `calendars:write`
-(`update_calendar_content`, implies read). Neither implies a template scope and
-no template scope implies them — a calendar-only connection cannot call
-`get_context`, which is why `list_calendars` works without a project id.
+(`list_calendars`, `get_calendar`, `render_calendar_page`) and
+`calendars:write` (`manage_calendar`, `set_calendar_layout`,
+`upload_calendar_asset`, `update_calendar_content`; implies read). Neither
+implies a template scope and no template scope implies them — a calendar-only
+connection cannot call `get_context`, which is why `list_calendars` works
+without a project id and `get_calendar` carries the project's fonts and colours.
 
 A desk calendar is a spiral-bound calendar a designer builds for a client
 (typically a municipality): one page per week (`type: "week"`) or per two weeks
 (`"fortnight"`). The system generates every page with its dates, Czech name
 days and public holidays. It has two halves:
 
-- the **design** — name, year, type, feature switches, print setup, layout and
-  styles. Read-only here; it is made on the web, in the calendar workspace.
-- the **content** — what the client supplies: events, clubs, extra names,
-  waste collection, photo captions, comments… This is what you may write.
+- the **design** — name, year, type, feature switches, print setup, and ONE
+  layout (element boxes, stacking order, styles) shared by every week page.
+  The designer's: `manage_calendar` and `set_calendar_layout`.
+- the **content** — events, clubs, extra names, waste collection, page photos
+  and captions, comments, shift tables, special pages:
+  `update_calendar_content`.
 
 ```
-list_calendars              → every calendar this account can reach (or one project's)
-  └ get_calendar            → settings, ALL content, uploaded files, recent history
-      └ update_calendar_content → add / replace / delete content items
+list_calendars                → every calendar this account can reach (or one project's)
+manage_calendar "create"      → a new calendar (settings + optionally a preset in one call)
+  └ get_calendar              → settings, layout + styles, pages, ALL content, assets, fonts
+      ├ manage_calendar "configure"  → name, year, type, feature switches, print
+      ├ set_calendar_layout          → preset, then boxes / order / styles patches
+      ├ upload_calendar_asset        → a file → assetId (then reference it)
+      ├ update_calendar_content      → add / replace / delete content items
+      ├ render_calendar_page         → LOOK at a page after every change
+      └ manage_calendar "finish"     → done; "client_link" → the link for the client
 ```
 
-The rules that matter:
+Authoring a calendar from nothing, in order: `create` (with `preset`) →
+`configure` the feature switches the content needs → `set_calendar_layout`
+styles → uploads + content → `render_calendar_page` on `w01`, `cover` and a
+page that has events → fix → `finish`.
+
+Design rules:
+
+- **A calendar has no pages until it has a layout.** `set_calendar_layout`
+  with a preset creates it — `photoLeft` / `photoRight` for 7 days, `twoSided`
+  for 14. Styling before that is refused (`no_layout`).
+- **Patch, do not rebuild.** `boxes` and `styles` name only what changes;
+  nested objects merge. Read `get_calendar` `layout` first — it is the exact
+  tree. An unknown key is refused by name (`unknown_style_key`,
+  `unknown_box`), never ignored.
+- **Units.** Boxes in mm from the top-left TRIM corner (the page is 310 × 145
+  unless `page` says otherwise; a box may reach `bleedMm` past each edge).
+  Type sizes and line widths in pt. Colours `#RRGGBB`. A font is a
+  `get_calendar` `fonts[].family` string verbatim, or `null` for the built-in
+  face.
+- **Read `notes`.** Values outside their limits are brought into range, a
+  preset switch mirrors rather than resets, a year change moves dated items —
+  the answer says so in `notes[]` instead of failing.
+- **Features gate printing.** Switch `events`, `waste`, `shifts`,
+  `specialPages`, `qr`, `timeChange`, `seasons` on with `manage_calendar`
+  `configure` before judging a render — content of an off feature is stored
+  but invisible.
+- **Assets belong to one calendar.** Upload with `upload_calendar_asset`, then
+  reference the returned `assetId` (its `next` field says where). A gallery
+  image id (`upload_image`, `list_gallery`) is NOT a calendar asset.
+- **Look.** `render_calendar_page` draws what is stored with the real fonts.
+  Call it after layout, style and content changes; act on `warnings[]`.
+- **Designer only.** With `role: "client"` (project only shared with the
+  account) every design call is refused with `designer_only`; content of the
+  client collections and photo uploads still work.
+- **The client link is a secret** — `manage_calendar` `client_link` returns
+  it; give it to the user only. `regenerate: true` only when asked: the old
+  link dies at once.
+
+Content rules:
 
 - **Whole items, never fields.** An operation is
   `{collection, id, value, label?}` and `value` is the complete item — every
@@ -390,13 +441,28 @@ The rules that matter:
   only `writableCollections`; anything else is refused with `designer_only`.
 - **Switched-off features are stored, not printed.** `get_calendar`
   `features` says what the calendar shows (`events`, `waste`, `shifts`, …). An
-  event added while `events` is off is saved but invisible until the designer
-  switches the feature on — say so instead of reporting success.
+  event added while `events` is off is saved but invisible — switch the
+  feature on (`manage_calendar` `configure`, designer) or say so instead of
+  reporting success.
 - **Comments are permanent**: insert only, never edited or deleted; the server
   sets author and time.
-- **Not available:** creating / renaming / deleting a calendar, any design or
-  layout change, uploading a photo (reference only ids from `get_calendar`
-  `assets`), rendering a page preview, a print export.
+- **Not available:** deleting a calendar or an uploaded file; a print export
+  (PDF) of a calendar; changing the page size; importing a layout from a
+  layout *file* or from another project; extracting text from a .docx for a
+  special page (send the text itself); the web editor's undo.
+
+```jsonc
+// set_calendar_layout — a restyle: bigger day numbers in the brand colour, month in lower case
+{
+  "calendarId": "…",
+  "styles": {
+    "num": { "size": 30, "color": "#1F4E79" },
+    "month": { "upper": false, "family": "Rubik (Rubik Bold)" },
+    "lines": { "style": "dot" }
+  },
+  "boxes": { "logo": { "x": 170, "y": 30, "w": 22, "h": 22 }, "qr": { "hidden": true } }
+}
+```
 
 ```jsonc
 // update_calendar_content — add an event and switch on bio-waste collection

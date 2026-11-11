@@ -67,6 +67,10 @@ readonly final class DescribeMcpCapabilities
         'set_print_setup',
         'list_calendars',
         'get_calendar',
+        'render_calendar_page',
+        'manage_calendar',
+        'set_calendar_layout',
+        'upload_calendar_asset',
         'update_calendar_content',
     ];
 
@@ -272,17 +276,43 @@ readonly final class DescribeMcpCapabilities
             ],
             'get_calendar' => [
                 'Přečíst kalendář',
-                'Načte nastavení jednoho kalendáře a celý jeho obsah: akce a spolky, jména navíc, '
-                . 'svozy odpadu, popisky fotek, komentáře, nahrané soubory a poslední změny z historie. '
-                . 'Odkaz pro klienta asistent nevidí. Nic nemění.',
+                'Načte nastavení jednoho kalendáře, jeho rozvržení a vzhled, seznam stran a celý obsah: '
+                . 'akce a spolky, jména navíc, svozy odpadu, popisky fotek, komentáře, nahrané soubory '
+                . 'a poslední změny z historie. Odkaz pro klienta tu asistent nevidí. Nic nemění.',
+            ],
+            'render_calendar_page' => [
+                'Zobrazit stranu kalendáře',
+                'Vykreslí jednu stranu kalendáře — titulní, kterýkoli týden, speciální nebo zadní — '
+                . 'tak, jak je právě uložená, aby si asistent mohl výsledek prohlédnout. Jde jen '
+                . 'o náhled: nic se neukládá.',
+            ],
+            'manage_calendar' => [
+                'Založit a nastavit kalendář',
+                'Asistent může v projektu založit nový kalendář a nastavit ho: název, rok, typ '
+                . '(7 nebo 14 dní na stranu), spadávku a ořezové značky a co všechno se má tisknout '
+                . '(akce, odpady, fáze měsíce…). Umí také kalendář dokončit, převzít rozvržení z jiného '
+                . 'kalendáře téhož projektu a předat vám odkaz pro klienta. Smí to jen ten, kdo může '
+                . 'projekt upravovat; smazat kalendář odsud nejde.',
+            ],
+            'set_calendar_layout' => [
+                'Navrhnout vzhled kalendáře',
+                'Asistent může kalendáři vybrat rozvržení (fotka vlevo, fotka vpravo, dvoustranné) '
+                . 'a upravit jeho vzhled: polohu a velikost prvků, písma z vašich fontů, barvy, velikosti, '
+                . 'pozadí a ikony. Jedno nastavení platí pro všechny strany. Změny se zapíšou do historie '
+                . 'kalendáře; smí je dělat jen ten, kdo může projekt upravovat.',
+            ],
+            'upload_calendar_asset' => [
+                'Nahrát soubor do kalendáře',
+                'Asistent může do kalendáře nahrát fotku týdne, logo, ikonu, QR kód, obrázek hlavičky '
+                . 'nebo pozadí a grafiku speciální strany. Soubor zůstává u kalendáře; nic se jím '
+                . 'nepřepíše. Komu je projekt jen nasdílený, může nahrávat jen fotky.',
             ],
             'update_calendar_content' => [
                 'Doplnit obsah kalendáře',
                 'Asistent může do kalendáře přidávat, měnit a mazat obsah — akce, jména, svozy odpadu, '
-                . 'popisky fotek a komentáře. Každá změna se zapíše do historie kalendáře, stejně jako '
-                . 'když ji uděláte ve WBoostu. Vzhled a rozvržení kalendáře měnit nemůže, fotky nahrávat '
-                . 'neumí a kalendář nezaloží ani nesmaže. Komu je projekt jen nasdílený, může měnit '
-                . 'jen to, co smí klient.',
+                . 'fotky a popisky stran, komentáře, šichtovnici a speciální strany. Každá změna se zapíše '
+                . 'do historie kalendáře, stejně jako když ji uděláte ve WBoostu. Komu je projekt jen '
+                . 'nasdílený, může měnit jen to, co smí klient.',
             ],
             default => null,
         };

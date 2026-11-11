@@ -51,7 +51,7 @@ return App::config([
     'mcp' => [
         'app' => 'wboost',
         'version' => '0.1.0',
-        'description' => 'Design and manage wboost brand templates, and fill in desk calendars, from an AI client.',
+        'description' => 'Design and manage wboost brand templates, and create, design and fill in desk calendars, from an AI client.',
         'website_url' => 'https://wboost.cz',
 
         // Sent to every client on connect, so keep it short and load-bearing.
@@ -91,11 +91,21 @@ return App::config([
             variant. Screen formats (px) have no bleed.
             Desk calendars ("Kalendáře") are a separate module with their own scopes
             (calendars:read, calendars:write) and need no get_context: list_calendars finds
-            them, get_calendar returns one calendar's settings and all of its content, and
-            update_calendar_content adds, replaces or deletes content items (events, extra
-            names, waste collection, photo captions, comments) - always the WHOLE item, keyed
-            by collection + id, dates as YYYY-MM-DD. A calendar's design, its layout and its
-            photos cannot be changed here; that is done on the web.
+            them and get_calendar returns one calendar whole - settings, layout and styles,
+            its pages (page keys), all content, uploaded files, the project's fonts.
+            A calendar has ONE layout for all its week pages. manage_calendar creates a
+            calendar and changes its settings (name, year, type 7/14 days, feature switches,
+            print), finishes it, imports another calendar's layout and hands out the client
+            link; set_calendar_layout applies a preset (photoLeft / photoRight / twoSided) and
+            patches boxes (mm from the top-left trim corner), stacking order and styles (pt,
+            #RRGGBB, project font faces); upload_calendar_asset stores a photo, logo, icon,
+            QR or picture and returns the asset id to reference; update_calendar_content adds,
+            replaces or deletes content items - always the WHOLE item, keyed by collection +
+            id, dates as YYYY-MM-DD. render_calendar_page returns a picture of any page:
+            look at it after every change. Content of a switched-off feature is stored but
+            not printed. Design changes need the designer role (an account the project is
+            only shared with is a client: content and photos only). Calendars cannot be
+            deleted here.
             INSTRUCTIONS,
 
         'client_transports' => [
