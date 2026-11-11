@@ -1,0 +1,21 @@
+{#
+    Client view of a calendar that has no layout yet (handoff §3 "Who uses it":
+    the client only ever sees step 5, and step 5 needs a layout). Shown instead
+    of the workspace on the public link `/k/{token}` and to a read-only member;
+    styles in assets/styles/nocturne/calendar-dialogs.css.
+
+    calendar   Calendar
+    list_url   optional — back link for a logged-in member
+#}
+<div class="cal-notready" data-cal-not-ready>
+    <div class="cal-notready-card" role="status">
+        <span class="ico-c" aria-hidden="true">{{ icon('calendar') }}</span>
+        <span class="lbl">{{ calendar.name }}</span>
+        <h1>Kalendář se teprve připravuje</h1>
+        <p>Grafik ještě nedokončil vzhled kalendáře. Jakmile bude hotový, uvidíte tady jeho náhled a doplníte fotky, popisky, svozy odpadu a akce.</p>
+        <p class="cap">Zkuste to prosím později — odkaz zůstává stejný.</p>
+        {% if list_url|default(null) %}
+            <a class="btn sm btn-tertiary" href="{{ list_url }}">Zpět na kalendáře</a>
+        {% endif %}
+    </div>
+</div>

@@ -19,7 +19,12 @@
 {% endblock %}
 
 {% block content %}
-    <div class="cal-ws" data-controller="calendar-workspace" data-calendar-workspace-mode-value="{{ mode }}">
-        <script type="application/json" data-calendar-workspace-target="bootstrap">{{ bootstrap_json|raw }}</script>
-    </div>
+    {% if mode != 'designer' and calendar.layout is null %}
+        {# A read-only member before the designer chose a layout: nothing to preview or fill yet. #}
+        {{ include('calendar/_not_ready.html.twig', {'calendar': calendar, 'list_url': path('calendars', {'projectId': project.id})}, with_context = false) }}
+    {% else %}
+        <div class="cal-ws" data-controller="calendar-workspace" data-calendar-workspace-mode-value="{{ mode }}">
+            <script type="application/json" data-calendar-workspace-target="bootstrap">{{ bootstrap_json|raw }}</script>
+        </div>
+    {% endif %}
 {% endblock %}

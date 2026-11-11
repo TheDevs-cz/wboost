@@ -4,3 +4,76 @@
    Loads after calendar.css — the stub rules there for this area are deleted
    by the owner once the real styles live here.
    ========================================================================== */
+
+/* ---------- Warning marks: the "!" badge (thumbnails, page, lists) and the chip ----------
+   Handoff §4.8: a red exclamation mark. Rose is Nocturne's danger hue in both themes. */
+.cal-wb { display: inline-grid; place-items: center; flex: none; width: 18px; height: 18px; border-radius: 50%; background: var(--rose); color: var(--on-accent); font-size: 12px; font-weight: 800; line-height: 1; font-style: normal; }
+.cal-wb[hidden] { display: none; }
+.cal-th > .cal-wb { position: absolute; top: 8px; right: 8px; box-shadow: 0 0 0 2px var(--surface); }
+.cal-wchip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid transparent; border-radius: 999px; background: var(--rose-deep); color: var(--rose-ink); font: inherit; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: border-color var(--dur-2); }
+.cal-wchip:hover { border-color: var(--rose-line); }
+.cal-wchip[hidden] { display: none; }
+.cal-wchip .i { flex: none; }
+
+/* messages as a list — the step-4 page panel and anywhere else `warningNotes()` lands */
+.cal-wnotes { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 10px 12px; list-style: none; border-radius: 12px; background: var(--rose-deep); }
+.cal-wrow { display: flex; align-items: flex-start; gap: 8px; min-width: 0; font-size: 13px; line-height: 1.4; color: var(--text-2); }
+.cal-wrow > span:last-child { min-width: 0; overflow-wrap: anywhere; }
+.cal-wrow > .cal-wb { position: static; margin-top: 1px; box-shadow: none; }
+.cal-wnotes .cal-wrow { color: var(--rose-ink); }
+
+/* ---------- Upozornění dialog ---------- */
+.cal-wlist { display: flex; flex-direction: column; gap: 8px; }
+.cal-wlead { margin: 0 0 4px; }
+.cal-wpage { display: flex; flex-direction: column; align-items: stretch; gap: 6px; width: 100%; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--text); font: inherit; font-size: 13px; text-align: left; cursor: pointer; transition: border-color var(--dur-2), background var(--dur-2); }
+.cal-wpage:hover { border-color: var(--line-3); background: var(--surface-2); }
+.cal-wpage-h { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.cal-wpage-h b { font-weight: 600; }
+.cal-wpage-go { margin-left: auto; align-self: center; display: inline-flex; color: var(--subtle); }
+.cal-wpage:hover .cal-wpage-go { color: var(--text); }
+
+/* ---------- Historie dialog ---------- */
+.cal-hist-list { display: flex; flex-direction: column; gap: 12px; min-height: 120px; }
+.cal-hfilter { display: flex; }
+.cal-hist-rows { display: flex; flex-direction: column; gap: 14px; }
+.cal-hsec { display: flex; flex-direction: column; gap: 2px; }
+.cal-hday { margin: 0; padding: 0 0 4px; font-size: 11px; }
+.cal-hrows { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.cal-hrow { display: grid; grid-template-columns: 58px minmax(0, 1fr) auto; align-items: baseline; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line-2); font-size: 13px; }
+.cal-hrow:last-child { border-bottom: 0; }
+.cal-hrow .pill { justify-self: start; }
+.cal-hwhat { overflow-wrap: anywhere; color: var(--text); line-height: 1.45; }
+.cal-hrow time { white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* ---------- Odkaz pro klienta dialog ---------- */
+.cal-clink { display: flex; flex-direction: column; gap: 14px; }
+.cal-clink p { margin: 0; color: var(--text-2); line-height: 1.55; }
+.cal-clink .cal-5sh { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.cal-clink .cal-5sh .inp { flex: 1; min-width: 0; }
+.cal-clink .cal-5sh input { font-size: 13px; text-overflow: ellipsis; }
+.cal-clink-re { padding-top: 14px; border-top: 1px solid var(--line-2); }
+.cal-clink-idle { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.cal-clink-idle[hidden], .cal-clink-ask[hidden] { display: none; }
+.cal-clink-idle p.cap { flex: 1; min-width: 0; color: var(--subtle); font-size: 12px; }
+.cal-clink-idle .btn { flex: none; }
+.cal-clink-ask { display: flex; flex-direction: column; gap: 12px; padding: 12px 14px; border-radius: 14px; background: var(--rose-deep); }
+.cal-clink-ask p { color: var(--text); font-size: 13px; }
+.cal-clink-ask b { font-weight: 600; }
+.cal-clink-acts { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+
+/* ---------- Client page (/k/{token}) and the "not ready yet" notice ---------- */
+.cal-notready { display: grid; place-items: center; min-height: 100vh; min-height: 100dvh; padding: 24px 16px; background: var(--bg); color: var(--text); }
+.inner .cal-notready { min-height: 60vh; background: none; }
+.cal-notready-card { display: flex; flex-direction: column; align-items: center; gap: 12px; max-width: 460px; padding: 32px 28px; border: 1px solid var(--line); border-radius: 24px; background: var(--surface); text-align: center; }
+.cal-notready-card h1 { margin: 4px 0 0; font-size: 20px; font-weight: 600; line-height: 1.3; }
+.cal-notready-card p { margin: 0; color: var(--text-2); line-height: 1.55; }
+.cal-notready-card .lbl { margin-top: 4px; }
+
+@media (max-width: 560px) {
+    .cal-hrow { grid-template-columns: minmax(0, 1fr) auto; row-gap: 4px; }
+    .cal-hrow .cal-hwhat { grid-column: 1 / -1; grid-row: 2; }
+    .cal-clink .cal-5sh { flex-wrap: wrap; }
+    .cal-clink .cal-5sh .inp { flex: 1 1 100%; }
+    .cal-clink .cal-5sh .btn-primary { flex: 1; }
+    .cal-clink-idle { flex-direction: column; align-items: stretch; }
+}

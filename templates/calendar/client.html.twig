@@ -18,8 +18,13 @@
 
 {% block full_content %}
     <main class="cal-client" id="main">
-        <div class="cal-ws" data-controller="calendar-workspace" data-calendar-workspace-mode-value="client">
-            <script type="application/json" data-calendar-workspace-target="bootstrap">{{ bootstrap_json|raw }}</script>
-        </div>
+        {% if calendar.layout is null %}
+            {# No layout yet (the designer has not passed step 2): there is nothing to preview or fill. #}
+            {{ include('calendar/_not_ready.html.twig', {'calendar': calendar}, with_context = false) }}
+        {% else %}
+            <div class="cal-ws" data-controller="calendar-workspace" data-calendar-workspace-mode-value="client">
+                <script type="application/json" data-calendar-workspace-target="bootstrap">{{ bootstrap_json|raw }}</script>
+            </div>
+        {% endif %}
     </main>
 {% endblock %}
