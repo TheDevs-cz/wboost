@@ -19,7 +19,14 @@ readonly final class CalendarDesignRules
 {
     public const array KEYS = ['name', 'year', 'type', 'page', 'print', 'features', 'preset', 'layout', 'linkElements', 'step', 'finished'];
     public const array PRESETS = ['photoLeft', 'photoRight', 'twoSided'];
-    public const array BOX_KEYS = ['photo', 'cap', 'logo', 'head', 'month', 'cal', 'cal2', 'wk', 'qr'];
+    public const array BOX_KEYS = ['photo', 'cap', 'logo', 'head', 'month', 'month2', 'cal', 'cal2', 'wk', 'wk2', 'qr'];
+    /**
+     * Second frames of a 14-day layout: Měsíc and Číslo týdne are printed once
+     * per week column, like the Kalendárium (`cal2`). They exist only beside
+     * `cal2` and never carry `hidden` — the eye of the element is the flag of
+     * its first frame.
+     */
+    public const array SECOND_FRAME_BOX_KEYS = ['month2', 'wk2'];
     public const array HIDEABLE_BOX_KEYS = ['logo', 'month', 'wk', 'qr'];
     public const array ELEMENT_KEYS = ['photo', 'cap', 'logo', 'head', 'month', 'cal', 'wk', 'qr'];
     public const array FEATURES = ['captions', 'weekNumbers', 'moon', 'timeChange', 'seasons', 'waste', 'events', 'shifts', 'specialPages', 'qr'];
@@ -175,6 +182,12 @@ readonly final class CalendarDesignRules
             }
 
             self::box($key, $box);
+        }
+
+        foreach (self::SECOND_FRAME_BOX_KEYS as $key) {
+            if (property_exists($boxes, $key) && !property_exists($boxes, 'cal2')) {
+                throw self::invalid('layout.boxes.' . $key);
+            }
         }
 
         $order = $raw['order'] ?? null;

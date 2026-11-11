@@ -119,6 +119,29 @@ final class CalendarDesignRulesTest extends TestCase
     }
 
     /**
+     * A 14-day layout: Měsíc and Číslo týdne have a second frame beside the
+     * second Kalendárium frame; the eye of the element stays on the first one.
+     */
+    public function testSecondFramesAreAcceptedBesideTheSecondKalendarium(): void
+    {
+        /** @var array<string, mixed> $layout */
+        $layout = json_decode(TestDataFixture::CALENDAR_LAYOUT_JSON, true, 64, JSON_THROW_ON_ERROR);
+        $box = ['x' => 0, 'y' => 0, 'w' => 10, 'h' => 10];
+        $layout['boxes'] = [
+            'cal' => $box,
+            'cal2' => $box,
+            'month' => [...$box, 'hidden' => true],
+            'month2' => $box,
+            'wk' => [...$box, 'hidden' => true],
+            'wk2' => $box,
+        ];
+
+        $fortnight = json_decode(json_encode($layout, JSON_THROW_ON_ERROR));
+
+        self::assertSame($fortnight, (new CalendarDesignRules())->layout($fortnight));
+    }
+
+    /**
      * @param array<string, mixed> $change replaces top-level keys of the fixture layout
      */
     #[DataProvider('provideInvalidLayouts')]
@@ -153,6 +176,10 @@ final class CalendarDesignRulesTest extends TestCase
         yield 'hidden false' => [['boxes' => ['logo' => [...$box, 'hidden' => false]]]];
         yield 'hidden on photo' => [['boxes' => ['photo' => [...$box, 'hidden' => true]]]];
         yield 'hidden on cap' => [['boxes' => ['cap' => [...$box, 'hidden' => true]]]];
+        yield 'second month frame without cal2' => [['boxes' => ['month' => $box, 'month2' => $box]]];
+        yield 'second week-number frame without cal2' => [['boxes' => ['wk' => $box, 'wk2' => $box]]];
+        yield 'hidden on the second month frame' => [['boxes' => ['cal2' => $box, 'month2' => [...$box, 'hidden' => true]]]];
+        yield 'hidden on the second week-number frame' => [['boxes' => ['cal2' => $box, 'wk2' => [...$box, 'hidden' => true]]]];
         yield 'order a map' => [['order' => ['a' => 'photo']]];
         yield 'order unknown element' => [['order' => ['photo', 'cal2']]];
         yield 'order with bg' => [['order' => ['photo', 'bg']]];
