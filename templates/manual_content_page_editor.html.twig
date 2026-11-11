@@ -111,9 +111,20 @@
                 <button type="button" class="btn btn-ghost icon xs mce-tb mce-tb-ol" data-cmd="ordered_list" title="Číslovaný seznam" aria-label="Číslovaný seznam" aria-pressed="false">1.</button>
                 <button type="button" class="btn btn-ghost icon xs mce-tb" data-cmd="link" title="Odkaz" aria-label="Odkaz" aria-pressed="false">{{ icon('link', 's16') }}</button>
                 <span class="mce-tb-sep" aria-hidden="true"></span>
-                <label class="inp sm sel mce-tb-font" title="Písmo">
-                    <select data-manual-content-editor-target="fontSelect" data-action="change->manual-content-editor#fontPicked" aria-label="Písmo">
-                        <option value="">Výchozí písmo</option>
+                {# A custom menu, not a native <select>: every entry previews its
+                   own face, and a native popup had to load + render all of them
+                   before it opened (macOS Chrome) — the "laggy font picker". #}
+                <div class="mce-tb-font" title="Písmo">
+                    <button type="button" class="inp sm sel mce-tb-fontbtn" data-manual-content-editor-target="fontButton"
+                            data-action="manual-content-editor#toggleFontMenu" aria-haspopup="listbox" aria-expanded="false" aria-label="Písmo">
+                        <span class="mce-tb-fontlabel" data-manual-content-editor-target="fontLabel">Výchozí písmo</span>
+                        {{ icon('chev-down', 's14') }}
+                    </button>
+                    <div class="dropdown-menu mce-fontmenu" role="listbox" aria-label="Písmo" data-manual-content-editor-target="fontMenu"></div>
+                </div>
+                <label class="inp sm sel mce-tb-size" title="Velikost písma">
+                    <select data-manual-content-editor-target="sizeSelect" data-action="change->manual-content-editor#sizePicked" aria-label="Velikost písma">
+                        <option value="">Výchozí velikost</option>
                     </select>
                     {{ icon('chev-down', 's14') }}
                 </label>

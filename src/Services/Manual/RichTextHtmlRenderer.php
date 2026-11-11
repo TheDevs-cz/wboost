@@ -127,6 +127,10 @@ readonly final class RichTextHtmlRenderer
             $css[] = 'font-family: ' . self::cssString($byType['font']['family']);
         }
 
+        if (isset($byType['size']) && RichTextDoc::isAllowedFontSize($byType['size']['size'] ?? null)) {
+            $css[] = 'font-size: ' . $byType['size']['size'] . 'px';
+        }
+
         if (isset($byType['color']) && is_string($byType['color']['color'] ?? null) && $styles->allowsColor($byType['color']['color'])) {
             $css[] = 'color: ' . RichTextDoc::normalizeColor($byType['color']['color']);
         }

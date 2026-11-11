@@ -15,7 +15,8 @@ use WBoost\Web\Exceptions\InvalidManualContent;
  *   `list_item` (a paragraph first, then paragraphs / nested lists);
  * - inline: `text` (non-empty), `hard_break`;
  * - marks: `bold`, `italic`, `underline`, `link` (attrs.href http/https/mailto),
- *   `font` (attrs.family), `color` (attrs.color `#rrggbb`).
+ *   `font` (attrs.family), `size` (attrs.size — integer px,
+ *   {@see MIN_FONT_SIZE}–{@see MAX_FONT_SIZE}), `color` (attrs.color `#rrggbb`).
  *
  * Anything else — unknown node or mark, wrong nesting, a `javascript:` link —
  * throws. Unknown extra KEYS are dropped, so the stored document is always the
@@ -30,13 +31,15 @@ readonly final class RichTextDoc
     public const int MAX_TEXT_LENGTH = 50000;
     public const int MAX_HREF_LENGTH = 2000;
     public const int MAX_FONT_LENGTH = 200;
+    public const int MIN_FONT_SIZE = 8;
+    public const int MAX_FONT_SIZE = 96;
 
     private const array SIMPLE_MARKS = ['bold', 'italic', 'underline'];
 
     /**
      * Canonical mark order — also the nesting order of the rendered HTML.
      */
-    public const array MARK_ORDER = ['link', 'bold', 'italic', 'underline', 'font', 'color'];
+    public const array MARK_ORDER = ['link', 'bold', 'italic', 'underline', 'font', 'size', 'color'];
 
     /**
      * @param array{type: 'doc', content: list<array<string, mixed>>} $doc
@@ -206,6 +209,14 @@ readonly final class RichTextDoc
         }
 
         return preg_match('~^mailto:[^@\s]+@[^@\s]+$~i', $href) === 1;
+    }
+
+    /**
+     * @phpstan-assert-if-true int $size
+     */
+    public static function isAllowedFontSize(mixed $size): bool
+    {
+        return is_int($size) && $size >= self::MIN_FONT_SIZE && $size <= self::MAX_FONT_SIZE;
     }
 
     /**
@@ -414,6 +425,16 @@ readonly final class RichTextDoc
                     }
 
                     $byType[$type] = ['type' => $type, 'attrs' => ['family' => $family]];
+                    continue 2;
+
+                case 'size':
+                    $size = $attrs['size'] ?? null;
+
+                    if (!self::isAllowedFontSize($size)) {
+                        throw new InvalidManualContent(sprintf('Size mark needs a whole number of pixels between %d and %d.', self::MIN_FONT_SIZE, self::MAX_FONT_SIZE));
+                    }
+
+                    $byType[$type] = ['type' => $type, 'attrs' => ['size' => $size]];
                     continue 2;
 
                 case 'color':

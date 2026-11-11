@@ -81,9 +81,15 @@ const schema = new Schema({
         italic: { parseDOM: [{ tag: "em" }, { tag: "i" }], toDOM: () => ["em", 0] },
         underline: { parseDOM: [{ tag: "u" }], toDOM: () => ["u", 0] },
         font: { attrs: { family: {} }, toDOM: (mark) => ["span", { style: "font-family: " + cssString(mark.attrs.family) }, 0] },
+        size: { attrs: { size: {} }, toDOM: (mark) => ["span", { style: "font-size: " + Number(mark.attrs.size) + "px" }, 0] },
         color: { attrs: { color: {} }, toDOM: (mark) => ["span", { style: "color: " + mark.attrs.color }, 0] },
     },
 });
+
+// Font-size presets (px on the 845 px page; body text is 18 px). The server
+// accepts any whole number RichTextDoc::MIN_FONT_SIZE–MAX_FONT_SIZE (8–96).
+const FONT_SIZES = [12, 14, 16, 20, 24, 28, 32, 40, 48, 56, 64, 72];
+const DEFAULT_FONT_SIZE = 18;
 
 const KIND_LABEL = { heading: "Nadpis", richText: "Text", image: "Obrázek" };
 
@@ -118,7 +124,7 @@ function icon(name, size = "s16") {
 
 export default class extends Controller {
     static targets = [
-        "name", "layoutRadio", "stage", "toolbar", "toolbarHint", "fontSelect", "colorList",
+        "name", "layoutRadio", "stage", "toolbar", "toolbarHint", "fontButton", "fontLabel", "fontMenu", "sizeSelect", "colorList",
         "linkBox", "linkInput", "linkError", "fileInput", "status", "dirtyBadge", "saveButton",
         "page", "bgThumb", "bgEmpty", "bgSet", "bgNote",
     ];
@@ -186,6 +192,8 @@ export default class extends Controller {
         window.removeEventListener("asset-selected", this.onAssetSelected);
         document.removeEventListener("keydown", this.onKeydown);
         document.removeEventListener("pointerdown", this.onOutsidePress, true);
+        document.removeEventListener("pointerdown", this.onFontMenuOutside, true);
+        document.removeEventListener("keydown", this.onFontMenuKey, true);
         this.destroyStage();
     }
 
@@ -473,6 +481,8 @@ export default class extends Controller {
     buildRichText(item) {
         const mount = el("div", "mcp-rt mce-rt");
         item.body.appendChild(mount);
+        item.ghost = this.buildToolbarGhost(item);
+        item.body.before(item.ghost);
 
         let doc;
         try {
@@ -728,12 +738,34 @@ export default class extends Controller {
     // ---- toolbar ---------------------------------------------------------------
 
     buildToolbar() {
-        this.fontsValue.forEach((font) => {
-            const option = el("option", "", { value: font.family, text: font.label });
-            option.style.fontFamily = cssString(font.family);
-            this.fontSelectTarget.appendChild(option);
-        });
-        if (this.fontsValue.length === 0) this.fontSelectTarget.closest(".mce-tb-font").hidden = true;
+        const fontItem = (family, label) => {
+            const item = el("button", "dropdown-item mce-fontitem", { type: "button", role: "option", "data-family": family, "aria-selected": "false", text: label });
+            if (family) item.style.fontFamily = cssString(family);
+            item.addEventListener("mousedown", (event) => event.preventDefault());
+            item.addEventListener("click", () => {
+                this.closeFontMenu();
+                this.applyMarkAttr("font", family ? { family } : null);
+            });
+            return item;
+        };
+        this.fontMenuTarget.appendChild(fontItem("", "Výchozí písmo"));
+        this.fontsValue.forEach((font) => this.fontMenuTarget.appendChild(fontItem(font.family, font.label)));
+        this.fontButtonTarget.addEventListener("mousedown", (event) => event.preventDefault());
+        this.onFontMenuKey = (event) => { if (event.key === "Escape" && this.fontMenuOpen) { event.stopPropagation(); this.closeFontMenu(); this.activeView?.focus(); } };
+        document.addEventListener("keydown", this.onFontMenuKey, true);
+        this.onFontMenuOutside = (event) => { if (this.fontMenuOpen && !this.fontButtonTarget.parentNode.contains(event.target)) this.closeFontMenu(); };
+        document.addEventListener("pointerdown", this.onFontMenuOutside, true);
+
+        // No fonts linked to the manual: keep the picker visible (so the
+        // option is discoverable) but locked, with the reason as its label.
+        this.noFonts = this.fontsValue.length === 0;
+        if (this.noFonts) {
+            this.fontLabelTarget.textContent = "Manuál nemá písma";
+            this.fontButtonTarget.closest(".mce-tb-font").title = "Manuál nemá přiřazená žádná písma — přidejte je na stránce Písma.";
+        }
+
+        this.sizeSelectTarget.options[0].textContent = `Výchozí (${DEFAULT_FONT_SIZE} px)`;
+        FONT_SIZES.forEach((size) => this.sizeSelectTarget.appendChild(el("option", "", { value: String(size), text: `${size} px` })));
 
         const swatch = (color, name) => {
             const button = el("button", "mce-swatch", { type: "button", title: name, "aria-label": `Barva ${name}`, "data-color": color, "aria-pressed": "false" });
@@ -754,6 +786,46 @@ export default class extends Controller {
         this.paintToolbar();
     }
 
+    // A grayed, inert copy of the formatting bar that every text element
+    // shows while it is NOT being edited. It holds exactly the space the live
+    // bar takes, so focusing a text swaps one for the other and nothing on
+    // the page moves (the bar used to appear on focus and push text down).
+    // Pressing it starts editing that text.
+    buildToolbarGhost(item) {
+        const ghost = this.toolbarTarget.cloneNode(true);
+        ghost.className = "mce-toolbar mce-toolbar-ghost is-open is-idle";
+        ghost.removeAttribute("role");
+        ghost.removeAttribute("aria-label");
+        ghost.removeAttribute("aria-disabled");
+        ghost.setAttribute("aria-hidden", "true");
+        ghost.querySelector(".mce-link")?.remove();
+        ghost.querySelector(".mce-tb-hint")?.remove();
+        ghost.querySelector(".mce-fontmenu")?.remove();
+        const ghostLabel = ghost.querySelector(".mce-tb-fontlabel");
+        if (ghostLabel) {
+            ghostLabel.textContent = this.noFonts ? "Manuál nemá písma" : "Výchozí písmo";
+            ghostLabel.style.fontFamily = "";
+        }
+        [ghost, ...ghost.querySelectorAll("*")].forEach((node) => {
+            [...node.attributes].forEach((attr) => {
+                if (attr.name.startsWith("data-manual-content-editor") || attr.name === "data-action" || attr.name === "id") node.removeAttribute(attr.name);
+            });
+            if (node === ghost) return;
+            if (node.matches("button, select, input")) {
+                node.disabled = true;
+                node.tabIndex = -1;
+            }
+            node.classList.remove("on");
+            if (node.hasAttribute("aria-pressed")) node.setAttribute("aria-pressed", "false");
+        });
+        ghost.querySelectorAll("select").forEach((select) => { select.selectedIndex = 0; });
+        ghost.addEventListener("mousedown", (event) => {
+            event.preventDefault();
+            item.view?.focus();
+        });
+        return ghost;
+    }
+
     setActiveView(view) {
         this.activeView = view;
         if (!view) this.linkBoxTarget.hidden = true;
@@ -768,7 +840,9 @@ export default class extends Controller {
     placeToolbar() {
         const bar = this.toolbarTarget;
         const anchor = this.activeView?.dom.closest(".mce-el");
-        if (!anchor || !anchor.isConnected) {
+        const live = anchor && anchor.isConnected ? this.activeView : null;
+        this.items.forEach((item) => { if (item.ghost) item.ghost.hidden = item.view === live && live !== null; });
+        if (!live) {
             bar.classList.remove("is-open");
             if (this.toolbarHome && bar.parentNode !== this.toolbarHome.parentNode) this.toolbarHome.after(bar);
             return;
@@ -846,9 +920,24 @@ export default class extends Controller {
         view.focus();
     }
 
-    fontPicked() {
-        const family = this.fontSelectTarget.value;
-        this.applyMarkAttr("font", family ? { family } : null);
+    toggleFontMenu() {
+        if (this.fontMenuOpen) this.closeFontMenu();
+        else if (this.activeView && !this.noFonts) {
+            this.fontMenuOpen = true;
+            this.fontMenuTarget.classList.add("show");
+            this.fontButtonTarget.setAttribute("aria-expanded", "true");
+        }
+    }
+
+    closeFontMenu() {
+        this.fontMenuOpen = false;
+        this.fontMenuTarget.classList.remove("show");
+        this.fontButtonTarget.setAttribute("aria-expanded", "false");
+    }
+
+    sizePicked() {
+        const size = parseInt(this.sizeSelectTarget.value, 10);
+        this.applyMarkAttr("size", size > 0 ? { size } : null);
     }
 
     openLink() {
@@ -969,8 +1058,26 @@ export default class extends Controller {
         });
 
         const font = state ? this.markAt(state, schema.marks.font) : null;
-        this.fontSelectTarget.disabled = !view;
-        this.fontSelectTarget.value = font && this.fontsValue.some((f) => f.family === font.attrs.family) ? font.attrs.family : "";
+        const known = font ? this.fontsValue.find((f) => f.family === font.attrs.family) : null;
+        this.fontButtonTarget.disabled = !view || this.noFonts;
+        if (!view) this.closeFontMenu();
+        if (!this.noFonts) {
+            this.fontLabelTarget.textContent = known ? known.label : "Výchozí písmo";
+            this.fontLabelTarget.style.fontFamily = known ? cssString(known.family) : "";
+        }
+        this.fontMenuTarget.querySelectorAll(".mce-fontitem").forEach((item) => {
+            const on = (item.dataset.family || "") === (known ? known.family : "");
+            item.classList.toggle("active", on);
+            item.setAttribute("aria-selected", String(on));
+        });
+
+        const size = state ? this.markAt(state, schema.marks.size) : null;
+        const sizeValue = size ? String(size.attrs.size) : "";
+        if (sizeValue && ![...this.sizeSelectTarget.options].some((o) => o.value === sizeValue)) {
+            this.sizeSelectTarget.appendChild(el("option", "", { value: sizeValue, text: `${sizeValue} px` }));
+        }
+        this.sizeSelectTarget.disabled = !view;
+        this.sizeSelectTarget.value = sizeValue;
 
         const color = state ? this.markAt(state, schema.marks.color) : null;
         this.colorListTarget.querySelectorAll(".mce-swatch").forEach((button) => {

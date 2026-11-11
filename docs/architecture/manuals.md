@@ -720,7 +720,7 @@ All phases delivered 2026-11-09.
   `paragraph`, `bullet_list`, `ordered_list` (attrs.order), `list_item`
   (paragraph first), `text`, `hard_break`; marks `link` (http/https/mailto only,
   no whitespace/control chars), `bold`, `italic`, `underline`, `font`
-  (attrs.family), `color` (attrs.color `#rrggbb`). Unknown keys are dropped,
+  (attrs.family), `size` (attrs.size, integer px 8–96), `color` (attrs.color `#rrggbb`). Unknown keys are dropped,
   marks come out in `RichTextDoc::MARK_ORDER` — the JS schema declares its
   marks in the same order so `toJSON()` matches. Which fonts / colours are
   allowed is NOT a structural rule (it changes): `ResolveManualContentStyles`
@@ -768,8 +768,20 @@ All phases delivered 2026-11-09.
   segments (`group`, `forceFallback: true`, own ghost/drag classes —
   element DOM nodes are only MOVED, never rebuilt, so ProseMirror views keep
   caret + undo), heading = auto-height textarea, inline toolbar (one node MOVED into the focused text `.mce-el` under its header, parked hidden otherwise, closes on a press outside; B/I/U, lists,
-  link popover, manual-font select, palette swatches; toolbar buttons
-  `preventDefault` on mousedown to keep the selection). Save = ONE POST
+  link popover, manual-font menu, font-size select, palette swatches; toolbar buttons
+  `preventDefault` on mousedown to keep the selection). **No-jump contract
+  (2026-11-11):** every text element ALWAYS shows a grayed, inert clone of the
+  bar (`.mce-toolbar-ghost`, built per element in `buildToolbarGhost()`, all
+  `data-*` Stimulus attributes stripped — incl. the root's, or it steals
+  `toolbarTarget`) occupying exactly the live bar's box; focus hides that
+  element's ghost and moves the live bar in, so nothing on the page shifts.
+  Pressing a ghost focuses its text. The font picker is a custom
+  `.dropdown-menu` (`.mce-fontmenu`), NOT a native `<select>`: each entry
+  previews its face, and a native popup on macOS Chrome loaded/rendered every
+  face before opening. A manual without fonts shows it disabled ("Manuál nemá
+  písma") instead of hiding it. Font size = `size` mark (integer px,
+  `RichTextDoc::MIN_FONT_SIZE`–`MAX_FONT_SIZE` = 8–96, UI presets 12–72, default
+  body 18 px), rendered as `font-size: Npx`. Save = ONE POST
   (`manual_intro_page_save` / `manual_content_page_save`, form fields
   `_token` + `payload` JSON) →
   `SaveManualContentPage` (upsert; for the intro the existing intro wins over

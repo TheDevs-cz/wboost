@@ -279,13 +279,26 @@
    shared `.mcp-*` rules in app.css (same as the public render). ---------- */
 .mce-toolbar { position: sticky; top: 8px; z-index: 15; display: none; margin: 2px 0 10px; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line-2); }
 .mce-toolbar.is-open { display: flex; }
-.mce-toolbar.is-idle .mce-tb, .mce-toolbar.is-idle .mce-tb-font, .mce-toolbar.is-idle .mce-tb-colors { opacity: .45; }
+.mce-toolbar.is-idle .mce-tb, .mce-toolbar.is-idle .mce-tb-font, .mce-toolbar.is-idle .mce-tb-size, .mce-toolbar.is-idle .mce-tb-colors { opacity: .45; }
 .mce-tb { font-size: 15px; font-weight: 600; }
 .mce-tb b, .mce-tb i, .mce-tb u { font-size: 15px; line-height: 1; }
 .mce-tb-ol { font-size: 13px; font-variant-numeric: tabular-nums; }
 .mce-tb.on { background: var(--lav-deep); color: var(--lav-ink); }
 .mce-tb-sep { width: 1px; height: 24px; margin: 0 4px; background: var(--line-2); }
 .mce-tb-font { width: 210px; max-width: 100%; }
+.mce-tb-size { width: 150px; max-width: 100%; }
+.mce-tb-font { position: relative; }
+.mce-tb-fontbtn { width: 100%; color: var(--text); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.mce-tb-fontbtn:disabled { cursor: default; }
+.mce-tb-fontlabel { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.mce-fontmenu { top: calc(100% + 4px); left: 0; min-width: 100%; max-height: 320px; overflow-y: auto; }
+.mce-fontitem { font-size: 15px; white-space: nowrap; }
+/* The inert stand-in every text element shows while not edited (same box as
+   the live bar → no jump on focus). Pressing it focuses that text. */
+.mce-toolbar-ghost { position: static; cursor: text; }
+.mce-toolbar-ghost[hidden] { display: none; }
+.mce-toolbar-ghost > * { pointer-events: none; }
+.mce-toolbar-ghost .mce-swatch:disabled, .mce-toolbar-ghost select:disabled { opacity: 1; }
 .mce-tb-colors { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0 4px; }
 .mce-swatch { width: 24px; height: 24px; padding: 0; border-radius: 50%; border: 1px solid var(--line-3); background: var(--sw, transparent); cursor: pointer; transition: box-shadow .15s, transform .12s; }
 .mce-swatch:hover { transform: scale(1.08); }

@@ -35,6 +35,7 @@ final class RichTextHtmlRendererTest extends TestCase
                     ['type' => 'link', 'attrs' => ['href' => 'https://wboost.cz/?a=1&b=2']],
                     ['type' => 'bold'], ['type' => 'italic'], ['type' => 'underline'],
                     ['type' => 'font', 'attrs' => ['family' => 'Rubik (Rubik Bold)']],
+                    ['type' => 'size', 'attrs' => ['size' => 32]],
                     ['type' => 'color', 'attrs' => ['color' => '#C8102E']],
                 ]],
                 ['type' => 'hard_break'],
@@ -51,7 +52,7 @@ final class RichTextHtmlRendererTest extends TestCase
 
         self::assertSame(
             '<p><strong>Tučně</strong> a '
-            . '<a href="https://wboost.cz/?a=1&amp;b=2" target="_blank" rel="noopener noreferrer"><strong><em><u><span style="font-family: &quot;Rubik (Rubik Bold)&quot;; color: #c8102e">vše</span></u></em></strong></a>'
+            . '<a href="https://wboost.cz/?a=1&amp;b=2" target="_blank" rel="noopener noreferrer"><strong><em><u><span style="font-family: &quot;Rubik (Rubik Bold)&quot;; font-size: 32px; color: #c8102e">vše</span></u></em></strong></a>'
             . '<br>konec</p>'
             . '<p><br></p>'
             . '<ul><li><p>jedna</p></li></ul>'
@@ -109,11 +110,13 @@ final class RichTextHtmlRendererTest extends TestCase
                 ['type' => 'text', 'text' => 'style', 'marks' => [['type' => 'style', 'attrs' => ['css' => 'x']]]],
                 ['type' => 'text', 'text' => 'font', 'marks' => [['type' => 'font', 'attrs' => ['family' => 'Not In Manual']]]],
                 ['type' => 'text', 'text' => 'colour', 'marks' => [['type' => 'color', 'attrs' => ['color' => '#00ff00']]]],
+                ['type' => 'text', 'text' => 'size', 'marks' => [['type' => 'size', 'attrs' => ['size' => '9px;background:url(x)']]]],
+                ['type' => 'text', 'text' => 'huge', 'marks' => [['type' => 'size', 'attrs' => ['size' => 4000]]]],
             ]],
             ['type' => 'ordered_list', 'attrs' => ['order' => '1" onclick="x'], 'content' => [['type' => 'paragraph']]],
         ]);
 
-        self::assertSame('<p>jscssstylefontcolour</p><ol></ol>', (new RichTextHtmlRenderer())->render($doc, $this->styles));
+        self::assertSame('<p>jscssstylefontcoloursizehuge</p><ol></ol>', (new RichTextHtmlRenderer())->render($doc, $this->styles));
     }
 
     /**

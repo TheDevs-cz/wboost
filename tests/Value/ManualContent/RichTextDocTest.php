@@ -21,6 +21,7 @@ final class RichTextDocTest extends TestCase
                     // Marks out of order and duplicated → canonical order, once.
                     ['type' => 'text', 'text' => 'Ahoj', 'marks' => [
                         ['type' => 'color', 'attrs' => ['color' => '#C8102E']],
+                        ['type' => 'size', 'attrs' => ['size' => 24, 'unit' => 'dropped']],
                         ['type' => 'bold'],
                         ['type' => 'bold'],
                         ['type' => 'link', 'attrs' => ['href' => 'https://wboost.cz', 'title' => 'dropped']],
@@ -46,6 +47,7 @@ final class RichTextDocTest extends TestCase
                     ['type' => 'text', 'text' => 'Ahoj', 'marks' => [
                         ['type' => 'link', 'attrs' => ['href' => 'https://wboost.cz']],
                         ['type' => 'bold'],
+                        ['type' => 'size', 'attrs' => ['size' => 24]],
                         ['type' => 'color', 'attrs' => ['color' => '#c8102e']],
                     ]],
                     ['type' => 'hard_break'],
@@ -114,6 +116,12 @@ final class RichTextDocTest extends TestCase
         yield 'colour with css' => [$marked(['type' => 'color', 'attrs' => ['color' => '#fff; background: url(x)']])];
         yield 'font with newline' => [$marked(['type' => 'font', 'attrs' => ['family' => "Rubik\n"]])];
         yield 'font empty' => [$marked(['type' => 'font', 'attrs' => ['family' => '']])];
+        yield 'size as css' => [$marked(['type' => 'size', 'attrs' => ['size' => '24px; background: url(x)']])];
+        yield 'size as string number' => [$marked(['type' => 'size', 'attrs' => ['size' => '24']])];
+        yield 'size fractional' => [$marked(['type' => 'size', 'attrs' => ['size' => 24.5]])];
+        yield 'size too small' => [$marked(['type' => 'size', 'attrs' => ['size' => 7]])];
+        yield 'size too big' => [$marked(['type' => 'size', 'attrs' => ['size' => 97]])];
+        yield 'size missing' => [$marked(['type' => 'size'])];
     }
 
     #[DataProvider('invalidDocuments')]
