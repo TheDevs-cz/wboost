@@ -17,8 +17,10 @@ use WBoost\Web\Value\StorageReferenceIndex;
  * (`project.icon`, `*.background_image`, `*.preview_image_path`, …), JSON
  * documents holding paths (`manual.logo`, `manual_mockup_page.images`, its
  * `download_file` / `image_downloads` attachments, the image elements of
- * `manual_content_page.segments` + `.background`, `font.faces`) and the canvas
- * JSONB, which embeds gallery images as full public URLs. **A path missing
+ * `manual_content_page.segments` + `.background`, `font.faces`), the calendar
+ * module's uploads (`calendar_asset.path` + `.preview_path` — the calendar JSON
+ * refers to them by asset id, never by path) and the canvas JSONB, which embeds
+ * gallery images as full public URLs. **A path missing
  * from this list makes a live file look like an orphan**, so any new writer
  * must be added here as well.
  *
@@ -33,7 +35,7 @@ readonly final class BuildStorageReferenceIndex
      * template tables still embed `social-networks/…` URLs, and those files
      * live on under their original keys.
      */
-    private const string PATH_PREFIXES = '(?:file-upload|manuals|social-networks|custom-templates|emails|projects)';
+    private const string PATH_PREFIXES = '(?:file-upload|manuals|social-networks|custom-templates|emails|projects|calendars)';
 
     public function __construct(
         private EntityManagerInterface $entityManager,
@@ -279,6 +281,20 @@ readonly final class BuildStorageReferenceIndex
                  WHERE face.value->>'filePath' IS NOT NULL",
                 $ownerColumns,
                 sprintf($ownerJoin, 'f.project_id'),
+            ),
+
+            // Calendar uploads: the stored file and, for a large raster, its
+            // preview derivative.
+            'calendar_asset.path' => sprintf(
+                'SELECT a.path AS path, %s FROM calendar_asset a JOIN calendar c ON c.id = a.calendar_id %s',
+                $ownerColumns,
+                sprintf($ownerJoin, 'c.project_id'),
+            ),
+
+            'calendar_asset.preview_path' => sprintf(
+                'SELECT a.preview_path AS path, %s FROM calendar_asset a JOIN calendar c ON c.id = a.calendar_id %s WHERE a.preview_path IS NOT NULL',
+                $ownerColumns,
+                sprintf($ownerJoin, 'c.project_id'),
             ),
         ];
     }

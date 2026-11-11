@@ -11,7 +11,8 @@ use Ramsey\Uuid\UuidInterface;
  * Rewrites every stored reference to a font family string when the family
  * is renamed. Fonts are addressed by STRING everywhere outside the fonts
  * page — a textbox's `fontFamily` (and per-character `styles`), an input's
- * `allowedFonts`, a rich sample's runs, an export version's fill values —
+ * `allowedFonts`, a rich sample's runs, an export version's fill values, a
+ * calendar layout's text styles —
  * so a rename without this would strand every template on a fallback font.
  *
  * Done as text replacement over the JSONB columns rather than a document
@@ -32,6 +33,10 @@ readonly final class RewriteFontReferences
         ['template_variant', 'canvas'],
         ['template_variant', 'inputs'],
         ['template_export_version', 'fill_values'],
+        // Calendar layouts store `"family": "<Font::faceFamily()>"` in their
+        // text styles — the quoted face-string pairs rewrite those; the bare
+        // `"fontFamily"` pair never matches a calendar, which is correct.
+        ['calendar', 'layout'],
     ];
 
     public function __construct(
@@ -76,9 +81,10 @@ readonly final class RewriteFontReferences
 
     private function replaceIn(string $table, string $column, UuidInterface $projectId, string $needle, string $replacement): int
     {
-        $scope = $table === 'template_variant'
-            ? 'template_id IN (SELECT id FROM template WHERE project_id = :projectId)'
-            : 'template_id IN (SELECT id FROM template WHERE project_id = :projectId)';
+        $scope = match ($table) {
+            'calendar' => 'project_id = :projectId AND layout IS NOT NULL',
+            default => 'template_id IN (SELECT id FROM template WHERE project_id = :projectId)',
+        };
 
         $sql = sprintf(
             'UPDATE %1$s SET %2$s = replace(%2$s::text, :needle, :replacement)::jsonb WHERE %3$s AND %2$s::text LIKE :pattern',

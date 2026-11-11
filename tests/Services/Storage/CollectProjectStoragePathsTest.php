@@ -63,6 +63,20 @@ final class CollectProjectStoragePathsTest extends KernelTestCase
         );
     }
 
+    public function testCalendarDirectoriesAreCollectedPerCalendar(): void
+    {
+        $collect = self::getContainer()->get(CollectProjectStoragePaths::class);
+        $project1 = $collect->collect(Uuid::fromString(TestDataFixture::PROJECT_1_ID));
+        $project2 = $collect->collect(Uuid::fromString(TestDataFixture::PROJECT_2_ID));
+
+        // Uploads live under `calendars/{calendarId}/…` — keyed by the calendar,
+        // so they must be collected before the cascade removes the rows.
+        self::assertContains('calendars/' . TestDataFixture::CALENDAR_1_ID, $project1->directories);
+        self::assertContains('calendars/' . TestDataFixture::CALENDAR_2_ID, $project1->directories);
+        self::assertNotContains('calendars/' . TestDataFixture::CALENDAR_3_ID, $project1->directories);
+        self::assertContains('calendars/' . TestDataFixture::CALENDAR_3_ID, $project2->directories);
+    }
+
     public function testPreviewsAreCollectedAsFilesNotDirectories(): void
     {
         $paths = self::getContainer()->get(CollectProjectStoragePaths::class)

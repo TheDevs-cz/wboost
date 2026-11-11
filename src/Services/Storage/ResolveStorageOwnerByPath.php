@@ -13,7 +13,7 @@ use WBoost\Web\Value\StorageOwner;
  *
  * Every writer namespaces its keys by the id of the thing the file belongs to
  * (`manuals/{manualId}/…`, `social-networks/{variantId}/…`,
- * `file-upload/{projectId}/…`, `custom-templates/preview/{variantId}.png`, …),
+ * `file-upload/{projectId}/…`, `custom-templates/preview/{variantId}.png`, `calendars/{calendarId}/…`, …),
  * so an orphan left behind by a re-upload — by far the most common kind, since
  * every `Edit*` handler writes a new timestamped key and abandons the old one —
  * can still be billed to the right project even though nothing points at it any
@@ -55,6 +55,7 @@ readonly final class ResolveStorageOwnerByPath
             ),
             sprintf('SELECT t.id AS entity_id, %s FROM email_signature_template t %s', $ownerColumns, sprintf($ownerJoin, 't.project_id')),
             sprintf('SELECT f.id AS entity_id, %s FROM font f %s', $ownerColumns, sprintf($ownerJoin, 'f.project_id')),
+            sprintf('SELECT c.id AS entity_id, %s FROM calendar c %s', $ownerColumns, sprintf($ownerJoin, 'c.project_id')),
         ]);
 
         $index = [];

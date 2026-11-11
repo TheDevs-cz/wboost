@@ -23,6 +23,8 @@ final class StorageCategoryTest extends TestCase
         yield 'custom variant background' => ['custom-templates/0191-a/background-1.png', StorageCategory::Template];
         yield 'font face' => ['fonts/0191-a/Biotic Bold-1724058155.otf', StorageCategory::Font];
         yield 'email signature background' => ['emails/0191-a/background-1.png', StorageCategory::EmailSignature];
+        yield 'calendar upload' => ['calendars/0191-a/0192-b.jpg', StorageCategory::Calendar];
+        yield 'calendar upload preview' => ['calendars/0191-a/0192-b-preview.webp', StorageCategory::Calendar];
         yield 'publish temp file' => ['social-publish/0191-a.jpg', StorageCategory::SocialPublish];
         yield 'imagine thumbnail' => ['thumbnails/whatever.png', StorageCategory::Thumbnail];
         yield 'unknown' => ['stray-file.txt', StorageCategory::Other];
@@ -39,6 +41,11 @@ final class StorageCategoryTest extends TestCase
         self::assertSame($expected, StorageCategory::fromPath($path));
     }
 
+    public function testCalendarLabel(): void
+    {
+        self::assertSame('Kalendář', StorageCategory::Calendar->label());
+    }
+
     public function testOnlyByProductsAreTransient(): void
     {
         // Transient = unreferenced by design, so never reported as an orphan.
@@ -47,6 +54,7 @@ final class StorageCategoryTest extends TestCase
 
         self::assertFalse(StorageCategory::GalleryImage->isTransient());
         self::assertFalse(StorageCategory::Preview->isTransient());
+        self::assertFalse(StorageCategory::Calendar->isTransient());
         self::assertFalse(StorageCategory::Other->isTransient());
     }
 }

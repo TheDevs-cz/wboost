@@ -215,8 +215,13 @@ gap is accepted by one layer and rejected by the next:
 `mockup_page_editor_controller.js` (fed by
 `_mockup_page_form_editor.html.twig`), `manual_content_editor_controller.js`
 (fed by `manual_intro_page.html.twig`; server side
-`UploadManualContentImageController::MAX_SIZE`), and
-`PlaceholderImageUploader::MAX_FILE_SIZE_BYTES`.
+`UploadManualContentImageController::MAX_SIZE`),
+`PlaceholderImageUploader::MAX_FILE_SIZE_BYTES`, and the calendar module:
+`UploadCalendarAssetController::MAX_SIZE` (`'10m'`) with its byte mirror
+`CalendarDocument::MAX_FILE_SIZE` (`10_000_000`), which is both the server's
+first check (`Soubor je větší než 10 MB.`, also for PDF special pages and
+`.docx` / `.txt` documents) and the `env.maxFileSize` the calendar JavaScript
+reads from its bootstrap JSON.
 
 A mockup page's downloadable ATTACHMENT is deliberately outside this limit —
 it is not an image and a print PDF routinely exceeds 10 MB. It has its own

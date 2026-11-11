@@ -5,9 +5,14 @@ declare(strict_types=1);
 namespace WBoost\Web\Tests\Services\Storage;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Ramsey\Uuid\Uuid;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use WBoost\Web\Entity\Calendar;
+use WBoost\Web\Entity\CalendarAsset;
 use WBoost\Web\Services\Storage\ScanStorage;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
+use WBoost\Web\Value\Calendar\CalendarAssetKind;
+use WBoost\Web\Value\Calendar\CalendarAuthorKind;
 use WBoost\Web\Value\StorageCategory;
 
 final class ScanStorageTest extends KernelTestCase
@@ -230,6 +235,63 @@ final class ScanStorageTest extends KernelTestCase
              VALUES (?, ?, ?, ?, ?, '[]'::json)",
             [$variantId, '2026-08-03 10:00:00', 'Varianta', sprintf("<img src='%s' alt=''>", $url), $templateId],
         );
+    }
+
+    /**
+     * Calendar uploads are referenced by `calendar_asset.path` /
+     * `.preview_path` (the calendar JSON only holds asset ids); a file left
+     * under a calendar's folder without a row is an orphan billed to the
+     * calendar's project.
+     */
+    public function testCalendarAssetsAreReferencedAndStraysAreAttributedViaTheCalendarId(): void
+    {
+        $assetId = '0196f000-0000-7000-8000-0000000000c1';
+        $path = sprintf('calendars/%s/%s.jpg', TestDataFixture::CALENDAR_1_ID, $assetId);
+        $previewPath = sprintf('calendars/%s/%s-preview.webp', TestDataFixture::CALENDAR_1_ID, $assetId);
+        $strayPath = sprintf('calendars/%s/0196f000-0000-7000-8000-0000000000c2.jpg', TestDataFixture::CALENDAR_1_ID);
+
+        $entityManager = self::getContainer()->get(EntityManagerInterface::class);
+        $calendar = $entityManager->find(Calendar::class, Uuid::fromString(TestDataFixture::CALENDAR_1_ID));
+        self::assertInstanceOf(Calendar::class, $calendar);
+        $entityManager->persist(new CalendarAsset(
+            Uuid::fromString($assetId),
+            $calendar,
+            CalendarAssetKind::Photo,
+            $path,
+            $previewPath,
+            'image/jpeg',
+            'kostel.jpg',
+            3200,
+            1500,
+            null,
+            5,
+            CalendarAuthorKind::Designer,
+            null,
+            new \DateTimeImmutable(),
+        ));
+        $entityManager->flush();
+
+        $this->write($path, 'photo');
+        $this->write($previewPath, 'preview');
+        $this->write($strayPath, 'stray');
+
+        self::getContainer()->get(ScanStorage::class)->scan();
+
+        foreach ([[$path, 'calendar_asset.path'], [$previewPath, 'calendar_asset.preview_path']] as [$referenced, $by]) {
+            $row = $this->row($referenced);
+            self::assertNotNull($row);
+            self::assertFalse((bool) $row['orphaned']);
+            self::assertSame($by, $row['referenced_by']);
+            self::assertSame(StorageCategory::Calendar->value, $row['category']);
+            self::assertSame(TestDataFixture::PROJECT_1_ID, $row['project_id']);
+        }
+
+        $stray = $this->row($strayPath);
+        self::assertNotNull($stray);
+        self::assertTrue((bool) $stray['orphaned']);
+        self::assertSame(StorageCategory::Calendar->value, $stray['category']);
+        self::assertSame(TestDataFixture::PROJECT_1_ID, $stray['project_id']);
+        self::assertSame(TestDataFixture::USER_1_EMAIL, $stray['owner_email']);
     }
 
     private function write(string $path, string $contents): void

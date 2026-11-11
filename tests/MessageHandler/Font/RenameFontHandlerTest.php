@@ -9,6 +9,7 @@ use Ramsey\Uuid\Uuid;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
+use WBoost\Web\Entity\Calendar;
 use WBoost\Web\Entity\Font;
 use WBoost\Web\Entity\Project;
 use WBoost\Web\Entity\TemplateVariant;
@@ -56,6 +57,33 @@ final class RenameFontHandlerTest extends KernelTestCase
         }
         self::assertNotNull($tagline);
         self::assertSame(['Rubik Neu (Rubik Bold)'], $tagline->allowedFonts);
+    }
+
+    public function testRenameRewritesCalendarLayoutsOfTheProjectOnly(): void
+    {
+        $entityManager = self::getContainer()->get(EntityManagerInterface::class);
+
+        self::getContainer()->get(MessageBusInterface::class)->dispatch(new RenameFont(Uuid::fromString(TestDataFixture::FONT_RUBIK_ID), 'Rubik Neu'));
+        $entityManager->flush();
+        $entityManager->clear();
+
+        // A layout's text styles store `"family": "<font> (<face>)"`.
+        $renamed = $entityManager->find(Calendar::class, Uuid::fromString(TestDataFixture::CALENDAR_2_ID));
+        self::assertInstanceOf(Calendar::class, $renamed);
+        $layout = (string) json_encode($renamed->layout, JSON_UNESCAPED_UNICODE);
+        self::assertStringContainsString('"family":"Rubik Neu (Rubik Bold)"', $layout);
+        self::assertStringNotContainsString('"Rubik (Rubik Bold)"', $layout);
+        // Still the same document otherwise — maps stay maps.
+        self::assertStringContainsString('"offsets":{}', $layout);
+
+        // Another project's calendar is not touched, and one without a layout is no problem.
+        $foreign = $entityManager->find(Calendar::class, Uuid::fromString(TestDataFixture::CALENDAR_3_ID));
+        self::assertInstanceOf(Calendar::class, $foreign);
+        self::assertStringContainsString('"family":"Rubik (Rubik Bold)"', (string) json_encode($foreign->layout));
+
+        $withoutLayout = $entityManager->find(Calendar::class, Uuid::fromString(TestDataFixture::CALENDAR_1_ID));
+        self::assertInstanceOf(Calendar::class, $withoutLayout);
+        self::assertNull($withoutLayout->layout);
     }
 
     public function testRenameToAnExistingFamilyIsRefusedAndTheOwnNameIsANoOp(): void

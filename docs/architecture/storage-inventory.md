@@ -39,7 +39,9 @@ survives purely for the untouched `social-networks/…` keys and historical rows
   pages P4 — the intro picture is a content page image element), the JSON
   documents (`manual.logo`,
   `manual_mockup_page.images`, the image elements of
-  `manual_content_page.segments`, `manual_content_page.background`, `font.faces`), the canvas JSONB **and the e-mail
+  `manual_content_page.segments`, `manual_content_page.background`, `font.faces`),
+  the calendar uploads (`calendar_asset.path` and `calendar_asset.preview_path` —
+  see "Calendars" below), the canvas JSONB **and the e-mail
   signature `code`** — the last two EMBED paths inside full public URLs rather
   than storing the key, so they are matched by storage-prefix regex (the base
   URL is environment-specific; the prefix is the stable anchor). **A writer
@@ -54,6 +56,21 @@ survives purely for the untouched `social-networks/…` keys and historical rows
   `×N` count is expected, and `StorageCategory` still files them under the
   manual. Purging the gallery row never deletes a key a manual or another
   row still uses (see gallery-and-uploads.md).
+- **Calendars** (module Kalendáře, 2026-11): every upload is a `calendar_asset`
+  row with `path` = `calendars/{calendarId}/{assetId}.{ext}` and, for a raster
+  whose long edge exceeds 1600 px, `preview_path` =
+  `calendars/{calendarId}/{assetId}-preview.webp`. The calendar's JSON (`layout`,
+  `content`) refers to assets **by id only**, so those two columns are the whole
+  reference set — no JSON walk. `calendars` is in `PATH_PREFIXES`,
+  `StorageCategory::Calendar` (`'calendar'`, "Kalendář") files the keys,
+  `ResolveStorageOwnerByPath` resolves the calendar id to its project, and
+  `CollectProjectStoragePaths` emits one `calendars/{calendarId}` directory per
+  calendar. Deleting a calendar removes that directory
+  (`DeleteCalendarHandler`, same order as a project: remove + flush, then
+  storage). An asset is never deleted on its own — a replaced photo stays
+  until its calendar goes, **referenced** (so it is not an orphan in the
+  report, just unused). A layout import copies the pictures it needs into the
+  target calendar under new ids.
 - Unreferenced objects are still attributed to a project by
   `ResolveStorageOwnerByPath`, which pulls the first UUID out of the key and
   looks it up across every namespacing entity. Objects whose entity is gone stay

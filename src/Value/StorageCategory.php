@@ -25,6 +25,7 @@ enum StorageCategory: string
     case Preview = 'preview';
     case Font = 'font';
     case EmailSignature = 'email_signature';
+    case Calendar = 'calendar';
     case SocialPublish = 'social_publish';
     case Thumbnail = 'thumbnail';
     case Other = 'other';
@@ -43,6 +44,7 @@ enum StorageCategory: string
             str_starts_with($path, 'custom-templates/') => self::Template,
             str_starts_with($path, 'fonts/') => self::Font,
             str_starts_with($path, 'emails/') => self::EmailSignature,
+            str_starts_with($path, 'calendars/') => self::Calendar,
             str_starts_with($path, 'social-publish/') => self::SocialPublish,
             str_starts_with($path, 'thumbnails/') => self::Thumbnail,
             default => self::Other,
@@ -60,6 +62,7 @@ enum StorageCategory: string
             self::Preview => 'Náhled',
             self::Font => 'Font',
             self::EmailSignature => 'E-mailový podpis',
+            self::Calendar => 'Kalendář',
             self::SocialPublish => 'Publikace na sítě',
             self::Thumbnail => 'Miniatura',
             self::Other => 'Ostatní',

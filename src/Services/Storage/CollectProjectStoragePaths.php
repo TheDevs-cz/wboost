@@ -85,6 +85,11 @@ readonly final class CollectProjectStoragePaths
             $directories[] = sprintf('manuals/%s', $templateId);
         }
 
+        foreach ($this->ids('SELECT id FROM calendar WHERE project_id = ?', $id) as $calendarId) {
+            // Uploads and their previews: `calendars/{calendarId}/{assetId}…`.
+            $directories[] = sprintf('calendars/%s', $calendarId);
+        }
+
         return new ProjectStoragePaths($directories, $files);
     }
 
