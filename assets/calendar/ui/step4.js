@@ -27,7 +27,7 @@ import { mountPageList } from './pagelist.js';
 import { mountPagePanel } from './pagepanel.js';
 import { mountSpecialPanel, previewedSpecial } from './tools/special.js';
 import { mountToolbar } from './tools/index.js';
-import { warningChip } from './warnings.js';
+import { nextWarningPage, warningChip } from './warnings.js';
 
 /** Below this width the three columns stack (calendar-content.css) and the page fits by width only. */
 const STACKED = '(max-width: 960px)';
@@ -49,11 +49,10 @@ export function mountStep4(root, ctx) {
     const toolbar = mountToolbar(row, ctx, { step: 4 });
     const chip = warningChip(ctx, {
         onClick: () => {
-            const indexes = [...store.warnings().keys()].sort((a, b) => a - b);
-            if (!indexes.length) return;
+            // from Styl stránek / Náhled of a special page the first page with a warning is shown
             const current = pageIndex();
-            const next = indexes.find((i) => current !== null && i > current);
-            store.setUi({ contentView: next === undefined ? indexes[0] : next });
+            const next = nextWarningPage(ctx, current === null ? Infinity : current);
+            if (next !== null) store.setUi({ contentView: next });
         },
     });
     row.append(h('span', { class: 'cal-top-sp' }), chip.el);

@@ -27,6 +27,7 @@ import { pageHasOverrides } from '../model/content.js';
 import { samplePage } from '../generate/pages.js';
 import { debounce, h, icon, onOutside } from './dom.js';
 import { mountLazyThumb, renderThumb } from './thumb.js';
+import { pageWarnings } from './warnings.js';
 import { GRAPHIC_ACCEPT, TEXT_ACCEPT, addGraphicPage, addTextPage, previewedSpecial, specialEntries, switchOnSpecial } from './tools/special.js';
 
 export function mountPageList(root, ctx, opts = {}) {
@@ -216,10 +217,9 @@ export function mountPageList(root, ctx, opts = {}) {
     }
 
     function marks() {
-        const warnings = store.warnings();
         const content = store.getState().doc.content;
         for (const item of items) {
-            const count = (warnings.get(item.index) || []).length;
+            const count = pageWarnings(ctx, item.index).length;
             if (count) item.button.dataset.warn = String(count);
             else delete item.button.dataset.warn;
             item.badge.hidden = count === 0;

@@ -750,6 +750,64 @@ module.exports = {
             await h.save(page);
         });
 
+        await check('QR kód shared by all pages: a page can still carry its own code (handoff §4.6), which wins over the shared one', async () => {
+            const qrHref = async () => ((await stageSvg(page)).match(/<g data-el="qr"><image [^>]*href="([^"]+)"/) || [])[1] || null;
+            const section = '.cal-p4s:has([data-page-field="qr"])';
+            const pages = await h.cal(page, (c) => c.pages());
+            const key = weeks[1].key;
+            const index = pages.find((p) => p.key === key).index;
+            const other = pages.find((p) => p.key === weeks[2].key).index;
+            const before = (await h.state(page)).design.layout;
+            const shared = (asset) => ({ ...before, styles: { ...before.styles, qr: { perPage: false, asset } } });
+            await h.seed(page, { design: { layout: shared(null) } });
+            await openStep4(page, h, id);
+            await showPage(page, index);
+            assert.equal(await text(page, `${section} .lbl`), 'Jiný QR kód jen pro tuto stranu');
+            assert.equal(await text(page, `${section} .cal-ftb .cap`), 'Výchozí ze stylu');
+            assert.equal(await qrHref(), null, 'no shared code yet');
+            // the page's own code, while the calendar has no shared one
+            await upload(page, '[data-page-field="qr"]', files.qr);
+            await waitCal(page, (c, k) => Boolean(c.state().content.pageQr[k]), key);
+            assert.equal(await text(page, `${section} .cal-ftb .cap`), 'Jen pro tuto stranu');
+            const first = (await h.state(page)).content.pageQr[key].asset;
+            assert.ok(await qrHref(), 'the own code is drawn although the code is shared');
+            await showPage(page, other);
+            assert.equal(await qrHref(), null, 'other pages are untouched');
+            await h.save(page);
+            // that picture becomes the shared code; the page then gets a different one of its own
+            await h.seed(page, { design: { layout: shared(first) } });
+            await openStep4(page, h, id);
+            await showPage(page, other);
+            const sharedHref = await qrHref();
+            assert.ok(sharedHref, 'the shared code is on a page without its own');
+            assert.equal(await text(page, `${section} .cal-ftb .cap`), 'Výchozí ze stylu');
+            assert.equal(await visible(page, '[data-page-remove="qr"]'), false);
+            await showPage(page, index);
+            await upload(page, '[data-page-field="qr"]', files.print);
+            await waitCal(page, (c, k, o) => c.state().content.pageQr[k].asset !== o, key, first);
+            const ownHref = await qrHref();
+            assert.ok(ownHref && ownHref !== sharedHref, 'the page shows its own code, not the shared one');
+            assert.equal(await text(page, `${section} .cal-ftb .cap`), 'Jen pro tuto stranu');
+            await page.waitForSelector(`[data-page-thumb="${index}"][data-overridden]`);
+            await h.shot(page, 'page-qr-own-shared');
+            await h.save(page);
+            await openStep4(page, h, id);
+            await showPage(page, index);
+            assert.equal(await qrHref(), ownHref, 'after a reload too');
+            await showPage(page, other);
+            assert.equal(await qrHref(), sharedHref);
+            // Odebrat: the page falls back to the shared code
+            await showPage(page, index);
+            await page.click('[data-page-remove="qr"]');
+            await waitCal(page, (c, k) => !c.state().content.pageQr[k], key);
+            assert.equal(await qrHref(), sharedHref);
+            assert.equal(await text(page, `${section} .cal-ftb .cap`), 'Výchozí ze stylu');
+            await h.save(page);
+            // back to one code per page for what follows
+            await h.seed(page, { design: { layout: { ...before, styles: { ...before.styles, qr: { perPage: true, asset: null } } } } });
+            await openStep4(page, h, id);
+        });
+
         await check('E21 Styl stránek: the step-3 editor inside step 4 (E1 select, E3 drag the logo, E12 kalendárium part)', async () => {
             await page.click('[data-content-view="style"]');
             await page.waitForSelector('.cal-b5[data-view="style"] .cal-cv');

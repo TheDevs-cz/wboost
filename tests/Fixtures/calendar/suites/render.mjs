@@ -249,6 +249,34 @@ export default async function (t, load) {
         for (const page of buildPages(bare).slice(0, 2)) checkXml(renderPage(bare, page, opts()));
     });
 
+    t.test('QR: a page\'s own code wins in both modes; the shared code is the fallback only while it is shared', async () => {
+        const assets = { shared: { url: '/a/shared.png', previewUrl: '/a/shared.png', width: 400, height: 400 }, own: { url: '/a/own.png', previewUrl: '/a/own.png', width: 400, height: 400 } };
+        const make = (perPage, asset) => makeDoc(load, { features: { qr: true }, styles: (l) => { l.styles.qr = { perPage, asset }; } });
+        const qr = (svg) => (svg.match(/<g data-el="qr">(.*?)<\/g>/s) || [])[1];
+        const draw = async (doc, page) => qr(renderPage(doc, page, await layoutOpts(load, { env: { assets } })));
+        // shared mode
+        const sharedDoc = await make(false, 'shared');
+        const [a, b] = buildPages(sharedDoc).filter((p) => p.kind === 'week');
+        sharedDoc.content.pageQr = { [a.key]: { asset: 'own' } };
+        assert.ok((await draw(sharedDoc, a)).includes('/a/own.png'), 'own code over the shared one');
+        assert.ok(!(await draw(sharedDoc, a)).includes('/a/shared.png'));
+        assert.ok((await draw(sharedDoc, b)).includes('/a/shared.png'), 'pages without their own code show the shared one');
+        // shared mode without a shared picture: only the page with its own code has one
+        const bare = await make(false, null);
+        bare.content.pageQr = { [a.key]: { asset: 'own' } };
+        assert.ok((await draw(bare, a)).includes('/a/own.png'));
+        assert.equal(await draw(bare, b), '');
+        // an own code whose asset is gone falls back like no own code
+        const gone = await make(false, 'shared');
+        gone.content.pageQr = { [a.key]: { asset: 'missing' } };
+        assert.ok((await draw(gone, a)).includes('/a/shared.png'));
+        // per-page mode: a page without a code shows none, the shared picture is ignored
+        const each = await make(true, 'shared');
+        each.content.pageQr = { [a.key]: { asset: 'own' } };
+        assert.ok((await draw(each, a)).includes('/a/own.png'));
+        assert.equal(await draw(each, b), '');
+    });
+
     t.test('placeholders: sample texts only on designer surfaces', async () => {
         const doc = await makeDoc(load, { features: { qr: true } });
         const page = first(doc);

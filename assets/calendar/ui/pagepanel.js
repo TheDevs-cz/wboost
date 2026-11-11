@@ -6,7 +6,9 @@
 //   Popisek fotografie  ≤ 80 characters, while captions are on (week pages)
 //   Obrázek v hlavičce  while the Hlavička style has its picture switched on (week pages)
 //   Fotka pozadí        while the Pozadí style has its picture switched on (any page)
-//   QR kód této strany  while QR is on and set to a different code on every page (week pages)
+//   QR kód              while QR is on (week pages): „QR kód této strany“ when every page has its
+//                       own code, „Jiný QR kód jen pro tuto stranu“ over the shared code otherwise —
+//                       a page's own code wins in both modes
 // and „Vrátit na styl“, which removes every override of the page.
 //
 // Contract: `mountPagePanel(root, ctx, opts: { pageIndex: number }): { destroy() }` — one mount per
@@ -21,6 +23,7 @@ import { clearPageOverrides, pageHasOverrides } from '../model/content.js';
 import { h, icon } from './dom.js';
 import { CAPTION_MAX, fileTile, setPageCaption, setPagePhoto, uploadAsset } from './tools/photos.js';
 import { QR_ACCEPT } from './tools/qr.js';
+import { pageWarnings } from './warnings.js';
 
 export function mountPagePanel(root, ctx, opts = {}) {
     const { store } = ctx;
@@ -47,13 +50,13 @@ export function mountPagePanel(root, ctx, opts = {}) {
         if (week && design.features.captions) out.push('caption');
         if (week && styles.head.bg.imageOn) out.push('head');
         if (styles.bg.imageOn) out.push('bg');
-        if (week && design.features.qr && styles.qr.perPage) out.push('qr');
+        if (week && design.features.qr) out.push(styles.qr.perPage ? 'qr' : 'qr-own');
         return out;
     }
 
     const signatureOf = () => {
         const current = page();
-        return current ? `${current.key}|${current.title}|${current.subtitle}|${store.pages().length}|${fields().join(',')}|${(store.warnings().get(current.index) || []).map((w) => w.message).join('\n')}` : '';
+        return current ? `${current.key}|${current.title}|${current.subtitle}|${store.pages().length}|${fields().join(',')}|${pageWarnings(ctx, current.index).map((w) => w.message).join('\n')}` : '';
     };
 
     function setImage(current, field, assetId) {
@@ -97,7 +100,7 @@ export function mountPagePanel(root, ctx, opts = {}) {
         const range = current.kind === 'week' ? `${current.subtitle} · ` : '';
         const head = h('div', { class: 'cal-p4h' }, h('b', null, current.title, ' ', pill), h('span', { class: 'cap' }, `${range}strana ${current.index + 1} z ${store.pages().length}`));
 
-        const warnings = store.warnings().get(current.index) || [];
+        const warnings = pageWarnings(ctx, current.index);
         const warningBox = warnings.length
             ? h(
                   'div',
@@ -163,12 +166,14 @@ export function mountPagePanel(root, ctx, opts = {}) {
                 });
                 sections.push(f.el);
                 syncs.push(f.sync);
-            } else if (field === 'qr') {
-                const f = imageField('qr', 'QR kód této strany', {
-                    fallback: 'Bez QR kódu',
+            } else if (field === 'qr' || field === 'qr-own') {
+                // 'qr-own': the code is shared by all pages and this page may replace it for itself
+                const shared = field === 'qr-own';
+                const f = imageField('qr', shared ? 'Jiný QR kód jen pro tuto stranu' : 'QR kód této strany', {
+                    fallback: shared ? 'Výchozí ze stylu' : 'Bez QR kódu',
                     accept: QR_ACCEPT,
                     fit: 'contain',
-                    asset: () => assetOf((content().pageQr[key] || {}).asset),
+                    asset: () => assetOf((content().pageQr[key] || {}).asset) || (shared ? assetOf(state().doc.design.layout.styles.qr.asset) : null),
                     has: () => Boolean(content().pageQr[key]),
                     upload: async (file) => {
                         const info = await uploadAsset(ctx, file, 'qr');

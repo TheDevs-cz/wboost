@@ -152,7 +152,9 @@ function renderQr(doc, page, opts) {
     const side = Math.min(b.w, b.h);
     const box = { x: b.x, y: b.y, w: side, h: side };
     const own = doc.content.pageQr[page.key];
-    const asset = assetOf(opts, s.perPage ? own && own.asset : s.asset);
+    // a page's own code always wins; the shared code is the fallback only while the code is the
+    // same on all pages (per-page mode: a page without a code shows none)
+    const asset = assetOf(opts, own && own.asset) || (s.perPage ? null : assetOf(opts, s.asset));
     let out = '<g data-el="qr">';
     if (asset) {
         out += imageIn(box, asset, 'contain', 100, opts);
