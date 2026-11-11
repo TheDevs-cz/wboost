@@ -1,0 +1,6 @@
+/* ==========================================================================
+   Nocturne — Kalendáře: warnings list and marks, history, client link dialog, client page.
+   Owner: phase P7b (docs/calendar/architecture.md §D.9). Tokens only.
+   Loads after calendar.css — the stub rules there for this area are deleted
+   by the owner once the real styles live here.
+   ========================================================================== */

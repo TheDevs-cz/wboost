@@ -30,6 +30,14 @@ import './styles/nocturne/templates.css';
 import './styles/nocturne/admin.css';
 import './styles/nocturne/email.css';
 import './styles/nocturne/weekly-menu.css';
+// Kalendáře — one file per phase (docs/calendar/architecture.md §D.9).
+import './styles/nocturne/calendar.css';
+import './styles/nocturne/calendar-editor.css';
+import './styles/nocturne/calendar-controls.css';
+import './styles/nocturne/calendar-content.css';
+import './styles/nocturne/calendar-tools.css';
+import './styles/nocturne/calendar-preview.css';
+import './styles/nocturne/calendar-dialogs.css';
 
 import './styles/app.css';
 // Fill pages re-skin app.css's fill-overlay rules, so they load after it.

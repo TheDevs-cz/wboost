@@ -1,0 +1,6 @@
+/* ==========================================================================
+   Nocturne — Kalendáře: waste, events, names, moon, shifts dialogs, date picker.
+   Owner: phase P6b (docs/calendar/architecture.md §D.9). Tokens only.
+   Loads after calendar.css — the stub rules there for this area are deleted
+   by the owner once the real styles live here.
+   ========================================================================== */

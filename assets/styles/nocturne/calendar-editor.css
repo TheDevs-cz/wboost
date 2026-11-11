@@ -1,0 +1,6 @@
+/* ==========================================================================
+   Nocturne — Kalendáře: step-3 grid, layers, stage, overlay, hint, zoom.
+   Owner: phase P4 (docs/calendar/architecture.md §D.9). Tokens only.
+   Loads after calendar.css — the stub rules there for this area are deleted
+   by the owner once the real styles live here.
+   ========================================================================== */

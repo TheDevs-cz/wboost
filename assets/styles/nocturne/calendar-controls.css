@@ -1,0 +1,6 @@
+/* ==========================================================================
+   Nocturne — Kalendáře: property panels and assets/calendar/ui/controls/*.
+   Owner: phase P5a (+ P5b after it) (docs/calendar/architecture.md §D.9). Tokens only.
+   Loads after calendar.css — the stub rules there for this area are deleted
+   by the owner once the real styles live here.
+   ========================================================================== */

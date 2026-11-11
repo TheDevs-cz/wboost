@@ -1,0 +1,293 @@
+/* ==========================================================================
+   Nocturne — Kalendáře: list, workspace shell, top bar, steps 1–2, thumbnails
+   and the shared widgets of assets/calendar/ui/dom.js.
+   Spec: docs/calendar/architecture.md §D.9 · prototype classes: docs/calendar/prototype-map.md §1.2.
+
+   One file per phase, so parallel work never meets in a file:
+     calendar.css           (this)  list · shell · top bar · steps 1–2 · widgets · STUB frames
+     calendar-editor.css    step-3 grid, layers, stage, overlay, hint, zoom
+     calendar-controls.css  property panels and ui/controls/*
+     calendar-content.css   step-4 grid, page list, page panel, photos / QR / special tools
+     calendar-tools.css     waste, events, names, moon, shifts dialogs, date picker
+     calendar-preview.css   step-5 frame, page overlay buttons, popovers
+     calendar-dialogs.css   warnings, history, client link dialog, client page
+   They load in that order after this file, so a later file wins on equal specificity.
+
+   Tokens only (tokens.css). Colours INSIDE a page SVG are document colours and
+   do not follow the theme; the paper is white in both themes on purpose.
+   ========================================================================== */
+
+/* ---- List: Projekt › Kalendáře ---------------------------------------- */
+.cal-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); gap: 20px; margin: 0; padding: 0; }
+.cal-card { position: relative; display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 12px 12px 10px; border-radius: 22px; background: var(--surface); border: 1px solid var(--line); transition: border-color var(--dur-2), box-shadow var(--dur-2); }
+.cal-card:hover { border-color: var(--line-3); box-shadow: var(--shadow-2); }
+.cal-card:has(.cal-card-link:focus-visible) { border-color: var(--lav); box-shadow: 0 0 0 3px var(--lav-glow); }
+.cal-card-link { display: flex; flex-direction: column; gap: 12px; min-width: 0; color: var(--text); text-decoration: none; outline: 0; }
+.cal-card-link:hover .cal-name { color: var(--lav-ink); }
+.cal-thumb { display: block; aspect-ratio: 2 / 1; border-radius: 12px; overflow: hidden; background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line); }
+.cal-thumb svg, .cal-layp svg, .cal-thp svg, .cal-page-svg svg { display: block; width: 100%; height: auto; }
+.cal-name { padding: 0 6px; font-size: 15px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; transition: color var(--dur-2); }
+.cal-card .cal-meta { padding: 0 6px; font-variant-numeric: tabular-nums; }
+.cal-pill-draft { align-self: flex-start; margin-left: 6px; background: var(--pch-deep); color: var(--pch-ink); }
+.cal-card-foot { display: flex; align-items: center; gap: 8px; min-height: 32px; margin-top: auto; padding-left: 6px; }
+.cal-hist-chip { display: inline-flex; align-items: center; gap: 6px; min-width: 0; height: 28px; margin-left: -8px; padding: 0 8px; border: 0; border-radius: 999px; background: none; color: var(--muted); font: inherit; font-size: 12px; white-space: nowrap; cursor: pointer; transition: background var(--dur-2), color var(--dur-2); }
+.cal-hist-chip:hover { background: var(--surface-2); color: var(--text); }
+.cal-hist-chip .i { flex: none; }
+.cal-card .cal-del { margin-left: auto; }
+.cal-empty form { margin: 0; }
+/* One primary per view: on phones the + of the top bar is the create button (it sits in a form
+   here, so the shell's own `.mbar-side > .btn-primary` rule does not see it). */
+@media (max-width: 860px) {
+    .main:has(.cal-index):has(.mbar-side .btn-primary) .head-tools { display: none; }
+}
+
+/* ---- Workspace shell: edge to edge, one screen high ------------------- */
+.wrap:has(.cal-ws) { padding-left: 0; padding-right: 0; }
+.inner:has(.cal-ws) { max-width: none; padding: 0; gap: 0; }
+.inner:has(.cal-ws) > .flashes { margin: 12px 16px 0; }
+.cal-ws { display: grid; grid-template-rows: auto minmax(0, 1fr); height: 100vh; height: 100dvh; min-height: 560px; min-width: 0; background: var(--bg); color: var(--text); }
+.cal-ws-top { min-width: 0; }
+.cal-ws-body { display: grid; min-width: 0; min-height: 0; }
+.cal-ws-body > * { min-width: 0; min-height: 0; }
+.cal-client { min-height: 100vh; min-height: 100dvh; background: var(--bg); }
+
+/* ---- Top bar ----------------------------------------------------------- */
+.cal-top { display: flex; align-items: center; gap: 10px; min-height: 64px; padding: 10px 16px 10px 20px; background: var(--surface); border-bottom: 1px solid var(--line); }
+.cal-top-id { display: flex; align-items: center; gap: 8px; min-width: 0; grid-area: id; }
+.cal-top .cal-back { flex: none; }
+.cal-title { display: flex; flex-direction: column; min-width: 0; margin-left: 4px; }
+.cal-title .lbl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-top .cal-name { field-sizing: content; box-sizing: border-box; min-width: 120px; max-width: 34vw; height: 28px; margin-left: -6px; padding: 0 6px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--text); font: inherit; font-size: 16px; font-weight: 700; letter-spacing: -.01em; line-height: 26px; outline: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: border-color var(--dur-2), box-shadow var(--dur-2); }
+.cal-top input.cal-name:hover { border-color: var(--line-2); }
+.cal-top input.cal-name:focus { border-color: var(--lav); box-shadow: 0 0 0 3px var(--lav-glow); }
+.cal-steps { grid-area: steps; display: flex; align-items: center; gap: 2px; min-width: 0; margin: 0 0 0 8px; padding: 0 0 0 14px; list-style: none; border-left: 1px solid var(--line); }
+.cal-step { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px 0 6px; border: 0; border-radius: 999px; background: none; color: var(--muted); font: inherit; font-size: 13px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: background var(--dur-2), color var(--dur-2); }
+.cal-step:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
+.cal-step:disabled { opacity: .45; cursor: not-allowed; }
+.cal-stn { display: grid; place-items: center; width: 24px; height: 24px; flex: none; border-radius: 50%; background: var(--surface-3); color: var(--text-2); font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cal-step.on { background: var(--lav-deep); color: var(--lav-ink); }
+.cal-step.on .cal-stn { background: var(--lav); color: var(--on-accent); }
+.cal-step.done .cal-stn { background: var(--mnt-deep); color: var(--mnt-ink); }
+.cal-hist { grid-area: hist; display: flex; align-items: center; gap: 2px; margin-left: 6px; padding-left: 8px; border-left: 1px solid var(--line); }
+.cal-hist[hidden] { display: none; }
+.cal-hist .btn:disabled { opacity: .35; }
+.cal-top-sp { flex: 1; }
+.cal-top-acts { grid-area: acts; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.cal-top-acts [hidden] { display: none; }
+.cal-status { display: inline-flex; align-items: center; gap: 6px; margin-right: 4px; font-size: 12px; font-weight: 600; color: var(--subtle); white-space: nowrap; }
+.cal-status .i { color: var(--mnt-ink); }
+.cal-status[data-cal-status="dirty"] { color: var(--pch-ink); }
+.cal-status[data-cal-status="error"] { color: var(--rose-ink); }
+
+@media (max-width: 1340px) {
+    .cal-step:not(.on) { padding: 0 6px; }
+    .cal-step:not(.on) .cal-stl { display: none; }
+}
+@media (max-width: 1040px) {
+    .cal-top:not(.client) { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "id acts" "steps hist"; gap: 8px 10px; padding: 10px 16px; }
+    .cal-top:not(.client) .cal-top-sp { display: none; }
+    .cal-steps { margin: 0; padding: 0; border-left: 0; overflow-x: auto; scrollbar-width: none; }
+    .cal-top .cal-name { max-width: 100%; }
+}
+@media (max-width: 640px) {
+    .cal-top:not(.client) { grid-template-areas: "id id" "steps hist" "acts acts"; }
+    .cal-top-acts { justify-content: flex-end; }
+    .cal-top-acts .cal-status { margin-right: auto; }
+    .cal-top.client { flex-wrap: wrap; }
+}
+@media (max-width: 480px) {
+    /* the step numbers above already lead back; the row keeps status · Uložit · the primary */
+    .cal-top-acts .cal-prev { display: none; }
+}
+
+/* ---- Narrow screens: the page scrolls, the bar stays ------------------- */
+@media (max-width: 960px) {
+    .cal-ws { height: auto; min-height: 100vh; min-height: 100dvh; grid-template-rows: auto auto; align-content: start; }
+    .cal-ws-top { position: sticky; top: 0; z-index: 1010; }
+}
+@media (max-width: 860px) {
+    .cal-ws { min-height: calc(100vh - var(--mbar-h)); min-height: calc(100dvh - var(--mbar-h)); }
+    .main .cal-ws-top { top: var(--mbar-h); }
+}
+
+/* ---- Steps 1–2 ---------------------------------------------------------- */
+.cal-s1, .cal-s2 { min-height: 0; overflow-y: auto; padding: 28px 28px 48px; }
+.cal-s1c { display: flex; flex-direction: column; width: min(980px, 100%); margin: 0 auto; }
+.cal-sec { display: flex; flex-direction: column; gap: 12px; padding: 18px 0; }
+.cal-sec h3 { margin: 0; font-size: 14px; font-weight: 600; letter-spacing: 0; color: var(--text); }
+.cal-types, .cal-lays { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.cal-type, .cal-layc { display: flex; flex-direction: column; min-width: 0; padding: 0; border-radius: 18px; border: 1.5px solid var(--line-2); background: var(--surface); color: var(--text); font: inherit; text-align: left; overflow: hidden; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+.cal-type:hover, button.cal-layc:hover { border-color: var(--lav); box-shadow: 0 0 0 1.5px var(--lav); }
+.cal-type:focus-visible, .cal-layc:focus-visible { outline: 2px solid var(--lav-ink); outline-offset: 2px; }
+.cal-type.on, .cal-layc.on { border-color: var(--lav); box-shadow: 0 0 0 1.5px var(--lav), 0 0 0 4.5px var(--lav-glow); }
+.cal-layc.static { cursor: default; }
+.cal-type-wf { display: grid; place-items: center; height: 120px; padding: 12px; background: var(--surface-2); border-bottom: 1px solid var(--line); }
+.cal-type-wf svg { width: 100%; max-width: 220px; height: auto; }
+.cal-wf-card { fill: var(--surface-3); }
+.cal-wf-ph { fill: color-mix(in oklab, var(--line-3) 55%, var(--surface-3)); }
+.cal-wf-b { fill: var(--line-3); }
+.cal-wf-acc { fill: var(--lav); }
+.cal-type-b { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 14px 16px 16px; }
+.cal-type-b b { font-size: 16px; font-weight: 600; }
+.cal-type-b .cap { flex-basis: 100%; line-height: 1.5; }
+.cal-yrs { align-self: flex-start; }
+.cal-yrs button { height: 36px; padding: 0 18px; font-variant-numeric: tabular-nums; }
+.cal-pr { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; min-height: 36px; }
+.cal-pr .cal-num { margin-left: -12px; }
+.cal-allh { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.cal-all .cal-check-t { font-size: 14px; font-weight: 500; color: var(--text-2); }
+.cal-acc { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 6px 0; border-radius: 18px; border: 1px solid var(--line-2); background: var(--surface); }
+.cal-acc .cal-check { min-height: 52px; padding: 6px 12px 6px 16px; gap: 12px; }
+.cal-acc .cal-check-t { font-size: 14px; font-weight: 500; color: var(--text-2); }
+.cal-acc .cal-check.on .cal-check-t { font-weight: 600; color: var(--text); }
+.cal-s2c { display: flex; flex-direction: column; gap: 20px; width: min(1080px, 100%); margin: 0 auto; }
+.cal-s2 .cal-lays { grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 480px)); justify-content: center; }
+.cal-s2 .cal-lays.one { grid-template-columns: minmax(0, 720px); }
+.cal-layp { display: block; padding: 12px; background: var(--surface-2); border-bottom: 1px solid var(--line); }
+.cal-layp svg { border-radius: 6px; box-shadow: var(--shadow-2); }
+.cal-layp:empty { aspect-ratio: 2 / 1; }
+.cal-s2 .cal-type-b { padding: 12px 14px 14px; }
+.cal-s2 .cal-type-b b { font-size: 15px; }
+.cal-layf { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 16px; padding-right: 14px; }
+.cal-layf .cal-type-b { flex: 1 1 260px; }
+.cal-layf .btn { margin: 0 0 12px 14px; }
+
+@media (max-width: 960px) {
+    .cal-s1, .cal-s2 { overflow: visible; }
+}
+@media (max-width: 700px) {
+    .cal-acc { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 640px) {
+    .cal-s1, .cal-s2 { padding: 16px 16px 40px; }
+}
+@media (max-width: 520px) {
+    .cal-types { grid-template-columns: minmax(0, 1fr); }
+    .cal-type { flex-direction: row; align-items: stretch; }
+    .cal-type-wf { flex: none; width: 116px; height: auto; padding: 8px; border-bottom: 0; border-right: 1px solid var(--line); }
+    .cal-type-b { padding: 12px 14px; align-content: center; }
+}
+
+/* ---- Widgets of ui/dom.js ---------------------------------------------- */
+.cal-check, .cal-switch { display: inline-flex; align-items: center; gap: 10px; min-width: 0; margin: 0; font-size: 14px; color: var(--text); cursor: pointer; }
+.cal-check:has(input:focus-visible) .cb, .cal-switch:has(input:focus-visible) .sw { outline: 2px solid var(--lav-ink); outline-offset: 2px; }
+.cal-check .cb.ind .i { display: none; }
+.cal-cbm { width: 10px; height: 2px; border-radius: 1px; background: currentColor; }
+.cal-switch-t { font-size: 13px; color: var(--text-2); }
+.cal-num { display: inline-flex; align-items: center; gap: 2px; height: 36px; padding: 0 3px; border-radius: 11px; background: var(--surface-2); border: 1px solid var(--line-2); transition: border-color var(--dur-2), box-shadow var(--dur-2); }
+.cal-num[hidden] { display: none; }
+.cal-num:hover { border-color: var(--line-3); }
+.cal-num:focus-within { border-color: var(--lav); box-shadow: 0 0 0 3px var(--lav-glow); }
+.cal-num input { width: 42px; min-width: 0; padding: 0; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; font-weight: 600; font-variant-numeric: tabular-nums; text-align: center; }
+.cal-num .u { padding-right: 4px; font-size: 12px; color: var(--subtle); }
+.cal-num button { display: grid; place-items: center; width: 28px; height: 28px; flex: none; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--text-2); cursor: pointer; }
+.cal-num button:hover { background: var(--surface-3); color: var(--text); }
+.cal-seg button { height: 32px; padding: 0 12px; }
+.cal-seg button.on[aria-pressed="true"] { cursor: default; }
+.cal-select { min-width: 0; }
+.cal-dialog-text { color: var(--text-2); line-height: 1.55; }
+.cal-dialog .modal-footer, .cal-modal .modal-footer { flex-wrap: wrap; }
+.cal-empty-note { margin: 0; padding: 24px 0; text-align: center; color: var(--subtle); }
+.cal-empty-note.err { color: var(--rose-ink); }
+
+/* ---- Content tool row + tool modal frame (ui/tools/index.js) ------------- */
+.cal-t4 { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 8px 16px; border-bottom: 1px solid var(--line); background: var(--surface); overflow-x: auto; scrollbar-width: none; }
+.cal-tools { display: flex; align-items: center; gap: 4px; }
+.cal-tool-b { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px; border: 0; border-radius: 10px; background: none; color: var(--text-2); font: inherit; font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer; transition: background var(--dur-2), color var(--dur-2); }
+.cal-tool-b:hover { background: var(--surface-2); color: var(--text); }
+.cal-tool-b.off { opacity: .5; }
+.cal-tool-off { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 40px 16px; text-align: center; }
+.cal-tool-off p { margin: 0; max-width: 420px; color: var(--muted); }
+.cal-wchip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 0; border-radius: 999px; background: var(--pch-deep); color: var(--pch-ink); font: inherit; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+.cal-wchip[hidden] { display: none; }
+
+/* ---- Basic versions shipped by P3 (history, warnings, client link) ------- */
+.cal-hrows { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.cal-hrow { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; align-items: baseline; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line-2); font-size: 13px; }
+.cal-hrow:last-child { border-bottom: 0; }
+.cal-hrow .pill { justify-self: start; }
+.cal-hwhat { overflow-wrap: anywhere; color: var(--text); }
+.cal-wsec { display: flex; flex-direction: column; gap: 4px; padding: 8px 0; }
+.cal-wsec h3 { margin: 0 0 4px; font-size: 13px; font-weight: 600; }
+.cal-wi { display: flex; align-items: flex-start; gap: 8px; padding: 6px 8px; border: 0; border-radius: 10px; background: none; color: var(--text-2); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.cal-wi:hover { background: var(--surface-3); color: var(--text); }
+.cal-wi .i { flex: none; margin-top: 2px; color: var(--pch-ink); }
+.cal-clink { display: flex; flex-direction: column; gap: 14px; }
+.cal-clink p { margin: 0; color: var(--text-2); line-height: 1.55; }
+
+/* ==========================================================================
+   STUB frames of steps 3–5 (phase P3). Each block belongs to the phase named
+   in its heading: that phase styles the real thing in ITS OWN file and then
+   deletes its block here. Until then these rules keep the stubs usable.
+   ========================================================================== */
+.cal-stub { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; margin: 12px; padding: 20px 16px; border-radius: 14px; border: 1.5px dashed var(--line-3); text-align: center; color: var(--muted); }
+.cal-stub b { font-size: 13px; font-weight: 600; color: var(--text-2); }
+.cal-panel-h { display: flex; align-items: center; min-height: 48px; padding: 0 16px; border-bottom: 1px solid var(--line); }
+.cal-panel-h h3 { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-2); }
+
+/* P4 — step-3 frame, layers, stage */
+.cal-b3 { display: grid; grid-template-columns: 240px minmax(0, 1fr) 312px; min-height: 0; }
+.cal-left, .cal-right { min-width: 0; min-height: 0; overflow-y: auto; background: var(--surface); }
+.cal-left { border-right: 1px solid var(--line); }
+.cal-right { border-left: 1px solid var(--line); }
+.cal-center { display: grid; min-width: 0; min-height: 0; overflow: hidden; }
+.cal-els { display: flex; flex-direction: column; gap: 2px; padding: 8px; }
+.cal-elr { display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 0 10px; border: 0; border-radius: 10px; background: none; color: var(--text-2); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.cal-elr:hover { background: var(--surface-2); }
+.cal-elr.sel { background: var(--lav-deep); color: var(--lav-ink); font-weight: 600; }
+.cal-stage { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 320px; overflow: auto; background: var(--bg); }
+.cal-stage-bar { display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 16px; }
+.cal-cvw { flex: 1; display: grid; place-items: center; padding: 16px 32px 48px; }
+.cal-cv { position: relative; flex: none; box-shadow: var(--shadow-3); background: #fff; cursor: default; }
+.cal-cv .cal-page-svg, .cal-cv .cal-page-svg svg { width: 100%; height: 100%; }
+.cal-ovl { position: absolute; width: 0; height: 0; pointer-events: none; }
+.cal-ovl > * { pointer-events: auto; }
+.cal-sel { position: absolute; box-sizing: border-box; border: 2px solid var(--lav); pointer-events: none; }
+.cal-tag { position: absolute; left: -2px; top: calc(100% + 4px); padding: 1px 6px; border-radius: 4px; background: var(--lav); color: var(--on-accent); font-size: 10px; font-weight: 700; white-space: nowrap; }
+@media (max-width: 960px) {
+    .cal-b3 { grid-template-columns: minmax(0, 1fr); }
+    .cal-b3 .cal-center { order: -1; }
+    .cal-left, .cal-right { border: 0; border-top: 1px solid var(--line); overflow: visible; }
+}
+
+/* P6a — step-4 frame, page list */
+.cal-b5 { display: grid; grid-template-columns: 168px minmax(0, 1fr) 400px; grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
+.cal-b5 > .cal-t4, .cal-b6 > .cal-t4 { grid-column: 1 / -1; }
+.cal-b5-list, .cal-b6-list { display: flex; flex-direction: column; gap: 6px; min-height: 0; padding: 10px; overflow-y: auto; background: var(--surface); }
+.cal-b5-list { border-right: 1px solid var(--line); }
+.cal-b5-main { display: grid; min-width: 0; min-height: 0; overflow: auto; }
+.cal-b5-side { min-width: 0; min-height: 0; overflow-y: auto; background: var(--surface); border-left: 1px solid var(--line); }
+.cal-m4p { align-self: center; padding: 24px; }
+.cal-m4p .cal-page-svg, .cal-5w .cal-page-svg { box-shadow: var(--shadow-3); background: #fff; }
+.cal-th-style { height: 36px; padding: 0 10px; border: 0; border-radius: 10px; background: var(--surface-2); color: var(--text-2); font: inherit; font-size: 12px; font-weight: 600; text-align: left; cursor: pointer; }
+.cal-th-style.on { background: var(--lav-deep); color: var(--lav-ink); }
+.cal-thl { display: flex; flex-direction: column; gap: 8px; }
+.cal-th { position: relative; display: flex; flex-direction: column; gap: 4px; padding: 4px; border: 1.5px solid transparent; border-radius: 10px; background: none; color: var(--text-2); font: inherit; text-align: left; cursor: pointer; }
+.cal-th:hover { background: var(--surface-2); }
+.cal-th.on { border-color: var(--lav); background: var(--lav-deep); }
+.cal-thp { display: block; aspect-ratio: 2 / 1; border-radius: 4px; overflow: hidden; background: #fff; }
+.cal-thn { display: flex; flex-direction: column; padding: 0 2px; font-size: 11px; line-height: 1.3; }
+.cal-thn b { font-weight: 600; color: var(--text); }
+.cal-wb { position: absolute; top: 8px; right: 8px; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--pch); color: var(--on-accent); font-size: 11px; font-weight: 700; }
+.cal-thd { position: absolute; top: 10px; left: 10px; width: 8px; height: 8px; border-radius: 50%; background: var(--lav); box-shadow: 0 0 0 2px #fff; }
+.cal-wb[hidden], .cal-thd[hidden] { display: none; }
+@media (max-width: 1180px) { .cal-b5 { grid-template-columns: 132px minmax(0, 1fr) 340px; } }
+@media (max-width: 960px) {
+    .cal-b5 { grid-template-columns: 112px minmax(0, 1fr); grid-template-rows: auto auto auto; }
+    .cal-b5-side { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--line); }
+    .cal-b5-list { max-height: 70vh; }
+}
+
+/* P7a — step-5 frame */
+.cal-b6 { display: grid; grid-template-columns: minmax(0, 1fr) 190px; grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
+.cal-b6-main { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; min-width: 0; min-height: 0; padding: 20px 24px; overflow: auto; }
+.cal-5w { width: min(100%, 1180px); }
+.cal-5nav { display: flex; align-items: center; gap: 12px; }
+.cal-5n { min-width: 56px; text-align: center; font-variant-numeric: tabular-nums; }
+.cal-b6-list { border-left: 1px solid var(--line); }
+@media (max-width: 960px) {
+    .cal-b6 { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto; }
+    .cal-b6-list { border-left: 0; border-top: 1px solid var(--line); max-height: none; overflow: visible; }
+    .cal-b6-list .cal-thl { flex-direction: row; overflow-x: auto; }
+    .cal-b6-list .cal-th { flex: none; width: 132px; }
+}
