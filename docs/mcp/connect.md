@@ -147,14 +147,14 @@ bin/console app:mcp:token:revoke <id>   # kill one; idempotent
 
 ## Scopes
 
-The same four scopes apply to both credential types, and **an admin decides
+The same six scopes apply to both credential types, and **an admin decides
 which ones each person can get**:
 
 - **PAT** — the comma-separated `--scopes` the operator passes when minting it.
 - **OAuth** — capped by the user's **"Oprávnění AI aplikací"** setting in
   *Administrace → Uživatelé → Upravit* (`user.mcp_scopes`, default
   `templates:read` + `templates:export`). The `/_mcp` 401 asks every client for
-  all four scopes, the consent screen then offers only what is inside that
+  all six scopes, the consent screen then offers only what is inside that
   setting, the issued token is capped to it, and every MCP request is capped
   again — so **narrowing it applies on the next call**, not when the token
   expires. A scope above the setting falls back to what it implies (design →
@@ -169,6 +169,8 @@ Pick the narrowest that does the job.
 | `templates:export` | `export_variant` — the full-size lossless PNG | **implies** `templates:read`; exports are counted in the usage report |
 | `templates:design` | `preview_design`, `set_design` — author a variant's design; `upload_font` — add a font file (a variable font is expanded into its cuts) | **implies** `templates:read`; also needs you to OWN the project (`upload_font`: to be able to edit it) |
 | `gallery:write` | `upload_image` — add a picture to a project's gallery | implies **nothing**: grant it alongside another scope if the agent should also browse |
+| `calendars:read` | `list_calendars`, `get_calendar` — desk calendars (module Kalendáře): settings, content, uploaded files, recent history | implies **nothing**, and no template scope implies it — a calendar-only agent needs no `get_context` |
+| `calendars:write` | `update_calendar_content` — add / replace / delete a calendar's content items (events, names, waste collection, captions, comments) | **implies** `calendars:read`; never changes the design; a member the project is only shared with writes as a calendar *client* (client collections only) |
 
 A tool the credential lacks the scope for is **not listed** to the client at all,
 and is refused (403 `insufficient_scope`) if called anyway.
@@ -333,6 +335,9 @@ Nine tools:
 | `preview_design` | `templates:design` | compile and draw a design document without saving anything |
 | `set_design` | `templates:design` | replace a variant's design, guarded against destroying what it cannot express |
 | `upload_font` | `templates:design` | add a TTF/OTF/WOFF font to a project; a variable font becomes one face per named instance (Inter → 18 cuts); the reply lists the exact font strings to design with |
+| `list_calendars` | `calendars:read` | the desk calendars of one project, or of every project the account can reach |
+| `get_calendar` | `calendars:read` | one calendar: settings, all content collections, uploaded files, the newest history lines (never the layout styles or the client link) |
+| `update_calendar_content` | `calendars:write` | item-wise content changes through the web's own save (same validation, merge and history); no design changes, no uploads, no calendar create / delete |
 
 **Nothing here deletes anything** — not a template, not a variant, not a picture, not a font.
 Gallery pictures can be added but never removed, moved or renamed from a client;

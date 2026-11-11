@@ -51,7 +51,7 @@ return App::config([
     'mcp' => [
         'app' => 'wboost',
         'version' => '0.1.0',
-        'description' => 'Design and manage wboost brand templates from an AI client.',
+        'description' => 'Design and manage wboost brand templates, and fill in desk calendars, from an AI client.',
         'website_url' => 'https://wboost.cz',
 
         // Sent to every client on connect, so keep it short and load-bearing.
@@ -89,6 +89,13 @@ return App::config([
             optional crop marks (fixed: 3 mm from the cut, 5 mm long). Set them with
             manage_document "set_print" for a document or set_print_setup for a standalone
             variant. Screen formats (px) have no bleed.
+            Desk calendars ("Kalendáře") are a separate module with their own scopes
+            (calendars:read, calendars:write) and need no get_context: list_calendars finds
+            them, get_calendar returns one calendar's settings and all of its content, and
+            update_calendar_content adds, replaces or deletes content items (events, extra
+            names, waste collection, photo captions, comments) - always the WHOLE item, keyed
+            by collection + id, dates as YYYY-MM-DD. A calendar's design, its layout and its
+            photos cannot be changed here; that is done on the web.
             INSTRUCTIONS,
 
         'client_transports' => [

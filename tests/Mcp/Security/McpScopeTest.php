@@ -40,6 +40,8 @@ final class McpScopeTest extends TestCase
             McpScope::TemplatesExport->value => [McpScope::TemplatesExport, McpScope::TemplatesRead],
             McpScope::TemplatesDesign->value => [McpScope::TemplatesDesign, McpScope::TemplatesRead],
             McpScope::GalleryWrite->value => [McpScope::GalleryWrite],
+            McpScope::CalendarsRead->value => [McpScope::CalendarsRead],
+            McpScope::CalendarsWrite->value => [McpScope::CalendarsWrite, McpScope::CalendarsRead],
         ];
     }
 

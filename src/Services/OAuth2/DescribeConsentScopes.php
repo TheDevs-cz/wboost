@@ -166,6 +166,17 @@ readonly final class DescribeConsentScopes
                 'Nahrávat obrázky do galerie',
                 'Aplikace může do galerie vašich projektů přidávat nové obrázky.',
             ],
+            McpScope::CalendarsRead => [
+                'Prohlížet vaše kalendáře',
+                'Aplikace uvidí stolní kalendáře vašich projektů: jejich nastavení, obsah '
+                . '(akce, svozy odpadu, popisky, komentáře) a nahrané fotky. Nic nemění.',
+            ],
+            McpScope::CalendarsWrite => [
+                'Upravovat obsah kalendářů',
+                'Aplikace může do kalendářů doplňovat a měnit obsah — akce, jména, svozy odpadu, '
+                . 'popisky a komentáře. Vzhled kalendáře měnit nemůže. Změny uvidí každý, kdo má '
+                . 'ke kalendáři přístup, a zapíšou se do jeho historie.',
+            ],
         };
 
         return new ConsentScope($scope->value, $title, $description, true);

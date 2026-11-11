@@ -163,6 +163,18 @@ final class TestDataFixture extends Fixture
     public const string MCP_TOKEN_ADMIN_ID = '00000000-0000-0000-0000-0000000000e8';
     public const string MCP_TOKEN_ADMIN = 'wb_mcp_test-token-admin';
 
+    // `calendars:read` ONLY, for USER_1 — the calendar pair implies no template
+    // scope and `read` does not imply `write`, so this is the token that can
+    // list and read calendars and must be refused update_calendar_content.
+    public const string MCP_TOKEN_CALENDARS_READ_ID = '00000000-0000-0000-0000-0000000000eb';
+    public const string MCP_TOKEN_CALENDARS_READ = 'wb_mcp_test-calendars-read-token-user1';
+
+    // `calendars:write` for SHARED_USER, who can only VIEW PROJECT_1: the
+    // scope allows writing, the role makes them a calendar CLIENT — the token
+    // that proves the client whitelist holds over MCP too.
+    public const string MCP_TOKEN_CALENDARS_SHARED_USER_ID = '00000000-0000-0000-0000-0000000000ec';
+    public const string MCP_TOKEN_CALENDARS_SHARED_USER = 'wb_mcp_test-calendars-token-shared-user';
+
     // Weekly Menu fixtures
     public const string WEEKLY_MENU_1_ID = '00000000-0000-0000-0000-000000000010';
     public const string WEEKLY_MENU_DAY_1_ID = '00000000-0000-0000-0000-000000000011';
@@ -1415,6 +1427,24 @@ final class TestDataFixture extends Fixture
             'Admin agent',
             [McpScope::TemplatesRead->value],
             $mcpTokens->hash(self::MCP_TOKEN_ADMIN),
+            $date,
+        ));
+
+        $manager->persist(new McpAccessToken(
+            Uuid::fromString(self::MCP_TOKEN_CALENDARS_READ_ID),
+            $user1,
+            'Calendar reader',
+            [McpScope::CalendarsRead->value],
+            $mcpTokens->hash(self::MCP_TOKEN_CALENDARS_READ),
+            $date,
+        ));
+
+        $manager->persist(new McpAccessToken(
+            Uuid::fromString(self::MCP_TOKEN_CALENDARS_SHARED_USER_ID),
+            $sharedUser,
+            'Calendar agent of a share recipient',
+            [McpScope::CalendarsWrite->value],
+            $mcpTokens->hash(self::MCP_TOKEN_CALENDARS_SHARED_USER),
             $date,
         ));
 

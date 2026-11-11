@@ -65,6 +65,9 @@ readonly final class DescribeMcpCapabilities
         'set_design',
         'manage_document',
         'set_print_setup',
+        'list_calendars',
+        'get_calendar',
+        'update_calendar_content',
     ];
 
     /**
@@ -261,6 +264,25 @@ readonly final class DescribeMcpCapabilities
                 . 'pro tiskové PDF. Spadávka může být 0–10 mm, u nových tiskovin je výchozích 5 mm. '
                 . 'Stránky dokumentu se řídí nastavením dokumentu; měnit '
                 . 'to může jen ten, kdo smí šablonu upravovat.',
+            ],
+            'list_calendars' => [
+                'Vypsat stolní kalendáře',
+                'Vypíše kalendáře vašich projektů — název, rok, typ (týdenní nebo dvoutýdenní), '
+                . 'jestli je vzhled dokončený a kdo je naposledy měnil. Nic nemění.',
+            ],
+            'get_calendar' => [
+                'Přečíst kalendář',
+                'Načte nastavení jednoho kalendáře a celý jeho obsah: akce a spolky, jména navíc, '
+                . 'svozy odpadu, popisky fotek, komentáře, nahrané soubory a poslední změny z historie. '
+                . 'Odkaz pro klienta asistent nevidí. Nic nemění.',
+            ],
+            'update_calendar_content' => [
+                'Doplnit obsah kalendáře',
+                'Asistent může do kalendáře přidávat, měnit a mazat obsah — akce, jména, svozy odpadu, '
+                . 'popisky fotek a komentáře. Každá změna se zapíše do historie kalendáře, stejně jako '
+                . 'když ji uděláte ve WBoostu. Vzhled a rozvržení kalendáře měnit nemůže, fotky nahrávat '
+                . 'neumí a kalendář nezaloží ani nesmaže. Komu je projekt jen nasdílený, může měnit '
+                . 'jen to, co smí klient.',
             ],
             default => null,
         };

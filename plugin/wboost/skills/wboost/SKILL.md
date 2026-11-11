@@ -1,6 +1,6 @@
 ---
 name: wboost
-description: Use when working with wboost brand templates — listing the user's wboost projects, brand fonts and colours; finding a template variant; filling its text and image placeholders; previewing and exporting the finished PNG; filling and exporting multi-page documents as one PDF; uploading a picture to a project gallery; or authoring a variant's design from scratch. Covers the fourteen wboost MCP tools (get_context, find_templates, describe_variant, list_gallery, render_variant, export_variant, export_document, document_history, upload_image, upload_font, preview_design, set_design, manage_document, set_print_setup), the ids-never-names rule, container overflow, the design DSL, and the acknowledgeLosses overwrite guard.
+description: Use when working with wboost brand templates — listing the user's wboost projects, brand fonts and colours; finding a template variant; filling its text and image placeholders; previewing and exporting the finished PNG; filling and exporting multi-page documents as one PDF; uploading a picture to a project gallery; authoring a variant's design from scratch; or reading a desk calendar (Kalendáře) and filling in its content — events, waste collection days, extra names, photo captions, comments. Covers the seventeen wboost MCP tools (get_context, find_templates, describe_variant, list_gallery, render_variant, export_variant, export_document, document_history, upload_image, upload_font, preview_design, set_design, manage_document, set_print_setup, list_calendars, get_calendar, update_calendar_content), the ids-never-names rule, container overflow, the design DSL, the acknowledgeLosses overwrite guard, and the whole-item rule of calendar content.
 ---
 
 # wboost templates
@@ -9,7 +9,7 @@ wboost is a brand-manual and template platform. A designer authors a **template
 variant** — a canvas with text placeholders, picture slots and brand assets —
 and it is filled with the user's copy and exported as a finished image.
 
-This connector gives you fourteen tools across three jobs:
+This connector gives you seventeen tools across four jobs:
 
 - **read** what the account holds (`get_context`, `find_templates`,
   `describe_variant`, `list_gallery`);
@@ -20,7 +20,10 @@ This connector gives you fourteen tools across three jobs:
   variant's design yourself and arrange multi-page documents
   (`upload_image`, `upload_font`, `preview_design`, `set_design`,
   `manage_document`), and set a print variant's bleed + crop marks
-  (`set_print_setup`).
+  (`set_print_setup`);
+- **desk calendars** — a separate module with its own scopes: read a
+  calendar and fill in its content (`list_calendars`, `get_calendar`,
+  `update_calendar_content`). See [Desk calendars](#desk-calendars-kalendáře).
 
 Which of those you can actually do depends on the scopes the connection was
 granted; `get_context` echoes them back and a tool you lack the scope for is not
@@ -71,6 +74,9 @@ to the wboost editor. This matters, and the guard in rule 7 is what enforces it.
 ## The rules
 
 ### 1. `get_context` first, always
+
+(For templates. The calendar tools need no `get_context` — start with
+`list_calendars`.)
 
 It returns who the connection acts as, which scopes it carries, and for every
 project the user can reach: `id`, `name`, `fonts[]`, `colors[]`, `dimensions[]`
@@ -334,6 +340,78 @@ file. Each page carries its `variantId` — `describe_variant`,
   `save_draft` (stores a fill without rendering; give the user its `loadUrl`).
   Re-export a version with `export_document(…, versionId)` plus only what
   changes.
+
+## Desk calendars (Kalendáře)
+
+A separate module from templates, with its own scopes: `calendars:read`
+(`list_calendars`, `get_calendar`) and `calendars:write`
+(`update_calendar_content`, implies read). Neither implies a template scope and
+no template scope implies them — a calendar-only connection cannot call
+`get_context`, which is why `list_calendars` works without a project id.
+
+A desk calendar is a spiral-bound calendar a designer builds for a client
+(typically a municipality): one page per week (`type: "week"`) or per two weeks
+(`"fortnight"`). The system generates every page with its dates, Czech name
+days and public holidays. It has two halves:
+
+- the **design** — name, year, type, feature switches, print setup, layout and
+  styles. Read-only here; it is made on the web, in the calendar workspace.
+- the **content** — what the client supplies: events, clubs, extra names,
+  waste collection, photo captions, comments… This is what you may write.
+
+```
+list_calendars              → every calendar this account can reach (or one project's)
+  └ get_calendar            → settings, ALL content, uploaded files, recent history
+      └ update_calendar_content → add / replace / delete content items
+```
+
+The rules that matter:
+
+- **Whole items, never fields.** An operation is
+  `{collection, id, value, label?}` and `value` is the complete item — every
+  key, no extras — or `null` to delete. To change one field, copy the item from
+  `get_calendar` `content` and send it back whole. Collections and shapes:
+  `references/tools.md`.
+- **Ids.** A new item gets an id you invent (16 random letters and digits).
+  Page items (`pageCaptions`, `pagePhotos`, …) are keyed by the **page key**:
+  `w05` = the page whose Monday is ISO week 5, `pre` / `post` = a page whose
+  Monday belongs to the neighbouring ISO year, `cover`, `back`, `sp:<id>`.
+  Page keys do not contain the year.
+- **Dates** are `YYYY-MM-DD`, within 1 Dec of the previous year … 31 Jan of the
+  next. Weekdays are `0` = Monday … `6` = Sunday.
+- **Atomic and merged.** One wrong operation refuses the whole call and
+  nothing is saved. Accepted items are merged one by one, so you never
+  overwrite somebody else's change to a *different* item; re-sending a stored
+  item is `unchanged`.
+- **It is recorded.** Every real change adds a Czech line to the calendar's
+  "Historie" under your role — the answer returns them in `recorded[]`.
+- **Role.** `get_calendar` `role` is `designer` (the account may edit the
+  project) or `client` (the project is only shared with it). A client may write
+  only `writableCollections`; anything else is refused with `designer_only`.
+- **Switched-off features are stored, not printed.** `get_calendar`
+  `features` says what the calendar shows (`events`, `waste`, `shifts`, …). An
+  event added while `events` is off is saved but invisible until the designer
+  switches the feature on — say so instead of reporting success.
+- **Comments are permanent**: insert only, never edited or deleted; the server
+  sets author and time.
+- **Not available:** creating / renaming / deleting a calendar, any design or
+  layout change, uploading a photo (reference only ids from `get_calendar`
+  `assets`), rendering a page preview, a print export.
+
+```jsonc
+// update_calendar_content — add an event and switch on bio-waste collection
+{
+  "calendarId": "…",
+  "operations": [
+    { "collection": "events", "id": "Ab3dEf6hIj9kLm2n", "label": "1. 6.",
+      "value": { "date": "2027-06-01", "name": "Den dětí", "club": null, "icon": null } },
+    { "collection": "wasteKinds", "id": "bio",
+      "value": { "builtin": "bio", "name": "Bio odpad", "on": true, "place": "",
+                 "mode": "rule", "weekdays": [2], "interval": "2e",
+                 "from": "2027-04-01", "to": "2027-10-31", "dates": [], "pos": 1 } }
+  ]
+}
+```
 
 ## Fill value shapes
 

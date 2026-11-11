@@ -34,6 +34,12 @@ enum McpScope: string
     /** Upload new pictures into a project's gallery. */
     case GalleryWrite = 'gallery:write';
 
+    /** Read a project's desk calendars (module Kalendáře): settings, content, uploaded files. */
+    case CalendarsRead = 'calendars:read';
+
+    /** Change a calendar's CONTENT (events, name days, waste collection, captions, comments…) — never its design. */
+    case CalendarsWrite = 'calendars:write';
+
     /**
      * Every scope a token holding THIS one effectively carries — itself first,
      * then the transitive closure of the implications declared below.
@@ -75,6 +81,11 @@ enum McpScope: string
                 self::TemplatesExport => [self::TemplatesRead],
                 self::TemplatesRead => [],
                 self::GalleryWrite => [],
+                // The calendar pair stands apart from the template scopes on
+                // purpose: an agent that fills in a municipality's events has
+                // no business reading the project's templates, and vice versa.
+                self::CalendarsWrite => [self::CalendarsRead],
+                self::CalendarsRead => [],
             });
         }
 

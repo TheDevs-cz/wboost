@@ -24,12 +24,17 @@ called anyway.
 | `templates:export` | `export_variant`, `export_document`, `document_history` |
 | `templates:design` | `preview_design`, `set_design`, `manage_document`, `upload_font`, `set_print_setup` |
 | `gallery:write` | `upload_image` |
+| `calendars:read` | `list_calendars`, `get_calendar` |
+| `calendars:write` | `update_calendar_content` |
 
 Each row lists the tools that **declare** that scope. Implication is separate and
 runs one way: `templates:export` and `templates:design` each also grant
 `templates:read`, so either of them brings all five read tools with it.
 `gallery:write` implies nothing — a gallery-only token sees `upload_image` and
-nothing else.
+nothing else. The calendar pair stands apart from the template scopes:
+`calendars:write` grants `calendars:read`, and neither grants (nor is granted
+by) anything else — a calendar-only token sees the calendar tools and no
+`get_context`.
 
 `get_context` echoes the granted scopes back in `scopes[]`. If a tool the user
 expects is missing from the list, the connection lacks its scope: re-authorize
@@ -431,6 +436,117 @@ pruned). Scope `templates:export`; anyone who may fill the document.
   refuses them.
 
 Nothing deletes.
+
+## `list_calendars(projectId?)`
+
+Scope `calendars:read`. Desk calendars (module Kalendáře) of one project — or,
+without `projectId`, of every project the account can reach (by project name,
+newest calendar first).
+
+```jsonc
+{
+  "projectId": null,                    // the project the listing was narrowed to
+  "calendars": [{
+    "id", "projectId", "projectName", "name",
+    "year",                             // 2027
+    "type",                             // "week" (7 days / page) | "fortnight" (14 days / page)
+    "finished",                         // false = the designer is still setting up the look
+    "hasLayout",                        // false = no page layout yet
+    "updatedAt",
+    "lastChangeBy", "lastChangeAt",     // "designer" | "client" | null — newest history entry
+    "url"                               // the web workspace, for the user
+  }]
+}
+```
+
+Read-only. Calendars are created, renamed and deleted on the web.
+
+## `get_calendar(calendarId)`
+
+Scope `calendars:read`. One calendar: settings, the whole content, uploaded
+files, the newest 20 history lines.
+
+```jsonc
+{
+  "id", "projectId", "projectName", "name", "year", "type", "finished",
+  "revision",                           // +1 per save
+  "updatedAt",
+  "role",                               // "designer" | "client" — this account, for this calendar
+  "writableCollections": ["events", "…"],
+  "preset",                             // "photoLeft" | "photoRight" | "twoSided" | null
+  "features": { "captions", "weekNumbers", "moon", "timeChange", "seasons",
+                "waste", "events", "shifts", "specialPages", "qr" },   // {} = defaults: first three on
+  "print": { "bleed", "bleedMm", "marks" },                          // {} = never saved
+  "page":  { "width", "height", "bandHeight", "holes" },             // mm; {} = 310 × 145
+  "layout": { "boxes": { "photo": { "x", "y", "w", "h" }, "…" }, "order": ["…"] },   // mm, read-only; null = none yet
+  "content": { "v": 1, "<collection>": { "<id>": { /* item */ } } },
+  "assets": { "<assetId>": { "url", "previewUrl", "width", "height", "mime", "name", "description", "kind" } },
+  "history": [{ "who", "what", "at" }], // newest first; "what" is a Czech sentence
+  "url"
+}
+```
+
+Maps are objects even when empty; a collection never written is absent. The
+layout's styles and the client link are never returned. Pages are generated in
+the browser and not listed — address them by page key (below).
+
+## `update_calendar_content(calendarId, operations)`
+
+Scope `calendars:write`. `operations`: 1–2000 of
+`{ "collection", "id", "value", "label"? }`, applied in order, all or nothing.
+`value` is the WHOLE item (all keys, no others) or `null` to delete. `label` is
+display text for the history line (`"1. 6."`, `"5. týden"`).
+
+Ids: `A–Z a–z 0–9 _ -`, up to 40 characters; invent 16 random ones for a new
+item. Page-keyed collections use the page key as the id: `wNN` (ISO week of the
+page's Monday, `w05`), `pre`, `post`, `cover`, `back`, `sp:<specialPageId>`.
+Dates `YYYY-MM-DD` within `[year−1-12-01, year+1-01-31]`. Weekdays `0` Monday
+… `6` Sunday. Assets are ids from `get_calendar` `assets`.
+
+| collection | item | who |
+|---|---|---|
+| events | `{date, name ≤80, club: clubId\|null, icon: assetId\|null}` | client, designer |
+| clubs | `{code ≤6, name ≤60, pos}` | client, designer |
+| names | `{date, name ≤40}` | client, designer |
+| wasteKinds | `{builtin: "kom"\|"bio"\|"plast"\|"papir"\|"sklo"\|null, name ≤30, on, place ≤40, mode: "rule"\|"dates", weekdays: [0–6]+, interval: "w"\|"2e"\|"2o"\|"4w"\|"4w2"\|"m", from\|null, to\|null, dates: [date], pos}` | client, designer |
+| wasteExtras | `{kind: wasteKindId, date}` | client, designer |
+| comments | `{date, text ≤500}` — insert only; author + time set by the server | client, designer |
+| pageCaptions | `{text ≤80}` (id = page key) | client, designer |
+| pagePhotos | `{asset, zoom 1–3, px 0–1, py 0–1}` (id = page key) | client, designer |
+| moonEdits | `{op: "add"\|"remove", date, phase 0–3}` | designer |
+| shiftOps | `{name ≤30, shifts: [{letter ≤2, from "HH:MM", to "HH:MM"}] (1–4), crews: [4 × ≤2], pos}` | designer |
+| specialPages | `{kind: "intro"\|"contacts"\|"year"\|"waste"\|"image"\|"text", on, layout 0–20, position: "front"\|"back", nextYear, name ≤60, asset\|null, text ≤6000\|null, fileName ≤120\|null, pos}` | designer |
+| pageImages | `{head: asset\|null, bg: asset\|null}` (id = page key) | designer |
+| pageQr | `{asset}` (id = page key) | designer |
+
+Waste intervals: `w` every week, `2e` / `2o` even / odd ISO weeks, `4w` /
+`4w2` every fourth week (ISO week % 4 = 1 / 3), `m` the first such weekday of
+the month. `from` / `to` null = the whole calendar year. A new calendar already
+holds `kom`, `bio`, `plast`, `papir` switched off.
+
+```jsonc
+{
+  "calendarId", "revision", "updatedAt",
+  "role",                               // the role the changes were recorded under
+  "results": [{ "collection", "id", "status" }],   // created | updated | deleted | unchanged
+  "content": { "<touched collection>": { "<id>": { /* item */ } } },
+  "recorded": [{ "who", "what", "at" }] // the history lines this call added
+}
+```
+
+Refusals end with a reason code in parentheses:
+
+| reason | meaning |
+|---|---|
+| `invalid_calendar_id` | not a UUID |
+| `calendar_not_found` | no such calendar, or the account cannot see its project |
+| `no_operations` | `operations` is empty |
+| `invalid_operation` | an operation is not `{collection, id, value, label?}` — a missing `value` is not a delete, any other key (e.g. a design key) is refused |
+| `invalid_content` | the item breaks the rules above; the quoted Czech sentence names the collection and field (`Neplatná data kalendáře (events › date).`) |
+| `designer_only` | a `client` role touched a designer-only collection |
+
+Nothing here changes the design, uploads a file, or creates / deletes a
+calendar.
 
 ## `manage_document(action, projectId?, documentId?, name?, dimension?, templateIds?, position?, fields?, pageId?, bleedMm?, cropMarks?, categoryId?)`
 

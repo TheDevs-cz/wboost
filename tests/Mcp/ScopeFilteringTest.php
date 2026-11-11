@@ -166,6 +166,29 @@ final class ScopeFilteringTest extends WebTestCase
     }
 
     /**
+     * The calendar pair is its own island: `calendars:write` brings
+     * `calendars:read` with it (the closure, end to end — the fixture token
+     * carries `calendars:write` and nothing else) and NO template tool, not
+     * even the read probe every template token can call. Exact set, for the
+     * same reason {@see READ_TOOLS} is. The reverse — a `templates:read` token
+     * sees no calendar tool — is {@see testReadOnlyTokenSeesExactlyTheReadTools()}.
+     */
+    public function testCalendarWriteTokenSeesExactlyTheCalendarTools(): void
+    {
+        $client = self::createClient();
+
+        self::assertSame(
+            ['get_calendar', 'list_calendars', 'update_calendar_content'],
+            self::listTools($client, TestDataFixture::MCP_TOKEN_CALENDARS_SHARED_USER),
+        );
+
+        $response = self::callTool($client, TestDataFixture::MCP_TOKEN_CALENDARS_SHARED_USER, 'scope_read_probe');
+
+        self::assertSame(Response::HTTP_FORBIDDEN, $response->getStatusCode());
+        self::assertStringContainsString('scope="templates:read"', (string) $response->headers->get('WWW-Authenticate'));
+    }
+
+    /**
      * A tool whose class forgot `#[McpToolScope]` is denied to EVERYONE — the
      * token used here holds every scope there is. There is no default scope to
      * fall back to, so forgetting the attribute can only ever take a tool away,

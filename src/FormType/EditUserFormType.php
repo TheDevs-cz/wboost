@@ -20,13 +20,16 @@ final class EditUserFormType extends AbstractType
 {
     /**
      * Keyed by label, like {@see UserRoleChoice::CHOICES}. Export and design
-     * imply read ({@see McpScope::grants()}), so ticking one is enough.
+     * imply read, calendar write implies calendar read
+     * ({@see McpScope::grants()}), so ticking one is enough.
      */
     private const array MCP_SCOPE_CHOICES = [
         'Prohlížet projekty a šablony (templates:read)' => McpScope::TemplatesRead->value,
         'Stahovat hotové exporty (templates:export)' => McpScope::TemplatesExport->value,
         'Vytvářet a přepisovat šablony (templates:design)' => McpScope::TemplatesDesign->value,
         'Nahrávat obrázky do galerie (gallery:write)' => McpScope::GalleryWrite->value,
+        'Prohlížet kalendáře (calendars:read)' => McpScope::CalendarsRead->value,
+        'Upravovat obsah kalendářů (calendars:write)' => McpScope::CalendarsWrite->value,
     ];
 
     public function buildForm(FormBuilderInterface $builder, array $options): void
