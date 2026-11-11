@@ -209,6 +209,33 @@ export default async function (t, load) {
         assert.deepEqual(server.requests[1], { design: { name: 'Jiný', step: 3 } });
     });
 
+    t.test('store: a key put back to its saved value while its save is in flight keeps the local value', async () => {
+        const { store, server } = await makeStore({});
+        const saved = store.getState().doc.design.step;
+        let open;
+        server.gate = new Promise((resolve) => (open = resolve));
+        store.setStep(saved === 1 ? 2 : 1); // the silent save of the other step starts
+        store.setStep(saved); // back before the answer: equal to the last saved value, so not dirty
+        server.gate = null;
+        open();
+        await new Promise((r) => setTimeout(r, 5));
+        assert.equal(store.getState().doc.design.step, saved, 'the answer of the older save does not move the user back');
+        assert.equal(store.getState().dirtyDesign.has('step'), true, 'and the local value goes out with the next save');
+        await store.save();
+        assert.equal(server.doc.design.step, saved);
+        // the same for the layout: an undo during the save of the change it undoes
+        const before = store.getState().doc.design.layout;
+        store.change((layout) => ({ ...layout, boxes: { ...layout.boxes, logo: { ...layout.boxes.logo, x: 10 } } }));
+        server.gate = new Promise((resolve) => (open = resolve));
+        const first = store.save();
+        store.undo();
+        server.gate = null;
+        open();
+        await first;
+        assert.equal(store.getState().doc.design.layout.boxes.logo.x, before.boxes.logo.x, 'the undo survives the answer');
+        assert.equal(store.isDirty(), true, 'and is unsaved');
+    });
+
     t.test('store: steps 3–5 need a layout; finish marks the calendar finished', async () => {
         const { store, server } = await makeStore({ preset: null });
         store.setStep(3);

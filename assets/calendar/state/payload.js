@@ -82,7 +82,10 @@ export function applyResponse(state, response, sent, env) {
 
     const dirtyDesign = new Set();
     const design = { ...fresh.design };
-    for (const key of state.dirtyDesign) {
+    // also the keys that were sent: one that went back to its previously saved value while the
+    // request was in flight (step 3 → 1 → 3, an undo) carries no dirty mark, yet differs from what
+    // the server has just stored — the local value must win and be saved again
+    for (const key of new Set([...state.dirtyDesign, ...Object.keys(sent.design)])) {
         const wasSent = Object.prototype.hasOwnProperty.call(sent.design, key);
         const unchangedSinceSent = wasSent && sent.design[key] === stable(state.doc.design[key]);
         if (unchangedSinceSent) continue;
