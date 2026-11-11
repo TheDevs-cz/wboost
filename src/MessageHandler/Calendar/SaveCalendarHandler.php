@@ -132,7 +132,9 @@ readonly final class SaveCalendarHandler
         // 5. Apply the design, then the history.
         $changedKeys = $calendar->applyDesign($design);
 
-        if (array_diff($changedKeys, ['step']) !== [] && !$this->designEntryIsFresh($calendar, $message, $now)) {
+        $designRecorded = array_diff($changedKeys, ['step']) !== [] && !$this->designEntryIsFresh($calendar, $message, $now);
+
+        if ($designRecorded) {
             $this->history->record($calendar, $actor, DescribeCalendarChange::DESIGN_CHANGED, $now);
         }
 
@@ -154,6 +156,13 @@ readonly final class SaveCalendarHandler
         }
 
         $calendar->touch($now);
+
+        // Everything is applied; if history grew, bound the table (this
+        // flushes — the row lock and the transaction stay until the bus
+        // commits).
+        if ($designRecorded || $sentences !== [] || $message->finish) {
+            $this->history->prune($calendar);
+        }
     }
 
     /**

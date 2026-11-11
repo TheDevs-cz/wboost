@@ -9,6 +9,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Ramsey\Uuid\UuidInterface;
 use WBoost\Web\Entity\CalendarAsset;
 use WBoost\Web\Exceptions\CalendarAssetNotFound;
+use WBoost\Web\Value\Calendar\CalendarAuthorKind;
 
 readonly final class CalendarAssetRepository
 {
@@ -53,6 +54,20 @@ readonly final class CalendarAssetRepository
             ->getResult();
 
         return $assets;
+    }
+
+    /**
+     * Bytes of everything clients uploaded into this calendar (the main
+     * files; previews are not counted).
+     */
+    public function clientBytes(UuidInterface $calendarId): int
+    {
+        $bytes = $this->entityManager->getConnection()->fetchOne(
+            'SELECT COALESCE(SUM(size_bytes), 0) FROM calendar_asset WHERE calendar_id = :calendarId AND uploaded_by_kind = :kind',
+            ['calendarId' => $calendarId->toString(), 'kind' => CalendarAuthorKind::Client->value],
+        );
+
+        return is_numeric($bytes) ? (int) $bytes : 0;
     }
 
     /**

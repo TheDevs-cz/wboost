@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace WBoost\Web\Value\Calendar;
 
 use WBoost\Web\Exceptions\InvalidCalendarChange;
+use WBoost\Web\Services\Calendar\CalendarText;
 
 /**
  * The save request as the workspace POSTs it — one JSON document
@@ -100,8 +101,12 @@ readonly final class CalendarSavePayload
         }
 
         if ($value !== null && !$value instanceof \stdClass) {
-            throw new InvalidCalendarChange(sprintf('Neplatná data kalendáře (%s).', $collection));
+            // The collection name is echoed: keep the answer encodable.
+            throw new InvalidCalendarChange(sprintf('Neplatná data kalendáře (%s).', mb_substr(CalendarText::singleLine($collection), 0, 40)));
         }
+
+        // Display text for the history line: one line, nothing PostgreSQL refuses.
+        $label = CalendarText::singleLine($label);
 
         if (mb_strlen($label) > CalendarContentOp::MAX_LABEL_LENGTH) {
             $label = mb_substr($label, 0, CalendarContentOp::MAX_LABEL_LENGTH);

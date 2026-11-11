@@ -26,11 +26,9 @@ readonly final class RecordCalendarHistoryHandler
      */
     public function __invoke(RecordCalendarHistory $message): void
     {
-        $this->history->record(
-            $this->calendarRepository->get($message->calendarId),
-            $message->actor,
-            $message->description,
-            $this->clock->now(),
-        );
+        $calendar = $this->calendarRepository->get($message->calendarId);
+
+        $this->history->record($calendar, $message->actor, $message->description, $this->clock->now());
+        $this->history->prune($calendar);
     }
 }

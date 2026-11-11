@@ -126,7 +126,10 @@ waste kinds to the JS table.
 Rules worth knowing:
 
 - Ids are client-generated (`newId()`, 16 base-62 chars; server pattern
-  `[A-Za-z0-9_-]{1,40}`). The `page*` collections are keyed by **page key**
+  `[A-Za-z0-9_-]{1,40}`, minus `CalendarContentRules::RESERVED_IDS` —
+  `__proto__`, `constructor`, `toString`… — because the JavaScript keeps every
+  collection in a plain object; the rule covers item ids, id references and
+  the id inside a `sp:<id>` page key). The `page*` collections are keyed by **page key**
   (`pre`, `w01`…`w53`, `post`, `cover`, `back`, `sp:<id>`). The generated
   special pages use the fixed ids `intro contacts year waste`; a missing one
   means "default, off".
@@ -144,6 +147,13 @@ Rules worth knowing:
 - Content of a switched-off feature is kept, just not drawn.
 - Caps: item ≤ 16 kB (`specialPages` 32 kB), ≤ 400 waste dates, whole content
   ≤ 2 MB, ≤ 2000 ops and ≤ 2 MB per request.
+- **Control characters** (`Services/Calendar/CalendarText`): PostgreSQL refuses
+  `\u0000` in JSONB and NUL / invalid UTF-8 in text, which used to end a save
+  as a 500 after the row lock. Every content text, the history `label`, the
+  calendar name, uploaded file names and extracted document text are
+  *stripped* of C0 controls (tab / LF / CR survive in content texts; labels
+  and names are single-line) — so the stored item can differ from the sent
+  one. Layout style strings are stored as sent and therefore *refused* (422).
 
 ## Server
 
@@ -164,7 +174,8 @@ The client gets step 5 with four tools. **What the server refuses a client**
 (the whole request, nothing applied, 403 `Tuto změnu může udělat jen grafik.`):
 any `design` key, `finish`, any op on a collection outside
 `CalendarContentRules::CLIENT_WRITABLE`; on uploads every kind but `photo`
-(so a client can never store an SVG); and it gets no layout import, document
+(so a client can never store an SVG — the photo path refuses anything that
+sniffs as text before it is looked at any closer); and it gets no layout import, document
 text, client link or delete. The UI hides the same things, but the server rule
 is the one that counts (`CalendarClientTest`, e2e `client`).
 
@@ -208,16 +219,56 @@ merging is the only concurrency guarantee.
 (`UploadCalendarAssetController::MAX_SIZE = '10m'`, JS mirror
 `CalendarDocument::MAX_FILE_SIZE` → `env.maxFileSize`; listed in
 `gallery-and-uploads.md`). `ReadImageDescription` reads the embedded caption
-from the **original** bytes, then `NormalizeImageFormat` (HEIC → JPEG); SVG is
+from the **original** bytes, then `NormalizeImageFormat` (HEIC → JPEG, and a
+sideways phone photo — EXIF orientation — rotated upright, so `width` /
+`height`, the stored file and the preview all agree); SVG is
 stored as is and refused for `photo`; a PDF is accepted for `kind = page` only
-and rasterised (`RasterizePdfPage`, first page, 200 dpi, Imagick +
-Ghostscript). Long edge > 1600 px → a WebP preview (WebP, not JPEG, so a logo
+and rasterised (`RasterizePdfPage`, first page, Imagick + Ghostscript: the
+page is measured at 4 dpi first, then rendered at 200 dpi or less so the long
+edge stays ≤ 4000 px — a PDF may declare a 5 m page). Long edge > 1600 px → a
+WebP preview (WebP, not JPEG, so a logo
 keeps its transparency); the full file is used only on the large step-5 page
 and for the dpi warning. Uploading never changes the calendar document — the
-client references the id and saves. The public link's upload is rate limited
-(`calendar_client_upload`, 200 / hour per link + address → 429).
+client references the id and saves.
 Assets are never deleted individually (replaced photos stay until the calendar
 goes — they count as *referenced* in the storage report).
+
+What an upload is refused for, in order (all 422 `{ error }` unless noted):
+client storage full → a `photo` that sniffs as text (SVG however padded or
+named, XML, ImageMagick scripts — `NormalizeImageFormat::isText`, checked
+before anything decodes) → not an image (Symfony `Image`) → more than
+`ImageDecodeLimits::MAX_PIXELS` (60 MP) **by the header**, before any decode →
+a GIF as `photo` (the message says JPG, PNG or WebP; HEIC arrives as JPEG) →
+unreadable. A designer's SVG (logo, icon) is stored **unsanitised** and served
+as `image/svg+xml` from the storage origin — the same policy as the gallery
+and the manuals (the app has no SVG sanitizer); the JavaScript only ever
+places it through `<image>`, which runs no script.
+
+`ExtractDocumentText` (.docx / .txt → text of a special page) checks the size
+the zip **declares** for `word/document.xml` (≤ 5 MB) before inflating it.
+
+### Budgets of the public client link
+
+The link needs no account, so everything behind `/k/{token}` is bounded.
+Limiters live in `config/packages/rate_limiter.php` (one Redis pool,
+`cache.calendar_client`; in-memory storage in tests), are consumed by hand in
+the three thin controllers and answer 429 + `Retry-After` in the `{ error }`
+shape (`CalendarResponses::overBudget`). An unknown token is a 404 before
+anything is counted. The `/calendar/{id}/…` twins have no budget.
+
+| What | Limit | Where |
+|---|---|---|
+| uploads per link + address | 200 / hour | `calendar_client_upload` |
+| uploads per link, any address | 500 / hour | `calendar_client_upload_link` |
+| saves per link | 600 / hour | `calendar_client_save` |
+| history reads per link | 600 / hour | `calendar_client_history` |
+| stored bytes of all **client** uploads of one calendar (link holders + read-only members; main files, previews not counted) | 2 GB → 422 | `CalendarAssetUploader::MAX_CLIENT_BYTES` |
+| history lines kept per calendar | newest 2000 | `CalendarHistoryWriter::MAX_ENTRIES`, pruned by `SaveCalendarHandler` / `RecordCalendarHistoryHandler` after they record |
+| pixels of an uploaded picture | 60 MP | `ImageDecodeLimits::MAX_PIXELS` |
+
+The byte cap is checked before the upload, without a lock — concurrent
+uploads can overshoot it by a few files. Since assets are never deleted, a
+calendar that hits it stays full for clients; the designer still uploads.
 
 **Layout import** (`ImportCalendarLayoutController`, designer): from a sibling
 calendar of the same project and type, or from a layout file
@@ -421,9 +472,14 @@ Waste rhythms follow ISO week parity (so they shift across a 53-week year).
   labels). Coordinates are computed on a **flow axis** from the zone edge, so
   the mirrored frame is the same code. Holiday names are **never truncated** —
   they wrap; a compact row first drops the name day, then widens the wrap.
-- **Event box**: default = the free area beside the widest day text of the
-  *page* (both 14-day frames share it, so they mirror exactly); stored
-  `ev.box` is used as placed; overflow is a warning, text is never clipped.
+- **Event box**: default = one page-wide box in the free area beside the widest
+  *weekday / name-day line* of the page (both 14-day frames share it, so they
+  mirror exactly; `frame.evDefault`). A row whose holiday or time text is wider
+  than every name line gets a narrower box of its own — one long holiday must
+  not narrow the events of the whole page (the sample page holds 1 January).
+  Grabbing a bar of any default box stores the page-wide one; a stored
+  `ev.box` is one box for every row, used as placed; overflow is a warning,
+  text is never clipped.
 - **Warnings** (`render/warnings.js`): portrait photo, dpi < 200, icons that do
   not fit the grid, event overflow — all derived from geometry + the asset
   map, nothing stored, never blocking.
@@ -543,6 +599,12 @@ or renders a page (rendering is browser-only).
 - **Moon phases are computed astronomically** on their Czech civil date (the
   prototype's mean-cycle approximation was off by a day too often). The `moon`
   suite pins published 2026–2028 instants.
+- **Never hand uploaded bytes to Imagick unchecked** — not even
+  `pingImageBlob`. ImageMagick renders SVG through Inkscape and runs MVG / MSL;
+  go through `NormalizeImageFormat` / `ImageDecodeLimits::pixelSize`, which
+  refuse text first, and check the pixel count before a decode.
+- **`CalendarHistoryWriter::prune()` flushes** (so the pending lines count as
+  the newest). Call it last in a handler, inside the bus transaction.
 - **PDF special pages need Ghostscript** behind Imagick. Verified in the dev
   image only; without it the endpoint answers 422 and images still work.
 - **`ensureFixture()` / the e2e runner write to the dev database** — into their
@@ -569,7 +631,8 @@ Deliberately not built (handoff §2), with the room left for them:
   variant, position, name, uploaded graphic / text).
 - **Gallery as a photo source** — uploads are from disk only; a calendar asset
   is not a gallery `FileUpload`.
-- **Page size UI**, an **asset sweeper** (unreferenced uploads), **client
+- **Page size UI**, an **asset sweeper** (unreferenced uploads — also the only
+  way a calendar that reached the 2 GB client cap could get room again), **client
   autosave** (explicit save can lose work on mobile browsers that skip
   `beforeunload`), **design conflict detection**, and the **launch** itself
   (the preview gate above).

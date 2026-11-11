@@ -31,6 +31,16 @@ readonly final class CalendarContentRules
     public const array PAGE_KEYED = ['pagePhotos', 'pageCaptions', 'pageImages', 'pageQr'];
 
     public const string ID_PATTERN = '/^[A-Za-z0-9_-]{1,40}$/';
+
+    /**
+     * Ids the pattern admits but no item may have: the calendar JavaScript
+     * keeps every collection in a plain object, where these names are already
+     * taken by `Object.prototype` (`content.events['__proto__']`).
+     */
+    public const array RESERVED_IDS = [
+        '__proto__', 'constructor', 'prototype', 'hasOwnProperty', 'isPrototypeOf', 'propertyIsEnumerable',
+        'toLocaleString', 'toString', 'valueOf', '__defineGetter__', '__defineSetter__', '__lookupGetter__', '__lookupSetter__',
+    ];
     public const string PAGE_KEY_PATTERN = '/^(?:pre|post|w\d\d|cover|back|sp:[A-Za-z0-9_-]{1,40})$/';
 
     public const int MAX_ITEM_BYTES = 16_000;
@@ -105,7 +115,7 @@ readonly final class CalendarContentRules
 
         $pattern = in_array($collection, self::PAGE_KEYED, true) ? self::PAGE_KEY_PATTERN : self::ID_PATTERN;
 
-        if (preg_match($pattern, $op->id) !== 1) {
+        if (preg_match($pattern, $op->id) !== 1 || self::isReservedId($op->id)) {
             throw self::invalid($collection, 'id');
         }
 
@@ -371,11 +381,30 @@ readonly final class CalendarContentRules
     }
 
     /**
+     * True for an id — or the id inside a `sp:<id>` page key — that is a
+     * property of every JavaScript object.
+     */
+    public static function isReservedId(string $id): bool
+    {
+        return in_array(str_starts_with($id, 'sp:') ? substr($id, 3) : $id, self::RESERVED_IDS, true);
+    }
+
+    /**
+     * Control characters (a NUL above all — PostgreSQL refuses it in JSONB)
+     * are dropped, not refused: they arrive with text pasted from elsewhere
+     * and mean nothing. The length cap applies to what is stored.
+     *
      * @throws InvalidCalendarChange
      */
     private static function text(mixed $value, int $max, string $collection, string $field): string
     {
-        if (!is_string($value) || mb_strlen($value) > $max) {
+        if (!is_string($value)) {
+            throw self::invalid($collection, $field);
+        }
+
+        $value = CalendarText::clean($value);
+
+        if (mb_strlen($value) > $max) {
             throw self::invalid($collection, $field);
         }
 
@@ -437,7 +466,7 @@ readonly final class CalendarContentRules
      */
     private static function id(mixed $value, string $collection, string $field): string
     {
-        if (!is_string($value) || preg_match(self::ID_PATTERN, $value) !== 1) {
+        if (!is_string($value) || preg_match(self::ID_PATTERN, $value) !== 1 || self::isReservedId($value)) {
             throw self::invalid($collection, $field);
         }
 

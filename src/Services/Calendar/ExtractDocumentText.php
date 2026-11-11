@@ -17,6 +17,14 @@ readonly final class ExtractDocumentText
     public const string UNSUPPORTED = 'Nahrajte dokument ve formátu DOCX nebo TXT.';
 
     /**
+     * A .docx is a zip: 10 MB of archive can unpack to gigabytes of XML. The
+     * size the archive DECLARES for `word/document.xml` is checked before a
+     * byte of it is inflated; a real text of a calendar page is a few kB.
+     */
+    public const int MAX_DOCUMENT_XML_BYTES = 5_000_000;
+    public const string TOO_LARGE = 'Dokument je příliš rozsáhlý. Nahrajte kratší text.';
+
+    /**
      * @throws InvalidCalendarChange
      */
     public function extract(string $contents, string $fileName): string
@@ -31,7 +39,8 @@ readonly final class ExtractDocumentText
 
         $paragraphs = [];
 
-        foreach (preg_split('/\R/u', $text) ?: [] as $line) {
+        // Whatever the document held, the text goes back into a save.
+        foreach (preg_split('/\R/u', CalendarText::clean($text)) ?: [] as $line) {
             $line = trim((string) preg_replace('/[^\S\n]+/u', ' ', $line));
 
             if ($line !== '') {
@@ -61,8 +70,27 @@ readonly final class ExtractDocumentText
                 throw new InvalidCalendarChange(self::UNSUPPORTED);
             }
 
-            $xml = $zip->getFromName('word/document.xml');
+            $entry = $zip->statName('word/document.xml');
+
+            if ($entry === false) {
+                $zip->close();
+
+                throw new InvalidCalendarChange(self::UNSUPPORTED);
+            }
+
+            if ($entry['size'] > self::MAX_DOCUMENT_XML_BYTES) {
+                $zip->close();
+
+                throw new InvalidCalendarChange(self::TOO_LARGE);
+            }
+
+            // `len` bounds the inflate as well, should the declared size lie.
+            $xml = $zip->getFromName('word/document.xml', self::MAX_DOCUMENT_XML_BYTES + 1);
             $zip->close();
+
+            if (is_string($xml) && strlen($xml) > self::MAX_DOCUMENT_XML_BYTES) {
+                throw new InvalidCalendarChange(self::TOO_LARGE);
+            }
         } finally {
             @unlink($file);
         }

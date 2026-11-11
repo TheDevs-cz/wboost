@@ -16,6 +16,7 @@ use WBoost\Web\Entity\Calendar;
 use WBoost\Web\Services\Calendar\CalendarAssetUploader;
 use WBoost\Web\Services\Calendar\CalendarDocument;
 use WBoost\Web\Services\Calendar\CalendarResponses;
+use WBoost\Web\Services\Calendar\CalendarText;
 use WBoost\Web\Services\Calendar\ExtractDocumentText;
 use WBoost\Web\Services\Security\CalendarVoter;
 
@@ -52,7 +53,7 @@ final class ExtractCalendarDocumentTextController extends AbstractController
             return CalendarResponses::error(CalendarAssetUploader::TOO_LARGE);
         }
 
-        $fileName = basename(str_replace('\\', '/', $file->getClientOriginalName()));
+        $fileName = basename(str_replace('\\', '/', CalendarText::singleLine($file->getClientOriginalName())));
 
         return CalendarResponses::guard(fn (): JsonResponse => new JsonResponse([
             'text' => $this->extractDocumentText->extract($file->getContent(), $fileName),

@@ -68,23 +68,66 @@ return App::config([
             ],
 
             /*
-             * Photo uploads through the public client link of a calendar
-             * (UploadClientCalendarAssetController, POST /k/{token}/asset).
-             * Whoever holds the link stores files of up to 10 MB with no
-             * account, so the endpoint must not become free storage. The
-             * controller consumes one token per request under the key
-             * "link token + address".
+             * The public client link of a calendar (/k/{token}/…). Whoever
+             * holds the link works with no account, so every endpoint behind
+             * it has a budget; the controllers consume them by hand (their
+             * 429 is the calendar endpoints' `{ error }` JSON, not the
+             * kernel's error page). All four share one cache pool — the
+             * limiter id is part of every key.
              *
-             * 200 per hour: a municipal clerk fills ~55 week photos in one
-             * bulk upload, may repeat the whole batch and still replace a
-             * few dozen single photos within the hour.
+             * calendar_client_upload — POST /k/{token}/asset, key "link token
+             * + address". Files of up to 10 MB each: the endpoint must not
+             * become free storage. 200 per hour: a municipal clerk fills ~55
+             * week photos in one bulk upload, may repeat the whole batch and
+             * still replace a few dozen single photos within the hour.
              */
             'calendar_client_upload' => [
                 'policy' => 'sliding_window',
                 'limit' => 200,
                 'interval' => '1 hour',
 
-                'cache_pool' => 'cache.calendar_client_upload',
+                'cache_pool' => 'cache.calendar_client',
+            ],
+
+            /*
+             * The same endpoint, key "link token" alone: changing addresses
+             * must not multiply the budget above. 500 per hour lets two
+             * offices fill a year each within the same hour; the total a
+             * calendar may hold is capped separately
+             * (CalendarAssetUploader::MAX_CLIENT_BYTES).
+             */
+            'calendar_client_upload_link' => [
+                'policy' => 'sliding_window',
+                'limit' => 500,
+                'interval' => '1 hour',
+
+                'cache_pool' => 'cache.calendar_client',
+            ],
+
+            /*
+             * POST /k/{token}/save, per link. Every save takes a row lock,
+             * validates up to 2 MB and writes history. Saving is explicit (a
+             * button), so 600 per hour — one every six seconds, all hour — is
+             * far beyond a person and still stops a loop.
+             */
+            'calendar_client_save' => [
+                'policy' => 'sliding_window',
+                'limit' => 600,
+                'interval' => '1 hour',
+
+                'cache_pool' => 'cache.calendar_client',
+            ],
+
+            /*
+             * GET /k/{token}/history, per link: 200 rows per answer, opened
+             * by hand from a dialog.
+             */
+            'calendar_client_history' => [
+                'policy' => 'sliding_window',
+                'limit' => 600,
+                'interval' => '1 hour',
+
+                'cache_pool' => 'cache.calendar_client',
             ],
         ],
     ],

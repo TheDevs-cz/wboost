@@ -7,6 +7,7 @@ namespace WBoost\Web\Services\Calendar;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Messenger\Exception\HandlerFailedException;
+use Symfony\Component\RateLimiter\RateLimit;
 use WBoost\Web\Exceptions\CalendarChangeForbidden;
 use WBoost\Web\Exceptions\InvalidCalendarChange;
 
@@ -26,6 +27,22 @@ final class CalendarResponses
     public static function error(string $message, int $status = Response::HTTP_UNPROCESSABLE_ENTITY): JsonResponse
     {
         return new JsonResponse(['error' => $message], $status);
+    }
+
+    /**
+     * The 429 of a public client-link endpoint whose budget is used up, or
+     * null while there is budget left.
+     */
+    public static function overBudget(RateLimit $limit, string $message): null|JsonResponse
+    {
+        if ($limit->isAccepted()) {
+            return null;
+        }
+
+        $response = self::error($message, Response::HTTP_TOO_MANY_REQUESTS);
+        $response->headers->set('Retry-After', (string) max(1, $limit->getRetryAfter()->getTimestamp() - time()));
+
+        return $response;
     }
 
     /**

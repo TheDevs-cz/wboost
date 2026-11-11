@@ -75,8 +75,8 @@ return App::config([
                     'adapter' => 'cache.adapter.redis',
                     'default_lifetime' => 7200,
                 ],
-                // Same shape, for the calendar_client_upload limiter (POST /k/{token}/asset).
-                'cache.calendar_client_upload' => [
+                // Same shape, for the four calendar_client_* limiters (the public /k/{token}/… routes).
+                'cache.calendar_client' => [
                     'adapter' => 'cache.adapter.redis',
                     'default_lifetime' => 7200,
                 ],

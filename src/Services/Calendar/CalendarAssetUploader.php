@@ -20,6 +20,7 @@ use WBoost\Web\Exceptions\InvalidCalendarChange;
 use WBoost\Web\Message\Calendar\UploadCalendarAsset;
 use WBoost\Web\Repository\CalendarAssetRepository;
 use WBoost\Web\Services\Image\DownscaleImage;
+use WBoost\Web\Services\Image\ImageDecodeLimits;
 use WBoost\Web\Services\Image\NormalizeImageFormat;
 use WBoost\Web\Services\ProvideIdentity;
 use WBoost\Web\Value\Calendar\CalendarActor;
@@ -37,7 +38,18 @@ readonly final class CalendarAssetUploader
     /** Rasters with a longer edge get a preview derivative of this size. */
     public const int PREVIEW_LONG_EDGE = 1600;
 
+    /**
+     * What clients (the link holders and read-only members together) may
+     * store in ONE calendar, summed over `calendar_asset.size_bytes`. The link
+     * needs no account, so without a total it is free storage at the pace the
+     * rate limits allow. A year of photos is 55 × ≤ 10 MB; 2 GB leaves room
+     * for replacing every one of them three times.
+     */
+    public const int MAX_CLIENT_BYTES = 2_000_000_000;
+
     public const string TOO_LARGE = 'Soubor je větší než 10 MB.';
+    public const string TOO_MANY_PIXELS = 'Obrázek má příliš velké rozměry (nejvýše 60 megapixelů). Zmenšete ho a nahrajte znovu.';
+    public const string CLIENT_STORAGE_FULL = 'Do tohoto kalendáře už bylo nahráno příliš mnoho fotek (limit 2 GB). Obraťte se prosím na grafika.';
     public const string PHOTO_FORMAT = 'Fotka musí být JPG, PNG nebo WebP.';
     public const string UNREADABLE = 'Tento formát obrázku neumíme přečíst. Nahrajte PNG, JPG, WebP nebo SVG.';
 
@@ -90,8 +102,21 @@ readonly final class CalendarAssetUploader
             throw new InvalidCalendarChange(self::TOO_LARGE);
         }
 
+        if (!$actor->isDesigner() && $this->assetRepository->clientBytes($calendar->id) + (int) $file->getSize() > self::MAX_CLIENT_BYTES) {
+            throw new InvalidCalendarChange(self::CLIENT_STORAGE_FULL);
+        }
+
+        ImageDecodeLimits::apply();
+
         $original = $file->getContent();
         $contents = $original;
+
+        // A photo is a raster. Whatever sniffs as text — an SVG however it is
+        // padded or named, XML, ImageMagick's script formats — is refused
+        // before anything looks closer at it.
+        if ($kind === CalendarAssetKind::Photo && NormalizeImageFormat::isText($original)) {
+            throw new InvalidCalendarChange(self::PHOTO_FORMAT);
+        }
 
         $isPdf = $kind === CalendarAssetKind::Page && RasterizePdfPage::isPdf($original);
 
@@ -103,6 +128,14 @@ readonly final class CalendarAssetUploader
             if (count($violations) > 0) {
                 throw new InvalidCalendarChange((string) $violations->get(0)->getMessage());
             }
+        }
+
+        // The size the header announces, before any decode (a 10 MB PNG can
+        // announce 30 000 × 30 000).
+        $announced = ImageDecodeLimits::pixelSize($contents);
+
+        if ($announced !== null && ImageDecodeLimits::exceeds($announced[0], $announced[1])) {
+            throw new InvalidCalendarChange(self::TOO_MANY_PIXELS);
         }
 
         $normalized = $this->normalizeImageFormat->normalize($contents);
@@ -118,6 +151,12 @@ readonly final class CalendarAssetUploader
             $width = $normalized['width'];
             $height = $normalized['height'];
 
+            // The message promises JPG, PNG or WebP (HEIC arrives as JPEG);
+            // a GIF would print its first frame at 256 colours.
+            if ($kind === CalendarAssetKind::Photo && $mimeType === 'image/gif') {
+                throw new InvalidCalendarChange(self::PHOTO_FORMAT);
+            }
+
             if (max($width, $height) > self::PREVIEW_LONG_EDGE) {
                 // WebP keeps the transparency of a logo or an icon; a JPEG
                 // source has none and stays JPEG-sized as WebP too.
@@ -128,7 +167,7 @@ readonly final class CalendarAssetUploader
                     $previewExtension = RenderImageFormat::Webp->value;
                 }
             }
-        } elseif (stripos(substr($contents, 0, 1024), '<svg') !== false) {
+        } elseif (NormalizeImageFormat::looksLikeSvg($contents)) {
             if ($kind === CalendarAssetKind::Photo) {
                 throw new InvalidCalendarChange(self::PHOTO_FORMAT);
             }
@@ -163,7 +202,9 @@ readonly final class CalendarAssetUploader
 
     private static function fileName(string $name): string
     {
-        $name = trim(basename(str_replace('\\', '/', $name)));
+        // The browser's name for the file: valid UTF-8 and no control
+        // character before it goes into a text column.
+        $name = trim(basename(str_replace('\\', '/', CalendarText::singleLine($name))));
 
         return $name !== '' ? mb_substr($name, 0, 255) : 'soubor';
     }

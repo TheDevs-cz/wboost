@@ -209,7 +209,7 @@ readonly final class CalendarDesignRules
             throw self::invalid('name');
         }
 
-        $name = trim((string) preg_replace('/\s+/u', ' ', $name));
+        $name = trim((string) preg_replace('/\s+/u', ' ', CalendarText::singleLine($name)));
 
         if ($name === '') {
             throw new InvalidCalendarChange('Vyplňte název kalendáře.');
@@ -330,6 +330,12 @@ readonly final class CalendarDesignRules
                 throw new InvalidCalendarChange('Layout obsahuje příliš dlouhý text.');
             }
 
+            // Stored as it comes, so a control character (PostgreSQL refuses
+            // \u0000 in JSONB) can only be refused.
+            if (!CalendarText::isClean($value)) {
+                throw new InvalidCalendarChange('Layout obsahuje neplatné znaky.');
+            }
+
             return;
         }
 
@@ -351,7 +357,7 @@ readonly final class CalendarDesignRules
 
         if ($value instanceof \stdClass) {
             foreach (get_object_vars($value) as $key => $child) {
-                if (mb_strlen((string) $key) > 64) {
+                if (mb_strlen((string) $key) > 64 || !CalendarText::isClean((string) $key)) {
                     throw self::invalid('layout.styles');
                 }
 
