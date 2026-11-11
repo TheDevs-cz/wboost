@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace WBoost\Web\Services\Calendar;
 
 use WBoost\Web\Entity\Calendar;
+use WBoost\Web\Exceptions\CalendarExportNeedsMoreSpace;
 use WBoost\Web\Exceptions\CalendarModelRefused;
 use WBoost\Web\Exceptions\CalendarModelUnavailable;
 use WBoost\Web\Exceptions\TemplateRenderUnavailable;
@@ -26,6 +27,7 @@ interface CalendarPdfProducerInterface
      * @throws CalendarModelRefused `no_layout`
      * @throws CalendarModelUnavailable
      * @throws TemplateRenderUnavailable
+     * @throws CalendarExportNeedsMoreSpace the work directory has no room for a file this large
      */
     public function produce(Calendar $calendar, CalendarExportVariant $variant, string $directory, callable $progress): string;
 }

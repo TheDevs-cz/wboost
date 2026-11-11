@@ -13,6 +13,7 @@ use Ramsey\Uuid\UuidInterface;
 use Symfony\Component\Filesystem\Filesystem as LocalFilesystem;
 use WBoost\Web\Entity\Calendar;
 use WBoost\Web\Entity\CalendarExport;
+use WBoost\Web\Exceptions\CalendarExportNeedsMoreSpace;
 use WBoost\Web\Exceptions\CalendarExportNotFound;
 use WBoost\Web\Exceptions\CalendarModelRefused;
 use WBoost\Web\Exceptions\TemplateRenderUnavailable;
@@ -74,6 +75,7 @@ readonly final class CalendarPdfExporter
 
             $this->fail($export, match (true) {
                 $failure instanceof TemplateRenderUnavailable => CalendarExports::BUSY,
+                $failure instanceof CalendarExportNeedsMoreSpace => CalendarExports::NO_SPACE,
                 $failure instanceof CalendarModelRefused && $failure->reason === 'no_layout' => CalendarExports::NO_LAYOUT,
                 default => CalendarExports::FAILED,
             });
@@ -101,6 +103,10 @@ readonly final class CalendarPdfExporter
             $this->entityManager->flush();
         });
 
+        // The upload of a few hundred MB takes its time: one more heartbeat before it.
+        $export->advance($export->progressTotal, $this->clock->now());
+        $this->entityManager->flush();
+
         $path = sprintf('calendars/%s/exports/%s.pdf', $calendar->id->toString(), bin2hex(random_bytes(20)));
         $stream = fopen($file, 'rb');
 
@@ -122,6 +128,15 @@ readonly final class CalendarPdfExporter
 
         $export->finish($path, (int) filesize($file), $this->clock->now());
         $this->entityManager->flush();
+
+        $this->logger->info('Calendar PDF export: stored.', [
+            'exportId' => $export->id->toString(),
+            'variant' => $export->variant->value,
+            'bytes' => $export->sizeBytes,
+            'seconds' => $export->finishedAt !== null ? $export->finishedAt->getTimestamp() - $export->createdAt->getTimestamp() : null,
+            // of the whole worker process so far — what `messenger:consume --memory-limit` is compared with
+            'peakMemoryMb' => (int) round(memory_get_peak_usage(true) / 1_000_000),
+        ]);
 
         $this->prune($calendar);
     }

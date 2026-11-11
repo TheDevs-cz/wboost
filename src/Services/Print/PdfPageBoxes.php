@@ -71,6 +71,95 @@ final class PdfPageBoxes
      */
     private static function update($file, float $width, float $height, float $trimInset, float $bleedInset, array $info): int
     {
+        ['size' => $size, 'xrefOffset' => $xrefOffset, 'offsets' => $offsets, 'root' => $rootNumber, 'objectCount' => $objectCount, 'id' => $documentId] = self::structure($file);
+
+        $catalog = self::object($file, $offsets, $rootNumber);
+
+        if (preg_match('~/Pages\s+(\d+)\s+0\s+R~', $catalog, $pagesRef) !== 1) {
+            throw new PdfStructureNotSupported('The PDF catalog has no /Pages.');
+        }
+
+        $pages = [];
+        self::collectPages($file, $offsets, (int) $pagesRef[1], $pages, 0);
+
+        if ($pages === []) {
+            throw new PdfStructureNotSupported('The PDF has no pages.');
+        }
+
+        // Everything is read and understood — only now is anything written.
+        $objects = [];
+
+        foreach ($pages as $number => $dictionary) {
+            $objects[$number] = self::withBoxes($dictionary, $width, $height, $trimInset, $bleedInset);
+        }
+
+        $nextNumber = $objectCount;
+        $infoNumber = $nextNumber++;
+        $objects[$infoNumber] = self::info($info);
+        ksort($objects);
+
+        fseek($file, 0, SEEK_END);
+        $position = $size;
+        $written = [];
+        $out = "\n";
+
+        foreach ($objects as $number => $body) {
+            $written[$number] = $position + strlen($out);
+            $out .= sprintf("%d 0 obj\n%s\nendobj\n", $number, $body);
+        }
+
+        $newXrefOffset = $position + strlen($out);
+        $out .= "xref\n";
+        $numbers = array_keys($written);
+
+        for ($i = 0, $count = count($numbers); $i < $count;) {
+            $run = 1;
+
+            while ($i + $run < $count && $numbers[$i + $run] === $numbers[$i] + $run) {
+                ++$run;
+            }
+
+            $out .= sprintf("%d %d\n", $numbers[$i], $run);
+
+            for ($k = 0; $k < $run; ++$k) {
+                $out .= sprintf("%010d 00000 n \n", $written[$numbers[$i + $k]]);
+            }
+
+            $i += $run;
+        }
+
+        $out .= sprintf(
+            "trailer\n<< /Size %d /Root %d 0 R /Info %d 0 R /Prev %d%s >>\nstartxref\n%d\n%%%%EOF\n",
+            $nextNumber,
+            $rootNumber,
+            $infoNumber,
+            $xrefOffset,
+            $documentId !== null ? ' /ID ' . $documentId : '',
+            $newXrefOffset,
+        );
+
+        if (fwrite($file, $out) !== strlen($out)) {
+            // A partial append leaves the old startxref unreachable from the end; cut it off again.
+            ftruncate($file, max(0, $size));
+
+            throw new PdfStructureNotSupported('The PDF update could not be written.');
+        }
+
+        return count($pages);
+    }
+
+    /**
+     * The skeleton of a file this class (and {@see PdfChunkMerger}) reads:
+     * one classic cross-reference table, no earlier update, no encryption.
+     *
+     * @param resource $file
+     *
+     * @return array{size: int, xrefOffset: int, offsets: array<int, int>, root: int, objectCount: int, info: null|int, id: null|string}
+     *
+     * @throws PdfStructureNotSupported
+     */
+    public static function structure($file): array
+    {
         $size = (int) (fstat($file)['size'] ?? 0);
 
         if ($size < 64) {
@@ -114,81 +203,15 @@ final class PdfPageBoxes
             throw new PdfStructureNotSupported('The PDF trailer has no /Root or /Size.');
         }
 
-        $documentId = preg_match('~/ID\s*(\[\s*<[0-9A-Fa-f]*>\s*<[0-9A-Fa-f]*>\s*\])~', $trailer, $id) === 1 ? $id[1] : null;
-
-        $catalog = self::object($file, $offsets, (int) $root[1]);
-
-        if (preg_match('~/Pages\s+(\d+)\s+0\s+R~', $catalog, $pagesRef) !== 1) {
-            throw new PdfStructureNotSupported('The PDF catalog has no /Pages.');
-        }
-
-        $pages = [];
-        self::collectPages($file, $offsets, (int) $pagesRef[1], $pages, 0);
-
-        if ($pages === []) {
-            throw new PdfStructureNotSupported('The PDF has no pages.');
-        }
-
-        // Everything is read and understood — only now is anything written.
-        $objects = [];
-
-        foreach ($pages as $number => $dictionary) {
-            $objects[$number] = self::withBoxes($dictionary, $width, $height, $trimInset, $bleedInset);
-        }
-
-        $nextNumber = (int) $sizeEntry[1];
-        $infoNumber = $nextNumber++;
-        $objects[$infoNumber] = self::info($info);
-        ksort($objects);
-
-        fseek($file, 0, SEEK_END);
-        $position = $size;
-        $written = [];
-        $out = "\n";
-
-        foreach ($objects as $number => $body) {
-            $written[$number] = $position + strlen($out);
-            $out .= sprintf("%d 0 obj\n%s\nendobj\n", $number, $body);
-        }
-
-        $newXrefOffset = $position + strlen($out);
-        $out .= "xref\n";
-        $numbers = array_keys($written);
-
-        for ($i = 0, $count = count($numbers); $i < $count;) {
-            $run = 1;
-
-            while ($i + $run < $count && $numbers[$i + $run] === $numbers[$i] + $run) {
-                ++$run;
-            }
-
-            $out .= sprintf("%d %d\n", $numbers[$i], $run);
-
-            for ($k = 0; $k < $run; ++$k) {
-                $out .= sprintf("%010d 00000 n \n", $written[$numbers[$i + $k]]);
-            }
-
-            $i += $run;
-        }
-
-        $out .= sprintf(
-            "trailer\n<< /Size %d /Root %d 0 R /Info %d 0 R /Prev %d%s >>\nstartxref\n%d\n%%%%EOF\n",
-            $nextNumber,
-            (int) $root[1],
-            $infoNumber,
-            $xrefOffset,
-            $documentId !== null ? ' /ID ' . $documentId : '',
-            $newXrefOffset,
-        );
-
-        if (fwrite($file, $out) !== strlen($out)) {
-            // A partial append leaves the old startxref unreachable from the end; cut it off again.
-            ftruncate($file, $size);
-
-            throw new PdfStructureNotSupported('The PDF update could not be written.');
-        }
-
-        return count($pages);
+        return [
+            'size' => $size,
+            'xrefOffset' => $xrefOffset,
+            'offsets' => $offsets,
+            'root' => (int) $root[1],
+            'objectCount' => (int) $sizeEntry[1],
+            'info' => preg_match('~/Info\s+(\d+)\s+0\s+R~', $trailer, $info) === 1 ? (int) $info[1] : null,
+            'id' => preg_match('~/ID\s*(\[\s*<[0-9A-Fa-f]*>\s*<[0-9A-Fa-f]*>\s*\])~', $trailer, $id) === 1 ? $id[1] : null,
+        ];
     }
 
     /**
@@ -247,7 +270,7 @@ final class PdfPageBoxes
      * @param resource $file
      * @param array<int, int> $offsets
      */
-    private static function object($file, array $offsets, int $number): string
+    public static function object($file, array $offsets, int $number): string
     {
         if (!isset($offsets[$number])) {
             throw new PdfStructureNotSupported(sprintf('The PDF object %d is not in the cross-reference table.', $number));
@@ -321,7 +344,7 @@ final class PdfPageBoxes
      * content at the TOP-left corner of the page it printed on, so the exact
      * page is measured down and right from there.
      */
-    private static function withBoxes(string $dictionary, float $width, float $height, float $trimInset, float $bleedInset): string
+    public static function withBoxes(string $dictionary, float $width, float $height, float $trimInset, float $bleedInset): string
     {
         $number = '([-+]?\d*\.?\d+)';
 
@@ -375,7 +398,7 @@ final class PdfPageBoxes
     /**
      * @param array{title?: string, creator?: string, producer?: string, createdAt?: DateTimeImmutable} $info
      */
-    private static function info(array $info): string
+    public static function info(array $info): string
     {
         $entries = '';
 
