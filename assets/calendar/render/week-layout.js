@@ -566,14 +566,14 @@ export function layoutWeekPage(doc, page, opts) {
         }
     }
 
-    const month = monthTextSpec(layout.styles, fonts, page.week.monthText);
+    // text widths per box key: `month` / `wk` of the first week column, `month2` / `wk2` of the second
     const wkFont = fontSpec(layout.styles.wk, fonts);
-    return {
-        boxes,
-        frames,
-        textWidths: {
-            month: measurer.width(month.text, month.font) + 2 * month.pad,
-            wk: measurer.width(page.week.weekText, wkFont),
-        },
-    };
+    const textWidths = {};
+    page.week.frames.forEach((days, f) => {
+        const suffix = f === 1 ? '2' : '';
+        const month = monthTextSpec(layout.styles, fonts, page.week.monthTexts[f]);
+        textWidths[`month${suffix}`] = measurer.width(month.text, month.font) + 2 * month.pad;
+        textWidths[`wk${suffix}`] = measurer.width(page.week.weekTexts[f], wkFont);
+    });
+    return { boxes, frames, textWidths };
 }

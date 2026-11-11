@@ -72,17 +72,30 @@ export default async function (t, load) {
         assert.deepEqual(b.cal, { x: -5, y: 27, w: 89, h: 112 });
         assert.deepEqual(b.cal2, { x: 226, y: 27, w: 89, h: 112 });
         assert.deepEqual(b.photo, { x: 84, y: 27, w: 142, h: 112 });
+        // Měsíc and Číslo týdne once per week column: the first week's frames left, the second week's right
         assert.deepEqual(b.month, { x: 6, y: 12.5, w: 120, h: 14.5 });
-        assert.deepEqual(b.wk, { x: 232, y: 139, w: 72, h: 4.5 });
+        assert.deepEqual(b.month2, { x: 184, y: 12.5, w: 120, h: 14.5 });
+        assert.deepEqual(b.wk, { x: 6, y: 139, w: 72, h: 4.5 });
+        assert.deepEqual(b.wk2, { x: 232, y: 139, w: 72, h: 4.5 });
         assert.deepEqual(b.cap, { x: 89, y: 139.5, w: 132, h: 4.5 });
         assert.deepEqual(b.logo, { x: 143, y: 15, w: 24, h: 24 });
         assert.deepEqual(b.qr, { x: 199.5, y: 113, w: 21, h: 21 });
         const e = allEdges(b);
-        assert.ok(same(e.head.b, e.cal.t, e.cal2.t, e.photo.t, e.month.b, 27));
+        assert.ok(same(e.head.b, e.cal.t, e.cal2.t, e.photo.t, e.month.b, e.month2.b, 27));
         assert.ok(same(e.cal.r, e.photo.l, 84));
         assert.ok(same(e.photo.r, e.cal2.l, 226));
-        assert.ok(same(e.cal.b, e.cal2.b, e.photo.b, e.wk.t, 139));
-        assert.equal(e.wk.r, 304);
+        assert.ok(same(e.cal.b, e.cal2.b, e.photo.b, e.wk.t, e.wk2.t, 139));
+        // as in the 7-day layouts, Měsíc and Číslo týdne of a column share their outer edge
+        assert.ok(same(e.month.l, e.wk.l, 6));
+        assert.ok(same(e.month2.r, e.wk2.r, 304));
+        // every second frame is the mirror image of its first one
+        for (const k of ['cal', 'month', 'wk']) {
+            near(assert, e[k].l, PAGE.width - e[`${k}2`].r, `${k} mirror`);
+            near(assert, e[k].r, PAGE.width - e[`${k}2`].l, `${k} mirror`);
+            assert.deepEqual([b[k].y, b[k].h], [b[`${k}2`].y, b[`${k}2`].h]);
+        }
+        // the header texts leave the middle to the logo
+        assert.ok(e.month.r < e.logo.l && e.logo.r < e.month2.l);
         near(assert, (e.logo.l + e.logo.r) / 2, PAGE.width / 2, 'logo centre');
         // the two frames are mirror images of each other
         near(assert, e.cal.l, PAGE.width - e.cal2.r, 'frames');
@@ -101,12 +114,15 @@ export default async function (t, load) {
         const pick = (l) => [l.styles.cal.numberSide, l.styles.month.align, l.styles.wk.align, l.styles.cap.align, l.styles.cal.iconGrid];
         assert.deepEqual(pick(L.defaultLayout('photoLeft', PAGE, 5, ENV)), ['end', 'end', 'end', 'start', '4']);
         assert.deepEqual(pick(L.defaultLayout('photoRight', PAGE, 5, ENV)), ['start', 'start', 'start', 'end', '4']);
-        assert.deepEqual(pick(L.defaultLayout('twoSided', PAGE, 5, ENV)), ['start', 'start', 'end', 'middle', '2x2']);
+        // 14 dní: the alignments are those of the FIRST week's frames; the second frames mirror them
+        assert.deepEqual(pick(L.defaultLayout('twoSided', PAGE, 5, ENV)), ['start', 'start', 'start', 'middle', '2x2']);
+        assert.deepEqual([E.frameAlign('start', 0), E.frameAlign('start', 1), E.frameAlign('end', 1), E.frameAlign('middle', 1)], ['start', 'end', 'start', 'middle']);
         const layout = L.defaultLayout('photoLeft', PAGE, 5, ENV);
         assert.deepEqual(layout.order, ['qr', 'logo', 'cap', 'wk', 'month', 'head', 'cal', 'photo']);
         assert.equal(layout.v, 1);
         assert.equal(layout.boxes.cal2, undefined);
-        assert.ok(L.defaultLayout('twoSided', PAGE, 5, ENV).boxes.cal2);
+        assert.deepEqual([layout.boxes.month2, layout.boxes.wk2], [undefined, undefined]);
+        assert.deepEqual(Object.keys(L.defaultLayout('twoSided', PAGE, 5, ENV).boxes).sort(), ['cal', 'cal2', 'cap', 'head', 'logo', 'month', 'month2', 'photo', 'qr', 'wk', 'wk2']);
         assert.equal(layout.styles.ev.color, ENV.accent);
         assert.equal(L.defaultStyles({}).ev.color, '#2E5A8C');
     });
@@ -216,11 +232,17 @@ export default async function (t, load) {
         assert.deepEqual(fort.order, layout.order);
         assert.deepEqual([fort.styles.num.color, fort.styles.name.size, fort.styles.icons.order], ['#102030', 12, ['moon', 'waste', 'ev']]);
         assert.deepEqual([fort.styles.ev.box, fort.styles.hol.wrapWidth, fort.styles.cal.iconCellW, fort.styles.offsets], [null, null, null, {}]);
-        assert.deepEqual([fort.styles.cal.numberSide, fort.styles.month.align, fort.styles.wk.align, fort.styles.cap.align, fort.styles.cal.iconGrid], ['start', 'start', 'end', 'middle', '2x2']);
+        assert.deepEqual([fort.styles.cal.numberSide, fort.styles.month.align, fort.styles.wk.align, fort.styles.cap.align, fort.styles.cal.iconGrid], ['start', 'start', 'start', 'middle', '2x2']);
+        // 7 → 14 creates the second frames (the eye stays on the first key), 14 → 7 drops them
+        assert.ok(fort.boxes.month2 && fort.boxes.wk2 && fort.boxes.cal2);
+        assert.equal(fort.boxes.wk2.hidden, undefined);
+        assert.equal(E.isElementVisible({ type: 'fortnight', features: { ...DEFAULT_FEATURES }, layout: fort }, 'wk'), false);
 
         const back = L.rebaseLayoutForType(fort, 'week', PAGE, 5);
         assert.equal(back.preset, 'photoLeft');
-        assert.equal(back.layout.boxes.cal2, undefined);
+        assert.deepEqual([back.layout.boxes.cal2, back.layout.boxes.month2, back.layout.boxes.wk2], [undefined, undefined, undefined]);
+        assert.equal(back.layout.boxes.wk.hidden, true, 'the hidden flag survives both ways');
+        assert.deepEqual([back.layout.styles.month.align, back.layout.styles.wk.align], ['end', 'end']);
         assert.deepEqual([back.layout.styles.cal.numberSide, back.layout.styles.cal.iconGrid, back.layout.styles.cap.align], ['end', '4', 'start']);
         assert.equal(back.layout.styles.num.color, '#102030');
     });
@@ -236,8 +258,19 @@ export default async function (t, load) {
         assert.equal(E.isElementVisible(design, 'wk'), false);
         assert.equal(E.isElementVisible(design, 'bg'), true);
         const fort = { type: 'fortnight', features: { ...DEFAULT_FEATURES }, layout: L.defaultLayout('twoSided', PAGE, 5, ENV) };
-        assert.ok(E.visibleBoxKeys(fort).includes('cal2'));
+        assert.deepEqual(E.visibleBoxKeys(fort), ['photo', 'cap', 'logo', 'head', 'month', 'month2', 'cal', 'cal2', 'wk', 'wk2']);
         assert.deepEqual(E.boxKeysOf('cal', fort), ['cal', 'cal2']);
+        assert.deepEqual([E.boxKeysOf('month', fort), E.boxKeysOf('wk', fort), E.boxKeysOf('logo', fort)], [['month', 'month2'], ['wk', 'wk2'], ['logo']]);
+        assert.deepEqual([E.boxKeysOf('month', design), E.boxKeysOf('wk', design)], [['month'], ['wk']]);
+        assert.deepEqual([E.elementOfBox('month2'), E.elementOfBox('wk2'), E.frameOfBox('wk2'), E.frameOfBox('wk'), E.frameOfBox('cal2')], ['month', 'wk', 1, 0, 1]);
+        // the eye of the element is the flag of its first frame and hides both; the features switch hides both wk frames
+        fort.layout.boxes.month.hidden = true;
+        assert.deepEqual(E.visibleBoxKeys(fort), ['photo', 'cap', 'logo', 'head', 'cal', 'cal2', 'wk', 'wk2']);
+        fort.features.weekNumbers = false;
+        assert.deepEqual(E.visibleBoxKeys(fort), ['photo', 'cap', 'logo', 'head', 'cal', 'cal2']);
+        // a stray second frame in a 7-day layout takes no part
+        design.layout.boxes.wk2 = { x: 1, y: 1, w: 10, h: 10 };
+        assert.ok(!E.visibleBoxKeys(design).includes('wk2'));
         assert.deepEqual(E.boxKeysOf('cal', design), ['cal']);
         assert.deepEqual(E.boxKeysOf('bg', design), []);
         assert.equal(E.elementOfBox('cal2'), 'cal');

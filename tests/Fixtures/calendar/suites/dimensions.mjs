@@ -80,6 +80,17 @@ export default async function (t, load) {
                 assert.deepEqual([e.cal.l, e.cal2.r], [-BLEED, PAGE.width + BLEED]);
                 near(assert, e.cal.r, 84 * fx, 'frame width scales', 0.051);
                 near(assert, (e.logo.l + e.logo.r) / 2, PAGE.width / 2, 'logo centred', 0.051);
+                // Měsíc and Číslo týdne once per column: the second frames mirror the first ones on THIS page
+                for (const k of ['month', 'wk']) {
+                    near(assert, e[`${k}2`].l, PAGE.width - e[k].r, `${k}2 mirrors ${k}`, 0.051);
+                    near(assert, e[`${k}2`].r, PAGE.width - e[k].l, `${k}2 mirrors ${k}`, 0.051);
+                    assert.deepEqual([e[`${k}2`].t, e[`${k}2`].b], [e[k].t, e[k].b]);
+                }
+                assert.equal(e.month2.b, e.head.b);
+                assert.equal(e.wk2.t, e.cal2.b);
+                assert.equal(e.month.l, e.wk.l);
+                assert.equal(e.month2.r, e.wk2.r);
+                assert.ok(e.month.r < e.logo.l && e.logo.r < e.month2.l, 'the logo sits between the two month texts');
             } else {
                 const split = preset === 'photoLeft' ? [e.photo.r, e.cal.l] : [e.cal.r, e.photo.l];
                 assert.equal(split[0], split[1]);

@@ -93,7 +93,7 @@ export function hitTest(pt, design, selection) {
         const keys = boxKeysOf(el, design);
         for (let i = 0; i < keys.length; i++) {
             const box = layout.boxes[keys[i]];
-            if (box && containsPoint(box, pt)) return el === 'cal' ? { el, frame: i } : { el };
+            if (box && containsPoint(box, pt)) return el === 'cal' || keys.length > 1 ? { el, frame: i } : { el };
         }
     }
     const B = design.print && design.print.bleed ? design.print.bleedMm : 0;

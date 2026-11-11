@@ -40,9 +40,9 @@ export default async function (t, load) {
     t.test('G3 first week page: 28 Dec 2026 – 3 Jan 2027, PROSINEC 2026 / LEDEN 2027, week 53', () => {
         const page = weekPages(buildPages(week))[0];
         assert.deepEqual(page.week.days, ['2026-12-28', '2026-12-29', '2026-12-30', '2026-12-31', '2027-01-01', '2027-01-02', '2027-01-03']);
-        assert.equal(page.week.monthText, 'PROSINEC 2026 / LEDEN 2027');
+        assert.deepEqual(page.week.monthTexts, ['PROSINEC 2026 / LEDEN 2027']);
         assert.deepEqual(page.week.weeks, [53]);
-        assert.equal(page.week.weekText, '53. týden');
+        assert.deepEqual(page.week.weekTexts, ['53. týden']);
         assert.equal(page.title, '53. týden');
         assert.equal(page.subtitle, '28. 12. – 3. 1.');
         assert.equal(page.key, 'pre');
@@ -53,7 +53,7 @@ export default async function (t, load) {
         const page = weekPages(buildPages(week))[1];
         assert.equal(page.week.days[0], '2027-01-04');
         assert.equal(page.week.days[6], '2027-01-10');
-        assert.equal(page.week.monthText, 'LEDEN 2027');
+        assert.deepEqual(page.week.monthTexts, ['LEDEN 2027']);
         assert.deepEqual(page.week.weeks, [1]);
         assert.equal(page.key, 'w01');
     });
@@ -63,12 +63,12 @@ export default async function (t, load) {
         const page = all[all.length - 1];
         assert.equal(page.week.days[0], '2027-12-27');
         assert.equal(page.week.days[6], '2028-01-02');
-        assert.equal(page.week.monthText, 'PROSINEC 2027 / LEDEN 2028');
+        assert.deepEqual(page.week.monthTexts, ['PROSINEC 2027 / LEDEN 2028']);
         assert.deepEqual(page.week.weeks, [52]);
         assert.equal(page.key, 'w52');
     });
 
-    t.test('G6 first 14-day page: 28 Dec 2026 – 10 Jan 2027 in two frames, weeks 53 and 1', () => {
+    t.test('G6 first 14-day page: 28 Dec 2026 – 10 Jan 2027 in two frames, month and week number per column', () => {
         const all = weekPages(buildPages(fortnight));
         const page = all[0];
         assert.equal(page.week.days.length, 14);
@@ -80,12 +80,26 @@ export default async function (t, load) {
         assert.equal(page.week.frames[1][0], '2027-01-04');
         assert.equal(page.week.frames[1][6], '2027-01-10');
         assert.deepEqual(page.week.weeks, [53, 1]);
-        assert.equal(page.week.weekText, '53. a 1. týden');
+        // as on the printed calendars: each column says its own month(s) and its own week number
+        // (the first week runs 28 Dec 2026 – 3 Jan 2027, so only the LEFT column spans two months)
+        assert.deepEqual(page.week.monthTexts, ['PROSINEC 2026 / LEDEN 2027', 'LEDEN 2027']);
+        assert.deepEqual(page.week.weekTexts, ['53. týden', '1. týden']);
+        assert.equal(page.week.monthText, undefined, 'there is no text for the whole fortnight any more');
+        assert.equal(page.week.weekText, undefined);
+        // the page's NAME in the lists still covers both weeks
         assert.equal(page.title, '53. a 1. týden');
+        // a page whose weeks lie in one month repeats it; one where only the second week crosses
+        assert.deepEqual(all[1].week.monthTexts, ['LEDEN 2027', 'LEDEN 2027']);
+        assert.deepEqual(all[1].week.weekTexts, ['2. týden', '3. týden']);
+        const crossing = all.find((p) => p.week.frames[1][0] === '2027-03-29');
+        assert.deepEqual(crossing.week.monthTexts, ['BŘEZEN 2027', 'BŘEZEN / DUBEN 2027']);
+        assert.deepEqual(crossing.week.weekTexts, ['12. týden', '13. týden']);
         // the last 14-day page runs past the first week of January
         const last = all[all.length - 1];
         assert.equal(last.week.days[0], '2027-12-27');
         assert.equal(last.week.days[13], '2028-01-09');
+        assert.deepEqual(last.week.monthTexts, ['PROSINEC 2027 / LEDEN 2028', 'LEDEN 2028']);
+        assert.deepEqual(last.week.weekTexts, ['52. týden', '1. týden']);
         assert.deepEqual(all.map((p) => p.key), ['pre', ...Array.from({ length: 26 }, (_, i) => `w${String(2 * i + 2).padStart(2, '0')}`)]);
     });
 
@@ -243,7 +257,7 @@ export default async function (t, load) {
         for (const form of ['a', 'b', 'c']) {
             const doc = await makeDoc(load, { styles: (l) => { l.styles.wk.form = form; } });
             const pages = weekPages(buildPages(doc));
-            texts[form] = pages.map((p) => p.week.weekText);
+            texts[form] = pages.map((p) => p.week.weekTexts[0]);
             assert.equal(new Set(pages.map((p) => p.title)).size, 53, 'titles stay in form a');
         }
         assert.equal(texts.a[1], '1. týden');
@@ -254,6 +268,11 @@ export default async function (t, load) {
         assert.equal(pagesMod.weekText('a', [53, 1]), '53. a 1. týden');
         assert.equal(pagesMod.weekText('b', [53, 1]), 'Týdny 53–1');
         assert.equal(pagesMod.weekText('c', [2, 3]), 'T2–3');
+        // 14 days: every column in the chosen form
+        for (const [form, expected] of [['a', ['53. týden', '1. týden']], ['b', ['Týden 53', 'Týden 1']], ['c', ['T53', 'T1']]]) {
+            const doc = await makeDoc(load, { type: 'fortnight', styles: (l) => { l.styles.wk.form = form; } });
+            assert.deepEqual(weekPages(buildPages(doc))[0].week.weekTexts, expected, form);
+        }
     });
 
     t.test('ISO weeks agree with an independent ordinal-based formula for 1990–2060', () => {

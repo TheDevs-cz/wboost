@@ -1,7 +1,7 @@
 // Normalising of stored documents and layout files (architecture §B.8).
 
 import { DEFAULT_FEATURES, DEFAULT_PAGE, DEFAULT_PRINT, K, SCHEMA_VERSION, bleedOf, clampLimit, roundMm } from './defaults.js';
-import { BOX_KEYS, DEFAULT_ORDER, HIDEABLE_BOXES } from './elements.js';
+import { BOX_KEYS, DEFAULT_ORDER, HIDEABLE_BOXES, SECOND_FRAMES, frameAlign } from './elements.js';
 import { COLLECTIONS } from './content.js';
 import { defaultBoxes, defaultStyles, presetsForType } from './layouts.js';
 import { adaptBoxesToBleed, clampBoxesToBounds } from '../editor/bleed.js';
@@ -115,6 +115,44 @@ function normalizeBox(stored, fallback, hideable) {
     return out;
 }
 
+const centreX = (box) => box.x + box.w / 2;
+
+/**
+ * 14-day layouts stored before Měsíc and Číslo týdne got one frame per week column (2026-11-11)
+ * have `month` / `wk` only. The missing second frame is derived from the stored box `A`:
+ *
+ *   1. a box that crosses the vertical centre line of the page (`x < W/2 < x + w`) is first cut to
+ *      its own half, `K.SECOND_FRAME_GAP` mm short of the centre line — the half that holds its
+ *      centre (a tie = the left half); it never gets narrower than `K.MIN_W`
+ *   2. `M` = `A` mirrored about the centre line: `x' = W − x − w`, same y / w / h
+ *   3. the first week's frame is the one of `A`, `M` on the side of the first Kalendárium frame
+ *      (`cal` left of `cal2` by box centres → the left one); when that is `M`, the stored box
+ *      becomes the SECOND frame and the element's stored `align` is flipped (start ↔ end), so the
+ *      text that was already on the page stays exactly where it was
+ *   4. `hidden` stays on the first key (it is the eye of the element)
+ *
+ * Returns `{ first, second, flipped }` in the page's coordinates.
+ */
+function deriveSecondFrame(stored, boxes, page) {
+    const W = page.width;
+    const half = W / 2;
+    let a = { x: stored.x, y: stored.y, w: stored.w, h: stored.h };
+    if (a.x < half && a.x + a.w > half) {
+        if (centreX(a) <= half) a.w = Math.max(K.MIN_W, half - K.SECOND_FRAME_GAP - a.x);
+        else {
+            const right = a.x + a.w;
+            const left = Math.min(half + K.SECOND_FRAME_GAP, right - K.MIN_W);
+            a = { ...a, x: left, w: right - left };
+        }
+    }
+    a = { x: roundMm(a.x), y: a.y, w: roundMm(a.w), h: a.h };
+    const m = { ...a, x: roundMm(W - a.x - a.w) };
+    const firstIsLeft = !boxes.cal || !boxes.cal2 || centreX(boxes.cal) <= centreX(boxes.cal2);
+    const storedIsLeft = centreX(a) <= half;
+    const storedIsFirst = storedIsLeft === firstIsLeft;
+    return storedIsFirst ? { first: a, second: m, flipped: false } : { first: m, second: a, flipped: true };
+}
+
 export function normalizeLayout(layout, type, page, env) {
     const raw = isObject(layout) ? layout : {};
     const defaults = defaultStyles(env || {});
@@ -123,8 +161,21 @@ export function normalizeLayout(layout, type, page, env) {
     const storedBoxes = isObject(raw.boxes) ? raw.boxes : {};
     const boxes = {};
     for (const key of BOX_KEYS) {
-        if (key === 'cal2' && type !== 'fortnight') continue;
+        if (SECOND_FRAMES[key] && type !== 'fortnight') continue;
         boxes[key] = normalizeBox(storedBoxes[key], fallbackBoxes[key] || fallbackBoxes.cal, HIDEABLE_BOXES.includes(key));
+    }
+    // layouts from before the per-column Měsíc / Číslo týdne: derive the second frames
+    const flipAlignOf = [];
+    if (type === 'fortnight') {
+        for (const second of ['month2', 'wk2']) {
+            const first = SECOND_FRAMES[second];
+            if (isObject(storedBoxes[second]) || !isObject(storedBoxes[first])) continue;
+            const derived = deriveSecondFrame(boxes[first], boxes, page);
+            const hidden = boxes[first].hidden === true;
+            boxes[first] = hidden ? { ...derived.first, hidden: true } : derived.first;
+            boxes[second] = derived.second;
+            if (derived.flipped) flipAlignOf.push(first);
+        }
     }
     const order = [];
     for (const key of Array.isArray(raw.order) ? raw.order : []) {
@@ -133,6 +184,7 @@ export function normalizeLayout(layout, type, page, env) {
     // missing element keys go on top, in the default stacking order
     const missing = DEFAULT_ORDER.filter((key) => !order.includes(key));
     const styles = clampStyles(mergeDefaults(defaults, isObject(raw.styles) ? raw.styles : {}, ''), defaults);
+    for (const key of flipAlignOf) styles[key] = { ...styles[key], align: frameAlign(styles[key].align, 1) };
     return { v: SCHEMA_VERSION, boxes, order: [...missing, ...order], styles };
 }
 
@@ -237,9 +289,11 @@ export function parseLayoutFile(text, design) {
     }
     if (!isObject(file) || file.wboostCalendarLayout !== 1 || file.type !== design.type) return { ok: false };
     if (!isObject(file.layout) || !isObject(file.layout.boxes) || !isObject(file.layout.styles)) return { ok: false };
-    const layout = normalizeLayout(file.layout, design.type, design.page, { fonts: [], accent: null });
     const source = isObject(file.page) ? file.page : {};
     const sourcePage = { ...design.page, width: finite(source.width, design.page.width), height: finite(source.height, design.page.height) };
+    // normalised in the coordinates of the SOURCE page (a file from before the per-column Měsíc /
+    // Číslo týdne gets its second frames mirrored about that page's centre line), scaled below
+    const layout = normalizeLayout(file.layout, design.type, sourcePage, { fonts: [], accent: null });
     const fx = design.page.width / sourcePage.width;
     const fy = design.page.height / sourcePage.height;
     const bleed = bleedOf(design.print);

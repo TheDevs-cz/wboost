@@ -1,7 +1,7 @@
 // Week page markup (architecture §D.5). Returns inner SVG; `render/page.js` wraps it.
 
 import { COLORS, K, ptToMm } from '../model/defaults.js';
-import { isElementVisible } from '../model/elements.js';
+import { frameAlign, isElementVisible } from '../model/elements.js';
 import { attrs, esc, fillLayers, fontSpec, num, photoIn, imageIn, rect, slotPlaceholder, textEl } from './svg.js';
 import { iconFragment } from './icons.js';
 import { wrapText } from './measure.js';
@@ -87,21 +87,37 @@ function singleLine(box, value, font, align, pad, fill) {
     return textEl(x, box.y + box.h / 2 + 0.36 * font.sizeMm, value, font, { 'text-anchor': align === 'start' ? null : align, fill });
 }
 
+// Měsíc and Číslo týdne: one frame per week column (`month` / `wk`, on a 14-day page also `month2`
+// / `wk2`). Both frames share the style; the second one is aligned as the mirror of the first.
+const frameKey = (key, f) => (f === 1 ? `${key}2` : key);
+
 function renderMonth(doc, page, opts) {
     const layout = doc.design.layout;
-    const box = layout.boxes.month;
     const s = layout.styles.month;
-    const spec = monthTextSpec(layout.styles, opts.env.fonts, page.week.monthText);
-    let out = '<g data-el="month">';
-    out += fillLayers(box, s.bg, assetOf(opts, s.bg.asset), opts, `${opts.idPrefix}-month`);
-    out += singleLine(box, spec.text, spec.font, s.align, spec.pad, s.color);
-    return `${out}</g>`;
+    let out = '';
+    page.week.monthTexts.forEach((value, f) => {
+        const key = frameKey('month', f);
+        const box = layout.boxes[key];
+        if (!box) return;
+        const spec = monthTextSpec(layout.styles, opts.env.fonts, value);
+        out += `<g data-el="month" data-frame="${f}">`;
+        out += fillLayers(box, s.bg, assetOf(opts, s.bg.asset), opts, `${opts.idPrefix}-${key}`);
+        out += singleLine(box, spec.text, spec.font, frameAlign(s.align, f), spec.pad, s.color);
+        out += '</g>';
+    });
+    return out;
 }
 
 function renderWk(doc, page, opts) {
     const layout = doc.design.layout;
     const s = layout.styles.wk;
-    return `<g data-el="wk">${singleLine(layout.boxes.wk, page.week.weekText, fontSpec(s, opts.env.fonts), s.align, 0, s.color)}</g>`;
+    const font = fontSpec(s, opts.env.fonts);
+    let out = '';
+    page.week.weekTexts.forEach((value, f) => {
+        const box = layout.boxes[frameKey('wk', f)];
+        if (box) out += `<g data-el="wk" data-frame="${f}">${singleLine(box, value, font, frameAlign(s.align, f), 0, s.color)}</g>`;
+    });
+    return out;
 }
 
 function renderCap(doc, page, opts) {

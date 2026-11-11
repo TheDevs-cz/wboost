@@ -21,7 +21,10 @@ export function pageKeyOfWeek(mondayIso, year) {
     return `w${pad2(w.week)}`;
 }
 
-/** Upper-case month text of a page: `LEDEN 2027`, `LEDEN / ÚNOR 2027`, `PROSINEC 2026 / LEDEN 2027`. */
+/**
+ * Upper-case month text of one week column: `LEDEN 2027`, `LEDEN / ÚNOR 2027`,
+ * `PROSINEC 2026 / LEDEN 2027` (first and last day of that week).
+ */
 export function monthText(firstIso, lastIso) {
     const a = parts(firstIso);
     const b = parts(lastIso);
@@ -85,6 +88,7 @@ export function buildPages(doc) {
         for (let i = 0; i < n; i++) days.push(addDays(mon, i));
         const weeks = [isoWeek(mon).week];
         if (n === 14) weeks.push(isoWeek(days[7]).week);
+        const frames = n === 14 ? [days.slice(0, 7), days.slice(7)] : [days];
         push({
             kind: 'week',
             key: pageKeyOfWeek(mon, year),
@@ -92,10 +96,12 @@ export function buildPages(doc) {
             subtitle: rangeText(days[0], days[n - 1]),
             week: {
                 days,
-                frames: n === 14 ? [days.slice(0, 7), days.slice(7)] : [days],
+                frames,
                 weeks,
-                monthText: monthText(days[0], days[n - 1]),
-                weekText: weekText(form, weeks),
+                // one text per week column (frame), as on the printed calendars: each column's
+                // Měsíc describes its own seven days, each column carries its own week number
+                monthTexts: frames.map((f) => monthText(f[0], f[f.length - 1])),
+                weekTexts: weeks.map((w) => weekText(form, [w])),
             },
         });
     }

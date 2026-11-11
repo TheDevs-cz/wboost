@@ -104,11 +104,15 @@ export function defaultStyles(env = {}) {
     };
 }
 
-/** Preset-dependent style values (§B.3). */
+/**
+ * Preset-dependent style values (§B.3). On `twoSided` the alignments are those of the FIRST week's
+ * frames; the second frames (`cal2`, `month2`, `wk2`) are drawn mirrored (`flipRowStyles`,
+ * `frameAlign`), so both columns read towards the outer page edges.
+ */
 const PRESET_STYLES = {
     photoLeft: { numberSide: 'end', month: 'end', wk: 'end', cap: 'start', iconGrid: '4' },
     photoRight: { numberSide: 'start', month: 'start', wk: 'start', cap: 'end', iconGrid: '4' },
-    twoSided: { numberSide: 'start', month: 'start', wk: 'end', cap: 'middle', iconGrid: '2x2' },
+    twoSided: { numberSide: 'start', month: 'start', wk: 'start', cap: 'middle', iconGrid: '2x2' },
 };
 
 function applyPresetStyles(styles, preset) {
@@ -143,8 +147,12 @@ const EDGE_TABLES = {
         cal: [0, 27, 84, 139, 'l'],
         cal2: [-84, 27, W, 139, 'r'],
         photo: [84, 27, -84, 139, ''],
+        // Měsíc and Číslo týdne once per week column, as on the printed samples: the first week's
+        // frames on the left, the second week's mirrored on the right
         month: [6, BAND, 126, 27, ''],
-        wk: [-78, 139, -6, 143.5, ''],
+        month2: [-126, BAND, -6, 27, ''],
+        wk: [6, 139, 78, 143.5, ''],
+        wk2: [-78, 139, -6, 143.5, ''],
         cap: [89, 139.5, -89, 144, ''],
         logo: [143, 15, 24],
         qr: [199.5, 113, 21],

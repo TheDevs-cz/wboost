@@ -18,13 +18,61 @@ export default async function (t, load) {
             assert.ok(widths.month > 20 && widths.month <= doc.design.layout.boxes.month.w, `month ${widths.month}`);
             assert.ok(widths.wk > 5 && widths.wk <= doc.design.layout.boxes.wk.w, `wk ${widths.wk}`);
             assert.equal(A.autoGrow(doc.design.layout, widths, doc.design), null);
+            if (o.type === 'fortnight') {
+                assert.deepEqual(Object.keys(widths).sort(), ['month', 'month2', 'wk', 'wk2']);
+                assert.ok(widths.month2 > 20 && widths.month2 <= doc.design.layout.boxes.month2.w, `month2 ${widths.month2}`);
+                assert.ok(widths.wk2 > 5 && widths.wk2 <= doc.design.layout.boxes.wk2.w, `wk2 ${widths.wk2}`);
+            } else {
+                assert.deepEqual(Object.keys(widths).sort(), ['month', 'wk']);
+            }
         }
+    });
+
+    t.test('14 dní: each frame is measured and grown on its own, away from its own anchor', async () => {
+        const doc = await makeDoc(load, { type: 'fortnight', styles: (l) => { l.styles.month.size = 30; l.styles.wk.size = 60; } });
+        const before = copy(doc.design.layout);
+        const pages = buildPages(doc).filter((p) => p.kind === 'week');
+        const widths = widthsOf(doc);
+        // per frame: the widest text of THAT column over all pages
+        const font = { family: '"Outfit", Arial, sans-serif', weight: 700, sizeMm: ptToMm(30), letterSpacingMm: 0.09 * 2 };
+        for (const f of [0, 1]) {
+            const longest = Math.max(...pages.map((p) => m.width(p.week.monthTexts[f], font)));
+            const key = f ? 'month2' : 'month';
+            assert.ok(Math.abs(widths[key] - (longest + 2 * K.TEXT_GROW_MARGIN)) < longest * 0.02, `${key} ${widths[key]} vs ${longest}`);
+        }
+        for (const key of ['month', 'month2', 'wk', 'wk2']) assert.ok(widths[key] > before.boxes[key].w, `${key} must grow`);
+        const grown = A.autoGrow(doc.design.layout, widths, doc.design);
+        assert.ok(grown);
+        // first frames are start-aligned: the left edge stays; second frames mirror: the right edge stays
+        for (const key of ['month', 'wk']) {
+            assert.equal(grown.boxes[key].x, before.boxes[key].x, `${key} left edge`);
+            assert.ok(grown.boxes[key].w >= widths[key] - 1e-9 && grown.boxes[key].w < widths[key] + 0.11, key);
+        }
+        for (const key of ['month2', 'wk2']) {
+            near(assert, grown.boxes[key].x + grown.boxes[key].w, before.boxes[key].x + before.boxes[key].w, `${key} right edge`, 1e-9);
+            assert.ok(grown.boxes[key].w >= widths[key] - 1e-9 && grown.boxes[key].w < widths[key] + 0.11, key);
+        }
+        for (const k of Object.keys(before.boxes)) if (!['month', 'month2', 'wk', 'wk2'].includes(k)) assert.deepEqual(grown.boxes[k], before.boxes[k], k);
+        assert.deepEqual(doc.design.layout, before, 'the argument is not mutated');
+        assert.equal(A.autoGrow(grown, widths, doc.design), null, 'one pass is enough');
+        // only one frame too narrow → only that one grows
+        const one = copy(grown);
+        one.boxes.wk2 = { ...one.boxes.wk2, x: one.boxes.wk2.x + 10, w: one.boxes.wk2.w - 10 };
+        const again = A.autoGrow(one, widths, doc.design);
+        assert.deepEqual(again.boxes.wk2, grown.boxes.wk2);
+        for (const k of Object.keys(one.boxes)) if (k !== 'wk2') assert.equal(again.boxes[k], one.boxes[k], k);
+        // the eye of the element (the flag of the first frame) stops both
+        const hidden = copy(doc.design.layout);
+        hidden.boxes.month.hidden = true;
+        const rest = A.autoGrow(hidden, widths, { ...doc.design, layout: hidden });
+        assert.deepEqual([rest.boxes.month, rest.boxes.month2], [hidden.boxes.month, hidden.boxes.month2]);
+        assert.ok(rest.boxes.wk.w > hidden.boxes.wk.w && rest.boxes.wk2.w > hidden.boxes.wk2.w);
     });
 
     t.test('maxTextWidths measures every week page with the style applied', async () => {
         const doc = await makeDoc(load);
         const font = { family: '"Outfit", Arial, sans-serif', weight: 700, sizeMm: ptToMm(15), letterSpacingMm: 0.09 };
-        const longest = Math.max(...buildPages(doc).filter((p) => p.kind === 'week').map((p) => m.width(p.week.monthText, font)));
+        const longest = Math.max(...buildPages(doc).filter((p) => p.kind === 'week').map((p) => m.width(p.week.monthTexts[0], font)));
         near(assert, widthsOf(doc).month, longest + 2 * K.TEXT_GROW_MARGIN, 'month', 1e-9);
         assert.ok(longest > m.width('LEDEN 2027', font), 'two-month pages are the widest');
         // background on → the padding counts on both sides

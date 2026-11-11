@@ -13,8 +13,21 @@ export const ELEMENTS = Object.freeze([
 ]);
 
 export const ELEMENT_KEYS = Object.freeze(ELEMENTS.map((e) => e.key));
-export const BOX_KEYS = Object.freeze(['photo', 'cap', 'logo', 'head', 'month', 'cal', 'cal2', 'wk', 'qr']);
-/** Box keys that may carry `hidden` (cap's visibility is `features.captions`). */
+export const BOX_KEYS = Object.freeze(['photo', 'cap', 'logo', 'head', 'month', 'month2', 'cal', 'cal2', 'wk', 'wk2', 'qr']);
+/**
+ * Second frames of a 14-day layout: box key → the box key of the first frame. The element of both
+ * frames is the first key (`cal`, `month`, `wk`); the two frames share every style, the second one
+ * is drawn horizontally mirrored (`flipRowStyles`, `frameAlign`).
+ */
+export const SECOND_FRAMES = Object.freeze({ cal2: 'cal', month2: 'month', wk2: 'wk' });
+/** Elements that have one frame per week column on a 14-day page. */
+export const FRAMED_ELEMENTS = Object.freeze(Object.values(SECOND_FRAMES));
+/** Names of the two frames in the UI (selection tag, „Pozice a velikost“). */
+export const FRAME_LABELS = Object.freeze(['1. týden', '2. týden']);
+/**
+ * Box keys that may carry `hidden` (cap's visibility is `features.captions`). A second frame never
+ * carries it: the eye of Měsíc / Číslo týdne is the flag of the first frame and hides both.
+ */
 export const HIDEABLE_BOXES = Object.freeze(['logo', 'month', 'wk', 'qr']);
 export const DEFAULT_ORDER = Object.freeze(['qr', 'logo', 'cap', 'wk', 'month', 'head', 'cal', 'photo']);
 
@@ -57,12 +70,23 @@ export function partLabel(key) {
 
 export function boxKeysOf(elementKey, design) {
     if (elementKey === 'bg') return [];
-    if (elementKey === 'cal') return design && design.type === 'fortnight' ? ['cal', 'cal2'] : ['cal'];
+    if (FRAMED_ELEMENTS.includes(elementKey) && design && design.type === 'fortnight') return [elementKey, `${elementKey}2`];
     return [elementKey];
 }
 
 export function elementOfBox(boxKey) {
-    return boxKey === 'cal2' ? 'cal' : boxKey;
+    return SECOND_FRAMES[boxKey] || boxKey;
+}
+
+/** 0 for a first (or only) frame, 1 for a second frame. */
+export function frameOfBox(boxKey) {
+    return SECOND_FRAMES[boxKey] ? 1 : 0;
+}
+
+/** Horizontal alignment of a frame: the second frame mirrors the stored one (`middle` stays). */
+export function frameAlign(align, frame) {
+    if (frame !== 1) return align;
+    return align === 'start' ? 'end' : align === 'end' ? 'start' : align;
 }
 
 export function isElementVisible(design, elementKey) {
@@ -89,12 +113,12 @@ export function isElementVisible(design, elementKey) {
     }
 }
 
-/** Box keys of the drawn elements, in BOX_KEYS order (`cal2` with `cal` on a fortnight). */
+/** Box keys of the drawn elements, in BOX_KEYS order (second frames with their first one on a fortnight). */
 export function visibleBoxKeys(design) {
     const boxes = (design.layout && design.layout.boxes) || {};
     return BOX_KEYS.filter((k) => {
         if (!boxes[k]) return false;
-        if (k === 'cal2' && design.type !== 'fortnight') return false;
+        if (SECOND_FRAMES[k] && design.type !== 'fortnight') return false;
         return isElementVisible(design, elementOfBox(k));
     });
 }

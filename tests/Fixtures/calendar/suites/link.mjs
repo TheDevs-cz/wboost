@@ -227,7 +227,9 @@ export default async function (t, load) {
             cal2: { x: 226, y: 27, w: 89, h: 112 },
             photo: { x: 84, y: 27, w: 142, h: 112 },
             month: { x: 6, y: 12.5, w: 120, h: 14.5 },
-            wk: { x: 232, y: 139, w: 72, h: 4.5 },
+            month2: { x: 184, y: 12.5, w: 120, h: 14.5 },
+            wk: { x: 6, y: 139, w: 72, h: 4.5 },
+            wk2: { x: 232, y: 139, w: 72, h: 4.5 },
             cap: { x: 89, y: 139.5, w: 132, h: 4.5 },
             logo: { x: 143, y: 15, w: 24, h: 24 },
             qr: { x: 199.5, y: 113, w: 21, h: 21 },
@@ -236,8 +238,38 @@ export default async function (t, load) {
         expectBoxes(drag(doc, base, 'photo', 'e', -40, 0).boxes, TWO, { photo: { w: 102 }, cal2: { x: 186, w: 129 } }, 'photo right edge');
         expectBoxes(drag(doc, base, 'photo', 'w', 10, 0).boxes, TWO, { photo: { x: 94, w: 132 }, cal: { w: 99 } }, 'photo left edge');
         expectBoxes(drag(doc, base, 'cal2', 'w', -16, 0).boxes, TWO, { cal2: { x: 210, w: 105 }, photo: { w: 126 } }, 'second frame triggers');
-        expectBoxes(drag(doc, base, 'head', 's', 0, 10).boxes, TWO, { head: { h: 42 }, cal: { y: 37, h: 102 }, cal2: { y: 37, h: 102 }, photo: { y: 37, h: 102 }, month: { h: 24.5 } }, 'header');
-        expectBoxes(drag(doc, base, 'cal', 's', 0, -10).boxes, TWO, { cal: { h: 102 }, cal2: { h: 102 }, photo: { h: 102 }, wk: { y: 129, h: 14.5 } }, 'bottom line');
+        expectBoxes(drag(doc, base, 'head', 's', 0, 10).boxes, TWO, { head: { h: 42 }, cal: { y: 37, h: 102 }, cal2: { y: 37, h: 102 }, photo: { y: 37, h: 102 }, month: { h: 24.5 }, month2: { h: 24.5 } }, 'header');
+        expectBoxes(drag(doc, base, 'cal', 's', 0, -10).boxes, TWO, { cal: { h: 102 }, cal2: { h: 102 }, photo: { h: 102 }, wk: { y: 129, h: 14.5 }, wk2: { y: 129, h: 14.5 } }, 'bottom line');
+    });
+
+    t.test('L8b 14-day layout: Měsíc and Číslo týdne have one frame per column; each follows its Kalendárium frame like in the 7-day layouts', async () => {
+        const { doc, base } = await fresh({ type: 'fortnight' });
+        const TWO = copy(base);
+        // the second week's Kalendárium frame: its top line carries month2 (and everything else on y = 27), its bottom line wk2
+        expectBoxes(drag(doc, base, 'cal2', 'n', 0, 6).boxes, TWO, { cal2: { y: 33, h: 106 }, cal: { y: 33, h: 106 }, photo: { y: 33, h: 106 }, head: { h: 38 }, month: { h: 20.5 }, month2: { h: 20.5 } }, 'cal2 top');
+        expectBoxes(drag(doc, base, 'cal2', 's', 0, -10).boxes, TWO, { cal2: { h: 102 }, cal: { h: 102 }, photo: { h: 102 }, wk: { y: 129, h: 14.5 }, wk2: { y: 129, h: 14.5 } }, 'cal2 bottom');
+        // a second frame is a box of its own: it triggers …
+        expectBoxes(drag(doc, base, 'month2', 's', 0, 5).boxes, TWO, { month2: { h: 19.5 }, month: { h: 19.5 }, head: { h: 37 }, cal: { y: 32, h: 107 }, cal2: { y: 32, h: 107 }, photo: { y: 32, h: 107 } }, 'month2 bottom');
+        expectBoxes(drag(doc, base, 'wk2', 'n', 0, -8).boxes, TWO, { wk2: { y: 131, h: 12.5 }, wk: { y: 131, h: 12.5 }, cal: { h: 104 }, cal2: { h: 104 }, photo: { h: 104 } }, 'wk2 top');
+        // … its own left / right edges coincide with nothing, so they move alone
+        expectBoxes(drag(doc, base, 'month2', 'w', -20, 0).boxes, TWO, { month2: { x: 164, w: 140 } }, 'month2 left');
+        expectBoxes(drag(doc, base, 'wk2', 'w', 10, 0).boxes, TWO, { wk2: { x: 242, w: 62 } }, 'wk2 left');
+        // moved off the line it no longer follows, the first frame still does
+        const moved = copy(base);
+        moved.wk2 = { ...moved.wk2, y: 140 };
+        const after = drag(doc, moved, 'cal2', 's', 0, -10).boxes;
+        assert.deepEqual(after.wk2, moved.wk2);
+        assert.deepEqual(after.wk, { x: 6, y: 129, w: 72, h: 14.5 });
+        // hidden rule: with the eye of Číslo týdne closed neither frame follows; with „Zobrazení týdnů“ off likewise
+        const hidden = await fresh({ type: 'fortnight', styles: (l) => { l.boxes.wk.hidden = true; } });
+        const h1 = drag(hidden.doc, hidden.base, 'cal2', 's', 0, -10).boxes;
+        assert.deepEqual([h1.wk, h1.wk2], [hidden.base.wk, hidden.base.wk2]);
+        const off = await fresh({ type: 'fortnight', features: { weekNumbers: false } });
+        const h2 = drag(off.doc, off.base, 'cal', 's', 0, -10).boxes;
+        assert.deepEqual([h2.wk, h2.wk2], [off.base.wk, off.base.wk2]);
+        // linking off: nothing follows
+        const alone = Dg.dragTo(Dg.beginDrag({ boxes: base, key: 'cal2', mode: 's', ...ctx(doc, false) }), 0, -10, { snap: false }).boxes;
+        expectBoxes(alone, TWO, { cal2: { h: 102 } }, 'unlinked');
     });
 
     t.test('L9 arrow keys and typed X / Y change nothing else; typed Š moves the edge and its neighbours', async () => {

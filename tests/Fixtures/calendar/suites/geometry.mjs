@@ -143,6 +143,16 @@ export default async function (t, load) {
         const fort = await makeDoc(load, { type: 'fortnight' });
         assert.deepEqual(G.hitTest({ x: 40, y: 80 }, fort.design, null), { el: 'cal', frame: 0 });
         assert.deepEqual(G.hitTest({ x: 270, y: 80 }, fort.design, null), { el: 'cal', frame: 1 });
+        // Měsíc and Číslo týdne have one frame per week column there: the hit carries the frame
+        assert.deepEqual(G.hitTest({ x: 20, y: 20 }, fort.design, null), { el: 'month', frame: 0 });
+        assert.deepEqual(G.hitTest({ x: 290, y: 20 }, fort.design, null), { el: 'month', frame: 1 });
+        assert.deepEqual(G.hitTest({ x: 20, y: 141 }, fort.design, null), { el: 'wk', frame: 0 });
+        assert.deepEqual(G.hitTest({ x: 290, y: 141 }, fort.design, null), { el: 'wk', frame: 1 });
+        assert.deepEqual(G.hitTest({ x: 150, y: 20 }, fort.design, null), { el: 'logo' });
+        assert.deepEqual(G.hitTest({ x: 250, y: 20 }, d, null), { el: 'month' }, 'one frame on a 7-day page: no frame index');
+        const noMonth = copy(fort.design);
+        noMonth.layout.boxes.month.hidden = true;
+        assert.deepEqual(G.hitTest({ x: 290, y: 20 }, noMonth, null), { el: 'head' }, 'the eye hides both frames');
         assert.equal(G.containsPoint({ x: 0, y: 0, w: 2, h: 2 }, { x: 2, y: 2 }), true);
         assert.equal(G.containsPoint({ x: 0, y: 0, w: 2, h: 2 }, { x: 2.1, y: 2 }), false);
     });

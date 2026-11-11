@@ -297,20 +297,69 @@ export default async function (t, load) {
     t.test('texts: month and week number anchored by alignment, sizes in mm', async () => {
         const doc = await makeDoc(load);
         const svg = renderPage(doc, first(doc), opts());
-        const month = svg.match(/<g data-el="month"><text x="([-\d.]+)" y="([-\d.]+)"[^>]*font-size="([-\d.]+)"[^>]*text-anchor="(\w+)"[^>]*>([^<]+)<\/text>/);
+        const month = svg.match(/<g data-el="month" data-frame="0"><text x="([-\d.]+)" y="([-\d.]+)"[^>]*font-size="([-\d.]+)"[^>]*text-anchor="(\w+)"[^>]*>([^<]+)<\/text>/);
         assert.equal(month[5], 'PROSINEC 2026 / LEDEN 2027');
         assert.equal(Number(month[1]), 304, 'align end, no padding without a background');
         assert.equal(month[4], 'end');
         assert.ok(Math.abs(Number(month[3]) - 15 * 25.4 / 72) < 0.001, '15 pt in mm');
         assert.ok(Math.abs(Number(month[2]) - (12.5 + 14.5 / 2 + 0.36 * 15 * 25.4 / 72)) < 0.001, 'baseline');
         assert.ok(svg.includes('letter-spacing="0.09"'));
-        const wk = svg.match(/<g data-el="wk"><text x="([-\d.]+)"[^>]*>([^<]+)</);
+        const wk = svg.match(/<g data-el="wk" data-frame="0"><text x="([-\d.]+)"[^>]*>([^<]+)</);
         assert.deepEqual([Number(wk[1]), wk[2]], [304, '53. týden']);
         const lower = await makeDoc(load, { preset: 'photoRight', styles: (l) => { l.styles.month.upper = false; l.styles.month.bg.colorOn = true; } });
         const s2 = renderPage(lower, first(lower), opts());
         assert.ok(s2.includes('>Prosinec 2026 / Leden 2027<'));
-        assert.ok(/<g data-el="month"><rect[^>]*\/><text x="9"/.test(s2), 'align start with the 3 mm padding of a filled background');
-        assert.ok(!/<g data-el="month">.*?letter-spacing/.test(s2.slice(s2.indexOf('data-el="month"'), s2.indexOf('data-el="month"') + 400)));
+        assert.ok(/<g data-el="month" data-frame="0"><rect[^>]*\/><text x="9"/.test(s2), 'align start with the 3 mm padding of a filled background');
+        assert.ok(!/<g data-el="month"[^>]*>.*?letter-spacing/.test(s2.slice(s2.indexOf('data-el="month"'), s2.indexOf('data-el="month"') + 400)));
+        assert.equal((svg.match(/data-el="month"/g) || []).length, 1, 'one frame on a 7-day page');
+        assert.equal((svg.match(/data-el="wk"/g) || []).length, 1);
+    });
+
+    t.test('14 dní: month and week number once per column, the second frame mirrored', async () => {
+        const texts = (svg, el) => [...svg.matchAll(new RegExp(`<g data-el="${el}" data-frame="(\\d)">(?:<rect[^>]*/>)?<text x="([-\\d.]+)"([^>]*)>([^<]+)</text>`, 'g'))].map((m) => ({ frame: Number(m[1]), x: Number(m[2]), anchor: (m[3].match(/text-anchor="(\w+)"/) || [0, 'start'])[1], text: m[4] }));
+        const doc = await makeDoc(load, { type: 'fortnight' });
+        const pages = weekPages(buildPages(doc));
+        const svg = renderPage(doc, pages[0], opts());
+        checkXml(svg);
+        // first page: 28 Dec 2026 – 3 Jan 2027 | 4 – 10 Jan 2027
+        assert.deepEqual(texts(svg, 'month'), [
+            { frame: 0, x: 6, anchor: 'start', text: 'PROSINEC 2026 / LEDEN 2027' },
+            { frame: 1, x: 304, anchor: 'end', text: 'LEDEN 2027' },
+        ]);
+        assert.deepEqual(texts(svg, 'wk'), [
+            { frame: 0, x: 6, anchor: 'start', text: '53. týden' },
+            { frame: 1, x: 304, anchor: 'end', text: '1. týden' },
+        ]);
+        assert.ok(!svg.includes('>53. a 1. týden<'), 'no printed text for the whole fortnight (the page name keeps both weeks)');
+        // a mid-year page where only the SECOND week crosses a month boundary
+        const crossing = pages.find((p) => p.week.frames[1][0] === '2027-03-29');
+        assert.deepEqual(texts(renderPage(doc, crossing, opts()), 'month').map((m) => m.text), ['BŘEZEN 2027', 'BŘEZEN / DUBEN 2027']);
+        // shared style: form, colour, upper case, background + padding apply to both frames
+        const styled = await makeDoc(load, { type: 'fortnight', styles: (l) => {
+            l.styles.wk.form = 'c';
+            l.styles.wk.color = '#123456';
+            l.styles.month.upper = false;
+            l.styles.month.bg.colorOn = true;
+            l.styles.month.bg.color = '#ABCDEF';
+        } });
+        const s2 = renderPage(styled, weekPages(buildPages(styled))[0], opts());
+        checkXml(s2);
+        assert.deepEqual(texts(s2, 'wk').map((m) => m.text), ['T53', 'T1']);
+        assert.equal((s2.match(/fill="#123456"/g) || []).length, 2);
+        assert.deepEqual(texts(s2, 'month'), [
+            { frame: 0, x: 9, anchor: 'start', text: 'Prosinec 2026 / Leden 2027' },
+            { frame: 1, x: 301, anchor: 'end', text: 'Leden 2027' },
+        ]);
+        assert.equal((s2.match(/<g data-el="month" data-frame="\d"><rect[^>]*fill="#ABCDEF"/g) || []).length, 2, 'both frames carry the background');
+        // alignment: the stored one is the first frame's, the second is its mirror; middle stays
+        const flipped = await makeDoc(load, { type: 'fortnight', styles: (l) => { l.styles.month.align = 'end'; l.styles.wk.align = 'middle'; } });
+        const s3 = renderPage(flipped, weekPages(buildPages(flipped))[0], opts());
+        assert.deepEqual(texts(s3, 'month').map((m) => [m.x, m.anchor]), [[126, 'end'], [184, 'start']]);
+        assert.deepEqual(texts(s3, 'wk').map((m) => [m.x, m.anchor]), [[42, 'middle'], [268, 'middle']]);
+        // the eye hides both frames, „Zobrazení týdnů“ hides both week numbers
+        const hidden = await makeDoc(load, { type: 'fortnight', features: { weekNumbers: false }, styles: (l) => { l.boxes.month.hidden = true; } });
+        const s4 = renderPage(hidden, weekPages(buildPages(hidden))[0], opts());
+        assert.ok(!s4.includes('data-el="month"') && !s4.includes('data-el="wk"'));
     });
 
     t.test('svg helpers', () => {

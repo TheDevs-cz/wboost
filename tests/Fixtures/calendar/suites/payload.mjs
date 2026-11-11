@@ -442,14 +442,46 @@ export default async function (t, load) {
         assert.equal(design.type, 'fortnight');
         assert.equal(design.preset, 'twoSided');
         assert.ok(design.layout.boxes.cal2);
+        assert.ok(design.layout.boxes.month2 && design.layout.boxes.wk2, 'Měsíc and Číslo týdne get their second frames');
         assert.equal(design.layout.styles.month.size, 22);
         assert.equal(store.canUndo(), false);
         assert.equal(store.pages().length, 29);
+        // a frame of the second week is an ordinary selection; back on 7 days it is dropped with its box
+        store.setUi({ selection: { el: 'month', frame: 1 } });
+        store.change((l) => ({ ...l, boxes: { ...l.boxes, month2: { ...l.boxes.month2, y: 3 } } }));
+        assert.equal(store.getState().doc.design.layout.boxes.month2.y, 3);
+        store.undo();
+        assert.equal(store.getState().doc.design.layout.boxes.month2.y, design.layout.boxes.month2.y);
+        assert.deepEqual(store.getState().ui.selection, { el: 'month', frame: 1 });
+        store.changeType('week');
+        const week = store.getState().doc.design.layout.boxes;
+        assert.deepEqual([week.cal2, week.month2, week.wk2], [undefined, undefined, undefined]);
+        assert.equal(store.getState().ui.selection, null);
         // without a layout only the type changes
         const bare = await makeStore({ preset: null });
         bare.store.changeType('fortnight');
         assert.equal(bare.store.getState().doc.design.preset, null);
         assert.equal(bare.store.getState().doc.design.layout, null);
+    });
+
+    t.test('store: a 14-day layout from before the per-column Měsíc / Číslo týdne is migrated when loaded — one undo step, saved in the new shape', async () => {
+        const { store, server } = await makeStore({ type: 'fortnight' });
+        const own = copy(store.getState().doc.design.layout);
+        const old = copy(own);
+        delete old.boxes.month2;
+        delete old.boxes.wk2;
+        old.boxes.wk = { x: 232, y: 139, w: 72, h: 4.5 };
+        old.styles.wk.align = 'end';
+        old.boxes.logo = { x: 20, y: 60, w: 30, h: 30 };
+        store.replaceLayout(old, {});
+        const now = store.getState().doc.design.layout;
+        assert.deepEqual([now.boxes.wk, now.boxes.wk2, now.styles.wk.align], [{ x: 6, y: 139, w: 72, h: 4.5 }, { x: 232, y: 139, w: 72, h: 4.5 }, 'start']);
+        assert.deepEqual(now.boxes.month2, own.boxes.month2);
+        assert.deepEqual(now.boxes.logo, { x: 20, y: 60, w: 30, h: 30 });
+        await store.save();
+        assert.deepEqual(Object.keys(server.requests.at(-1).design.layout.boxes).sort(), ['cal', 'cal2', 'cap', 'head', 'logo', 'month', 'month2', 'photo', 'qr', 'wk', 'wk2']);
+        store.undo();
+        assert.deepEqual(store.getState().doc.design.layout, own);
     });
 
     t.test('store: content items are dirty per item, never on the undo stack, and saved as ops with labels', async () => {

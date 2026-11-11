@@ -65,6 +65,7 @@ export const K = Object.freeze({
     CAP_INSET_X: 2.5,
     CAP_INSET_Y: 1,
     TEXT_GROW_MARGIN: 0.6,
+    SECOND_FRAME_GAP: 2,
     UNDO_LIMIT: 100,
     ZOOM_STEPS: Object.freeze([0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4]),
     FIT_MIN: 1,
