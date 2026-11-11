@@ -10,6 +10,17 @@
 .cal-b6 { display: grid; grid-template-columns: minmax(0, 1fr) 208px; grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
 .cal-b6 > .cal-t4 { grid-column: 1 / -1; }
 .cal-b6 .cal-5acts { display: flex; align-items: center; gap: 8px; margin-left: auto; padding-left: 12px; flex: none; }
+/* The actions (Stáhnout PDF · Odkaz pro klienta · upozornění · Historie) never scroll out of
+   reach: only the tools give way when the row is too narrow for both. */
+.cal-b6 > .cal-t4 { overflow: visible; }
+.cal-b6 > .cal-t4 > .cal-tools { flex: 0 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.cal-b6 > .cal-t4 > .cal-tools::-webkit-scrollbar { display: none; }
+@media (max-width: 1600px) {
+    .cal-b6 > .cal-t4 > .cal-tools { gap: 0; }
+    .cal-b6 > .cal-t4 .cal-tool-b { gap: 6px; padding: 0 8px; }
+    .cal-b6 .cal-5acts { gap: 6px; padding-left: 8px; }
+    .cal-b6 .cal-5acts .btn { --bs-btn-padding-x: 12px; }
+}
 .cal-b6 .cal-b6-main { display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 0; min-width: 0; min-height: 0; padding: 0; overflow: hidden; }
 .cal-b6 .cal-b6-list { display: flex; flex-direction: column; gap: 6px; min-height: 0; padding: 10px; overflow-y: auto; background: var(--surface); border-left: 1px solid var(--line); }
 
@@ -111,6 +122,12 @@
 }
 @media (max-width: 960px) {
     .cal-b6 { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto; }
+    /* two rows: the tools, then the actions — „Stáhnout PDF“ first, so it is always one tap away */
+    .cal-b6 > .cal-t4 { flex-wrap: wrap; row-gap: 6px; }
+    .cal-b6 > .cal-t4 > .cal-tools { flex: 1 1 100%; }
+    .cal-b6 .cal-5acts { flex: 1 1 100%; min-width: 0; margin-left: 0; padding-left: 0; overflow-x: auto; scrollbar-width: none; }
+    .cal-b6 .cal-5acts::-webkit-scrollbar { display: none; }
+    .cal-b6 .cal-5acts > * { flex: none; }
     .cal-b6 .cal-b6-main { overflow: visible; }
     .cal-5stage { flex: none; padding-top: 12px; padding-bottom: 20px; }
     .cal-b6 .cal-b6-list { border-left: 0; border-top: 1px solid var(--line); max-height: none; overflow: visible; }

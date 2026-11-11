@@ -34,6 +34,12 @@
 .cal-hist-chip:hover { background: var(--surface-2); color: var(--text); }
 .cal-hist-chip .i { flex: none; }
 .cal-card .cal-del { margin-left: auto; }
+/* „PDF“ sits with the delete button at the right end; alone it takes the auto margin itself */
+.cal-card .cal-pdf { flex: none; margin-left: auto; gap: 5px; color: var(--muted); }
+.cal-card .cal-pdf:hover { color: var(--text); }
+.cal-card .cal-pdf + .cal-del { margin-left: 0; }
+.cal-card .cal-hist-chip { overflow: hidden; }
+.cal-card .cal-hist-chip > span { overflow: hidden; text-overflow: ellipsis; }
 .cal-empty form { margin: 0; }
 /* One primary per view: on phones the + of the top bar is the create button (it sits in a form
    here, so the shell's own `.mbar-side > .btn-primary` rule does not see it). */
@@ -202,3 +208,7 @@
 .cal-wchip[hidden] { display: none; }
 /* a toast carries no control: it must not swallow a click on the popover or button it happens to cover */
 .toast-n.cal-toast { pointer-events: none; }
+/* a toast with a button („Zkusit znovu“, „Stáhnout PDF“) takes clicks */
+.toast-n.cal-toast.has-action { pointer-events: auto; }
+.toast-n.cal-toast.has-action > span:not(.i) { flex: 1; min-width: 0; }
+.toast-n.cal-toast.has-action .btn { flex: none; margin: -4px -6px -4px 4px; }

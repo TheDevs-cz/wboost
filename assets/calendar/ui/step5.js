@@ -9,6 +9,7 @@
 //   - registers `ctx.setStageProbe({ scale(), toClient(xMm, yMm), page() })` for the large page
 //   - the forward button of the top bar (Dokončit / Uložit vzhled) is NOT part of this module
 //   - buttons: `[data-tool]` (`ui/tools/index.js` decides which the role gets),
+//     `[data-cal-action="export-pdf"]` (every role — „Stáhnout PDF“, `ui/export.js`),
 //     `[data-cal-action="client-link"]` (designer), `[data-cal-action="history"]`,
 //     `[data-cal-action="warnings"]` (the chip of `ui/warnings.js`), `page-prev`, `page-next`
 //   - everything on the page itself (photo, caption, day buttons, comments) is
@@ -16,7 +17,7 @@
 //
 // DOM:
 //   .cal-b6
-//     .cal-t4                      tools · Odkaz pro klienta · N upozornění · Historie
+//     .cal-t4                      tools · Stáhnout PDF · Odkaz pro klienta · N upozornění · Historie
 //     section.cal-b6-main
 //       .cal-5h                    previous / title · range · i / n / next, photo controls
 //       .cal-5stage                the page is fitted into it (width, and height on wide screens)
@@ -27,6 +28,7 @@ import { K, bleedOf } from '../model/defaults.js';
 import { pageViewBox, renderPage } from '../render/page.js';
 import { h, icon } from './dom.js';
 import { openClientLink } from './client-link.js';
+import { openExport } from './export.js';
 import { openHistory } from './history.js';
 import { mountPageList } from './pagelist.js';
 import { closePopover } from './popover.js';
@@ -78,6 +80,18 @@ export function mountStep5(root, ctx) {
         h(
             'div',
             { class: 'cal-5acts' },
+            // whoever sees the calendar may take it away as a PDF — the client and the read-only member too
+            h(
+                'button',
+                {
+                    type: 'button',
+                    class: 'btn sm btn-tertiary',
+                    'data-cal-action': 'export-pdf',
+                    onClick: () => openExport({ name: store.getState().doc.design.name, url: env.urls.export, csrf: env.csrf, toast: ctx.toast, unsaved: { dirty: () => store.isDirty(), save: () => ctx.actions.save() } }),
+                },
+                icon('download', 's16'),
+                'Stáhnout PDF',
+            ),
             designer ? h('button', { type: 'button', class: 'btn sm btn-tertiary', 'data-cal-action': 'client-link', onClick: () => openClientLink(ctx) }, icon('link', 's16'), 'Odkaz pro klienta') : null,
             chip.el,
             h('button', { type: 'button', class: 'btn sm btn-ghost', 'data-cal-action': 'history', onClick: () => openHistory({ name: store.getState().doc.design.name, load: () => ctx.api.history() }) }, icon('history', 's16'), 'Historie'),

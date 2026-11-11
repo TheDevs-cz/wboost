@@ -60,6 +60,32 @@
 .cal-clink-ask b { font-weight: 600; }
 .cal-clink-acts { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 
+/* ---------- Stáhnout PDF dialog (ui/export.js) ---------- */
+.cal-exp { display: flex; flex-direction: column; gap: 14px; }
+.cal-exp [hidden], .cal-exp-foot [hidden] { display: none !important; }
+.cal-exp p { margin: 0; }
+.cal-exp-name { color: var(--muted); margin-top: -6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-exp .rpick.is-locked .rcard { cursor: default; opacity: .6; }
+.cal-exp .rpick.is-locked .rcard:has(input:checked) { opacity: 1; }
+.cal-exp-note { display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; border-radius: 12px; background: var(--pch-deep); color: var(--text); font-size: 13px; line-height: 1.45; }
+.cal-exp-note .i { flex: none; margin-top: 1px; color: var(--pch-ink); }
+.cal-exp-run { display: flex; flex-direction: column; gap: 8px; }
+.cal-exp-run > p:first-child { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.cal-exp-run .spinner-border { flex: none; color: var(--lav); }
+.cal-exp-run .cap { color: var(--subtle); font-size: 12px; }
+.cal-exp-run progress { display: block; width: 100%; height: 6px; border: 0; border-radius: 999px; overflow: hidden; background: var(--surface-3); accent-color: var(--lav); -webkit-appearance: none; appearance: none; }
+.cal-exp-run progress::-webkit-progress-bar { background: var(--surface-3); border-radius: 999px; }
+.cal-exp-run progress::-webkit-progress-value { background: var(--lav); border-radius: 999px; transition: width var(--dur-2); }
+.cal-exp-run progress::-moz-progress-bar { background: var(--lav); border-radius: 999px; }
+.cal-exp-done { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--line-2); border-radius: 14px; background: var(--surface); }
+.cal-exp-done .ico-c { flex: none; color: var(--mint-ink, var(--lav-ink)); }
+.cal-exp-file { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; font-size: 13px; color: var(--text-2); }
+.cal-exp-file b { font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+.cal-exp-foot { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; margin-right: auto; }
+.cal-modal .modal-footer:has(.cal-exp-foot) { flex-wrap: wrap; }
+.cal-modal .modal-footer:has(.cal-exp-foot) .cal-exp-foot { order: 2; margin-right: 0; }
+.cal-modal .modal-footer:has(.cal-exp-foot) [data-cal-action="modal-done"] { order: 1; margin-right: auto; }
+
 /* ---------- Client page (/k/{token}) and the "not ready yet" notice ---------- */
 .cal-notready { display: grid; place-items: center; min-height: 100vh; min-height: 100dvh; padding: 24px 16px; background: var(--bg); color: var(--text); }
 .inner .cal-notready { min-height: 60vh; background: none; }

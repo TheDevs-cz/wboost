@@ -47,8 +47,34 @@ export async function fetchHistory(url) {
     return Array.isArray(json.entries) ? json.entries : [];
 }
 
+const EXPORT_FAILED = 'PDF se nepodařilo připravit';
+
 /**
- * @param env  `{ csrf, urls: { save, asset, history, clientLink?, layoutImport?, documentText? } }`
+ * Asks for a PDF export (`variant`: `print` | `approval`) → the export to poll:
+ * `{ id, variant, status: 'queued' | 'running' | 'done' | 'failed', done, total, error, sizeBytes, fileName, urls: { status, download } }`.
+ * Used by the list page too.
+ */
+export async function requestExport(url, csrf, variant) {
+    const json = await send(url, { _token: csrf, variant }, EXPORT_FAILED);
+    if (!json.export || typeof json.export !== 'object') throw new Error(EXPORT_FAILED);
+    return json.export;
+}
+
+/** GET of an export's `urls.status` → the export (same shape). */
+export async function fetchExport(url) {
+    let response;
+    try {
+        response = await fetch(url, { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+    } catch (e) {
+        throw new Error(EXPORT_FAILED);
+    }
+    const json = await readJson(response, EXPORT_FAILED);
+    if (!json.export || typeof json.export !== 'object') throw new Error(EXPORT_FAILED);
+    return json.export;
+}
+
+/**
+ * @param env  `{ csrf, urls: { save, asset, history, export, clientLink?, layoutImport?, documentText? } }`
  */
 export function createApi(env) {
     const urls = env.urls || {};

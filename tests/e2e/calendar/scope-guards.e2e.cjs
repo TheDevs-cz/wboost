@@ -183,6 +183,11 @@ module.exports = {
             await h.sleep(350);
             await scan(`${type} step 5 › Odkaz pro klienta`, extra);
             await closeModal();
+            await click('[data-cal-action="export-pdf"]');
+            await page.waitForSelector('[data-cal-dialog="export"].show');
+            await h.sleep(350);
+            await scan(`${type} step 5 › Stáhnout PDF`, extra);
+            await closeModal();
             await h.save(page);
 
             // the client view
@@ -190,6 +195,11 @@ module.exports = {
             await page.goto(clientUrl, { waitUntil: 'networkidle2' });
             await h.waitReady(page);
             await scan(`${type} client view`, extra);
+            await click('[data-cal-action="export-pdf"]');
+            await page.waitForSelector('[data-cal-dialog="export"].show');
+            await h.sleep(350);
+            await scan(`${type} client › Stáhnout PDF`, extra);
+            await closeModal();
             for (const tool of await page.$$eval('[data-tool]', (n) => n.map((x) => x.dataset.tool))) {
                 await click(`[data-tool="${tool}"]`);
                 await page.waitForSelector(`.cal-tool-modal.show[data-tool-modal="${tool}"]`, { timeout: 5000 });

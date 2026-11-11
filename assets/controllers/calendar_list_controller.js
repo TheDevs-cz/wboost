@@ -6,6 +6,7 @@ import { pluralPages } from '../calendar/generate/czech.js';
 import { createCanvasMeasurer, ensureFontsLoaded, usedFamilies } from '../calendar/render/measure.js';
 import { fetchHistory } from '../calendar/state/api.js';
 import { relativeTime, toast } from '../calendar/ui/dom.js';
+import { openExport } from '../calendar/ui/export.js';
 import { openHistory } from '../calendar/ui/history.js';
 import { mountLazyThumb, renderThumb } from '../calendar/ui/thumb.js';
 
@@ -30,8 +31,12 @@ const PRESET_WORDS = { photoLeft: 'fotka vlevo', photoRight: 'fotka vpravo', two
  * once every card that was in view at the start is complete (document
  * fetched, fonts usable, thumbnail drawn or queued).
  *
- * `[data-cal-action="history"]` opens Historie; the toast left in
- * sessionStorage['wb-cal-toast'] by Dokončit is shown once.
+ * `[data-cal-action="history"]` opens Historie; `[data-cal-action="export-pdf"]`
+ * (cards whose calendar has a layout) opens the Stáhnout PDF dialog right
+ * here — it needs the card's export address and the shared CSRF token only.
+ * The toast left in sessionStorage['wb-cal-toast'] by Dokončit is shown once;
+ * when sessionStorage['wb-cal-toast-calendar'] names a card that can be
+ * exported, the toast offers „Stáhnout PDF“ for it — the obvious next step.
  */
 export default class extends Controller {
     static targets = ['env', 'card', 'doc', 'thumb', 'meta', 'time'];
@@ -120,7 +125,15 @@ export default class extends Controller {
             }
         }
 
+        const exportOf = (button) => openExport({ name: button.dataset.calendarName || '', url: button.dataset.exportUrl, csrf: shared.csrf, toast });
+
         this.onClick = (event) => {
+            const pdf = event.target.closest('[data-cal-action="export-pdf"]');
+            if (pdf && this.element.contains(pdf)) {
+                event.preventDefault();
+                exportOf(pdf);
+                return;
+            }
             const chip = event.target.closest('[data-cal-action="history"]');
             if (!chip || !this.element.contains(chip)) return;
             event.preventDefault();
@@ -130,9 +143,13 @@ export default class extends Controller {
 
         try {
             const message = sessionStorage.getItem('wb-cal-toast');
+            const finishedId = sessionStorage.getItem('wb-cal-toast-calendar');
+            sessionStorage.removeItem('wb-cal-toast-calendar');
             if (message) {
                 sessionStorage.removeItem('wb-cal-toast');
-                toast(message);
+                const card = finishedId ? this.cardTargets.find((el) => el.dataset.calendarId === finishedId) : null;
+                const pdf = card ? card.querySelector('[data-cal-action="export-pdf"]') : null;
+                toast(message, false, pdf ? { label: 'Stáhnout PDF', onClick: () => exportOf(pdf) } : null);
             }
         } catch (e) {
             // no sessionStorage: nothing to show

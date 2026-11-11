@@ -89,6 +89,11 @@
                                 </button>
                             {% endif %}
 
+                            {# Whoever sees the calendar may export it; without a layout there is nothing to print. #}
+                            {% if calendar.layout is not null %}
+                                <button type="button" class="btn btn-ghost xs cal-pdf" data-cal-action="export-pdf" data-export-url="{{ path('calendar_export_request', {'calendarId': calendar.id}) }}" data-calendar-name="{{ calendar.name }}" aria-label="Stáhnout PDF – {{ calendar.name }}" title="Stáhnout PDF">{{ icon('download', 's14') }}PDF</button>
+                            {% endif %}
+
                             {% if can_edit %}
                                 <button type="button" class="btn btn-ghost icon xs cal-del" data-bs-toggle="modal" data-bs-target="#cal-delete-{{ calendar.id }}" aria-label="Smazat {{ calendar.name }}" title="Smazat">{{ icon('trash', 's16') }}</button>
                             {% endif %}

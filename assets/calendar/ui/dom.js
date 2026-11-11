@@ -106,16 +106,39 @@ export function relativeTime(iso, now = Date.now()) {
 
 // ---- toast ------------------------------------------------------------------------------
 
-/** Kit toast (`.toasts` > `.toast-n`, design-system §3.10). */
-export function toast(message, error = false) {
+/**
+ * Kit toast (`.toasts` > `.toast-n`, design-system §3.10).
+ *
+ * @param action  optional `{ label, onClick }`: one button inside the toast (`[data-cal-toast-action]`)
+ *                — "Zkusit znovu", "Stáhnout PDF". Such a toast stays longer and goes away when its
+ *                button is pressed.
+ */
+export function toast(message, error = false, action = null) {
     let stack = document.querySelector('.toasts');
     if (!stack) {
         stack = h('div', { class: 'toasts', 'aria-live': 'polite' });
         document.body.append(stack);
     }
-    const node = h('div', { class: error ? 'toast-n cal-toast err' : 'toast-n cal-toast', role: error ? 'alert' : 'status' }, icon(error ? 'alert' : 'check-circle', 's18'), String(message));
+    const node = h('div', { class: `toast-n cal-toast${error ? ' err' : ''}${action ? ' has-action' : ''}`, role: error ? 'alert' : 'status' }, icon(error ? 'alert' : 'check-circle', 's18'), h('span', null, String(message)));
+    if (action) {
+        node.append(
+            h(
+                'button',
+                {
+                    type: 'button',
+                    class: 'btn xs btn-tertiary',
+                    'data-cal-toast-action': '',
+                    onClick: () => {
+                        node.remove();
+                        action.onClick();
+                    },
+                },
+                action.label,
+            ),
+        );
+    }
     stack.append(node);
-    setTimeout(() => node.remove(), error ? 6000 : 3600);
+    setTimeout(() => node.remove(), action ? 10000 : error ? 6000 : 3600);
     return node;
 }
 
@@ -245,9 +268,11 @@ export async function confirmDialog({ title, text, confirmLabel, cancelLabel = '
  * @param o.size     `'lg'` | `'xl'` (default: the standard 520 px dialog)
  * @param o.onClose  called once, after the modal is gone
  * @param o.footer   optional Node(s) placed left of **Hotovo**
+ * @param o.done     `{ label, kind }` of the closing button when the dialog has a primary action of
+ *                   its own in `footer` (default `{ label: 'Hotovo', kind: 'primary' }`)
  * @returns `{ el, body, close() }` — `body` is the `.modal-body` element
  */
-export function openModal({ title, body, size, onClose, footer }) {
+export function openModal({ title, body, size, onClose, footer, done }) {
     const bodyEl = h('div', { class: 'modal-body' }, body);
     const el = h(
         'div',
@@ -260,7 +285,7 @@ export function openModal({ title, body, size, onClose, footer }) {
                 { class: 'modal-content' },
                 h('div', { class: 'modal-header' }, h('h2', { class: 'modal-title' }, title), h('button', { type: 'button', class: 'btn-close', 'data-bs-dismiss': 'modal', 'aria-label': 'Zavřít' })),
                 bodyEl,
-                h('div', { class: 'modal-footer' }, footer || null, h('button', { type: 'button', class: 'btn sm btn-primary', 'data-bs-dismiss': 'modal', 'data-cal-action': 'modal-done' }, 'Hotovo')),
+                h('div', { class: 'modal-footer' }, footer || null, h('button', { type: 'button', class: `btn sm btn-${(done && done.kind) || 'primary'}`, 'data-bs-dismiss': 'modal', 'data-cal-action': 'modal-done' }, (done && done.label) || 'Hotovo')),
             ),
         ),
     );

@@ -190,7 +190,7 @@ module.exports = {
             assert.ok(await client.$('[data-cal-action="history"]'), 'Historie stays');
             const b = await boot(client);
             assert.equal(b.mode, 'client');
-            assert.deepEqual(Object.keys(b.env.urls).sort(), ['asset', 'history', 'save']);
+            assert.deepEqual(Object.keys(b.env.urls).sort(), ['asset', 'export', 'history', 'save']);
             assert.equal(b.env.clientUrl, undefined);
             assert.equal(b.env.siblings, undefined);
             assert.equal(await client.$eval('meta[name="robots"]', (el) => el.content), 'noindex, nofollow');

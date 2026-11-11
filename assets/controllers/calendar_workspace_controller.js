@@ -235,6 +235,8 @@ export default class extends Controller {
         }
         try {
             sessionStorage.setItem('wb-cal-toast', message);
+            // the list offers „Stáhnout PDF“ for this calendar in that toast
+            sessionStorage.setItem('wb-cal-toast-calendar', this.store.getState().doc.id || '');
         } catch (e) {
             // private mode: the list simply shows no toast
         }

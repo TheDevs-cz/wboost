@@ -65,6 +65,18 @@ docker compose exec -T postgres psql -U postgres -d wboost \
   -c "DELETE FROM \"user\" WHERE email = 'e2e-calendar@test.cz'"
 ```
 
+## PDF export (`pdf-export.e2e.cjs`)
+
+Exports calendars through the UI and inspects the downloaded files. Two things it needs beyond the
+rest: **poppler** on the host (`pdfinfo`, `pdffonts`, `pdfimages`, `pdftotext`, `pdftoppm` — macOS:
+`brew install poppler`; without it the file checks fail with „SKIPPED — poppler…“) and a **Messenger
+consumer** — the export is an asynchronous job and the dev stack runs none, so the script starts
+`bin/console messenger:consume async --time-limit=900` in the `web` container itself and stops it at
+the end. With `SHOTS` set it also writes the exported PDFs and PNG renders of several pages there
+(whole pages and 1200 dpi crops) — look at them. `lib/pdf-fixture.cjs` builds the calendars (fonts of
+the project, generated photos, events, waste, a special page); run it by hand to get a full year
+for measuring: `node tests/e2e/calendar/lib/pdf-fixture.cjs week all 3000`.
+
 ## Writing a script
 
 `tests/e2e/calendar/<name>.e2e.cjs` exports `{ name, checks: ['E1', …], run(ctx) }`;

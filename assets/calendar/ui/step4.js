@@ -1,6 +1,7 @@
 // Step 4 — Obsah (handoff §4.6, architecture §D.7, map §8.10) — phase P6a.
 //
-//   toolbar            the content tools (`ui/tools/index.js`) + the chip „N upozornění“, which
+//   toolbar            the content tools (`ui/tools/index.js`) + „Stáhnout PDF“ (`ui/export.js`,
+//                      `[data-cal-action="export-pdf"]`) + the chip „N upozornění“, which
 //                      jumps to the next page that has a warning (wrapping round)
 //   left list          Styl stránek · Speciální stránky · plus menu · thumbnails of every page
 //   middle             `ui.contentView`:
@@ -23,6 +24,7 @@ import { zoomIn, zoomOut } from '../editor/zoom.js';
 import { renderPage } from '../render/page.js';
 import { h, icon } from './dom.js';
 import { mountEditor } from './editor/index.js';
+import { openExport } from './export.js';
 import { mountPageList } from './pagelist.js';
 import { mountPagePanel } from './pagepanel.js';
 import { mountSpecialPanel, previewedSpecial } from './tools/special.js';
@@ -55,7 +57,19 @@ export function mountStep4(root, ctx) {
             if (next !== null) store.setUi({ contentView: next });
         },
     });
-    row.append(h('span', { class: 'cal-top-sp' }), chip.el);
+    // the same „Stáhnout PDF“ as in step 5 — the content is what gets exported, so it is at hand here too
+    const exportButton = h(
+        'button',
+        {
+            type: 'button',
+            class: 'btn sm btn-tertiary cal-4pdf',
+            'data-cal-action': 'export-pdf',
+            onClick: () => openExport({ name: store.getState().doc.design.name, url: ctx.env.urls.export, csrf: ctx.env.csrf, toast: ctx.toast, unsaved: { dirty: () => store.isDirty(), save: () => ctx.actions.save() } }),
+        },
+        icon('download', 's16'),
+        'Stáhnout PDF',
+    );
+    row.append(h('span', { class: 'cal-top-sp' }), exportButton, chip.el);
 
     // ---- left list ---------------------------------------------------------------------------
     const list = mountPageList(side, ctx, {
