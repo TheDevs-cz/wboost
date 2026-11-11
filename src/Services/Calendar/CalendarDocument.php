@@ -144,6 +144,37 @@ readonly final class CalendarDocument
      */
     public function projectEnv(Project $project): array
     {
+        return [
+            'projectName' => $project->name,
+            'fonts' => $this->fonts($project),
+            'palette' => $this->palette($project),
+            'currentYear' => $this->currentYear(),
+            'maxFileSize' => self::MAX_FILE_SIZE,
+            'csrf' => $this->csrfTokenManager->getToken(self::CSRF_TOKEN_ID)->getValue(),
+        ];
+    }
+
+    /**
+     * The project's font faces as the calendar JavaScript reads them; a text
+     * style's `family` is one of these `family` strings (or null).
+     *
+     * @return list<array{family: string, fontName: string, faceName: string, weight: int, style: string, url: string}>
+     */
+    public function fonts(Project $project): array
+    {
+        return array_map(
+            static fn (RichTextFontOption $face): array => $face->toArray(),
+            ResolveRichTextOptions::projectFaces($this->getFonts->allForProject($project->id), $this->uploaderHelper),
+        );
+    }
+
+    /**
+     * The project's colours, `#RRGGBB` upper case, unique.
+     *
+     * @return list<string>
+     */
+    public function palette(Project $project): array
+    {
         $palette = [];
 
         foreach ($this->projectColorRepository->forProject($project->id) as $color) {
@@ -154,17 +185,12 @@ readonly final class CalendarDocument
             }
         }
 
-        return [
-            'projectName' => $project->name,
-            'fonts' => array_map(
-                static fn (RichTextFontOption $face): array => $face->toArray(),
-                ResolveRichTextOptions::projectFaces($this->getFonts->allForProject($project->id), $this->uploaderHelper),
-            ),
-            'palette' => $palette,
-            'currentYear' => (int) $this->clock->now()->format('Y'),
-            'maxFileSize' => self::MAX_FILE_SIZE,
-            'csrf' => $this->csrfTokenManager->getToken(self::CSRF_TOKEN_ID)->getValue(),
-        ];
+        return $palette;
+    }
+
+    public function currentYear(): int
+    {
+        return (int) $this->clock->now()->format('Y');
     }
 
     /**
