@@ -166,7 +166,7 @@ allow-listed by sniffed MIME type.
 | §10.6 delete confirmation | added |
 | §10.7 bleed edge adaptation | default |
 | §10.8 simultaneous editing | default for content; design is last-write-wins |
-| §10.9 print output | not built; preview dimensionally exact |
+| §10.9 print output | built 2026-11-11: „Stáhnout PDF“ — a vector RGB PDF of every page (print: bleed + crop marks + TrimBox / BleedBox, photos at uploaded resolution; approval: trimmed, small). `docs/architecture/calendars.md` § "PDF export"; e2e `pdf-export` |
 | §10.10 uploaded special pages | default |
 | §10.11 client link | default: unguessable, regenerable, no expiry |
 | §10.12 binding band | prototype proportion, a calendar property |
@@ -177,7 +177,7 @@ allow-listed by sniffed MIME type.
 
 ## 6. Known gaps / second iteration
 - AI scan, PDF / image layout import, Excel import (out of scope).
-- Print PDF export.
+- Print output in CMYK / PDF/X (the export is RGB; the Ghostscript conversion spike gives rich-black text and no brand palette — `docs/architecture/calendars.md` "Known gaps"). Print files above ~165 MB are unmeasured.
 - Long holiday + event on the same day of a 14-day page: ~10 mm box, warning only; a stacking rule needs a design decision.
 - Cover / back / special page content editing; gallery as photo source; page size UI; asset sweeper; client autosave; design conflict detection; launch (preview gate).
 - e2e not in CI; dev container restarts under load.

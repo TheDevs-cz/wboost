@@ -265,6 +265,15 @@ structure of the Illustrator-exported reference file.
   outside it, marks on all four plates, black text K100 over the untouched
   cyan; a 2-page `renderDocument` (page 2's own ink + marks, separated with
   `-dFirstPage`), and a 2-page screen PDF.
+- **`PdfPageBoxes`** (2026-11-11, used by the calendar PDF export —
+  `calendars.md` § "PDF export") is the one class here that works on a PDF it
+  did not write: it appends an incremental update that sets MediaBox / CropBox
+  / TrimBox / BleedBox + Info on every page of a Chromium-printed, qpdf-merged
+  file. That export is the opposite design of the one above — a **vector RGB**
+  file printed by Chromium (live text, embedded fonts, photos at native
+  pixels), not a flattened CMYK raster; the CMYK conversion of such a vector
+  file was spiked and is NOT clean (rich black text, no brand palette — the
+  result is in `calendars.md` "Known gaps").
 - The ICC profile is Adobe's "Coated FOGRA39" (extracted from the studio's
   reference PDF — the profile the designers' own exports embed). If its
   licence ever becomes a concern, ECI's ISOcoated_v2 is the FOGRA39-based

@@ -60,7 +60,7 @@ commit when you change a contract described there — not this file.
 | `manuals.md` | mockup page grid + attachments, logo own-page variants, colours (RAL), logo width cascade, page texts |
 | `templates-documents.md` | multi-page documents: `TemplateDocument` / pages / shared fields, invariants (`TemplateDocumentRules`), diffing page list, rollout switch, listing cards, document page, editor page strip, fill keys, multi-page PDF export |
 | `storage-inventory.md` | `storage_object` scan, `BuildStorageReferenceIndex` (add every new path-storing column there!), project deletion storage cleanup |
-| `calendars.md` | Kalendáře module: `calendar` / `calendar_asset` / `calendar_history`, design vs content JSON, save contract + item merge, roles + client link `/k/{token}`, `assets/calendar/**` (model / generate / render / editor / state / ui), `window.__calendar`, node suites + e2e (`tests/e2e/calendar/`), the server-side model in node (`resources/calendar/model.mjs`, `CalendarModelBridge`) + headless page render (`CalendarPageRenderer`), the seven calendar MCP tools |
+| `calendars.md` | Kalendáře module: `calendar` / `calendar_asset` / `calendar_history` / `calendar_export`, design vs content JSON, save contract + item merge, roles + client link `/k/{token}`, `assets/calendar/**` (model / generate / render / editor / state / ui), `window.__calendar`, node suites + e2e (`tests/e2e/calendar/`), the server-side model in node (`resources/calendar/model.mjs`, `CalendarModelBridge`) + headless page render (`CalendarPageRenderer`), the vector PDF export („Stáhnout PDF“: `CalendarPdfExporter`, the async `job_bus`, `PdfPageBoxes`), the seven calendar MCP tools |
 
 ### Design system (Nocturne UI) — read BEFORE touching templates or CSS
 
@@ -100,6 +100,12 @@ design DSL), `docs/plans/` (historical plans, not current truth).
   `assets/bootstrap_global.js`). Redesign plan/spec: `docs/redesign/`.
 - **Upload limit = 10 MB DECIMAL** (`maxSize: '10m'` = 10 000 000 bytes); every
   JS/PHP mirror must use the same number — see `gallery-and-uploads.md`.
+- **Long jobs go on the `job_bus`** (`config/packages/messenger.php`): the
+  default `command_bus` wraps every handler in a transaction, so progress a
+  handler flushes is invisible until it ends. A job the browser polls
+  (calendar PDF export) is dispatched on `job_bus`
+  (`#[Autowire(service: 'job_bus')]`, handler `#[AsMessageHandler(bus: 'job_bus')]`)
+  and routed to `async`; dev and CI run no consumer — see `calendars.md`.
 - **Never return a flushing `StreamedResponse`** for generated binaries — the
   resident FrankenPHP runtime corrupts the next request; return buffered Responses.
 - **Classic scripts in `assets/editor/*.js` run on THREE surfaces** (editor page,

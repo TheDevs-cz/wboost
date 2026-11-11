@@ -40,7 +40,7 @@ survives purely for the untouched `social-networks/…` keys and historical rows
   documents (`manual.logo`,
   `manual_mockup_page.images`, the image elements of
   `manual_content_page.segments`, `manual_content_page.background`, `font.faces`),
-  the calendar uploads (`calendar_asset.path` and `calendar_asset.preview_path` —
+  the calendar uploads and PDF exports (`calendar_asset.path`, `calendar_asset.preview_path`, `calendar_export.path` —
   see "Calendars" below), the canvas JSONB **and the e-mail
   signature `code`** — the last two EMBED paths inside full public URLs rather
   than storing the key, so they are matched by storage-prefix regex (the base
@@ -71,6 +71,15 @@ survives purely for the untouched `social-networks/…` keys and historical rows
   until its calendar goes, **referenced** (so it is not an orphan in the
   report, just unused). A layout import copies the pictures it needs into the
   target calendar under new ids.
+  **PDF exports** (`calendar_export.path` =
+  `calendars/{calendarId}/exports/{40 hex}.pdf`, registered in
+  `BuildStorageReferenceIndex`) lie inside the same directory, so the owner
+  lookup, the project collection and the calendar deletion cover them
+  unchanged. Only the newest six exports of a calendar are kept
+  (`CalendarPdfExporter::prune`: rows first, then files — a failed file
+  delete leaves an orphan the report shows, never a row without its file). A
+  print export of a full year is 150–500 MB: these are the largest objects
+  the app writes.
 - Unreferenced objects are still attributed to a project by
   `ResolveStorageOwnerByPath`, which pulls the first UUID out of the key and
   looks it up across every namespacing entity. Objects whose entity is gone stay

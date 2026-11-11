@@ -24,14 +24,15 @@ item under a row lock, records history, stores files.
 
 ## Data model
 
-Three tables, one migration (`Version20261111131800`), all `ON DELETE CASCADE` from
-`project`.
+Four tables (`Version20261111131800`; `calendar_export` came with
+`Version20261111210000`), all `ON DELETE CASCADE` from `project`.
 
 | Table / entity | Holds |
 |---|---|
 | `calendar` / `Entity/Calendar` | one row = one calendar: the **design** (`name`, `year`, `type` week\|fortnight, `page`, `print`, `features` JSONB, `layout_preset`, `layout` JSONB, `link_elements`, `step`, `finished`) + the **content** JSONB + `client_token` (64 hex, unique) + `revision` (+1 per save) |
 | `calendar_asset` / `CalendarAsset` | every uploaded file: `kind` (`photo logo icon qr image page`), `path` = `calendars/{calendarId}/{assetId}.{ext}`, optional `preview_path` (`…-preview.webp`, only when the long edge > 1600 px), pixel `width`/`height` (null for SVG), embedded `description` (EXIF / XMP caption), uploader kind + user |
 | `calendar_history` / `CalendarHistoryEntry` | "Historie": `author_kind` (designer\|client), `user_id` (SET NULL), a ready Czech sentence, `created_at` |
+| `calendar_export` / `CalendarExport` | one PDF export job and its file: `variant` (print\|approval), `status` (queued\|running\|done\|failed), `progress_done` / `progress_total` (pages), `path` = `calendars/{calendarId}/exports/{40 hex}.pdf`, `size_bytes`, `error` (a Czech sentence), `calendar_revision` + `renderer_hash` (what the file was made from), requester kind + user, `created_at` / `updated_at` (heartbeat) / `finished_at` — § "PDF export" |
 
 JSON refers to files by **asset id** only (never a path), so the storage
 reference index needs no JSON walk — see `storage-inventory.md`.
@@ -308,7 +309,7 @@ the zip **declares** for `word/document.xml` (≤ 5 MB) before inflating it.
 The link needs no account, so everything behind `/k/{token}` is bounded.
 Limiters live in `config/packages/rate_limiter.php` (one Redis pool,
 `cache.calendar_client`; in-memory storage in tests), are consumed by hand in
-the three thin controllers and answer 429 + `Retry-After` in the `{ error }`
+the thin controllers and answer 429 + `Retry-After` in the `{ error }`
 shape (`CalendarResponses::overBudget`). An unknown token is a 404 before
 anything is counted. The `/calendar/{id}/…` twins have no budget.
 
@@ -318,6 +319,8 @@ anything is counted. The `/calendar/{id}/…` twins have no budget.
 | uploads per link, any address | 500 / hour | `calendar_client_upload_link` |
 | saves per link | 600 / hour | `calendar_client_save` |
 | history reads per link | 600 / hour | `calendar_client_history` |
+| NEW PDF renders per link (a request the existing file answers is free) | 10 / hour | `calendar_client_export` |
+| export status polls + downloads per link | 3000 / hour | `calendar_client_export_read` |
 | stored bytes of all **client** uploads of one calendar (link holders + read-only members; main files, previews not counted) | 2 GB → 422 | `CalendarAssetUploader::MAX_CLIENT_BYTES` |
 | history lines kept per calendar | newest 2000 | `CalendarHistoryWriter::MAX_ENTRIES`, pruned by `SaveCalendarHandler` / `RecordCalendarHistoryHandler` after they record |
 | pixels of an uploaded picture | 60 MP | `ImageDecodeLimits::MAX_PIXELS` |
@@ -341,8 +344,9 @@ file from another project loads without pictures.
 | `calendar_create` | POST `/project/{projectId}/calendars/create` | `ProjectVoter::EDIT` + CSRF |
 | `calendar_workspace` | GET `/calendar/{calendarId}` | `CalendarVoter::VIEW` (mode from `CalendarAccess`) |
 | `calendar_save` / `calendar_asset_upload` / `calendar_history` / `calendar_card` | POST `…/save`, POST `…/asset`, GET `…/history`, GET `…/card` | `CalendarVoter::VIEW` |
+| `calendar_export_request` / `_status` / `_download` | POST `…/export`, GET `…/export/{exportId}`, GET `…/export/{exportId}/download` | `CalendarVoter::VIEW` — whoever opens a calendar may export it |
 | `calendar_document_text` / `calendar_layout_import` / `calendar_client_link` / `calendar_delete` | POST `…/document-text`, `…/layout-import`, `…/client-link`, `…/delete` | `CalendarVoter::EDIT` |
-| `calendar_client` (+ `_save`, `_asset`, `_history`) | `/k/{token}` (+ `/save`, `/asset`, `/history`) | public; the token is the credential |
+| `calendar_client` (+ `_save`, `_asset`, `_history`, `_export_request` / `_export_status` / `_export_download`) | `/k/{token}` (+ `/save`, `/asset`, `/history`, `/export…`) | public; the token is the credential |
 
 `{token}` = `[a-f0-9]{64}`, unknown → 404; regenerating it
 (`RegenerateCalendarClientLink`) kills the old URL. The token addresses the
@@ -373,14 +377,16 @@ All inner DOM of the workspace and the client page is built by JS from one
 ### Storage and font registrations (done; keep in sync)
 
 `BuildStorageReferenceIndex` (`calendar_asset.path`, `.preview_path`,
-`calendars` in `PATH_PREFIXES`), `ResolveStorageOwnerByPath`,
+`calendar_export.path`, `calendars` in `PATH_PREFIXES`), `ResolveStorageOwnerByPath`,
 `StorageCategory::Calendar`, `CollectProjectStoragePaths`
 (`calendars/{calendarId}` per calendar), `DeleteCalendarHandler` (collects the
 directory first, removes the row, then `deleteDirectory`),
 `RewriteFontReferences` (`replaceInCalendars`: rewrites `calendar.layout`,
 `revision` + 1, fresh `updated_at`), `GetFontUsage` (calendar layouts count on
 the Fonty page — `templates-text-inputs.md`). A new path-storing column
-needs all the storage ones — `storage-inventory.md`.
+needs all the storage ones — `storage-inventory.md`. Export files live INSIDE
+the calendar's directory (`calendars/{id}/exports/`), so the owner lookup, the
+project path collection and the calendar deletion cover them as they are.
 
 ### Module switch
 
@@ -618,6 +624,182 @@ classified by `TemplateVariantImageRenderer::isRendererOverloaded`. Buffered
 bytes only, never a streamed response. Without project fonts the fallback face
 is Chromium's sans-serif, not Outfit (not shipped to Gotenberg).
 
+## PDF export — „Stáhnout PDF“ (2026-11-11)
+
+Whoever can open a calendar can take it away as a PDF: designer, admin,
+read-only member, the client on `/k/{token}`. Two variants
+(`Value/Calendar/CalendarExportVariant`):
+
+| Variant | Pages | Photos | For |
+|---|---|---|---|
+| `print` „Pro tisk“ | what step 5 shows the designer: the bleed when it is on, crop marks when they are on. Sheet = the view box of `pageViewBox(design, { bleed, marks })` — trim + 2 × bleed, with marks trim + 2 × (bleed + 2 mm gap + 5 mm mark + 1 mm) = **336 × 171 mm** for the default page with 5 mm bleed | the uploaded file, byte for byte | the print shop |
+| `approval` „Náhled k odsouhlasení“ | trimmed (310 × 145 mm), no bleed, no marks | the ≤ 1600 px preview, as JPEG | e-mail |
+
+**The file is vector.** The page SVG is *printed* by Gotenberg's Chromium, not
+screenshotted (`templates/calendar/headless_print.html.twig` →
+`renderHeadlessSheets()` in `headless/render.js`: one `.sheet` per page, exact
+in mm). Chromium's PDF backend (Skia) writes SVG text as text with the fonts
+embedded (subset, Identity-H, with ToUnicode — the text can be selected and
+searched), shapes, gradients, clip paths, opacity and dashes as vector
+operators, and every `<image>` as an image object with the pixels of its
+file; **a JPEG is copied in with its own data** (`pdfimages -list` shows
+`3600 × 2400 jpeg` for a 3600 px upload). Measured on a page using everything
+the renderer can draw at once: the only thing Chromium rasterises is the
+element under an SVG **filter** — the photo shadow (`feGaussianBlur`) becomes
+one 300 ppi RGB image + soft mask of the blurred rectangle; the photo above
+it, the texts and every other shape stay as they are.
+
+Print gets `placeholders: 'none'` (nothing invented goes on paper — an empty
+photo frame stays empty), approval `'frames'` (the grey "a photo is missing"
+frame, as on screen). The hole row is drawn in both, as step 5 draws it.
+
+### Pipeline — `Services/Calendar/`
+
+`CalendarPdfExporter::run(exportId)` (the job) → `CalendarPdfProducerInterface`
+(`CalendarPdfProducer`; tests swap in `tests/Fakes/FakeCalendarPdfProducer`):
+
+1. **Plan** (`CalendarPdfRenderer::plan` → `CalendarPdfPlan`): the page list and
+   the sheet size come from the calendar's JavaScript (`CalendarModelBridge`,
+   `view`), never from PHP; the font faces are read once.
+2. **Chunks** (`CalendarPdfProducer::chunks`): consecutive pages, at most 6
+   pages and 16 MB of page-bound pictures per chunk (a heavier page is a chunk
+   of its own). A year is never one HTML document — 55 photos of up to 10 MB.
+3. **Render a chunk** (`CalendarPdfRenderer::renderChunk`): the HTML is written
+   to a temp file piece by piece and the uploaded photos are **streamed** into
+   it from the storage through a base64 stream filter
+   (`CalendarRenderAssets::inlined(…, $deferred)` puts a token where the data
+   URI goes; `writeDataUri()` fills it), sent to Gotenberg as a file
+   (`contentFile`), the answer written to a file (`FileProcessor`). PHP's
+   memory stays flat (~70 MB peak for a 165 MB export) whatever the photos
+   weigh. `CalendarPictureSource` says which file an asset gives: `Preview`
+   (screenshots), `PreviewJpeg` (approval), `Original` (print).
+4. **Merge** (`CalendarPdfMerger`): Gotenberg's `/forms/pdfengines/merge`
+   (qpdf) — structural, nothing re-encoded; files as streams both ways. The
+   application image has no PDF merger (Ghostscript would re-interpret every
+   page).
+5. **Page boxes** (`Services/Print/PdfPageBoxes`): an **incremental update**
+   appended to the merged file gives every page an exact MediaBox / CropBox, a
+   TrimBox, a BleedBox, and the file an Info dictionary (title, creator,
+   date). Not a byte of the existing file changes. Best effort: a structure it
+   does not read (`PdfStructureNotSupported` — a cross-reference stream, an
+   earlier update, encryption) leaves the file as Chromium made it and logs a
+   warning.
+6. **Store** under `calendars/{calendarId}/exports/{40 hex}.pdf` with
+   `ContentType` + `ContentDisposition` on the object, mark the row `done`,
+   prune: the newest `CalendarPdfExporter::KEEP` (6) exports of a calendar stay,
+   older rows and their files go (a pending job is never pruned).
+
+### The job
+
+- `CalendarExports::request()` dispatches `RequestCalendarExport` (command bus:
+  locks the calendar row, so two requests at once end in ONE job; refuses a
+  calendar without a layout; writes the history line `Stáhl PDF pro tisk` /
+  `Stáhl PDF k odsouhlasení`; creates the row unless one is reusable) and then
+  `RunCalendarExport` for a row it created.
+- **Reuse**: a `done` (or still pending) export of the same variant with the
+  same `calendar.revision` and `renderer_hash`
+  (`CalendarModuleInliner::fingerprint()` — a hash of the page modules and the
+  two headless templates, so a deploy that changes the renderer invalidates
+  old files) answers the request at once. Every request still writes its
+  history line.
+- **`RunCalendarExport` runs on the `job_bus`** (`config/packages/messenger.php`):
+  routed to the `async` transport, and on a bus WITHOUT `doctrine_transaction`,
+  because the job flushes its status and progress for the polling browser
+  while it runs — inside the command bus's transaction nothing would be
+  visible until the end. Handlers of such jobs say
+  `#[AsMessageHandler(bus: 'job_bus')]`; inject the bus with
+  `#[Autowire(service: 'job_bus')]`.
+- The job renders what is saved **when it runs** and writes that revision into
+  the row. It never throws: a failure is a `failed` row with a Czech sentence
+  (`CalendarExports::FAILED` / `BUSY` / `NO_LAYOUT`) + an error log — no
+  Messenger retry (the user has „Zkusit znovu“). A busy Gotenberg is retried
+  three times per chunk first.
+- **A stalled job** (consumer restarted mid-export, or none running): a
+  non-final row silent for `CalendarExport::STALE_AFTER_SECONDS` (10 min)
+  *reads* as failed (`STALLED`) and no longer blocks a new request. Nothing
+  rewrites the row.
+- Dev and CI run no consumer. Tests route the job `sync`
+  (`config/packages/test/messenger.php`), so a POST answers the finished
+  export; in dev run `bin/console messenger:consume async` (the e2e script
+  starts its own) or export in the foreground:
+  `bin/console app:calendar:export-pdf <calendarId> [print|approval]` — it
+  reports time, size and PHP's peak memory.
+
+### Endpoints — `CalendarExportHttp` behind both route families
+
+POST `…/export` (`_token`, `variant`) → `{ export }`; GET `…/export/{id}` →
+`{ export }` (polled every 1.5 s); GET `…/export/{id}/download`.
+`export = { id, variant, status, done, total, error, sizeBytes, fileName,
+urls: { status, download } }`. An export is always looked up **inside its
+calendar** (`CalendarExportRepository::getOfCalendar`) — another calendar's
+export id is a 404 through any address. The download is a **buffered**
+`Response` up to `CalendarExports::BUFFERED_DOWNLOAD_BYTES` (32 MB) and a 302
+to the storage URL above it (the key is unguessable and the object carries
+its own `Content-Disposition`) — a full print year is 150–500 MB, which no PHP
+response should hold, and a flushing `StreamedResponse` is forbidden
+(CLAUDE.md). File name: `Value/DownloadFileName` — `{název} - tisk.pdf` /
+`{název} - náhled.pdf`.
+
+### UI — `ui/export.js`, one dialog, four doors
+
+`openExport({ name, url, csrf, toast, unsaved? })` needs addresses only, so it
+opens from: the step-5 toolbar (`[data-cal-action="export-pdf"]`, first of the
+actions, every role — also the client page and the read-only member), the
+step-4 toolbar (designer), every **list card** whose calendar has a layout
+(„PDF“, title „Stáhnout PDF“), and the Dokončit toast on the list
+(`sessionStorage['wb-cal-toast-calendar']` names the calendar; `toast()` takes
+an optional `{ label, onClick }` action). Radio cards (`.rpick > .rcard`) pick
+the variant; with unsaved changes the dialog says the export uses the saved
+state and the primary action becomes „Uložit a exportovat“. Progress
+„Připravuji PDF… 12 z 55 stran“; the download starts through a hidden
+**iframe** (a navigation would trip the workspace's `beforeunload` guard) and
+a „Stáhnout“ link stays. Closing the dialog only stops the polling. In step 5
+the actions are pinned and only the tools scroll (two rows under 960 px).
+
+### Numbers (dev stack, Apple silicon, 2026-11-11)
+
+| Calendar | Variant | Pages | Time | File | PHP peak | Gotenberg container peak |
+|---|---|---|---|---|---|---|
+| 53 photos of ~3.2 MB (3000 × 2000, one 3600 × 2400), 172 MB of uploads | print | 56 | 17.6 s | 165 MB | 69 MB | ~730 MiB |
+| the same | approval | 56 | 6.0 s | 17 MB (noise-heavy test photos; real ones are about half) | 70 MB | — |
+| 3 photos | print | 56 | 3.3 s | 8.1 MB | — | — |
+| everything switched on (background picture at 35 %, gradients, shadow) | print | 56 | 21 s | 17 MB | 71 MB | — |
+
+### Limits and traps
+
+- **Chromium rounds a PDF page to whole points** (336 mm came out as
+  952.08 pt, 171 mm as 485.04 pt). The page is therefore printed on the next
+  whole point UP (`@page` in pt) with the exact sheet in its top-left corner,
+  and `PdfPageBoxes` cuts the MediaBox back, anchored at the top (the
+  MediaBox then starts at `y = 0.32`, not 0 — legal; poppler, Ghostscript
+  and qpdf read it). If the boxes cannot be set, the page is ≤ 1 pt larger at the
+  right / bottom and has no TrimBox.
+- **Colours are RGB** (sRGB-tagged photos, DeviceRGB vectors). No CMYK, no
+  PDF/X, no output intent — see "Known gaps".
+- **Every Gotenberg call must fit its limits**: the scoped client's
+  `timeout: 20` / `max_duration: 25` and Gotenberg's own 30 s API timeout. A
+  chunk takes ~0.3 s and the whole 165 MB export (merge included) 17.6 s. A print file
+  far beyond that (a year of 10 MB photos ≈ 550 MB) may not merge in time —
+  and production's Gotenberg `/tmp` is a 1 GB tmpfs holding the inputs and the
+  output of the merge. Such an export fails with `BUSY`; nothing was measured
+  above 165 MB.
+- **One consumer, one export at a time** — and e-mails / domain events queue
+  behind a running export (seconds to a minute). A second consumer on a
+  dedicated transport would isolate them; not done.
+- **Pictures the layout shares** (a header or background picture) are
+  embedded once per CHUNK, not once per file — qpdf does not deduplicate
+  across merged files.
+- **Glyphs missing from the project font** fall back to Chromium's default
+  face in the PDF, while the workspace falls back to Outfit (a Google font the
+  headless page cannot load). A font without Czech diacritics therefore looks
+  different in the PDF; a complete font does not.
+- **A WebP / PNG is stored losslessly by Chromium's PDF backend** (a 300 kB
+  WebP preview took 3–4 MB). That is why the approval variant re-encodes
+  previews as JPEG (`CalendarRenderAssets::opaqueAsJpeg`, pictures with
+  transparency excepted) — and why a PNG *upload* is heavy in the print file.
+- `Browser.setDownloadBehavior` is per browser context — an e2e script that
+  watches downloads in an anonymous context must pass its `browserContextId`.
+
 ## MCP — `src/Mcp/Tool/*Calendar*Tool.php`
 
 Seven tools; a calendar can be authored end to end from an AI client. Scopes
@@ -631,7 +813,7 @@ calendars and `get_calendar` carries the project's fonts and palette).
 | `list_calendars(projectId?)` | read | the calendars of one / every reachable project |
 | `get_calendar(calendarId, historyLimit?)` | read | `CalendarDocument` materialised by the model: settings, layout **with styles**, `pages` (page keys), content, assets, fonts, palette, history (≤ 200). Never the client token. Falls back to the stored values (`pages: null`) when the model cannot run |
 | `render_calendar_page(calendarId, page, bleed?, marks?, sampleTexts?)` | read | JSON summary + WebP (1600 px) of one stored page |
-| `manage_calendar(action, …)` | write | `create` (`CreateCalendar`, then the settings), `configure` (name, year, type, features, print, linkElements), `finish`, `client_link` (get = `RecordCalendarHistory` LINK_COPIED, `regenerate` = `RegenerateCalendarClientLink`), `import_layout` (`ImportCalendarLayout::plan` + `CopyCalendarAsset` + history, then `replace_layout`) |
+| `manage_calendar(action, …)` | write | `create` (`CreateCalendar`, then the settings), `configure` (name, year, type, features, print, linkElements), `finish`, `client_link` (get = `RecordCalendarHistory` LINK_COPIED, `regenerate` = `RegenerateCalendarClientLink`), `import_layout` (`ImportCalendarLayout::plan` + `CopyCalendarAsset` + history, then `replace_layout`), `export_pdf` (`CalendarExports::request` — the web's own request; answers `export`) and `export_status` |
 | `set_calendar_layout(calendarId, preset?, reset?, boxes?, order?, styles?)` | write | preset → default layout (or mirror / reset), then a validated patch |
 | `upload_calendar_asset(calendarId, kind, fileBase64, filename)` | write | `CalendarAssetUploader::storeFile()` — the method both web routes end in |
 | `update_calendar_content(calendarId, operations[])` | write | item operations `{collection, id, value\|null, label?}` re-encoded as the web payload's `content` list |
@@ -653,6 +835,15 @@ calendars and `get_calendar` carries the project's fonts and palette).
   calendar's id.
 - **The client link** is handed out by `manage_calendar` `client_link` only —
   write scope + designer role, recorded in the history — never by a read.
+- **PDF export** is two actions of `manage_calendar` — `export_pdf`
+  (`calendarId`, `variant`) and `export_status` (`calendarId`, `exportId`) —
+  answering `export { exportId, variant, status, pagesDone, pagesTotal,
+  revision, fileName, sizeBytes, downloadUrl, error }`. **Any role** may call
+  them (the only actions of the tool that are not the designer's), but the
+  tool's scope is `calendars:write`: scopes are per tool class, and an export
+  is not a look — it writes a history line and stores a file. `downloadUrl`
+  is the file's storage address (an AI client has no web session): an
+  unguessable key, to be handed to the user only.
 - **No delete**, by rule: no tool removes a calendar or an asset.
 - Refusals are `message (reason)`. Loader: `invalid_calendar_id`,
   `calendar_not_found` (identical for "not yours"), `invalid_project_id`,
@@ -666,7 +857,7 @@ calendars and `get_calendar` carries the project's fonts and palette).
   `invalid_design` (the server's rule, Czech text), `model_unavailable`, and
   per tool `invalid_action`, `missing_argument`, `nothing_to_do`,
   `not_a_sibling`, `layout_type_mismatch`, `source_has_no_layout`,
-  `invalid_kind`, `invalid_file`, `file_too_large`, `upload_refused`,
+  `invalid_variant`, `export_not_found`, `invalid_kind`, `invalid_file`, `file_too_large`, `upload_refused`,
   `unknown_page`, `renderer_busy`, `render_failed`.
 - Not module-gated (voters only): a calendar created in a project whose
   Kalendáře module is off exists and is reachable by its URL, but the project
@@ -692,14 +883,13 @@ the page size (no web UI either — `design.page` is not offered); a layout
 — an agent reads `layout` and writes it back instead) and therefore a layout
 from another project; `.docx` → text for a special page (send the text; the
 `page` upload takes an image or a PDF); the editor's undo stack, selection,
-zoom, snap and link behaviour (interaction, not data); a print export (does
-not exist on the web yet).
+zoom, snap and link behaviour (interaction, not data).
 
 ## Tests
 
 | Layer | Where | Run |
 |---|---|---|
-| PHP | `tests/Controller/Calendar`, `tests/MessageHandler/Calendar`, `tests/Services/Calendar`, `tests/Mcp/Tool/Calendar{Tools,DesignTools}Test.php`; fixtures `CALENDAR_{1,2,3}_ID` (+ tokens) in `TestDataFixture`, helpers `CalendarTesting` | `docker compose exec web vendor/bin/phpunit tests/Controller/Calendar …` |
+| PHP | `tests/Controller/Calendar` (export: `CalendarExportControllerTest`), `tests/MessageHandler/Calendar`, `tests/Services/Calendar` (`CalendarPdfProducerTest`; the real export through Gotenberg is `CalendarPdfProducerGotenbergTest`, `--group gotenberg`), `tests/Services/Print/PdfPageBoxesTest.php`, `tests/Mcp/Tool/Calendar{Tools,DesignTools}Test.php`; fixtures `CALENDAR_{1,2,3}_ID` (+ tokens) in `TestDataFixture`, helpers `CalendarTesting` | `docker compose exec web vendor/bin/phpunit tests/Controller/Calendar …` |
 | Node suites (every pure rule) | `tests/Fixtures/calendar/suites/*.mjs` + `harness.mjs`, `helpers.mjs` | in CI through `tests/Calendar/CalendarJsTest.php` (data provider globs the suites; a new suite file needs no PHP edit, a suite without a test fails); by hand `node tests/Fixtures/calendar/harness.mjs --all` or `… <suite>` |
 | Contract | `tests/Calendar/CalendarSeedContractTest.php` (PHP seed vs `BUILTIN_WASTE` via `dump-defaults.mjs`) | CI |
 | e2e (real pointer, asserts in mm) | `tests/e2e/calendar/*.e2e.cjs`, `lib/harness.cjs`, `lib/editor.cjs` | `node tests/e2e/calendar/run.cjs [filter]` — **not in CI** |
@@ -796,12 +986,18 @@ Deliberately not built (handoff §2), with the room left for them:
 - **AI design scan** ("Naskenovat design", Premium) and **layout import from a
   PDF or image** — the Nahrát layout menu has the two rule-based items only.
 - **Excel import** for Odpady and Akce a spolky (rule-based, postponed).
-- **Print PDF export.** The renderer is dimensionally exact (mm viewBox, bleed,
-  crop marks), but nothing produces a file; `Services/Print/` (PDF/X-1a,
-  FOGRA39 — `templates-render.md`) is the pipeline to reuse; the headless
-  render (`CalendarPageRenderer`, a screen-resolution picture today) is the
-  vehicle — a print export would ask Gotenberg for a PDF of the same page at
-  trim + bleed + marks.
+- **CMYK / PDF/X print file.** The export is RGB. A 2026-11-11 spike converted
+  the vector PDF with Ghostscript (`pdfwrite`, `-sColorConversionStrategy=CMYK`,
+  FOGRA39 output profile): text stays text, fonts stay embedded and the photo
+  becomes a CMYK JPEG — but pure black text comes out as rich black
+  (`#000000` → 89 / 78 / 62 / 97, 326 % ink), brand colours go through the ICC
+  profile instead of `Services/Print/BrandCmykPalette`, and the only switch
+  that gives K-only text (`-dBlackText -dBlackVector`) turns EVERY text and
+  vector black. A clean variant needs our own colour pass over the content
+  streams (fills / strokes by palette, near-black → K 100) before or instead
+  of Ghostscript; not built.
+- **Bigger print files**: nothing above 165 MB was measured; see the limits
+  of § "PDF export" (Gotenberg timeouts and tmpfs, one consumer).
 - **Cover, back and special pages** are drawn as far as the prototype goes;
   their content is not editable beyond the special-page settings (layout
   variant, position, name, uploaded graphic / text).
