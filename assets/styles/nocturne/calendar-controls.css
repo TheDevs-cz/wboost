@@ -111,3 +111,137 @@
     .cal-props { padding: 16px 16px 32px; }
     .cal-noprop { padding: 28px 16px; }
 }
+
+/* ==========================================================================
+   P5b — Kalendárium panels (ui/editor/props-kal.js) and the part chrome on the
+   stage (ui/editor/parts-overlay.js). Owner: phase P5b.
+     .cal-props-more       a conditional group of whole sections
+     .cal-szr              stepper + slider of one value (Fáze měsíce)
+     .cal-ord/.cal-orw/.cal-ordr/.cal-orx   ordered list (icons in the row, shift columns)
+     .cal-icl/.cal-icr/.cal-icp/.cal-icc    icon rows: tile · name · remove · second line
+     .cal-mph/.cal-mphc    one row per moon phase / season
+     .cal-icgr/.cal-icmap/.cal-icset        icon layout picker, cell diagram, cell settings
+     .cal-icadd/.cal-icmenu                 add button with its menu
+   Stage: .cal-evb (+ .cal-evbar-*) event box · .cal-icell icon cell · .cal-pbar side bar.
+   ========================================================================== */
+
+.cal-props-more { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.cal-props .cal-add { align-self: flex-start; margin-left: -8px; }
+.cal-szl { gap: 8px; }
+
+/* ---- Stepper + slider ------------------------------------------------------ */
+.cal-szr { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.cal-szr > .cal-num { flex: 0 0 128px; width: 128px; }
+.cal-szr > .cal-szi { flex: 1; min-width: 60px; grid-template-columns: minmax(0, 1fr); }
+.cal-szr > .cal-szi .cal-szt, .cal-szr > .cal-szi .cal-szv { display: none; }
+
+/* ---- Ordered lists ----------------------------------------------------------- */
+.cal-ord { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.cal-orw { border-radius: 10px; }
+.cal-orw.open { background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line-2); }
+.cal-ordr { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 4px 6px; border-radius: 10px; background: var(--surface-2); font-size: 13px; color: var(--text); }
+.cal-orw.open > .cal-ordr { background: transparent; }
+.cal-ordr.drg { padding-left: 2px; cursor: grab; }
+.cal-ordr.drg:hover .cal-grip, .cal-ordr.drg:focus-visible .cal-grip { opacity: 1; }
+.cal-ordr:focus-visible { outline: 2px solid var(--lav-ink); outline-offset: 2px; }
+.cal-ordr.hl { background: var(--lav-deep); color: var(--lav-ink); font-weight: 600; }
+.cal-ordr > .inp { flex: 1; min-width: 0; height: 32px; }
+.cal-ordr > .btn.icon.xs { flex: none; width: 28px; min-height: 28px; height: 28px; }
+.cal-ordn { flex: none; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--lav-deep); color: var(--lav-ink); font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cal-ordr.hl .cal-ordn { background: var(--lav); color: var(--on-accent); }
+.cal-ordt { flex: 1; min-width: 0; }
+.cal-ordb { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 4px 2px; border: 0; border-radius: 6px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.cal-ordb:focus-visible { outline: 2px solid var(--lav-ink); outline-offset: 1px; }
+.cal-ordb > .i { flex: none; opacity: .6; transition: transform var(--dur-2); }
+.cal-orw.open .cal-ordb > .i { transform: rotate(180deg); }
+.cal-ordtt { display: flex; flex-direction: column; min-width: 0; }
+.cal-ordtn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-ordtt .cap { font-size: 11px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-ordtt .cap:empty { display: none; }
+.cal-orx { display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 4px 10px 12px; }
+.cal-orx > .lbl { letter-spacing: .1em; }
+.cal-orw.cal-ord-ghost { opacity: .4; }
+.cal-orw.cal-ord-drag { background: var(--surface-3); box-shadow: var(--shadow-3); opacity: .95; }
+.cal-orw.cal-ord-drag .cal-orx { display: none; }
+
+/* ---- Icon rows ------------------------------------------------------------------ */
+.cal-icl { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.cal-icl:empty { display: none; }
+.cal-icr { display: grid; grid-template-columns: 36px minmax(0, 1fr) 32px; align-items: center; gap: 6px; min-width: 0; }
+.cal-icr.one { grid-template-columns: 36px minmax(0, 1fr) auto; }
+.cal-icr.noicon { grid-template-columns: minmax(0, 1fr); }
+.cal-icr.noicon > .cal-icp, .cal-icr.noicon > span:empty { display: none; }
+.cal-icc { grid-column: 2 / 4; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.cal-icc .btn { margin-left: -4px; }
+.cal-icc .cal-swx { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.cal-icc .cal-sws { gap: 6px; }
+.cal-icc .cal-swc { width: 20px; height: 20px; }
+.cal-icc .cal-swc.on { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--lav); }
+.cal-icc .cal-hex { width: 92px; height: 30px; }
+/* the icons are document-coloured: they are shown on paper in both themes */
+.cal-icp { position: relative; display: grid; place-items: center; width: 36px; height: 36px; margin: 0; border-radius: 10px; border: 1px dashed var(--line-3); background: #F6F5F8; overflow: hidden; cursor: pointer; transition: border-color var(--dur-2); }
+.cal-icp:hover { border-color: var(--lav); }
+.cal-icp:has(input:focus-visible) { outline: 2px solid var(--lav-ink); outline-offset: 2px; }
+.cal-icp[data-asset] { border-style: solid; border-color: var(--line-2); }
+.cal-icp[data-busy] { cursor: progress; opacity: .6; }
+.cal-icv { display: grid; place-items: center; width: 24px; height: 24px; }
+.cal-icv svg, .cal-icv img { display: block; width: 24px; height: 24px; object-fit: contain; }
+.cal-icn { min-width: 0; }
+.cal-icn input { min-width: 0; font-weight: 600; }
+.cal-icrm { align-self: flex-start; margin-left: -8px; color: var(--muted); }
+
+.cal-mph { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.cal-mphc { display: grid; grid-template-columns: 22px 36px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-width: 0; }
+.cal-mphc.nock { grid-template-columns: 36px minmax(0, 1fr) auto; }
+.cal-mphc.off .cal-icp, .cal-mphc.off .cal-mphn { opacity: .45; }
+.cal-props .cal-mphk { align-self: center; gap: 0; }
+.cal-mphk .cb { width: 18px; height: 18px; border-radius: 5px; }
+.cal-mphn { font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-mphr { padding: 0; border: 0; background: none; color: var(--lav-ink); font: inherit; font-size: 11px; text-decoration: underline; white-space: nowrap; cursor: pointer; }
+.cal-mphr:focus-visible { outline: 2px solid var(--lav-ink); outline-offset: 2px; border-radius: 3px; }
+
+/* ---- Icon layout, cell diagram ----------------------------------------------------- */
+.cal-props .cal-seg.cal-icgr { align-self: stretch; display: flex; }
+.cal-props .cal-seg.cal-icgr button { flex: 1; width: auto; height: 34px; padding: 0; justify-content: center; }
+.cal-icgr svg { display: block; }
+.cal-icmap { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: 34px 34px; gap: 4px; max-width: 220px; }
+.cal-icmap button { padding: 0; border: 1.5px dashed var(--line-3); border-radius: 8px; background: var(--surface); color: var(--text-2); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.cal-icmap button:hover { border-color: var(--lav); }
+.cal-icmap button:focus-visible { outline: 2px solid var(--lav-ink); outline-offset: 2px; }
+.cal-icmap button.on { border-style: solid; border-color: var(--lav); background: var(--lav-deep); color: var(--lav-ink); }
+.cal-icset { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.cal-props .cal-icset .cal-num { width: 150px; }
+.cal-icset .cal-num input::placeholder { color: var(--subtle); font-weight: 400; }
+
+/* ---- Add button with a menu ---------------------------------------------------------- */
+.cal-icadd { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.cal-icmenu { display: flex; flex-direction: column; padding: 4px; border-radius: 12px; background: var(--surface-2); box-shadow: 0 0 0 1px var(--line-2), var(--shadow-2); }
+.cal-icmenu button { padding: 8px 10px; border: 0; border-radius: 8px; background: none; color: var(--text); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.cal-icmenu button:hover, .cal-icmenu button:focus-visible { background: var(--lav-deep); color: var(--lav-ink); outline: 0; }
+
+/* ---- Part chrome on the stage (layer .cal-ovl-parts, mm × scale px) -------------------- */
+.cal-evb { position: absolute; z-index: 2; box-sizing: border-box; border: 1.5px dashed var(--rose); border-radius: 2px; background: color-mix(in srgb, var(--rose) 7%, transparent); cursor: move; }
+.cal-evb.over { background: color-mix(in srgb, var(--rose) 18%, transparent); }
+.cal-evbar { position: absolute; display: block; }
+.cal-evbar::after { content: ''; position: absolute; box-sizing: border-box; border: 1.5px solid var(--rose); border-radius: 3px; background: #fff; }
+.cal-evbar-n, .cal-evbar-s { left: 6px; right: 6px; height: 9px; cursor: ns-resize; }
+/* the boxes of neighbouring rows lie ~2 mm apart: a bar reaches only 2 px out of its own box */
+.cal-evbar-n { top: -3px; }
+.cal-evbar-s { bottom: -3px; }
+.cal-evbar-n::after, .cal-evbar-s::after { left: 50%; width: 14px; max-width: 100%; height: 5px; transform: translateX(-50%); }
+.cal-evbar-n::after { top: 0; }
+.cal-evbar-s::after { bottom: 0; }
+.cal-evbar-e, .cal-evbar-w { top: 6px; bottom: 6px; width: 8px; cursor: ew-resize; }
+.cal-evbar-e { right: -5px; }
+.cal-evbar-w { left: -5px; }
+.cal-evbar-e::after, .cal-evbar-w::after { top: 50%; left: 1.5px; width: 5px; height: 14px; max-height: 100%; transform: translateY(-50%); }
+.cal-ovl-parts > .cal-icell { position: absolute; z-index: 1; box-sizing: border-box; border: 1px dashed var(--lav); border-radius: 2px; pointer-events: none; }
+.cal-ovl-parts > .cal-icell.on { border-style: solid; background: color-mix(in srgb, var(--lav) 22%, transparent); }
+.cal-pbar { position: absolute; z-index: 3; display: block; width: 11px; margin-left: -5.5px; cursor: ew-resize; }
+.cal-pbar::before { content: ''; position: absolute; left: 5px; top: 0; bottom: 0; border-left: 1.5px dashed var(--lav); }
+.cal-pbar::after { content: ''; position: absolute; left: 2px; top: 50%; box-sizing: border-box; width: 7px; height: 22px; max-height: 60%; transform: translateY(-50%); border: 1.5px solid var(--lav); border-radius: 4px; background: #fff; }
+.cal-pbar:hover::before, .cal-pbar.drag::before { border-left-style: solid; }
+
+@media (prefers-reduced-motion: reduce) {
+    .cal-ordb > .i, .cal-icp { transition: none; }
+}
