@@ -72,7 +72,7 @@ return App::config([
              * holds the link works with no account, so every endpoint behind
              * it has a budget; the controllers consume them by hand (their
              * 429 is the calendar endpoints' `{ error }` JSON, not the
-             * kernel's error page). All four share one cache pool — the
+             * kernel's error page). All six share one cache pool — the
              * limiter id is part of every key.
              *
              * calendar_client_upload — POST /k/{token}/asset, key "link token
@@ -125,6 +125,35 @@ return App::config([
             'calendar_client_history' => [
                 'policy' => 'sliding_window',
                 'limit' => 600,
+                'interval' => '1 hour',
+
+                'cache_pool' => 'cache.calendar_client',
+            ],
+
+            /*
+             * POST /k/{token}/export, per link — counted only when the request
+             * starts a NEW render (an unchanged calendar is answered with the
+             * file that is already there, for free). A full year is minutes
+             * of headless Chromium on the single consumer: 10 per hour lets a
+             * client export both variants after each of five rounds of
+             * changes and stops a loop from queueing work for hours.
+             */
+            'calendar_client_export' => [
+                'policy' => 'sliding_window',
+                'limit' => 10,
+                'interval' => '1 hour',
+
+                'cache_pool' => 'cache.calendar_client',
+            ],
+
+            /*
+             * GET /k/{token}/export/{id} (polled every ~1.5 s while a job
+             * runs) and …/download, per link: one row read, or one file of at
+             * most 32 MB through PHP (larger ones redirect to the storage).
+             */
+            'calendar_client_export_read' => [
+                'policy' => 'sliding_window',
+                'limit' => 3000,
                 'interval' => '1 hour',
 
                 'cache_pool' => 'cache.calendar_client',

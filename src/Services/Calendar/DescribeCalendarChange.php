@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Services\Calendar;
 
+use WBoost\Web\Value\Calendar\CalendarExportVariant;
+
 /**
  * Turns an applied content operation into the Czech history sentence
  * (docs/calendar/architecture.md §C.6; style: past tense, masculine, no full
@@ -21,6 +23,8 @@ readonly final class DescribeCalendarChange
     public const string LAYOUT_FROM_FILE = 'Načetl layout ze souboru';
     public const string MOON_CHANGED = 'Upravil fáze měsíce';
     public const string SPECIAL_PAGES_CHANGED = 'Upravil speciální stránky';
+    public const string EXPORTED_PRINT = 'Stáhl PDF pro tisk';
+    public const string EXPORTED_APPROVAL = 'Stáhl PDF k odsouhlasení';
 
     private const int COMMENT_TEXT_LENGTH = 160;
 
@@ -28,6 +32,14 @@ readonly final class DescribeCalendarChange
     public static function isCoalesced(string $sentence): bool
     {
         return $sentence === self::MOON_CHANGED || $sentence === self::SPECIAL_PAGES_CHANGED;
+    }
+
+    public static function exported(CalendarExportVariant $variant): string
+    {
+        return match ($variant) {
+            CalendarExportVariant::Print => self::EXPORTED_PRINT,
+            CalendarExportVariant::Approval => self::EXPORTED_APPROVAL,
+        };
     }
 
     public static function layoutFromCalendar(string $name): string

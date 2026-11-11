@@ -18,7 +18,8 @@ use WBoost\Web\Value\StorageReferenceIndex;
  * documents holding paths (`manual.logo`, `manual_mockup_page.images`, its
  * `download_file` / `image_downloads` attachments, the image elements of
  * `manual_content_page.segments` + `.background`, `font.faces`), the calendar
- * module's uploads (`calendar_asset.path` + `.preview_path` — the calendar JSON
+ * module's uploads and PDF exports (`calendar_asset.path` + `.preview_path`,
+ * `calendar_export.path` — the calendar JSON
  * refers to them by asset id, never by path) and the canvas JSONB, which embeds
  * gallery images as full public URLs. **A path missing
  * from this list makes a live file look like an orphan**, so any new writer
@@ -293,6 +294,13 @@ readonly final class BuildStorageReferenceIndex
 
             'calendar_asset.preview_path' => sprintf(
                 'SELECT a.preview_path AS path, %s FROM calendar_asset a JOIN calendar c ON c.id = a.calendar_id %s WHERE a.preview_path IS NOT NULL',
+                $ownerColumns,
+                sprintf($ownerJoin, 'c.project_id'),
+            ),
+
+            // Finished PDF exports of a calendar (`calendars/{id}/exports/…`).
+            'calendar_export.path' => sprintf(
+                'SELECT e.path AS path, %s FROM calendar_export e JOIN calendar c ON c.id = e.calendar_id %s WHERE e.path IS NOT NULL',
                 $ownerColumns,
                 sprintf($ownerJoin, 'c.project_id'),
             ),

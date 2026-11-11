@@ -69,6 +69,7 @@ readonly final class CalendarDocument
                 'save' => $this->urlGenerator->generate('calendar_client_save', $token),
                 'asset' => $this->urlGenerator->generate('calendar_client_asset', $token),
                 'history' => $this->urlGenerator->generate('calendar_client_history', $token),
+                'export' => $this->urlGenerator->generate('calendar_client_export_request', $token),
             ];
         } else {
             $env['urls'] = [
@@ -76,6 +77,7 @@ readonly final class CalendarDocument
                 'save' => $this->urlGenerator->generate('calendar_save', $id),
                 'asset' => $this->urlGenerator->generate('calendar_asset_upload', $id),
                 'history' => $this->urlGenerator->generate('calendar_history', $id),
+                'export' => $this->urlGenerator->generate('calendar_export_request', $id),
             ];
         }
 

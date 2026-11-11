@@ -67,6 +67,12 @@ return App::config([
             'calendar_client_history' => [
                 'storage_service' => 'limiter.storage.test_in_memory',
             ],
+            'calendar_client_export' => [
+                'storage_service' => 'limiter.storage.test_in_memory',
+            ],
+            'calendar_client_export_read' => [
+                'storage_service' => 'limiter.storage.test_in_memory',
+            ],
         ],
     ],
 ]);

@@ -43,7 +43,7 @@ final class CalendarClientTest extends WebTestCase
         self::assertSame('client', $bootstrap['mode']);
         /** @var array<string, mixed> $env */
         $env = $bootstrap['env'];
-        self::assertSame(['save' => self::CLIENT_SAVE_URL, 'asset' => self::CLIENT_URL . '/asset', 'history' => self::CLIENT_URL . '/history'], $env['urls']);
+        self::assertSame(['save' => self::CLIENT_SAVE_URL, 'asset' => self::CLIENT_URL . '/asset', 'history' => self::CLIENT_URL . '/history', 'export' => self::CLIENT_URL . '/export'], $env['urls']);
         self::assertArrayNotHasKey('siblings', $env);
         self::assertArrayNotHasKey('clientUrl', $env);
         // The link addresses the calendar by the token alone.
@@ -155,7 +155,7 @@ final class CalendarClientTest extends WebTestCase
         // Their endpoints are the logged-in ones; the token is not handed out.
         $urls = $env['urls'];
         self::assertIsArray($urls);
-        self::assertSame(['list', 'save', 'asset', 'history'], array_keys($urls));
+        self::assertSame(['list', 'save', 'asset', 'history', 'export'], array_keys($urls));
         self::assertSame(self::WORKSPACE_URL . '/save', $urls['save']);
         self::assertArrayNotHasKey('clientUrl', $env);
         self::assertStringNotContainsString(TestDataFixture::CALENDAR_2_TOKEN, (string) $browser->getResponse()->getContent());

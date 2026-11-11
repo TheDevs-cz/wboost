@@ -75,7 +75,7 @@ return App::config([
                     'adapter' => 'cache.adapter.redis',
                     'default_lifetime' => 7200,
                 ],
-                // Same shape, for the four calendar_client_* limiters (the public /k/{token}/… routes).
+                // Same shape, for the six calendar_client_* limiters (the public /k/{token}/… routes).
                 'cache.calendar_client' => [
                     'adapter' => 'cache.adapter.redis',
                     'default_lifetime' => 7200,

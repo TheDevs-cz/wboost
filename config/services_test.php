@@ -31,6 +31,17 @@ return static function (ContainerConfigurator $container): void {
         \WBoost\Web\Tests\Fakes\FakeTemplateVariantImageRenderer::class,
     );
 
+    // Calendar PDF export: no node, no Gotenberg — a tiny fake file.
+    $services->alias(
+        \WBoost\Web\Services\Calendar\CalendarPdfProducerInterface::class,
+        \WBoost\Web\Tests\Fakes\FakeCalendarPdfProducer::class,
+    );
+
+    // …and the real one stays reachable for the `gotenberg` group
+    // (tests/Services/Calendar/CalendarPdfProducerGotenbergTest.php); nothing
+    // else refers to it in this environment, so it would be removed.
+    $services->set(\WBoost\Web\Services\Calendar\CalendarPdfProducer::class);
+
     // Meta Graph API double — publish tests never talk to graph.facebook.com.
     $services->alias(
         \WBoost\Web\Services\Meta\MetaGraphApiInterface::class,

@@ -9,10 +9,12 @@ use Ramsey\Uuid\Uuid;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use WBoost\Web\Entity\Calendar;
 use WBoost\Web\Entity\CalendarAsset;
+use WBoost\Web\Entity\CalendarExport;
 use WBoost\Web\Services\Storage\ScanStorage;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Value\Calendar\CalendarAssetKind;
 use WBoost\Web\Value\Calendar\CalendarAuthorKind;
+use WBoost\Web\Value\Calendar\CalendarExportVariant;
 use WBoost\Web\Value\StorageCategory;
 
 final class ScanStorageTest extends KernelTestCase
@@ -292,6 +294,63 @@ final class ScanStorageTest extends KernelTestCase
         self::assertSame(StorageCategory::Calendar->value, $stray['category']);
         self::assertSame(TestDataFixture::PROJECT_1_ID, $stray['project_id']);
         self::assertSame(TestDataFixture::USER_1_EMAIL, $stray['owner_email']);
+    }
+
+    /**
+     * A finished PDF export is referenced by `calendar_export.path`; it lies
+     * under the calendar's directory, so it is billed to the calendar's
+     * project like the uploads.
+     */
+    public function testCalendarExportsAreReferenced(): void
+    {
+        $path = sprintf('calendars/%s/exports/%s.pdf', TestDataFixture::CALENDAR_2_ID, str_repeat('ab', 20));
+        $strayPath = sprintf('calendars/%s/exports/%s.pdf', TestDataFixture::CALENDAR_2_ID, str_repeat('cd', 20));
+
+        $entityManager = self::getContainer()->get(EntityManagerInterface::class);
+        $calendar = $entityManager->find(Calendar::class, Uuid::fromString(TestDataFixture::CALENDAR_2_ID));
+        self::assertInstanceOf(Calendar::class, $calendar);
+        $export = new CalendarExport(
+            Uuid::fromString('0196f000-0000-7000-8000-0000000000e1'),
+            $calendar,
+            CalendarExportVariant::Print,
+            $calendar->revision,
+            str_repeat('0', 32),
+            CalendarAuthorKind::Designer,
+            null,
+            new \DateTimeImmutable(),
+        );
+        $export->start(55, $calendar->revision, new \DateTimeImmutable());
+        $export->finish($path, 3, new \DateTimeImmutable());
+        $entityManager->persist($export);
+        // a job that is still running has no file to reference
+        $entityManager->persist(new CalendarExport(
+            Uuid::fromString('0196f000-0000-7000-8000-0000000000e2'),
+            $calendar,
+            CalendarExportVariant::Approval,
+            $calendar->revision,
+            str_repeat('0', 32),
+            CalendarAuthorKind::Client,
+            null,
+            new \DateTimeImmutable(),
+        ));
+        $entityManager->flush();
+
+        $this->write($path, 'pdf');
+        $this->write($strayPath, 'old');
+
+        self::getContainer()->get(ScanStorage::class)->scan();
+
+        $row = $this->row($path);
+        self::assertNotNull($row);
+        self::assertFalse((bool) $row['orphaned']);
+        self::assertSame('calendar_export.path', $row['referenced_by']);
+        self::assertSame(StorageCategory::Calendar->value, $row['category']);
+        self::assertSame(TestDataFixture::PROJECT_1_ID, $row['project_id']);
+
+        $stray = $this->row($strayPath);
+        self::assertNotNull($stray);
+        self::assertTrue((bool) $stray['orphaned']);
+        self::assertSame(TestDataFixture::PROJECT_1_ID, $stray['project_id']);
     }
 
     private function write(string $path, string $contents): void

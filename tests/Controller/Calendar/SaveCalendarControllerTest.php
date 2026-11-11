@@ -55,6 +55,7 @@ final class SaveCalendarControllerTest extends WebTestCase
             'save' => self::SAVE_URL,
             'asset' => self::WORKSPACE_URL . '/asset',
             'history' => self::WORKSPACE_URL . '/history',
+            'export' => self::WORKSPACE_URL . '/export',
             'clientLink' => self::WORKSPACE_URL . '/client-link',
             'layoutImport' => self::WORKSPACE_URL . '/layout-import',
             'documentText' => self::WORKSPACE_URL . '/document-text',
