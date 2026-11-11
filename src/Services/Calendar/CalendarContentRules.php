@@ -23,10 +23,20 @@ readonly final class CalendarContentRules
     public const array COLLECTIONS = [
         'clubs', 'events', 'names', 'wasteKinds', 'wasteExtras', 'moonEdits', 'shiftOps',
         'specialPages', 'pagePhotos', 'pageCaptions', 'pageImages', 'pageQr', 'comments',
+        'pageSetup', 'pageContent', 'pageGroups',
     ];
 
-    /** Everything else — and every design key — is designer-only. */
-    public const array CLIENT_WRITABLE = ['pagePhotos', 'pageCaptions', 'wasteKinds', 'wasteExtras', 'events', 'clubs', 'names', 'comments'];
+    /**
+     * Everything else — and every design key — is designer-only.
+     *
+     * `pageContent` and `pageGroups` are here on purpose (2026-11-12): the
+     * client fills in the texts and photos of the cover, the back and the
+     * special pages. What those pages LOOK like — `pageSetup` (cover layout,
+     * logo, alignment, legends, notes) and `specialPages` (which pages exist,
+     * their layout and order) — stays with the designer; that is why the
+     * options live in a collection of their own rather than beside the texts.
+     */
+    public const array CLIENT_WRITABLE = ['pagePhotos', 'pageCaptions', 'wasteKinds', 'wasteExtras', 'events', 'clubs', 'names', 'comments', 'pageContent', 'pageGroups'];
 
     public const array PAGE_KEYED = ['pagePhotos', 'pageCaptions', 'pageImages', 'pageQr'];
 
@@ -47,9 +57,23 @@ readonly final class CalendarContentRules
     public const int MAX_SPECIAL_PAGE_BYTES = 32_000;
     public const int MAX_WASTE_DATES = 400;
 
+    /** Pages with editable content; the item shape follows from the key (JS: `CONTENT_PAGE_KEYS`). */
+    public const array CONTENT_PAGE_KEYS = ['cover', 'back', 'sp:intro', 'sp:contacts', 'sp:year', 'sp:waste', 'sp:notes'];
+
+    /** Pages with designer options (JS: `SETUP_PAGE_KEYS`). */
+    public const array SETUP_PAGE_KEYS = ['cover', 'back', 'sp:intro', 'sp:contacts'];
+
+    /** Pages that carry groups of lines (JS: `GROUP_PAGE_KEYS`). */
+    public const array GROUP_PAGE_KEYS = ['sp:contacts', 'sp:waste'];
+
+    public const int MAX_GROUPS = 60;
+    public const int MAX_GROUP_LINES = 30;
+    public const int MAX_BODY_LENGTH = 4000;
+    public const int MAX_ADDRESS_LINES = 6;
+
     private const array WASTE_BUILTINS = ['kom', 'bio', 'plast', 'papir', 'sklo'];
     private const array WASTE_INTERVALS = ['w', '2e', '2o', '4w', '4w2', 'm'];
-    private const array SPECIAL_PAGE_KINDS = ['intro', 'contacts', 'year', 'waste', 'image', 'text'];
+    private const array SPECIAL_PAGE_KINDS = ['intro', 'contacts', 'year', 'waste', 'notes', 'image', 'text'];
 
     /**
      * A client may only touch the whitelisted collections; anything else
@@ -81,6 +105,15 @@ readonly final class CalendarContentRules
 
         $ids = [];
 
+        if ($op->collection === 'pageContent') {
+            $photo = $op->value['photo'] ?? null;
+            $id = is_array($photo) ? ($photo['asset'] ?? null) : null;
+
+            if (is_string($id) && preg_match(CalendarLayoutAssets::ID_PATTERN, $id) === 1) {
+                $ids[] = strtolower($id);
+            }
+        }
+
         foreach ($fields as $field) {
             $id = $op->value[$field] ?? null;
 
@@ -95,6 +128,7 @@ readonly final class CalendarContentRules
     /**
      * @param array<string, true> $existingAssets lower-case ids of this calendar's assets
      * @param null|array<mixed> $stored the item as stored now (null = none)
+     * @param array<mixed> $siblings the collection as it is now (for caps on the number of items)
      * @return null|array<string, mixed> the item to store, null = delete
      *
      * @throws InvalidCalendarChange
@@ -106,6 +140,7 @@ readonly final class CalendarContentRules
         array $existingAssets,
         null|array $stored,
         DateTimeImmutable $now,
+        array $siblings = [],
     ): null|array {
         $collection = $op->collection;
 
@@ -113,9 +148,18 @@ readonly final class CalendarContentRules
             throw new InvalidCalendarChange(sprintf('Neznámá část obsahu kalendáře (%s).', mb_substr($collection, 0, 40)));
         }
 
-        $pattern = in_array($collection, self::PAGE_KEYED, true) ? self::PAGE_KEY_PATTERN : self::ID_PATTERN;
+        $pageKeyed = in_array($collection, self::PAGE_KEYED, true) || $collection === 'pageContent' || $collection === 'pageSetup';
+        $pattern = $pageKeyed ? self::PAGE_KEY_PATTERN : self::ID_PATTERN;
 
         if (preg_match($pattern, $op->id) !== 1 || self::isReservedId($op->id)) {
+            throw self::invalid($collection, 'id');
+        }
+
+        // The content and the options of a page are keyed by a FIXED set of page keys.
+        if (
+            ($collection === 'pageContent' && !in_array($op->id, self::CONTENT_PAGE_KEYS, true))
+            || ($collection === 'pageSetup' && !in_array($op->id, self::SETUP_PAGE_KEYS, true))
+        ) {
             throw self::invalid($collection, 'id');
         }
 
@@ -195,6 +239,9 @@ readonly final class CalendarContentRules
                 'asset' => self::asset($v['asset'], $existingAssets, false, $collection, 'asset'),
             ]),
             'comments' => self::comment($v, $actor, $year, $stored, $now),
+            'pageSetup' => self::pageSetup($op->id, $v),
+            'pageContent' => self::pageContent($op->id, $v, $existingAssets),
+            'pageGroups' => self::pageGroup($v, $stored === null ? count($siblings) : 0),
         };
 
         $limit = $collection === 'specialPages' ? self::MAX_SPECIAL_PAGE_BYTES : self::MAX_ITEM_BYTES;
@@ -323,6 +370,188 @@ readonly final class CalendarContentRules
             'crews' => array_map(static fn (mixed $crew): string => self::text($crew, 2, $c, 'crews'), $crews),
             'pos' => self::int($v['pos'], 0, 100_000, $c, 'pos'),
         ];
+    }
+
+    /**
+     * The designer's options of a page — per page key, exact keys.
+     *
+     * @param array<mixed> $v
+     * @return array<string, mixed>
+     *
+     * @throws InvalidCalendarChange
+     */
+    private static function pageSetup(string $key, array $v): array
+    {
+        $c = 'pageSetup';
+
+        return match ($key) {
+            'cover' => self::item($v, $c, ['layout', 'logo', 'logoSize'], static fn (array $v): array => [
+                'layout' => self::int($v['layout'], 0, 3, $c, 'layout'),
+                'logo' => self::oneOf($v['logo'], ['none', 'tl', 'tc', 'tr', 'title'], $c, 'logo'),
+                'logoSize' => self::oneOf($v['logoSize'], ['s', 'm', 'l'], $c, 'logoSize'),
+            ]),
+            'back' => self::item($v, $c, ['logo'], static fn (array $v): array => [
+                'logo' => self::bool($v['logo'], $c, 'logo'),
+            ]),
+            'sp:intro' => self::item($v, $c, ['align'], static fn (array $v): array => [
+                'align' => self::oneOf($v['align'], ['left', 'justify'], $c, 'align'),
+            ]),
+            'sp:contacts' => self::item($v, $c, ['clubLegend', 'wasteLegend', 'notes'], static fn (array $v): array => [
+                'clubLegend' => self::bool($v['clubLegend'], $c, 'clubLegend'),
+                'wasteLegend' => self::bool($v['wasteLegend'], $c, 'wasteLegend'),
+                'notes' => self::bool($v['notes'], $c, 'notes'),
+            ]),
+            default => throw self::invalid($c, 'id'),
+        };
+    }
+
+    /**
+     * The texts and the photo of a page — per page key, exact keys. An empty
+     * heading or title means "the default one".
+     *
+     * @param array<mixed> $v
+     * @param array<string, true> $existingAssets
+     * @return array<string, mixed>
+     *
+     * @throws InvalidCalendarChange
+     */
+    private static function pageContent(string $key, array $v, array $existingAssets): array
+    {
+        $c = 'pageContent';
+        $line = static fn (array $v, string $field, int $max): string => CalendarText::singleLine(self::text($v[$field], $max, $c, $field));
+
+        return match ($key) {
+            'cover' => self::item($v, $c, ['title', 'subtitle', 'note', 'photo'], static fn (array $v): array => [
+                'title' => $line($v, 'title', 80),
+                'subtitle' => $line($v, 'subtitle', 80),
+                'note' => $line($v, 'note', 120),
+                'photo' => self::photo($v['photo'], $existingAssets, $c),
+            ]),
+            'back' => self::item($v, $c, ['heading', 'footer', 'name', 'address', 'phone', 'email', 'web', 'imprint'], static fn (array $v): array => [
+                'heading' => $line($v, 'heading', 80),
+                'footer' => $line($v, 'footer', 200),
+                'name' => $line($v, 'name', 80),
+                'address' => self::lines($v['address'], 300, self::MAX_ADDRESS_LINES, $c, 'address'),
+                'phone' => $line($v, 'phone', 60),
+                'email' => $line($v, 'email', 80),
+                'web' => $line($v, 'web', 80),
+                'imprint' => $line($v, 'imprint', 200),
+            ]),
+            'sp:intro' => self::item($v, $c, ['heading', 'salutation', 'body', 'signName', 'signRole', 'photo'], static fn (array $v): array => [
+                'heading' => $line($v, 'heading', 80),
+                'salutation' => $line($v, 'salutation', 80),
+                'body' => self::text($v['body'], self::MAX_BODY_LENGTH, $c, 'body'),
+                'signName' => $line($v, 'signName', 80),
+                'signRole' => $line($v, 'signRole', 80),
+                'photo' => self::photo($v['photo'], $existingAssets, $c),
+            ]),
+            'sp:contacts' => self::item($v, $c, ['heading', 'notesHeading', 'photo'], static fn (array $v): array => [
+                'heading' => $line($v, 'heading', 80),
+                'notesHeading' => $line($v, 'notesHeading', 40),
+                'photo' => self::photo($v['photo'], $existingAssets, $c),
+            ]),
+            'sp:year', 'sp:waste' => self::item($v, $c, ['heading', 'note'], static fn (array $v): array => [
+                'heading' => $line($v, 'heading', 80),
+                'note' => $line($v, 'note', 200),
+            ]),
+            'sp:notes' => self::item($v, $c, ['heading'], static fn (array $v): array => [
+                'heading' => $line($v, 'heading', 80),
+            ]),
+            default => throw self::invalid($c, 'id'),
+        };
+    }
+
+    /**
+     * A group of lines on the contacts page or beside the waste plan.
+     *
+     * @param array<mixed> $v
+     * @param int $others how many groups exist besides this NEW one (0 when it replaces a stored one)
+     * @return array<string, mixed>
+     *
+     * @throws InvalidCalendarChange
+     */
+    private static function pageGroup(array $v, int $others): array
+    {
+        $c = 'pageGroups';
+
+        if ($others >= self::MAX_GROUPS) {
+            throw new InvalidCalendarChange(sprintf('Skupin kontaktů může být nejvýše %d.', self::MAX_GROUPS));
+        }
+
+        return self::item($v, $c, ['page', 'heading', 'lines', 'highlight', 'pos'], static function (array $v) use ($c): array {
+            $lines = $v['lines'];
+
+            if (!is_array($lines) || !array_is_list($lines)) {
+                throw self::invalid($c, 'lines');
+            }
+
+            if (count($lines) > self::MAX_GROUP_LINES) {
+                throw new InvalidCalendarChange(sprintf('Skupina může mít nejvýše %d řádků.', self::MAX_GROUP_LINES));
+            }
+
+            $normalized = [];
+
+            foreach ($lines as $line) {
+                if (!is_array($line)) {
+                    throw self::invalid($c, 'lines');
+                }
+
+                $normalized[] = self::item($line, $c, ['label', 'value'], static fn (array $line): array => [
+                    'label' => CalendarText::singleLine(self::text($line['label'], 40, $c, 'label')),
+                    'value' => CalendarText::singleLine(self::text($line['value'], 200, $c, 'value')),
+                ]);
+            }
+
+            return [
+                'page' => self::oneOf($v['page'], self::GROUP_PAGE_KEYS, $c, 'page'),
+                'heading' => CalendarText::singleLine(self::text($v['heading'], 80, $c, 'heading')),
+                'lines' => $normalized,
+                'highlight' => self::bool($v['highlight'], $c, 'highlight'),
+                'pos' => self::int($v['pos'], 0, 100_000, $c, 'pos'),
+            ];
+        });
+    }
+
+    /**
+     * A photo with its crop (the model of `pagePhotos`), or none.
+     *
+     * @param array<string, true> $existingAssets
+     * @return null|array<string, mixed>
+     *
+     * @throws InvalidCalendarChange
+     */
+    private static function photo(mixed $value, array $existingAssets, string $collection): null|array
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        if (!is_array($value)) {
+            throw self::invalid($collection, 'photo');
+        }
+
+        return self::item($value, $collection, ['asset', 'zoom', 'px', 'py'], static fn (array $v): array => [
+            'asset' => self::asset($v['asset'], $existingAssets, false, $collection, 'photo'),
+            'zoom' => self::number($v['zoom'], 1, 3, $collection, 'zoom'),
+            'px' => self::number($v['px'], 0, 1, $collection, 'px'),
+            'py' => self::number($v['py'], 0, 1, $collection, 'py'),
+        ]);
+    }
+
+    /**
+     * A text of a few lines (an address): `\r` dropped, at most `$maxLines` lines.
+     *
+     * @throws InvalidCalendarChange
+     */
+    private static function lines(mixed $value, int $max, int $maxLines, string $collection, string $field): string
+    {
+        $text = str_replace(["\r\n", "\r", "\t"], ["\n", "\n", ' '], self::text($value, $max, $collection, $field));
+
+        if (substr_count(trim($text, "\n"), "\n") >= $maxLines) {
+            throw new InvalidCalendarChange(sprintf('Adresa může mít nejvýše %d řádků.', $maxLines));
+        }
+
+        return $text;
     }
 
     /**

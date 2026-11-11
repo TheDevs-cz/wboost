@@ -245,6 +245,87 @@ final class CalendarToolsTest extends WebTestCase
     }
 
     /**
+     * An agent fills the cover, the intro, the contacts and the back page:
+     * `pageContent` (one shape per page key), `pageGroups`, and — as the
+     * designer — `pageSetup`. `get_calendar` returns all three.
+     */
+    public function testAnAgentFillsTheCoverIntroContactsAndBackPages(): void
+    {
+        $intro = ['heading' => '', 'salutation' => 'Milí občané,', 'body' => "rok utekl jako voda.\n\nDruhý odstavec s **důrazem**.", 'signName' => 'Ing. David Harok', 'signRole' => 'starosta obce', 'photo' => null];
+        $back = ['heading' => '', 'footer' => '', 'name' => 'Obec Chotěbuz', 'address' => "Chotěbuzská 250\n735 61 Chotěbuz", 'phone' => '+420 558 733 131', 'email' => 'chotebuz@volny.cz', 'web' => 'www.chotebuz.cz', 'imprint' => 'Vydala obec Chotěbuz'];
+        $group = ['page' => 'sp:contacts', 'heading' => 'Obecní úřad', 'lines' => [['label' => 'Po, St', 'value' => '7 – 12, 13 – 17'], ['label' => '', 'value' => ''], ['label' => 'T:', 'value' => '558 733 131']], 'highlight' => false, 'pos' => 0];
+        $numbers = ['page' => 'sp:contacts', 'heading' => 'Důležitá telefonní čísla', 'lines' => [['label' => 'Policie ČR', 'value' => '158']], 'highlight' => true, 'pos' => 1];
+
+        $saved = $this->update(TestDataFixture::CALENDAR_1_ID, [
+            ['collection' => 'pageContent', 'id' => 'cover', 'value' => ['title' => 'Kalendář 2027', 'subtitle' => 'Obec Chotěbuz', 'note' => 'www.chotebuz.cz', 'photo' => null], 'label' => 'Titulní strana'],
+            ['collection' => 'pageContent', 'id' => 'sp:intro', 'value' => $intro, 'label' => 'Úvodní slovo'],
+            ['collection' => 'pageGroups', 'id' => 'grpObecniUrad001', 'value' => $group],
+            ['collection' => 'pageGroups', 'id' => 'grpTisnovaCisla1', 'value' => $numbers],
+            ['collection' => 'pageContent', 'id' => 'back', 'value' => $back, 'label' => 'Zadní strana'],
+            ['collection' => 'pageSetup', 'id' => 'cover', 'value' => ['layout' => 1, 'logo' => 'tc', 'logoSize' => 'l'], 'label' => 'Titulní strana'],
+        ]);
+
+        self::assertSame(array_fill(0, 6, 'created'), array_column($saved['results'], 'status'));
+        self::assertEqualsCanonicalizing([
+            'Upravil texty strany — Titulní strana',
+            'Upravil texty strany — Úvodní slovo',
+            'Přidal skupinu „Obecní úřad“ — Důležité kontakty',
+            'Přidal skupinu „Důležitá telefonní čísla“ — Důležité kontakty',
+            'Upravil texty strany — Zadní strana',
+            'Upravil vzhled strany — Titulní strana',
+        ], array_column($saved['recorded'], 'what'));
+
+        $read = $this->ok('get_calendar', ['calendarId' => TestDataFixture::CALENDAR_1_ID]);
+        self::assertEquals($intro, self::dig($read, 'content', 'pageContent', 'sp:intro'));
+        self::assertEquals($back, self::dig($read, 'content', 'pageContent', 'back'));
+        self::assertEquals($group, self::dig($read, 'content', 'pageGroups', 'grpObecniUrad001'));
+        self::assertEquals(['layout' => 1, 'logo' => 'tc', 'logoSize' => 'l'], self::dig($read, 'content', 'pageSetup', 'cover'));
+        self::assertContains('pageContent', self::arr($read['writableCollections']));
+        self::assertContains('pageSetup', self::arr($read['writableCollections']));
+
+        // Reordering alone is one line, whatever the number of groups.
+        $moved = $this->update(TestDataFixture::CALENDAR_1_ID, [
+            ['collection' => 'pageGroups', 'id' => 'grpObecniUrad001', 'value' => [...$group, 'pos' => 1]],
+            ['collection' => 'pageGroups', 'id' => 'grpTisnovaCisla1', 'value' => [...$numbers, 'pos' => 0]],
+        ]);
+        self::assertSame(['Změnil pořadí skupin — Důležité kontakty'], array_column($moved['recorded'], 'what'));
+
+        // The shapes are exact and per page: the intro's item is not the cover's.
+        $refused = $this->refused('update_calendar_content', [
+            'calendarId' => TestDataFixture::CALENDAR_1_ID,
+            'operations' => [['collection' => 'pageContent', 'id' => 'cover', 'value' => $intro]],
+        ]);
+        self::assertStringEndsWith('(invalid_content)', $refused);
+        self::assertStringContainsString('pageContent', $refused);
+
+        // A client of the calendar writes the texts and the groups, never the arrangement.
+        $token = TestDataFixture::MCP_TOKEN_CALENDARS_SHARED_USER;
+        $asClient = $this->ok('get_calendar', ['calendarId' => TestDataFixture::CALENDAR_1_ID], $token);
+        self::assertContains('pageContent', self::arr($asClient['writableCollections']));
+        self::assertContains('pageGroups', self::arr($asClient['writableCollections']));
+        self::assertNotContains('pageSetup', self::arr($asClient['writableCollections']));
+
+        $byClient = $this->update(TestDataFixture::CALENDAR_1_ID, [
+            ['collection' => 'pageContent', 'id' => 'sp:intro', 'value' => [...$intro, 'salutation' => 'Vážení spoluobčané,'], 'label' => 'Úvodní slovo'],
+        ], $token);
+        self::assertSame(['client'], array_column($byClient['recorded'], 'who'));
+        self::assertSame(['Upravil texty strany — Úvodní slovo'], array_column($byClient['recorded'], 'what'));
+
+        $forbidden = $this->refused('update_calendar_content', [
+            'calendarId' => TestDataFixture::CALENDAR_1_ID,
+            'operations' => [
+                ['collection' => 'pageContent', 'id' => 'sp:intro', 'value' => [...$intro, 'salutation' => 'Nic']],
+                ['collection' => 'pageSetup', 'id' => 'cover', 'value' => ['layout' => 3, 'logo' => 'none', 'logoSize' => 's']],
+            ],
+        ], $token);
+        self::assertStringEndsWith('(designer_only)', $forbidden);
+
+        $stored = $this->calendar(TestDataFixture::CALENDAR_1_ID);
+        self::assertSame('Vážení spoluobčané,', self::dig($stored->content, 'pageContent', 'sp:intro', 'salutation'));
+        self::assertSame(1, self::dig($stored->content, 'pageSetup', 'cover', 'layout'));
+    }
+
+    /**
      * The item rules are the web's (`CalendarContentRules`): a wrong value is
      * `invalid_content`, and the call is atomic — the valid operation in front
      * of the wrong one is not stored either.

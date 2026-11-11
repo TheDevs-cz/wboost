@@ -52,14 +52,151 @@ final class CalendarContentRulesTest extends TestCase
             'pageCaptions' => ['pre', ['text' => 'Zima na návsi']],
             'pageImages' => ['sp:customPage1', ['head' => null, 'bg' => self::ASSET]],
             'pageQr' => ['w52', ['asset' => self::ASSET]],
+            'pageSetup' => ['cover', ['layout' => 1, 'logo' => 'tc', 'logoSize' => 'l']],
+            'pageContent' => ['sp:intro', [
+                'heading' => 'Slovo starostky', 'salutation' => 'Milí občané,', 'body' => "První **odstavec**.\n\nDruhý *odstavec*.",
+                'signName' => 'Ing. Jana Nováková', 'signRole' => 'starostka obce', 'photo' => ['asset' => self::ASSET, 'zoom' => 1.5, 'px' => 0.25, 'py' => 1],
+            ]],
+            'pageGroups' => ['groupUrad01', [
+                'page' => 'sp:contacts', 'heading' => 'Obecní úřad',
+                'lines' => [['label' => 'Telefon', 'value' => '+420 558 733 131'], ['label' => '', 'value' => 'Po a St 7 – 17'], ['label' => '', 'value' => '']],
+                'highlight' => false, 'pos' => 0,
+            ]],
         ];
+    }
+
+    /**
+     * Every page key of `pageContent` and `pageSetup` with a valid item.
+     *
+     * @return array<string, array<string, array<string, mixed>>>
+     */
+    private static function pageItems(): array
+    {
+        $photo = ['asset' => self::ASSET, 'zoom' => 1, 'px' => 0.5, 'py' => 0.5];
+
+        return [
+            'pageContent' => [
+                'cover' => ['title' => 'Kalendář 2027', 'subtitle' => 'Obec Testov', 'note' => 'www.testov.cz', 'photo' => $photo],
+                'back' => [
+                    'heading' => '', 'footer' => 'Příloha zpravodaje', 'name' => 'Obec Testov', 'address' => "Hlavní 1\n739 85 Testov",
+                    'phone' => '+420 558 000 111', 'email' => 'obec@testov.cz', 'web' => 'www.testov.cz', 'imprint' => 'Vydala obec Testov',
+                ],
+                'sp:intro' => ['heading' => '', 'salutation' => '', 'body' => '', 'signName' => '', 'signRole' => '', 'photo' => null],
+                'sp:contacts' => ['heading' => 'Kontakty', 'notesHeading' => 'Poznámky', 'photo' => null],
+                'sp:year' => ['heading' => '', 'note' => 'Svátky červeně'],
+                'sp:waste' => ['heading' => 'Svoz odpadů', 'note' => 'Přistavujte prosím odpady před dnem svozu.'],
+                'sp:notes' => ['heading' => 'Poznámky'],
+            ],
+            'pageSetup' => [
+                'cover' => ['layout' => 3, 'logo' => 'title', 'logoSize' => 's'],
+                'back' => ['logo' => false],
+                'sp:intro' => ['align' => 'justify'],
+                'sp:contacts' => ['clubLegend' => false, 'wasteLegend' => true, 'notes' => true],
+            ],
+        ];
+    }
+
+    public function testEveryContentPageHasItsOwnExactShape(): void
+    {
+        $items = self::pageItems();
+
+        self::assertSame(CalendarContentRules::CONTENT_PAGE_KEYS, array_keys($items['pageContent']));
+        self::assertSame(CalendarContentRules::SETUP_PAGE_KEYS, array_keys($items['pageSetup']));
+
+        foreach ($items as $collection => $pages) {
+            foreach ($pages as $key => $item) {
+                self::assertSame($item, self::validate(new CalendarContentOp($collection, $key, $item)), $collection . ' ' . $key);
+                self::assertInvalid(new CalendarContentOp($collection, $key, [...$item, 'layout2' => 0]), $key . ' + extra key');
+
+                $missing = $item;
+                unset($missing[(string) array_key_last($item)]);
+                self::assertInvalid(new CalendarContentOp($collection, $key, $missing), $key . ' − last key');
+
+                // The shape of ANOTHER page is not this page's shape.
+                foreach ($pages as $otherKey => $other) {
+                    if (array_keys($other) !== array_keys($item)) {
+                        self::assertInvalid(new CalendarContentOp($collection, $key, $other), $key . ' with the item of ' . $otherKey);
+                    }
+                }
+            }
+
+            // Only the fixed page keys: no week page, no uploaded page, no invented one.
+            foreach (['w05', 'pre', 'sp:customPage1', 'sp:image', 'intro', 'cover2'] as $key) {
+                self::assertInvalid(new CalendarContentOp($collection, $key, reset($pages) ?: []), $collection . ' ' . $key);
+            }
+        }
+
+        // Options exist only where a page has some.
+        self::assertInvalid(new CalendarContentOp('pageSetup', 'sp:year', ['layout' => 0]), 'sp:year has no options');
+        self::assertInvalid(new CalendarContentOp('pageSetup', 'sp:notes', []), 'sp:notes has no options');
+    }
+
+    public function testTextsOfAPageAreCleanedAndCapped(): void
+    {
+        $cover = self::pageItems()['pageContent']['cover'];
+
+        // Control characters go; a one-line field keeps no line break.
+        $stored = self::validate(new CalendarContentOp('pageContent', 'cover', [...$cover, 'title' => "Kalen\u{0}dář\n2027\t!", 'photo' => null]));
+        self::assertSame('Kalendář 2027 !', $stored['title'] ?? null);
+
+        // The body keeps its paragraphs and its marks — it is plain text, never HTML.
+        $intro = self::pageItems()['pageContent']['sp:intro'];
+        $body = "Odstavec **tučně**\u{7}\r\n\r\n<b>není</b> HTML & *kurzíva*";
+        $stored = self::validate(new CalendarContentOp('pageContent', 'sp:intro', [...$intro, 'body' => $body]));
+        self::assertSame("Odstavec **tučně**\r\n\r\n<b>není</b> HTML & *kurzíva*", $stored['body'] ?? null);
+
+        self::assertNotNull(self::validate(new CalendarContentOp('pageContent', 'sp:intro', [...$intro, 'body' => str_repeat('ž', CalendarContentRules::MAX_BODY_LENGTH)])));
+        self::assertInvalid(new CalendarContentOp('pageContent', 'sp:intro', [...$intro, 'body' => str_repeat('ž', CalendarContentRules::MAX_BODY_LENGTH + 1)]), 'body too long');
+
+        // An address has at most six lines.
+        $back = self::pageItems()['pageContent']['back'];
+        self::assertNotNull(self::validate(new CalendarContentOp('pageContent', 'back', [...$back, 'address' => "1\n2\n3\n4\n5\n6\n"])));
+
+        try {
+            self::validate(new CalendarContentOp('pageContent', 'back', [...$back, 'address' => "1\n2\n3\n4\n5\n6\n7"]));
+            self::fail('seven address lines');
+        } catch (InvalidCalendarChange $invalid) {
+            self::assertSame('Adresa může mít nejvýše 6 řádků.', $invalid->getMessage());
+        }
+    }
+
+    public function testGroupsAreCappedInLinesAndInNumber(): void
+    {
+        [$id, $group] = self::validItems()['pageGroups'];
+        $line = ['label' => 'Telefon', 'value' => '558 733 131'];
+
+        $group['lines'] = array_fill(0, CalendarContentRules::MAX_GROUP_LINES, $line);
+        self::assertNotNull(self::validate(new CalendarContentOp('pageGroups', $id, $group)));
+
+        $group['lines'][] = $line;
+
+        try {
+            self::validate(new CalendarContentOp('pageGroups', $id, $group));
+            self::fail('31 lines');
+        } catch (InvalidCalendarChange $invalid) {
+            self::assertSame('Skupina může mít nejvýše 30 řádků.', $invalid->getMessage());
+        }
+
+        // The cap on the number of groups counts what the calendar already holds; replacing a stored group is always possible.
+        [, $group] = self::validItems()['pageGroups'];
+        $rules = new CalendarContentRules();
+        $now = new DateTimeImmutable('2026-11-11');
+        $full = array_fill(0, CalendarContentRules::MAX_GROUPS, $group);
+        $op = new CalendarContentOp('pageGroups', $id, $group);
+
+        self::assertNotNull($rules->validate($op, CalendarActor::client(), self::YEAR, [], null, $now, array_slice($full, 1)));
+        self::assertNotNull($rules->validate($op, CalendarActor::client(), self::YEAR, [], $group, $now, $full));
+
+        $this->expectException(InvalidCalendarChange::class);
+        $this->expectExceptionMessage('Skupin kontaktů může být nejvýše 60.');
+        $rules->validate($op, CalendarActor::client(), self::YEAR, [], null, $now, $full);
     }
 
     public function testEveryCollectionOfTheContentHasAValidItemAndIsRebuiltExactly(): void
     {
         $items = self::validItems();
 
-        self::assertEqualsCanonicalizing(array_diff(CalendarContentRules::COLLECTIONS, ['comments']), array_keys($items));
+        self::assertEqualsCanonicalizing(array_values(array_diff(CalendarContentRules::COLLECTIONS, ['comments'])), array_keys($items));
 
         foreach ($items as $collection => [$id, $item]) {
             self::assertSame($item, self::validate(new CalendarContentOp($collection, $id, $item)), $collection);
@@ -146,6 +283,33 @@ final class CalendarContentRulesTest extends TestCase
         yield ['pageCaptions', ['text' => str_repeat('a', 81)]];
         yield ['pageImages', ['bg' => '0196f000-0000-7000-8000-00000000dead']];
         yield ['pageQr', ['asset' => null]];
+        yield ['specialPages', ['kind' => 'cover']];
+        yield ['pageSetup', ['layout' => 4]];
+        yield ['pageSetup', ['layout' => '1']];
+        yield ['pageSetup', ['logo' => 'bottom']];
+        yield ['pageSetup', ['logoSize' => 'xl']];
+        yield ['pageContent', ['heading' => str_repeat('a', 81)]];
+        yield ['pageContent', ['heading' => null]];
+        yield ['pageContent', ['salutation' => str_repeat('a', 81)]];
+        yield ['pageContent', ['body' => ['<p>html</p>']]];
+        yield ['pageContent', ['signName' => str_repeat('a', 81)]];
+        yield ['pageContent', ['photo' => self::ASSET]];
+        yield ['pageContent', ['photo' => ['asset' => self::ASSET]]];
+        yield ['pageContent', ['photo' => ['asset' => '0196f000-0000-7000-8000-00000000dead', 'zoom' => 1, 'px' => 0.5, 'py' => 0.5]]];
+        yield ['pageContent', ['photo' => ['asset' => self::ASSET, 'zoom' => 3.5, 'px' => 0.5, 'py' => 0.5]]];
+        yield ['pageContent', ['photo' => ['asset' => self::ASSET, 'zoom' => 1, 'px' => 0.5, 'py' => 0.5, 'url' => 'https://example.com/x.jpg']]];
+        yield ['pageGroups', ['page' => 'cover']];
+        yield ['pageGroups', ['page' => 'sp:intro']];
+        yield ['pageGroups', ['heading' => str_repeat('a', 81)]];
+        yield ['pageGroups', ['lines' => 'Telefon: 1']];
+        yield ['pageGroups', ['lines' => ['Telefon: 1']]];
+        yield ['pageGroups', ['lines' => [['label' => 'Telefon']]]];
+        yield ['pageGroups', ['lines' => [['label' => 'Telefon', 'value' => '1', 'bold' => true]]]];
+        yield ['pageGroups', ['lines' => [['label' => str_repeat('a', 41), 'value' => '1']]]];
+        yield ['pageGroups', ['lines' => [['label' => 'a', 'value' => str_repeat('a', 201)]]]];
+        yield ['pageGroups', ['lines' => ['a' => ['label' => 'a', 'value' => 'b']]]];
+        yield ['pageGroups', ['highlight' => 'yes']];
+        yield ['pageGroups', ['pos' => -1]];
     }
 
     public function testIdsAndPageKeys(): void
@@ -193,8 +357,10 @@ final class CalendarContentRulesTest extends TestCase
     {
         $rules = new CalendarContentRules();
 
-        // Handoff: the client fills photos, captions, waste, events (+ clubs), names and comments.
-        $clientMayWrite = ['pagePhotos', 'pageCaptions', 'wasteKinds', 'wasteExtras', 'events', 'clubs', 'names', 'comments'];
+        // Handoff: the client fills photos, captions, waste, events (+ clubs), names and comments —
+        // and, since 2026-11-12, the texts, photos and contact groups of the cover, the back and
+        // the special pages. NOT what those pages look like (pageSetup) nor which exist (specialPages).
+        $clientMayWrite = ['pagePhotos', 'pageCaptions', 'wasteKinds', 'wasteExtras', 'events', 'clubs', 'names', 'comments', 'pageContent', 'pageGroups'];
         $allowed = [];
 
         foreach (CalendarContentRules::COLLECTIONS as $collection) {
@@ -212,6 +378,13 @@ final class CalendarContentRulesTest extends TestCase
         }
 
         self::assertEqualsCanonicalizing($clientMayWrite, $allowed);
+        self::assertNotContains('pageSetup', $allowed);
+        self::assertNotContains('specialPages', $allowed);
+
+        // No field of the client's collections chooses a layout, a logo or the existence of a page.
+        foreach (self::pageItems()['pageContent'] as $key => $item) {
+            self::assertSame([], array_intersect(array_keys($item), ['layout', 'logo', 'logoSize', 'align', 'on', 'kind', 'position', 'clubLegend', 'wasteLegend', 'notes']), $key);
+        }
 
         // Anything unknown is not on the whitelist either.
         $this->expectException(CalendarChangeForbidden::class);
@@ -263,6 +436,10 @@ final class CalendarContentRulesTest extends TestCase
         self::assertSame([self::ASSET], $rules->assetIds(new CalendarContentOp('pageImages', 'w05', $items['pageImages'][1])));
         self::assertSame([], $rules->assetIds(new CalendarContentOp('names', 'nameBedrich', $items['names'][1])));
         self::assertSame([], $rules->assetIds(new CalendarContentOp('pagePhotos', 'w05', null)));
+        // The photo of a cover / special page is a nested reference.
+        self::assertSame([self::ASSET], $rules->assetIds(new CalendarContentOp('pageContent', 'sp:intro', $items['pageContent'][1])));
+        self::assertSame([], $rules->assetIds(new CalendarContentOp('pageContent', 'cover', ['title' => 'x', 'photo' => null])));
+        self::assertSame([], $rules->assetIds(new CalendarContentOp('pageContent', 'cover', ['photo' => 'not-an-object'])));
         // Upper-case ids are the same asset.
         self::assertSame([self::ASSET], $rules->assetIds(new CalendarContentOp('pageQr', 'w05', ['asset' => strtoupper(self::ASSET)])));
     }

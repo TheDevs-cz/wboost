@@ -98,7 +98,7 @@ readonly final class SaveCalendarHandler
             $collection = is_array($content[$op->collection] ?? null) ? $content[$op->collection] : [];
             $stored = is_array($collection[$op->id] ?? null) ? $collection[$op->id] : null;
 
-            $item = $this->contentRules->validate($op, $actor, $year, $existingAssets, $stored, $now);
+            $item = $this->contentRules->validate($op, $actor, $year, $existingAssets, $stored, $now, $collection);
 
             if (Calendar::same($stored, $item)) {
                 continue;

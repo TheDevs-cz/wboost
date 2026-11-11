@@ -27,7 +27,7 @@ use WBoost\Web\Value\Calendar\CalendarPictureSource;
  */
 final class CalendarRenderAssets
 {
-    private const array PER_PAGE_COLLECTIONS = ['pagePhotos', 'pageImages', 'pageQr'];
+    private const array PER_PAGE_COLLECTIONS = ['pagePhotos', 'pageImages', 'pageQr', 'pageContent'];
 
     private const array ASSET_KEYS = ['asset', 'icon', 'head', 'bg'];
 
@@ -166,9 +166,21 @@ final class CalendarRenderAssets
         $paths = [];
 
         foreach ($this->getFonts->allForProject($calendar->project->id) as $font) {
+            $families = [];
+
             foreach ($font->faces as $face) {
-                $paths[$font->faceFamily($face)] = $face->filePath;
+                $families[$font->faceFamily($face)] = $face->filePath;
             }
+
+            // The cover, back and special pages set their headings and the
+            // bold / italic of a text in the SIBLING cuts of the fonts the
+            // layout names (render/special.js `specialFamilies`), so every
+            // cut of a used font travels.
+            if (array_intersect_key($families, $used) !== []) {
+                $used += array_fill_keys(array_keys($families), true);
+            }
+
+            $paths += $families;
         }
 
         foreach ($paths as $family => $path) {
@@ -307,6 +319,13 @@ final class CalendarRenderAssets
                 if (is_string($item[$key] ?? null)) {
                     $ids[strtolower($item[$key])] = true;
                 }
+            }
+
+            // the photo of a cover / special page: `pageContent[*].photo.asset`
+            $photo = $item['photo'] ?? null;
+
+            if (is_array($photo) && is_string($photo['asset'] ?? null)) {
+                $ids[strtolower($photo['asset'])] = true;
             }
         }
 

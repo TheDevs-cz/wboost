@@ -94,6 +94,59 @@ final class CalendarClientTest extends WebTestCase
     }
 
     /**
+     * The owner's intent (2026-11-12): the client fills in the local content
+     * of the cover, the intro, the contacts and the back page instead of
+     * proofreading it. Texts and contact groups are the client's; what the
+     * pages look like is not ({@see provideForbiddenClientPayloads()}).
+     */
+    public function testClientFillsInTheTextsOfTheCoverAndTheSpecialPages(): void
+    {
+        $browser = self::createClient();
+        $token = self::csrf(self::bootstrap($browser, self::CLIENT_URL));
+
+        $intro = ['heading' => '', 'salutation' => 'Milí občané,', 'body' => "První **odstavec**.\n\nDruhý.", 'signName' => 'Jana Nováková', 'signRole' => 'starostka', 'photo' => null];
+        $group = ['page' => 'sp:contacts', 'heading' => 'Obecní úřad', 'lines' => [['label' => 'Telefon', 'value' => '558 733 131'], ['label' => '', 'value' => 'Po a St 7 – 17']], 'highlight' => true, 'pos' => 0];
+
+        self::save($browser, self::CLIENT_SAVE_URL, [
+            'content' => [
+                ['c' => 'pageContent', 'id' => 'cover', 'v' => ['title' => 'Kalendář 2027', 'subtitle' => 'Obec Testov', 'note' => '', 'photo' => null], 'label' => 'Titulní strana'],
+                ['c' => 'pageContent', 'id' => 'sp:intro', 'v' => $intro, 'label' => 'Úvodní slovo'],
+                ['c' => 'pageGroups', 'id' => 'clientGroup1', 'v' => $group, 'label' => 'Důležité kontakty'],
+            ],
+        ], $token);
+
+        self::assertResponseIsSuccessful();
+
+        $calendar = self::calendar(TestDataFixture::CALENDAR_2_ID);
+        self::assertEquals($intro, self::dig($calendar->content, 'pageContent', 'sp:intro'));
+        self::assertEquals($group, self::dig($calendar->content, 'pageGroups', 'clientGroup1'));
+        self::assertSame([
+            ['Klient', 'Přidal skupinu „Obecní úřad“ — Důležité kontakty'],
+            ['Klient', 'Upravil texty strany — Úvodní slovo'],
+            ['Klient', 'Upravil texty strany — Titulní strana'],
+        ], self::history(TestDataFixture::CALENDAR_2_ID));
+
+        // A photo the calendar does not hold is refused like any other asset reference — nothing is stored.
+        $answer = self::save($browser, self::CLIENT_SAVE_URL, [
+            'content' => [
+                ['c' => 'pageContent', 'id' => 'sp:year', 'v' => ['heading' => 'Rok', 'note' => '']],
+                ['c' => 'pageContent', 'id' => 'cover', 'v' => ['title' => 'Jiný', 'subtitle' => '', 'note' => '', 'photo' => ['asset' => '0196f000-0000-7000-8000-00000000dead', 'zoom' => 1, 'px' => 0.5, 'py' => 0.5]]],
+            ],
+        ], $token);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(['error' => 'Kalendář odkazuje na soubor, který v něm není nahraný.'], $answer);
+        self::assertSame(1, self::calendar(TestDataFixture::CALENDAR_2_ID)->revision);
+
+        // A layout cannot ride inside a content item: the shape is exact.
+        self::save($browser, self::CLIENT_SAVE_URL, [
+            'content' => [['c' => 'pageContent', 'id' => 'cover', 'v' => ['title' => 'x', 'subtitle' => '', 'note' => '', 'photo' => null, 'layout' => 2]]],
+        ], $token);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('Kalendář 2027', self::dig(self::calendar(TestDataFixture::CALENDAR_2_ID)->content, 'pageContent', 'cover', 'title'));
+    }
+
+    /**
      * @param array<string, mixed> $payload
      */
     #[\PHPUnit\Framework\Attributes\DataProvider('provideForbiddenClientPayloads')]
@@ -133,6 +186,13 @@ final class CalendarClientTest extends WebTestCase
         yield 'features' => [['design' => ['features' => ['qr' => true]]]];
         yield 'finish' => [['finish' => true]];
         yield 'special pages' => [['content' => [['c' => 'specialPages', 'id' => 'intro', 'v' => null]]]];
+        yield 'layout of a special page' => [['content' => [['c' => 'specialPages', 'id' => 'intro', 'v' => [
+            'kind' => 'intro', 'on' => true, 'layout' => 2, 'position' => 'front', 'nextYear' => false, 'name' => '', 'asset' => null, 'text' => null, 'fileName' => null, 'pos' => 0,
+        ]]]]];
+        yield 'cover layout and logo' => [['content' => [['c' => 'pageSetup', 'id' => 'cover', 'v' => ['layout' => 2, 'logo' => 'none', 'logoSize' => 's']]]]];
+        yield 'text alignment' => [['content' => [['c' => 'pageSetup', 'id' => 'sp:intro', 'v' => ['align' => 'justify']]]]];
+        yield 'legends and notes of the contacts' => [['content' => [['c' => 'pageSetup', 'id' => 'sp:contacts', 'v' => ['clubLegend' => false, 'wasteLegend' => true, 'notes' => true]]]]];
+        yield 'page options removed' => [['content' => [['c' => 'pageSetup', 'id' => 'back', 'v' => null]]]];
         yield 'page QR' => [['content' => [['c' => 'pageQr', 'id' => 'w05', 'v' => null]]]];
         yield 'page images' => [['content' => [['c' => 'pageImages', 'id' => 'w05', 'v' => ['head' => null, 'bg' => null]]]]];
         yield 'shift operations' => [['content' => [['c' => 'shiftOps', 'id' => 'shiftOpId', 'v' => null]]]];

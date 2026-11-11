@@ -57,6 +57,29 @@ final class DescribeCalendarChangeTest extends TestCase
         yield ['Upravil akci „Den dětí“ — 1. 6.', 'events', ['name' => 'Den deti'], ['name' => 'Den dětí'], '1. 6.'];
         yield ['Odebral akci „Den dětí“', 'events', ['name' => 'Den dětí'], null, '1. 6.'];
 
+        // content of the cover, the back and the special pages
+        $cover = ['title' => 'Kalendář', 'subtitle' => '', 'note' => '', 'photo' => null];
+        $coverPhoto = ['asset' => 'a', 'zoom' => 1, 'px' => 0.5, 'py' => 0.5];
+        yield ['Upravil texty strany — Titulní strana', 'pageContent', null, $cover, 'Titulní strana'];
+        yield ['Upravil texty strany — Úvodní slovo', 'pageContent', ['body' => 'a', 'photo' => null], ['body' => 'b', 'photo' => null], 'Úvodní slovo'];
+        yield ['Nahrál fotku — Titulní strana', 'pageContent', $cover, [...$cover, 'photo' => $coverPhoto], 'Titulní strana'];
+        yield ['Nahrál fotku — Titulní strana', 'pageContent', null, ['title' => '', 'subtitle' => '', 'note' => '', 'photo' => $coverPhoto], 'Titulní strana'];
+        yield ['Vyměnil fotku — Titulní strana', 'pageContent', [...$cover, 'photo' => $coverPhoto], [...$cover, 'photo' => [...$coverPhoto, 'asset' => 'b']], 'Titulní strana'];
+        yield ['Posunul fotku — Titulní strana', 'pageContent', [...$cover, 'photo' => $coverPhoto], [...$cover, 'photo' => [...$coverPhoto, 'px' => 0.1]], 'Titulní strana'];
+        yield ['Odebral fotku — Titulní strana', 'pageContent', [...$cover, 'photo' => $coverPhoto], $cover, 'Titulní strana'];
+        yield ['Upravil texty strany — Titulní strana', 'pageContent', $cover, [...$cover, 'title' => 'Jiný', 'photo' => $coverPhoto], 'Titulní strana'];
+        yield ['Smazal obsah strany — Zadní strana', 'pageContent', $cover, null, 'Zadní strana'];
+        yield ['Upravil vzhled strany — Titulní strana', 'pageSetup', null, ['layout' => 1, 'logo' => 'tc', 'logoSize' => 'm'], 'Titulní strana'];
+        yield ['Upravil vzhled strany', 'pageSetup', ['logo' => true], null];
+
+        $group = ['page' => 'sp:contacts', 'heading' => 'Obecní úřad', 'lines' => [['label' => 'T:', 'value' => '1']], 'highlight' => false, 'pos' => 0];
+        yield ['Přidal skupinu „Obecní úřad“ — Důležité kontakty', 'pageGroups', null, $group, 'cokoliv'];
+        yield ['Upravil skupinu „Obecní úřad“ — Důležité kontakty', 'pageGroups', $group, [...$group, 'lines' => [['label' => 'T:', 'value' => '2']]]];
+        yield ['Upravil skupinu „Úřad“ — Důležité kontakty', 'pageGroups', $group, [...$group, 'heading' => 'Úřad', 'pos' => 3]];
+        yield ['Změnil pořadí skupin — Důležité kontakty', 'pageGroups', $group, [...$group, 'pos' => 3]];
+        yield ['Odebral skupinu „Obecní úřad“ — Důležité kontakty', 'pageGroups', $group, null];
+        yield ['Přidal skupinu bez názvu — Plánovací kalendář svozu odpadů', 'pageGroups', null, [...$group, 'heading' => '  ', 'page' => 'sp:waste']];
+
         yield ['Přidal spolek „Hasiči“', 'clubs', null, ['name' => 'Hasiči']];
         yield ['Upravil spolek „Hasiči“', 'clubs', ['name' => 'Hasici'], ['name' => 'Hasiči']];
         yield ['Odebral spolek „Hasiči“', 'clubs', ['name' => 'Hasiči'], null];

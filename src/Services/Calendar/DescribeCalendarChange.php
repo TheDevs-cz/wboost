@@ -23,6 +23,7 @@ readonly final class DescribeCalendarChange
     public const string LAYOUT_FROM_FILE = 'Načetl layout ze souboru';
     public const string MOON_CHANGED = 'Upravil fáze měsíce';
     public const string SPECIAL_PAGES_CHANGED = 'Upravil speciální stránky';
+    public const string GROUPS_REORDERED = 'Změnil pořadí skupin';
     public const string EXPORTED_PRINT = 'Stáhl PDF pro tisk';
     public const string EXPORTED_APPROVAL = 'Stáhl PDF k odsouhlasení';
 
@@ -31,7 +32,9 @@ readonly final class DescribeCalendarChange
     /** Sentences written at most once per save, however many items they cover. */
     public static function isCoalesced(string $sentence): bool
     {
-        return $sentence === self::MOON_CHANGED || $sentence === self::SPECIAL_PAGES_CHANGED;
+        return $sentence === self::MOON_CHANGED
+            || $sentence === self::SPECIAL_PAGES_CHANGED
+            || str_starts_with($sentence, self::GROUPS_REORDERED);
     }
 
     public static function exported(CalendarExportVariant $variant): string
@@ -104,6 +107,9 @@ readonly final class DescribeCalendarChange
                 default => self::labelled('Upravil šichtovnici', self::plainName($new)),
             },
             'specialPages' => self::specialPage($old, $new),
+            'pageSetup' => self::labelled('Upravil vzhled strany', $label),
+            'pageContent' => self::pageContent($old, $new, $label),
+            'pageGroups' => self::pageGroup($old, $new),
             default => null,
         };
     }
@@ -133,6 +139,79 @@ readonly final class DescribeCalendarChange
         }
 
         return self::SPECIAL_PAGES_CHANGED;
+    }
+
+    /**
+     * Texts and the photo of a cover / back / special page: the photo is named
+     * when it is all that changed.
+     *
+     * @param null|array<mixed> $old
+     * @param null|array<mixed> $new
+     */
+    private static function pageContent(null|array $old, null|array $new, string $label): string
+    {
+        if ($new === null) {
+            return self::labelled('Smazal obsah strany', $label);
+        }
+
+        $oldPhoto = is_array($old['photo'] ?? null) ? $old['photo'] : null;
+        $newPhoto = is_array($new['photo'] ?? null) ? $new['photo'] : null;
+        if (self::filledTexts($old) != self::filledTexts($new) || $oldPhoto == $newPhoto) {
+            return self::labelled('Upravil texty strany', $label);
+        }
+
+        return self::labelled(match (true) {
+            $newPhoto === null => 'Odebral fotku',
+            $oldPhoto === null => 'Nahrál fotku',
+            ($oldPhoto['asset'] ?? null) !== ($newPhoto['asset'] ?? null) => 'Vyměnil fotku',
+            default => 'Posunul fotku',
+        }, $label);
+    }
+
+    /**
+     * The texts of a page's content that say something (an item that only
+     * gained empty fields did not change its texts).
+     *
+     * @param null|array<mixed> $item
+     * @return array<mixed>
+     */
+    private static function filledTexts(null|array $item): array
+    {
+        $item ??= [];
+        unset($item['photo']);
+
+        return array_filter($item, static fn (mixed $value): bool => $value !== '');
+    }
+
+    /**
+     * @param null|array<mixed> $old
+     * @param null|array<mixed> $new
+     */
+    private static function pageGroup(null|array $old, null|array $new): string
+    {
+        $item = $new ?? $old ?? [];
+        $page = match ($item['page'] ?? null) {
+            'sp:waste' => 'Plánovací kalendář svozu odpadů',
+            default => 'Důležité kontakty',
+        };
+        $heading = self::cut(self::string($item, 'heading'), 80);
+        $name = $heading === '' ? 'bez názvu' : sprintf('„%s“', $heading);
+
+        if ($new === null) {
+            return self::labelled('Odebral skupinu ' . $name, $page);
+        }
+
+        if ($old === null) {
+            return self::labelled('Přidal skupinu ' . $name, $page);
+        }
+
+        $a = $old;
+        $b = $new;
+        unset($a['pos'], $b['pos']);
+
+        return $a == $b
+            ? self::labelled(self::GROUPS_REORDERED, $page)
+            : self::labelled('Upravil skupinu ' . $name, $page);
     }
 
     private static function labelled(string $sentence, string $label): string
