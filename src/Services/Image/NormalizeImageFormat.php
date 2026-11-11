@@ -31,6 +31,11 @@ readonly final class NormalizeImageFormat
 {
     private const int JPEG_QUALITY = 90;
 
+    /** Re-encode quality of a picture that is only being rotated — a second lossy pass, so kept high. */
+    private const int REORIENT_QUALITY = 95;
+
+    private const int ORIENTATION_UPRIGHT = 1;
+
     /**
      * Formats every consumer already agrees on: PHP sizes them, browsers paint
      * them, Chromium prints them. They pass through byte-for-byte.
@@ -66,20 +71,216 @@ readonly final class NormalizeImageFormat
         if ($size !== false && isset(self::PASSTHROUGH[$size[2]]) && $size[0] > 0 && $size[1] > 0) {
             [$extension, $mimeType] = self::PASSTHROUGH[$size[2]];
 
-            return [
+            $passthrough = [
                 'contents' => $contents,
                 'extension' => $extension,
                 'mimeType' => $mimeType,
                 'width' => $size[0],
                 'height' => $size[1],
             ];
+
+            if (self::exifOrientation($contents, $size[2]) <= self::ORIENTATION_UPRIGHT || ImageDecodeLimits::exceeds($size[0], $size[1])) {
+                return $passthrough;
+            }
+
+            // A picture that cannot be rotated is still a picture.
+            return $this->reorient($contents, $extension, $mimeType) ?? $passthrough;
         }
 
-        if (self::looksLikeSvg($contents)) {
+        if (self::isText($contents)) {
+            return null;
+        }
+
+        $announced = ImageDecodeLimits::pixelSize($contents);
+
+        if ($announced === null || ImageDecodeLimits::exceeds($announced[0], $announced[1])) {
             return null;
         }
 
         return $this->transcode($contents);
+    }
+
+    /**
+     * An SVG root anywhere in the bytes (an XML declaration, a doctype or
+     * comments of any length may precede it). Content, not file name — an SVG
+     * uploaded as "logo.txt" is still an SVG. Only meaningful for bytes
+     * {@see normalize()} answered null for.
+     */
+    public static function looksLikeSvg(string $contents): bool
+    {
+        return self::isText($contents) && stripos($contents, '<svg') !== false;
+    }
+
+    /**
+     * True for anything that is text rather than a binary picture: SVG, any
+     * XML, HTML, plain text, and ImageMagick's script formats (MVG, MSL).
+     * Such bytes must never reach ImageMagick — not even for a ping.
+     */
+    public static function isText(string $contents): bool
+    {
+        $head = ltrim(substr($contents, 0, 1024), "\xEF\xBB\xBF \t\r\n");
+
+        if (str_starts_with($head, '<') || stripos($head, '<svg') !== false) {
+            return true;
+        }
+
+        $mimeType = (string) (new \finfo(FILEINFO_MIME_TYPE))->buffer($contents);
+
+        return str_starts_with($mimeType, 'text/')
+            || str_contains($mimeType, 'xml')
+            || str_contains($mimeType, 'svg')
+            || str_contains($mimeType, 'mvg')
+            || str_contains($mimeType, 'msl');
+    }
+
+    /**
+     * The EXIF Orientation of a pass-through picture: 1 = upright, 2–8 =
+     * mirrored / rotated, 0 = none recorded. Reads headers only.
+     */
+    private static function exifOrientation(string $contents, int $imageType): int
+    {
+        // No EXIF block of any spelling (JPEG APP1 "Exif", WebP "EXIF", PNG
+        // "eXIf") — the common case for everything but camera files.
+        if (!str_contains($contents, 'Exif') && !str_contains($contents, 'EXIF') && !str_contains($contents, 'eXIf')) {
+            return 0;
+        }
+
+        if ($imageType === IMAGETYPE_GIF) {
+            return 0;
+        }
+
+        if ($imageType === IMAGETYPE_WEBP) {
+            // ImageMagick's ping does not surface a WebP's profiles.
+            return self::webpOrientation($contents);
+        }
+
+        try {
+            $image = new \Imagick();
+            // ping = headers and profiles only, no pixel decode.
+            $image->pingImageBlob($contents);
+            $orientation = $image->getImageOrientation();
+            $image->clear();
+        } catch (\ImagickException) {
+            return 0;
+        }
+
+        return $orientation;
+    }
+
+    /**
+     * Orientation tag (0x0112) of the first IFD in a WebP's `EXIF` chunk.
+     */
+    private static function webpOrientation(string $contents): int
+    {
+        $length = strlen($contents);
+        $offset = 12; // "RIFF" size "WEBP"
+
+        while ($offset + 8 <= $length) {
+            $chunkSize = self::uint(substr($contents, $offset + 4, 4), true);
+
+            if (substr($contents, $offset, 4) !== 'EXIF') {
+                $offset += 8 + $chunkSize + ($chunkSize % 2);
+
+                continue;
+            }
+
+            $tiff = substr($contents, $offset + 8, min($chunkSize, 65_536));
+
+            if (str_starts_with($tiff, "Exif\0\0")) {
+                $tiff = substr($tiff, 6);
+            }
+
+            $littleEndian = str_starts_with($tiff, 'II');
+
+            if (!$littleEndian && !str_starts_with($tiff, 'MM')) {
+                return 0;
+            }
+
+            $ifd = self::uint(substr($tiff, 4, 4), $littleEndian);
+            $entries = self::uint(substr($tiff, $ifd, 2), $littleEndian);
+
+            for ($i = 0; $i < min($entries, 256); $i++) {
+                $entry = substr($tiff, $ifd + 2 + $i * 12, 12);
+
+                if (strlen($entry) === 12 && self::uint(substr($entry, 0, 2), $littleEndian) === 0x0112) {
+                    $orientation = self::uint(substr($entry, 8, 2), $littleEndian);
+
+                    return $orientation >= 1 && $orientation <= 8 ? $orientation : 0;
+                }
+            }
+
+            return 0;
+        }
+
+        return 0;
+    }
+
+    private static function uint(string $bytes, bool $littleEndian): int
+    {
+        $format = match (strlen($bytes)) {
+            2 => $littleEndian ? 'v' : 'n',
+            4 => $littleEndian ? 'V' : 'N',
+            default => null,
+        };
+
+        if ($format === null) {
+            return 0;
+        }
+
+        $value = unpack($format, $bytes);
+
+        return is_array($value) && is_int($value[1] ?? null) ? $value[1] : 0;
+    }
+
+    /**
+     * Rotates the pixels the way the EXIF flag says and re-encodes in the
+     * SAME format, dropping the metadata (the flag with it) but keeping the
+     * colour profile.
+     *
+     * @return null|array{contents: string, extension: string, mimeType: string, width: int, height: int}
+     */
+    private function reorient(string $contents, string $extension, string $mimeType): null|array
+    {
+        try {
+            $image = new \Imagick();
+            $image->readImageBlob($contents);
+            $image->setIteratorIndex(0);
+            $image->autoOrient();
+
+            $iccProfile = $image->getImageProfiles('icc', true)['icc'] ?? null;
+            $image->stripImage();
+
+            if (is_string($iccProfile) && $iccProfile !== '') {
+                $image->profileImage('icc', $iccProfile);
+            }
+
+            // stripImage() leaves the orientation attribute alone on some builds.
+            $image->setImageOrientation(\Imagick::ORIENTATION_TOPLEFT);
+
+            if ($extension !== 'png') {
+                $image->setImageCompressionQuality(self::REORIENT_QUALITY);
+            }
+
+            $width = $image->getImageWidth();
+            $height = $image->getImageHeight();
+            $bytes = $image->getImageBlob();
+
+            $image->clear();
+        } catch (\ImagickException | \ImagickPixelException) {
+            return null;
+        }
+
+        if ($bytes === '' || $width < 1 || $height < 1) {
+            return null;
+        }
+
+        return [
+            'contents' => $bytes,
+            'extension' => $extension,
+            'mimeType' => $mimeType,
+            'width' => $width,
+            'height' => $height,
+        ];
     }
 
     /**
@@ -146,17 +347,5 @@ readonly final class NormalizeImageFormat
             'width' => $width,
             'height' => $height,
         ];
-    }
-
-    /**
-     * Sniffs the leading bytes for an SVG root (possibly preceded by an XML
-     * declaration, a doctype or comments). Content, not file name — an SVG
-     * uploaded as "logo.txt" is still an SVG.
-     */
-    private static function looksLikeSvg(string $contents): bool
-    {
-        $head = substr($contents, 0, 1024);
-
-        return stripos($head, '<svg') !== false;
     }
 }

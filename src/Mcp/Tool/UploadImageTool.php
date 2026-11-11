@@ -480,15 +480,11 @@ readonly final class UploadImageTool
     }
 
     /**
-     * Mirrors {@see NormalizeImageFormat}'s own SVG sniff — content, not file
-     * name, so an SVG sent as "logo.txt" is still an SVG. Duplicated rather
-     * than shared because the normaliser's copy is private and reshaping a
-     * service half the app uploads through is not this tool's business; it is
-     * two lines, and the rule it encodes ("an `<svg` root near the start")
-     * cannot drift far.
+     * The normaliser's own SVG sniff — content, not file name, so an SVG sent
+     * as "logo.txt" is still an SVG, however much precedes its root element.
      */
     private static function looksLikeSvg(string $contents): bool
     {
-        return stripos(substr($contents, 0, 1024), '<svg') !== false;
+        return NormalizeImageFormat::looksLikeSvg($contents);
     }
 }

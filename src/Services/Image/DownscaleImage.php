@@ -90,9 +90,14 @@ readonly final class DownscaleImage
             // A WebP/PNG produced by the renderer is single-frame, but reading
             // a blob leaves the iterator wherever the decoder put it; pin it.
             $image->setIteratorIndex(0);
+            // A camera file may carry an EXIF orientation: apply it BEFORE the
+            // metadata (and the flag with it) is stripped below, or the
+            // preview of a portrait phone photo comes out sideways. The header
+            // size above is the stored one, so measure again afterwards.
+            $image->autoOrient();
             $image->resizeImage(
-                max(1, (int) round($width * $scale)),
-                max(1, (int) round($height * $scale)),
+                max(1, (int) round($image->getImageWidth() * $scale)),
+                max(1, (int) round($image->getImageHeight() * $scale)),
                 \Imagick::FILTER_LANCZOS,
                 1,
             );

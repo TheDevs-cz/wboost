@@ -257,7 +257,34 @@ anything else Imagick can decode is transcoded (PNG when it has alpha, else
 JPEG q90, EXIF orientation baked in and the ICC profile preserved), and the
 stored extension always describes the BYTES, never the client's file name. SVG
 is deliberately refused by the normalizer and stored untouched — it stays vector
-everywhere (logos, backgrounds). `AssetInliner::inlineImageWithDimensions` runs
+everywhere (logos, backgrounds).
+
+Three rules of the normalizer every caller inherits (2026-11):
+
+- **EXIF orientation.** A pass-through JPEG / PNG / WebP whose EXIF Orientation
+  is not "upright" is the one exception to byte-for-byte: it is rotated and
+  re-encoded in its own format (q95, ICC kept, metadata dropped) and the
+  reported `width` / `height` are the rotated ones. Browsers honour the flag,
+  `getimagesizefromstring()` does not — a portrait phone photo was recorded as
+  4032 × 3024 and drawn sideways or squashed by whatever trusted that size.
+  The check reads headers only and is skipped for bytes with no EXIF block.
+  `DownscaleImage::toLongEdge` applies the orientation before it strips.
+  Files stored before this keep their flag (no backfill); `AssetInliner` runs
+  the normalizer at render time, so exports see them upright.
+- **Text never reaches ImageMagick.** `NormalizeImageFormat::isText()` (leading
+  `<`, an `<svg` in the first kB, or a sniffed `text/*` / XML / SVG / MVG / MSL
+  MIME) answers null before any decode — ImageMagick *renders* an SVG (Inkscape
+  on the server, following the file's references) and executes its script
+  formats. The old sniff read 1 kB, so an SVG behind a long comment was
+  rasterised. `looksLikeSvg()` (public, scans the whole file) is what callers
+  use to tell "an SVG to keep" from "not a picture".
+- **Pixel limit.** `ImageDecodeLimits::MAX_PIXELS` = 60 MP, read from the
+  header (`ImageDecodeLimits::pixelSize`) before any decode: a transcode
+  candidate above it is refused (null), an oriented one passes through
+  unrotated. The calendar uploader refuses such a file outright (422) and also
+  calls `ImageDecodeLimits::apply()` (ImageMagick memory 512 MiB / map 1 GiB /
+  disk 2 GiB — **process-wide** once set, deliberately roomy). The gallery
+  itself has no pixel refusal for PNG / JPEG / WebP: it never decodes them. `AssetInliner::inlineImageWithDimensions` runs
 the same normalizer at render time, so files uploaded before this (and any other
 format Chromium can't paint) still export.
 

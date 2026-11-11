@@ -122,6 +122,30 @@ final class DownscaleImageTest extends TestCase
         self::assertFalse($result['downscaled']);
     }
 
+    /**
+     * The preview of a sideways phone photo is upright: the orientation flag
+     * is applied before the metadata — and the flag with it — is stripped.
+     */
+    public function testAppliesTheExifOrientationBeforeItStripsTheMetadata(): void
+    {
+        $image = new \Imagick();
+        $image->newImage(400, 300, new \ImagickPixel('#3366cc'));
+        $image->setImageFormat('jpeg');
+        $tiff = "II*\0" . pack('V', 8) . pack('v', 1) . pack('vvVvv', 0x0112, 3, 1, 6, 0) . pack('V', 0);
+        $image->profileImage('exif', "Exif\0\0" . $tiff);
+        $image->setImageOrientation(6);
+        $sideways = $image->getImageBlob();
+
+        $result = (new DownscaleImage())->toLongEdge($sideways, 200, RenderImageFormat::Webp);
+
+        self::assertTrue($result['downscaled']);
+        self::assertSame([150, 200], [$result['width'], $result['height']]);
+
+        $size = getimagesizefromstring($result['contents']);
+        self::assertNotFalse($size);
+        self::assertSame([150, 200], [$size[0], $size[1]]);
+    }
+
     private static function render(string $format, int $width, int $height): string
     {
         $image = new \Imagick();

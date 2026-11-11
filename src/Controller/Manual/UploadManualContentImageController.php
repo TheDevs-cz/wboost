@@ -79,7 +79,7 @@ final class UploadManualContentImageController extends AbstractController
             $extension = $normalized['extension'];
             $width = $normalized['width'];
             $height = $normalized['height'];
-        } elseif (stripos(substr($contents, 0, 1024), '<svg') !== false) {
+        } elseif (NormalizeImageFormat::looksLikeSvg($contents)) {
             $extension = 'svg';
         } else {
             return new JsonResponse(['error' => 'Tento formát obrázku neumíme přečíst. Nahrajte PNG, JPG, WebP nebo SVG.'], Response::HTTP_UNPROCESSABLE_ENTITY);
