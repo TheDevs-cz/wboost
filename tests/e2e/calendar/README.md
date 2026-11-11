@@ -84,6 +84,12 @@ docker compose exec -T postgres psql -U postgres -d wboost \
 | `newPage(browser, viewport)`, `login(page)` | a second logged-in page (e.g. a client and a designer side by side) |
 | `shot(page, name)` | screenshot into `SHOTS` (no-op without it) |
 
+Editor scripts share `lib/editor.cjs` (phase P4): `newCalendar` (UI → step 3, saved), `restore`
+(seed a saved design back and reload), `allBoxes` / `assertBoxes` / `withBoxes` (every stored box
+before and after), `selectLayer`, `clickMm`, `resize` (a handle of a Vrstvy-selected element),
+`dragRow` (reorder in Vrstvy), `svgRectOf` / `assertRect` / `frameRect` / `handleCentre` (overlay
+checked against the page SVG), `pressMod`, `leaveFreely`.
+
 Rules: wrap every handoff check in `await check('E3 …', async () => { … })` so one failure does not
 hide the rest; a data-changing scenario saves, reloads and asserts again; never use native
 `confirm()` paths; Bootstrap modals fade for 300 ms — use `answerDialog` or wait before clicking in

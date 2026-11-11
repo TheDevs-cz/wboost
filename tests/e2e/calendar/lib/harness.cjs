@@ -197,7 +197,9 @@ async function waitStatus(page, status, timeout = 10000) {
 async function save(page) {
     await page.click('[data-cal-action="save"]');
     await waitStatus(page, 'clean');
-    await page.waitForNetworkIdle({ idleTime: 150, timeout: 10000 });
+    // "Vše uloženo" is the contract; the quiet network is only a courtesy to what follows (under a
+    // loaded dev stack the debug toolbar's own requests can keep it busy for a long time)
+    await page.waitForNetworkIdle({ idleTime: 150, timeout: 10000 }).catch(() => null);
 }
 
 /** Clicks a step of the top bar and waits until its module is mounted. */
