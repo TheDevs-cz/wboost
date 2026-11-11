@@ -9,10 +9,18 @@ export default async function (t, load) {
     const { DEFAULT_PAGE } = await load('model/defaults.js');
 
     t.test('collection registry and client whitelist', () => {
-        assert.deepEqual(Object.keys(C.COLLECTIONS).sort(), ['clubs', 'comments', 'events', 'moonEdits', 'names', 'pageCaptions', 'pageImages', 'pagePhotos', 'pageQr', 'shiftOps', 'specialPages', 'wasteExtras', 'wasteKinds']);
+        assert.deepEqual(Object.keys(C.COLLECTIONS).sort(), ['clubs', 'comments', 'events', 'moonEdits', 'names', 'pageCaptions', 'pageContent', 'pageGroups', 'pageImages', 'pagePhotos', 'pageQr', 'pageSetup', 'shiftOps', 'specialPages', 'wasteExtras', 'wasteKinds']);
         const where = (flag) => Object.keys(C.COLLECTIONS).filter((k) => C.COLLECTIONS[k][flag]).sort();
-        assert.deepEqual(where('clientWritable'), ['clubs', 'comments', 'events', 'names', 'pageCaptions', 'pagePhotos', 'wasteExtras', 'wasteKinds']);
-        assert.deepEqual(where('ordered'), ['clubs', 'shiftOps', 'specialPages', 'wasteKinds']);
+        // the client fills in texts, photos and contact groups of the cover / back / special pages
+        // (`pageContent`, `pageGroups`); what those pages look like (`pageSetup`, `specialPages`) is the designer's
+        assert.deepEqual(where('clientWritable'), ['clubs', 'comments', 'events', 'names', 'pageCaptions', 'pageContent', 'pageGroups', 'pagePhotos', 'wasteExtras', 'wasteKinds']);
+        assert.deepEqual(where('ordered'), ['clubs', 'pageGroups', 'shiftOps', 'specialPages', 'wasteKinds']);
+        // NOT page-keyed: „Vrátit na styl“ (clearPageOverrides) must never remove a page's content
+        assert.deepEqual(C.clearPageOverrides({ pageContent: { cover: { title: 'A' } }, pageSetup: { cover: {} }, pagePhotos: {}, pageCaptions: {}, pageImages: {}, pageQr: {} }, 'cover'), []);
+        assert.equal(C.pageHasOverrides({ pageContent: { cover: { title: 'A' } }, pageSetup: { cover: {} } }, 'cover'), false);
+        // a year change moves dated items only
+        const kept = { pageContent: { cover: { title: 'A', subtitle: '', note: '', photo: null } }, pageGroups: { g: { page: 'sp:contacts', heading: 'H', lines: [], highlight: false, pos: 0 } }, pageSetup: { cover: { layout: 1, logo: 'tc', logoSize: 's' } } };
+        assert.ok(C.shiftContentYear(normalizeContent(kept), 2027, 2028).ops.every((op) => !['pageContent', 'pageGroups', 'pageSetup'].includes(op.c)));
         assert.deepEqual(where('pageKeyed'), ['pageCaptions', 'pageImages', 'pagePhotos', 'pageQr']);
         assert.deepEqual(where('dated'), ['comments', 'events', 'moonEdits', 'names', 'wasteExtras']);
         assert.deepEqual(Object.keys(normalizeContent({})).sort(), ['v', ...Object.keys(C.COLLECTIONS)].sort());

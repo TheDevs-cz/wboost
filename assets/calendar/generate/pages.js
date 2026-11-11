@@ -10,6 +10,7 @@ export const SPECIAL_KIND_LABELS = Object.freeze({
     contacts: 'Důležité kontakty',
     year: 'Roční kalendárium',
     waste: 'Plánovací kalendář svozu odpadů',
+    notes: 'Poznámky',
 });
 
 const pad2 = (n) => String(n).padStart(2, '0');

@@ -38,6 +38,10 @@ export function createCanvasMeasurer() {
     const canvas = typeof document !== 'undefined' ? document.createElement('canvas') : new OffscreenCanvas(8, 8);
     const ctx = canvas.getContext('2d');
     const cache = new Map();
+    // a face that finishes loading changes the widths measured with its fallback so far
+    if (typeof document !== 'undefined' && document.fonts && typeof document.fonts.addEventListener === 'function') {
+        document.fonts.addEventListener('loadingdone', () => cache.clear());
+    }
     return {
         width(text, font) {
             const value = String(text);

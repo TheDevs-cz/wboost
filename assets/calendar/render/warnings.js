@@ -4,6 +4,7 @@ import { parts } from '../generate/dates.js';
 import { createDayContext } from '../generate/day.js';
 import { isElementVisible } from '../model/elements.js';
 import { layoutWeekPage } from './week-layout.js';
+import { specialPageIssues } from './special.js';
 
 /** Effective dpi of a photo placed with cover scale × zoom into a frame (mm, bleed part included). */
 export function photoDpi(assetInfo, frameBox, zoom) {
@@ -14,7 +15,12 @@ export function photoDpi(assetInfo, frameBox, zoom) {
 export function pageWarnings(doc, page, opts) {
     const out = [];
     const design = doc.design;
-    if (page.kind !== 'week' || !design.layout) return out;
+    if (!design.layout) return out;
+    if (page.kind !== 'week') {
+        // cover, back and special pages: a text that does not fit even at its smallest size
+        for (const message of specialPageIssues(doc, page, opts)) out.push({ pageIndex: page.index, kind: 'overflow', target: { el: 'page' }, message });
+        return out;
+    }
     const assets = (opts.env && opts.env.assets) || {};
     const photo = doc.content.pagePhotos[page.key];
     const asset = photo ? assets[photo.asset] : null;

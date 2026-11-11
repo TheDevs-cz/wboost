@@ -109,8 +109,7 @@ export default async function (t, load) {
         const special = renderPage(doc, pages[1], opts());
         assert.ok(special.includes('SLOVO &lt;STAROSTY&gt;'));
         assert.ok(special.includes('aria-label="Slovo &lt;starosty&gt;"'));
-        assert.ok(renderPage(doc, pages[0], opts()).includes('Obec &lt;Testov&gt; &amp; okolí'));
-        assert.ok(renderPage(doc, pages[0], opts()).includes(`KALENDÁŘ ${doc.design.year}`));
+        assert.ok(renderPage(doc, pages[0], opts()).includes(`Kalendář ${doc.design.year}`));
     });
 
     t.test('viewBox: trim, bleed, crop marks', async () => {
