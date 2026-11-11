@@ -1241,14 +1241,26 @@ by `valign`.
 DOM of the stage (`ui/editor/stage.js`):
 
 ```
-.cal-stage                     scroll container (the zoomed page may be larger)
+.cal-stage                     column: bar · page · hint (+ the collapse handle of the properties column in step 3)
   .cal-stage-bar               Propojit prvky · "Vzorová strana · styl platí pro všechny strany" · zoom
-  .cal-cvw > .cal-cv           sized (W + 2B)·s × (H + 2B)·s px, s = fitScale × zoom
-     svg.cal-page              renderPage(sample, { bleed: true, placeholders: 'all' })
-     svg.cal-chrome            same viewBox: bleed hatch (45°, #E0708A at .35) + dashed trim line (#D9486A), pointer-events none
-     div.cal-ovl               HTML overlay, origin at the trim corner: frames, handles, tag, part boxes, guides
+  .cal-cvw                     scroll container (the zoomed page may be larger)
+    .cal-cv                    sized (W + 2B)·s × (H + 2B)·s px, s = fitScale × zoom — every pointer event lands here
+      .cal-page-svg > svg      renderPage(sample, { bleed: true, placeholders: 'all' }), pointer-events none
+      svg.cal-chrome           same viewBox: bleed hatch (45°, #E0708A at .35) + dashed trim line (#D9486A), pointer-events none
+      div.cal-ovl              HTML overlay, origin at the trim corner: frames, handles, tag, part boxes, guides (`overlay.js`)
+      div.cal-ovl.cal-ovl-parts   second layer with the same origin, handed to `mountPartsOverlay` (P5b)
   .cal-hint                    hint line (map §8.7)
 ```
+
+- Renders are coalesced into a **microtask** (not an animation frame): the DOM is current as soon as
+  the code that changed the store returns, also in a background tab. The page SVG is re-rendered only
+  when the document or the sample page changed; a selection or zoom change moves the overlay only.
+- The fit scale uses the stage size; when the columns are stacked (≤ 960 px) the page is fitted by
+  width alone and the stage is as high as its content.
+- Handle elements are `i.cal-h.cal-h-<dir>[data-handle]` (the direction class is prefixed because the
+  kit owns `.sw`), centred exactly on the corners / edge centres of the box; a frame smaller than
+  36 px (`.tight`) drops the enlarged grab area so neighbouring handles do not swallow each other. A
+  frame that reaches the lower edge of the canvas carries its tag inside (`.tag-in`).
 
 - `s` is recomputed on window resize (`ResizeObserver` on the stage) and on zoom; overlay positions
   are `mm × s` and are redrawn from state on every `layout` / `ui` event, so frame, handles and guides
@@ -1284,20 +1296,32 @@ Pointer pipeline (`pointerdown` on `.cal-cv`, pointer capture, `pt` = pointer in
 5. Every `pointermove`: `dragTo(session, dx / s, dy / s, { snap: !event.altKey, thresholdMm: SNAP_PX / s })`
    → `store.updateLive` with the returned boxes, `ui.guides` = returned guides.
 6. `pointerup`: clear guides, `store.commitChange()` (one undo step for A and all followers).
+7. Additions of P4: the pointer back within 1 px of where it went down gives exactly the starting
+   boxes (no snap can pull an element away at the start position, so "drag out and back" never
+   drifts); **Esc during a drag** cancels it (`store.cancelChange()`) and the key does not reach the
+   selection; a press on the empty stage around the canvas deselects; with the Kalendárium selected a
+   press in its **other** frame (14 days) acts on that frame — the selected part is dragged there with
+   that frame's `mirrored` flag, a click selects the part under the pointer; a part that follows the
+   offset of Ikony (`waste`, `moon`) starts its own offset from the Ikony offset.
 
 Keyboard (`ui/editor/keys.js`; ignored while focus is in `input, select, textarea, [contenteditable]`
 or a modal is open): arrows `NUDGE`, Shift + arrows `NUDGE_BIG` (one undo step per key press; nothing
-when a part or Pozadí is selected); Esc part → element → nothing; Ctrl/⌘+Z undo; Ctrl/⌘+Shift+Z and
-Ctrl/⌘+Y redo. The undo / redo buttons of the top bar are shown whenever the editor is mounted (step 3
+when a part or Pozadí is selected); Esc open Nahrát layout menu → part → element → nothing; Ctrl/⌘+Z
+undo; Ctrl/⌘+Shift+Z and Ctrl/⌘+Y redo. A `keydown` that another handler already `preventDefault`ed is
+ignored, and so are arrows with Alt / Ctrl / ⌘ (Alt+↑↓ belongs to the icon order list). The undo / redo buttons of the top bar are shown whenever the editor is mounted (step 3
 **and** step 4 Styl stránek).
 
 Vrstvy (`ui/editor/layers.js`): rows from `layout.order` (QR row only with `features.qr`) + fixed
-Pozadí row with the lock; SortableJS for drag-reorder with above/below indicator (one `change`); click
-toggles selection; eye per §B.5; Kalendárium row arrow expands `availableParts` (group label
+Pozadí row with the lock (outside the sortable list); SortableJS (`forceFallback`, 4 px tolerance so a
+click stays a click) for drag-reorder — the placeholder in the list is the drop indicator — as one
+`change`; click toggles selection (a row that is not drawn can be selected only as Číslo týdne while
+`features.weekNumbers` is off); eye per §B.5; selecting the Kalendárium sets `ui.partsOpen`; Kalendárium row arrow expands `availableParts` (group label
 **Číslo dne**); header menu **Nahrát layout**: one item per sibling calendar of the same type with a
 layout (`Layout z kalendáře v projektu`), `Ze souboru layoutu`, and `Uložit layout do souboru`
 (downloads `exportLayoutFile` as a Blob). Import: `api.importLayout` → `store.replaceLayout` → toast
 `Layout načten z „{name}“ — Ctrl+Z vrátí původní` / `Layout načten ze souboru — Ctrl+Z vrátí původní`.
+A file is checked with `parseLayoutFile` first and rejected with `Soubor neobsahuje layout kalendáře`
+without a request; the file input (`[data-layout-file]`) is a permanent hidden element of the header.
 
 Properties (`ui/editor/props.js`, `props-kal.js`): panels per handoff §6 and map §8.8–8.9, built from
 `ui/controls/*`. Rules: a discrete control calls `store.change`; a slider / colour drag calls
@@ -1314,7 +1338,10 @@ Mounting: step 3 passes three columns as slots. Step 4 (`contentView === 'style'
 column as `stage` and two stacked regions of the right aside as `layers` and `props` with
 `embedded: true`: the aside shows the header `Styl stránek` / `Změny se projeví na všech stranách
 kalendáře.`, the Vrstvy list while nothing is selected, and the properties with a back button
-`Vrstvy` once something is selected. Same module, same store, same undo stack.
+`Vrstvy` once something is selected — header, back button and showing / hiding the two regions are
+step 4's (P6a); the editor only fills the slots and leaves out the collapse handle. Same module, same
+store, same undo stack. In step 3 the handle (`[data-cal-action="panel-toggle"]`, on the stage) sets
+`ui.panelCollapsed`; the stage carries `.panel-off` and `calendar-editor.css` hides `.cal-right`.
 
 ### D.7 Steps, tools, preview
 
@@ -1415,8 +1442,8 @@ stack under the page (handoff §8). Check 390 / 820 / 1440 px in both themes wit
 | `[data-cal-stub="<phase>"]` | a module that is still the P3 stub |
 | `[data-cal-status]` | save status text; attribute value = `clean` / `dirty` / `saving` / `error` |
 | `[data-cal-name]` | calendar name input |
-| `[data-layer="<element>"]`, `[data-layer-eye="<element>"]`, `[data-part-row="<part>"]`, `[data-layer-menu]` | Vrstvy rows, eye buttons, part rows, Nahrát layout menu button |
-| `.cal-cv` | the page canvas; `[data-handle="n…nw"]` handles; `[data-frame-tag]` name tag; `[data-guide="x\|y"]` guides; `[data-part-box]` part highlights; `[data-evbox-bar="n\|e\|s\|w"]`, `[data-iconcell-bar="start\|end"]`, `[data-holwrap-bar="start\|end"]` |
+| `[data-layer="<element>"]`, `[data-layer-eye="<element>"]`, `[data-part-row="<part>"]`, `[data-layer-menu]` | Vrstvy rows, eye buttons, part rows, Nahrát layout menu button; also `[data-layer-item="<element>"]` (the sortable row wrapper; Pozadí has none), `[data-layer-toggle="cal"]` (parts arrow), `[data-layout-from="<calendar id>"]`, `[data-cal-action="layout-file\|layout-save"]` (menu items), `input[data-layout-file]` |
+| `.cal-cv` | the page canvas; `[data-handle="n…nw"]` handles; `[data-frame-tag]` name tag; `[data-guide="x\|y"]` guides (`data-pos` = mm); `[data-part-box="<part>"]` part highlights (`data-frame`, `data-date`); `[data-evbox-bar="n\|e\|s\|w"]`, `[data-iconcell-bar="start\|end"]`, `[data-holwrap-bar="start\|end"]` |
 | `[data-field="x\|y\|w\|h"]` | inputs of Pozice a velikost; every other property control carries `data-prop="<path in styles>"` (e.g. `month.size`, `cal.iconGrid`) |
 | `[data-feature="<key>"]`, `[data-feature-all]`, `[data-type="week\|fortnight"]`, `[data-year="<y>"]`, `[data-print="bleed\|bleedMm\|marks"]`, `[data-preset="<preset>"]` | steps 1–2 (`data-feature*` / `data-print` sit on the hidden native input — click its `label`) |
 | `[data-tool="<key>"]` | content tool buttons (`photos`, `waste`, `events`, `names`, `moon`, `shifts`, `qr`) |
@@ -1816,6 +1843,12 @@ Shared test infrastructure:
   through `toClient`), `dragHandle(page, handle, dxMm, dyMm, opts)`,
   `expectBox(actual, expected, tolMm = 0.11)`, `reload(page)`, `answerDialog(page, choice)`,
   `waitToast(page, pattern)`, `deleteCalendar(page, id)`, `shot(page, name)`.
+  `tests/e2e/calendar/lib/editor.cjs` (P4) adds what the editor scripts share: `newCalendar(page, h, { type, preset, features })`
+  (through the UI into step 3, saved), `restore(page, h, design, patch?)` (seeds a saved design back and
+  reloads), `allBoxes`, `assertBoxes` / `withBoxes` (every stored box before / after), `selectLayer`,
+  `clickMm`, `resize(page, h, el, handle, dx, dy)`, `dragRow` (Vrstvy reorder with the real mouse),
+  `svgRectOf` / `assertRect` / `frameRect` / `handleCentre` (overlay against the page SVG itself),
+  `pressMod`, `leaveFreely(page)` (accepts the `beforeunload` prompt of a deliberate reload).
   `tests/e2e/calendar/run.cjs [filter]` creates the fixture, removes leftover calendars of the e2e
   project, runs every `*.e2e.cjs` and prints a pass/fail table; scripts export
   `{ name, checks: ['E1', …], run({ browser, page, h, check }) }` — `check(id, fn)` records one named
