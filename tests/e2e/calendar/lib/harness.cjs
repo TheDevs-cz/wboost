@@ -77,7 +77,7 @@ function ensureFixture() {
     }
     psql(`
         INSERT INTO project (id, created_at, name, owner_id, sharing, slug, modules)
-        SELECT ${quote(config.projectId)}, now(), ${quote(config.projectName)}, u.id, '[]', 'e2e-kalendare', '["manuals", "templates", "calendars"]'
+        SELECT ${quote(config.projectId)}, now(), ${quote(config.projectName)}, u.id, '[]', ${quote('e2e-kalendare-' + config.projectId.slice(-4))}, '["manuals", "templates", "calendars"]'
         FROM "user" u WHERE u.email = ${quote(config.email)}
         ON CONFLICT (id) DO UPDATE SET modules = '["manuals", "templates", "calendars"]';
     `);
