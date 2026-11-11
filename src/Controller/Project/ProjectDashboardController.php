@@ -14,10 +14,12 @@ use WBoost\Web\Query\GetWeeklyMenus;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use WBoost\Web\Repository\CalendarRepository;
 use WBoost\Web\Repository\FileUploadRepository;
 use WBoost\Web\Repository\ProjectColorRepository;
 use WBoost\Web\Services\Security\ProjectVoter;
 use WBoost\Web\Value\FileSource;
+use WBoost\Web\Value\ProjectModule;
 
 final class ProjectDashboardController extends AbstractController
 {
@@ -30,6 +32,7 @@ final class ProjectDashboardController extends AbstractController
         readonly private GetWeeklyMenus $getWeeklyMenus,
         readonly private FileUploadRepository $fileUploadRepository,
         readonly private ProjectColorRepository $projectColorRepository,
+        readonly private CalendarRepository $calendarRepository,
     ) {
     }
 
@@ -52,6 +55,7 @@ final class ProjectDashboardController extends AbstractController
             'templates' => $templates,
             'emails' => $this->getEmailSignatureTemplates->allForProject($project->id),
             'weekly_menus' => $this->getWeeklyMenus->allForProject($project->id),
+            'calendars_count' => $project->hasModule(ProjectModule::Calendars) ? count($this->calendarRepository->forProject($project->id)) : 0,
             'gallery_images_count' => $this->fileUploadRepository->countByProjectAndSource($project->id, FileSource::ProjectImage),
         ]);
     }

@@ -43,6 +43,9 @@ final class ProjectDashboardControllerTest extends WebTestCase
         // so the left nav links its list (a project without it does not —
         // ProjectModulesTest::testDashboardAndNavShowOnlyEnabledModules).
         self::assertSelectorExists(sprintf('.sb a[href="/project/%s/calendars"]', $projectId));
+        // … and the overview has its tile with the number of calendars.
+        self::assertSelectorExists(sprintf('.pd-tiles a.pd-tile[data-pdk="kalendare"][href="/project/%s/calendars"]', $projectId));
+        self::assertSelectorTextContains('.pd-tile[data-pdk="kalendare"] .pd-n', '2');
         self::assertSelectorExists(sprintf('a[href="/project/%s/fonts"]', $projectId));
         self::assertSelectorExists(sprintf('a[href="/project/%s/emails"]', $projectId));
         self::assertSelectorExists(sprintf('a[href="/project/%s/weekly-menus"]', $projectId));
