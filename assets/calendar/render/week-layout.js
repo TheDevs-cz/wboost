@@ -171,6 +171,7 @@ function layoutFrame(c, f) {
     let blocks = null;
     let holWrapW = Math.min(S.hol.wrapWidth || colW, colW);
     let textWidest = 0;
+    let namesWidest = 0;
     if (!compact) {
         const dayFont = font('day');
         const nameFont = font('name');
@@ -183,7 +184,9 @@ function layoutFrame(c, f) {
             if (!above) lines.push({ part: 'day', text: dayLabel(info), font: dayFont, fill: dayColor });
             const nameLines = wrapText(info.names, colW, nameFont, measurer, { maxLines: 2 });
             for (const line of nameLines) lines.push({ part: 'name', text: line, font: nameFont, fill: S.name.color });
-            return { lines, nameLines: nameLines.length };
+            const own = widest(lines);
+            namesWidest = Math.max(namesWidest, own);
+            return { lines, nameLines: nameLines.length, widest: own };
         });
         // beside a default event box a long holiday wraps at half the column, so the events keep their room
         // — but never so narrow that a wrapped holiday would leave its row
@@ -200,11 +203,16 @@ function layoutFrame(c, f) {
             for (const line of wrapText(info.holiday, holWrapW, holFont, measurer)) block.lines.push({ part: 'hol', text: line, font: holFont, fill: S.hol.color });
             const timeText = info.timeTexts.join(' · ');
             if (timeText && S.time.position === 'text') block.lines.push({ part: 'time', text: timeText, font: timeFont, fill: S.time.color });
-            textWidest = Math.max(textWidest, widest(block.lines));
+            block.widest = widest(block.lines);
+            textWidest = Math.max(textWidest, block.widest);
         });
     }
-    // the same box in both frames of a page: the page-wide widest text wins
-    const evTextW = Math.min(colW, Math.max(textWidest, c.evTextW || 0));
+    // the default event box: one page-wide box beside the weekday / name-day lines (both frames of a page
+    // share the wider value, so they mirror exactly); the rare row whose holiday or time text is wider
+    // gets a narrower box of its own instead of narrowing every row of the page
+    const evNamesW = Math.min(colW, Math.max(namesWidest, c.evNamesW || 0));
+    const evPageW = Math.max(K.EVBOX_MIN_W, colW - evNamesW - K.EVBOX_GAP);
+    const evDefault = defaultEvBox ? { x: side === 'middle' ? colW - evPageW : 0, w: evPageW } : null;
     const holWrap = { x: textAnchor === 'end' ? textCol.x + textCol.w - holWrapW : textCol.x, w: holWrapW };
 
     const offsets = S.offsets || {};
@@ -430,8 +438,8 @@ function layoutFrame(c, f) {
                     bh = Math.max(K.EVBOX_MIN_H, stored.h);
                 } else {
                     // default: the free part of the text column beside the day text, the whole row height
-                    const free = textFlow[1] - textFlow[0] - evTextW - K.EVBOX_GAP;
-                    bw = Math.max(K.EVBOX_MIN_W, free);
+                    const free = textFlow[1] - textFlow[0] - Math.min(colW, blocks[i].widest) - K.EVBOX_GAP;
+                    bw = Math.max(K.EVBOX_MIN_W, Math.min(evPageW, free));
                     bx = side === 'middle' ? textFlow[1] - textFlow[0] - bw : 0;
                     by = K.EVBOX_PAD_Y;
                     bh = Math.max(K.EVBOX_MIN_H, rh - 2 * K.EVBOX_PAD_Y);
@@ -516,6 +524,8 @@ function layoutFrame(c, f) {
         numberColumn: { x: numCol.x, w: numCol.w },
         evOffset: { ...offsetOf('ev') },
         textWidest,
+        namesWidest,
+        evDefault,
         styles: S,
         rows,
     };
@@ -549,9 +559,9 @@ export function layoutWeekPage(doc, page, opts) {
     let frames = build();
     if (frames.length > 1 && design.features.events && !layout.styles.ev.box) {
         // both frames of a 14-day page get the same default event box
-        const widest = Math.max(...frames.map((f) => f.textWidest));
-        if (frames.some((f) => f.textWidest < widest - 0.01)) {
-            c.evTextW = widest;
+        const widest = Math.max(...frames.map((f) => f.namesWidest));
+        if (frames.some((f) => f.namesWidest < widest - 0.01)) {
+            c.evNamesW = widest;
             frames = build();
         }
     }

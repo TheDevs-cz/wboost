@@ -38,11 +38,17 @@ export function resizeEventBox(box, side, dFlow, dy) {
     return { x: roundMm(out.x), y: roundMm(out.y), w: roundMm(out.w), h: roundMm(out.h) };
 }
 
-/** The drawn event box of a row as a stored (flow-anchored, offset-free) `ev.box`. */
+/**
+ * The drawn event box of a row as a stored (flow-anchored, offset-free) `ev.box`. While the default
+ * box is in use the page-wide box is taken (`frame.evDefault`), not the narrower one of a row whose
+ * holiday text needs the room — a stored box is one box for every row.
+ */
 export function defaultEventBox(geometryFrame, row) {
     const r = row.eventBox;
     if (!r) return null;
     const off = geometryFrame.evOffset || { x: 0, y: 0 };
+    const page = geometryFrame.evDefault;
+    if (page) return { x: roundMm(page.x), y: roundMm(r.y - off.y - row.y), w: roundMm(page.w), h: roundMm(r.h) };
     const col = geometryFrame.textColumn;
     const x = r.x - off.x;
     const flowX = geometryFrame.zoneLeft ? x - col.x : col.x + col.w - (x + r.w);

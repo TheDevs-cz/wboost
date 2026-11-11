@@ -295,14 +295,23 @@ export default async function (t, load) {
                     assert.ok(box, `${label} ${row.date} has a box`);
                     near(assert, box.y, row.y + K.EVBOX_PAD_Y, 'whole row minus the padding', 1e-9);
                     near(assert, box.h, row.h - 2 * K.EVBOX_PAD_Y, 'height', 1e-9);
-                    near(assert, box.w, first.w, 'the same width in every row and frame', 1e-6);
+                    // one page-wide box; only a row whose holiday / time text is wider than every name line gets a narrower one
+                    if (row.info.holiday) assert.ok(box.w <= f.evDefault.w + 1e-6, `${label} ${row.date}: a holiday row is never wider`);
+                    else near(assert, box.w, f.evDefault.w, 'the same width in every ordinary row and frame', 1e-6);
+                    near(assert, f.evDefault.w, g.frames[0].evDefault.w, 'the same page-wide box in both frames', 1e-6);
                     assert.ok(box.x >= f.textColumn.x - 0.01 && box.x + box.w <= f.textColumn.x + f.textColumn.w + 0.01, `${label}: inside the text column`);
                     // a page whose day text leaves less than the minimum box width cannot avoid touching it
                     if (box.w <= K.EVBOX_MIN_W + 0.01) continue;
+                    for (const item of row.items) {
+                        if (item.part === 'ev' || item.part === 'line' || (item.part === 'shift' && item.type === 'rect')) continue;
+                        assert.ok(!overlap(box, item.rect), `${label} ${row.date}: the box overlaps ${item.part} "${item.text || item.type}"`);
+                    }
+                    // the page-wide box is clear of the weekday and name lines of every row
+                    const wide = { ...box, w: f.evDefault.w, x: f.zoneLeft === (doc.design.layout.styles.cal.numberSide !== 'middle') ? box.x : box.x + box.w - f.evDefault.w };
                     for (const r of f.rows) {
                         for (const item of r.items) {
-                            if (item.part === 'ev' || item.part === 'line' || (item.part === 'shift' && item.type === 'rect')) continue;
-                            assert.ok(!overlap({ ...box, y: r.y + K.EVBOX_PAD_Y }, item.rect), `${label} ${r.date}: the box overlaps ${item.part} "${item.text || item.type}"`);
+                            if (item.part !== 'day' && item.part !== 'name') continue;
+                            assert.ok(!overlap({ ...wide, y: r.y + K.EVBOX_PAD_Y }, item.rect), `${label} ${r.date}: the page box overlaps ${item.part} "${item.text}"`);
                         }
                     }
                 }
@@ -319,7 +328,13 @@ export default async function (t, load) {
         const f = g.frames[0];
         const short = rowOf(g, '2026-12-29');
         near(assert, short.eventBox.x, f.textColumn.x, 'starts at the zone side of the text column', 1e-9);
-        near(assert, short.eventBox.w, f.textColumn.w - f.textWidest - K.EVBOX_GAP, 'ends a gap before the widest day text of the page', 1e-9);
+        near(assert, short.eventBox.w, f.textColumn.w - f.namesWidest - K.EVBOX_GAP, 'ends a gap before the widest weekday / name line of the page', 1e-9);
+        // the long holiday of 1 January narrows only its own row
+        const nyRow = rowOf(g, '2027-01-01');
+        assert.ok(f.textWidest > f.namesWidest + 5, 'the holiday is the widest text of the page');
+        assert.ok(nyRow.eventBox.w < short.eventBox.w - 5, `holiday row ${nyRow.eventBox.w} < ${short.eventBox.w}`);
+        const nyHol = itemsOf(nyRow, 'hol');
+        for (const item of nyHol) assert.ok(item.rect.x >= nyRow.eventBox.x + nyRow.eventBox.w + K.EVBOX_GAP - 0.01 || nyRow.eventBox.w <= K.EVBOX_MIN_W + 0.01, 'the holiday row box ends a gap before the holiday text');
         assert.ok(short.eventBox.w > 20, `room for events: ${short.eventBox.w}`);
         assert.equal(short.eventOverflow, false);
         assert.deepEqual(itemsOf(short, 'ev').map((i) => i.text), ['Koncert']);
@@ -365,6 +380,25 @@ export default async function (t, load) {
         assert.deepEqual([itemsOf(f1.rows[1], 'ev')[0].anchor, itemsOf(f2.rows[1], 'ev')[0].anchor], ['end', 'start']);
     });
 
+    t.test('default event box on a 14-day page: legible beside the names although the page holds a long holiday', async () => {
+        const events = { a: { date: '2026-12-29', name: 'Zasedání zastupitelstva', club: null, icon: null }, b: { date: '2027-01-06', name: 'Tříkrálová sbírka', club: null, icon: null } };
+        for (const features of [{ events: true }, { events: true, waste: true }]) {
+            const doc = await makeDoc(load, { type: 'fortnight', features, content: { events } });
+            const g = geo(doc);
+            const [f1, f2] = g.frames;
+            assert.ok(f1.rows.some((r) => r.info.holiday), 'the sample page holds 1 January');
+            for (const f of g.frames) {
+                for (const row of f.rows) {
+                    if (row.info.holiday) continue;
+                    assert.ok(row.eventBox.w >= 18, `${row.date}: an ordinary row keeps a legible box, got ${row.eventBox.w.toFixed(1)} mm of a ${f.textColumn.w.toFixed(1)} mm column`);
+                }
+            }
+            assert.equal(rowOf(g, '2026-12-29').eventOverflow, false);
+            assert.equal(rowOf(g, '2027-01-06').eventOverflow, false);
+            near(assert, f2.rows[2].eventBox.x, doc.design.page.width - (f1.rows[1].eventBox.x + f1.rows[1].eventBox.w), 'mirrored', 1e-6);
+        }
+    });
+
     t.test('the event box follows styles.ev.box (flow-anchored) and its offset', async () => {
         const content = { events: { e2: { date: '2026-12-30', name: 'Velmi dlouhý název obecní akce, který se do jednoho řádku pole pro akce rozhodně nevejde', club: null, icon: null } } };
         const box = { x: 4, y: 1, w: 30, h: 13 };
@@ -394,7 +428,9 @@ export default async function (t, load) {
         const gd = geo(def);
         const stored = P.defaultEventBox(gd.frames[0], gd.frames[0].rows[0]);
         assert.equal(stored.x, 0);
-        near(assert, stored.w, gd.frames[0].textColumn.w - gd.frames[0].textWidest - K.EVBOX_GAP, 'w', 0.051);
+        near(assert, stored.w, gd.frames[0].textColumn.w - gd.frames[0].namesWidest - K.EVBOX_GAP, 'w', 0.051);
+        // … also when the designer grabs the box of the holiday row: the stored box is the page-wide one
+        assert.deepEqual(P.defaultEventBox(gd.frames[0], rowOf(gd, '2027-01-01')), { ...stored });
         assert.deepEqual([stored.y, Math.round((stored.h + 2) * 10) / 10], [K.EVBOX_PAD_Y, Math.round(gd.frames[0].rowHeight * 10) / 10]);
     });
 

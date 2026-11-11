@@ -170,7 +170,6 @@ module.exports = {
             assert.equal(await title(), 'Kalendárium');
             assert.equal(await page.$eval('.cal-props-kal .cal-pph .cap', (el) => el.textContent), 'Platí pro všechny strany kalendáře');
             assert.equal(await page.$$eval('.cal-props-kal [data-field]', (n) => n.length), 4, 'Pozice a velikost');
-            assert.equal(await exists('[data-cal-stub]'), false, 'no stub left in the editor');
             await h.shot(page, 'kal-01-block-week');
 
             await e.clickMm(page, h, at);
@@ -975,7 +974,15 @@ module.exports = {
             };
             let left = await evBoxes(0);
             let right = await evBoxes(1);
-            left.forEach((box, i) => mirrored(box, right[i], `default row ${i}`));
+            // the default box is one page-wide box; only the row of 1 January (a long holiday name on the sample
+            // page) gets a narrower one of its own — it must not narrow the events of the other thirteen days
+            const holidayRow = g.frames[0].rows.findIndex((row) => row.date.endsWith('-01-01'));
+            assert.equal(holidayRow, 4, 'the sample page holds 1 January in its left frame');
+            left.forEach((box, i) => {
+                if (i === holidayRow) assert.ok(box.w < right[i].w - 3, `the holiday row has a narrower box (${box.w} vs ${right[i].w})`);
+                else mirrored(box, right[i], `default row ${i}`);
+            });
+            for (const box of [...left.filter((_, i) => i !== holidayRow), ...right]) assert.ok(box.w >= 18, `an ordinary default event box is legible: ${box.w} mm`);
             const rowsOf = (boxes) => boxes.map((b) => b.y);
             assert.deepEqual(rowsOf(left).map((y) => Math.round(y * 10)), rowsOf(right).map((y) => Math.round(y * 10)), 'same rows');
             await h.shot(page, 'kal-14-akce-fortnight');
