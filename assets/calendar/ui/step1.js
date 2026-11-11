@@ -28,13 +28,24 @@ export const FEATURES = Object.freeze([
 ]);
 
 function wireframe(rows) {
+    const card = '<rect class="cal-wf-card" x="20" y="22" width="160" height="76" rx="5"/>';
+    if (rows > 7) {
+        // 14 days = the two-sided layout: first week left, photo in the middle, second week right
+        const gap = 60 / 7;
+        let lines = '';
+        for (let i = 0; i < 7; i++) {
+            const y = (32 + i * gap).toFixed(1);
+            const width = i === 6 ? 20 : 30;
+            lines += `<rect class="cal-wf-b" x="26" y="${y}" width="${width}" height="3.2" rx="1.6"/><rect class="cal-wf-b" x="${174 - width}" y="${y}" width="${width}" height="3.2" rx="1.6"/>`;
+        }
+        return `<svg viewBox="0 0 200 120" aria-hidden="true">${card}<rect class="cal-wf-ph" x="64" y="30" width="72" height="62" rx="3"/>${lines}<rect class="cal-wf-acc" x="26" y="26" width="30" height="3" rx="1.5"/><rect class="cal-wf-acc" x="144" y="26" width="30" height="3" rx="1.5"/></svg>`;
+    }
     const gap = 60 / rows;
-    const height = rows > 7 ? 2.2 : 3.6;
     let lines = '';
     for (let i = 0; i < rows; i++) {
-        lines += `<rect class="cal-wf-b" x="130" y="${(32 + i * gap).toFixed(1)}" width="${i % 7 === 6 ? 26 : 40}" height="${height}" rx="${height / 2}"/>`;
+        lines += `<rect class="cal-wf-b" x="130" y="${(32 + i * gap).toFixed(1)}" width="${i % 7 === 6 ? 26 : 40}" height="3.6" rx="1.8"/>`;
     }
-    return `<svg viewBox="0 0 200 120" aria-hidden="true"><rect class="cal-wf-card" x="20" y="22" width="160" height="76" rx="5"/><rect class="cal-wf-ph" x="26" y="30" width="96" height="62" rx="3"/>${lines}<rect class="cal-wf-acc" x="130" y="26" width="44" height="3" rx="1.5"/></svg>`;
+    return `<svg viewBox="0 0 200 120" aria-hidden="true">${card}<rect class="cal-wf-ph" x="26" y="30" width="96" height="62" rx="3"/>${lines}<rect class="cal-wf-acc" x="130" y="26" width="44" height="3" rx="1.5"/></svg>`;
 }
 
 function hasPageOverrides(content) {
