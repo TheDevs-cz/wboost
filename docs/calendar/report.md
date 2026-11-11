@@ -177,7 +177,7 @@ allow-listed by sniffed MIME type.
 
 ## 6. Known gaps / second iteration
 - AI scan, PDF / image layout import, Excel import (out of scope).
-- Print output in CMYK / PDF/X (the export is RGB; the Ghostscript conversion spike gives rich-black text and no brand palette — `docs/architecture/calendars.md` "Known gaps"). Print files above ~165 MB are unmeasured.
+- Print output in CMYK / PDF/X (the export is RGB; the Ghostscript conversion spike gives rich-black text and no brand palette — `docs/architecture/calendars.md` "Known gaps"). The worst case (53 photos at the 10 MB cap) was measured: 527 MB in 118 s.
 - Long holiday + event on the same day of a 14-day page: ~10 mm box, warning only; a stacking rule needs a design decision.
 - Cover / back / special page content editing; gallery as photo source; page size UI; asset sweeper; client autosave; design conflict detection; launch (preview gate).
 - e2e not in CI; dev container restarts under load.

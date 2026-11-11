@@ -265,6 +265,11 @@ structure of the Illustrator-exported reference file.
   outside it, marks on all four plates, black text K100 over the untouched
   cyan; a 2-page `renderDocument` (page 2's own ink + marks, separated with
   `-dFirstPage`), and a 2-page screen PDF.
+- **`PdfChunkMerger`** (2026-11-11, calendar PDF export): several
+  Chromium-printed PDFs → one file on the local disk, in constant memory —
+  objects renumbered, streams copied raw, identical streams written once,
+  page boxes set on the way. It exists because a 500 MB print file cannot go
+  to Gotenberg's merge route and back (its `/tmp` tmpfs, the 30 s timeout).
 - **`PdfPageBoxes`** (2026-11-11, used by the calendar PDF export —
   `calendars.md` § "PDF export") is the one class here that works on a PDF it
   did not write: it appends an incremental update that sets MediaBox / CropBox

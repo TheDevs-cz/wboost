@@ -344,9 +344,9 @@ file from another project loads without pictures.
 | `calendar_create` | POST `/project/{projectId}/calendars/create` | `ProjectVoter::EDIT` + CSRF |
 | `calendar_workspace` | GET `/calendar/{calendarId}` | `CalendarVoter::VIEW` (mode from `CalendarAccess`) |
 | `calendar_save` / `calendar_asset_upload` / `calendar_history` / `calendar_card` | POST `…/save`, POST `…/asset`, GET `…/history`, GET `…/card` | `CalendarVoter::VIEW` |
-| `calendar_export_request` / `_status` / `_download` | POST `…/export`, GET `…/export/{exportId}`, GET `…/export/{exportId}/download` | `CalendarVoter::VIEW` — whoever opens a calendar may export it |
+| `calendar_export_current` / `_request` / `_status` / `_download` | GET `…/export`, POST `…/export`, GET `…/export/{exportId}`, GET `…/export/{exportId}/download` | `CalendarVoter::VIEW` — whoever opens a calendar may export it |
 | `calendar_document_text` / `calendar_layout_import` / `calendar_client_link` / `calendar_delete` | POST `…/document-text`, `…/layout-import`, `…/client-link`, `…/delete` | `CalendarVoter::EDIT` |
-| `calendar_client` (+ `_save`, `_asset`, `_history`, `_export_request` / `_export_status` / `_export_download`) | `/k/{token}` (+ `/save`, `/asset`, `/history`, `/export…`) | public; the token is the credential |
+| `calendar_client` (+ `_save`, `_asset`, `_history`, `_export_current` / `_export_request` / `_export_status` / `_export_download`) | `/k/{token}` (+ `/save`, `/asset`, `/history`, `/export…`) | public; the token is the credential |
 
 `{token}` = `[a-f0-9]{64}`, unknown → 404; regenerating it
 (`RegenerateCalendarClientLink`) kills the old URL. The token addresses the
@@ -678,17 +678,26 @@ renderer's default stays `holes: true`).
    memory stays flat (~70 MB peak for a 165 MB export) whatever the photos
    weigh. `CalendarPictureSource` says which file an asset gives: `Preview`
    (screenshots), `PreviewJpeg` (approval), `Original` (print).
-4. **Merge** (`CalendarPdfMerger`): Gotenberg's `/forms/pdfengines/merge`
-   (qpdf) — structural, nothing re-encoded; files as streams both ways. The
-   application image has no PDF merger (Ghostscript would re-interpret every
-   page).
-5. **Page boxes** (`Services/Print/PdfPageBoxes`): an **incremental update**
-   appended to the merged file gives every page an exact MediaBox / CropBox, a
-   TrimBox, a BleedBox, and the file an Info dictionary (title, creator,
-   date). Not a byte of the existing file changes. Best effort: a structure it
-   does not read (`PdfStructureNotSupported` — a cross-reference stream, an
-   earlier update, encryption) leaves the file as Chromium made it and logs a
-   warning.
+4. **Assemble** (`Services/Print/PdfChunkMerger`, called by
+   `CalendarPdfProducer::assemble`): the chunk files are copied into ONE file
+   on the local disk — every object under a new number, its dictionary
+   rewritten only where it names another object, its stream copied byte for
+   byte, the chunks' page trees hung under a new root. Constant memory, ~1.3 s
+   for 527 MB, no size limit but the disk. While copying it
+   - gives every page its exact MediaBox / CropBox, TrimBox and BleedBox
+     (`PdfPageBoxes::withBoxes`) and the file one Info dictionary;
+   - **deduplicates**: a stream object whose bytes an earlier chunk already
+     brought (the header / background picture every chunk carries, its colour
+     profile, a font file) is written once. A year with a 4 MB background and
+     a 1 MB header picture went from 796 MB to 527 MB.
+5. **Fallback**: if a chunk is not what the merger reads
+   (`PdfStructureNotSupported` — a cross-reference stream, an earlier update,
+   encryption: a future Chromium), the chunks go through Gotenberg's
+   `/forms/pdfengines/merge` (qpdf; `CalendarPdfMerger`) and
+   `PdfPageBoxes::apply` appends the boxes as an incremental update — the
+   2026-11-11 first version of this step, good up to roughly 400 MB (the whole
+   file twice in Gotenberg's `/tmp`, inside one HTTP call). A warning is
+   logged.
 6. **Store** under `calendars/{calendarId}/exports/{40 hex}.pdf` with
    `ContentType` + `ContentDisposition` on the object, mark the row `done`,
    prune: the newest `CalendarPdfExporter::KEEP` (6) exports of a calendar stay,
@@ -732,8 +741,11 @@ renderer's default stays `holes: true`).
 
 ### Endpoints — `CalendarExportHttp` behind both route families
 
-POST `…/export` (`_token`, `variant`) → `{ export }`; GET `…/export/{id}` →
-`{ export }` (polled every 1.5 s); GET `…/export/{id}/download`.
+GET `…/export` → `{ exports: { print, approval } }` (per variant the export
+that answers a request right now — a job on its way or the finished file of
+the saved calendar — else null); POST `…/export` (`_token`, `variant`) →
+`{ export }`; GET `…/export/{id}` → `{ export }` (polled every 1.5 s);
+GET `…/export/{id}/download`.
 `export = { id, variant, status, done, total, error, sizeBytes, fileName,
 urls: { status, download } }`. An export is always looked up **inside its
 calendar** (`CalendarExportRepository::getOfCalendar`) — another calendar's
@@ -758,17 +770,46 @@ the variant; with unsaved changes the dialog says the export uses the saved
 state and the primary action becomes „Uložit a exportovat“. Progress
 „Připravuji PDF… 12 z 55 stran“; the download starts through a hidden
 **iframe** (a navigation would trip the workspace's `beforeunload` guard) and
-a „Stáhnout“ link stays. Closing the dialog only stops the polling. In step 5
+a „Stáhnout“ link stays. Closing the dialog only stops the polling: **on
+opening, the dialog asks what is there** (GET of the request address) — a job
+on its way, whoever started it and wherever, is picked up and its progress
+shown without a click; a finished file is marked on its card („Připraveno ·
+527 MB“) and the action reads „Stáhnout PDF“. Two people asking for the same
+variant at the same time share one job (the request handler locks the
+calendar row and finds the pending export). In step 5
 the actions are pinned and only the tools scroll (two rows under 960 px).
 
 ### Numbers (dev stack, Apple silicon, 2026-11-11)
 
-| Calendar | Variant | Pages | Time | File | PHP peak | Gotenberg container peak |
-|---|---|---|---|---|---|---|
-| 53 photos of ~3.2 MB (3000 × 2000, one 3600 × 2400), 172 MB of uploads | print | 56 | 17.6 s | 165 MB | 69 MB | ~730 MiB |
-| the same | approval | 56 | 6.0 s | 17 MB (noise-heavy test photos; real ones are about half) | 70 MB | — |
-| 3 photos | print | 56 | 3.3 s | 8.1 MB | — | — |
-| everything switched on (background picture at 35 %, gradients, shadow) | print | 56 | 21 s | 17 MB | 71 MB | — |
+Through the real async path — a consumer started as production's
+(`messenger:consume async --memory-limit 256M`), the request and the polling
+over HTTP. **Worst case**: every week photo a 5400 × 3600 JPEG of 9.8–9.9 MB
+(just under the 10 MB upload cap; 9.9 MB is accepted and 10.1 MB refused with
+„Soubor je větší než 10 MB.“ on both route families), plus a 4.2 MB background
+and a 1 MB header picture on every page.
+
+| Calendar | Variant | Pages / chunks | Total | Slowest chunk | Assemble | Store („Dokončuji…“) | File | PHP peak (consumer RSS) | Gotenberg peak |
+|---|---|---|---|---|---|---|---|---|---|
+| 7 days, 53 photos, 521 MB of uploads | print | 55 / 53 | 118 s | 4.4 s | 1.3 s | 5.9 s | 527 MB | 89 MB (114 MB) | 835 MiB |
+| the same | approval | 55 / 10 | 21 s | 2.5 s | 0.2 s | 0.9 s | 21 MB | 74 MB (128 MB) | 411 MiB |
+| 14 days, 27 photos, 265 MB | print | 29 / 27 | 62 s | 3.9 s | 0.5 s | 2.7 s | 271 MB | 87 MB (110 MB) | 735 MiB |
+| the same | approval | 29 / 5 | 11 s | 2.5 s | 0.1 s | 0.7 s | 11 MB | 72 MB (116 MB) | 335 MiB |
+| 53 photos of ~3.2 MB (the "ordinary" year) | print | 56 | 18 s | — | — | — | 165 MB | 69 MB | ~730 MiB |
+| two 9000 × 6600 (59 MP) photos in one chunk | print | 55 / 10 | 6.5 s | 2.1 s | 0.1 s | — | 14 MB | 78 MB | — |
+
+Against production's limits (read 2026-11-11): the consumer's soft
+`--memory-limit 256M` and its 768 MB container — 89 MB peak, the worker is not
+restarted; Gotenberg's 5 GB — under 1 GB; its 30 s API timeout and the
+client's 20 / 25 s cap — the slowest call took 4.4 s; its 1 GB `/tmp` tmpfs —
+one chunk at a time (~15 MB in, ~15 MB out; `du /tmp` there stayed at 300–430
+MB, of which ~300 MB were Chromium's own profile directories before the
+export started). The work directory of the job peaked at 963 MB (the chunks
+plus the growing merged file). The longest time the progress stood still was
+6 s; the 10-minute "stalled" rule is nowhere near. The 527 MB download (a
+redirect to the storage object) arrived in Chrome in 3 s. The file: 55 pages
+of 336 × 171 mm with TrimBox / BleedBox, 214 font entries all embedded, 162
+image placements over 55 image objects (`5400×3600 jpeg` × 53 + the two shared
+pictures, once each), `qpdf --check` clean.
 
 ### Limits and traps
 
@@ -782,18 +823,30 @@ the actions are pinned and only the tools scroll (two rows under 960 px).
 - **Colours are RGB** (sRGB-tagged photos, DeviceRGB vectors). No CMYK, no
   PDF/X, no output intent — see "Known gaps".
 - **Every Gotenberg call must fit its limits**: the scoped client's
-  `timeout: 20` / `max_duration: 25` and Gotenberg's own 30 s API timeout. A
-  chunk takes ~0.3 s and the whole 165 MB export (merge included) 17.6 s. A print file
-  far beyond that (a year of 10 MB photos ≈ 550 MB) may not merge in time —
-  and production's Gotenberg `/tmp` is a 1 GB tmpfs holding the inputs and the
-  output of the merge. Such an export fails with `BUSY`; nothing was measured
-  above 165 MB.
+  `timeout: 20` / `max_duration: 25` and Gotenberg's own 30 s API timeout.
+  Only chunks travel there now (≤ 6 pages, ≤ 16 MB of page photos — a 10 MB
+  photo is a chunk of its own): 0.3–4.4 s each. A busy renderer is retried
+  three times per chunk.
+- **The ceiling that is left is the disk of the job's work directory**
+  (`sys_get_temp_dir()` of the consumer): the chunk files and, for a moment,
+  the merged file beside them — about twice the calendar's pictures, 963 MB
+  for the worst case above. `CalendarPdfProducer::assertWorkSpace` checks
+  `disk_free_space` BEFORE rendering (2 × the bytes of the pictures the
+  calendar shows + 200 MB) and fails the job at once with
+  `CalendarExports::NO_SPACE` („Na serveru teď není dost místa pro tak velké
+  PDF. Zkuste to prosím později, nebo si stáhněte Náhled k odsouhlasení.“).
+  Nothing else scales with the file: PHP's memory is flat, the upload to the
+  storage is a stream.
+- **Heartbeats**: the row is touched after every chunk, after the assembly
+  and before the upload, so the "stalled" rule (10 min of silence) cannot
+  fire on a healthy job. Once every page is drawn (`done = total`, still
+  `running`) the dialog says „Dokončuji soubor…“.
 - **One consumer, one export at a time** — and e-mails / domain events queue
   behind a running export (seconds to a minute). A second consumer on a
   dedicated transport would isolate them; not done.
-- **Pictures the layout shares** (a header or background picture) are
-  embedded once per CHUNK, not once per file — qpdf does not deduplicate
-  across merged files.
+- **Pictures the layout shares** (a header or background picture) travel in
+  every chunk, but the file holds them once (the merger's deduplication). On
+  the Gotenberg fallback path they would be in the file once per chunk.
 - **Glyphs missing from the project font** fall back to Chromium's default
   face in the PDF, while the workspace falls back to Outfit (a Google font the
   headless page cannot load). A font without Czech diacritics therefore looks
@@ -894,7 +947,7 @@ zoom, snap and link behaviour (interaction, not data).
 
 | Layer | Where | Run |
 |---|---|---|
-| PHP | `tests/Controller/Calendar` (export: `CalendarExportControllerTest`), `tests/MessageHandler/Calendar`, `tests/Services/Calendar` (`CalendarPdfProducerTest`; the real export through Gotenberg is `CalendarPdfProducerGotenbergTest`, `--group gotenberg`), `tests/Services/Print/PdfPageBoxesTest.php`, `tests/Mcp/Tool/Calendar{Tools,DesignTools}Test.php`; fixtures `CALENDAR_{1,2,3}_ID` (+ tokens) in `TestDataFixture`, helpers `CalendarTesting` | `docker compose exec web vendor/bin/phpunit tests/Controller/Calendar …` |
+| PHP | `tests/Controller/Calendar` (export: `CalendarExportControllerTest`), `tests/MessageHandler/Calendar`, `tests/Services/Calendar` (`CalendarPdfProducerTest`; the real export through Gotenberg is `CalendarPdfProducerGotenbergTest`, `--group gotenberg`), `tests/Services/Print/PdfChunkMergerTest.php` + `PdfPageBoxesTest.php`, `tests/Mcp/Tool/Calendar{Tools,DesignTools}Test.php`; fixtures `CALENDAR_{1,2,3}_ID` (+ tokens) in `TestDataFixture`, helpers `CalendarTesting` | `docker compose exec web vendor/bin/phpunit tests/Controller/Calendar …` |
 | Node suites (every pure rule) | `tests/Fixtures/calendar/suites/*.mjs` + `harness.mjs`, `helpers.mjs` | in CI through `tests/Calendar/CalendarJsTest.php` (data provider globs the suites; a new suite file needs no PHP edit, a suite without a test fails); by hand `node tests/Fixtures/calendar/harness.mjs --all` or `… <suite>` |
 | Contract | `tests/Calendar/CalendarSeedContractTest.php` (PHP seed vs `BUILTIN_WASTE` via `dump-defaults.mjs`) | CI |
 | e2e (real pointer, asserts in mm) | `tests/e2e/calendar/*.e2e.cjs`, `lib/harness.cjs`, `lib/editor.cjs` | `node tests/e2e/calendar/run.cjs [filter]` — **not in CI** |
@@ -1001,8 +1054,6 @@ Deliberately not built (handoff §2), with the room left for them:
   vector black. A clean variant needs our own colour pass over the content
   streams (fills / strokes by palette, near-black → K 100) before or instead
   of Ghostscript; not built.
-- **Bigger print files**: nothing above 165 MB was measured; see the limits
-  of § "PDF export" (Gotenberg timeouts and tmpfs, one consumer).
 - **Cover, back and special pages** are drawn as far as the prototype goes;
   their content is not editable beyond the special-page settings (layout
   variant, position, name, uploaded graphic / text).
