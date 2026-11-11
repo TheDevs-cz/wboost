@@ -7,8 +7,7 @@
  * bulk upload in file-name order, captions from the embedded description, pixel sizes (C1) →
  * warnings on the thumbnail, in the chip and in the panel → per-page fields → special pages:
  * switch on, position, order, layouts, year, uploaded graphic / PDF / text, rename, replace,
- * delete (G13) → one QR code per week → Styl stránek = the step-3 editor (E21; skipped while the
- * editor is still the P3 stub). Every data-changing block saves, reloads and asserts again.
+ * delete (G13) → one QR code per week → Styl stránek = the step-3 editor (E21). Every data-changing block saves, reloads and asserts again.
  */
 const assert = require('assert/strict');
 const fs = require('fs');
@@ -209,8 +208,7 @@ module.exports = {
         });
         if (!id) return;
 
-        await check('step-4 frame: tools, list entries, one thumbnail per page with its number, no stub left', async () => {
-            assert.equal(await exists(page, '[data-cal-stub="P6a"]'), false, 'no P6a stub');
+        await check('step-4 frame: tools, list entries, one thumbnail per page with its number', async () => {
             assert.deepEqual(await page.$$eval('.cal-t4 [data-tool]', (nodes) => nodes.map((n) => n.dataset.tool)), ['photos', 'waste', 'events', 'names', 'moon', 'shifts', 'qr']);
             assert.equal(await ui(page), 'style', 'Styl stránek is the first view');
             assert.equal(await page.$eval('[data-content-view="style"]', (el) => el.getAttribute('aria-current')), 'true');
@@ -812,10 +810,6 @@ module.exports = {
             await page.click('[data-content-view="style"]');
             await page.waitForSelector('.cal-b5[data-view="style"] .cal-cv');
             assert.equal(await visible(page, '.cal-hist'), true, 'undo / redo are offered in Styl stránek');
-            if (await exists(page, '.cal-b5 [data-cal-stub="P4"]')) {
-                console.log('    (E21 skipped: the editor is still the P3 stub — phase P4 is not merged)');
-                return;
-            }
             await page.waitForFunction(() => window.__calendar.scale() > 0);
             const start = await h.boxes(page);
             const centre = (box) => ({ x: box.x + box.w / 2, y: box.y + box.h / 2 });

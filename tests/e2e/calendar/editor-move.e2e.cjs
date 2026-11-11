@@ -72,8 +72,7 @@ module.exports = {
             const expected = e.withBoxes(before, { logo: { x: 138.5 } });
             e.assertBoxes(await e.allBoxes(page, h), expected, 'after the drag');
             assert.equal((await e.selection(page, h)).el, 'logo');
-            if (await page.$('[data-field="x"]')) assert.equal(await page.$eval('[data-field="x"]', (el) => el.value), '138,5', 'X in the panel dropped by 30 mm');
-            else console.log('    note: X field not checked — Pozice a velikost is still the P5a stub');
+            assert.equal(await page.$eval('[data-field="x"]', (el) => el.value), '138,5', 'X in the panel dropped by 30 mm');
             await h.save(page);
             await h.reload(page);
             e.assertBoxes(await e.allBoxes(page, h), expected, 'after reload');
@@ -211,10 +210,6 @@ module.exports = {
         await check('E9 X = 20 and Š = 80 for the logo, measured on the rendered page against its width', async () => {
             await e.restore(page, h, cal.design);
             await e.selectLayer(page, h, 'logo');
-            if (!(await page.$('[data-field="x"]'))) {
-                console.log('    SKIP E9: Pozice a velikost is still the P5a stub — panels.e2e.cjs covers the typed fields');
-                return;
-            }
             const type = async (field, value) => {
                 await page.$eval(`[data-field="${field}"]`, (el) => {
                     el.focus();

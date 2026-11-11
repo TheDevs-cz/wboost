@@ -85,7 +85,6 @@ module.exports = {
         let weeks = [];
         let photoBox = null;
         const assets = {};
-        const stub5 = () => page.$('.cal-ws[data-cal-shown-step="5"] [data-cal-stub]').then(Boolean);
 
         await check('setup: a calendar with the Fotka vlevo layout, no warnings, chip hidden', async () => {
             id = await h.createCalendar(page);
@@ -188,10 +187,6 @@ module.exports = {
         });
 
         await check('C3: the marks on the step-5 page name the problems of the photo and of the day', async () => {
-            if (await stub5()) {
-                console.log('    (skipped: step 5 is still the P7a stub — no marks on the page yet)');
-                return;
-            }
             await showPage(page, P().portrait.index);
             await page.waitForSelector('[data-photo-warning]', { timeout: 5000 });
             const tip = await page.$eval('[data-photo-warning]', (el) => el.getAttribute('title') || el.getAttribute('aria-label') || '');
@@ -244,15 +239,11 @@ module.exports = {
             assert.equal(await chipCount(page), all.length);
             const target = P().portrait.index;
             if (await page.$(`[data-page-thumb="${target}"]`)) assert.equal(await thumbWarn(page, target), all.filter((w) => w.pageIndex === target).length);
-            if (await page.$('.cal-ws[data-cal-shown-step="4"] [data-cal-stub]')) {
-                console.log('    (step 4 is still the P6a stub: the jump of the chip and the page panel list are not asserted)');
-            } else {
-                // the chip walks through the pages that have warnings, wrapping
-                await page.$eval('[data-cal-action="warnings"]', (el) => el.click());
-                await sleep(300);
-                const first = await page.$eval('[data-page-thumb][aria-current="true"]', (el) => Number(el.dataset.pageThumb)).catch(() => null);
-                assert.ok(first !== null && all.some((w) => w.pageIndex === first), `the chip selected a page with a warning (${first})`);
-            }
+            // the chip walks through the pages that have warnings, wrapping
+            await page.$eval('[data-cal-action="warnings"]', (el) => el.click());
+            await sleep(300);
+            const first = await page.$eval('[data-page-thumb][aria-current="true"]', (el) => Number(el.dataset.pageThumb)).catch(() => null);
+            assert.ok(first !== null && all.some((w) => w.pageIndex === first), `the chip selected a page with a warning (${first})`);
             await h.gotoStep(page, 5);
         });
 

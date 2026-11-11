@@ -200,13 +200,5 @@
 .cal-tool-off p { margin: 0; max-width: 420px; color: var(--muted); }
 .cal-wchip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 0; border-radius: 999px; background: var(--pch-deep); color: var(--pch-ink); font: inherit; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; }
 .cal-wchip[hidden] { display: none; }
-
-/* ==========================================================================
-   STUB note of ui/stub.js (phase P3). The frames of steps 3–5 that used to
-   follow are gone — each phase styles its screens in its own file. These two
-   rules go together with ui/stub.js once nothing shows a stub any more.
-   ========================================================================== */
-.cal-stub { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; margin: 12px; padding: 20px 16px; border-radius: 14px; border: 1.5px dashed var(--line-3); text-align: center; color: var(--muted); }
-.cal-stub b { font-size: 13px; font-weight: 600; color: var(--text-2); }
-.cal-panel-h { display: flex; align-items: center; min-height: 48px; padding: 0 16px; border-bottom: 1px solid var(--line); }
-.cal-panel-h h3 { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-2); }
+/* a toast carries no control: it must not swallow a click on the popover or button it happens to cover */
+.toast-n.cal-toast { pointer-events: none; }

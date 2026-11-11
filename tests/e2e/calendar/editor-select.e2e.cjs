@@ -25,7 +25,6 @@ module.exports = {
         await check('step 3 anatomy: Vrstvy, stage bar, sample page with bleed, hint, empty panel', async () => {
             cal = await e.newCalendar(page, h);
             boxes = await e.allBoxes(page, h);
-            assert.equal(await page.$('.cal-stage [data-cal-stub]'), null, 'the stage is not a stub');
             assert.equal(await text(page, '.cal-layh h3'), 'Vrstvy');
             assert.deepEqual(await page.$$eval('[data-layer]', (n) => n.map((x) => x.dataset.layer)), ['logo', 'cap', 'wk', 'month', 'head', 'cal', 'photo', 'bg'], 'rows in layer order, no QR row, Pozadí last');
             assert.equal(await text(page, '.cal-stage-note'), 'Vzorová strana · styl platí pro všechny strany');

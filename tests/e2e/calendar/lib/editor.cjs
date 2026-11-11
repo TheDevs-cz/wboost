@@ -132,9 +132,6 @@ const frameRect = (page) =>
 
 const visibleHandles = (page) => page.$$eval('[data-handle]', (nodes) => nodes.filter((n) => n.offsetParent !== null && getComputedStyle(n).display !== 'none').length);
 
-/** True while the module behind `selector` is still a P3 stub (or absent). */
-const isStub = (page, selector) => page.evaluate((s) => document.querySelector(s) !== null, selector);
-
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Viewport rect a trim-relative mm box must have, computed from the page SVG alone (not from the overlay). */
@@ -176,4 +173,4 @@ module.exports = {
     svgRectOf,
     assertRect,
     dragRow,
-    sleep, TOL, copy, newCalendar, restore, allBoxes, assertBoxes, withBoxes, selection, selectLayer, clickMm, centre, resize, release, pressMod, handleCentre, frameRect, visibleHandles, isStub };
+    sleep, TOL, copy, newCalendar, restore, allBoxes, assertBoxes, withBoxes, selection, selectLayer, clickMm, centre, resize, release, pressMod, handleCentre, frameRect, visibleHandles };

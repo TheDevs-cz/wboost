@@ -116,7 +116,6 @@ module.exports = {
             await h.waitToast(page, 'Zapnuto');
             await page.waitForSelector(`${M} [data-waste-tab="bio"]`);
             assert.equal((await h.state(page)).design.features.waste, true);
-            assert.equal(await exists(page, `${M} [data-cal-stub]`), false, 'the tool is not a stub');
         });
 
         await check('C6 no Excel import in Odpady; the four built-in kinds are tabs', async () => {

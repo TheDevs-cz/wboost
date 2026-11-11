@@ -126,10 +126,6 @@ module.exports = {
         await check('L9 typed X / Y move one element; typed Š takes the neighbour along, not with linking off', async () => {
             await e.restore(page, h, cal.design);
             await e.selectLayer(page, h, 'logo');
-            if (!(await page.$('[data-field="x"]'))) {
-                console.log('    SKIP L9 (typed): Pozice a velikost is still the P5a stub — panels.e2e.cjs covers it');
-                return;
-            }
             const type = async (field, value) => {
                 await page.$eval(`[data-field="${field}"]`, (el) => {
                     el.focus();

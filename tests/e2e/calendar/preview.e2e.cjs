@@ -154,7 +154,6 @@ module.exports = {
         if (!week) return;
 
         await check('frame: toolbar, thumbnails, previous / next, the page fits and the probe answers', async () => {
-            assert.equal(await exists(page, '[data-cal-stub="P7a"]'), false, 'the stub is gone');
             assert.deepEqual(await page.$$eval('.cal-b6 [data-tool]', (nodes) => nodes.map((n) => n.dataset.tool)), ['photos', 'waste', 'events', 'names', 'moon', 'shifts', 'qr']);
             for (const action of ['client-link', 'history', 'page-prev', 'page-next']) assert.ok(await exists(page, `.cal-b6 [data-cal-action="${action}"]`), action);
             const count = await h.cal(page, (c) => c.pages().length);

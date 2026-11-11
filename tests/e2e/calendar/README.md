@@ -94,6 +94,3 @@ Rules: wrap every handoff check in `await check('E3 …', async () => { … })` 
 hide the rest; a data-changing scenario saves, reloads and asserts again; never use native
 `confirm()` paths; Bootstrap modals fade for 300 ms — use `answerDialog` or wait before clicking in
 them; the Symfony debug toolbar is hidden by `newPage` because it swallows clicks near the bottom.
-
-A module that is still a P3 stub carries `data-cal-stub="<phase>"` — a script that needs the real
-thing can detect that and skip.

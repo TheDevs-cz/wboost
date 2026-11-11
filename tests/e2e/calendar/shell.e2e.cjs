@@ -212,7 +212,7 @@ module.exports = {
             assert.deepEqual(s.design.print, { bleed: true, bleedMm: 5, marks: false });
         });
 
-        await check('steps 3–5 mount (stubs included) and the stage answers the hook', async () => {
+        await check('steps 3–5 mount and the stage answers the hook', async () => {
             assert.ok((await h.cal(page, (c) => c.scale())) > 0, 'step 3 has a stage');
             const corner = await h.cal(page, (c) => c.toClient(0, 0));
             const far = await h.cal(page, (c) => c.toClient(100, 0));
@@ -221,16 +221,16 @@ module.exports = {
             assert.ok(await h.cal(page, (c) => c.geometry().frames.length === 1));
             await page.click('[data-layer="month"]');
             assert.deepEqual((await h.state(page)).selection, { el: 'month' });
-            await h.shot(page, 'step3-stub');
+            await h.shot(page, 'step3');
             await h.gotoStep(page, 4);
             await page.waitForSelector('[data-tool="photos"]');
             assert.equal(await page.$$eval('[data-tool]', (nodes) => nodes.length), 7);
             await page.waitForSelector('[data-page-thumb="1"] svg');
-            await h.shot(page, 'step4-stub');
+            await h.shot(page, 'step4');
             await h.gotoStep(page, 5);
             await page.waitForSelector('.cal-b6 .cal-page-svg svg');
             assert.equal(await text(page, '[data-cal-action="next-step"]'), 'Dokončit');
-            await h.shot(page, 'step5-stub');
+            await h.shot(page, 'step5');
             // a tool whose feature is off offers Zapnout; the step-1 switch follows
             await page.click('[data-tool="waste"]');
             await page.waitForSelector('.cal-tool-modal.show [data-cal-action="feature-on"]');

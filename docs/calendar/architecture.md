@@ -436,7 +436,7 @@ type Content = {
 
 Rules:
 
-- Item ids are client-generated `[A-Za-z0-9_-]{8,40}` (`newId()` = 16 random base-62 characters). The
+- Item ids are client-generated `[A-Za-z0-9_-]{1,40}` (`newId()` = 16 random base-62 characters). The
   generated special pages use the fixed ids `intro`, `contacts`, `year`, `waste`; a missing item means
   the default `{ on: false, layout: 0, position: 'front', nextYear: kind === 'year', name: '', asset: null, text: null, fileName: null, pos: index }`
   and it is written on first change. Uploaded pages (`image`, `text`) have random ids and are really
@@ -1100,7 +1100,7 @@ whose header states what the owner must keep. The table is the index.
 | `ui/dom.js` | `h(tag, attrs, ...children)` (attrs: `class`, `dataset`, `style`, `on<Event>`, `html`, booleans; `null` / `false` children skipped), `esc`, `icon(name, size?)` (`<span class="i i-…">`), `toast(message, error?)`, `confirmDialog({ title, text, confirmLabel, cancelLabel?, danger? }): Promise<boolean>`, `choiceDialog({ title, text, buttons: [{ key, label, kind? }], danger? }): Promise<key \| null>` (root `.cal-dialog`, buttons `[data-cal-choice="<key>"]`; `confirmDialog` uses the keys `confirm` / `cancel`), `openModal({ title, body: Node, size?: 'lg' \| 'xl', onClose?, footer? }): { el, body, close() }` (Bootstrap modal `.cal-modal`, footer button `Hotovo` = `[data-cal-action="modal-done"]`). **Stacked dialogs:** a `confirmDialog` / `choiceDialog` may be opened from inside an `openModal` dialog (Odpady › Odebrat druh / Vymazat vše, Šichtovnice › Odebrat provoz). Bootstrap handles one modal at a time, so the private `showModal` repairs the stacked case: the new dialog and its backdrop are lifted above the dialog below; when it closes, `<body>` keeps `modal-open`, the focus trap of the dialog below is switched back on and focus returns to the element that opened the dialog (to the dialog itself when that element is gone) — Esc closes only the top dialog and then the one below. Widgets — each `(options) → HTMLElement` that carries refresh methods so panels never rebuild: `numberField({ value, min, max, step, decimals?, unit, label, onChange, onStart?, onCommit?, attrs? })` → `.cal-num` with `setValue(v)`, `input` (Enter leaves the field, Esc restores, out-of-range values are corrected, ArrowUp / Down step); `checkRow({ label, checked, mixed?, onChange, attrs?, strong? })` → `label.cal-check` with `setChecked(on, mixed?)`; `switchRow({ label, checked, onChange, attrs? })` → `label.cal-switch` with `setChecked(on)`; `segmented({ options: [{ value, label?, icon?, title? }], value, onChange, label, soft?, full?, attrs? })` → `.seg` of `button[data-value][aria-pressed]` with `setValue(v)`; `selectField({ options: [{ value, label }], value, onChange, label, attrs? })` → `.inp.sm.sel` with `setValue(v)`, `setOptions(options, value)`. `attrs` lands on the interactive element (`data-prop`, `data-field`). Also `formatNumber(v, decimals = 1)` (decimal comma), `parseNumber(text)` (`NaN` when not a number), `relativeTime(iso, now?)` (map §8.1), `onOutside(el, fn): off`, `debounce(fn, ms)` (with `.cancel()`). Never pass a possibly-`null` node to the native `Element.append()` / `replaceChildren()` — it prints "null"; `h()` skips them. | P3 |
 | `ui/topbar.js` | `mountTopBar(root, ctx)` — back arrow, name field, steps, undo/redo, status, Uložit, Zpět, Pokračovat / Dokončit / Uložit vzhled (handoff §4.2); `STEPS`. Built once, updated in place. | P3 |
 | `ui/step1.js`, `ui/step2.js` | `mountStep1(root, ctx)` (+ `FEATURES`: step-1 order and labels), `mountStep2(root, ctx)`. | P3 |
-| `ui/stub.js` | `stubNote(owner, title)` → `div.cal-stub[data-cal-stub="<phase>"]` — the placeholder of every unfinished module (e2e scripts detect a stub by the attribute). Delete the file with the last stub. | P3 |
+| `ui/stub.js` | removed in P8a (it was the placeholder of every unfinished module while the phases were built). | P3 |
 | `ui/thumb.js` | `renderThumb(doc, page, ctx, opts?): string` (`ctx` = anything with `{ env: { assets, fonts }, measurer }`; `opts` = `RenderOpts` overrides; a fresh id prefix per call); `mountLazyThumb(el, getMarkup: () => string): { refresh(), destroy() }` (IntersectionObserver; `refresh()` marks stale — callers debounce). | P3 |
 | `ui/editor/index.js` | `mountEditor(slots: { layers, stage, props }, ctx, opts: { embedded: boolean }): { destroy() }`. | P3 stub → P4 |
 | `ui/editor/stage.js`, `ui/editor/overlay.js`, `ui/editor/keys.js`, `ui/editor/layers.js` | Stage toolbar + page + overlay + pointer pipeline; keyboard; Vrstvy list incl. Nahrát layout menu. `mountStage(root, ctx, opts)`, `mountLayers(root, ctx, opts)`, `mountKeys(ctx)` (does **not** handle Ctrl+S — the workspace controller does), `mountOverlay(overlayRoot, ctx): { update(geometry, scale), destroy() }`; the stage registers the stage probe and calls `mountPartsOverlay(…).update(geometry, scale, selection)` after every render. | P3 stub → P4 |
@@ -1442,7 +1442,6 @@ stack under the page (handoff §8). Check 390 / 820 / 1440 px in both themes wit
 | `.cal-ws[data-cal-ready="1"][data-cal-shown-step="<n>"]`, `[data-controller="calendar-list"][data-cal-ready="1"]` | the workspace / list finished its first render with fonts; the step whose module is mounted |
 | `.cal-dialog` + `[data-cal-choice="<key>"]` | `confirmDialog` (`confirm` / `cancel`) and `choiceDialog` (leave: `save` / `discard` / `stay`) |
 | `[data-cal-dialog="history\|warnings\|client-link"]`, `.cal-tool-modal[data-tool-modal="<key>"]`, `[data-tool-body="<key>"]` | large modals of `openModal` |
-| `[data-cal-stub="<phase>"]` | a module that is still the P3 stub |
 | `[data-cal-status]` | save status text; attribute value = `clean` / `dirty` / `saving` / `error` |
 | `[data-cal-name]` | calendar name input |
 | `[data-layer="<element>"]`, `[data-layer-eye="<element>"]`, `[data-part-row="<part>"]`, `[data-layer-menu]` | Vrstvy rows, eye buttons, part rows, Nahrát layout menu button; also `[data-layer-item="<element>"]` (the sortable row wrapper; Pozadí has none), `[data-layer-toggle="cal"]` (parts arrow), `[data-layout-from="<calendar id>"]`, `[data-cal-action="layout-file\|layout-save"]` (menu items), `input[data-layout-file]` |
@@ -1630,9 +1629,12 @@ pass `t + rh − 0.5`, centre the whole block instead, but never start above `t 
 **E.6.6 Event box and separate time text (normal mode).** Events `info.events` (max 4), size
 `eS = sz('ev')`. **Default box** (when `S.ev.box` is null) — the free area of the row *beside* the day
 text, as the client's printed calendars do (reference `chotebuz-7d-week-06.png`, edge-cases PDF p. 1):
-`textW` = the widest line of any text block (weekday, name lines, holiday lines, time text) of **the
-page** (both frames of a 14-day page share the larger value, so the box mirrors exactly), capped to
-`colW`. Number side `start` / `end`: flow `x = 0` from the text column's zone-side edge (i.e. right
+`textW` = the widest **weekday / name-day line** of **the page** (both frames of a 14-day page share
+the larger value, so the box mirrors exactly), capped to `colW` — this is the page-wide box
+(`frame.evDefault`). A row whose own text block (holiday lines, time text) is wider gets a narrower
+box, `w = colW − rowTextW − EVBOX_GAP`, never a wider one: before P8a the holiday rows set `textW`
+for the whole page, which left 7–10 mm for events on every 14-day page that held a long holiday.
+`defaultEventBox()` (the base of a bar drag) returns the page-wide box for every row. Number side `start` / `end`: flow `x = 0` from the text column's zone-side edge (i.e. right
 after the icon zone, or after `ROW_PAD` when nothing is reserved), `w = colW − textW − EVBOX_GAP`.
 Number side `middle`: the far part of the text column, `x = textW + EVBOX_GAP`, same `w`. Always
 `w ≥ EVBOX_MIN_W` (a page whose day text leaves less cannot avoid touching it — the overflow warning
@@ -2055,7 +2057,6 @@ goes · removal of step-5 additions · uploaded QR only · disk uploads only.
 | Error fallbacks of `state/api.js` (when the server sends no message) | `Uložení se nepovedlo` · `Soubor se nepodařilo nahrát` · `Historii se nepodařilo načíst` · `Odkaz se nepodařilo vytvořit` · `Layout se nepodařilo načíst` · `Dokument se nepodařilo přečíst` |
 | Workspace | `Tento krok se nepodařilo zobrazit. Obnovte stránku.` (a step module threw while mounting) · Historie while loading `Načítám…` |
 | Font select of a text style (P5a) | `Výchozí písmo` — the built-in fallback font, offered while a style uses no project font |
-| Stub placeholder (gone with the last stub) | `Tuto část právě stavíme.` |
 | Kalendárium panels (P5b) | aria of the cell diagram buttons `Buňka {n}` · aria of icon tiles `Vlastní ikona: {název}` (waste kind, `Akce`, `Změna času`, `Změna ročního období`) · aria of a waste kind's colour `Barva: {název}` · a waste kind without a name in the add menu `Bez názvu` · add menu entry `Vlastní druh…` and the new kind's name `Nový druh odpadu` (both as in the Odpady tool) |
 | Step 5 on a phone (compact day rows) | hint `Klepněte na den a přidejte odpad, akci nebo komentář.` · aria of a day row `Přidat do dne {d. m.}` |
 | Project overview tile | `Kalendáře` · `Stolní kalendáře poskládané automaticky` |

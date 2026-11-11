@@ -7,8 +7,7 @@
  * (logo, QR, background picture), Tvar, the "week display is off" notice, the background panel with
  * the gradient editor, a slider as ONE undo step. Data-changing scenarios save, reload and re-assert.
  *
- * Elements are selected through the Vrstvy rows (`[data-layer]`), never through the stage, so the
- * script runs against the P3 stub editor and the real one alike.
+ * Elements are selected through the Vrstvy rows (`[data-layer]`), never through the stage.
  */
 const assert = require('assert/strict');
 const fs = require('fs');
@@ -130,7 +129,6 @@ module.exports = {
             await page.waitForSelector('.cal-cv svg[data-page]');
             assert.equal((await h.state(page)).selection, null);
             assert.equal(await page.$eval('.cal-noprop', (el) => el.textContent.trim()), 'Vyberte prvek na stránce nebo v seznamu vlevo');
-            assert.equal(await page.$('[data-cal-stub="P5a"]'), null, 'no P5a stub is left');
         });
         if (!id) return;
 
@@ -239,7 +237,7 @@ module.exports = {
             assert.equal(await value(field('w')), String(before.photo.w).replace('.', ','), 'the field follows the undo');
 
             const link = await page.$('[data-cal-action="link"]');
-            if (!link) throw new Error('SKIPPED half: the stage has no Propojit prvky button yet (P4 stub) — linked half passed');
+            assert.ok(link, 'the stage has the Propojit prvky button');
             await link.click();
             assert.equal((await h.state(page)).design.linkElements, false);
             await select('photo');

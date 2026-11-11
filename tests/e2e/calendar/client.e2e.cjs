@@ -6,8 +6,6 @@
  * link `/k/{token}`, and a second account the project is shared with for reading only. Roles are
  * asserted through the shell, `window.__calendar` and the network — forged requests are sent from
  * the client's own page with the client's own CSRF token, the way an attacker with the link would.
- * Parts that need the step-5 overlay (caption pencil, photo upload button) are skipped while step 5
- * is still the P7a stub; the same change then goes through the client's save endpoint.
  */
 const assert = require('assert/strict');
 const fs = require('fs');
@@ -27,7 +25,6 @@ const DESIGN_CONTROLS = ['[data-cal-step]', '[data-cal-action="next-step"]', '[d
 
 const boot = (page) => page.evaluate(() => JSON.parse(document.querySelector('[data-calendar-workspace-target="bootstrap"]').textContent));
 const tools = (page) => page.$$eval('[data-tool]', (nodes) => nodes.map((n) => n.dataset.tool));
-const isStub5 = (page) => page.$('.cal-ws[data-cal-shown-step="5"] [data-cal-stub]').then(Boolean);
 
 /** POSTs multipart fields from inside the page (same origin, the page's cookies); never follows a redirect. */
 function post(page, url, fields) {
@@ -292,29 +289,20 @@ module.exports = {
         await check('R3: the client changes a caption and saves — status, toast, stored for the designer', async () => {
             const week = weeks[2];
             await showPage(client, week.index);
-            let viaUi = false;
-            if (!(await isStub5(client)) && (await client.$('[data-caption-edit]'))) {
-                await client.$eval('[data-caption-edit]', (el) => el.click());
-                await client.waitForSelector('[data-cal-popover="caption"] [data-field="caption"]', { timeout: 5000 });
-                await client.type('[data-cal-popover="caption"] [data-field="caption"]', captionText);
-                await client.keyboard.press('Enter');
-                await client.waitForFunction(() => !document.querySelector('[data-cal-popover="caption"]'), { timeout: 5000 });
-                await h.waitStatus(client, 'dirty');
-                assert.equal(await client.$eval('[data-cal-status]', (el) => el.textContent.trim()), 'Neuložené změny');
-                await client.click('[data-cal-action="save"]');
-                await h.waitToast(client, /Změny uloženy/);
-                await h.waitStatus(client, 'clean');
-                viaUi = true;
-            } else {
-                console.log('    (step 5 overlay is not there yet: the caption goes through the client save endpoint)');
-                const answer = await forgedSave(client, { content: [{ c: 'pageCaptions', id: week.key, v: { text: captionText }, label: week.title }] });
-                assert.equal(answer.status, 200, JSON.stringify(answer));
-                await h.reload(client);
-            }
+            await client.$eval('[data-caption-edit]', (el) => el.click());
+            await client.waitForSelector('[data-cal-popover="caption"] [data-field="caption"]', { timeout: 5000 });
+            await client.type('[data-cal-popover="caption"] [data-field="caption"]', captionText);
+            await client.keyboard.press('Enter');
+            await client.waitForFunction(() => !document.querySelector('[data-cal-popover="caption"]'), { timeout: 5000 });
+            await h.waitStatus(client, 'dirty');
+            assert.equal(await client.$eval('[data-cal-status]', (el) => el.textContent.trim()), 'Neuložené změny');
+            await client.click('[data-cal-action="save"]');
+            await h.waitToast(client, /Změny uloženy/);
+            await h.waitStatus(client, 'clean');
             assert.equal((await h.state(client)).content.pageCaptions[week.key].text, captionText);
             await h.reload(page);
             assert.equal((await h.state(page)).content.pageCaptions[week.key].text, captionText, 'the designer sees the client\'s caption');
-            if (viaUi) await h.shot(client, 'client-after-caption');
+            await h.shot(client, 'client-after-caption');
         });
 
         await check('R3: Historie of the designer lists the change as Klient', async () => {
@@ -340,30 +328,12 @@ module.exports = {
             await showPage(client, week.index);
             const day = await h.cal(client, (c, i) => c.geometry(i).frames[0].rows[1].date, week.index);
             const [, m, d] = day.split('-').map(Number);
-            if (!(await isStub5(client)) && (await client.$('[data-photo-upload]'))) {
-                const input = await client.$('[data-photo-upload]');
-                await input.uploadFile(await jpegFile(client, 640, 420, 'obec.jpg'));
-                await client.waitForFunction((key) => Boolean(window.__calendar.state().content.pagePhotos[key]), { timeout: 15000 }, week.key);
-            } else {
-                console.log('    (no photo button yet: the photo goes through the client upload + save endpoints)');
-                const b = await boot(client);
-                const uploaded = await client.evaluate(async (url, token) => {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = 640;
-                    canvas.height = 420;
-                    canvas.getContext('2d').fillRect(0, 0, 640, 420);
-                    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.8));
-                    const form = new FormData();
-                    form.append('_token', token);
-                    form.append('kind', 'photo');
-                    form.append('file', new File([blob], 'obec.jpg', { type: 'image/jpeg' }));
-                    return (await fetch(url, { method: 'POST', body: form })).json();
-                }, b.env.urls.asset, b.env.csrf);
-                const answer = await forgedSave(client, { content: [{ c: 'pagePhotos', id: week.key, v: { asset: uploaded.id, zoom: 1, px: 0.5, py: 0.5 }, label: week.title }] });
-                assert.equal(answer.status, 200, JSON.stringify(answer));
-            }
+            const input = await client.$('[data-photo-upload]');
+            await input.uploadFile(await jpegFile(client, 640, 420, 'obec.jpg'));
+            await client.waitForFunction((key) => Boolean(window.__calendar.state().content.pagePhotos[key]), { timeout: 15000 }, week.key);
             if ((await h.state(client)).status === 'dirty') await h.save(client);
-            // a comment and an event through the client's save endpoint (the popovers are P7a's)
+            // a comment and an event straight through the client's save endpoint — the server stamps the author
+            // (the popovers themselves are driven in preview.e2e.cjs and client-tools.e2e.cjs)
             const answer = await forgedSave(client, {
                 content: [
                     { c: 'comments', id: 'e2eComment0001', v: { date: day, text: 'Prosíme jinou fotku', author: 'designer', at: '1999-01-01T00:00:00+00:00' }, label: `${d}. ${m}.` },
@@ -486,7 +456,6 @@ module.exports = {
             await browser.defaultBrowserContext().overridePermissions(origin, ['clipboard-read', 'clipboard-write']);
             await page.bringToFront();
             await openDialog(page, 'client-link');
-            assert.equal(await page.$('[data-cal-dialog="client-link"] [data-cal-stub]'), null, 'no stub');
             assert.equal(await page.$eval('[data-cal-link-url]', (el) => el.value), clientUrl);
             assert.equal(await page.$eval('[data-cal-link-url]', (el) => el.readOnly), true);
             assert.equal(await page.$eval('[data-cal-action="link-open"]', (el) => el.href), clientUrl);
