@@ -55,6 +55,7 @@ landing port in dev. Expected.
 ```
 landing/
   Dockerfile          FROM nginx:alpine — build context is this directory
+  stamp-assets.sh     image build only: appends ?v=<content hash> to every /landing/ asset URL
   nginx.conf          caching + gzip + the /klienti → / redirect; security headers come from Traefik
   traefik-rule.txt    the router rule the page set implies (asserted by the test)
   src/                the document root, and the only thing inside the image
@@ -84,6 +85,16 @@ same content, and nginx never emits it.
 Favicons are the one deliberate exception to "self-contained": the pages link
 `/favicon.ico` and friends root-relative, those paths are not in the landing
 router's rule, and they fall through to the app that already serves them.
+
+## Caching
+
+HTML is `no-cache`. Every `/landing/` asset URL is fingerprinted **at image build
+time** by `stamp-assets.sh` (`/landing/landing.css?v=af486acdca`), and nginx caches
+any `?v=` request for a year, immutable. `src/` stays plain, so edit files freely
+and never write a `?v=` by hand; the build fails if a reference was missed or
+points at a missing file. Dev serves the unstamped files with a 10-minute cache.
+Only literal `/landing/…` URLs in the HTML, the two CSS files and `landing.js` are
+stamped, so do not build an asset URL from pieces in JS.
 
 ## Adding a page
 
