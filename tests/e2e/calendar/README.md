@@ -53,6 +53,9 @@ The dev database is usually a copy of production, so the scripts work only in th
   instead of going through „Objevte další moduly“.
 - `purgeCalendars()` deletes every calendar of that project before and after a run; scripts also
   delete what they create through the UI.
+- `fonts.e2e.cjs` uploads Nunito and Inter (files of this repository) to the project's Fonty and
+  leaves them there, so after its first run new layouts start in a project font. Every script
+  passes with and without them; for the font-less state use a fresh `PROJECT_ID`.
 
 Both use `docker compose exec` (services `web`, `postgres`). To remove the fixture completely:
 

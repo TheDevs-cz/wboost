@@ -74,9 +74,11 @@ module.exports = {
             wk: { y: 119, h: 24.5 },
         });
 
-        await row('row 6: month left handle → week number left edge follows', () => e.resize(page, h, 'month', 'w', 20, 0), {
-            month: { x: 223, w: 81 },
-            wk: { x: 223, w: 81 },
+        // 10 mm only: the month frame must stay wider than „PROSINEC 2026 / LEDEN 2027“ in whatever font the
+        // project has (fonts.e2e.cjs leaves real fonts in the e2e project), or auto-grow widens it again
+        await row('row 6: month left handle → week number left edge follows', () => e.resize(page, h, 'month', 'w', 10, 0), {
+            month: { x: 213, w: 91 },
+            wk: { x: 213, w: 91 },
         });
 
         await row('row 7a: photo left handle inwards → only the photo (edge started in the bleed)', () => e.resize(page, h, 'photo', 'w', 30, 0), {

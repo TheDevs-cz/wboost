@@ -1,0 +1,89 @@
+{
+  "tolerance": 0.01,
+  "presets": {
+    "photoLeft": {
+      "boxes": [
+        {
+          "key": "photo",
+          "maxDeltaPct": 0.24,
+          "ok": true
+        },
+        {
+          "key": "cap",
+          "maxDeltaPct": 0.06,
+          "ok": true
+        },
+        {
+          "key": "logo",
+          "maxDeltaPct": 0.05,
+          "ok": true
+        },
+        {
+          "key": "head",
+          "maxDeltaPct": 0.24,
+          "ok": true
+        },
+        {
+          "key": "month",
+          "maxDeltaPct": 0.42,
+          "ok": true
+        },
+        {
+          "key": "cal",
+          "maxDeltaPct": 0.24,
+          "ok": true
+        },
+        {
+          "key": "wk",
+          "maxDeltaPct": 0.42,
+          "ok": true
+        }
+      ],
+      "layerOrderEqual": true,
+      "meanPixelDifferencePct": 1.66,
+      "differingPixelsPct": 4.53
+    },
+    "photoRight": {
+      "boxes": [
+        {
+          "key": "photo",
+          "maxDeltaPct": 0.24,
+          "ok": true
+        },
+        {
+          "key": "cap",
+          "maxDeltaPct": 0.06,
+          "ok": true
+        },
+        {
+          "key": "logo",
+          "maxDeltaPct": 0.06,
+          "ok": true
+        },
+        {
+          "key": "head",
+          "maxDeltaPct": 0.24,
+          "ok": true
+        },
+        {
+          "key": "month",
+          "maxDeltaPct": 0.54,
+          "ok": true
+        },
+        {
+          "key": "cal",
+          "maxDeltaPct": 0.24,
+          "ok": true
+        },
+        {
+          "key": "wk",
+          "maxDeltaPct": 0.54,
+          "ok": true
+        }
+      ],
+      "layerOrderEqual": true,
+      "meanPixelDifferencePct": 1.65,
+      "differingPixelsPct": 4.63
+    }
+  }
+}
