@@ -6,6 +6,11 @@ named automated test drove it in the real browser (pure rules: node suite + a br
 Totals of the final run: node 17 suites / 227 tests, 0 failed · e2e 22 scripts / 297 checks, 0 failed
 · phpstan no errors · PHPUnit 2668 tests, 21 857 assertions, OK.
 
+After the change of 2026-11-11 (month and week number once per column on 14-day pages, assumption 9):
+node 17 suites / 236 tests, 0 failed · e2e 23 scripts / 312 checks, 0 failed (new script
+`editor-frames`, 15 checks; `client` and `editor-layout` passed on a second run — the dev container
+restarted during the first) · phpstan no errors · PHPUnit 2693 tests, 22 887 assertions, OK.
+
 ## 1. Check by check
 
 `script › title` = tests/e2e/calendar/<script>.e2e.cjs; `node <suite>` = tests/Fixtures/calendar/suites/<suite>.mjs.
@@ -48,7 +53,7 @@ Totals of the final run: node 17 suites / 227 tests, 0 failed · e2e 22 scripts 
 | §7.4 rows 1–10 | PASS | link-table › row 1 … row 10 (12 checks) · node link |
 | §7.4 rows 11, 12, 13 | PASS | link-table › row 11, row 12, row 13 |
 | L1–L7 | PASS | link-rules › L1 … L7 |
-| L8 | PASS | link-rules › L8 Fotka vpravo, L8 14 dní · scope-guards › dimensions: linking |
+| L8 | PASS | link-rules › L8 Fotka vpravo, L8 14 dní · scope-guards › dimensions: linking · editor-frames › Propojit prvky (the second frames of Měsíc / Číslo týdne) · node link L8b |
 | L9 | PASS | link-rules › L9 (two checks) · panels › L9 |
 
 ### 1.4 Content, preview, warnings
