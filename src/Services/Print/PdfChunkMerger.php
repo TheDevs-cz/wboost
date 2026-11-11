@@ -35,6 +35,11 @@ use WBoost\Web\Exceptions\PdfStructureNotSupported;
  * lengths irrelevant (a stream is never parsed — the object is copied up to
  * the next object's offset). Anything else throws
  * {@see PdfStructureNotSupported} and the caller falls back to Gotenberg.
+ *
+ * With `$printCondition` the file is dressed as **PDF/X-4**: header 1.6, the
+ * output intent with the embedded profile, XMP metadata (`pdfxid`), `/Trapped`
+ * in Info. That is the frame only — the colours inside must already be CMYK
+ * ({@see Cmyk\PdfCmykConverter}).
  */
 final class PdfChunkMerger
 {
@@ -52,12 +57,15 @@ final class PdfChunkMerger
      * @param array{title?: string, creator?: string, producer?: string, createdAt?: DateTimeImmutable} $info
      * @param bool $consume delete each input once it has been copied
      * @param null|callable(int, int): void $progress called after every input with (inputs done, inputs total)
+     * @param null|array{profile: string, identifier: string, condition: string, registry: string} $printCondition the
+     *   characterised printing condition the colours were converted to (the ICC profile's bytes and its names):
+     *   makes the file PDF/X-4
      *
      * @return int the number of pages
      *
      * @throws PdfStructureNotSupported an input is not what this class reads; the target is removed
      */
-    public static function merge(array $paths, string $target, null|array $boxes = null, array $info = [], bool $consume = false, null|callable $progress = null): int
+    public static function merge(array $paths, string $target, null|array $boxes = null, array $info = [], bool $consume = false, null|callable $progress = null, null|array $printCondition = null): int
     {
         if ($paths === []) {
             throw new PdfStructureNotSupported('There is nothing to merge.');
@@ -70,7 +78,7 @@ final class PdfChunkMerger
         }
 
         try {
-            $pages = self::write($out, $paths, $boxes, $info, $consume, $progress);
+            $pages = self::write($out, $paths, $boxes, $info, $consume, $progress, $printCondition);
         } catch (\Throwable $failure) {
             fclose($out);
             @unlink($target);
@@ -89,15 +97,18 @@ final class PdfChunkMerger
      * @param null|array{width: float, height: float, trimInset: float, bleedInset: float} $boxes
      * @param array{title?: string, creator?: string, producer?: string, createdAt?: DateTimeImmutable} $info
      * @param null|callable(int, int): void $progress
+     * @param null|array{profile: string, identifier: string, condition: string, registry: string} $printCondition
      */
-    private static function write($out, array $paths, null|array $boxes, array $info, bool $consume, null|callable $progress): int
+    private static function write($out, array $paths, null|array $boxes, array $info, bool $consume, null|callable $progress, null|array $printCondition): int
     {
         // binary marker: tells transfer programs the file is not text
-        $position = self::put($out, "%PDF-1.4\n%\xE2\xE3\xCF\xD3\n");
+        // (PDF/X-4 is built on PDF 1.6: live transparency)
+        $position = self::put($out, sprintf("%%PDF-%s\n%%\xE2\xE3\xCF\xD3\n", $printCondition !== null ? '1.6' : '1.4'));
         /** @var array<int, int> $written new object number → offset */
         $written = [];
-        // 1 = the new root of the page tree, 2 = the catalog, 3 = Info
-        $next = 4;
+        // 1 = the new root of the page tree, 2 = the catalog, 3 = Info;
+        // PDF/X: 4 = the output profile, 5 = the output intent, 6 = the XMP metadata
+        $next = $printCondition !== null ? 7 : 4;
         $roots = [];
         $pageCount = 0;
         /** @var array<string, int> $seen digest of a stream object → the number it was written under */
@@ -218,9 +229,38 @@ final class PdfChunkMerger
             $pageCount,
         ));
         $written[2] = $position;
-        $position += self::put($out, "2 0 obj\n<< /Type /Catalog /Pages 1 0 R >>\nendobj\n");
+        $position += self::put($out, sprintf(
+            "2 0 obj\n<< /Type /Catalog /Pages 1 0 R%s >>\nendobj\n",
+            $printCondition !== null ? ' /OutputIntents [ 5 0 R ] /Metadata 6 0 R' : '',
+        ));
         $written[3] = $position;
-        $position += self::put($out, sprintf("3 0 obj\n%s\nendobj\n", PdfPageBoxes::info($info)));
+        $id = bin2hex(random_bytes(16));
+
+        if ($printCondition === null) {
+            $position += self::put($out, sprintf("3 0 obj\n%s\nendobj\n", PdfPageBoxes::info($info)));
+        } else {
+            // PDF/X: Info says whether the file was trapped, and the XMP packet says the same things as Info
+            $position += self::put($out, sprintf("3 0 obj\n%s /Trapped /False >>\nendobj\n", rtrim(substr(PdfPageBoxes::info($info), 0, -2))));
+            $profile = PdfObjects::deflate($printCondition['profile']);
+            $written[4] = $position;
+            $position += self::put($out, sprintf("4 0 obj\n<< /N 4 /Filter /FlateDecode /Length %d >>\nstream\n", strlen($profile)));
+            $position += self::put($out, $profile);
+            $position += self::put($out, "\nendstream\nendobj\n");
+            $written[5] = $position;
+            $position += self::put($out, sprintf(
+                "5 0 obj\n<< /Type /OutputIntent /S /GTS_PDFX /OutputConditionIdentifier %s /OutputCondition %s /RegistryName %s /Info %s /DestOutputProfile 4 0 R >>\nendobj\n",
+                PdfObjects::text($printCondition['identifier']),
+                PdfObjects::text($printCondition['condition']),
+                PdfObjects::text($printCondition['registry']),
+                PdfObjects::text($printCondition['condition']),
+            ));
+            $metadata = self::xmp($info, $id);
+            $written[6] = $position;
+            // not compressed: tools that know nothing of PDF find the packet by scanning
+            $position += self::put($out, sprintf("6 0 obj\n<< /Type /Metadata /Subtype /XML /Length %d >>\nstream\n", strlen($metadata)));
+            $position += self::put($out, $metadata);
+            $position += self::put($out, "\nendstream\nendobj\n");
+        }
 
         ksort($written);
         $xref = sprintf("xref\n0 %d\n0000000000 65535 f \n", $next);
@@ -233,7 +273,6 @@ final class PdfChunkMerger
             $xref .= sprintf("%010d 00000 n \n", $written[$number]);
         }
 
-        $id = bin2hex(random_bytes(16));
         self::put($out, $xref . sprintf(
             "trailer\n<< /Size %d /Root 2 0 R /Info 3 0 R /ID [ <%s> <%s> ] >>\nstartxref\n%d\n%%%%EOF\n",
             $next,
@@ -243,6 +282,50 @@ final class PdfChunkMerger
         ));
 
         return $pageCount;
+    }
+
+    /**
+     * The XMP packet of a PDF/X-4 file: what Info says (title, tools, dates,
+     * trapping), the document's identifiers and the conformance level.
+     *
+     * @param array{title?: string, creator?: string, producer?: string, createdAt?: DateTimeImmutable} $info
+     */
+    private static function xmp(array $info, string $id): string
+    {
+        $escape = static fn (string $text): string => htmlspecialchars($text, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+        $date = isset($info['createdAt']) ? $info['createdAt']->format('Y-m-d\TH:i:sP') : null;
+        $uuid = sprintf('uuid:%s-%s-%s-%s-%s', substr($id, 0, 8), substr($id, 8, 4), substr($id, 12, 4), substr($id, 16, 4), substr($id, 20, 12));
+        $properties = '';
+
+        if (($info['title'] ?? '') !== '') {
+            $properties .= sprintf('<dc:title><rdf:Alt><rdf:li xml:lang="x-default">%s</rdf:li></rdf:Alt></dc:title>', $escape($info['title']));
+        }
+
+        if (($info['creator'] ?? '') !== '') {
+            $properties .= sprintf('<xmp:CreatorTool>%s</xmp:CreatorTool>', $escape($info['creator']));
+        }
+
+        if ($date !== null) {
+            $properties .= sprintf('<xmp:CreateDate>%1$s</xmp:CreateDate><xmp:ModifyDate>%1$s</xmp:ModifyDate><xmp:MetadataDate>%1$s</xmp:MetadataDate>', $date);
+        }
+
+        if (($info['producer'] ?? '') !== '') {
+            $properties .= sprintf('<pdf:Producer>%s</pdf:Producer>', $escape($info['producer']));
+        }
+
+        return '<?xpacket begin="' . "\xEF\xBB\xBF" . '" id="W5M0MpCehiHzreSzNTczkc9d"?>' . "\n"
+            . '<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">'
+            . '<rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:xmp="http://ns.adobe.com/xap/1.0/"'
+            . ' xmlns:xmpMM="http://ns.adobe.com/xap/1.0/mm/" xmlns:pdf="http://ns.adobe.com/pdf/1.3/" xmlns:pdfxid="http://www.npes.org/pdfx/ns/id/">'
+            . '<dc:format>application/pdf</dc:format>'
+            . $properties
+            . '<pdf:Trapped>False</pdf:Trapped>'
+            . sprintf('<xmpMM:DocumentID>%1$s</xmpMM:DocumentID><xmpMM:InstanceID>%1$s</xmpMM:InstanceID>', $uuid)
+            . '<xmpMM:VersionID>1</xmpMM:VersionID><xmpMM:RenditionClass>default</xmpMM:RenditionClass>'
+            . '<pdfxid:GTS_PDFXVersion>PDF/X-4</pdfxid:GTS_PDFXVersion>'
+            . '</rdf:Description></rdf:RDF></x:xmpmeta>' . "\n"
+            . str_repeat(str_repeat(' ', 99) . "\n", 4)
+            . '<?xpacket end="w"?>';
     }
 
     /**

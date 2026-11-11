@@ -166,6 +166,78 @@ final class PdfChunkMergerTest extends TestCase
         PdfChunkMerger::merge([], $other);
     }
 
+    public function testAPrintConditionMakesTheFilePdfX4(): void
+    {
+        $target = $this->directory . '/x4.pdf';
+        $profile = str_repeat('FOGRA39 PROFILE BYTES ', 50);
+
+        $pages = PdfChunkMerger::merge(
+            [$this->chunk('a', ['first'], 'picture'), $this->chunk('b', ['second'], 'picture')],
+            $target,
+            ['width' => 595.5, 'height' => 396.0, 'trimInset' => 36.0, 'bleedInset' => 22.0],
+            ['title' => 'Obecní kalendář & spol.', 'creator' => 'WBoost', 'producer' => 'WBoost (Chromium, CMYK)', 'createdAt' => new \DateTimeImmutable('2026-11-11 12:00:00+01:00')],
+            true,
+            null,
+            ['profile' => $profile, 'identifier' => 'FOGRA39', 'condition' => 'Coated FOGRA39 (ISO 12647-2:2004)', 'registry' => 'http://www.color.org'],
+        );
+
+        self::assertSame(2, $pages);
+        self::assertFileDoesNotExist($this->directory . '/a.pdf', 'consumed inputs are removed as they are merged');
+
+        $pdf = (string) file_get_contents($target);
+        self::assertStringStartsWith("%PDF-1.6\n", $pdf, 'PDF/X-4 is built on PDF 1.6');
+        self::assertStringContainsString("2 0 obj\n<< /Type /Catalog /Pages 1 0 R /OutputIntents [ 5 0 R ] /Metadata 6 0 R >>", $pdf);
+        self::assertStringContainsString('/Producer (WBoost \(Chromium, CMYK\)) /CreationDate (D:20261111120000+01\'00\') /ModDate (D:20261111120000+01\'00\') /Trapped /False >>', $pdf);
+        self::assertStringContainsString("5 0 obj\n<< /Type /OutputIntent /S /GTS_PDFX /OutputConditionIdentifier (FOGRA39) /OutputCondition (Coated FOGRA39 \(ISO 12647-2:2004\)) /RegistryName (http://www.color.org) /Info (Coated FOGRA39 \(ISO 12647-2:2004\)) /DestOutputProfile 4 0 R >>", $pdf);
+
+        // the profile itself: four components, the bytes that were handed in
+        self::assertSame(1, preg_match('~4 0 obj\n<< /N 4 /Filter /FlateDecode /Length (\d+) >>\nstream\n~', $pdf, $icc, PREG_OFFSET_CAPTURE));
+        self::assertSame($profile, gzuncompress(substr($pdf, $icc[0][1] + strlen($icc[0][0]), (int) $icc[1][0])));
+
+        // XMP says what Info says, plus the conformance level; not compressed
+        self::assertSame(1, preg_match('~6 0 obj\n<< /Type /Metadata /Subtype /XML /Length (\d+) >>\nstream\n~', $pdf, $meta, PREG_OFFSET_CAPTURE));
+        $xmp = substr($pdf, $meta[0][1] + strlen($meta[0][0]), (int) $meta[1][0]);
+        self::assertStringStartsWith('<?xpacket begin="' . "\xEF\xBB\xBF" . '"', $xmp);
+        self::assertStringEndsWith('<?xpacket end="w"?>', $xmp);
+        $document = new \DOMDocument();
+        $packet = (string) preg_replace('~<\?xpacket[^>]*\?>~', '', $xmp);
+        self::assertNotSame('', $packet);
+        self::assertTrue($document->loadXML($packet), 'the packet is well-formed XML');
+        $xpath = new \DOMXPath($document);
+        $xpath->registerNamespace('pdfxid', 'http://www.npes.org/pdfx/ns/id/');
+        $xpath->registerNamespace('dc', 'http://purl.org/dc/elements/1.1/');
+        $xpath->registerNamespace('xmp', 'http://ns.adobe.com/xap/1.0/');
+        $xpath->registerNamespace('pdf', 'http://ns.adobe.com/pdf/1.3/');
+        $xpath->registerNamespace('xmpMM', 'http://ns.adobe.com/xap/1.0/mm/');
+        $text = static function (string $query) use ($xpath): string {
+            $value = $xpath->evaluate('string(' . $query . ')');
+            self::assertIsString($value);
+
+            return $value;
+        };
+        self::assertSame('PDF/X-4', $text('//pdfxid:GTS_PDFXVersion'));
+        self::assertSame('Obecní kalendář & spol.', $text('//dc:title//*[@xml:lang="x-default"]'));
+        self::assertSame('2026-11-11T12:00:00+01:00', $text('//xmp:CreateDate'));
+        self::assertSame($text('//xmp:CreateDate'), $text('//xmp:ModifyDate'));
+        self::assertSame('False', $text('//pdf:Trapped'));
+        self::assertSame('WBoost (Chromium, CMYK)', $text('//pdf:Producer'));
+        self::assertSame('default', $text('//xmpMM:RenditionClass'));
+        self::assertMatchesRegularExpression('~^uuid:[0-9a-f-]{36}$~', $text('//xmpMM:DocumentID'));
+
+        // the trailer's /ID is the document id of the packet
+        self::assertSame(1, preg_match('~/ID \[ <([0-9a-f]{32})> <\1> \]~', $pdf, $id));
+        self::assertSame(str_replace(['uuid:', '-'], '', $text('//xmpMM:DocumentID')), $id[1]);
+        self::assertSame(1, preg_match('~1 0 obj\n<< /Type /Pages /Kids \[ \d+ 0 R \d+ 0 R \] /Count 2 >>~', $pdf));
+
+        // the cross-reference table still points at every object
+        self::assertSame(1, preg_match('/startxref\n(\d+)\n%%EOF\n$/', $pdf, $start));
+        self::assertSame(1, preg_match('/^xref\n0 (\d+)\n0000000000 65535 f \n((?:\d{10} 00000 n \n)+)trailer/', substr($pdf, (int) $start[1]), $table));
+
+        foreach (explode("\n", trim($table[2])) as $index => $entry) {
+            self::assertStringStartsWith(($index + 1) . ' 0 obj', substr($pdf, (int) substr($entry, 0, 10), 24), 'object ' . ($index + 1));
+        }
+    }
+
     /**
      * A file shaped like Chromium's: Info first, the shared picture, per page
      * a content stream and the page, the page tree and the catalog last — so
