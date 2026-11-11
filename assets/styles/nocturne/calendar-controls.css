@@ -1,6 +1,113 @@
 /* ==========================================================================
    Nocturne — Kalendáře: property panels and assets/calendar/ui/controls/*.
    Owner: phase P5a (+ P5b after it) (docs/calendar/architecture.md §D.9). Tokens only.
-   Loads after calendar.css — the stub rules there for this area are deleted
-   by the owner once the real styles live here.
+   Loads after calendar.css.
+
+   Panel anatomy (controls/panel.js):
+     .cal-props            padded column of one panel (right aside of steps 3 / 4)
+       .cal-pph             header: name + caption
+       .cal-psec           one block: .lbl + controls   (.cal-sub = conditional sub-block)
+         .cal-2 > .cal-ml  two columns of tiny-labelled steppers
+     .cal-noprop           empty state
+   Controls: .cal-swx/.cal-sws/.cal-swc/.cal-hex (colour) · .cal-szi (slider row) ·
+     .cal-side (text segmented) · .cal-al2 (two icon segmented) · .cal-bgp/.cal-bgs
+     (background layers) · .cal-gr* (gradient editor) · .cal-himg* (upload tile).
    ========================================================================== */
+
+/* ---- Panel frame -------------------------------------------------------- */
+.cal-props { display: flex; flex-direction: column; gap: 18px; padding: 14px 16px 28px; min-width: 0; }
+.cal-props [hidden], .cal-props-kal [hidden] { display: none !important; }
+.cal-noprop { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 48px 16px; text-align: center; color: var(--subtle); }
+.cal-pph { display: flex; align-items: center; flex-wrap: wrap; gap: 2px 8px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.cal-pph b { font-size: 15px; font-weight: 600; line-height: 1.3; color: var(--text); }
+.cal-pph .cap { flex-basis: 100%; }
+.cal-pph > .btn { margin-left: -6px; }
+.cal-psec { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.cal-psec > .lbl, .cal-sub > .lbl { letter-spacing: .1em; }
+.cal-sub { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.cal-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-items: end; }
+.cal-ml { display: flex; flex-direction: column; gap: 6px; min-width: 0; font-size: 12px; font-weight: 600; color: var(--subtle); }
+.cal-note { margin: 0; line-height: 1.5; }
+
+/* steppers and selects fill their column */
+.cal-props .cal-num { width: 100%; justify-content: space-between; }
+.cal-props .cal-num input { flex: 1; width: 0; }
+.cal-props .cal-select { width: 100%; }
+.cal-props .cal-select select { font-weight: 600; text-overflow: ellipsis; }
+.cal-props .cal-switch { align-self: flex-start; min-height: 28px; }
+.cal-props .cal-switch-t { font-weight: 600; }
+.cal-props .cal-check { align-self: flex-start; font-weight: 500; }
+
+/* ---- Segmented controls -------------------------------------------------- */
+.cal-side { display: flex; }
+.cal-side button { flex: 1; justify-content: center; min-width: 0; height: 32px; padding: 0 8px; font-size: 13px; white-space: nowrap; }
+.cal-props .cal-seg:not(.cal-side) { align-self: flex-start; }
+.cal-props .cal-seg:not(.cal-side) button { width: 42px; padding: 0; justify-content: center; }
+.cal-al2 { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* ---- Colour picker -------------------------------------------------------- */
+.cal-swx { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.cal-sws { display: flex; flex-wrap: wrap; gap: 8px; }
+.cal-swc { width: 28px; height: 28px; flex: none; padding: 0; border-radius: 50%; border: 1px solid var(--line-3); background: var(--c, transparent); cursor: pointer; transition: transform var(--dur-1); }
+.cal-swc:hover { transform: scale(1.08); }
+.cal-swc:focus-visible { outline: 2px solid var(--lav-ink); outline-offset: 2px; }
+.cal-swc.on { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--lav); }
+.cal-swc.none { background: linear-gradient(135deg, transparent 46%, var(--rose) 46% 54%, transparent 54%), var(--surface); }
+.cal-hex { width: 112px; gap: 4px; }
+.cal-hex input { width: 100%; min-width: 0; text-transform: uppercase; font-weight: 600; font-variant-numeric: tabular-nums; }
+.cal-hex input::placeholder { text-transform: none; font-weight: 400; }
+.cal-hex .u { color: var(--muted); }
+
+/* ---- Slider row ------------------------------------------------------------ */
+.cal-szl { display: flex; flex-direction: column; gap: 6px; }
+.cal-szi { display: grid; grid-template-columns: 84px minmax(0, 1fr) 50px; align-items: center; gap: 8px; margin: 0; font-size: 13px; color: var(--text-2); }
+.cal-szi input[type="range"] { width: 100%; min-width: 0; margin: 0; }
+.cal-szv { text-align: right; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* ---- Background panel ------------------------------------------------------ */
+.cal-bgp { gap: 10px; }
+.cal-bgs { display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 2px 0 6px 30px; }
+.cal-bgs .cal-szi { grid-template-columns: 44px minmax(0, 1fr) 44px; }
+
+/* ---- Gradient editor --------------------------------------------------------- */
+.cal-gr { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.cal-grh { display: flex; align-items: center; gap: 6px; }
+.cal-grp { flex: 1; height: 24px; border-radius: 7px; overflow: hidden; background: repeating-conic-gradient(#D9DBE2 0% 25%, #F4F5F8 0% 50%) 0 0 / 12px 12px; box-shadow: inset 0 0 0 1px var(--line-2); }
+.cal-grp > span { display: block; width: 100%; height: 100%; }
+.cal-grl { display: grid; grid-template-columns: 36px minmax(0, 1fr) minmax(0, 1fr) 32px; gap: 6px; align-items: center; }
+.cal-grl > .lbl { letter-spacing: 0; text-transform: none; font-size: 12px; white-space: nowrap; }
+.cal-grc { width: 36px; height: 36px; padding: 0; border: 0; border-radius: 9px; box-shadow: inset 0 0 0 1px var(--line-3); cursor: pointer; }
+.cal-grc:focus-visible { outline: 2px solid var(--lav-ink); outline-offset: 2px; }
+.cal-grc[aria-expanded="true"] { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--lav); }
+.cal-grn { min-width: 0; gap: 2px; padding: 0 8px; }
+.cal-grn input { width: 100%; min-width: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+.cal-grn .u { color: var(--muted); font-size: 12px; }
+.cal-grpk { grid-column: 1 / -1; padding: 8px 10px 10px; border-radius: 12px; background: var(--surface-2); }
+.cal-gr .cal-add { align-self: flex-start; margin-left: -8px; }
+.cal-grt { display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: center; gap: 8px; }
+.cal-grt > .lbl { letter-spacing: 0; text-transform: none; font-size: 13px; font-weight: 400; color: var(--text-2); }
+
+/* ---- Upload tile ------------------------------------------------------------- */
+.cal-himg { display: grid; grid-template-columns: 72px minmax(0, 1fr); align-items: center; gap: 12px; }
+.cal-himgp { display: grid; place-items: center; width: 72px; height: 52px; margin: 0; border-radius: 10px; border: 1px dashed var(--line-3); background: var(--surface-2); color: var(--muted); overflow: hidden; cursor: pointer; transition: border-color var(--dur-2); }
+.cal-himgp:hover { border-color: var(--lav); }
+.cal-himgp:has(input:focus-visible) { outline: 2px solid var(--lav-ink); outline-offset: 2px; }
+.cal-himgp img { width: 100%; height: 100%; object-fit: contain; }
+.cal-himgp.cover img { object-fit: cover; }
+.cal-himg[data-asset] .cal-himgp { border-style: solid; border-color: var(--line-2); background: repeating-conic-gradient(#D9DBE2 0% 25%, #F4F5F8 0% 50%) 0 0 / 10px 10px; }
+.cal-himg[data-busy] .cal-himgp { cursor: progress; }
+.cal-himg[data-busy] .cal-himgp .i { animation: cal-spin 900ms linear infinite; }
+.cal-himgb { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; }
+.cal-himgb .cap { line-height: 1.4; }
+.cal-himgb .btn { margin-left: -8px; }
+@keyframes cal-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+    .cal-himg[data-busy] .cal-himgp .i { animation: none; }
+    .cal-swc { transition: none; }
+}
+
+/* ---- Narrow screens: the panel sits under the page (handoff §8) -------------- */
+@media (max-width: 960px) {
+    .cal-props { padding: 16px 16px 32px; }
+    .cal-noprop { padding: 28px 16px; }
+}
