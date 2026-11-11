@@ -659,11 +659,73 @@ Dates `YYYY-MM-DD` within `[year−1-12-01, year+1-01-31]`. Weekdays `0` Monday
 | comments | `{date, text ≤500}` — insert only; author + time set by the server | client, designer |
 | pageCaptions | `{text ≤80}` (id = page key) | client, designer |
 | pagePhotos | `{asset, zoom 1–3, px 0–1, py 0–1}` (id = page key) | client, designer |
+| pageContent | texts + photo of the cover / back / generated special pages — id is one of `cover`, `back`, `sp:intro`, `sp:contacts`, `sp:year`, `sp:waste`, `sp:notes` and decides the shape (below) | client, designer |
+| pageGroups | `{page: "sp:contacts"\|"sp:waste", heading ≤80, lines: [{label ≤40, value ≤200}] (≤30), highlight, pos}` — ≤ 60 per calendar | client, designer |
 | moonEdits | `{op: "add"\|"remove", date, phase 0–3}` | designer |
 | shiftOps | `{name ≤30, shifts: [{letter ≤2, from "HH:MM", to "HH:MM"}] (1–4), crews: [4 × ≤2], pos}` | designer |
-| specialPages | `{kind: "intro"\|"contacts"\|"year"\|"waste"\|"image"\|"text", on, layout 0–20, position: "front"\|"back", nextYear, name ≤60, asset\|null, text ≤6000\|null, fileName ≤120\|null, pos}` | designer |
+| specialPages | `{kind: "intro"\|"contacts"\|"year"\|"waste"\|"notes"\|"image"\|"text", on, layout 0–20, position: "front"\|"back", nextYear, name ≤60, asset\|null, text ≤6000\|null, fileName ≤120\|null, pos}` | designer |
 | pageImages | `{head: asset\|null, bg: asset\|null}` (id = page key) | designer |
 | pageQr | `{asset}` (id = page key) | designer |
+| pageSetup | arrangement of a page — id `cover` `{layout 0–3, logo: "none"\|"tl"\|"tc"\|"tr"\|"title", logoSize: "s"\|"m"\|"l"}`, `sp:intro` `{align: "left"\|"justify"}`, `sp:contacts` `{clubLegend, wasteLegend, notes}`, `back` `{logo}` | designer |
+
+**`pageContent` shapes** (all keys required; `""` = empty — an empty `title` /
+`heading` prints the default; `photo` is `null` or `{asset, zoom 1–3, px 0–1,
+py 0–1}`):
+
+| id | item |
+|---|---|
+| `cover` | `{title ≤80, subtitle ≤80, note ≤120, photo}` — default title `Kalendář <year>` |
+| `sp:intro` | `{heading ≤80, salutation ≤80, body ≤4000, signName ≤80, signRole ≤80, photo}` |
+| `sp:contacts` | `{heading ≤80, notesHeading ≤40, photo}` — the contacts are `pageGroups` |
+| `sp:year`, `sp:waste` | `{heading ≤80, note ≤200}` |
+| `sp:notes` | `{heading ≤80}` |
+| `back` | `{heading ≤80, footer ≤200, name ≤80, address ≤300 (≤ 6 lines, "\n"), phone ≤60, email ≤80, web ≤80, imprint ≤200}` |
+
+`body` is plain text with light marks: an empty line separates paragraphs, a
+single line break stays, `**bold**`, `*italic*`, `\*` = a literal asterisk; an
+unclosed mark is printed as it is. Never HTML.
+
+A `pageGroups` line with `label: ""` is free text; with a label the group's
+values align in a column; `{label: "", value: ""}` is a small gap.
+`highlight: true` = the emphasised block (emergency numbers). Groups of
+`sp:waste` are drawn beside the grid in the waste plan's layout 1 only.
+
+Special-page layouts (`specialPages[*].layout`): intro `0` photo + text, `1`
+text only, `2` portrait + two columns · contacts `0` two, `1` three, `2` four
+columns, `3` two columns + photo · year `0` 6 × 2 months, `1` 4 × 3, `2` two
+years · waste `0` grid, `1` grid + texts. Cover (`pageSetup.cover.layout`): `0`
+photo with a title band, `1` framed photo with the title below, `2` no photo,
+`3` photo only (a finished cover graphic; no texts).
+
+Texts auto-fit (smaller type, then more columns). What still does not fit ends
+with `…` and comes back as a warning of kind `overflow` from
+`render_calendar_page` — shorten the text or pick a roomier layout.
+
+Filling the four pages of a municipal calendar:
+
+```json
+{ "operations": [
+  { "collection": "pageContent", "id": "cover", "label": "Titulní strana",
+    "value": { "title": "Kalendář 2027", "subtitle": "Obec Chotěbuz", "note": "www.chotebuz.cz",
+               "photo": { "asset": "<assetId>", "zoom": 1, "px": 0.5, "py": 0.5 } } },
+  { "collection": "pageContent", "id": "sp:intro", "label": "Úvodní slovo",
+    "value": { "heading": "", "salutation": "Milí občané,",
+               "body": "rok utekl jako voda…\n\nDruhý odstavec s **důrazem**.",
+               "signName": "Ing. David Harok", "signRole": "starosta obce", "photo": null } },
+  { "collection": "pageGroups", "id": "grpObecniUrad001", "label": "Důležité kontakty",
+    "value": { "page": "sp:contacts", "heading": "Obecní úřad", "highlight": false, "pos": 0,
+               "lines": [ { "label": "Po, St", "value": "7 – 12, 13 – 17" },
+                          { "label": "", "value": "" },
+                          { "label": "T:", "value": "558 733 131" } ] } },
+  { "collection": "pageGroups", "id": "grpTisnovaCisla1", "label": "Důležité kontakty",
+    "value": { "page": "sp:contacts", "heading": "Důležitá telefonní čísla", "highlight": true, "pos": 1,
+               "lines": [ { "label": "Policie ČR", "value": "158" }, { "label": "Hasiči", "value": "150" } ] } },
+  { "collection": "pageContent", "id": "back", "label": "Zadní strana",
+    "value": { "heading": "", "footer": "", "name": "Obec Chotěbuz", "address": "Chotěbuzská 250\n735 61 Chotěbuz",
+               "phone": "+420 558 733 131", "email": "chotebuz@volny.cz", "web": "www.chotebuz.cz",
+               "imprint": "Vydala obec Chotěbuz · Grafika: …" } }
+] }
+```
 
 Waste intervals: `w` every week, `2e` / `2o` even / odd ISO weeks, `4w` /
 `4w2` every fourth week (ISO week % 4 = 1 / 3), `m` the first such weekday of

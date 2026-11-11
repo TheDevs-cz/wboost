@@ -341,7 +341,7 @@ Twenty-one tools (the calendar ones are listed last):
 | `manage_calendar` | `calendars:write` | `create` a calendar, `configure` it (name, year, type, feature switches, print), `finish` it, `client_link` (get / regenerate), `import_layout` from a sibling calendar — designer only, no delete |
 | `set_calendar_layout` | `calendars:write` | apply a preset (`photoLeft` / `photoRight` / `twoSided`) and patch boxes (mm), stacking order and styles; unknown keys are refused by name — designer only |
 | `upload_calendar_asset` | `calendars:write` | store a photo / logo / icon / QR / picture / special-page graphic with the calendar (base64, the web's upload rules) and get its asset id; a client may upload photos |
-| `update_calendar_content` | `calendars:write` | item-wise content changes through the web's own save (same validation, merge and history) |
+| `update_calendar_content` | `calendars:write` | item-wise content changes through the web's own save (same validation, merge and history) — events, waste, photos, captions… and the texts of the cover, intro, contacts and back pages (`pageContent`, `pageGroups`; shapes in the tool description) |
 
 **Nothing here deletes anything** — not a template, not a variant, not a picture, not a font.
 Gallery pictures can be added but never removed, moved or renamed from a client;

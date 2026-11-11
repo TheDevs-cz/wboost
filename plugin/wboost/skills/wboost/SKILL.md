@@ -363,8 +363,9 @@ days and public holidays. It has two halves:
   layout (element boxes, stacking order, styles) shared by every week page.
   The designer's: `manage_calendar` and `set_calendar_layout`.
 - the **content** — events, clubs, extra names, waste collection, page photos
-  and captions, comments, shift tables, special pages:
-  `update_calendar_content`.
+  and captions, comments, shift tables, special pages, and the texts of the
+  cover / intro / contacts / back pages (`pageContent`, `pageGroups`; their
+  arrangement is `pageSetup`): `update_calendar_content`.
 
 ```
 list_calendars                → every calendar this account can reach (or one project's)
@@ -423,7 +424,7 @@ Design rules:
   the ICC profile; choose it when the print shop asks for CMYK — slower,
   about twice the size) or
   `"approval"` (trimmed pages as the finished calendar looks, small file — for
-  e-mail). Text and shapes are vector; colours
+  e-mail). Text and shapes are vector; `print` and `approval`
   are RGB. It exports what is SAVED and runs in the background (about a second
   per page): poll `export_status` with `export.exportId` every few seconds
   until `status` is `done`, then give `export.downloadUrl` to the user (a
@@ -462,6 +463,19 @@ Content rules:
   event added while `events` is off is saved but invisible — switch the
   feature on (`manage_calendar` `configure`, designer) or say so instead of
   reporting success.
+- **Cover, intro, contacts, back are filled like any content.** The cover,
+  the back page and the generated special pages (`intro`, `contacts`, `year`,
+  `waste`, `notes` — switched on through `specialPages` + the feature) carry
+  texts in `pageContent` (id = `cover`, `back`, `sp:intro`, …; one shape per
+  id) and the contact groups in `pageGroups` (heading + lines, a line is free
+  text or label + value). Both are open to a client. How a page is arranged —
+  `pageSetup` (cover layout, logo position, alignment, legends, the notes
+  column) and a special page's `layout` — is the designer's. An intro `body`
+  is plain text: empty line = new paragraph, `**bold**`, `*italic*`. Text that
+  does not fit is set smaller, then reported as an `overflow` warning by
+  `render_calendar_page` — always render `cover`, `sp:intro`, `sp:contacts`
+  and `back` after filling them. Shapes, caps and a full example:
+  `references/tools.md`.
 - **Comments are permanent**: insert only, never edited or deleted; the server
   sets author and time.
 - **Not available:** deleting a calendar or an uploaded file; a CMYK / PDF/X

@@ -81,7 +81,8 @@ readonly final class UpdateCalendarContentTool
     /**
      * Adds, replaces or deletes CONTENT items of a desk calendar: events,
      * extra names, waste collection, page photos and captions, comments, shift
-     * tables, special pages and so on. It does not change the calendar's
+     * tables, special pages and the texts of the cover, intro, contacts and
+     * back pages. It does not change the calendar's
      * design — settings are manage_calendar, the layout and styles
      * set_calendar_layout — and it does not upload: upload_calendar_asset
      * stores a file and returns the asset id an item refers to. Call
@@ -132,20 +133,77 @@ readonly final class UpdateCalendarContentTool
      * - pageCaptions {text ≤80} — the photo caption of a week page (id = page key).
      * - pagePhotos {asset, zoom 1–3, px 0–1, py 0–1} — the photo of a week page
      *   and its crop (zoom 1, px 0.5, py 0.5 = centred).
+     * - pageContent — the texts and the photo of the cover, the back page and
+     *   the generated special pages. The id is one of seven fixed page keys and
+     *   decides the item (all keys required; "" = empty, and an empty title /
+     *   heading prints the default one; a photo is null or
+     *   {asset, zoom 1–3, px 0–1, py 0–1} like pagePhotos):
+     *   "cover"       {title ≤80 (default "Kalendář <year>"), subtitle ≤80,
+     *                  note ≤120 (a small line, e.g. the web address), photo}
+     *   "sp:intro"    {heading ≤80, salutation ≤80, body ≤4000, signName ≤80,
+     *                  signRole ≤80, photo (portrait / side photo)}. body is
+     *                  plain text: an EMPTY LINE separates paragraphs, a single
+     *                  line break stays a line break, **bold** and *italic*
+     *                  mark runs, "\*" is a literal asterisk. No HTML.
+     *   "sp:contacts" {heading ≤80, notesHeading ≤40, photo} — the contacts
+     *                  themselves are pageGroups
+     *   "sp:year", "sp:waste"  {heading ≤80, note ≤200 (a line under the grid)}
+     *   "sp:notes"    {heading ≤80}
+     *   "back"        {heading ≤80, footer ≤200, name ≤80, address ≤300 (up to
+     *                  6 lines separated by "\n"), phone ≤60, email ≤80, web ≤80,
+     *                  imprint ≤200}. While the special page "year" is on, the
+     *                  back page prints name / address / phone · email · web
+     *                  (+ imprint); otherwise the year overview with heading,
+     *                  footer and imprint.
+     *   Example: {"collection": "pageContent", "id": "sp:intro", "value":
+     *   {"heading": "", "salutation": "Milí občané,", "body": "První odstavec
+     *   s **tučným** slovem.\n\nDruhý odstavec.", "signName": "Ing. Jana
+     *   Nováková", "signRole": "starostka obce", "photo": null}}
+     * - pageGroups {page: "sp:contacts"|"sp:waste", heading ≤80, lines:
+     *   [{label ≤40, value ≤200}] (0–30), highlight: bool, pos} — one group of
+     *   the contacts page (or of the texts beside the waste plan, layout 1): a
+     *   heading and its lines. A line with label "" is free text; with a label
+     *   the values of the group align in a column ("Telefon" / "+420 …"); both
+     *   "" is a small gap. highlight: true draws the group as the emphasised
+     *   block (emergency numbers: label left, value right). Groups flow into
+     *   the page's columns in pos order, balanced. At most 60 groups per
+     *   calendar. Example: {"collection": "pageGroups", "id": "grpObecniUrad01",
+     *   "value": {"page": "sp:contacts", "heading": "Obecní úřad", "lines":
+     *   [{"label": "Po, St", "value": "7 – 12, 13 – 17"}, {"label": "T:",
+     *   "value": "558 733 131"}], "highlight": false, "pos": 0}}
+     *   Text that does not fit is first set smaller; when it still does not
+     *   fit, the page ends with "…" and render_calendar_page / get_calendar
+     *   report a warning — shorten the text or ask the designer for a layout
+     *   with more room.
      * Designer role only (a "client" role is refused with designer_only):
      * - moonEdits {op: "add"|"remove", date, phase 0–3} — corrections of the
      *   computed moon phases (0 new moon, 1 first quarter, 2 full, 3 last quarter).
      * - shiftOps {name ≤30, shifts: [{letter ≤2, from "HH:MM", to "HH:MM"}] (1–4),
      *   crews: [four strings ≤2], pos} — a shift table column ("Šichtovnice").
-     * - specialPages {kind: "intro"|"contacts"|"year"|"waste"|"image"|"text",
-     *   on, layout 0–20, position: "front"|"back", nextYear, name ≤60,
+     * - specialPages {kind: "intro"|"contacts"|"year"|"waste"|"notes"|"image"|
+     *   "text", on, layout 0–20, position: "front"|"back", nextYear, name ≤60,
      *   asset|null, text ≤6000|null, fileName ≤120|null, pos} — the generated
-     *   pages use the fixed ids intro, contacts, year, waste.
+     *   pages use the fixed ids intro, contacts, year, waste, notes (a page of
+     *   ruled lines). Layouts — intro: 0 photo + text, 1 text only, 2 portrait
+     *   + two columns; contacts: 0 two, 1 three, 2 four columns, 3 two columns
+     *   + photo; year: 0 6×2 months, 1 4×3, 2 two years; waste: 0 the year
+     *   grid, 1 grid + texts beside it (pageGroups of "sp:waste").
      *   A special page appears only while on is true AND the feature
      *   specialPages is on; "image" pages show their uploaded asset (kind
      *   "page"), "text" pages their text. Its page key is "sp:<id>".
      * - pageImages {head: asset|null, bg: asset|null}, pageQr {asset} — a page's
      *   own header / background picture and QR code (id = page key).
+     * - pageSetup — how the cover, the back and two special pages are arranged
+     *   (id = page key, per-key shape, all keys required):
+     *   "cover" {layout: 0 photo with a title band | 1 framed photo, title
+     *   below | 2 no photo | 3 photo only (a finished cover graphic, no texts),
+     *   logo: "none"|"tl"|"tc"|"tr" (over the photo: top left / centre /
+     *   right)|"title" (beside the title), logoSize: "s"|"m"|"l"} — the logo is
+     *   the one of the layout (set_calendar_layout styles.logo.asset);
+     *   "sp:intro" {align: "left"|"justify"}; "sp:contacts" {clubLegend: bool,
+     *   wasteLegend: bool (legends generated from clubs / waste kinds), notes:
+     *   bool (a column of ruled lines)}; "back" {logo: bool}. A missing item =
+     *   the defaults (cover 0 / "tr" / "m", left, clubLegend on, logo on).
      *
      * Content of a feature that is switched off (get_calendar features) is
      * stored but not printed: events need the feature events, wasteKinds /
