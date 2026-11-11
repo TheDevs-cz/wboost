@@ -129,7 +129,7 @@ webu, Statistiky),
   Manuály, Šablony, Galerie, Fonty, **Paleta barev** (`project_palette`,
   `icon('palette')`, `active_menu_item = 'palette'`; like Fonty always shown,
   not a module — read-only for members without `project_edit`), E-maily,
-  Jídelníčky (+ sub items), **Facebook a Instagram** — always last (before only the "Objevte
+  Jídelníčky (+ sub items), Kalendáře, **Facebook a Instagram** — always last (before only the "Objevte
   další moduly" CTA), shown in EVERY project (no module key): links to
   `user_profile` when `facebook_connected()`, otherwise opens the fake-door
   modal `#social-publish-fake-door` (`_social_publish_fake_door.html.twig`,
@@ -173,12 +173,18 @@ unchanged (the admin "Moduly projektu" history lives only there).
 
 A project lists its switched-on modules in `project.modules` (JSONB list of
 `ProjectModule` values: `manuals`, `templates`, `email_signatures`,
-`weekly_menus`, kept in enum order). The left navigation and the project
+`weekly_menus`, `calendars`, kept in enum order). The left navigation and the project
 dashboard render a module only when `project.hasModule(...)` — Twig reaches the
 enum via `enum('WBoost\\Web\\Value\\ProjectModule')`. **Galerie, Fonty and
-Paleta barev are not modules** (other modules draw on them — always shown); **Kalendáře** isn't
-built yet, so it is gone from the nav/dashboard and only linked from the
-discover page (`calendars.html.twig` highlights the discover nav item).
+Paleta barev are not modules** (other modules draw on them — always shown).
+
+**Kalendáře** (`calendars`, built 2026-11 — `calendars.md`) is a module **in
+preview**: `ProjectModule::isInPreview()` is true for it, so the discover page
+offers it to admins only and `EnableProjectModuleController` refuses anyone
+else; it is not in `defaults()` and got no backfill. Launching it = returning
+false there. Its workspace (`calendar_workspace`) is in the `shell_force_rail`
+list of `base.html.twig` like the canvas editors, and its nav item sits after
+Jídelníčky (`active_menu_item = 'calendars'`).
 
 - **New projects** start with `ProjectModule::defaults()` = Manuály + Šablony
   (also the column default). The 2026-10-11 migration backfilled existing
@@ -198,7 +204,7 @@ discover page (`calendars.html.twig` highlights the discover nav item).
   disable controllers then redirect back to the overview). Off = hidden, never deleted.
 - **Guard** = `#[RequiresProjectModule]` on the module LANDING controllers only
   (Manuals, Templates, EmailSignatureTemplates, WeeklyMenus, Meals, Diets,
-  DishTypes); `ProjectModuleGuardListener` (CONTROLLER_ARGUMENTS, after
+  DishTypes, Calendars — the list page only); `ProjectModuleGuardListener` (CONTROLLER_ARGUMENTS, after
   `#[IsGranted]`) redirects to the discover page with an info flash. Item pages,
   the render pipeline, the API and MCP are deliberately NOT gated — this is
   decluttering, not access control. A new module = enum case + nav/dashboard
