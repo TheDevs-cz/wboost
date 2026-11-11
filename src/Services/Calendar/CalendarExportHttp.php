@@ -70,6 +70,27 @@ readonly final class CalendarExportHttp
     }
 
     /**
+     * GET of the request address: `{ exports: { print, approval } }` — per
+     * variant the export that answers a request right now (a job on its way,
+     * or the finished file of the calendar as it is saved), else null. The
+     * dialog asks on opening, so a job started earlier — in this tab, another
+     * one, or by somebody else — is picked up where it is.
+     *
+     * @param null|string $token the client-link token when the request came through `/k/{token}`
+     */
+    public function current(Calendar $calendar, null|string $token = null): JsonResponse
+    {
+        $exports = [];
+
+        foreach (CalendarExportVariant::cases() as $variant) {
+            $export = $this->exports->reusable($calendar, $variant);
+            $exports[$variant->value] = $export !== null ? $this->describe($export, $token) : null;
+        }
+
+        return new JsonResponse(['exports' => $exports]);
+    }
+
+    /**
      * GET: `{ export }`.
      *
      * @throws CalendarExportNotFound

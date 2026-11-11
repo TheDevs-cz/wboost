@@ -13,9 +13,14 @@
 //
 // One export at a time per dialog: choose a variant → the job is requested (an unchanged calendar is
 // answered at once with the file that already exists) → the status address is polled every 1.5 s
-// while the dialog is open („Připravuji PDF… 12 z 55 stran“) → the download starts by itself through
-// a hidden iframe (a navigation would trip the workspace's unsaved-changes guard) and a „Stáhnout“
-// link stays in the dialog. A failed job is a toast with „Zkusit znovu“; the dialog returns to the
+// while the dialog is open („Připravuji PDF… 12 z 55 stran“, then „Dokončuji soubor…“ while the file
+// is assembled and stored) → the download starts by itself through a hidden iframe (a navigation
+// would trip the workspace's unsaved-changes guard) and a „Stáhnout“ link stays in the dialog.
+//
+// On opening the dialog asks the server what is there for the saved calendar (GET of `o.url`): a job
+// on its way — started in this dialog before it was closed, in another tab or by somebody else — is
+// picked up at once and its progress shown; a finished file is marked on its card („Připraveno ·
+// 527 MB“, `[data-cal-export-ready]`) and the action reads „Stáhnout PDF“. A failed job is a toast with „Zkusit znovu“; the dialog returns to the
 // choice. Closing the dialog only stops the polling — the job goes on and the next request for the
 // same variant finds its file.
 //
@@ -25,7 +30,7 @@
 // `[data-cal-export-progress]` (text) + `progress`, `a[data-cal-action="export-download"]`,
 // `[data-cal-action="export-again"]`.
 
-import { fetchExport, requestExport } from '../state/api.js';
+import { fetchCurrentExports, fetchExport, requestExport } from '../state/api.js';
 import { h, icon, openModal } from './dom.js';
 
 const POLL_MS = 1500;
@@ -64,6 +69,7 @@ export function openExport({ name, url, csrf, toast, unsaved = null }) {
     let closed = false;
     let busy = false;
     let failures = 0;
+    const readyVariants = new Set();
 
     const radios = VARIANTS.map((v) => {
         const input = h('input', {
@@ -75,9 +81,11 @@ export function openExport({ name, url, csrf, toast, unsaved = null }) {
             'data-cal-export-variant': v.key,
             onChange: () => {
                 variant = v.key;
+                label();
             },
         });
-        return { input, card: h('label', { class: 'rcard' }, input, h('span', { class: 'rd', 'aria-hidden': 'true' }), h('span', { class: 'rtx' }, h('span', { class: 'rt' }, v.title), h('span', { class: 'rsub' }, v.text))) };
+        const ready = h('span', { class: 'cal-exp-ready', hidden: true, 'data-cal-export-ready': v.key });
+        return { key: v.key, input, ready, card: h('label', { class: 'rcard' }, input, h('span', { class: 'rd', 'aria-hidden': 'true' }), h('span', { class: 'rtx' }, h('span', { class: 'rt' }, v.title), h('span', { class: 'rsub' }, v.text), ready)) };
     });
     const picker = h('div', { class: 'rpick', role: 'radiogroup', 'aria-label': 'Varianta PDF' }, ...radios.map((r) => r.card));
 
@@ -124,15 +132,27 @@ export function openExport({ name, url, csrf, toast, unsaved = null }) {
         // with unsaved changes the primary action saves first; exporting the saved state stays possible
         saveStart.hidden = !(choosing && dirty);
         start.hidden = !choosing;
-        start.className = `btn sm ${dirty ? 'btn-tertiary' : 'btn-primary'}`;
-        start.lastChild.textContent = dirty ? 'Exportovat uložený stav' : 'Připravit PDF';
+        label();
         download.hidden = state !== 'done';
         if (choosing) (radios.find((r) => r.input.checked) || radios[0]).input.focus({ preventScroll: true });
+    }
+
+    /** The action's words: a finished file of the chosen variant is only fetched, not prepared. */
+    function label() {
+        const dirty = Boolean(unsaved && unsaved.dirty());
+        start.className = `btn sm ${dirty ? 'btn-tertiary' : 'btn-primary'}`;
+        start.lastChild.textContent = dirty ? 'Exportovat uložený stav' : readyVariants.has(variant) ? 'Stáhnout PDF' : 'Připravit PDF';
     }
 
     function progress(job) {
         const total = Number(job.total) || 0;
         const finished = Math.min(total, Number(job.done) || 0);
+        if (job.status === 'running' && total > 0 && finished >= total) {
+            // every page is drawn: the file is being put together and stored (seconds for a big one)
+            progressText.textContent = 'Dokončuji soubor…';
+            bar.removeAttribute('value');
+            return;
+        }
         if (job.status === 'queued' || !total) {
             progressText.textContent = job.status === 'queued' ? 'Připravuji PDF… čeká ve frontě' : 'Připravuji PDF…';
             bar.removeAttribute('value');
@@ -153,6 +173,12 @@ export function openExport({ name, url, csrf, toast, unsaved = null }) {
     function finish(job) {
         busy = false;
         if (closed) return;
+        const card = radios.find((r) => r.key === job.variant);
+        if (card) {
+            readyVariants.add(card.key);
+            card.ready.textContent = `Připraveno${job.sizeBytes ? ` · ${formatBytes(job.sizeBytes)}` : ''}`;
+            card.ready.hidden = false;
+        }
         fileName.textContent = job.fileName || 'kalendar.pdf';
         fileSize.textContent = formatBytes(job.sizeBytes);
         download.href = job.urls.download;
@@ -224,5 +250,29 @@ export function openExport({ name, url, csrf, toast, unsaved = null }) {
     }
 
     show('choose');
+
+    // what is already there for the saved calendar: a running job is picked up, a finished file marked
+    fetchCurrentExports(url).then((current) => {
+        if (closed || busy) return;
+        for (const r of radios) {
+            const job = current[r.key];
+            if (job && job.status === 'done') {
+                readyVariants.add(r.key);
+                r.ready.textContent = `Připraveno${job.sizeBytes ? ` · ${formatBytes(job.sizeBytes)}` : ''}`;
+                r.ready.hidden = false;
+            }
+        }
+        const pending = radios.find((r) => current[r.key] && (current[r.key].status === 'queued' || current[r.key].status === 'running'));
+        if (pending) {
+            variant = pending.key;
+            pending.input.checked = true;
+            busy = true;
+            show('running');
+            follow(current[pending.key]);
+            return;
+        }
+        label();
+    });
+
     return { close: () => modal.close() };
 }

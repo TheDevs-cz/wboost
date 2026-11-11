@@ -26,7 +26,8 @@ use WBoost\Web\Services\Calendar\CalendarResponses;
  *   link). A request answered by an existing export — the calendar has not
  *   changed since — costs nothing, so downloading the same file again is
  *   never refused;
- * - polling and downloading share `calendar_client_export_read`.
+ * - polling, downloading and the dialog's "what is there" read share
+ *   `calendar_client_export_read`.
  * An unknown token is a 404 before anything is counted.
  */
 final class ClientCalendarExportController extends AbstractController
@@ -68,6 +69,14 @@ final class ClientCalendarExportController extends AbstractController
         }
 
         return $this->http->request($calendar, $variant, $actor, $token);
+    }
+
+    #[Route(path: '/k/{token}/export', name: 'calendar_client_export_current', requirements: ['token' => ClientCalendarController::TOKEN_REQUIREMENT], methods: ['GET'])]
+    public function current(string $token): Response
+    {
+        [$calendar] = $this->access->forToken($token);
+
+        return $this->overRead($token) ?? $this->http->current($calendar, $token);
     }
 
     #[Route(path: '/k/{token}/export/{exportId}', name: 'calendar_client_export_status', requirements: ['token' => ClientCalendarController::TOKEN_REQUIREMENT, 'exportId' => Calendar::ID_REQUIREMENT], methods: ['GET'])]

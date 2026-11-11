@@ -19,7 +19,7 @@ const bootstrap = (page) => page.evaluate(() => JSON.parse(document.querySelecto
  * `seed` changes the colours (every week gets a different picture), `label` is painted large in the
  * middle so a crop can be recognised in the exported page.
  */
-async function uploadPhoto(page, { width, height, seed = 1, label = '', kind = 'photo', quality = 0.92, type = 'image/jpeg' }) {
+async function uploadPhoto(page, { width, height, seed = 1, label = '', kind = 'photo', quality = 0.92, type = 'image/jpeg', noise = 70, maxBytes = 0 }) {
     const answer = await page.evaluate(
         async (o) => {
             const boot = JSON.parse(document.querySelector('[data-calendar-workspace-target="bootstrap"]').textContent);
@@ -68,18 +68,24 @@ async function uploadPhoto(page, { width, height, seed = 1, label = '', kind = '
                 g.textBaseline = 'middle';
                 g.fillText(o.label, o.width / 2, o.height / 2);
             }
-            const blob = await new Promise((resolve) => canvas.toBlob(resolve, o.type, o.quality));
+            let quality = o.quality;
+            let blob = await new Promise((resolve) => canvas.toBlob(resolve, o.type, quality));
+            // `maxBytes`: step the quality down until the file fits (a photo "just under the upload cap")
+            while (o.maxBytes && blob.size > o.maxBytes && quality > 0.3) {
+                quality -= 0.004;
+                blob = await new Promise((resolve) => canvas.toBlob(resolve, o.type, quality));
+            }
             const form = new FormData();
             form.append('_token', boot.env.csrf);
             form.append('kind', o.kind);
             form.append('file', new File([blob], `${o.label || 'foto'}.${o.type === 'image/png' ? 'png' : 'jpg'}`, { type: o.type }));
             const response = await fetch(boot.env.urls.asset, { method: 'POST', body: form, credentials: 'same-origin', headers: { Accept: 'application/json' } });
-            return { status: response.status, json: await response.json().catch(() => null), bytes: blob.size };
+            return { status: response.status, json: await response.json().catch(() => null), bytes: blob.size, quality };
         },
-        { width, height, seed, label, kind, quality, type, noise: 70 },
+        { width, height, seed, label, kind, quality, type, noise, maxBytes },
     );
     assert.equal(answer.status, 200, `upload failed: ${JSON.stringify(answer.json)}`);
-    return { id: answer.json.id, width: answer.json.width, height: answer.json.height, bytes: answer.bytes, previewUrl: answer.json.previewUrl };
+    return { id: answer.json.id, width: answer.json.width, height: answer.json.height, bytes: answer.bytes, quality: answer.quality, previewUrl: answer.json.previewUrl };
 }
 
 /**

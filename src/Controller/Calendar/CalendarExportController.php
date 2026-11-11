@@ -21,6 +21,7 @@ use WBoost\Web\Services\Security\CalendarVoter;
  * member alike: whoever may open the calendar may export it
  * (docs/architecture/calendars.md § "PDF export").
  *
+ * - GET `…/export` → `{ exports: { print, approval } }` (what is ready or on its way)
  * - POST `…/export` (`_token`, `variant` = print | approval) → `{ export }`
  * - GET `…/export/{exportId}` → `{ export }` (polled while the job runs)
  * - GET `…/export/{exportId}/download` → the PDF
@@ -51,6 +52,15 @@ final class CalendarExportController extends AbstractController
         }
 
         return $this->http->request($calendar, $variant, $this->access->forUser($calendar));
+    }
+
+    #[Route(path: '/calendar/{calendarId}/export', name: 'calendar_export_current', requirements: ['calendarId' => Calendar::ID_REQUIREMENT], methods: ['GET'])]
+    #[IsGranted(CalendarVoter::VIEW, 'calendar')]
+    public function current(
+        #[MapEntity(id: 'calendarId')]
+        Calendar $calendar,
+    ): Response {
+        return $this->http->current($calendar);
     }
 
     #[Route(path: '/calendar/{calendarId}/export/{exportId}', name: 'calendar_export_status', requirements: ['calendarId' => Calendar::ID_REQUIREMENT, 'exportId' => Calendar::ID_REQUIREMENT], methods: ['GET'])]

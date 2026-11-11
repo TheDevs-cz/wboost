@@ -350,6 +350,11 @@ module.exports = {
                 const before = psql(`SELECT count(*) FROM calendar_export WHERE calendar_id = '${built.id}'`);
                 assert.equal(before, '2');
                 await openDialog(page);
+                // the dialog found the finished files: both cards say so and the action only fetches
+                await page.waitForFunction((selector) => [...document.querySelectorAll(`${selector} [data-cal-export-ready]`)].every((n) => !n.hidden), { timeout: 5000 }, DIALOG);
+                assert.match(await page.$eval(`${DIALOG} [data-cal-export-ready="print"]`, (el) => el.textContent), /^Připraveno · [\d,.\s]+ (kB|MB)$/);
+                assert.equal(await page.$eval(`${DIALOG} [data-cal-action="export-start"]`, (el) => el.textContent.trim()), 'Stáhnout PDF');
+                await h.shot(page, 'pdf-dialog-ready');
                 const started = Date.now();
                 const again = await exportThrough(page, designerWatch, 'print');
                 assert.ok(Date.now() - started < 8000, 'the finished file is offered at once');

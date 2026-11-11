@@ -60,6 +60,21 @@ export async function requestExport(url, csrf, variant) {
     return json.export;
 }
 
+/**
+ * GET of the export request address → `{ print, approval }`: per variant the export that answers a
+ * request right now (a job on its way, or the finished file of the saved calendar), else `null`.
+ * Never rejects — the dialog works without it.
+ */
+export async function fetchCurrentExports(url) {
+    try {
+        const response = await fetch(url, { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+        const json = await readJson(response, EXPORT_FAILED);
+        return json.exports && typeof json.exports === 'object' ? json.exports : {};
+    } catch (e) {
+        return {};
+    }
+}
+
 /** GET of an export's `urls.status` → the export (same shape). */
 export async function fetchExport(url) {
     let response;

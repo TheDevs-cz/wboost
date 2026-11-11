@@ -67,6 +67,7 @@
 .cal-exp-name { color: var(--muted); margin-top: -6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cal-exp .rpick.is-locked .rcard { cursor: default; opacity: .6; }
 .cal-exp .rpick.is-locked .rcard:has(input:checked) { opacity: 1; }
+.cal-exp-ready { align-self: flex-start; margin-top: 4px; padding: 1px 8px; border-radius: 999px; background: var(--surface-3); color: var(--text-2); font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .cal-exp-note { display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; border-radius: 12px; background: var(--pch-deep); color: var(--text); font-size: 13px; line-height: 1.45; }
 .cal-exp-note .i { flex: none; margin-top: 1px; color: var(--pch-ink); }
 .cal-exp-run { display: flex; flex-direction: column; gap: 8px; }

@@ -12,6 +12,7 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use WBoost\Web\Controller\Calendar\ClientCalendarExportController;
 use WBoost\Web\Entity\CalendarExport;
+use WBoost\Web\Exceptions\CalendarExportNeedsMoreSpace;
 use WBoost\Web\Exceptions\TemplateRenderUnavailable;
 use WBoost\Web\Repository\CalendarExportRepository;
 use WBoost\Web\Services\Calendar\CalendarExportHttp;
@@ -259,11 +260,17 @@ final class CalendarExportControllerTest extends WebTestCase
         self::assertSame('failed', $busy['status']);
         self::assertSame(CalendarExports::BUSY, $busy['error']);
 
+        // No room for a file this large: said before anything is rendered, with what to do instead.
+        FakeCalendarPdfProducer::$failWith = new CalendarExportNeedsMoreSpace(1_300_000_000, 400_000_000);
+        $full = self::request($browser, self::EXPORT_URL, 'print', $token);
+        self::assertSame('failed', $full['status']);
+        self::assertSame(CalendarExports::NO_SPACE, $full['error']);
+
         // A failed export answers nothing: the retry is a new job.
         $retry = self::request($browser, self::EXPORT_URL, 'print', $token);
         self::assertSame('done', $retry['status']);
-        self::assertNotContains($retry['id'], [$failed['id'], $busy['id']]);
-        self::assertCount(3, FakeCalendarPdfProducer::$calls);
+        self::assertNotContains($retry['id'], [$failed['id'], $busy['id'], $full['id']]);
+        self::assertCount(4, FakeCalendarPdfProducer::$calls);
     }
 
     /**
@@ -422,6 +429,75 @@ final class CalendarExportControllerTest extends WebTestCase
         TestingLogin::logInAsUser($browser, TestDataFixture::USER_1_EMAIL);
         $token = self::csrf(self::bootstrap($browser, self::WORKSPACE_URL));
         self::assertSame('done', self::request($browser, self::EXPORT_URL, 'approval', $token)['status']);
+    }
+
+    /**
+     * The dialog asks what is there when it opens: a job on its way (whoever
+     * started it) is picked up, a finished file offered. And a second request
+     * for a variant that is being prepared joins that job — two people asking
+     * at the same time share ONE render.
+     */
+    public function testARunningJobIsFoundAndSharedAndAFinishedFileIsOffered(): void
+    {
+        $browser = self::designer();
+        $token = self::csrf(self::bootstrap($browser, self::WORKSPACE_URL));
+
+        $browser->request('GET', self::EXPORT_URL);
+        self::assertResponseIsSuccessful();
+        self::assertSame('{"exports":{"print":null,"approval":null}}', $browser->getResponse()->getContent());
+
+        // Somebody's print export is on its way (queued a moment ago, the consumer has it).
+        $entityManager = self::getContainer()->get(EntityManagerInterface::class);
+        $calendar = self::calendar(TestDataFixture::CALENDAR_2_ID);
+        $running = new CalendarExport(
+            Uuid::uuid7(),
+            $calendar,
+            CalendarExportVariant::Print,
+            $calendar->revision,
+            self::getContainer()->get(\WBoost\Web\Services\Calendar\CalendarModuleInliner::class)->fingerprint(),
+            CalendarAuthorKind::Client,
+            null,
+            new \DateTimeImmutable('-20 seconds'),
+        );
+        $running->start(55, $calendar->revision, new \DateTimeImmutable('-15 seconds'));
+        $running->advance(12, new \DateTimeImmutable('-1 second'));
+        $entityManager->persist($running);
+        $entityManager->flush();
+
+        $browser->request('GET', self::EXPORT_URL);
+        $current = self::json($browser);
+        self::assertNull(self::dig($current, 'exports', 'approval'));
+        self::assertSame($running->id->toString(), self::dig($current, 'exports', 'print', 'id'));
+        self::assertSame(
+            ['running', 12, 55],
+            [self::dig($current, 'exports', 'print', 'status'), self::dig($current, 'exports', 'print', 'done'), self::dig($current, 'exports', 'print', 'total')],
+        );
+
+        // The designer asks for the same variant: the same job, no second render.
+        $joined = self::request($browser, self::EXPORT_URL, 'print', $token);
+        self::assertSame($running->id->toString(), $joined['id']);
+        self::assertSame('running', $joined['status']);
+        self::assertSame([], FakeCalendarPdfProducer::$calls);
+        self::assertSame(1, self::exportCount(TestDataFixture::CALENDAR_2_ID));
+
+        // …and so does the holder of the client link, who sees it through the link's own addresses.
+        self::ensureKernelShutdown();
+        $client = self::createClient();
+        $clientToken = self::csrf(self::bootstrap($client, self::CLIENT_URL));
+        $client->request('GET', self::CLIENT_EXPORT_URL);
+        self::assertSame(self::CLIENT_EXPORT_URL . '/' . $running->id->toString(), self::dig(self::json($client), 'exports', 'print', 'urls', 'status'));
+        self::assertSame($running->id->toString(), self::request($client, self::CLIENT_EXPORT_URL, 'print', $clientToken)['id']);
+        self::assertSame([], FakeCalendarPdfProducer::$calls);
+
+        // The other variant is free: it is rendered, and from then on offered as a finished file.
+        $approval = self::request($client, self::CLIENT_EXPORT_URL, 'approval', $clientToken);
+        self::assertSame('done', $approval['status']);
+        $client->request('GET', self::CLIENT_EXPORT_URL);
+        self::assertSame($approval['id'], self::dig(self::json($client), 'exports', 'approval', 'id'));
+        self::assertIsString(self::dig(self::json($client), 'exports', 'approval', 'urls', 'download'));
+
+        $client->request('GET', '/k/' . str_repeat('ab', 32) . '/export');
+        self::assertResponseStatusCodeSame(404);
     }
 
     public function testDeletingTheCalendarRemovesItsExports(): void
