@@ -98,7 +98,7 @@ Risks to watch:
 | R1 | **Design save is last-write-wins** (two designers, or two tabs). Handoff §10.8 only defines content merging. | Design is patched per top-level key (only changed keys are sent), which narrows the window; `revision` is returned on every save. Listed in §G. |
 | R2 | The app-wide **10 MB decimal upload cap** applies to calendar photos too (CLAUDE.md cross-cutting rule). A 310 mm photo at 300 dpi is 3661 px wide and normally 3–8 MB as JPEG, but TIFF/PNG exports will be refused. | Clear error message; the cap is one constant (`UploadCalendarAssetController::MAX_SIZE`) to raise later. |
 | R3 | **Explicit saving for the client** (decision 6) means a client who closes the tab loses work despite the `beforeunload` prompt on some mobile browsers. | Status text + prompt; revisit autosave for client mode in iteration 2. |
-| R4 | Reference calendars (Bruzovice, Bukovec) print **month and week number once per column**; this design keeps the handoff's single Měsíc and single Číslo týdne (`1. a 2. týden`). | The box model already supports second frames (`cal2`); `month2` / `wk2` can be added the same way later without migration. |
+| R4 | Reference calendars (Bruzovice, Bukovec) print **month and week number once per column**; this design keeps the handoff's single Měsíc and single Číslo týdne (`1. a 2. týden`). **Resolved 2026-11-11:** the product owner decided to follow the samples — `month2` / `wk2` exist, see the note at the end of §B.4. | The box model already supports second frames (`cal2`); `month2` / `wk2` can be added the same way later without migration. |
 | R5 | Text is measured with the project's web fonts; **before fonts load**, widths are wrong. | `ensureFontsLoaded()` gates the first render of the stage; thumbnails re-render once on `document.fonts.ready`. Node tests use the estimator only. |
 | R6 | Node harnesses import `.js` ES modules with relative imports from a tree without `"type": "module"`. This needs **node ≥ 22.7** (syntax detection). Local node is 24/25. | The harness prints `{"skip": …}` on older node and the PHPUnit wrapper marks the test skipped; phase P2 checks the CI runner and adds `actions/setup-node` if needed. |
 | R7 | Unreferenced assets (replaced photos, undone uploads) are never deleted individually. | They are removed with the calendar / project; the storage report shows them as referenced by `calendar_asset.path`. A sweeper is iteration-2 work. |
@@ -379,6 +379,20 @@ Coinciding lines: `y = 27` head bottom / cal top / cal2 top / photo top / month 
 right / photo left; `x = 226` photo right / cal2 left; `y = 139` cal bottom / cal2 bottom / photo bottom
 / wk top. Each frame has seven rows, so the row height equals the 7-day layouts (no compact mode by
 default).
+
+> **Changed 2026-11-11 (after launch, product owner's decision): month and week number once per
+> column, as on the printed samples.** The `twoSided` preset has two more boxes, the second frames
+> of Měsíc and Číslo týdne: `month` 6, 12.5, 120, 14.5 (first week, `align: start`) · `month2` 184,
+> 12.5, 120, 14.5 · `wk` 6, 139, 72, 4.5 (now under the FIRST week, `align: start`) · `wk2` 232, 139,
+> 72, 4.5. A second frame shares every style with the first and is aligned as its mirror
+> (`frameAlign`), like `cal2` under `flipRowStyles`. `month2` joins the line `y = 27`, `wk2` the line
+> `y = 139`; `x = 6` is month / wk left, `x = 304` month2 / wk2 right. Each column's Měsíc describes
+> its own week (`week.monthTexts[f]`), each column has its own week number (`week.weekTexts[f]`,
+> the two-week forms of §E.9 remain only in the page *name*). Layouts stored before the change are
+> migrated in `normalizeLayout` without a version bump. The table above, the `wk.align` of
+> `twoSided` in §B.3 (`end` → `start`), `Layout.boxes` in §B.2, `textWidths` in §D.2 and assumption
+> 6 of §G.1 are superseded by this note; the current description is
+> `docs/architecture/calendars.md` → "Layout".
 
 ### B.5 Visibility, and what mirroring flips
 
@@ -1992,7 +2006,7 @@ Shared test infrastructure:
 3. Default type sizes and mm style values are the prototype's × 1.476, rounded (§B.3).
 4. Default boxes are rounded to clean mm values (§B.4); every one is within 0.5 % of the page of the prototype's fraction. The QR default no longer shares its right edge with the logo.
 5. Geometry grid 0.1 mm; nudge 0.3 / 3 mm; link tolerance 0.15 mm (edges equal or 0.1 mm apart coincide); minimum box 6 × 4 mm.
-6. 14-day layout as designed in §B.4: month text top left, week number bottom right, caption centred under the photo, crest centred over the header line, icon grid `2 + 2`; one Měsíc and one Číslo týdne element (risk R4). In the editor the two frames are selected separately; the tag and the position panel name them `1. týden` / `2. týden`.
+6. 14-day layout as designed in §B.4: month text top left, week number bottom right, caption centred under the photo, crest centred over the header line, icon grid `2 + 2`; one Měsíc and one Číslo týdne element (risk R4). *(2026-11-11: superseded — month and week number are printed once per column, each element has two frames; see the note at the end of §B.4.)* In the editor the two frames are selected separately; the tag and the position panel name them `1. týden` / `2. týden`.
 7. Mirroring flips exactly the list of §B.5 (handoff says "text alignment and the day-number side"); gradients, pictures and the photo shadow are not mirrored.
 8. Compact rows never truncate a holiday name (client edge case); it wraps instead. Name-day lines wrap to two lines when the column is narrow. The text block is centred as a whole when it would leave the row.
 9. An uploaded photo is clipped to the corner radius (the prototype clipped only the placeholder).

@@ -18,7 +18,7 @@ Totals of the final run: node 17 suites / 227 tests, 0 failed · e2e 22 scripts 
 | G3 | first page 28 Dec – 3 Jan, PROSINEC 2026 / LEDEN 2027, week 53 | PASS | generation › G3 (drawn SVG) |
 | G4 | second page 4–10 Jan, LEDEN 2027, week 1 | PASS | generation › G4 |
 | G5 | last page 27 Dec – 2 Jan 2028, week 52 | PASS | generation › G5 |
-| G6 | 14 dní first page, first week left, second right, weeks 53 and 1 | PASS | generation › G2 + G6 |
+| G6 | 14 dní first page, first week left, second right, weeks 53 and 1 — since 2026-11-11 printed per column: `PROSINEC 2026 / LEDEN 2027` + `53. týden` over / under the first week, `LEDEN 2027` + `1. týden` over / under the second | PASS | generation › G2 + G6 · editor-frames (14-day month / week number per column) · node generation, render |
 | G7 | 13 public holidays styled and named, no other day | PASS | generation › G7 (all 371 rows + drawn 17 Nov) · node generation |
 | G8 | Easter 2026 and 2028 | PASS | generation › G8 |
 | G9 | Karina / Vasil on 2 Jan | PASS | content-tools › G9 · client-tools › Jména navíc |
@@ -121,7 +121,7 @@ owned by the parallel hardening work).
 6. Confirmations added: delete calendar, type switch, year change with page content, remove waste kind / shift operation, Vymazat vše, regenerate link.
 7. Moon phases and season starts are astronomical on the Czech civil date (autumn 2027 = 23 September).
 8. Default event box beside the day text.
-9. One Měsíc and one Číslo týdne on a 14-day page, although the client's real calendars print them per column.
+9. ~~One Měsíc and one Číslo týdne on a 14-day page, although the client's real calendars print them per column.~~ Changed on launch day (2026-11-11, product owner's decision): a 14-day page follows the samples — month and week number once per column, each element with two frames (`month` / `month2`, `wk` / `wk2`) that share one style; calendars stored before the change are migrated when opened (`docs/architecture/calendars.md` → "Layout").
 10. A page's own QR code wins in both modes.
 11. Phone: day rows are the tap targets in step 5.
 12. MCP tools list_calendars, get_calendar, update_calendar_content (content only).
@@ -165,7 +165,6 @@ allow-listed by sniffed MIME type.
 ## 6. Known gaps / second iteration
 - AI scan, PDF / image layout import, Excel import (out of scope).
 - Print PDF export.
-- Month and week number per column on 14-day pages.
 - Long holiday + event on the same day of a 14-day page: ~10 mm box, warning only; a stacking rule needs a design decision.
 - Cover / back / special page content editing; gallery as photo source; page size UI; asset sweeper; client autosave; design conflict detection; launch (preview gate).
 - e2e not in CI; dev container restarts under load.

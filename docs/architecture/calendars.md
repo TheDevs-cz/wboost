@@ -65,10 +65,26 @@ are `K` and the control ranges `LIMITS`, both in `model/defaults.js`.
 
 `{ v: 1, boxes, order, styles }`.
 
-- `boxes`: `photo cap logo head month cal wk qr` (+ `cal2` iff the type is
-  `fortnight`) — `{ x, y, w, h, hidden? }`. `hidden` only on `logo month wk qr`;
-  the caption's visibility is `features.captions` (one switch for step 1 and
-  the Vrstvy eye, which is why the undo snapshot carries it).
+- `boxes`: `photo cap logo head month cal wk qr` (+ the **second frames**
+  `cal2 month2 wk2` iff the type is `fortnight`) — `{ x, y, w, h, hidden? }`.
+  `hidden` only on `logo month wk qr`; the caption's visibility is
+  `features.captions` (one switch for step 1 and the Vrstvy eye, which is why
+  the undo snapshot carries it).
+- **Second frames** (`model/elements.js`: `SECOND_FRAMES`, `boxKeysOf`,
+  `elementOfBox`, `frameOfBox`, `frameAlign`). On a 14-day page three elements
+  have one frame per week column: Kalendárium (`cal` / `cal2`), and — since
+  2026-11-11, as on the client's printed calendars — Měsíc (`month` /
+  `month2`) and Číslo týdne (`wk` / `wk2`). The element is still ONE: one key
+  in `order`, one row in Vrstvy, one entry in `styles`. A second frame is a
+  box of its own for everything geometric (selection `{ el, frame: 0 | 1 }`,
+  move, resize, nudge, snap target, link trigger and follower, bleed
+  adaptation, auto-grow), shares every style with the first one and is drawn
+  **horizontally mirrored**: `cal2` under `flipRowStyles()`, `month2` / `wk2`
+  with `frameAlign(styles.<el>.align, 1)` (start ↔ end, middle stays) — so the
+  stored `align` is the FIRST week's and both columns read towards the outer
+  page edges. A second frame never carries `hidden`: the eye of the element is
+  the flag of its first frame and hides both; `features.weekNumbers` hides
+  both `wk` frames.
 - `order`: element keys without `bg`, index 0 = top layer. Pozadí has no box
   and always paints first; both Kalendárium frames paint at the position of
   `cal`.
@@ -88,15 +104,52 @@ are `K` and the control ranges `LIMITS`, both in `model/defaults.js`.
   right). Frame `cal2` is rendered from the *same* styles under
   `flipRowStyles()` — the very function that mirrors left ↔ right; stored
   styles are never changed by it.
+- Default `twoSided` boxes in mm on the default page (`B` = bleed; every other
+  page size scales them): `head` −B, −B, 310 + 2B, 27 + B · `cal` −B, 27,
+  84 + B, 112 · `cal2` 226, 27, 84 + B, 112 · `photo` 84, 27, 142, 112 ·
+  `month` 6, 12.5, 120, 14.5 · `month2` 184, 12.5, 120, 14.5 · `wk` 6, 139,
+  72, 4.5 · `wk2` 232, 139, 72, 4.5 · `cap` 89, 139.5, 132, 4.5 · `logo` 143,
+  15, 24, 24 (centred on x = 155, between the two month texts) · `qr` 199.5,
+  113, 21, 21. Every second frame is the mirror image of its first one
+  (`x' = W − x − w`). **Coinciding lines** (Propojit prvky depends on them,
+  suites `layouts` / `link` assert them): `y = 27` head bottom / cal top /
+  cal2 top / photo top / month bottom / month2 bottom; `y = 139` cal bottom /
+  cal2 bottom / photo bottom / wk top / wk2 top; `x = 84` cal right / photo
+  left; `x = 226` photo right / cal2 left; `x = 6` month left / wk left;
+  `x = 304` month2 right / wk2 right. So a resize of either Kalendárium
+  frame's top or bottom takes the month / week-number frames along exactly as
+  in the 7-day layouts; the inner edges of `month` / `month2` / `wk` / `wk2`
+  coincide with nothing and move alone.
 - **Fully materialised**: `normalizeDocument()` runs on every bootstrap and
   every save response, deep-merges `defaultStyles(env)` under the stored styles
   (a new style key needs no migration), clamps to `LIMITS`, repairs `order` and
-  `cal2`. It is pure and idempotent (suite `normalize`). `migrate()` is the
-  `switch (v)` hook for a future version.
+  the second frames. It is pure and idempotent (suite `normalize`). `migrate()`
+  is the `switch (v)` hook for a future version.
+- **Migration of 14-day layouts stored before 2026-11-11** (one `month`, one
+  `wk`; `normalizeLayout` → `deriveSecondFrame`, also for layout files and
+  „Nahrát layout“ from such a calendar). `layout.v` stays `1` — the server
+  refuses any other version and an old tab must still be able to save — the
+  marker is the missing key, per pair: `month2` (or `wk2`) absent while
+  `month` (`wk`) is stored. Then, with `W` = page width and `A` = the stored
+  box: (1) if `A` crosses the vertical centre line (`x < W/2 < x + w` — the
+  "month across the whole header" case) it is first cut to the half that holds
+  its centre, `K.SECOND_FRAME_GAP` (2 mm) short of the line, never narrower
+  than `K.MIN_W`; (2) `M` = `A` mirrored, `x' = W − x − w`; (3) the first
+  week's frame is whichever of `A`, `M` lies on the side of `cal` (by box
+  centres; `cal` left of `cal2` → the left one). When that is `M`, the stored
+  box becomes the SECOND frame and `styles.<el>.align` is flipped, so the text
+  that was on the page stays where it was — this is the old default week
+  number (bottom right, `align: end` → now `wk2`, stored `align: start`);
+  (4) `hidden` stays on the first key. An old default layout migrates to
+  exactly today's default. Nothing is written back until the designer changes
+  the layout (opening an old calendar leaves it "Vše uloženo"); every pass
+  after the first is a no-op. A layout that has the keys is never re-mirrored,
+  however asymmetric.
 
 The server validates the layout **structurally only**
 (`Services/Calendar/CalendarDesignRules`): exact top-level keys, known box
-keys with finite numbers, `order` without duplicates, `styles` any JSON with
+keys with finite numbers (`month2` / `wk2` only beside `cal2`, and like `cal2`
+never with `hidden`), `order` without duplicates, `styles` any JSON with
 strings ≤ 255, depth ≤ 8, ≤ 200 000 bytes, every asset id it mentions
 (`CalendarLayoutAssets::ids`) uploaded to *this* calendar. It does not
 understand a style.
@@ -430,7 +483,9 @@ The exact contract of each `ui/` file is the comment block at its top.
   `[data-cal-action="…"]`, `.cal-ws[data-cal-ready="1"][data-cal-shown-step]`,
   `[data-cal-status]` (clean / dirty / saving / error), `[data-layer]`,
   `[data-handle]`, `[data-guide]`, `[data-part-box]`, `[data-evbox]`,
-  `[data-field="x|y|w|h"]`, `[data-prop="<path in styles>"]`, `[data-tool]`,
+  `[data-field="x|y|w|h"]`, `[data-prop="<path in styles>"]` (+ the frame
+  switch `[data-prop="cal.frame|month.frame|wk.frame"]` on 14 days; in the page
+  SVG `[data-el="cal|month|wk"][data-frame="0|1"]`), `[data-tool]`,
   `[data-page-thumb]`, `[data-day-plus]` / `[data-day-row]`,
   `.cal-pop[data-cal-popover]`, `.cal-dialog` + `[data-cal-choice]`,
   `.toast-n`. The full table is `docs/calendar/architecture.md` §D.10; each
@@ -440,7 +495,12 @@ The exact contract of each `ui/` file is the comment block at its top.
 
 `buildPages(doc)`: cover → front special pages → week pages from the Monday of
 the week containing 1 January until 31 December is covered (7 or 14 days per
-page; 2027 = 53 / 27 week pages) → back special pages → back. **Page keys are
+page; 2027 = 53 / 27 week pages) → back special pages → back. A week page
+carries one text **per week column**: `week.monthTexts[f]` (the month(s) of
+that column's own seven days — `PROSINEC 2026 / LEDEN 2027` | `LEDEN 2027` on
+the first 14-day page of 2027) and `week.weekTexts[f]` (`53. týden` |
+`1. týden`, in the chosen Tvar); a 7-day page has one of each. Only the page
+*name* in the lists (`title`) still covers both weeks (`53. a 1. týden`). **Page keys are
 year- and type-independent**: `wNN` from the ISO week of the page's Monday,
 `pre` / `post` when that Monday belongs to the neighbouring ISO year — so
 photos and captions survive a year change (they stay with the week number) and
@@ -474,7 +534,9 @@ Waste rhythms follow ISO week parity (so they shift across a 53-week year).
 - **Auto-grow** (`autogrow.js`): Měsíc and Číslo týdne grow (never shrink) to
   the widest text of **every** week page, away from their alignment anchor;
   runs after a committed change, never during a live drag, and is part of the
-  causing undo step.
+  causing undo step. On 14 days each frame grows on its own — to the widest
+  text of ITS column, away from its own (mirrored) anchor; `maxTextWidths` and
+  `WeekGeometry.textWidths` are keyed by box key (`month month2 wk wk2`).
 - **Kalendárium row layout** (`week-layout.js`): rows share the frame height;
   under `K.COMPACT_BELOW` the row is *compact* (one baseline, row-mode icons,
   no event box). A row has a number column, a text column anchored towards the
@@ -637,10 +699,6 @@ Deliberately not built (handoff §2), with the room left for them:
   FOGRA39 — `templates-render.md`) is the pipeline to reuse, and rendering is
   browser-only today, so a server export needs the page SVGs from the client
   or a headless render.
-- **Month and week number per column on 14-day pages.** Reference calendars
-  print them once per column; there is one Měsíc and one Číslo týdne
-  (`1. a 2. týden`). The box model already has second frames (`cal2`), so
-  `month2` / `wk2` can be added the same way without a migration.
 - **Cover, back and special pages** are drawn as far as the prototype goes;
   their content is not editable beyond the special-page settings (layout
   variant, position, name, uploaded graphic / text).
