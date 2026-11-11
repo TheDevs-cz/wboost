@@ -81,24 +81,61 @@
                 <span class="cap">Prvky přidáte tlačítkem „Přidat prvek“ v poli, pořadí změníte přetažením za úchyt — i mezi poli. Text formátujete lištou, která se ukáže v textu, do kterého kliknete; písma a barvy nabízí jen z tohoto manuálu.</span>
             </div>
 
-            {# Whole-page background (ManualContentPage::$background): same
-               gallery / upload flow as an image element. #}
-            <div class="mce-bg" role="group" aria-labelledby="mce-bg-title">
-                <span class="mce-bg-thumb" aria-hidden="true" data-manual-content-editor-target="bgThumb">{{ icon('image', 's16') }}</span>
-                <span class="mce-bg-label" id="mce-bg-title">Pozadí stránky</span>
-                <div class="mce-bg-tools" data-manual-content-editor-target="bgEmpty">
-                    <button type="button" class="btn btn-ghost xs" data-action="manual-content-editor#pickBackground">{{ icon('image-search', 's14') }}Z galerie</button>
-                    <button type="button" class="btn btn-ghost xs" data-action="manual-content-editor#uploadBackground">{{ icon('upload', 's14') }}Nahrát</button>
+            {# Whole-page background (ManualContentPage::$background): one
+               full-width bar — kind pills (Žádné / Barva / Přechod / Obrázek),
+               then that kind's controls. Colours = the project palette only;
+               a picture uses the same gallery / upload flow as an image
+               element (click = gallery, drop a file = upload). #}
+            <div class="mce-bg" role="group" aria-labelledby="mce-bg-title" data-manual-content-editor-target="bgRow">
+                <span class="mce-bg-label" id="mce-bg-title">Pozadí:</span>
+                <span class="seg soft mce-bg-kinds" role="radiogroup" aria-labelledby="mce-bg-title">
+                    <button type="button" role="radio" data-kind="none" data-action="manual-content-editor#backgroundKind">Žádné</button>
+                    <button type="button" role="radio" data-kind="color" data-action="manual-content-editor#backgroundKind">Barva</button>
+                    <button type="button" role="radio" data-kind="gradient" data-action="manual-content-editor#backgroundKind">Přechod</button>
+                    <button type="button" role="radio" data-kind="image" data-action="manual-content-editor#backgroundKind">Obrázek</button>
+                </span>
+
+                <div class="mce-bg-pane" data-pane="color" hidden>
+                    <span class="mce-bg-sep" aria-hidden="true"></span>
+                    <div class="mce-bg-swatches" role="radiogroup" aria-label="Barva pozadí" data-manual-content-editor-target="bgColors"></div>
                 </div>
-                <div class="mce-bg-tools" hidden data-manual-content-editor-target="bgSet">
-                    <span class="seg soft mce-bg-fit" role="group" aria-label="Velikost pozadí">
+
+                <div class="mce-bg-pane" data-pane="gradient" hidden>
+                    <span class="mce-bg-sep" aria-hidden="true"></span>
+                    <span class="seg soft mce-bg-shapes" role="radiogroup" aria-label="Typ přechodu">
+                        <button type="button" role="radio" data-shape="linear" data-action="manual-content-editor#gradientShape">{{ icon('grad-linear', 's14') }}Lineární</button>
+                        <button type="button" role="radio" data-shape="radial" data-action="manual-content-editor#gradientShape">{{ icon('grad-radial', 's14') }}Kruhový</button>
+                    </span>
+                    <span class="mce-bg-gradprev" aria-hidden="true" data-manual-content-editor-target="bgGradPreview"></span>
+                    <button type="button" class="mce-swatch mce-bg-stop" data-stop="from" title="Počáteční barva" aria-label="Počáteční barva" data-action="manual-content-editor#openStopPicker"></button>
+                    <button type="button" class="btn btn-ghost icon xs" title="Prohodit barvy" aria-label="Prohodit barvy" data-action="manual-content-editor#swapStops">{{ icon('swap-horizontal', 's16') }}</button>
+                    <button type="button" class="mce-swatch mce-bg-stop" data-stop="to" title="Koncová barva" aria-label="Koncová barva" data-action="manual-content-editor#openStopPicker"></button>
+                    <button type="button" class="btn btn-ghost xs mce-bg-end" data-shape-only="linear" title="Směr přechodu" data-action="manual-content-editor#openAnglePicker">{{ icon('rotate', 's14') }}<span data-manual-content-editor-target="bgAngle">135°</span></button>
+                    <button type="button" class="btn btn-ghost xs mce-bg-end" data-shape-only="radial" title="Střed přechodu" data-action="manual-content-editor#openCenterPicker">{{ icon('center', 's14') }}Střed</button>
+                </div>
+
+                <div class="mce-bg-pane" data-pane="image-empty" hidden>
+                    <span class="mce-bg-sep" aria-hidden="true"></span>
+                    <button type="button" class="mce-bg-drop" data-manual-content-editor-target="bgDrop"
+                            data-action="manual-content-editor#pickBackground dragover->manual-content-editor#backgroundDragOver dragleave->manual-content-editor#backgroundDragLeave drop->manual-content-editor#backgroundDrop">
+                        <span class="mce-bg-drop-ico">{{ icon('image-plus', 's18') }}</span>
+                        <span>Vybrat z galerie nebo přetáhnout soubor</span>
+                    </button>
+                </div>
+
+                <div class="mce-bg-pane" data-pane="image-set" hidden>
+                    <span class="mce-bg-sep" aria-hidden="true"></span>
+                    <span class="mce-bg-thumb" aria-hidden="true" data-manual-content-editor-target="bgThumb"></span>
+                    <span class="mce-bg-meta" data-manual-content-editor-target="bgMeta"></span>
+                    <span class="seg soft mce-bg-fit mce-bg-end" role="group" aria-label="Velikost pozadí">
                         <button type="button" data-fit="cover" data-action="manual-content-editor#backgroundFit" title="Vyplní celou stránku, přesah se ořízne">Vyplnit</button>
                         <button type="button" data-fit="contain" data-action="manual-content-editor#backgroundFit" title="Celý obrázek, zarovnaný nahoru">Celý obrázek</button>
                     </span>
-                    <button type="button" class="btn btn-ghost icon xs" title="Vybrat jiné pozadí z galerie" aria-label="Vybrat jiné pozadí z galerie" data-action="manual-content-editor#pickBackground">{{ icon('image-search', 's14') }}</button>
-                    <button type="button" class="btn btn-ghost icon xs" title="Nahrát jiné pozadí" aria-label="Nahrát jiné pozadí" data-action="manual-content-editor#uploadBackground">{{ icon('upload', 's14') }}</button>
-                    <button type="button" class="btn btn-ghost icon xs mce-el-del" title="Odebrat pozadí" aria-label="Odebrat pozadí" data-action="manual-content-editor#removeBackground">{{ icon('trash', 's14') }}</button>
+                    <button type="button" class="btn btn-ghost xs mce-bg-change" data-action="manual-content-editor#pickBackground">Změnit</button>
+                    <button type="button" class="btn btn-ghost icon xs mce-bg-del" title="Odebrat obrázek" aria-label="Odebrat obrázek" data-action="manual-content-editor#removeBackground">{{ icon('trash', 's14') }}</button>
                 </div>
+
+                <div class="mce-bg-pop" hidden data-manual-content-editor-target="bgPop"></div>
                 <div class="mce-img-unavailable mce-bg-note" role="status" hidden data-manual-content-editor-target="bgNote"></div>
             </div>
 

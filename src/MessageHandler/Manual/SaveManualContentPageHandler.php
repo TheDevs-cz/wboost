@@ -45,8 +45,9 @@ readonly final class SaveManualContentPageHandler
     public function __invoke(SaveManualContentPage $message): void
     {
         $manual = $this->manualRepository->get($message->manualId);
-        $segments = $this->sanitize($message->segments, $manual, $this->resolveStyles->forManual($manual));
-        $background = $message->background !== null ? $this->sanitizeBackground($message->background, $manual) : null;
+        $styles = $this->resolveStyles->forManual($manual);
+        $segments = $this->sanitize($message->segments, $manual, $styles);
+        $background = $message->background !== null ? $this->sanitizeBackground($message->background, $manual, $styles) : null;
         $now = $this->clock->now();
 
         $page = $this->contentPageRepository->find($message->pageId);
@@ -128,13 +129,26 @@ readonly final class SaveManualContentPageHandler
     }
 
     /**
-     * The page background follows exactly the image element rules.
+     * A picture background follows exactly the image element rules; a colour /
+     * gradient one may only use the project palette ("jen barvy z manuálu") —
+     * a colour that is not in it drops the background, like a disallowed
+     * colour mark is dropped from the text.
      *
      * @throws InvalidManualContent
      */
-    private function sanitizeBackground(ContentPageBackground $background, Manual $manual): ContentPageBackground
+    private function sanitizeBackground(ContentPageBackground $background, Manual $manual, ManualContentStyles $styles): null|ContentPageBackground
     {
-        [$galleryImageId, $path] = $this->resolvePicture($background->path, $background->galleryImageId, $manual);
+        if (!$background->isImage()) {
+            foreach ($background->colors() as $color) {
+                if (!$styles->allowsColor($color)) {
+                    return null;
+                }
+            }
+
+            return $background;
+        }
+
+        [$galleryImageId, $path] = $this->resolvePicture((string) $background->path, $background->galleryImageId, $manual);
 
         return $background->withGalleryImage($galleryImageId, $path);
     }

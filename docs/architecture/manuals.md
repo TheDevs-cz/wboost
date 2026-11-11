@@ -923,6 +923,45 @@ All phases delivered 2026-11-09.
   save, reload, public render (computed `cover`/`contain`, `50% 0%`,
   `no-repeat`), remove + save; 1440 / 390 × dark / light, no horizontal scroll.
 
+### Manual content pages — colour / gradient backgrounds + "Pozadí:" bar (2026-11-11)
+
+- **Model.** `ContentPageBackground` is now one of three kinds
+  (`ContentBackgroundKind`, JSON key `type`): `image` (the picture above,
+  unchanged contract), `color` `{color}` and `gradient` `{shape: linear|radial
+  (ContentGradientShape), from, to, angle 0–359 (int, default 135), center
+  (ContentGradientCenter, 9 points, default center)}`. **Rows without `type`
+  are pictures** (everything stored before 2026-11-11) — no migration; a
+  re-save writes `type: image`. Named constructors `image()` / `color()` /
+  `gradient()`; `isImage()` gates every picture reader (`hasContentShowing`,
+  `ManualImageAvailability`, editor state, the partial). Storage index /
+  gallery usage read `->>'path'` / `galleryImageId`, which colour rows lack.
+- **Palette only.** The save handler drops a colour / gradient background
+  whose colour is not in `ResolveManualContentStyles` colours (the project
+  palette), like a disallowed text colour mark. Render does NOT re-check
+  (no silent restyle when a palette colour is removed later).
+- **Render.** `paintCss()` builds `background-color` / `linear-gradient(Ndeg,…)`
+  / `radial-gradient(circle farthest-corner at X% Y%, …)` from validated
+  enums + normalised `#rrggbb` only; the partial inlines it on `.mcp-page`.
+  The editor mirrors it in JS (`paintCss()` / `gradientCss()` /
+  `backgroundJson()` — keep them in sync). A colour/gradient background
+  alone is content.
+- **Editor bar** (`.mce-bg`, replaces the "Pozadí stránky" row): "Pozadí:" +
+  kind pills Žádné / Barva / Přechod / Obrázek, then that kind's pane —
+  palette swatches; Lineární/Kruhový seg + gradient preview + from ⇄ to
+  stops (palette popover) + right-aligned "↻ N°" (range + 8 presets) or
+  "Střed" (3 × 3 grid) popover; picture empty = dashed drop zone (click =
+  gallery modal, which has the upload; drop a file = upload); picture set =
+  thumb + "name · W × H px" (editor state adds display-only `name` /
+  `width` / `height` from the gallery row; fresh picks use the event detail
+  or measure the image) + Vyplnit / Celý obrázek + Změnit + trash. Switching
+  kinds keeps each kind's last value for the session (`bgMemory`). Barva /
+  Přechod are disabled when the palette is empty. One shared popover
+  (`bgPop`), closes on outside press / Escape.
+- Pinned by `ContentPageBackgroundTest`, `ManualIntroPageTest::testSaveStoresAPaletteColourOrGradientBackground`.
+  Browser-verified 2026-11-11 (puppeteer, local): every kind, angle preset,
+  radial centre, stop popover, swap, drop-zone upload (name + pixel size),
+  kind switching keeps values; 1440 dark/light + 390.
+
 ### Manual pictures in the project gallery (P3, 2026-11-09)
 
 Full contract in `gallery-and-uploads.md` "Manual pictures live in the

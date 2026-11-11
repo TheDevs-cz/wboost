@@ -32,8 +32,11 @@ import {
  * the very document SaveManualIntroPageController accepts, one segment per
  * slot of the chosen MockupPageLayout. Elements: heading {level 1–3, text},
  * richText {doc: ProseMirror JSON}, image {path, galleryImageId, fit, alt}.
- * `background` = null | {path, galleryImageId, fit: cover|contain} — the
- * whole-page picture, picked / uploaded exactly like an image element.
+ * `background` = null | {type: "color", color} | {type: "gradient", shape:
+ * linear|radial, from, to, angle, center} | {type: "image", path,
+ * galleryImageId, fit: cover|contain} — the whole-page background
+ * (ContentPageBackground). Colours come from the project palette only; a
+ * picture is picked / uploaded exactly like an image element.
  *
  * The stage reuses the public render's classes (`.mcp-grid` / `.mcp-seg` /
  * `.mcp-h*` / `.mcp-rt` / `.mcp-img-*`, app.css) so it looks like the manual.
@@ -93,6 +96,35 @@ const DEFAULT_FONT_SIZE = 18;
 
 const KIND_LABEL = { heading: "Nadpis", richText: "Text", image: "Obrázek" };
 
+const CENTER_POSITION = {
+    "top-left": "0% 0%", top: "50% 0%", "top-right": "100% 0%",
+    left: "0% 50%", center: "50% 50%", right: "100% 50%",
+    "bottom-left": "0% 100%", bottom: "50% 100%", "bottom-right": "100% 100%",
+};
+
+/** Mirrors ContentPageBackground::paintCss() for a gradient. */
+function gradientCss(bg) {
+    return bg.shape === "radial"
+        ? `radial-gradient(circle farthest-corner at ${CENTER_POSITION[bg.center] || "50% 50%"}, ${bg.from}, ${bg.to})`
+        : `linear-gradient(${bg.angle}deg, ${bg.from}, ${bg.to})`;
+}
+
+/** Mirrors ContentPageBackground::paintCss() (colour / gradient). */
+function paintCss(bg) {
+    if (bg.type === "color") return `background-color: ${bg.color}`;
+    if (bg.type === "gradient") return `background-image: ${gradientCss(bg)}`;
+    return "";
+}
+
+/** The background as the save endpoint takes it (canonical — dirty tracking compares it). */
+function backgroundJson(bg) {
+    if (!bg) return null;
+    if (bg.type === "color") return { type: "color", color: bg.color };
+    if (bg.type === "gradient") return { type: "gradient", shape: bg.shape, from: bg.from, to: bg.to, angle: bg.angle, center: bg.center || "center" };
+    if (bg.type === "image" && bg.path) return { type: "image", path: bg.path, galleryImageId: bg.galleryImageId ?? null, fit: bg.fit || "cover" };
+    return null;
+}
+
 /** JSON with sorted keys — dirty tracking must not care about key order. */
 function stableStringify(value) {
     if (Array.isArray(value)) return "[" + value.map(stableStringify).join(",") + "]";
@@ -126,7 +158,7 @@ export default class extends Controller {
     static targets = [
         "name", "layoutRadio", "stage", "toolbar", "toolbarHint", "fontButton", "fontLabel", "fontMenu", "sizeSelect", "colorList",
         "linkBox", "linkInput", "linkError", "fileInput", "status", "dirtyBadge", "saveButton",
-        "page", "bgThumb", "bgEmpty", "bgSet", "bgNote",
+        "page", "bgRow", "bgColors", "bgGradPreview", "bgAngle", "bgDrop", "bgThumb", "bgMeta", "bgPop", "bgNote",
     ];
 
     static values = {
@@ -157,6 +189,7 @@ export default class extends Controller {
         window.addEventListener("asset-selected", this.onAssetSelected);
 
         this.buildToolbar();
+        this.buildBackground();
         this.load(this.stateValue);
 
         this.onBeforeUnload = (event) => {
@@ -193,6 +226,8 @@ export default class extends Controller {
         document.removeEventListener("keydown", this.onKeydown);
         document.removeEventListener("pointerdown", this.onOutsidePress, true);
         document.removeEventListener("pointerdown", this.onFontMenuOutside, true);
+        document.removeEventListener("pointerdown", this.onBgPopOutside, true);
+        document.removeEventListener("keydown", this.onBgPopKey, true);
         document.removeEventListener("keydown", this.onFontMenuKey, true);
         this.destroyStage();
     }
@@ -217,7 +252,10 @@ export default class extends Controller {
         });
 
         this.placeSegments();
-        this.background = state.background ? { ...state.background } : null;
+        const bg = state.background ? { type: "image", ...state.background } : null;
+        this.bgKind = bg ? bg.type : "none";
+        this.background = bg;
+        this.bgMemory = bg ? { [bg.type]: bg } : {};
         this.paintBackground();
         this.savedSnapshot = stableStringify(this.serialize());
         this.refreshDirty();
@@ -232,10 +270,7 @@ export default class extends Controller {
                 .map((item) => this.elementJson(item)),
         }));
 
-        const bg = this.background;
-        const background = bg ? { path: bg.path, galleryImageId: bg.galleryImageId ?? null, fit: bg.fit } : null;
-
-        return { name: this.nameTarget.value.trim(), layout: this.layout, segments, background };
+        return { name: this.nameTarget.value.trim(), layout: this.layout, segments, background: backgroundJson(this.background) };
     }
 
     elementJson(item) {
@@ -607,6 +642,10 @@ export default class extends Controller {
         const file = this.fileInputTarget.files[0];
         const target = this.uploadTarget;
         this.uploadTarget = null;
+        await this.uploadFile(file, target);
+    }
+
+    async uploadFile(file, target) {
         if (!file || !target) return;
 
         if (file.size > this.maxFileSizeValue) {
@@ -627,7 +666,7 @@ export default class extends Controller {
             if (!response.ok) throw new Error(json.error || "Obrázek se nepodařilo nahrát. Zkuste to znovu.");
 
             // Every upload is a gallery picture too (folder Manuál / <manual>).
-            this.placeImage(target, { path: json.path, url: json.url, galleryImageId: json.galleryImageId ?? null });
+            this.placeImage(target, { path: json.path, url: json.url, galleryImageId: json.galleryImageId ?? null, name: file.name });
         } catch (error) {
             this.flash(error.message, true);
         } finally {
@@ -636,10 +675,14 @@ export default class extends Controller {
     }
 
     /** Puts a picture into the element being replaced, or a new element at the end of the segment. */
-    placeImage(target, { path, url, galleryImageId }) {
+    placeImage(target, { path, url, galleryImageId, name = null, width = null, height = null }) {
         if (target.background) {
-            this.background = { path, url, galleryImageId, fit: this.background?.fit || "cover", unavailable: null };
+            const fit = this.bgMemory.image?.fit || "cover";
+            this.background = { type: "image", path, url, galleryImageId, fit, unavailable: null, name, width, height };
+            this.bgKind = "image";
+            this.bgMemory.image = this.background;
             this.paintBackground();
+            if (!width) this.measureBackground(this.background);
         } else if (target.item) {
             Object.assign(target.item.data, { path, url, galleryImageId, unavailable: null });
             this.paintImage(target.item);
@@ -652,49 +695,258 @@ export default class extends Controller {
     }
 
     // ---- page background ---------------------------------------------------------
+    // One bar: kind pills (none / color / gradient / image) + that kind's
+    // controls. Switching kinds keeps each kind's last value for the session
+    // (`bgMemory`), so trying "Barva" and going back to "Obrázek" loses nothing.
+
+    buildBackground() {
+        const colors = this.colorsValue;
+        colors.forEach((entry) => {
+            const button = el("button", "mce-swatch", { type: "button", role: "radio", title: entry.name, "aria-label": `Barva ${entry.name}`, "data-color": entry.color, "aria-checked": "false" });
+            button.style.setProperty("--sw", entry.color);
+            button.addEventListener("click", () => this.setBackground({ type: "color", color: entry.color }));
+            this.bgColorsTarget.appendChild(button);
+        });
+        if (colors.length === 0) {
+            this.bgRowTarget.querySelectorAll('[data-kind="color"], [data-kind="gradient"]').forEach((button) => {
+                button.disabled = true;
+                button.title = "Projekt nemá v paletě žádné barvy — přidejte je v modulu Paleta.";
+            });
+        }
+
+        this.onBgPopOutside = (event) => {
+            if (this.bgPopTarget.hidden) return;
+            if (this.bgPopTarget.contains(event.target) || this.bgPopAnchor?.contains(event.target)) return;
+            this.closeBgPop();
+        };
+        document.addEventListener("pointerdown", this.onBgPopOutside, true);
+        this.onBgPopKey = (event) => { if (event.key === "Escape" && !this.bgPopTarget.hidden) { event.stopPropagation(); this.closeBgPop(); } };
+        document.addEventListener("keydown", this.onBgPopKey, true);
+    }
+
+    backgroundKind(event) {
+        const kind = event.currentTarget.dataset.kind;
+        if (kind === this.bgKind) return;
+        this.closeBgPop();
+        if (this.background) this.bgMemory[this.background.type] = this.background;
+        this.bgKind = kind;
+
+        const colors = this.colorsValue.map((entry) => entry.color);
+        if (kind === "none") this.background = null;
+        else if (kind === "color") this.background = this.bgMemory.color || (colors[0] ? { type: "color", color: colors[0] } : null);
+        else if (kind === "gradient") {
+            this.background = this.bgMemory.gradient || (colors[0]
+                ? { type: "gradient", shape: "linear", from: colors[0], to: colors[1] || colors[0], angle: 135, center: "center" }
+                : null);
+        } else this.background = this.bgMemory.image || null;
+
+        this.paintBackground();
+        this.changed();
+    }
+
+    setBackground(background) {
+        this.background = background;
+        this.bgKind = background ? background.type : "none";
+        if (background) this.bgMemory[background.type] = background;
+        this.paintBackground();
+        this.changed();
+    }
+
+    updateGradient(patch) {
+        if (this.background?.type !== "gradient") return;
+        this.setBackground({ ...this.background, ...patch });
+    }
+
+    gradientShape(event) {
+        this.closeBgPop();
+        this.updateGradient({ shape: event.currentTarget.dataset.shape });
+    }
+
+    swapStops() {
+        const bg = this.background;
+        if (bg?.type === "gradient") this.updateGradient({ from: bg.to, to: bg.from });
+    }
+
+    openStopPicker(event) {
+        const stop = event.currentTarget.dataset.stop;
+        const pop = this.openBgPop(event.currentTarget, "mce-bg-pop-colors");
+        if (!pop) return;
+        this.colorsValue.forEach((entry) => {
+            const on = this.background?.[stop] === entry.color;
+            const button = el("button", "mce-swatch" + (on ? " on" : ""), { type: "button", title: entry.name, "aria-label": `Barva ${entry.name}`, "aria-pressed": String(on) });
+            button.style.setProperty("--sw", entry.color);
+            button.addEventListener("click", () => { this.updateGradient({ [stop]: entry.color }); this.closeBgPop(); });
+            pop.appendChild(button);
+        });
+    }
+
+    openAnglePicker(event) {
+        const pop = this.openBgPop(event.currentTarget, "mce-bg-pop-angle");
+        if (!pop) return;
+        const angle = this.background?.angle ?? 135;
+        const row = el("div", "mce-bg-angle-row");
+        const range = el("input", "", { type: "range", min: "0", max: "359", step: "1", value: String(angle), "aria-label": "Úhel přechodu" });
+        const out = el("span", "mce-bg-angle-val", { text: `${angle}°` });
+        range.addEventListener("input", () => {
+            out.textContent = `${range.value}°`;
+            this.updateGradient({ angle: parseInt(range.value, 10) || 0 });
+        });
+        row.append(range, out);
+        const presets = el("div", "mce-bg-angle-presets");
+        [0, 45, 90, 135, 180, 225, 270, 315].forEach((value) => {
+            const button = el("button", "btn btn-ghost xs", { type: "button", text: `${value}°` });
+            button.addEventListener("click", () => { range.value = String(value); out.textContent = `${value}°`; this.updateGradient({ angle: value }); });
+            presets.appendChild(button);
+        });
+        pop.append(row, presets);
+    }
+
+    openCenterPicker(event) {
+        const pop = this.openBgPop(event.currentTarget, "mce-bg-pop-center");
+        if (!pop) return;
+        const labels = {
+            "top-left": "Vlevo nahoře", top: "Nahoře", "top-right": "Vpravo nahoře",
+            left: "Vlevo", center: "Uprostřed", right: "Vpravo",
+            "bottom-left": "Vlevo dole", bottom: "Dole", "bottom-right": "Vpravo dole",
+        };
+        Object.entries(labels).forEach(([value, label]) => {
+            const on = (this.background?.center || "center") === value;
+            const button = el("button", "mce-bg-center" + (on ? " on" : ""), { type: "button", title: label, "aria-label": label, "aria-pressed": String(on) });
+            button.appendChild(el("span", "mce-bg-center-dot", { "aria-hidden": "true" }));
+            button.addEventListener("click", () => { this.updateGradient({ center: value }); this.closeBgPop(); });
+            pop.appendChild(button);
+        });
+    }
+
+    /** Opens the shared popover under `anchor` (toggles when the same anchor is pressed again). */
+    openBgPop(anchor, variant) {
+        if (!this.bgPopTarget.hidden && this.bgPopAnchor === anchor) {
+            this.closeBgPop();
+            return null;
+        }
+        const pop = this.bgPopTarget;
+        pop.innerHTML = "";
+        pop.className = `mce-bg-pop ${variant}`;
+        pop.hidden = false;
+        this.bgPopAnchor = anchor;
+        const row = this.bgRowTarget.getBoundingClientRect();
+        const box = anchor.getBoundingClientRect();
+        pop.style.top = `${box.bottom - row.top + 6}px`;
+        // Right-aligned controls open leftwards so the popover stays inside the bar.
+        const alignRight = box.left - row.left > row.width / 2;
+        pop.style.left = alignRight ? "" : `${Math.max(0, box.left - row.left)}px`;
+        pop.style.right = alignRight ? `${Math.max(0, row.right - box.right)}px` : "";
+        return pop;
+    }
+
+    closeBgPop() {
+        if (!this.hasBgPopTarget) return;
+        this.bgPopTarget.hidden = true;
+        this.bgPopTarget.innerHTML = "";
+        this.bgPopAnchor = null;
+    }
 
     pickBackground() {
         this.openGallery({ background: true });
     }
 
-    uploadBackground() {
-        this.uploadTarget = { background: true };
-        this.fileInputTarget.value = "";
-        this.fileInputTarget.click();
+    backgroundDragOver(event) {
+        if (!event.dataTransfer || ![...event.dataTransfer.types].includes("Files")) return;
+        event.preventDefault();
+        this.bgDropTarget.classList.add("is-over");
+    }
+
+    backgroundDragLeave() {
+        this.bgDropTarget.classList.remove("is-over");
+    }
+
+    backgroundDrop(event) {
+        event.preventDefault();
+        this.bgDropTarget.classList.remove("is-over");
+        const file = event.dataTransfer?.files?.[0];
+        if (file) this.uploadFile(file, { background: true });
     }
 
     backgroundFit(event) {
-        if (!this.background) return;
-        this.background.fit = event.currentTarget.dataset.fit;
-        this.paintBackground();
-        this.changed();
+        if (this.background?.type !== "image") return;
+        this.setBackground({ ...this.background, fit: event.currentTarget.dataset.fit });
     }
 
     removeBackground() {
+        // Back to the empty picture slot (kind stays "Obrázek").
+        delete this.bgMemory.image;
         this.background = null;
         this.paintBackground();
         this.changed();
     }
 
+    /** Pixel size for the "name · W × H px" line when the pick did not carry it. */
+    measureBackground(bg) {
+        if (!bg.url) return;
+        const probe = new Image();
+        probe.onload = () => {
+            if (this.background !== bg) return;
+            bg.width = probe.naturalWidth;
+            bg.height = probe.naturalHeight;
+            this.paintBackground();
+        };
+        probe.src = bg.url;
+    }
+
     /** Paints the page like _manual_content_page.html.twig: an unavailable picture is not drawn. */
     paintBackground() {
         if (!this.hasPageTarget) return;
+        const kind = this.bgKind || "none";
         const bg = this.background;
-        const reason = bg?.unavailable || null;
-        const shows = !!bg && !reason && !!bg.url;
-        const url = shows ? `url(${cssString(bg.url)})` : "";
+        const image = bg?.type === "image" ? bg : null;
+        const reason = image?.unavailable || null;
+        const shows = !!image && !reason && !!image.url;
+        const url = shows ? `url(${cssString(image.url)})` : "";
+        const paint = bg && bg.type !== "image" ? paintCss(bg) : "";
 
-        this.pageTarget.classList.toggle("mcp-bg", shows);
-        this.pageTarget.classList.toggle("mcp-bg-cover", shows && bg.fit === "cover");
-        this.pageTarget.classList.toggle("mcp-bg-contain", shows && bg.fit === "contain");
-        this.pageTarget.style.backgroundImage = url;
+        const page = this.pageTarget;
+        page.classList.toggle("mcp-bg", shows);
+        page.classList.toggle("mcp-bg-cover", shows && image.fit === "cover");
+        page.classList.toggle("mcp-bg-contain", shows && image.fit === "contain");
+        page.style.backgroundImage = url;
+        page.style.backgroundColor = "";
+        if (paint) page.style.cssText += ";" + paint;
+
+        const row = this.bgRowTarget;
+        row.querySelectorAll("[data-kind]").forEach((button) => {
+            const on = button.dataset.kind === kind;
+            button.classList.toggle("on", on);
+            button.setAttribute("aria-checked", String(on));
+        });
+        const pane = kind === "image" ? (image ? "image-set" : "image-empty") : kind;
+        row.querySelectorAll("[data-pane]").forEach((node) => { node.hidden = node.dataset.pane !== pane; });
+
+        this.bgColorsTarget.querySelectorAll(".mce-swatch").forEach((button) => {
+            const on = bg?.type === "color" && button.dataset.color === bg.color;
+            button.classList.toggle("on", on);
+            button.setAttribute("aria-checked", String(on));
+        });
+
+        if (bg?.type === "gradient") {
+            row.querySelectorAll("[data-shape]").forEach((button) => {
+                const on = button.dataset.shape === bg.shape;
+                button.classList.toggle("on", on);
+                button.setAttribute("aria-checked", String(on));
+            });
+            row.querySelectorAll("[data-shape-only]").forEach((button) => { button.hidden = button.dataset.shapeOnly !== bg.shape; });
+            this.bgGradPreviewTarget.style.backgroundImage = gradientCss(bg);
+            row.querySelectorAll("[data-stop]").forEach((button) => button.style.setProperty("--sw", bg[button.dataset.stop]));
+            this.bgAngleTarget.textContent = `${bg.angle}°`;
+        }
+
         this.bgThumbTarget.style.backgroundImage = url;
-        this.bgThumbTarget.classList.toggle("is-set", shows);
-
-        this.bgEmptyTarget.hidden = !!bg;
-        this.bgSetTarget.hidden = !bg;
-        this.bgSetTarget.querySelectorAll("[data-fit]").forEach((button) => {
-            const on = !!bg && button.dataset.fit === bg.fit;
+        if (image) {
+            const name = image.name || String(image.path || "").split("/").pop();
+            this.bgMetaTarget.textContent = image.width && image.height ? `${name} · ${image.width} × ${image.height} px` : name;
+            this.bgMetaTarget.title = name;
+        }
+        row.querySelectorAll("[data-fit]").forEach((button) => {
+            const on = !!image && button.dataset.fit === image.fit;
             button.classList.toggle("on", on);
             button.setAttribute("aria-pressed", String(on));
         });
@@ -728,7 +980,7 @@ export default class extends Controller {
 
         // The server re-resolves the id (project check) and replaces the path
         // with the gallery row's key — the path here is only a snapshot.
-        this.placeImage(target, { path: detail.path, url: detail.url, galleryImageId: detail.id });
+        this.placeImage(target, { path: detail.path, url: detail.url, galleryImageId: detail.id, name: detail.name || null, width: detail.width || null, height: detail.height || null });
 
         const modalElement = document.querySelector(this.galleryModalValue);
         const modal = modalElement ? window.bootstrap.Modal.getInstance(modalElement) : null;
@@ -1139,7 +1391,7 @@ export default class extends Controller {
         const bg = state.background || null;
         return {
             ...state,
-            background: bg ? { path: bg.path, galleryImageId: bg.galleryImageId ?? null, fit: bg.fit } : null,
+            background: backgroundJson(bg ? { type: "image", ...bg } : null),
             segments: state.segments.map((segment) => ({
                 ...segment,
                 elements: segment.elements.map(({ url, unavailable, ...rest }) => (rest.type === "image" ? { ...rest, galleryImageId: rest.galleryImageId ?? null } : rest)),

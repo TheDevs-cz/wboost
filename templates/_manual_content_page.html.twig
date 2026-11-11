@@ -8,16 +8,19 @@
 
    A picture moved to the gallery Koš / gone from the gallery (content pages
    P3) is not shown: readers get nothing, editors a stand-in saying why.
-   The page background (optional, cover / contain, centre top) follows the
-   same rule, minus the stand-in: an unavailable one is simply not drawn
+   The page background is optional: a palette colour, a gradient
+   (`paintCss()`, built from validated values only) or a picture (cover /
+   contain, centre top) — a picture follows the same rule as image
+   elements, minus the stand-in: an unavailable one is simply not drawn
    (the editor says why).
 
    Params: content_page (ManualContentPage), content_styles (ManualContentStyles). #}
 {% set can_edit_images = is_granted('manual_edit', content_page.manual) %}
 {% set background = content_page.background %}
-{% set background_shows = background is not null and not manual_image_unavailable(content_page.manual, background.path, background.galleryImageId) %}
+{% set background_shows = background is not null and background.isImage() and not manual_image_unavailable(content_page.manual, background.path, background.galleryImageId) %}
+{% set background_paint = background is not null ? background.paintCss() : null %}
 <div class="mcp-page{% if background_shows %} mcp-bg mcp-bg-{{ background.fit.value }}{% endif %}"
-    {%- if background_shows %} style="background-image: url('{{ uploaded_asset(background.path)|e('css') }}');"{% endif %}>
+    {%- if background_shows %} style="background-image: url('{{ uploaded_asset(background.path)|e('css') }}');"{% elseif background_paint %} style="{{ background_paint }};"{% endif %}>
     <div class="mcp-grid">
         {% for slot in content_page.layout.slots %}
             {% set segment = content_page.segment(loop.index0) %}

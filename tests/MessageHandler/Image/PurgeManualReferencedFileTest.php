@@ -88,11 +88,11 @@ final class PurgeManualReferencedFileTest extends KernelTestCase
     public function testAPageBackgroundKeepsItsPicture(): void
     {
         $byKey = $this->trashedManualFile();
-        $this->backgroundPage(new ContentPageBackground($byKey->path));
+        $this->backgroundPage(ContentPageBackground::image($byKey->path));
         $this->assertForcedPurgeRefused($byKey);
 
         $byId = $this->trashedManualFile();
-        $this->backgroundPage(new ContentPageBackground('manuals/' . TestDataFixture::MANUAL_1_ID . '/content/other.png', ContentBackgroundFit::Contain, $byId->id->toString()));
+        $this->backgroundPage(ContentPageBackground::image('manuals/' . TestDataFixture::MANUAL_1_ID . '/content/other.png', ContentBackgroundFit::Contain, $byId->id->toString()));
         $this->assertForcedPurgeRefused($byId);
     }
 

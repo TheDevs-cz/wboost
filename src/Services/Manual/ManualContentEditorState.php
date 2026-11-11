@@ -6,6 +6,9 @@ namespace WBoost\Web\Services\Manual;
 
 use WBoost\Web\Entity\Manual;
 use WBoost\Web\Entity\ManualContentPage;
+use Ramsey\Uuid\Uuid;
+use WBoost\Web\Exceptions\FileUploadNotFound;
+use WBoost\Web\Repository\FileUploadRepository;
 use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Value\ManualContent\ContentPageBackground;
 use WBoost\Web\Value\ManualContent\ContentSegment;
@@ -24,6 +27,7 @@ readonly final class ManualContentEditorState
     public function __construct(
         private UploaderHelper $uploaderHelper,
         private ManualImageAvailability $availability,
+        private FileUploadRepository $fileUploadRepository,
     ) {
     }
 
@@ -60,11 +64,13 @@ readonly final class ManualContentEditorState
     {
         $backgroundData = null;
 
-        if ($background !== null) {
+        if ($background !== null && !$background->isImage()) {
+            $backgroundData = $background->toArray();
+        } elseif ($background !== null && $background->path !== null) {
             $backgroundData = $background->toArray() + [
                 'url' => $this->uploaderHelper->getPublicPath($background->path),
                 'unavailable' => $this->availability->state($manual, $background->path, $background->galleryImageId),
-            ];
+            ] + $this->pictureMeta($background->galleryImageId);
         }
 
         $data = [];
@@ -87,5 +93,37 @@ readonly final class ManualContentEditorState
         }
 
         return ['name' => $name, 'layout' => $layout, 'segments' => $data, 'background' => $backgroundData];
+    }
+
+    /**
+     * Display-only file name + pixel size of the background picture (the
+     * "Pozadí:" bar shows `name · W × H px`).
+     *
+     * @return array{name?: string, width?: int, height?: int}
+     */
+    private function pictureMeta(null|string $galleryImageId): array
+    {
+        if ($galleryImageId === null || !Uuid::isValid($galleryImageId)) {
+            return [];
+        }
+
+        try {
+            $file = $this->fileUploadRepository->get(Uuid::fromString($galleryImageId));
+        } catch (FileUploadNotFound) {
+            return [];
+        }
+
+        $meta = [];
+
+        if ($file->originalName !== null && $file->originalName !== '') {
+            $meta['name'] = $file->originalName;
+        }
+
+        if ($file->width !== null && $file->height !== null) {
+            $meta['width'] = $file->width;
+            $meta['height'] = $file->height;
+        }
+
+        return $meta;
     }
 }

@@ -210,6 +210,40 @@ final class ManualIntroPageTest extends WebTestCase
         self::assertCount(0, $crawler->filter('.mcp-page.mcp-bg'));
     }
 
+    public function testSaveStoresAPaletteColourOrGradientBackground(): void
+    {
+        $browser = self::createClient();
+        TestingLogin::logInAsUser($browser, TestDataFixture::USER_1_EMAIL);
+
+        // A colour background alone is content too.
+        $this->save($browser, ['name' => 'Úvod', 'layout' => 'layout-7', 'segments' => [['elements' => []]],
+            'background' => ['type' => 'color', 'color' => '#C8102E']]);
+        self::assertResponseIsSuccessful();
+        self::assertSame(['type' => 'color', 'color' => '#c8102e'], $this->introPage()?->background?->toArray());
+
+        $crawler = $browser->request('GET', self::PREVIEW_URL);
+        self::assertSame('background-color: #c8102e;', $crawler->filter('#page-1 .mcp-page')->attr('style'));
+
+        $this->save($browser, ['name' => 'Úvod', 'layout' => 'layout-7', 'segments' => [['elements' => []]],
+            'background' => ['type' => 'gradient', 'shape' => 'radial', 'from' => '#004e7c', 'to' => '#c8102e', 'angle' => 90, 'center' => 'top-right']]);
+        self::assertResponseIsSuccessful();
+
+        $crawler = $browser->request('GET', self::PREVIEW_URL);
+        self::assertSame('background-image: radial-gradient(circle farthest-corner at 100% 0%, #004e7c, #c8102e);', $crawler->filter('#page-1 .mcp-page')->attr('style'));
+
+        // The editor starts from it (no picture fields on a gradient).
+        $crawler = $browser->request('GET', self::EDITOR_URL);
+        /** @var array{background: array<string, mixed>} $state */
+        $state = json_decode((string) $crawler->filter('[data-manual-content-editor-state-value]')->attr('data-manual-content-editor-state-value'), true);
+        self::assertSame(['type' => 'gradient', 'shape' => 'radial', 'from' => '#004e7c', 'to' => '#c8102e', 'angle' => 90, 'center' => 'top-right'], $state['background']);
+
+        // A colour outside the project palette drops the background.
+        $this->save($browser, ['name' => 'Úvod', 'layout' => 'layout-7', 'segments' => [['elements' => [['id' => 'h', 'type' => 'heading', 'level' => 1, 'text' => 'Ahoj']]]],
+            'background' => ['type' => 'gradient', 'shape' => 'linear', 'from' => '#004e7c', 'to' => '#00ff00', 'angle' => 45]]);
+        self::assertResponseIsSuccessful();
+        self::assertNull($this->introPage()?->background);
+    }
+
     public function testRejectsABackgroundOfAnotherManualOrWithAnUnknownFit(): void
     {
         $browser = self::createClient();

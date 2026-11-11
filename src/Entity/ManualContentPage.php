@@ -38,7 +38,8 @@ use WBoost\Web\Value\MockupPageLayout;
  *
  * `name` is the plain page title printed in the manual's page heading row
  * (number · manual · NAME) and in listings — separate from the content.
- * `background` is an optional whole-page picture (2026-11-10).
+ * `background` is an optional whole-page picture (2026-11-10), palette
+ * colour or gradient (2026-11-11).
  */
 #[Entity]
 #[Index(name: 'idx_manual_content_page_manual', columns: ['manual_id'])]
@@ -151,8 +152,14 @@ class ManualContentPage
      */
     public function hasContentShowing(callable $imageShows): bool
     {
-        if ($this->background !== null && $imageShows($this->background->path, $this->background->galleryImageId)) {
-            return true;
+        if ($this->background !== null) {
+            if (!$this->background->isImage()) {
+                return true;
+            }
+
+            if ($imageShows((string) $this->background->path, $this->background->galleryImageId)) {
+                return true;
+            }
         }
 
         foreach ($this->segments as $segment) {

@@ -52,7 +52,7 @@ final class ManualContentPageTest extends TestCase
         self::assertTrue(self::hasContent([new RichTextElement('b', RichTextDoc::fromPlainText('Text'))]));
         self::assertTrue(self::hasContent([new ImageElement('c', 'manuals/00000000-0000-0000-0000-000000000001/x.png', ContentImageFit::Natural)]));
         // A page background alone is content too.
-        self::assertTrue(self::hasContent([], new ContentPageBackground('manuals/00000000-0000-0000-0000-000000000001/bg.png')));
+        self::assertTrue(self::hasContent([], ContentPageBackground::image('manuals/00000000-0000-0000-0000-000000000001/bg.png')));
     }
 
     /**
