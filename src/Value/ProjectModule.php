@@ -32,6 +32,16 @@ enum ProjectModule: string
         return [self::Manuals, self::Templates];
     }
 
+    /**
+     * A module still being built: only admins see it on "Objevte další moduly"
+     * and may switch it on, so main can deploy while the work is in flight.
+     * Launch = return false here (or delete the method and its callers).
+     */
+    public function isInPreview(): bool
+    {
+        return $this === self::Calendars;
+    }
+
     public function label(): string
     {
         return match ($this) {

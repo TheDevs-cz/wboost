@@ -125,7 +125,7 @@
                     </a>
                 {% endif %}
 
-                {% if nav_project.disabledModules is not empty %}
+                {% if nav_project.disabledModules|filter(m => not m.inPreview or is_granted('ROLE_ADMIN')) is not empty %}
                     <a href="{{ path('project_modules', {'projectId': nav_project.id}) }}" class="nav-i discover side-nav-discover" title="Objevte další moduly" aria-current="{{ project_active == 'project_modules' ? 'page' : 'false' }}">
                         {{ icon('sparkle') }}<span class="nm hide-c">Objevte další moduly</span>
                     </a>
