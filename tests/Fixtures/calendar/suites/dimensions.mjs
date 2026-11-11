@@ -190,6 +190,10 @@ export default async function (t, load) {
         const marks = renderPage(doc, page, { ...o, marks: true });
         assert.ok(marks.includes('<line x1="425" y1="0" x2="430" y2="0"/>'), 'crop mark starts 2 mm outside the 3 mm bleed at the right trim corner');
         assert.ok(marks.includes('<line x1="0" y1="205" x2="0" y2="210"/>'));
+        // the CMYK export strokes the marks itself (registration colour): same sheet, same clip, the band left empty
+        const band = renderPage(doc, page, { ...o, marks: true, drawMarks: false });
+        assert.ok(band.includes('viewBox="-11 -11 442 222"') && band.includes('<clipPath'));
+        assert.ok(!band.includes('data-el="marks"') && !band.includes('<line x1="425"'));
         // nothing in the markup sits at the default page's edge by accident
         assert.ok(!marks.includes(`width="${DEFAULT_PAGE.width}"`));
     });

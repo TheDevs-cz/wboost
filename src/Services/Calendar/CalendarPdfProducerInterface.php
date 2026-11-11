@@ -8,6 +8,7 @@ use WBoost\Web\Entity\Calendar;
 use WBoost\Web\Exceptions\CalendarExportNeedsMoreSpace;
 use WBoost\Web\Exceptions\CalendarModelRefused;
 use WBoost\Web\Exceptions\CalendarModelUnavailable;
+use WBoost\Web\Exceptions\CmykConversionFailed;
 use WBoost\Web\Exceptions\TemplateRenderUnavailable;
 use WBoost\Web\Value\Calendar\CalendarExportVariant;
 
@@ -28,6 +29,7 @@ interface CalendarPdfProducerInterface
      * @throws CalendarModelUnavailable
      * @throws TemplateRenderUnavailable
      * @throws CalendarExportNeedsMoreSpace the work directory has no room for a file this large
+     * @throws CmykConversionFailed the CMYK variant met a colour construct it has no rule for, or RGB was left in the file
      */
     public function produce(Calendar $calendar, CalendarExportVariant $variant, string $directory, callable $progress): string;
 }

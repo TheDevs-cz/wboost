@@ -31,6 +31,7 @@ readonly final class CalendarExports
     public const string FAILED = 'PDF se nepodařilo připravit. Zkuste to prosím znovu.';
     public const string BUSY = 'Vykreslovací služba je teď vytížená. Zkuste to prosím za chvíli znovu.';
     public const string NO_SPACE = 'Na serveru teď není dost místa pro tak velké PDF. Zkuste to prosím později, nebo si stáhněte Náhled k odsouhlasení.';
+    public const string CMYK_FAILED = 'Převod do CMYK se nepodařil. Použijte prosím variantu „Pro tisk“ (RGB) — tiskárna si barvy převede sama.';
     public const string STALLED = 'Příprava PDF se zastavila. Zkuste to prosím znovu.';
 
     /**

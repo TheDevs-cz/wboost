@@ -1,5 +1,5 @@
 // Stáhnout PDF — the export dialog (docs/architecture/calendars.md § "PDF export"; copy: docs/calendar/architecture.md §G.3).
-// CSS: calendar-dialogs.css (`.cal-exp…`); the two variants are the kit's radio cards (`.rpick > .rcard`).
+// CSS: calendar-dialogs.css (`.cal-exp…`); the three variants are the kit's radio cards (`.rpick > .rcard`).
 //
 // Contract: `openExport(o): { close() }` — the SAME dialog from step 5 (designer, read-only member,
 // client link) and from a card of the list page; it needs addresses only, never the calendar document.
@@ -25,7 +25,7 @@
 // same variant finds its file.
 //
 // DOM hooks: the dialog `[data-cal-dialog="export"][data-cal-export-state="choose | running | done"]`,
-// `input[data-cal-export-variant="print | approval"]`, `[data-cal-action="export-start"]`,
+// `input[data-cal-export-variant="print | print_cmyk | approval"]`, `[data-cal-action="export-start"]`,
 // `[data-cal-action="export-save-start"]` (only with unsaved changes), `[data-cal-export-unsaved]`,
 // `[data-cal-export-progress]` (text) + `progress`, `a[data-cal-action="export-download"]`,
 // `[data-cal-action="export-again"]`.
@@ -42,6 +42,11 @@ const VARIANTS = [
         key: 'print',
         title: 'Pro tisk',
         text: 'Všechny strany tak, jak půjdou do tiskárny — se spadávkou a ořezovými značkami podle nastavení tisku, fotky v plné kvalitě.',
+    },
+    {
+        key: 'print_cmyk',
+        title: 'Pro tisk (CMYK)',
+        text: 'Totéž pro tiskárny, které chtějí CMYK — barvy převedené pro ofset (FOGRA39, PDF/X‑4), černý text jen černou, firemní barvy v hodnotách z palety. Příprava trvá déle a soubor je větší.',
     },
     {
         key: 'approval',

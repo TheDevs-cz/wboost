@@ -12,6 +12,12 @@ use WBoost\Web\Exceptions\CalendarExportNeedsMoreSpace;
 use WBoost\Web\Exceptions\PdfStructureNotSupported;
 use WBoost\Web\Exceptions\TemplateRenderUnavailable;
 use WBoost\Web\Repository\CalendarAssetRepository;
+use WBoost\Web\Services\Print\BrandCmykPalette;
+use WBoost\Web\Services\Print\Cmyk\CmykPass;
+use WBoost\Web\Services\Print\Cmyk\PdfCmykConverter;
+use WBoost\Web\Services\Print\Cmyk\PdfRgbVerifier;
+use WBoost\Web\Exceptions\CmykConversionFailed;
+use WBoost\Web\Services\Print\PdfX1aWriter;
 use WBoost\Web\Services\Print\PdfChunkMerger;
 use WBoost\Web\Services\Print\PdfPageBoxes;
 use WBoost\Web\Value\Calendar\CalendarExportVariant;
@@ -24,6 +30,12 @@ use WBoost\Web\Value\Calendar\CalendarPdfPlan;
  * plan (page list + sheet size, from the calendar's JavaScript) → render the
  * pages in **chunks** (each an HTML document with only its own photos) →
  * copy the chunk files into one, giving every page its boxes.
+ *
+ * The CMYK variant adds a **colour pass** between the two: every chunk goes
+ * through {@see PdfCmykConverter} right after it was rendered (vector stays
+ * vector — only colours change), the merged file is dressed as PDF/X-4 and
+ * {@see PdfRgbVerifier} reads it once more; a file with any RGB left, or
+ * with something the pass has no rule for, is never handed out.
  */
 readonly final class CalendarPdfProducer implements CalendarPdfProducerInterface
 {
@@ -41,11 +53,20 @@ readonly final class CalendarPdfProducer implements CalendarPdfProducerInterface
 
     private const int WORK_SPACE_MARGIN_BYTES = 200_000_000;
 
+    /**
+     * A photo re-encoded as a CMYK JPEG (four channels, no chroma
+     * subsampling — black must stay sharp) weighs 1.5–2.5 × its upload, so
+     * the CMYK work directory is planned for 3 × the pictures (+ margin).
+     */
+    private const int CMYK_WORK_SPACE_FACTOR = 3;
+
     public function __construct(
         private CalendarAssetRepository $assetRepository,
         private CalendarPdfRenderer $renderer,
         private CalendarPdfMerger $merger,
         private CalendarRenderAssets $renderAssets,
+        private PdfCmykConverter $cmykConverter,
+        private BrandCmykPalette $brandPalette,
         private ClockInterface $clock,
         private LoggerInterface $logger,
     ) {
@@ -67,17 +88,32 @@ readonly final class CalendarPdfProducer implements CalendarPdfProducerInterface
         $done = 0;
         $started = microtime(true);
         $slowest = 0.0;
+        $colorSeconds = 0.0;
+        // one colour table and one store of converted pictures for the whole file
+        $pass = $variant->isCmyk() ? $this->cmykConverter->pass($this->brandPalette->forProject($calendar->project->id), $directory) : null;
 
         foreach (self::chunks($plan->pageKeys, $this->pageBytes($calendar, $assets, $variant)) as $index => $pageKeys) {
             $chunkStarted = microtime(true);
-            $paths[] = $this->renderChunk($calendar, $plan, $pageKeys, $directory, sprintf('chunk-%04d', $index), $assets);
+            $path = $this->renderChunk($calendar, $plan, $pageKeys, $directory, sprintf('chunk-%04d', $index), $assets);
+
+            if ($pass !== null) {
+                $colorStarted = microtime(true);
+                $path = $this->toCmyk($path, $plan, $pass);
+                $colorSeconds += microtime(true) - $colorStarted;
+            }
+
+            $paths[] = $path;
             $slowest = max($slowest, microtime(true) - $chunkStarted);
             $done += count($pageKeys);
             $progress($done, $plan->pageCount());
         }
 
+        // the pictures kept for a next chunk have served: the merged file needs their room
+        $pass?->close();
         $rendered = microtime(true);
-        $merged = $this->assemble($calendar, $plan, $paths, $directory);
+        $merged = $pass !== null
+            ? $this->assembleCmyk($calendar, $plan, $paths, $directory)
+            : $this->assemble($calendar, $plan, $paths, $directory);
         // a heartbeat: the file is whole, what follows (the upload) is the caller's
         $progress($plan->pageCount(), $plan->pageCount());
 
@@ -90,7 +126,12 @@ readonly final class CalendarPdfProducer implements CalendarPdfProducerInterface
             'slowestChunkSeconds' => round($slowest, 2),
             'mergeSeconds' => round(microtime(true) - $rendered, 2),
             'bytes' => (int) filesize($merged),
-        ]);
+        ] + ($pass !== null ? [
+            'colorSeconds' => round($colorSeconds, 2),
+            // distinct colours by the rule that decided them, and the pictures converted / taken from an earlier chunk
+            'colors' => $pass->rules->counts(),
+            'pictures' => $pass->counts(),
+        ] : []));
 
         return $merged;
     }
@@ -107,7 +148,7 @@ readonly final class CalendarPdfProducer implements CalendarPdfProducerInterface
      */
     private function assertWorkSpace(Calendar $calendar, array $assets, CalendarExportVariant $variant, string $directory): void
     {
-        if ($variant !== CalendarExportVariant::Print) {
+        if (!$variant->isPrint()) {
             // previews: tens of MB at most
             return;
         }
@@ -126,7 +167,7 @@ readonly final class CalendarPdfProducer implements CalendarPdfProducerInterface
             }
         }
 
-        $needed = 2 * $bytes + self::WORK_SPACE_MARGIN_BYTES;
+        $needed = ($variant->isCmyk() ? self::CMYK_WORK_SPACE_FACTOR : 2) * $bytes + self::WORK_SPACE_MARGIN_BYTES;
         $free = @disk_free_space($directory);
 
         if ($free !== false && $free < $needed) {
@@ -186,6 +227,68 @@ readonly final class CalendarPdfProducer implements CalendarPdfProducerInterface
         }
 
         return $merged;
+    }
+
+    /**
+     * One rendered chunk → the same chunk in CMYK; the RGB file is removed.
+     *
+     * @throws CmykConversionFailed
+     */
+    private function toCmyk(string $path, CalendarPdfPlan $plan, CmykPass $pass): string
+    {
+        $target = preg_replace('/\.pdf$/', '', $path) . '-cmyk.pdf';
+
+        try {
+            $this->cmykConverter->convert($path, $target, $pass, $plan->cropMarks());
+        } catch (PdfStructureNotSupported $unsupported) {
+            // no fallback here: the only other way to CMYK would be a blind conversion
+            throw new CmykConversionFailed('A chunk is not built the way the colour pass reads: ' . $unsupported->getMessage(), 0, $unsupported);
+        } finally {
+            @unlink($path);
+        }
+
+        return $target;
+    }
+
+    /**
+     * CMYK chunk files → the one PDF/X-4 file, then the proof that no RGB is
+     * left in it. The chunks are removed as they are merged: a CMYK year at
+     * the upload cap is ~1 GB, and the work directory must not hold it twice.
+     *
+     * @param list<string> $paths
+     *
+     * @throws CmykConversionFailed
+     */
+    private function assembleCmyk(Calendar $calendar, CalendarPdfPlan $plan, array $paths, string $directory): string
+    {
+        $target = $directory . '/merged.pdf';
+
+        try {
+            PdfChunkMerger::merge(
+                $paths,
+                $target,
+                [
+                    'width' => CalendarPdfPlan::pt($plan->sheetWidth),
+                    'height' => CalendarPdfPlan::pt($plan->sheetHeight),
+                    'trimInset' => CalendarPdfPlan::pt($plan->trimInset),
+                    'bleedInset' => CalendarPdfPlan::pt($plan->bleedInset),
+                ],
+                ['title' => $calendar->name, 'creator' => 'WBoost', 'producer' => 'WBoost (Chromium, CMYK)', 'createdAt' => $this->clock->now()],
+                consume: true,
+                printCondition: [
+                    'profile' => $this->cmykConverter->outputProfile(),
+                    'identifier' => PdfX1aWriter::OUTPUT_CONDITION_IDENTIFIER,
+                    'condition' => PdfX1aWriter::OUTPUT_CONDITION,
+                    'registry' => PdfX1aWriter::REGISTRY,
+                ],
+            );
+        } catch (PdfStructureNotSupported $unsupported) {
+            throw new CmykConversionFailed('The CMYK chunks could not be merged: ' . $unsupported->getMessage(), 0, $unsupported);
+        }
+
+        PdfRgbVerifier::assertNoRgb($target);
+
+        return $target;
     }
 
     /**
@@ -250,7 +353,7 @@ readonly final class CalendarPdfProducer implements CalendarPdfProducerInterface
      */
     private function pageBytes(Calendar $calendar, array $assets, CalendarExportVariant $variant): array
     {
-        if ($variant !== CalendarExportVariant::Print) {
+        if (!$variant->isPrint()) {
             // previews are a few hundred kB each: the page count alone bounds a chunk
             return [];
         }

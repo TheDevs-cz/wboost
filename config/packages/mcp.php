@@ -97,7 +97,8 @@ return App::config([
             calendar and changes its settings (name, year, type 7/14 days, feature switches,
             print), finishes it, imports another calendar's layout, hands out the client
             link and exports the whole calendar as a PDF (export_pdf, then poll
-            export_status; "print" = bleed and crop marks for the print shop, "approval" =
+            export_status; "print" = bleed and crop marks for the print shop, "print_cmyk" =
+            the same in CMYK (PDF/X-4, black text in black ink only), "approval" =
             a small trimmed file); set_calendar_layout applies a preset (photoLeft / photoRight / twoSided) and
             patches boxes (mm from the top-left trim corner), stacking order and styles (pt,
             #RRGGBB, project font faces); upload_calendar_asset stores a photo, logo, icon,

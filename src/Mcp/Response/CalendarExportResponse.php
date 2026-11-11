@@ -13,7 +13,7 @@ readonly final class CalendarExportResponse
     public function __construct(
         /** Pass it to manage_calendar "export_status". */
         public string $exportId,
-        /** "print" (bleed + crop marks as set, full-resolution photos) | "approval" (trimmed pages, small file). */
+        /** "print" (bleed + crop marks as set, full-resolution photos, RGB) | "print_cmyk" (the same in CMYK, PDF/X-4 with the FOGRA39 output intent) | "approval" (trimmed pages, small file). */
         public string $variant,
         /** "queued" | "running" | "done" | "failed". Poll "export_status" every few seconds while queued / running. */
         public string $status,

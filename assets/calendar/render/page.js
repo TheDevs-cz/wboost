@@ -48,11 +48,13 @@ export function cropMarks(design) {
 /**
  * @param doc   Doc
  * @param page  a page of `buildPages(doc)`
- * @param opts  RenderOpts `{ env, measurer, idPrefix, bleed?, marks?, holes?, placeholders?, quality?, dayContext? }`
+ * @param opts  RenderOpts `{ env, measurer, idPrefix, bleed?, marks?, drawMarks?, holes?, placeholders?, quality?, dayContext? }`
+ *              — `drawMarks: false` keeps the band of the crop marks (`marks`) but leaves it empty: the CMYK export strokes
+ *              the marks itself, in the registration colour
  * @returns a complete `<svg>` string with a viewBox in mm
  */
 export function renderPage(doc, page, opts) {
-    const o = { bleed: false, marks: false, holes: true, placeholders: 'frames', quality: 'preview', ...opts };
+    const o = { bleed: false, marks: false, drawMarks: true, holes: true, placeholders: 'frames', quality: 'preview', ...opts };
     o.env = { assets: {}, fonts: [], ...(opts.env || {}) };
     o.idPrefix = String(o.idPrefix || 'cal');
     const design = doc.design;
@@ -85,7 +87,7 @@ export function renderPage(doc, page, opts) {
     let content = body;
     if (o.marks) {
         const clip = `${o.idPrefix}-page`;
-        content = `${rect(vb, { fill: '#FFFFFF' })}<defs><clipPath id="${esc(clip)}">${rect(bleedBox)}</clipPath></defs><g clip-path="url(#${esc(clip)})">${body}</g>${cropMarks(design)}`;
+        content = `${rect(vb, { fill: '#FFFFFF' })}<defs><clipPath id="${esc(clip)}">${rect(bleedBox)}</clipPath></defs><g clip-path="url(#${esc(clip)})">${body}</g>${o.drawMarks ? cropMarks(design) : ''}`;
     }
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${num(vb.x)} ${num(vb.y)} ${num(vb.w)} ${num(vb.h)}" data-page="${esc(page.key)}" role="img" aria-label="${esc(page.title)}" font-family="&quot;Outfit&quot;, Arial, sans-serif">${content}</svg>`;
 }

@@ -16,6 +16,7 @@ use WBoost\Web\Entity\CalendarExport;
 use WBoost\Web\Exceptions\CalendarExportNeedsMoreSpace;
 use WBoost\Web\Exceptions\CalendarExportNotFound;
 use WBoost\Web\Exceptions\CalendarModelRefused;
+use WBoost\Web\Exceptions\CmykConversionFailed;
 use WBoost\Web\Exceptions\TemplateRenderUnavailable;
 use WBoost\Web\Repository\CalendarExportRepository;
 
@@ -76,6 +77,8 @@ readonly final class CalendarPdfExporter
             $this->fail($export, match (true) {
                 $failure instanceof TemplateRenderUnavailable => CalendarExports::BUSY,
                 $failure instanceof CalendarExportNeedsMoreSpace => CalendarExports::NO_SPACE,
+                // a CMYK file that is wrong about colour is never handed out: the RGB variant still works
+                $failure instanceof CmykConversionFailed => CalendarExports::CMYK_FAILED,
                 $failure instanceof CalendarModelRefused && $failure->reason === 'no_layout' => CalendarExports::NO_LAYOUT,
                 default => CalendarExports::FAILED,
             });

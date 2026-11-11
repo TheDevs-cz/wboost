@@ -117,9 +117,18 @@ readonly final class ManageCalendarTool
      *   WITHOUT the row of binding holes (they are punched at the bindery) —
      *   the file for the print shop; "approval" = trimmed pages as the finished
      *   calendar looks (binding holes drawn) with screen-size photos — a small
-     *   file to e-mail for approval. Text and shapes are vector in both;
-     *   colours are RGB. The export runs in the background (about a second per
-     *   page): poll "export_status" every few seconds until status is "done",
+     *   file to e-mail for approval; "print_cmyk" = the "print" pages with
+     *   every colour converted to CMYK for offset print (PDF/X-4, output
+     *   intent Coated FOGRA39): neutral colours (R = G = B) and dark, nearly
+     *   neutral text (the default text colours) in black ink only — set a
+     *   text to #000000 for K 100 —, colours of the project palette in the
+     *   palette's own CMYK values,
+     *   everything else and the photos through the ICC profile, crop marks in
+     *   the registration colour — use it when the print shop asks for CMYK;
+     *   it takes several seconds per photo page and the file is about twice
+     *   as large. Text and shapes are vector in all three; "print" and
+     *   "approval" are RGB. The export runs in the background (about a second
+     *   per page): poll "export_status" every few seconds until status is "done",
      *   then give export.downloadUrl to the user. An unchanged calendar is
      *   answered at once with the file that already exists. Any role may
      *   export (also an account the project is only shared with). It is
@@ -183,7 +192,7 @@ readonly final class ManageCalendarTool
      * @param null|bool $linkElements For "configure": the editor's "Propojit prvky" switch.
      * @param null|string $fromCalendarId For "import_layout": UUID of the calendar whose layout to take over (same project, same type).
      * @param null|bool $regenerate For "client_link": true replaces the link with a new one — the old link stops working immediately.
-     * @param null|string $variant For "export_pdf": "print" (for the print shop) or "approval" (small file for approval).
+     * @param null|string $variant For "export_pdf": "print" (for the print shop, RGB), "print_cmyk" (for the print shop, CMYK / PDF/X-4) or "approval" (small file for approval).
      * @param null|string $exportId For "export_status": export.exportId of an earlier "export_pdf".
      */
     #[McpTool(name: 'manage_calendar')]
@@ -205,7 +214,7 @@ readonly final class ManageCalendarTool
         null|bool $linkElements = null,
         null|string $fromCalendarId = null,
         null|bool $regenerate = null,
-        #[Schema(enum: ['print', 'approval'])]
+        #[Schema(enum: ['print', 'print_cmyk', 'approval'])]
         null|string $variant = null,
         null|string $exportId = null,
     ): CalendarDesignResponse {
@@ -337,7 +346,7 @@ readonly final class ManageCalendarTool
         $chosen = CalendarExportVariant::tryFrom($variant);
 
         if ($chosen === null) {
-            throw new ToolCallException('variant must be "print" (every page with bleed and crop marks as set, full-resolution photos) or "approval" (trimmed pages, a small file). (invalid_variant)');
+            throw new ToolCallException('variant must be "print" (every page with bleed and crop marks as set, full-resolution photos, RGB), "print_cmyk" (the same in CMYK for offset print, PDF/X-4) or "approval" (trimmed pages, a small file). (invalid_variant)');
         }
 
         if ($calendar->layout === null) {

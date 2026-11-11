@@ -415,7 +415,13 @@ Design rules:
   client collections and photo uploads still work.
 - **PDF.** `manage_calendar` `export_pdf` with `variant: "print"` (every page
   with the bleed and crop marks the calendar's print settings switch on,
-  photos at uploaded resolution, no binding-hole row — for the print shop) or
+  photos at uploaded resolution, no binding-hole row — for the print shop),
+  `"print_cmyk"` (the same pages in CMYK for offset print — PDF/X-4 with the
+  Coated FOGRA39 output intent: neutral colours (R = G = B) and nearly
+  neutral text in black ink only (`#000000` text is K 100),
+  palette colours in the palette's own CMYK, the rest and the photos through
+  the ICC profile; choose it when the print shop asks for CMYK — slower,
+  about twice the size) or
   `"approval"` (trimmed pages as the finished calendar looks, small file — for
   e-mail). Text and shapes are vector; colours
   are RGB. It exports what is SAVED and runs in the background (about a second

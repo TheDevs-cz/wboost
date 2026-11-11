@@ -61,8 +61,8 @@ final class CalendarPdfRenderer
         $print = $design->print ?? null;
         $bleedMm = $print instanceof \stdClass && ($print->bleed ?? false) === true && is_numeric($print->bleedMm ?? null) ? (float) $print->bleedMm : 0.0;
         // What step 5 shows the designer: the bleed when it is on, the marks when they are on.
-        $bleed = $variant === CalendarExportVariant::Print && $bleedMm > 0;
-        $marks = $variant === CalendarExportVariant::Print && $print instanceof \stdClass && ($print->marks ?? false) === true;
+        $bleed = $variant->isPrint() && $bleedMm > 0;
+        $marks = $variant->isPrint() && $print instanceof \stdClass && ($print->marks ?? false) === true;
 
         $model = $this->model->run($calendar, pages: true, view: ['bleed' => $bleed, 'marks' => $marks]);
 
@@ -119,13 +119,16 @@ final class CalendarPdfRenderer
             'pageKeys' => $pageKeys,
             'bleed' => $plan->bleed,
             'marks' => $plan->marks,
+            // The CMYK file keeps the band for the crop marks but the page does not draw them: they
+            // are stroked afterwards in the registration colour (all four plates), not in black.
+            'drawMarks' => !$plan->variant->isCmyk(),
             // Paper gets nothing invented: an empty photo frame stays empty in the print file.
             // The approval file shows the grey frame, as the screen does — "a photo is missing here".
-            'placeholders' => $plan->variant === CalendarExportVariant::Print ? 'none' : 'frames',
+            'placeholders' => $plan->variant->isPrint() ? 'none' : 'frames',
             // The row of binding holes is a picture of the finished product: the holes are
             // punched at the bindery, and white squares printed over the header would be a
             // print defect. The approval file (and every screen) keeps showing them.
-            'holes' => $plan->variant !== CalendarExportVariant::Print,
+            'holes' => !$plan->variant->isPrint(),
         ];
 
         $html = $this->twig->render('calendar/headless_print.html.twig', [

@@ -28,7 +28,7 @@ use WBoost\Web\Value\Calendar\CalendarExportVariant;
  * `calendar_export` row (recorded in the history as the designer's), so the
  * web then offers the same file.
  */
-#[AsCommand('app:calendar:export-pdf', 'Export a calendar to PDF synchronously (variant: print | approval)')]
+#[AsCommand('app:calendar:export-pdf', 'Export a calendar to PDF synchronously (variant: print | approval | print_cmyk)')]
 final class ExportCalendarPdfConsoleCommand extends Command
 {
     public function __construct(
@@ -46,7 +46,7 @@ final class ExportCalendarPdfConsoleCommand extends Command
     {
         $this
             ->addArgument('calendarId', InputArgument::REQUIRED, 'UUID of the calendar')
-            ->addArgument('variant', InputArgument::OPTIONAL, 'print | approval', CalendarExportVariant::Print->value);
+            ->addArgument('variant', InputArgument::OPTIONAL, 'print | approval | print_cmyk', CalendarExportVariant::Print->value);
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -56,7 +56,7 @@ final class ExportCalendarPdfConsoleCommand extends Command
         $variant = CalendarExportVariant::tryFrom(is_string($input->getArgument('variant')) ? $input->getArgument('variant') : '');
 
         if (!is_string($calendarId) || !Uuid::isValid($calendarId) || $variant === null) {
-            $io->error('Usage: app:calendar:export-pdf <calendar uuid> [print|approval]');
+            $io->error('Usage: app:calendar:export-pdf <calendar uuid> [print|approval|print_cmyk]');
 
             return Command::INVALID;
         }

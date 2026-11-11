@@ -13,6 +13,7 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use WBoost\Web\Controller\Calendar\ClientCalendarExportController;
 use WBoost\Web\Entity\CalendarExport;
 use WBoost\Web\Exceptions\CalendarExportNeedsMoreSpace;
+use WBoost\Web\Exceptions\CmykConversionFailed;
 use WBoost\Web\Exceptions\TemplateRenderUnavailable;
 use WBoost\Web\Repository\CalendarExportRepository;
 use WBoost\Web\Services\Calendar\CalendarExportHttp;
@@ -232,6 +233,54 @@ final class CalendarExportControllerTest extends WebTestCase
         }
     }
 
+    /**
+     * „Pro tisk (CMYK)“ is a variant like the others — a job, a file and a
+     * history line of its own — and its own way to fail: a conversion that
+     * cannot be trusted sends the user to the RGB file instead of a wrong one.
+     */
+    public function testTheCmykVariantIsAFileOfItsOwnAndAFailedConversionPointsToRgb(): void
+    {
+        $browser = self::designer();
+        $browser->disableReboot();
+        $token = self::csrf(self::bootstrap($browser, self::WORKSPACE_URL));
+
+        $print = self::request($browser, self::EXPORT_URL, 'print', $token);
+        $cmyk = self::request($browser, self::EXPORT_URL, 'print_cmyk', $token);
+
+        self::assertSame('done', $cmyk['status']);
+        self::assertSame('print_cmyk', $cmyk['variant']);
+        self::assertNotSame($print['id'], $cmyk['id']);
+        self::assertSame('Obecní kalendář - tisk CMYK.pdf', $cmyk['fileName']);
+
+        $browser->request('GET', (string) $cmyk['urls']['download']);
+        self::assertStringContainsString('print_cmyk r0', (string) $browser->getResponse()->getContent());
+        self::assertStringContainsString("filename*=utf-8''Obecn%C3%AD%20kalend%C3%A1%C5%99%20-%20tisk%20CMYK.pdf", (string) $browser->getResponse()->headers->get('Content-Disposition'));
+
+        // asked again: the same file, no new render
+        self::assertSame($cmyk['id'], self::request($browser, self::EXPORT_URL, 'print_cmyk', $token)['id']);
+        self::assertCount(2, FakeCalendarPdfProducer::$calls);
+
+        $browser->request('GET', self::EXPORT_URL);
+        self::assertSame($cmyk['id'], self::dig(self::json($browser), 'exports', 'print_cmyk', 'id'));
+        self::assertSame($print['id'], self::dig(self::json($browser), 'exports', 'print', 'id'));
+
+        self::assertSame(
+            [['Grafik', 'Stáhl PDF pro tisk (CMYK)'], ['Grafik', 'Stáhl PDF pro tisk (CMYK)'], ['Grafik', 'Stáhl PDF pro tisk']],
+            self::history(TestDataFixture::CALENDAR_2_ID),
+        );
+
+        // The colour pass met something it has no rule for (or RGB was left in the file).
+        self::save($browser, self::WORKSPACE_URL . '/save', ['content' => [['c' => 'pageCaptions', 'id' => 'w05', 'v' => ['text' => 'Nový popisek'], 'label' => '5. týden']]], $token);
+        FakeCalendarPdfProducer::$failWith = new CmykConversionFailed('Unknown content operator "xyz".');
+        $failed = self::request($browser, self::EXPORT_URL, 'print_cmyk', $token);
+
+        self::assertSame('failed', $failed['status']);
+        self::assertSame(CalendarExports::CMYK_FAILED, $failed['error']);
+        self::assertStringContainsString('Pro tisk', (string) $failed['error']);
+        self::assertStringNotContainsString('xyz', (string) json_encode($failed));
+        self::assertNull($failed['urls']['download']);
+    }
+
     public function testAFailedJobIsReportedWithACzechSentenceAndTheNextRequestStartsANewOne(): void
     {
         $browser = self::designer();
@@ -444,7 +493,7 @@ final class CalendarExportControllerTest extends WebTestCase
 
         $browser->request('GET', self::EXPORT_URL);
         self::assertResponseIsSuccessful();
-        self::assertSame('{"exports":{"print":null,"approval":null}}', $browser->getResponse()->getContent());
+        self::assertSame('{"exports":{"print":null,"approval":null,"print_cmyk":null}}', $browser->getResponse()->getContent());
 
         // Somebody's print export is on its way (queued a moment ago, the consumer has it).
         $entityManager = self::getContainer()->get(EntityManagerInterface::class);

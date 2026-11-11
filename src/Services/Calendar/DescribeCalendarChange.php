@@ -26,6 +26,7 @@ readonly final class DescribeCalendarChange
     public const string GROUPS_REORDERED = 'Změnil pořadí skupin';
     public const string EXPORTED_PRINT = 'Stáhl PDF pro tisk';
     public const string EXPORTED_APPROVAL = 'Stáhl PDF k odsouhlasení';
+    public const string EXPORTED_PRINT_CMYK = 'Stáhl PDF pro tisk (CMYK)';
 
     private const int COMMENT_TEXT_LENGTH = 160;
 
@@ -42,6 +43,7 @@ readonly final class DescribeCalendarChange
         return match ($variant) {
             CalendarExportVariant::Print => self::EXPORTED_PRINT,
             CalendarExportVariant::Approval => self::EXPORTED_APPROVAL,
+            CalendarExportVariant::PrintCmyk => self::EXPORTED_PRINT_CMYK,
         };
     }
 

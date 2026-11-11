@@ -282,6 +282,13 @@ final class CalendarDesignToolsTest extends WebTestCase
         $approval = $this->ok('manage_calendar', ['action' => 'export_pdf', 'calendarId' => TestDataFixture::CALENDAR_2_ID, 'variant' => 'approval']);
         self::assertNotSame($export['exportId'], self::dig($approval, 'export', 'exportId'));
         self::assertSame('Obecní kalendář - náhled.pdf', self::dig($approval, 'export', 'fileName'));
+        // …and so is the CMYK file for the print shop
+        $cmyk = $this->ok('manage_calendar', ['action' => 'export_pdf', 'calendarId' => TestDataFixture::CALENDAR_2_ID, 'variant' => 'print_cmyk']);
+        self::assertSame('print_cmyk', self::dig($cmyk, 'export', 'variant'));
+        self::assertSame('done', self::dig($cmyk, 'export', 'status'));
+        self::assertNotContains(self::dig($cmyk, 'export', 'exportId'), [$export['exportId'], self::dig($approval, 'export', 'exportId')]);
+        self::assertSame('Obecní kalendář - tisk CMYK.pdf', self::dig($cmyk, 'export', 'fileName'));
+        self::assertSame(['Stáhl PDF pro tisk (CMYK)'], array_column(self::arr($cmyk['recorded']), 'what'));
 
         // Whoever may open the calendar may export it — the client role too (it still needs the write scope).
         $byClient = $this->ok('manage_calendar', ['action' => 'export_pdf', 'calendarId' => TestDataFixture::CALENDAR_2_ID, 'variant' => 'print'], TestDataFixture::MCP_TOKEN_CALENDARS_SHARED_USER);
