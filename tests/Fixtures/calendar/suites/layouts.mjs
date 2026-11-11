@@ -271,6 +271,17 @@ export default async function (t, load) {
         assert.equal(F.nearestFace(fonts, 'Rubik', 500).weight, 700); // upright preferred, tie → heavier
         assert.equal(F.nearestFace(fonts, 'Rubik', 400).weight, 300);
         assert.equal(F.nearestFace(fonts, 'Nope', 400), null);
+        // the server sends the file's subfamily name as `style` — an italic listed first must not win
+        const real = [
+            { family: 'Inter (Inter Italic)', fontName: 'Inter', faceName: 'Inter Italic', weight: 400, style: 'Italic', url: 'i' },
+            { family: 'Inter (Inter Bold Italic)', fontName: 'Inter', faceName: 'Inter Bold Italic', weight: 700, style: 'Bold Italic', url: 'bi' },
+            { family: 'Inter (Inter Regular)', fontName: 'Inter', faceName: 'Inter Regular', weight: 400, style: 'Regular', url: 'r' },
+            { family: 'Inter (Inter Bold)', fontName: 'Inter', faceName: 'Inter Bold', weight: 700, style: 'Bold', url: 'b' },
+        ];
+        assert.equal(F.nearestFace(real, 'Inter', 400).url, 'r');
+        assert.equal(F.nearestFace(real, 'Inter', 800).url, 'b');
+        assert.deepEqual(real.map(F.isUpright), [false, false, true, true]);
+        assert.equal(F.nearestFace(real.slice(0, 2), 'Inter', 400).url, 'i', 'a family with italics only still answers');
         assert.equal(F.faceByFamily(fonts, 'Lora (Lora Regular)').url, 'o');
         assert.deepEqual(F.cssFont({ family: 'Rubik (Rubik Bold)', weight: 800 }, fonts), { family: '"Rubik (Rubik Bold)"', weight: 400 });
         assert.deepEqual(F.cssFont({ family: null, weight: 800 }, fonts), { family: '"Outfit", Arial, sans-serif', weight: 700 });

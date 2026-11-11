@@ -15,11 +15,19 @@ export function facesOf(fonts, fontName) {
     return (fonts || []).filter((f) => f.fontName === fontName);
 }
 
+/**
+ * True for an upright cut. The bootstrap sends the font file's SUBFAMILY name as `style` (`Regular`,
+ * `Bold`, `Italic`, `Bold Italic`, `Oblique`…), not a CSS keyword — so the test is "not italic / oblique".
+ */
+export function isUpright(face) {
+    return !/italic|oblique|kursiv|kurzíva/i.test(`${face.style || ''} ${face.faceName || ''}`);
+}
+
 /** Upright preferred, nearest weight, ties → heavier. */
 export function nearestFace(fonts, fontName, weight) {
     const faces = facesOf(fonts, fontName);
     if (!faces.length) return null;
-    const upright = faces.filter((f) => (f.style || 'normal') === 'normal');
+    const upright = faces.filter(isUpright);
     const pool = upright.length ? upright : faces;
     let best = null;
     for (const face of pool) {

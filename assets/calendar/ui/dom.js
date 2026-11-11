@@ -113,7 +113,7 @@ export function toast(message, error = false) {
         stack = h('div', { class: 'toasts', 'aria-live': 'polite' });
         document.body.append(stack);
     }
-    const node = h('div', { class: error ? 'toast-n err' : 'toast-n', role: error ? 'alert' : 'status' }, icon(error ? 'alert' : 'check-circle', 's18'), String(message));
+    const node = h('div', { class: error ? 'toast-n cal-toast err' : 'toast-n cal-toast', role: error ? 'alert' : 'status' }, icon(error ? 'alert' : 'check-circle', 's18'), String(message));
     stack.append(node);
     setTimeout(() => node.remove(), error ? 6000 : 3600);
     return node;
