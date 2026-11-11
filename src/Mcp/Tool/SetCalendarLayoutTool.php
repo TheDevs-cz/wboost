@@ -73,8 +73,10 @@ readonly final class SetCalendarLayoutTool
      *    6 × 4 mm. Elements: photo, cap (photo caption), logo, head (the header
      *    band), month, cal (the Kalendárium — the day rows), wk (week number),
      *    qr; a 14-day calendar also has the second-week frames listed in its
-     *    layout.boxes (e.g. cal2). hidden: true / false works on logo, month,
-     *    wk, qr only; the caption is hidden by the feature switch captions and
+     *    layout.boxes: cal2, month2 and wk2 — each column prints its own day
+     *    rows, month and week number; a second frame shares the styles of its
+     *    element and takes no hidden flag (hiding month / wk hides both).
+     *    hidden: true / false works on logo, month, wk, qr only; the caption is hidden by the feature switch captions and
      *    wk / qr also need their feature (weekNumbers, qr) switched on.
      *    Out-of-range values are brought into range and reported in notes.
      * 3. order — the stacking order: every key of layout.order exactly once,
