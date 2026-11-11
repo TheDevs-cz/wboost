@@ -272,8 +272,7 @@ Three rules of the normalizer every caller inherits (2026-11):
   Files stored before this keep their flag (no backfill); `AssetInliner` runs
   the normalizer at render time, so exports see them upright.
 - **Text never reaches ImageMagick.** `NormalizeImageFormat::isText()` (leading
-  `<`, an `<svg` in the first kB, or a sniffed `text/*` / XML / SVG / MVG / MSL
-  MIME) answers null before any decode — ImageMagick *renders* an SVG (Inkscape
+  `<`, or a sniffed `text/*` / XML / SVG / MVG / MSL MIME) answers null before any decode — ImageMagick *renders* an SVG (Inkscape
   on the server, following the file's references) and executes its script
   formats. The old sniff read 1 kB, so an SVG behind a long comment was
   rasterised. `looksLikeSvg()` (public, scans the whole file) is what callers
@@ -284,7 +283,13 @@ Three rules of the normalizer every caller inherits (2026-11):
   unrotated. The calendar uploader refuses such a file outright (422) and also
   calls `ImageDecodeLimits::apply()` (ImageMagick memory 512 MiB / map 1 GiB /
   disk 2 GiB — **process-wide** once set, deliberately roomy). The gallery
-  itself has no pixel refusal for PNG / JPEG / WebP: it never decodes them. `AssetInliner::inlineImageWithDimensions` runs
+  itself has no pixel refusal for PNG / JPEG / WebP: it never decodes them.
+
+Still open on the shared path: PostScript / EPS / PDF bytes are not text, so
+the normalizer hands them to ImageMagick (→ Ghostscript) like any other
+"something Imagick can decode". The public calendar photo upload cannot reach
+that (it allow-lists photo MIME types); the logged-in upload paths rely on
+their form constraints. `AssetInliner::inlineImageWithDimensions` runs
 the same normalizer at render time, so files uploaded before this (and any other
 format Chromium can't paint) still export.
 

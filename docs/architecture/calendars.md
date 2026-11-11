@@ -175,8 +175,8 @@ The client gets step 5 with four tools. **What the server refuses a client**
 (the whole request, nothing applied, 403 `Tuto změnu může udělat jen grafik.`):
 any `design` key, `finish`, any op on a collection outside
 `CalendarContentRules::CLIENT_WRITABLE`; on uploads every kind but `photo`
-(so a client can never store an SVG — the photo path refuses anything that
-sniffs as text before it is looked at any closer); and it gets no layout import, document
+(so a client can never store an SVG — a photo is allow-listed by its sniffed
+MIME type before it is looked at any closer); and it gets no layout import, document
 text, client link or delete. The UI hides the same things, but the server rule
 is the one that counts (`CalendarClientTest`, e2e `client`).
 
@@ -235,12 +235,13 @@ Assets are never deleted individually (replaced photos stay until the calendar
 goes — they count as *referenced* in the storage report).
 
 What an upload is refused for, in order (all 422 `{ error }` unless noted):
-client storage full → a `photo` that sniffs as text (SVG however padded or
-named, XML, ImageMagick scripts — `NormalizeImageFormat::isText`, checked
-before anything decodes) → not an image (Symfony `Image`) → more than
-`ImageDecodeLimits::MAX_PIXELS` (60 MP) **by the header**, before any decode →
-a GIF as `photo` (the message says JPG, PNG or WebP; HEIC arrives as JPEG) →
-unreadable. A designer's SVG (logo, icon) is stored **unsanitised** and served
+client storage full → a `photo` whose **sniffed** MIME type is not in
+`CalendarAssetUploader::PHOTO_MIME_TYPES` (JPEG, PNG, WebP + the phone formats
+HEIC / HEIF / AVIF, which are stored as JPEG) — so an SVG however padded or
+named, XML, GIF, TIFF and everything ImageMagick would pass to Inkscape or
+Ghostscript is refused before anything decodes → not an image (Symfony
+`Image`) → more than `ImageDecodeLimits::MAX_PIXELS` (60 MP) **by the
+header**, before any decode → unreadable. A designer's SVG (logo, icon) is stored **unsanitised** and served
 as `image/svg+xml` from the storage origin — the same policy as the gallery
 and the manuals (the app has no SVG sanitizer); the JavaScript only ever
 places it through `<image>`, which runs no script.

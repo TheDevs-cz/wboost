@@ -116,6 +116,20 @@ final class CalendarHardeningTest extends WebTestCase
         $answer = self::upload($browser, self::CLIENT_URL . '/asset', $token, 'photo', "push graphic-context\nviewbox 0 0 10 10\npop graphic-context", 'foto.mvg');
         self::assertResponseStatusCodeSame(422);
 
+        // Encapsulated PostScript with its binary header sniffs as an image
+        // (`image/x-eps`) and would be handed to Ghostscript; a TIFF is no
+        // photo format either.
+        $eps = "\xC5\xD0\xD3\xC6" . pack('V6v', 30, 60, 0, 0, 0, 0, 0xFFFF) . "%!PS-Adobe-3.0 EPSF-3.0\n%%BoundingBox: 0 0 10 10\nshowpage\n%%EOF\n";
+        $tiff = new \Imagick();
+        $tiff->newImage(30, 20, new \ImagickPixel('#7A93B8'));
+        $tiff->setImageFormat('tiff');
+
+        foreach (['foto.eps' => $eps, 'foto.tif' => $tiff->getImageBlob()] as $name => $bytes) {
+            $answer = self::upload($browser, self::CLIENT_URL . '/asset', $token, 'photo', $bytes, $name);
+            self::assertResponseStatusCodeSame(422, $name);
+            self::assertSame(['error' => CalendarAssetUploader::PHOTO_FORMAT], $answer, $name);
+        }
+
         self::assertSame(0, self::storedAssets(TestDataFixture::CALENDAR_2_ID));
 
         // For the designer it is what it is: a vector logo, stored as it came.

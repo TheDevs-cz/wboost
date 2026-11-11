@@ -47,6 +47,16 @@ readonly final class CalendarAssetUploader
      */
     public const int MAX_CLIENT_BYTES = 2_000_000_000;
 
+    /**
+     * What a `photo` may be, as sniffed from its bytes: the three formats the
+     * message names, and what phones send instead of a JPEG (stored as JPEG
+     * by {@see NormalizeImageFormat}).
+     */
+    public const array PHOTO_MIME_TYPES = [
+        'image/jpeg', 'image/png', 'image/webp',
+        'image/heic', 'image/heif', 'image/heic-sequence', 'image/heif-sequence', 'image/avif',
+    ];
+
     public const string TOO_LARGE = 'Soubor je větší než 10 MB.';
     public const string TOO_MANY_PIXELS = 'Obrázek má příliš velké rozměry (nejvýše 60 megapixelů). Zmenšete ho a nahrajte znovu.';
     public const string CLIENT_STORAGE_FULL = 'Do tohoto kalendáře už bylo nahráno příliš mnoho fotek (limit 2 GB). Obraťte se prosím na grafika.';
@@ -111,10 +121,12 @@ readonly final class CalendarAssetUploader
         $original = $file->getContent();
         $contents = $original;
 
-        // A photo is a raster. Whatever sniffs as text — an SVG however it is
-        // padded or named, XML, ImageMagick's script formats — is refused
-        // before anything looks closer at it.
-        if ($kind === CalendarAssetKind::Photo && NormalizeImageFormat::isText($original)) {
+        // A photo — the one kind the public link may send — is one of a few
+        // raster formats, judged by its BYTES before anything looks closer at
+        // it. Everything else is refused here: an SVG however it is padded or
+        // named, XML, GIF, and the formats ImageMagick would hand to
+        // Inkscape or Ghostscript (MVG, EPS…).
+        if ($kind === CalendarAssetKind::Photo && !in_array((new \finfo(FILEINFO_MIME_TYPE))->buffer($original), self::PHOTO_MIME_TYPES, true)) {
             throw new InvalidCalendarChange(self::PHOTO_FORMAT);
         }
 
@@ -150,12 +162,6 @@ readonly final class CalendarAssetUploader
             $mimeType = $normalized['mimeType'];
             $width = $normalized['width'];
             $height = $normalized['height'];
-
-            // The message promises JPG, PNG or WebP (HEIC arrives as JPEG);
-            // a GIF would print its first frame at 256 colours.
-            if ($kind === CalendarAssetKind::Photo && $mimeType === 'image/gif') {
-                throw new InvalidCalendarChange(self::PHOTO_FORMAT);
-            }
 
             if (max($width, $height) > self::PREVIEW_LONG_EDGE) {
                 // WebP keeps the transparency of a logo or an icon; a JPEG

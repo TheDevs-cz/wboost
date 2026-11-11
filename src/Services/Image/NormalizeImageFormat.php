@@ -120,7 +120,7 @@ readonly final class NormalizeImageFormat
     {
         $head = ltrim(substr($contents, 0, 1024), "\xEF\xBB\xBF \t\r\n");
 
-        if (str_starts_with($head, '<') || stripos($head, '<svg') !== false) {
+        if (str_starts_with($head, '<')) {
             return true;
         }
 
