@@ -1,6 +1,175 @@
 /* ==========================================================================
    Nocturne — Kalendáře: waste, events, names, moon, shifts dialogs, date picker.
-   Owner: phase P6b (docs/calendar/architecture.md §D.9). Tokens only.
-   Loads after calendar.css — the stub rules there for this area are deleted
-   by the owner once the real styles live here.
+   Owner: phase P6b (docs/calendar/architecture.md §D.9). Tokens only — the one
+   exception is the waste / event colour of the document, handed in as --c
+   (fill) and --ci (readable ink on it) by ui/tools/datepicker.js.
+   Every rule is scoped to a tool root (.cal-wt .cal-et .cal-nt .cal-mt .cal-st)
+   so class names shared with other phases' files cannot collide.
    ========================================================================== */
+
+.cal-wt, .cal-et, .cal-nt, .cal-mt, .cal-st { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.cal-nt, .cal-mt, .cal-st { max-width: 860px; width: 100%; margin: 0 auto; }
+:is(.cal-wt, .cal-et, .cal-nt, .cal-mt, .cal-st) p { margin: 0; }
+:is(.cal-wt, .cal-et, .cal-nt, .cal-mt, .cal-st) .lbl { display: block; }
+:is(.cal-wt, .cal-et, .cal-nt, .cal-mt, .cal-st) [hidden] { display: none !important; }
+:is(.cal-wt, .cal-et, .cal-nt, .cal-mt, .cal-st) .cal-add { align-self: flex-start; gap: 8px; }
+:is(.cal-wt, .cal-et, .cal-nt, .cal-mt, .cal-st) .cal-rm { flex: none; color: var(--muted); }
+:is(.cal-wt, .cal-et, .cal-nt, .cal-mt, .cal-st) .cal-rm:hover { color: var(--rose-ink); background: var(--rose-deep); }
+:is(.cal-wt, .cal-et, .cal-nt, .cal-mt, .cal-st) .inp.sm { min-width: 0; }
+:is(.cal-wt, .cal-et, .cal-nt, .cal-mt, .cal-st) .inp.sm input { font-size: 13.5px; }
+:is(.cal-wt, .cal-et, .cal-nt, .cal-mt, .cal-st) .cal-date { flex: none; width: 156px; }
+:is(.cal-wt, .cal-et, .cal-nt, .cal-mt, .cal-st) .cal-date input { font-variant-numeric: tabular-nums; }
+:is(.cal-wt, .cal-et, .cal-nt, .cal-mt, .cal-st) .cal-s4h { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+:is(.cal-wt, .cal-et, .cal-nt, .cal-mt, .cal-st) .cal-s4h h3 { margin: 0; font-size: 16px; font-weight: 600; overflow-wrap: anywhere; }
+
+/* ---- Month header, month strip, month grid (datepicker.js) ---------------- */
+.cal-mnav { display: flex; flex-direction: column; gap: 8px; }
+.cal-dph { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.cal-dph b { font-size: 14px; font-weight: 600; }
+.cal-dpm { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 3px; }
+.cal-dpm button { position: relative; height: 32px; padding: 0; border: 0; border-radius: 8px; background: none; color: var(--text-2); font: inherit; font-size: 12px; cursor: pointer; }
+.cal-dpm button:hover { background: var(--surface-2); }
+.cal-dpm button.on { background: var(--lav-deep); color: var(--lav-ink); font-weight: 600; }
+.cal-dpm button:focus-visible, .cal-dp:focus-visible, .cal-wd:focus-visible, .cal-wtab:focus-visible, .cal-mph4 button:focus-visible { outline: 2px solid var(--lav-ink); outline-offset: 2px; }
+.cal-dpm i { position: absolute; top: -4px; right: -1px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--c, var(--lav)); color: var(--ci, var(--on-accent)); box-shadow: 0 0 0 1.5px var(--surface); font-style: normal; font-size: 10px; font-weight: 700; line-height: 16px; text-align: center; }
+.cal-dpk { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+.cal-dpg { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.cal-dpw { padding: 2px 0; text-align: center; font-size: 11px; font-weight: 600; color: var(--subtle); }
+.cal-dp { height: 44px; min-width: 0; padding: 0; border: 0; border-radius: 10px; background: var(--surface-2); color: var(--text); font: inherit; font-size: 14px; font-variant-numeric: tabular-nums; cursor: pointer; transition: box-shadow var(--dur-1); }
+.cal-dp:hover:not(:disabled) { box-shadow: inset 0 0 0 1.5px var(--lav); }
+.cal-dp.we { color: var(--muted); }
+.cal-dp:disabled { opacity: .35; cursor: default; }
+.cal-dp.on { background: var(--c, var(--lav)); color: var(--ci, var(--on-accent)); font-weight: 700; box-shadow: inset 0 0 0 1.5px var(--lav-line); }
+.cal-dpf { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px; }
+
+/* ---- Odpady --------------------------------------------------------------- */
+.cal-wtabs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.cal-wtab-list { display: contents; }
+.cal-wtab { display: inline-flex; align-items: center; gap: 8px; height: 38px; max-width: 100%; padding: 0 14px 0 10px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface); color: var(--text-2); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; transition: border-color var(--dur-2), background var(--dur-2); }
+.cal-wtab > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-wtab:hover { border-color: var(--lav); }
+.cal-wtab.on { background: var(--lav-deep); border-color: var(--lav-line); color: var(--lav-ink); }
+.cal-wtab.off:not(.on) { color: var(--subtle); }
+.cal-wtab.off .cal-bin { opacity: .45; }
+.cal-wt .cal-bin { display: inline-grid; flex: none; padding: 2px 3px; border-radius: 5px; background: #FFFFFF; box-shadow: 0 0 0 1px var(--line-2); }
+.cal-wt .cal-bin svg { display: block; width: 12px; height: 16px; }
+.cal-wt .cal-wadd { width: auto; height: 38px; border-radius: 999px; border-style: dashed; background: transparent; }
+.cal-wt .cal-wadd select { color: var(--text-2); font-weight: 500; }
+.cal-wpanel { display: flex; flex-direction: column; gap: 12px; }
+.cal-wph { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; min-height: 40px; }
+.cal-wph .cal-switch-t { font-size: 14px; color: var(--text); }
+.cal-wph .btn { gap: 8px; }
+.cal-wcard { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; padding: 16px; border-radius: 16px; border: 1px solid var(--line-2); background: var(--surface); }
+.cal-wch { display: flex; align-items: center; gap: 10px; width: 100%; }
+.cal-wch b { font-size: 15px; font-weight: 600; white-space: nowrap; }
+.cal-bin-host { display: inline-grid; flex: none; }
+.cal-wch .cal-wnm { flex: 1 1 220px; max-width: 280px; }
+.cal-wch .cal-wpl { flex: 1 1 220px; max-width: 320px; margin-left: auto; }
+.cal-wrule { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 16px 24px; align-items: start; width: 100%; }
+.cal-wfield { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.cal-wds { display: flex; flex-wrap: wrap; gap: 4px; }
+.cal-wd { min-width: 40px; height: 36px; padding: 0 8px; border-radius: 10px; border: 1px solid var(--line-2); background: none; color: var(--text-2); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.cal-wd:hover { background: var(--surface-2); }
+.cal-wd.on { background: var(--lav-deep); border-color: var(--lav-line); color: var(--lav-ink); }
+.cal-wm { display: flex; align-items: center; gap: 6px; }
+.cal-wrule .cal-select { width: 260px; max-width: 100%; }
+.cal-wtotal { grid-column: 1 / -1; padding: 8px 12px; border-radius: 10px; background: var(--surface-2); color: var(--text-2); }
+.cal-wdates { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+
+/* ---- Akce a spolky -------------------------------------------------------- */
+.cal-et { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 16px 28px; align-items: start; }
+.cal-eclubs, .cal-elist { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.cal-eclubs { position: sticky; top: 0; padding: 14px; border-radius: 16px; border: 1px solid var(--line-2); background: var(--surface); }
+.cal-evsel { display: flex; align-items: center; gap: 6px; }
+.cal-evsel .cal-select { flex: 1; }
+.cal-cled { display: grid; grid-template-columns: 76px minmax(0, 1fr) 32px; gap: 6px; align-items: center; }
+.cal-cled .cal-ab input { font-weight: 700; text-align: center; }
+.cal-evl2, .cal-evl { display: flex; flex-direction: column; gap: 6px; }
+.cal-evx { display: grid; grid-template-columns: 170px 156px minmax(0, 1fr) 32px; gap: 6px; align-items: center; }
+.cal-evx.ico { grid-template-columns: 170px 156px 40px minmax(0, 1fr) 32px; }
+.cal-evx .cal-date { width: auto; }
+.cal-evx .cal-evclub select { text-overflow: ellipsis; font-weight: 600; }
+.cal-evico-w { position: relative; display: inline-grid; }
+.cal-et .cal-evico { display: grid; place-items: center; width: 36px; height: 36px; margin: 0; border-radius: 10px; border: 1px dashed var(--line-3); background: var(--surface-2); color: var(--muted); cursor: pointer; }
+.cal-et .cal-evico:hover { border-color: var(--lav); }
+.cal-et .cal-evico:has(input:focus-visible) { outline: 2px solid var(--lav-ink); outline-offset: 2px; }
+.cal-et .cal-evico.busy { opacity: .5; pointer-events: none; }
+.cal-evico-f { display: grid; place-items: center; }
+.cal-evico-f img { width: 24px; height: 24px; object-fit: contain; }
+.cal-evico-x { position: absolute; top: -6px; right: -6px; display: grid; place-items: center; width: 18px; height: 18px; padding: 0; border: 0; border-radius: 50%; background: var(--surface-3); color: var(--text-2); box-shadow: 0 0 0 1.5px var(--surface); cursor: pointer; }
+.cal-evico-x:hover { background: var(--rose-deep); color: var(--rose-ink); }
+
+/* ---- Jména navíc ---------------------------------------------------------- */
+.cal-evr.names { display: grid; grid-template-columns: 156px minmax(0, 260px) minmax(0, 1fr) 32px; gap: 8px; align-items: center; }
+.cal-evr.names .cal-date { width: auto; }
+.cal-nmp { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---- Fáze měsíce ---------------------------------------------------------- */
+.cal-evx.moon { grid-template-columns: 156px auto minmax(0, 1fr) 32px; gap: 10px; }
+.cal-mph4 { display: inline-flex; gap: 2px; padding: 2px; border-radius: 10px; border: 1px solid var(--line-2); }
+.cal-mph4 button { display: grid; place-items: center; width: 36px; height: 30px; padding: 0; border: 0; border-radius: 8px; background: none; color: var(--text-2); cursor: pointer; }
+.cal-mph4 button svg { width: 18px; height: 18px; }
+.cal-mph4 button:hover { background: var(--surface-2); }
+.cal-mph4 button.on { background: var(--lav-deep); color: var(--lav-ink); }
+.cal-mphl { min-width: 0; font-size: 13px; color: var(--text-2); }
+.cal-mt .cal-s4h .btn { gap: 8px; }
+
+/* ---- Šichtovnice ---------------------------------------------------------- */
+.cal-shl { display: flex; flex-direction: column; gap: 12px; }
+.cal-shc { display: flex; flex-direction: column; gap: 14px; padding: 16px; border-radius: 16px; border: 1px solid var(--line-2); background: var(--surface); }
+.cal-shh { display: grid; grid-template-columns: minmax(0, 1fr) 200px 32px; gap: 8px; align-items: center; }
+.cal-shh .inp input { font-weight: 600; }
+.cal-shg { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px 40px; align-items: start; }
+.cal-shb { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.cal-shs { display: flex; flex-direction: column; gap: 6px; }
+.cal-shr { display: grid; grid-template-columns: 56px 124px 12px 124px 32px; gap: 6px; align-items: center; }
+.cal-shd { text-align: center; color: var(--subtle); }
+.cal-st .cal-shl1 { padding: 0 6px; }
+.cal-st .cal-shl1 input { text-align: center; font-weight: 700; }
+.cal-shcr { display: flex; gap: 6px; }
+.cal-shcr .inp { width: 56px; }
+.cal-st .cal-sht input { font-variant-numeric: tabular-nums; }
+
+/* ---- Narrow dialogs: one column, rows wrap to two lines ------------------- */
+@media (max-width: 900px) {
+    .cal-et { grid-template-columns: minmax(0, 1fr); }
+    .cal-eclubs { position: static; }
+    .cal-wrule { grid-template-columns: minmax(0, 1fr); }
+    .cal-wch { flex-wrap: wrap; }
+    .cal-wch .cal-wnm, .cal-wch .cal-wpl { max-width: none; margin-left: 0; }
+}
+@media (max-width: 700px) {
+    .cal-dpm { grid-template-columns: repeat(6, minmax(0, 1fr)); row-gap: 8px; }
+    .cal-dpg { gap: 3px; }
+    .cal-evx, .cal-evx.ico { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 32px; padding: 8px; border-radius: 12px; background: var(--surface-2); }
+    .cal-evx .inp.sm { background: var(--surface); }
+    .cal-evx .cal-evn { grid-column: 1 / 3; grid-row: 2; }
+    .cal-evx.ico .cal-evn { grid-column: 2 / 3; }
+    .cal-evx.ico .cal-evico-w { grid-column: 1; grid-row: 2; justify-self: start; }
+    .cal-evx.ico { grid-template-columns: 40px minmax(0, 1fr) 32px; }
+    .cal-evx.ico .cal-evclub { grid-column: 1 / 3; }
+    .cal-evx.ico .cal-date { grid-column: 1 / 3; grid-row: 3; }
+    .cal-evx .cal-rm { grid-column: -2; grid-row: 1; }
+    .cal-evx.moon { grid-template-columns: minmax(0, 1fr) 32px; }
+    .cal-evx.moon .cal-mph4 { grid-column: 1; grid-row: 2; justify-self: start; }
+    .cal-evx.moon .cal-mphl { grid-column: 2; grid-row: 2; display: none; }
+    .cal-evr.names { grid-template-columns: minmax(0, 1fr) 32px; padding: 8px; border-radius: 12px; background: var(--surface-2); }
+    .cal-evr.names .inp.sm { background: var(--surface); }
+    .cal-evr.names > :nth-child(2) { grid-column: 1; grid-row: 2; }
+    .cal-evr.names .cal-nmp { grid-column: 1 / -1; grid-row: 3; }
+    .cal-evr.names .cal-rm { grid-column: 2; grid-row: 1; }
+    .cal-wm { flex-wrap: wrap; }
+    .cal-wm .cal-date { flex: 1 1 130px; width: auto; }
+    .cal-wm > .cap { display: none; }
+    .cal-wrule .cal-select { width: 100%; }
+    .cal-wd { flex: 1 1 36px; min-width: 36px; }
+    .cal-shh { grid-template-columns: minmax(0, 1fr) 32px; }
+    .cal-shh .cal-select { grid-column: 1 / -1; grid-row: 2; }
+    .cal-shg { grid-template-columns: minmax(0, 1fr); }
+    .cal-shr { grid-template-columns: 48px minmax(0, 1fr) 10px minmax(0, 1fr) 32px; }
+    .cal-st .cal-sht { padding: 0 8px; }
+    .cal-st .cal-sht input::-webkit-calendar-picker-indicator { display: none; }
+    .cal-wcard, .cal-shc { padding: 12px; }
+}
+
+.cal-cled-host:empty { display: none; }
