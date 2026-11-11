@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace WBoost\Web\Services\Font;
 
 use Doctrine\DBAL\Connection;
+use Psr\Clock\ClockInterface;
 use Ramsey\Uuid\UuidInterface;
 
 /**
@@ -33,14 +34,11 @@ readonly final class RewriteFontReferences
         ['template_variant', 'canvas'],
         ['template_variant', 'inputs'],
         ['template_export_version', 'fill_values'],
-        // Calendar layouts store `"family": "<Font::faceFamily()>"` in their
-        // text styles — the quoted face-string pairs rewrite those; the bare
-        // `"fontFamily"` pair never matches a calendar, which is correct.
-        ['calendar', 'layout'],
     ];
 
     public function __construct(
         private Connection $connection,
+        private ClockInterface $clock,
     ) {
     }
 
@@ -76,21 +74,55 @@ readonly final class RewriteFontReferences
             }
         }
 
-        return $touched;
+        return $touched + $this->replaceInCalendars($projectId, $pairs);
+    }
+
+    /**
+     * Calendar layouts store `"family": "<Font::faceFamily()>"` in their text
+     * styles — the quoted face-string pairs rewrite those; the bare
+     * `"fontFamily"` pair never matches a calendar, which is correct.
+     *
+     * One statement for all pairs, because a calendar is a versioned
+     * document: the rewrite counts as a save — `revision` + 1 (once, however
+     * many faces changed) and a fresh `updated_at` — so nothing that keys on
+     * the revision keeps treating the old layout as current.
+     *
+     * @param list<array{string, string}> $pairs
+     */
+    private function replaceInCalendars(UuidInterface $projectId, array $pairs): int
+    {
+        $expression = 'layout::text';
+        $matches = [];
+        $parameters = [
+            'projectId' => $projectId->toString(),
+            'now' => $this->clock->now()->format('Y-m-d H:i:s'),
+        ];
+
+        foreach ($pairs as $index => [$needle, $replacement]) {
+            $expression = sprintf('replace(%s, :needle%2$d, :replacement%2$d)', $expression, $index);
+            $matches[] = sprintf('layout::text LIKE :pattern%d', $index);
+            $parameters['needle' . $index] = $needle;
+            $parameters['replacement' . $index] = $replacement;
+            $parameters['pattern' . $index] = '%' . self::likeEscape($needle) . '%';
+        }
+
+        return (int) $this->connection->executeStatement(
+            sprintf(
+                'UPDATE calendar SET layout = (%s)::jsonb, revision = revision + 1, updated_at = :now
+                 WHERE project_id = :projectId AND layout IS NOT NULL AND (%s)',
+                $expression,
+                implode(' OR ', $matches),
+            ),
+            $parameters,
+        );
     }
 
     private function replaceIn(string $table, string $column, UuidInterface $projectId, string $needle, string $replacement): int
     {
-        $scope = match ($table) {
-            'calendar' => 'project_id = :projectId AND layout IS NOT NULL',
-            default => 'template_id IN (SELECT id FROM template WHERE project_id = :projectId)',
-        };
-
         $sql = sprintf(
-            'UPDATE %1$s SET %2$s = replace(%2$s::text, :needle, :replacement)::jsonb WHERE %3$s AND %2$s::text LIKE :pattern',
+            'UPDATE %1$s SET %2$s = replace(%2$s::text, :needle, :replacement)::jsonb WHERE template_id IN (SELECT id FROM template WHERE project_id = :projectId) AND %2$s::text LIKE :pattern',
             $table,
             $column,
-            $scope,
         );
 
         return (int) $this->connection->executeStatement($sql, [

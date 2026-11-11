@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace WBoost\Web\Value;
 
 /**
- * Where a project's fonts are used, and which font references its templates
- * carry that no project face satisfies. Produced by
+ * Where a project's fonts are used — by templates and by calendar layouts —
+ * and which font references they carry that no project face satisfies. Produced by
  * {@see \WBoost\Web\Query\GetFontUsage}; consumed by the fonts page (usage
  * chips, the delete confirmations, the "Písma mimo projekt" card) and the
  * project dashboard badge.
@@ -19,11 +19,43 @@ readonly final class FontUsage
     /**
      * @param array<string, list<FontUsageSite>> $sitesByFamily family → variants referencing it (deduped per variant)
      * @param array<string, list<FontUsageSite>> $missing referenced families no project face (or font) satisfies
+     * @param array<string, list<FontUsageCalendar>> $calendarsByFamily family → calendars whose layout references it
+     * @param array<string, list<FontUsageCalendar>> $missingInCalendars the same as `$missing`, for calendar layouts
      */
     public function __construct(
         public array $sitesByFamily,
         public array $missing,
+        public array $calendarsByFamily = [],
+        public array $missingInCalendars = [],
     ) {
+    }
+
+    /**
+     * @return list<FontUsageCalendar>
+     */
+    public function calendarsFor(string $family): array
+    {
+        return $this->calendarsByFamily[$family] ?? [];
+    }
+
+    /**
+     * Distinct calendar names, in first-seen order, across any set of
+     * families — every face of one font for the whole-font delete.
+     *
+     * @param list<string> $families
+     * @return list<string>
+     */
+    public function calendarNamesFor(array $families): array
+    {
+        $names = [];
+
+        foreach ($families as $family) {
+            foreach ($this->calendarsFor($family) as $calendar) {
+                $names[$calendar->calendarId] = $calendar->calendarName;
+            }
+        }
+
+        return array_values($names);
     }
 
     /**
@@ -64,7 +96,7 @@ readonly final class FontUsage
 
     public function hasMissing(): bool
     {
-        return $this->missing !== [];
+        return $this->missing !== [] || $this->missingInCalendars !== [];
     }
 
     /**

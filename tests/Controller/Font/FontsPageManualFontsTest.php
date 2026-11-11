@@ -41,6 +41,34 @@ final class FontsPageManualFontsTest extends WebTestCase
         self::assertCount(0, $crawler->filter($section . ' input[value="Rubik Regular"][checked]'));
     }
 
+    /**
+     * The usage scan covers calendar layouts: the face a calendar is set in
+     * says so on its chip and in its delete confirmation.
+     */
+    public function testAFaceUsedByACalendarLayoutSaysSo(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
+
+        $crawler = $client->request('GET', '/project/' . TestDataFixture::PROJECT_1_ID . '/fonts');
+
+        self::assertResponseIsSuccessful();
+        $chips = $crawler->filter('.fn-use[data-font-use="calendars"]');
+        self::assertCount(1, $chips);
+        self::assertSame('1 kalendář', trim($chips->text()));
+        self::assertSame('Obecní kalendář', $chips->attr('title'));
+
+        // Both confirmations (the family's and the face's) carry the sentence —
+        // and are sentences: the template tags used to be printed as text.
+        $confirmations = $crawler->filter('[data-confirm-modal-target="modal"] .modal-body p')->each(static fn ($node): string => $node->text());
+        $withCalendar = array_values(array_filter($confirmations, static fn (string $text): bool => str_contains($text, 'Je také v rozvržení kalendáře Obecní kalendář — vysází se náhradním písmem.')));
+        self::assertCount(2, $withCalendar);
+
+        foreach ($confirmations as $text) {
+            self::assertStringNotContainsString('{%', $text);
+        }
+    }
+
     public function testLogoManualsHaveNoFontsSection(): void
     {
         $client = self::createClient();

@@ -9,12 +9,15 @@ use Ramsey\Uuid\UuidInterface;
 use WBoost\Web\Entity\Font;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Value\FontUsage;
+use WBoost\Web\Value\FontUsageCalendar;
 use WBoost\Web\Value\FontUsageSite;
 use WBoost\Web\Value\RichText;
 
 /**
- * Which templates reference which font, scanned from the variants' own
- * documents — the canvas JSON (every textbox's `fontFamily`, including the
+ * Which templates and calendars reference which font, scanned from their own
+ * documents: a calendar layout's text styles (every `family` under
+ * `layout.styles`, the rule of the calendar JavaScript's `usedFamilies()`),
+ * and the variants' documents — the canvas JSON (every textbox's `fontFamily`, including the
  * per-character styles a rich stand-in may carry), the inputs' font
  * allowlists and the rich sample values' runs. Nothing is stored: a font is
  * referenced by its family STRING, so the scan is the only truthful source,
@@ -46,7 +49,63 @@ readonly final class GetFontUsage
             ->getQuery()
             ->getResult();
 
-        return self::compute($this->getFonts->allForProject($projectId), $variants);
+        return self::compute($this->getFonts->allForProject($projectId), $variants, $this->calendarLayouts($projectId));
+    }
+
+    /**
+     * The project's calendars that have a layout, with the families it names.
+     *
+     * @return list<array{FontUsageCalendar, list<string>}>
+     */
+    private function calendarLayouts(UuidInterface $projectId): array
+    {
+        $rows = $this->entityManager->getConnection()->fetchAllAssociative(
+            'SELECT id, name, layout FROM calendar WHERE project_id = :projectId AND layout IS NOT NULL ORDER BY name, id',
+            ['projectId' => $projectId->toString()],
+        );
+
+        $calendars = [];
+
+        foreach ($rows as $row) {
+            if (!is_string($row['id']) || !is_string($row['name']) || !is_string($row['layout'])) {
+                continue;
+            }
+
+            $layout = json_decode($row['layout'], true);
+            $families = [];
+
+            if (is_array($layout)) {
+                self::collectCalendarFamilies($layout['styles'] ?? null, $families);
+            }
+
+            $calendars[] = [new FontUsageCalendar($row['id'], $row['name']), array_keys($families)];
+        }
+
+        return $calendars;
+    }
+
+    /**
+     * Every string under a `family` key, at any depth.
+     *
+     * @param array<string, true> $families
+     */
+    private static function collectCalendarFamilies(mixed $node, array &$families): void
+    {
+        if (!is_array($node)) {
+            return;
+        }
+
+        foreach ($node as $key => $value) {
+            if ($key === 'family') {
+                if (is_string($value) && $value !== '') {
+                    $families[$value] = true;
+                }
+
+                continue;
+            }
+
+            self::collectCalendarFamilies($value, $families);
+        }
     }
 
     /**
@@ -54,8 +113,9 @@ readonly final class GetFontUsage
      *
      * @param array<Font> $projectFonts
      * @param list<TemplateVariant> $variants
+     * @param list<array{FontUsageCalendar, list<string>}> $calendars each calendar with the families its layout names
      */
-    public static function compute(array $projectFonts, array $variants): FontUsage
+    public static function compute(array $projectFonts, array $variants, array $calendars = []): FontUsage
     {
         $known = [];
         foreach ($projectFonts as $font) {
@@ -91,7 +151,25 @@ readonly final class GetFontUsage
             }
         }
 
-        return new FontUsage($sitesByFamily, $missing);
+        /** @var array<string, list<FontUsageCalendar>> $calendarsByFamily */
+        $calendarsByFamily = [];
+
+        foreach ($calendars as [$calendar, $families]) {
+            foreach ($families as $family) {
+                $calendarsByFamily[$family][] = $calendar;
+            }
+        }
+
+        ksort($calendarsByFamily);
+
+        $missingInCalendars = [];
+        foreach ($calendarsByFamily as $family => $using) {
+            if (!isset($known[$family])) {
+                $missingInCalendars[$family] = $using;
+            }
+        }
+
+        return new FontUsage($sitesByFamily, $missing, $calendarsByFamily, $missingInCalendars);
     }
 
     /**

@@ -63,6 +63,16 @@
                                 {% endfor %}
                             </li>
                         {% endfor %}
+                        {# Calendar layouts name faces by the same string (GetFontUsage). #}
+                        {% for family, calendars in usage.missingInCalendars %}
+                            <li>
+                                <span class="font-wire">{{ family }}</span>
+                                —
+                                {% for calendar in calendars %}
+                                    <a href="{{ path('calendar_workspace', {'calendarId': calendar.calendarId}) }}">{{ calendar.calendarName }} (kalendář)</a>{{ not loop.last ? ',' }}
+                                {% endfor %}
+                            </li>
+                        {% endfor %}
                     </ul>
                 </div>
             </div>
@@ -83,12 +93,13 @@
             {% for font in fonts %}
                 {% set can_edit = is_granted('font_edit', font) %}
                 {% set fontTemplates = usage.templateNamesFor(font.faces|map(f => font.faceFamily(f))|merge([font.name])) %}
+                {% set fontCalendars = usage.calendarNamesFor(font.faces|map(f => font.faceFamily(f))|merge([font.name])) %}
                 {% set head_family = font.faces is not empty ? font.faceFamily(font.faces|first) : font.name %}
                 <section class="fn-fam" aria-labelledby="fnh-{{ font.id }}">
                     <div class="fn-fam-h">
                         <div class="fn-fam-t">
                             <h2 id="fnh-{{ font.id }}" style="font-family: '{{ head_family }}', var(--font);">{{ font.name }}</h2>
-                            <span class="cap">{{ font.faces|length }} {{ font.faces|length == 1 ? 'řez' : (font.faces|length < 5 ? 'řezy' : 'řezů') }} · {% if fontTemplates|length > 0 %}použito v {{ fontTemplates|length }} {{ fontTemplates|length == 1 ? 'šabloně' : 'šablonách' }}{% else %}zatím nepoužito v šablonách{% endif %}</span>
+                            <span class="cap">{{ font.faces|length }} {{ font.faces|length == 1 ? 'řez' : (font.faces|length < 5 ? 'řezy' : 'řezů') }} · {% if fontTemplates|length > 0 %}použito v {{ fontTemplates|length }} {{ fontTemplates|length == 1 ? 'šabloně' : 'šablonách' }}{% else %}zatím nepoužito v šablonách{% endif %}{% if fontCalendars|length > 0 %} · {{ fontCalendars|length }} {{ fontCalendars|length == 1 ? 'kalendář' : (fontCalendars|length < 5 ? 'kalendáře' : 'kalendářů') }}{% endif %}</span>
                         </div>
                         {% if can_edit %}
                             <div class="dropdown">
@@ -106,10 +117,13 @@
                                 </div>
                             </div>
 
+                            {# A <twig:…> attribute interpolates {{ }} only — {% %} tags inside it
+                               are printed as text. Build the sentence first. #}
+                            {% set family_confirm %}Opravdu chcete smazat písmo {{ font.name }} včetně všech řezů?{% if fontTemplates|length > 0 %} Používá ho {{ fontTemplates|length }} {{ fontTemplates|length == 1 ? 'šablona' : (fontTemplates|length < 5 ? 'šablony' : 'šablon') }} ({{ fontTemplates|slice(0, 5)|join(', ') }}{% if fontTemplates|length > 5 %} a další{% endif %}) — vykreslí se náhradním písmem.{% else %} Žádná šablona ho nepoužívá.{% endif %}{% if fontCalendars|length > 0 %} Je také v rozvržení {{ fontCalendars|length == 1 ? 'kalendáře' : 'kalendářů' }} {{ fontCalendars|slice(0, 5)|join(', ') }}{% if fontCalendars|length > 5 %} a dalších{% endif %} — vysází se náhradním písmem.{% endif %}{% endset %}
                             <twig:ConfirmModal
                                 id="{{ font.id }}"
                                 url="{{ path('delete_font', {'fontId': font.id}) }}"
-                                confirmationText="Opravdu chcete smazat písmo {{ font.name }} včetně všech řezů?{% if fontTemplates|length > 0 %} Používá ho {{ fontTemplates|length }} {{ fontTemplates|length == 1 ? 'šablona' : (fontTemplates|length < 5 ? 'šablony' : 'šablon') }} ({{ fontTemplates|slice(0, 5)|join(', ') }}{% if fontTemplates|length > 5 %} a další{% endif %}) — vykreslí se náhradním písmem.{% else %} Žádná šablona ho nepoužívá.{% endif %}" />
+                                :confirmationText="family_confirm" />
                         {% endif %}
                     </div>
 
@@ -136,6 +150,7 @@
                         {% for font_face in font.faces %}
                             {% set family = font.faceFamily(font_face) %}
                             {% set faceTemplates = usage.templateNamesFor([family]) %}
+                            {% set faceCalendars = usage.calendarNamesFor([family]) %}
                             <li class="fn-cut" data-entity-id="{{ font_face.name }}">
                                 {% if can_edit %}
                                     <span class="dragula-handle fn-grip" title="Přetažením změníte pořadí">{{ icon('grip', 's16') }}</span>
@@ -150,8 +165,11 @@
                                         {% if font_face.fileSizeLabel %}<span class="cap" title="Velikost souboru">{{ font_face.fileSizeLabel }}</span>{% endif %}
                                         {% if faceTemplates|length > 0 %}
                                             <span class="fn-use" title="{{ faceTemplates|join(', ') }}">{{ icon('template') }}{{ faceTemplates|length }} {{ faceTemplates|length == 1 ? 'šablona' : (faceTemplates|length < 5 ? 'šablony' : 'šablon') }}</span>
-                                        {% else %}
+                                        {% elseif faceCalendars|length == 0 %}
                                             <span class="fn-use none" title="Žádná šablona tento řez nepoužívá">nepoužito</span>
+                                        {% endif %}
+                                        {% if faceCalendars|length > 0 %}
+                                            <span class="fn-use" data-font-use="calendars" title="{{ faceCalendars|join(', ') }}">{{ icon('calendar') }}{{ faceCalendars|length }} {{ faceCalendars|length == 1 ? 'kalendář' : (faceCalendars|length < 5 ? 'kalendáře' : 'kalendářů') }}</span>
                                         {% endif %}
                                         <span class="font-wire" title="Přesný název písma pro API, MCP a JSON plátna">{{ family }}</span>
                                     </div>
@@ -167,10 +185,11 @@
                                            data-modal-id="{{ font.id }}-{{ loop.index }}"
                                            data-action="click->confirm-modal#showModal">{{ icon('trash', 's16') }}</a>
 
+                                        {% set face_confirm %}Opravdu chcete smazat řez {{ font_face.name }}?{% if faceTemplates|length > 0 %} Používá ho {{ faceTemplates|length }} {{ faceTemplates|length == 1 ? 'šablona' : (faceTemplates|length < 5 ? 'šablony' : 'šablon') }} ({{ faceTemplates|slice(0, 5)|join(', ') }}{% if faceTemplates|length > 5 %} a další{% endif %}) — vykreslí se náhradním písmem.{% else %} Žádná šablona ho nepoužívá.{% endif %}{% if faceCalendars|length > 0 %} Je také v rozvržení {{ faceCalendars|length == 1 ? 'kalendáře' : 'kalendářů' }} {{ faceCalendars|slice(0, 5)|join(', ') }}{% if faceCalendars|length > 5 %} a dalších{% endif %} — vysází se náhradním písmem.{% endif %}{% endset %}
                                         <twig:ConfirmModal
                                             id="{{ font.id }}-{{ loop.index }}"
                                             url="{{ path('delete_font_face', {'fontId': font.id, 'fontFaceName': font_face.name}) }}"
-                                            confirmationText="Opravdu chcete smazat řez {{ font_face.name }}?{% if faceTemplates|length > 0 %} Používá ho {{ faceTemplates|length }} {{ faceTemplates|length == 1 ? 'šablona' : (faceTemplates|length < 5 ? 'šablony' : 'šablon') }} ({{ faceTemplates|slice(0, 5)|join(', ') }}{% if faceTemplates|length > 5 %} a další{% endif %}) — vykreslí se náhradním písmem.{% else %} Žádná šablona ho nepoužívá.{% endif %}" />
+                                            :confirmationText="face_confirm" />
                                     {% endif %}
                                 </div>
                             </li>

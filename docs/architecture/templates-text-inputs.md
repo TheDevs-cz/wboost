@@ -118,6 +118,15 @@ font" to the designed family unless the designer ticks more.
   the "Písma mimo projekt" card linking to the editors) and the project
   dashboard (the Fonty card's "N chybí" badge). Deleting a face/font also
   removes the storage object(s) since the fonts rework.
+  **Calendar layouts are scanned too (2026-11):** every `family` string under
+  `calendar.layout.styles` (the rule of the calendar JS's `usedFamilies()`)
+  → `FontUsage::calendarsByFamily` / `missingInCalendars`
+  (`FontUsageCalendar`). The fonts page shows them as a second chip
+  ("N kalendář"), in the family caption, in both delete confirmations and in
+  "Písma mimo projekt" (link to the workspace). The dashboard badge still
+  counts template references only. The delete confirmations are built with
+  `{% set %}` and passed as `:confirmationText` — `{% %}` tags inside a
+  `<twig:…>` attribute are printed as text (they were, until this fix).
 - **Family rename with propagation (2026-09-03).** `RenameFont` →
   `RenameFontHandler` renames `Font::name` (refusing a name another font of
   the project has — `FontNameTaken`) and `Services/Font/RewriteFontReferences`
@@ -127,7 +136,10 @@ font" to the designed family unless the designer ticks more.
   face strings `"Old (Face)"` → `"New (Face)"` in both their direct
   (`"key": "value"`, jsonb's text form) and envelope-nested (`\"…\"`)
   spellings, the bare family name only in a `"fontFamily": …` position
-  (it is ordinary text otherwise). Face NAMES never change. Page:
+  (it is ordinary text otherwise). Face NAMES never change. `calendar.layout`
+  is rewritten as well, in ONE statement for all pairs that also bumps
+  `revision` (+1 per touched calendar) and `updated_at` — a calendar is a
+  versioned document and the rewrite counts as a save. Page:
   `/font/{id}/rename` from the family card's menu.
 - **Admin editor**: `canvas_font_choice.js` (pure planner + checklist DOM:
   fonts as tri-state group headers, faces previewed in their own face, the

@@ -36,4 +36,25 @@ final class GetFontUsageTest extends KernelTestCase
         self::assertSame($usage->missing !== [], $usage->hasMissing());
         self::assertSame([], $usage->sitesFor('Nope (Nope Regular)'));
     }
+
+    /**
+     * A calendar layout references faces by the same family string (its text
+     * styles' `family`), so deleting a face a calendar uses must warn too.
+     */
+    public function testCountsCalendarLayoutsOfTheProject(): void
+    {
+        $usage = self::getContainer()->get(GetFontUsage::class)->forProject(Uuid::fromString(TestDataFixture::PROJECT_1_ID));
+
+        // CALENDAR_2 (finished, with a layout) sets Měsíc in Rubik Bold;
+        // CALENDAR_1 has no layout; CALENDAR_3 belongs to another project.
+        $calendars = $usage->calendarsFor('Rubik (Rubik Bold)');
+        self::assertCount(1, $calendars);
+        self::assertSame(TestDataFixture::CALENDAR_2_ID, $calendars[0]->calendarId);
+        self::assertSame(['Obecní kalendář'], $usage->calendarNamesFor(['Rubik (Rubik Bold)', 'Rubik']));
+        self::assertSame([], $usage->calendarNamesFor(['Nope (Nope Regular)']));
+
+        // The other project sees its own calendar only.
+        $other = self::getContainer()->get(GetFontUsage::class)->forProject(Uuid::fromString(TestDataFixture::PROJECT_2_ID));
+        self::assertSame([TestDataFixture::CALENDAR_3_ID], array_map(static fn ($site): string => $site->calendarId, $other->calendarsFor('Rubik (Rubik Bold)')));
+    }
 }

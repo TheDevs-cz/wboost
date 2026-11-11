@@ -81,7 +81,8 @@ are `K` and the control ranges `LIMITS`, both in `model/defaults.js`.
   layout is mirrored). A text style's `family` is exactly
   `Font::faceFamily()` (`"Rubik (Rubik Bold)"`) or `null` = built-in fallback;
   `Services/Font/RewriteFontReferences` rewrites `calendar.layout` on a font
-  rename.
+  rename (and bumps `revision`), and `Query/GetFontUsage` counts the layout
+  as a user of the face.
 - Presets: `photoLeft`, `photoRight` (= `mirrorLayout(photoLeft)`), `twoSided`
   (the only 14-day layout: first week left, photo in the middle, second week
   right). Frame `cal2` is rendered from the *same* styles under
@@ -311,8 +312,10 @@ All inner DOM is built by JS from one
 `StorageCategory::Calendar`, `CollectProjectStoragePaths`
 (`calendars/{calendarId}` per calendar), `DeleteCalendarHandler` (collects the
 directory first, removes the row, then `deleteDirectory`),
-`RewriteFontReferences` (`['calendar', 'layout']`). A new path-storing column
-needs all of them — `storage-inventory.md`.
+`RewriteFontReferences` (`replaceInCalendars`: rewrites `calendar.layout`,
+`revision` + 1, fresh `updated_at`), `GetFontUsage` (calendar layouts count on
+the Fonty page — `templates-text-inputs.md`). A new path-storing column
+needs all the storage ones — `storage-inventory.md`.
 
 ### The preview gate — Kalendáře is admin-only until launch
 

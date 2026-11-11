@@ -62,6 +62,13 @@ final class RenameFontHandlerTest extends KernelTestCase
     public function testRenameRewritesCalendarLayoutsOfTheProjectOnly(): void
     {
         $entityManager = self::getContainer()->get(EntityManagerInterface::class);
+        $before = [];
+
+        foreach ([TestDataFixture::CALENDAR_1_ID, TestDataFixture::CALENDAR_2_ID, TestDataFixture::CALENDAR_3_ID] as $id) {
+            $calendar = $entityManager->find(Calendar::class, Uuid::fromString($id));
+            self::assertInstanceOf(Calendar::class, $calendar);
+            $before[$id] = [$calendar->revision, $calendar->updatedAt];
+        }
 
         self::getContainer()->get(MessageBusInterface::class)->dispatch(new RenameFont(Uuid::fromString(TestDataFixture::FONT_RUBIK_ID), 'Rubik Neu'));
         $entityManager->flush();
@@ -75,15 +82,22 @@ final class RenameFontHandlerTest extends KernelTestCase
         self::assertStringNotContainsString('"Rubik (Rubik Bold)"', $layout);
         // Still the same document otherwise — maps stay maps.
         self::assertStringContainsString('"offsets":{}', $layout);
+        // The document changed under an open workspace: exactly one new
+        // revision however many faces were rewritten, and a fresh timestamp.
+        self::assertSame($before[TestDataFixture::CALENDAR_2_ID][0] + 1, $renamed->revision);
+        self::assertGreaterThan($before[TestDataFixture::CALENDAR_2_ID][1], $renamed->updatedAt);
 
         // Another project's calendar is not touched, and one without a layout is no problem.
         $foreign = $entityManager->find(Calendar::class, Uuid::fromString(TestDataFixture::CALENDAR_3_ID));
         self::assertInstanceOf(Calendar::class, $foreign);
         self::assertStringContainsString('"family":"Rubik (Rubik Bold)"', (string) json_encode($foreign->layout));
+        self::assertSame($before[TestDataFixture::CALENDAR_3_ID][0], $foreign->revision);
+        self::assertEquals($before[TestDataFixture::CALENDAR_3_ID][1], $foreign->updatedAt);
 
         $withoutLayout = $entityManager->find(Calendar::class, Uuid::fromString(TestDataFixture::CALENDAR_1_ID));
         self::assertInstanceOf(Calendar::class, $withoutLayout);
         self::assertNull($withoutLayout->layout);
+        self::assertSame($before[TestDataFixture::CALENDAR_1_ID][0], $withoutLayout->revision);
     }
 
     public function testRenameToAnExistingFamilyIsRefusedAndTheOwnNameIsANoOp(): void
