@@ -121,19 +121,54 @@ export function toast(message, error = false) {
 
 // ---- dialogs ----------------------------------------------------------------------------
 
+/**
+ * Shows a Bootstrap modal that may be stacked on another open one (a confirm from inside a tool
+ * dialog). Bootstrap handles one modal at a time, so the stacked case is repaired here:
+ * - the new dialog and its backdrop are lifted above the dialog below;
+ * - when it closes, <body> keeps `modal-open` (Bootstrap removes it with ANY modal), the focus
+ *   trap of the dialog below — switched off while the new dialog is open, or it would pull focus
+ *   back — is switched on again, and focus returns to the element that opened the dialog, so Esc
+ *   and Tab act on the dialog below again.
+ * Esc always reaches only the dialog that holds focus, i.e. the top one.
+ */
 function showModal(el, onHidden) {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const below = [...document.querySelectorAll('.modal.show')].pop() || null;
     document.body.append(el);
     const modal = new window.bootstrap.Modal(el);
+    // the focus trap of the dialog below would pull focus back out of the new dialog
+    const trapBelow = below ? (window.bootstrap.Modal.getInstance(below) || {})._focustrap : null;
+    const canTrap = Boolean(trapBelow && typeof trapBelow.deactivate === 'function' && typeof trapBelow.activate === 'function');
+    if (canTrap) trapBelow.deactivate();
     el.addEventListener(
         'hidden.bs.modal',
         () => {
             modal.dispose();
             el.remove();
+            const parent = below && below.isConnected && below.classList.contains('show') ? below : null;
+            if (parent) {
+                document.body.classList.add('modal-open');
+                if (canTrap) trapBelow.activate();
+                const target = opener && opener.isConnected && parent.contains(opener) && !opener.disabled ? opener : parent;
+                target.focus({ preventScroll: true });
+            }
             onHidden();
+            // the answer may have removed the opener (a deleted row): the dialog below takes focus
+            if (parent) {
+                setTimeout(() => {
+                    if (parent.isConnected && parent.classList.contains('show') && !document.querySelector('.modal.show ~ .modal.show') && !parent.contains(document.activeElement)) parent.focus({ preventScroll: true });
+                }, 0);
+            }
         },
         { once: true },
     );
     modal.show();
+    if (below) {
+        const base = Number(getComputedStyle(below).zIndex) || 1055;
+        el.style.zIndex = String(base + 10);
+        const backdrop = [...document.querySelectorAll('.modal-backdrop')].pop();
+        if (backdrop) backdrop.style.zIndex = String(base + 5);
+    }
     return modal;
 }
 
