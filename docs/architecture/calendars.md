@@ -178,6 +178,9 @@ waste kinds to the JS table.
 | `moonEdits` | `{op: add\|remove, date, phase 0–3}` | no |
 | `shiftOps` | `{name, shifts[1–4]{letter, from, to}, crews[4], pos}` | no |
 | `specialPages` | `{kind, on, layout, position, nextYear, name, asset, text ≤6000, fileName, pos}` | no |
+| `pageSetup` | arrangement of a page, keyed by `cover` · `back` · `sp:intro` · `sp:contacts` — § "Content of the cover, back and special pages" | no |
+| `pageContent` | texts + photo of a page, keyed by `cover` · `back` · `sp:intro` · `sp:contacts` · `sp:year` · `sp:waste` · `sp:notes` — one shape per key | yes |
+| `pageGroups` | `{page: sp:contacts\|sp:waste, heading ≤80, lines[≤30]{label ≤40, value ≤200}, highlight, pos}` — ≤ 60 per calendar | yes |
 
 Rules worth knowing:
 
@@ -187,8 +190,12 @@ Rules worth knowing:
   collection in a plain object; the rule covers item ids, id references and
   the id inside a `sp:<id>` page key). The `page*` collections are keyed by **page key**
   (`pre`, `w01`…`w53`, `post`, `cover`, `back`, `sp:<id>`). The generated
-  special pages use the fixed ids `intro contacts year waste`; a missing one
-  means "default, off".
+  special pages use the fixed ids `intro contacts year waste notes`; a missing
+  one means "default, off". `pageContent` / `pageSetup` are keyed by a **fixed
+  set** of page keys (`CONTENT_PAGE_KEYS` / `SETUP_PAGE_KEYS`) and are
+  deliberately NOT in `PAGE_KEYED` / `PAGE_COLLECTIONS`: they are the page's
+  content, not an override of the style, so „Vrátit na styl“ and the
+  „Upraveno“ dot ignore them.
 - Dates must be real and inside `[year−1-12-01, year+1-01-31]`, checked against
   the year the calendar has **after** the design patch of the same request.
 - `comments` are append-only; the server stamps `author` and `at`. Two
@@ -210,6 +217,124 @@ Rules worth knowing:
   *stripped* of C0 controls (tab / LF / CR survive in content texts; labels
   and names are single-line) — so the stored item can differ from the sent
   one. Layout style strings are stored as sent and therefore *refused* (422).
+
+### Content of the cover, back and special pages (2026-11-12)
+
+The prototype drew these pages as wireframes; they are editable since
+2026-11-12 (no design existed — every decision is listed in
+`docs/calendar/report.md` §4a). Three collections, split by **who may write
+them**:
+
+| Collection | Key → item | Writer |
+|---|---|---|
+| `pageContent` | `cover` `{title, subtitle, note ≤120, photo}` · `sp:intro` `{heading, salutation, body ≤4000, signName, signRole, photo}` · `sp:contacts` `{heading, notesHeading ≤40, photo}` · `sp:year` / `sp:waste` `{heading, note ≤200}` · `sp:notes` `{heading}` · `back` `{heading, footer ≤200, name, address ≤300 in ≤ 6 lines, phone ≤60, email, web, imprint ≤200}` — one-line texts ≤ 80 unless noted; `photo` = `null \| {asset, zoom 1–3, px, py}` (the crop model of `pagePhotos`) | designer + client |
+| `pageGroups` | random id → `{page, heading, lines[{label, value}], highlight, pos}` — a group of the contacts page, or of the texts beside the waste grid | designer + client |
+| `pageSetup` | `cover` `{layout 0–3, logo: none\|tl\|tc\|tr\|title, logoSize: s\|m\|l}` · `sp:intro` `{align: left\|justify}` · `sp:contacts` `{clubLegend, wasteLegend, notes}` · `back` `{logo}` | designer |
+
+- **The client whitelist is per collection, on purpose.** The owner's intent:
+  the client fills in local content instead of proofreading it — texts, the
+  cover / portrait photo, contact groups. What a page LOOKS like (`pageSetup`)
+  and which pages exist (`specialPages`: `on`, `layout`, `position`, order)
+  stays with the designer. A field's collection says who owns it; there is no
+  per-field rule inside an item — the client re-sends whole items, so such a
+  rule would refuse an honest save whenever the designer changed a layout in
+  between. A forged client op on `pageSetup` / `specialPages` is a 403 for the
+  whole request; a `layout` key smuggled into a `pageContent` item is a 422
+  (exact key sets).
+- **A missing item = empty** (`pageContentOf` / `pageSetupOf` /
+  `pageGroupsOf` in `model/content.js` fill the defaults and drop unknown
+  keys). The UI removes an item that is back at its defaults. Nothing is
+  dated, keys never hold a year or a type → a year change, a type change and a
+  layout import leave all of it alone. No migration.
+- **Empty title / heading = the default one** (`Kalendář {rok}`, the page name
+  in capitals, `PŘEHLED ROKU {rok}`); a typed one is printed as typed.
+- **`body` is plain text with light marks** (`parseRichText`): an empty line
+  separates paragraphs, a single line break stays, `**bold**`, `*italic*`
+  (they nest), `\*` is a literal asterisk; a mark without its partner in the
+  same paragraph is text. Malformed input never fails and never loses a
+  character (suite `special`). It is never HTML.
+- One-line fields are stored single-line (`CalendarText::singleLine`); the
+  body and the address keep their line breaks.
+- History: `Upravil texty strany — {strana}` (or `Nahrál / Vyměnil / Posunul /
+  Odebral fotku — {strana}` when the photo is all that changed), `Upravil
+  vzhled strany — {strana}`, `Přidal / Upravil / Odebral skupinu „…“ —
+  Důležité kontakty`, `Změnil pořadí skupin — …` (once per save).
+
+**Rendering — `render/special.js`** (pure; draws in the 1000 × 468 design units
+mapped onto the real page, so every page size works — the `special` suite
+renders three):
+
+- Fonts and colours come from the style: headings in the Hlavička text style
+  (`paperHead` = its colour, or ink when it is white), body in the Kalendárium
+  `name` style, group headings and the highlighted block in `ev.color`.
+  Bold / italic are the **sibling cuts of the project font**
+  (`specialFamilies(doc, fonts)` lists them; synthesised by the browser when
+  the font has none). The workspace controller loads them before the first
+  render and `CalendarRenderAssets::fontFaces` ships every cut of a used font
+  to the headless page — a cut the layout does not name used to fall back to
+  Chromium's default face in the PDF.
+- **Nothing invented is printed.** An unfilled page shows grey bars / photo
+  slots / a dashed logo while `placeholders !== 'none'` (editor, thumbnails,
+  approval PDF) and nothing in the print PDF.
+- **Auto-fit, then a warning — never a silent cut.** Intro: the largest of
+  seven sizes that fits, then more columns (balanced, no widows / orphans,
+  one-letter prepositions glued to the next word, justified lines spread by
+  `word-spacing` up to half the type size). Groups: the largest of seven sizes
+  at which whole groups fit the balanced columns (`spreadColumns`), a group is
+  split between lines only when nothing else works; a heading never parts
+  from its first line, the highlighted block never splits. One-line fields
+  shrink to 62 %. What still does not fit ends with `…` and is reported by
+  `specialPageIssues(doc, page, opts)` — the very layout run, so it cannot
+  disagree with the picture — which `render/warnings.js` turns into a warning
+  `{ kind: 'overflow', target: { el: 'page' } }` (thumbnail badge, chip,
+  page panel, Upozornění, MCP).
+- Cover layouts (`COVER_LAYOUTS`): 0 photo with a title band, 1 framed photo
+  with the title below, 2 no photo, 3 photo only (a finished cover graphic).
+  The photo of 0 / 3 covers the bleed box **including the binding band**; the
+  logo (the style's `logo.asset`) is painted after the photo and the band.
+- Contacts layouts: 0 two, 1 three, 2 four columns, 3 two columns + photo (the
+  wireframe's "Tabulka" and "Seznam + fotka" are gone — a stored `layout` 1 / 2
+  now means three / four columns). The club legend („Vysvětlivky“, ≤ 8, only
+  while events are on) and the waste legend („Svoz odpadů“) are **generated
+  groups** appended to the user's and flow with them (`data-legend`);
+  `pageSetup` switches them. `notes` reserves the right 24–30 % for ruled
+  lines with their heading in the header band.
+- The waste plan's layout 1 („Mřížka + texty“) sets the `pageGroups` of
+  `sp:waste` beside the grid; layout 0 has no room and ignores them.
+- `specialPhotoBox(doc, page)` = the frame a page's photo is cropped into (mm,
+  bleed included), `null` when the layout shows none — the crop control uses
+  its aspect ratio.
+- Debug / e2e attributes: `data-field="title|subtitle|note|heading|
+  notes-heading|body|sign-name|sign-role|group-heading|line|line-label|
+  line-value|name|address|reach|imprint"`, `g[data-group][data-column]`,
+  `g[data-el="groups"][data-size][data-columns]`, `[data-highlight]`,
+  `g[data-el="page-photo"|"page-logo"|"cover"|"ruled"|"side"]`,
+  `g[data-field="body"][data-size][data-columns][data-overflow]`.
+
+**Editing — `ui/pagecontent.js`** (`hasPageContent(page)`,
+`mountPageContent(root, ctx, { page })`): one set of field sections on two
+surfaces.
+
+- **Step 4**: the page's right panel (`ui/pagepanel.js` mounts it once per page
+  and re-attaches the same node on every rebuild, so a field keeps its focus
+  when a warning appears while typing). The Speciální stránky panel keeps
+  kind / layout / position / order and gets „Upravit obsah“, which opens the
+  page; its layout thumbnails show the real content.
+- **Step 5**, designer and client: „Upravit obsah stránky“
+  (`[data-cal-action="page-content"]`, shown on pages that have content) opens
+  the same sections in a wide popover (`openPopover({ wide: true })` —
+  draggable on a desktop, a sheet docked to the bottom under 700 px so the
+  page stays visible). It closes when another page is shown.
+- Fields write on every keystroke (`putItem`, never undoable); the store event
+  redraws the page (step 4 coalesces into one frame). The sections rebuild
+  only when their structure changes (layout, a group or line added / removed /
+  moved) — the signature in `signatureOf()`.
+- A client gets no `pageSetup` section at all (cover layouts, logo, alignment,
+  legends, notes switch) — a mirror of the server rule.
+- Groups: collapsible cards, SortableJS (`forceFallback`) for groups and for
+  the lines of a group, Enter in the last line adds a line, caps disable the
+  add buttons. The photo field: upload tile (kind `photo`, so a client may
+  use it), a crop preview dragged with the pointer, a zoom slider.
 
 ## Server
 
@@ -411,7 +536,7 @@ everything else. ~15 000 lines.
 | `render/` | `renderPage(doc, page, opts) → SVG string` (`page.js`), week geometry (`week-layout.js`) and markup (`week.js`), cover / back / special pages (`special.js`), built-in icons, `measure.js`, `warnings.js` | pure except the two marked functions in `measure.js` |
 | `editor/` | geometry, hit test, snap, link, drag sessions, part bars, bleed adaptation, auto-grow, zoom | pure |
 | `state/` | `store.js`, `undo.js`, `payload.js` (pure, node-tested) and `api.js` (fetch) | pure except `api.js` |
-| `ui/` | DOM modules: `dom.js` kit, `topbar`, `step1`, `step2`, `step4`, `step5` (+ overlay, popover), `pagelist`, `pagepanel`, `thumb`, `warnings`, `history`, `client-link`, `editor/*` (stage, overlay, parts overlay, keys, layers, props, props-kal), `controls/*`, `tools/*` | DOM |
+| `ui/` | DOM modules: `dom.js` kit, `topbar`, `step1`, `step2`, `step4`, `step5` (+ overlay, popover), `pagelist`, `pagepanel`, `pagecontent`, `thumb`, `warnings`, `history`, `client-link`, `editor/*` (stage, overlay, parts overlay, keys, layers, props, props-kal), `controls/*`, `tools/*` | DOM |
 
 **Rule: nothing outside `ui/` and `state/api.js` touches `window`, `document`,
 `fetch` or timers** (exceptions: `createCanvasMeasurer()` /
@@ -561,8 +686,9 @@ Waste rhythms follow ISO week parity (so they shift across a 53-week year).
   `ev.box` is one box for every row, used as placed; overflow is a warning,
   text is never clipped.
 - **Warnings** (`render/warnings.js`): portrait photo, dpi < 200, icons that do
-  not fit the grid, event overflow — all derived from geometry + the asset
-  map, nothing stored, never blocking.
+  not fit the grid, event overflow — and, on the cover / back / special pages,
+  a text that does not fit (`overflow`) — all derived from geometry + the
+  asset map, nothing stored, never blocking.
 
 ## Server-side model and headless render
 
@@ -874,7 +1000,7 @@ calendars and `get_calendar` carries the project's fonts and palette).
 | `manage_calendar(action, …)` | write | `create` (`CreateCalendar`, then the settings), `configure` (name, year, type, features, print, linkElements), `finish`, `client_link` (get = `RecordCalendarHistory` LINK_COPIED, `regenerate` = `RegenerateCalendarClientLink`), `import_layout` (`ImportCalendarLayout::plan` + `CopyCalendarAsset` + history, then `replace_layout`), `export_pdf` (`CalendarExports::request` — the web's own request; answers `export`) and `export_status` |
 | `set_calendar_layout(calendarId, preset?, reset?, boxes?, order?, styles?)` | write | preset → default layout (or mirror / reset), then a validated patch |
 | `upload_calendar_asset(calendarId, kind, fileBase64, filename)` | write | `CalendarAssetUploader::storeFile()` — the method both web routes end in |
-| `update_calendar_content(calendarId, operations[])` | write | item operations `{collection, id, value\|null, label?}` re-encoded as the web payload's `content` list |
+| `update_calendar_content(calendarId, operations[])` | write | item operations `{collection, id, value\|null, label?}` re-encoded as the web payload's `content` list — including `pageContent` / `pageGroups` (and `pageSetup` for a designer); shapes, caps and examples are in the tool's description and `references/tools.md` |
 
 - **One write path.** Design tools phrase model commands; `Mcp/Fill/CalendarWriter`
   runs the model, parses its payload with `CalendarSavePayload::fromJson` and
@@ -951,6 +1077,15 @@ zoom, snap and link behaviour (interaction, not data).
 | Node suites (every pure rule) | `tests/Fixtures/calendar/suites/*.mjs` + `harness.mjs`, `helpers.mjs` | in CI through `tests/Calendar/CalendarJsTest.php` (data provider globs the suites; a new suite file needs no PHP edit, a suite without a test fails); by hand `node tests/Fixtures/calendar/harness.mjs --all` or `… <suite>` |
 | Contract | `tests/Calendar/CalendarSeedContractTest.php` (PHP seed vs `BUILTIN_WASTE` via `dump-defaults.mjs`) | CI |
 | e2e (real pointer, asserts in mm) | `tests/e2e/calendar/*.e2e.cjs`, `lib/harness.cjs`, `lib/editor.cjs` | `node tests/e2e/calendar/run.cjs [filter]` — **not in CI** |
+
+Content of the cover / back / special pages: node suite `special` (every kind ×
+layout × empty / typical / overflowing content at three page sizes, markup
+parsing, balancing, auto-fit, the warning, escaping), `CalendarContentRulesTest`
+(per-key shapes, caps, asset refs, whitelist), `DescribeCalendarChangeTest`,
+`CalendarClientTest::testClientFillsInTheTextsOfTheCoverAndTheSpecialPages` +
+the forbidden payloads, `CalendarToolsTest::testAnAgentFillsTheCoverIntroContactsAndBackPages`,
+e2e `special-content` (designer in step 4, client in step 5, forged requests,
+overflow warning, the approval PDF read with `pdftotext`).
 
 - The node harness needs **node ≥ 22.7** (ES-module syntax detection for
   `.js` in a tree without `"type": "module"`); older node prints `{"skip"}` and
@@ -1034,6 +1169,16 @@ zoom, snap and link behaviour (interaction, not data).
   the newest). Call it last in a handler, inside the bus transaction.
 - **PDF special pages need Ghostscript** behind Imagick. Verified in the dev
   image only; without it the endpoint answers 422 and images still work.
+- **Content of a page vs overrides of a page.** `pageContent` / `pageSetup` /
+  `pageGroups` must never join `PAGE_COLLECTIONS` (JS) — „Vrátit na styl“
+  deletes everything in those. And `CalendarContentRules` ↔ `model/content.js`
+  now also mirror `CONTENT_PAGE_KEYS`, `SETUP_PAGE_KEYS`, `GROUP_PAGE_KEYS`
+  and the caps (`CONTENT_LIMITS`).
+- **A picture inside a content item must be known to
+  `CalendarRenderAssets`** (`PER_PAGE_COLLECTIONS` + `idsOf`): the headless
+  page gets a data URI only for assets that class finds — a new nested
+  reference (`pageContent[*].photo.asset`) renders in the workspace and is
+  missing in the PDF otherwise.
 - **`ensureFixture()` / the e2e runner write to the dev database** — into their
   own project only. Do not point `BASE` at anything that is not a dev stack.
 
@@ -1054,9 +1199,11 @@ Deliberately not built (handoff §2), with the room left for them:
   vector black. A clean variant needs our own colour pass over the content
   streams (fills / strokes by palette, near-black → K 100) before or instead
   of Ghostscript; not built.
-- **Cover, back and special pages** are drawn as far as the prototype goes;
-  their content is not editable beyond the special-page settings (layout
-  variant, position, name, uploaded graphic / text).
+- **Cover, back and special pages**: content is editable since 2026-11-12.
+  Not built: free positioning of anything on these pages (they are layouts,
+  not a canvas), more than one photo per page, per-group columns or tables
+  with more than label + value, hyphenation, a separate logo for the cover,
+  the municipality's crest as an own asset (the style's logo is used).
 - **Gallery as a photo source** — uploads are from disk only; a calendar asset
   is not a gallery `FileUpload`.
 - **Page size UI**, an **asset sweeper** (unreferenced uploads — also the only

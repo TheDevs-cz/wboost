@@ -148,6 +148,78 @@ refuse content ids that are Object.prototype properties; count calendar layouts 
 font rename counts as a calendar save; the list page no longer embeds full documents; photos are
 allow-listed by sniffed MIME type.
 
+## 4a. Content of the cover, back and special pages (2026-11-12) — decisions made without a prototype
+
+The prototype stopped at wireframes; the product owner asked for editable pages modelled on the
+client's printed calendars (Bukovec, Chotěbuz, Markvartovice, Bruzovice). Every decision below is
+ours. Reference: `docs/architecture/calendars.md` § "Content of the cover, back and special pages".
+
+1. **Three collections, split by who may write them.** `pageContent` (texts + photo, client may
+   write), `pageGroups` (contact groups, client may write), `pageSetup` (arrangement, designer
+   only). The "client whitelist per field" is realised as a whitelist per collection: a field's
+   collection says who owns it. A per-field rule inside one item would have refused a client's
+   honest save whenever the designer changed a layout in between (the client re-sends the whole
+   item) — two collections merge cleanly instead.
+2. **Fixed page keys, one shape per key** (`cover`, `back`, `sp:intro`, `sp:contacts`, `sp:year`,
+   `sp:waste`, `sp:notes`). No content on week pages or uploaded pages. No migration: everything
+   is in the existing `content` JSONB; a missing item means "empty".
+3. **An empty title / heading prints the default** (`Kalendář {rok}`, the page name in capitals,
+   `PŘEHLED ROKU {rok}`), shown as the field's placeholder. A typed heading is printed as typed
+   (no forced capitals). The invented `Název klienta`, `Jméno Příjmení`, `starosta obce` and
+   `Kontakty, web a logo klienta` of the wireframes are gone — nothing invented is ever printed.
+4. **Unfilled pages keep their wireframe look in the editor and the approval PDF** (grey bars,
+   photo slots, dashed logo) and are blank in the print PDF — the rule photos already follow.
+5. **Intro text is plain text with light marks**: an empty line = a paragraph, `**bold**`,
+   `*italic*`, `\*` = an asterisk. Not HTML and not a rich-text tree: it is validated by a length
+   cap alone, edited in a textarea on a phone, written naturally by an AI client, and a malformed
+   input degrades to visible asterisks instead of failing. Two buttons wrap the selection.
+6. **Typography from the style**: headings in the Hlavička font, body in the Kalendárium
+   "jmeniny" style (bold / italic = the sibling cuts of that project font, synthesised when the
+   font has none), group headings and the highlighted block in the events colour. Czech
+   one-letter prepositions never end a line; widows and orphans are avoided; justified lines are
+   spread by word spacing only while the gaps stay under half the type size.
+7. **Auto-fit, then a warning.** Intro: 7 sizes (11.6 → 7.4 design units ≈ 10 → 6.5 pt on the
+   default page), then more columns; contacts: 7 sizes (≈ 9 → 5.8 pt), whole groups first, a group
+   split between lines only as a last resort. What still does not fit ends with `…` and raises a
+   page warning of kind `overflow` (thumbnail badge, chip, panel, Upozornění, MCP). One-line
+   fields shrink to 62 % before they are cut.
+8. **Cover**: four layouts (photo with a title band / framed photo / no photo / photo only for a
+   finished cover graphic); the photo is full-bleed including the binding band; the logo is the
+   style's logo, optional, in five positions, painted OVER the photo (the crest of the samples).
+   Default: band layout, logo top right, title `Kalendář {rok}`.
+9. **Contacts**: the layouts were redefined — 2 / 3 / 4 columns and 2 columns + photo — because
+   the wireframe's "Tabulka" (fixed columns Instituce / Telefon / E-mail / Úřední hodiny) cannot
+   hold what the samples print. A line is free text or label + value; values of a group align in
+   one column (Chotěbuz), plain lines cover the Bukovec style. Stored `layout` 1 / 2 of a
+   wireframe page now mean three / four columns. Columns are balanced; a heading never parts from
+   its first line; hairlines separate used columns.
+10. **The highlighted block** is a property of a group (`highlight`), editable by the client: which
+    block is the emergency one is content. It is tinted, never split, values right-aligned.
+11. **Legends are generated groups** („Vysvětlivky“ from clubs — at most eight, only while events
+    are on; „Svoz odpadů“ from the waste kinds that are on) flowing with the contacts; each can be
+    switched off (designer). Default: clubs on (as before), waste off.
+12. **Notes**: a column of ruled lines on the contacts page (heading in the header band, as in
+    Chotěbuz) and a new generated page kind `notes` („Poznámky“, default position before the back
+    page).
+13. **Back page**: the year variant gets a heading, a line under the grid and an imprint; the
+    contacts variant a centred block — logo (optional), name, up to six address lines, phone ·
+    e-mail · web on one line when it fits — and the imprint at the bottom.
+14. **Roční kalendárium / waste plan**: editable heading + one note line; the waste plan's layout
+    „Mřížka + texty“ sets `pageGroups` of `sp:waste` beside the grid (replacing the three
+    wireframe tables).
+15. **Photo crop** uses the model of week photos (`zoom`, `px`, `py`), edited in a crop preview
+    inside the panel (drag + slider) — the special pages have no step-5 overlay.
+16. **Editing surfaces**: step 4 → the page's right panel; Speciální stránky → „Upravit obsah“
+    jumps there; step 5 → „Upravit obsah stránky“ opens the same fields in a wide popover
+    (draggable on a desktop, a bottom sheet on a phone) for the designer and the client. Fields
+    write as you type (explicit Uložit still stores them).
+17. **Caps**: one-line fields 80 (cover line 120, notes heading 40, notes / footer / imprint 200,
+    phone 60), body 4 000, address 300 in ≤ 6 lines, group heading 80, ≤ 30 lines of label 40 /
+    value 200, ≤ 60 groups per calendar.
+18. **Fonts in the PDF**: every cut of a font the layout names now travels to the headless
+    renderer (bold / italic of the body, the heading weights) — before, a heading cut the layout
+    did not name fell back to Chromium's default face.
+
 ## 5. Recommended behaviours (§8) and defaults (§10)
 | Item | Outcome |
 | --- | --- |
@@ -170,7 +242,7 @@ allow-listed by sniffed MIME type.
 | §10.10 uploaded special pages | default |
 | §10.11 client link | default: unguessable, regenerable, no expiry |
 | §10.12 binding band | prototype proportion, a calendar property |
-| §10.13 cover / back / special pages | as far as the prototype goes |
+| §10.13 cover / back / special pages | **implemented 2026-11-12** — editable content (texts, photos, contact groups) for the designer and the client; no prototype existed, decisions in §4a |
 | §10.14 removing step-5 additions | default; comments permanent |
 | §10.15 QR source | uploads only |
 | §10.16 photo / logo source | disk only |
@@ -179,7 +251,7 @@ allow-listed by sniffed MIME type.
 - AI scan, PDF / image layout import, Excel import (out of scope).
 - Print output in CMYK / PDF/X (the export is RGB; the Ghostscript conversion spike gives rich-black text and no brand palette — `docs/architecture/calendars.md` "Known gaps"). The worst case (53 photos at the 10 MB cap) was measured: 527 MB in 118 s.
 - Long holiday + event on the same day of a 14-day page: ~10 mm box, warning only; a stacking rule needs a design decision.
-- Cover / back / special page content editing; gallery as photo source; page size UI; asset sweeper; client autosave; design conflict detection; launch (preview gate).
+- Gallery as photo source; page size UI; asset sweeper; client autosave; design conflict detection; launch (preview gate).
 - e2e not in CI; dev container restarts under load.
 - TestDataFixture layout swap.
 - Unverified: print-shop band / hole values, PDF special pages on the production image.
