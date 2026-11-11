@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Services\Calendar;
 
+use Ramsey\Uuid\UuidInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -108,6 +109,26 @@ readonly final class CalendarAssetUploader
             return CalendarResponses::error('Vyberte soubor.', Response::HTTP_BAD_REQUEST);
         }
 
+        $assetId = $this->storeFile($calendar, $actor, $kind, $file);
+
+        return new JsonResponse(['id' => $assetId->toString()] + $this->document->asset($this->assetRepository->get($assetId)));
+    }
+
+    /**
+     * Stores one file as an asset of the calendar and answers its id — the
+     * whole upload rule set (role, size, client storage cap, format sniffing,
+     * pixel cap, normalisation, preview). Both web routes and the MCP tool
+     * `upload_calendar_asset` end here.
+     *
+     * @throws InvalidCalendarChange
+     * @throws CalendarChangeForbidden
+     */
+    public function storeFile(Calendar $calendar, CalendarActor $actor, CalendarAssetKind $kind, UploadedFile $file): UuidInterface
+    {
+        if (!$actor->isDesigner() && !$kind->clientMayUpload()) {
+            throw new CalendarChangeForbidden();
+        }
+
         if ($file->getSize() > CalendarDocument::MAX_FILE_SIZE) {
             throw new InvalidCalendarChange(self::TOO_LARGE);
         }
@@ -203,7 +224,7 @@ readonly final class CalendarAssetUploader
             $actor,
         ));
 
-        return new JsonResponse(['id' => $assetId->toString()] + $this->document->asset($this->assetRepository->get($assetId)));
+        return $assetId;
     }
 
     private static function fileName(string $name): string
