@@ -15,11 +15,13 @@
 // edge and at the minimum size, and take the neighbours along when Propojit prvky is on. After a
 // change the four fields show what the store really holds, so a corrected value is visible at once.
 //
-// Kalendárium of a 14-day calendar: a `1. týden | 2. týden` switch (`[data-prop="cal.frame"]`) picks
-// the frame; it writes `ui.selection.frame` (the panel is rebuilt by `props.js` on that change).
+// Elements with one frame per week column on a 14-day calendar (Kalendárium, Měsíc, Číslo týdne):
+// a `1. týden | 2. týden` switch (`[data-prop="<el>.frame"]` — `cal.frame`, `month.frame`,
+// `wk.frame`) picks the frame; it writes `ui.selection.frame` (the panel is rebuilt by `props.js`
+// on that change). The fields then show and edit that frame's box (`cal2`, `month2`, `wk2`).
 
 import { K, bleedOf } from '../../model/defaults.js';
-import { visibleBoxKeys } from '../../model/elements.js';
+import { FRAME_LABELS, boxKeysOf, visibleBoxKeys } from '../../model/elements.js';
 import { setField } from '../../editor/drag.js';
 import { numberField, segmented } from '../dom.js';
 import { labelled, pair, section } from './panel.js';
@@ -35,10 +37,12 @@ const FIELDS = [
 export function positionSection(ctx, elementKey) {
     const { store } = ctx;
     const design = () => store.getState().doc.design;
-    const fortnightCal = () => elementKey === 'cal' && design().type === 'fortnight';
+    const frameKeys = () => boxKeysOf(elementKey, design());
+    const twoFrames = () => frameKeys().length > 1;
     const boxKey = () => {
         const selection = store.getState().ui.selection;
-        return fortnightCal() && selection && selection.frame === 1 ? 'cal2' : elementKey;
+        const keys = frameKeys();
+        return (selection && selection.el === elementKey && keys[selection.frame || 0]) || keys[0];
     };
     const box = () => {
         const layout = design().layout;
@@ -78,20 +82,17 @@ export function positionSection(ctx, elementKey) {
     }
 
     let frame = null;
-    if (fortnightCal()) {
+    if (twoFrames()) {
         const selection = store.getState().ui.selection;
         frame = segmented({
             label: 'Týden',
             full: true,
             value: selection && selection.frame === 1 ? 1 : 0,
-            attrs: { 'data-prop': 'cal.frame' },
-            options: [
-                { value: 0, label: '1. týden' },
-                { value: 1, label: '2. týden' },
-            ],
+            attrs: { 'data-prop': `${elementKey}.frame` },
+            options: FRAME_LABELS.map((label, value) => ({ value, label })),
             onChange: (next) => {
                 const now = store.getState().ui.selection;
-                store.setUi({ selection: { ...(now || { el: 'cal' }), frame: next } });
+                store.setUi({ selection: { ...(now && now.el === elementKey ? now : { el: elementKey }), frame: next } });
             },
         });
         frame.classList.add('cal-side');

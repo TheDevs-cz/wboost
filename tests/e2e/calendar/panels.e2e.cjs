@@ -455,7 +455,7 @@ module.exports = {
         await check('G12 Tvar changes every week page: 1. týden / Týden 1 / T1; persists', async () => {
             await select('wk');
             assert.equal(await title(), 'Číslo týdne');
-            const texts = () => h.cal(page, (c) => c.pages().filter((p) => p.kind === 'week').map((p) => p.week.weekText));
+            const texts = () => h.cal(page, (c) => c.pages().filter((p) => p.kind === 'week').map((p) => p.week.weekTexts[0]));
             let all = await texts();
             assert.equal(all.length, 53);
             assert.ok(all.every((t) => /^\d+\. týden$/.test(t)), `form a: ${all[0]}`);

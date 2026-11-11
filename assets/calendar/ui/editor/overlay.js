@@ -1,5 +1,6 @@
 // Selection chrome of the editor stage (architecture §D.6): the selection frame with its eight
-// handles and the name tag, the dim outline of the other Kalendárium frame of a 14-day page, the
+// handles and the name tag, the dim outline of the element's other frame on a 14-day page
+// (Kalendárium, Měsíc and Číslo týdne have one frame per week column there), the
 // highlight boxes of a selected Kalendárium part and the snap guides. Owner P4; used by `stage.js`.
 //
 // `mountOverlay(overlayRoot, ctx): { update(geometry, scale), destroy() }`
@@ -12,12 +13,11 @@
 // DOM hooks (§D.10): `[data-handle="n…nw"]`, `[data-frame-tag]`, `[data-part-box]`, `[data-guide="x|y"]`.
 
 import { bleedOf } from '../../model/defaults.js';
-import { boxKeysOf, elementLabel, isElementVisible, partLabel } from '../../model/elements.js';
+import { FRAME_LABELS, boxKeysOf, elementLabel, isElementVisible, partLabel } from '../../model/elements.js';
 import { h } from '../dom.js';
 
 // corners first, sides last: on a small frame the side handles lie on top
 const HANDLE_ORDER = ['nw', 'ne', 'se', 'sw', 'n', 'e', 's', 'w'];
-const FRAME_LABELS = ['1. týden', '2. týden'];
 const PART_PAD = 0.5; // mm around a highlighted part
 const TAG_ROOM = 30; // px the tag needs under the frame
 const TIGHT_PX = 36; // frames smaller than this get handles without the enlarged grab area

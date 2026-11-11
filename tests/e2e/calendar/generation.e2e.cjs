@@ -28,7 +28,7 @@ const HOLIDAYS_2027 = {
     '2027-12-26': /2\. svátek vánoční/,
 };
 
-const weekPages = (page, h) => h.cal(page, (c) => c.pages().filter((p) => p.kind === 'week').map((p) => ({ index: p.index, key: p.key, title: p.title, first: p.week.frames[0][0], last: p.week.frames[p.week.frames.length - 1].slice(-1)[0], monthText: p.week.monthText, weekText: p.week.weekText, weeks: p.week.weeks, frames: p.week.frames })));
+const weekPages = (page, h) => h.cal(page, (c) => c.pages().filter((p) => p.kind === 'week').map((p) => ({ index: p.index, key: p.key, title: p.title, first: p.week.frames[0][0], last: p.week.frames[p.week.frames.length - 1].slice(-1)[0], monthText: p.week.monthTexts[0], weekText: p.week.weekTexts[0], monthTexts: p.week.monthTexts, weekTexts: p.week.weekTexts, weeks: p.week.weeks, frames: p.week.frames })));
 
 /** Every day row the app lays out: `{ date, kind (number style), holiday: joined 'hol' lines, numFill, pageIndex }`. */
 const allRows = (page, h) =>
@@ -61,6 +61,9 @@ const drawn = (page) =>
             key: svg.dataset.page,
             month: texts('[data-el="month"] text').join(' '),
             wk: texts('[data-el="wk"] text').join(' '),
+            // per week column (frame 0 = first week), with the centre of the text on the screen
+            months: [...svg.querySelectorAll('[data-el="month"]')].map((g) => ({ frame: Number(g.dataset.frame), text: g.querySelector('text').textContent, cx: g.querySelector('text').getBoundingClientRect().left + g.querySelector('text').getBoundingClientRect().width / 2 })),
+            wks: [...svg.querySelectorAll('[data-el="wk"]')].map((g) => ({ frame: Number(g.dataset.frame), text: g.querySelector('text').textContent, cx: g.querySelector('text').getBoundingClientRect().left + g.querySelector('text').getBoundingClientRect().width / 2 })),
             frames: [...svg.querySelectorAll('[data-el="cal"]')].map((g) => ({
                 frame: Number(g.dataset.frame),
                 x: g.getBoundingClientRect().left,
@@ -203,7 +206,7 @@ module.exports = {
             await h.save(page);
         });
 
-        await check('G2 + G6 14 dní: 29 pages (cover, 27 week pages, back); the first page is 28 Dec 2026 – 10 Jan 2027, first week left, second right, weeks 53 and 1', async () => {
+        await check('G2 + G6 14 dní: 29 pages (cover, 27 week pages, back); the first page is 28 Dec 2026 – 10 Jan 2027, first week left, second right; month and week number once per column, as on the printed samples', async () => {
             const made = await ed.newCalendar(page, h, { type: 'fortnight' });
             fort = made.id;
             if ((await h.state(page)).design.year !== 2027) {
@@ -227,10 +230,32 @@ module.exports = {
             assert.ok(a.x < b.x, 'the first week is drawn on the left, the second on the right');
             const photo = await page.$eval('.cal-5w .cal-page-svg svg [data-el="photo"]', (el) => el.getBoundingClientRect().left);
             assert.ok(a.x < photo && photo < b.x, 'the photo sits between the two weeks');
-            assert.match(d.wk, /53/);
-            assert.match(d.wk, /\b1\b/);
-            assert.equal(d.wk, '53. a 1. týden');
-            assert.equal(d.month, 'PROSINEC 2026 / LEDEN 2027');
+            // each column prints ITS OWN month(s) and week number: the first week (28 Dec – 3 Jan) spans
+            // two months and years, the second (4 – 10 Jan) does not
+            assert.deepEqual([first.monthTexts, first.weekTexts], [['PROSINEC 2026 / LEDEN 2027', 'LEDEN 2027'], ['53. týden', '1. týden']]);
+            assert.deepEqual(d.months.map((m) => [m.frame, m.text]), [[0, 'PROSINEC 2026 / LEDEN 2027'], [1, 'LEDEN 2027']]);
+            assert.deepEqual(d.wks.map((m) => [m.frame, m.text]), [[0, '53. týden'], [1, '1. týden']]);
+            assert.ok(!/53\. a 1\. týden/.test(d.wk), 'no text for the whole fortnight is printed');
+            // the first week's texts stand over / under the left column, the second week's over / under the right one
+            const bx = b.x;
+            for (const list of [d.months, d.wks]) assert.ok(list[0].cx < photo && list[1].cx > bx, `texts sit with their column: ${JSON.stringify(list)}`);
+            // the logo sits between the two month texts
+            const logo = await page.$eval('.cal-5w .cal-page-svg svg [data-el="logo"]', (el) => { const r = el.getBoundingClientRect(); return r.left + r.width / 2; }).catch(() => null);
+            if (logo !== null) assert.ok(d.months[0].cx < logo && logo < d.months[1].cx, 'logo between the month texts');
+
+            // more pages: both weeks in one month; only the SECOND week crosses a month boundary; the year's end
+            const all = await weekPages(page, h);
+            const expectPage = async (p, months, wks) => {
+                assert.deepEqual([p.monthTexts, p.weekTexts], [months, wks], `page ${p.key}`);
+                await showPage(page, h, p.index);
+                const on = await drawn(page);
+                assert.deepEqual([on.months.map((m) => m.text), on.wks.map((m) => m.text)], [months, wks], `drawn page ${p.key}`);
+            };
+            await expectPage(all[1], ['LEDEN 2027', 'LEDEN 2027'], ['2. týden', '3. týden']);
+            await expectPage(all.find((p) => p.frames[1][0] === '2027-03-29'), ['BŘEZEN 2027', 'BŘEZEN / DUBEN 2027'], ['12. týden', '13. týden']);
+            await expectPage(all[all.length - 1], ['PROSINEC 2027 / LEDEN 2028', 'LEDEN 2028'], ['52. týden', '1. týden']);
+            // the page NAME in the lists still covers both weeks
+            assert.equal(first.title, '53. a 1. týden');
         });
 
         await check('cleanup', async () => {

@@ -27,7 +27,7 @@
 //   - the stage probe (`scale()`, `toClient()`, `page()`) is registered while mounted
 
 import { K, bleedOf } from '../../model/defaults.js';
-import { boxKeysOf, visibleBoxKeys } from '../../model/elements.js';
+import { boxKeysOf, frameOfBox, visibleBoxKeys } from '../../model/elements.js';
 import { samplePage } from '../../generate/pages.js';
 import { renderPage } from '../../render/page.js';
 import { beginDrag, dragTo } from '../../editor/drag.js';
@@ -241,9 +241,10 @@ export function mountStage(root, ctx, opts = {}) {
         return { x: rect.left + xMm * scale, y: rect.top + yMm * scale };
     }
 
-    const frameOfKey = (key) => (key === 'cal2' ? 1 : 0);
     const boxKeyOfTarget = (design, target) => boxKeysOf(target.el, design)[target.frame || 0] || boxKeysOf(target.el, design)[0];
-    const selectionOfTarget = (target) => (target.el === 'cal' ? { el: 'cal', frame: target.frame || 0 } : { el: target.el });
+    // the selection carries the frame of an element with one frame per week column (Kalendárium,
+    // and on a 14-day page Měsíc and Číslo týdne)
+    const selectionOfTarget = (target) => (target.el === 'cal' || target.frame !== undefined ? { el: target.el, frame: target.frame || 0 } : { el: target.el });
 
     function select(next) {
         if (!sameSelection(next, store.getState().ui.selection)) store.setUi({ selection: next });
@@ -332,7 +333,7 @@ export function mountStage(root, ctx, opts = {}) {
         });
         g.last = JSON.stringify(g.session.base);
         // a drag of the Kalendárium moves the whole block and leaves the part level
-        if (g.kind === 'move' && (g.key === 'cal' || g.key === 'cal2')) select({ el: 'cal', frame: frameOfKey(g.key) });
+        if (g.kind === 'move' && (g.key === 'cal' || g.key === 'cal2')) select({ el: 'cal', frame: frameOfBox(g.key) });
     }
 
     function onPointerMove(event) {

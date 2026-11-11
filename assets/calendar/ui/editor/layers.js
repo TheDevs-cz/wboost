@@ -13,6 +13,8 @@
 // Rules kept here:
 //   - reorder, hide / show are one `store.change` each (undoable); the eye of Popisek fotografie
 //     switches `features.captions` (§B.5, deviation D3), the others the `hidden` flag of the box
+//     (of the element's FIRST frame: on a 14-day page Měsíc and Číslo týdne have two frames,
+//     `month` / `month2` and `wk` / `wk2`, one row here, and the eye hides both)
 //   - a row that is not drawn (hidden, or its feature is off) is dimmed; it can be selected only
 //     when that makes sense — Číslo týdne while „Zobrazení týdnů“ is off (its panel says so)
 //   - selecting the Kalendárium opens its parts list
