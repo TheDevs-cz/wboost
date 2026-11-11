@@ -262,16 +262,6 @@
 /* A missing file (local storage) must not print its alt text over the card. */
 .man-pg .mockup-slot img { color: transparent; font-size: 0; }
 
-/* ---- Kalendáře (module teaser) -------------------------------------------- */
-.cal-hero { padding: 48px 24px; }
-.cal-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 16px; }
-.cal-tile { display: flex; flex-direction: column; gap: 8px; padding: 22px; border-radius: 20px; background: var(--surface); border: 1px solid var(--line); }
-.cal-tile h3 { margin: 0; font-size: 17px; font-weight: 600; }
-.cal-tile p { margin: 0; font-size: 13px; line-height: 1.5; }
-.cal-ico { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; background: var(--lav-deep); color: var(--lav-ink); }
-.cal-beta { flex-wrap: wrap; }
-.cal-beta > div { flex: 1 1 280px; }
-
 /* ---- Manual content pages — intro editor (manual_intro_page.html.twig,
    manual_content_editor_controller.js). The stage is "paper": the manual is
    always light, so the paper re-scopes the light tokens for the element

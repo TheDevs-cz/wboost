@@ -11,6 +11,7 @@ use WBoost\Web\Doctrine\EditorTextInputsDoctrineType;
 use WBoost\Web\Doctrine\EmailTextInputsDoctrineType;
 use WBoost\Web\Doctrine\ExportFillValuesDoctrineType;
 use WBoost\Web\Doctrine\FontFacesDoctrineType;
+use WBoost\Web\Doctrine\JsonObjectDoctrineType;
 use WBoost\Web\Doctrine\LogoDoctrineType;
 use WBoost\Web\Doctrine\ManualContentBackgroundDoctrineType;
 use WBoost\Web\Doctrine\ManualContentSegmentsDoctrineType;
@@ -38,6 +39,7 @@ return App::config([
                 EmailTextInputsDoctrineType::NAME => EmailTextInputsDoctrineType::class,
                 CanvasJsonbType::NAME => CanvasJsonbType::class,
                 ExportFillValuesDoctrineType::NAME => ExportFillValuesDoctrineType::class,
+                JsonObjectDoctrineType::NAME => JsonObjectDoctrineType::class,
             ],
         ],
         'orm' => [

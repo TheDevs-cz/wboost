@@ -1,0 +1,122 @@
+{% extends 'base.html.twig' %}
+
+{#
+    Projekt › Kalendáře (docs/calendar/architecture.md §C.4, §D.3).
+
+    Server-rendered and usable as it is: open, create, delete (with a
+    confirmation), last change. The `calendar-list` Stimulus controller
+    completes each card from the JSON next to it — thumbnail of the first
+    week page into `.cal-thumb`, the summary line into `.cal-meta`, relative
+    time, the history dialog — and from the shared `env` emitted once.
+#}
+
+{% set active_menu_item = 'calendars' %}
+{% set can_edit = is_granted('project_edit', project) %}
+
+{% block title %}Kalendáře{% endblock %}
+{% block title_count %}{{ cards|length > 0 ? cards|length : '' }}{% endblock %}
+{% block page_lead %}Stolní kalendáře poskládané automaticky — data, jmeniny a státní svátky doplní systém, vy jen vyberete rozložení a fotky.{% endblock %}
+
+{% block custom_styles %}
+    {{ include('editor/_editor_fonts.html.twig', {'fonts': fonts}, with_context = false) }}
+{% endblock %}
+
+{% block title_actions %}
+    {% if can_edit %}
+        <form method="post" action="{{ path('calendar_create', {'projectId': project.id}) }}">
+            <input type="hidden" name="_token" value="{{ csrf_token('calendar') }}">
+            <button type="submit" class="btn btn-primary" data-cal-action="create">{{ icon('plus', 's16') }}Vytvořit kalendář</button>
+        </form>
+    {% endif %}
+{% endblock %}
+
+{% block mobile_primary_action %}
+    {% if can_edit %}
+        <form method="post" action="{{ path('calendar_create', {'projectId': project.id}) }}">
+            <input type="hidden" name="_token" value="{{ csrf_token('calendar') }}">
+            <button type="submit" class="btn btn-primary icon" aria-label="Vytvořit kalendář">{{ icon('plus') }}</button>
+        </form>
+    {% endif %}
+{% endblock %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
+    </ol>
+{% endblock %}
+
+{% block content %}
+    <div class="cal-index" data-controller="calendar-list">
+        <script type="application/json" data-calendar-list-target="env">{{ env_json|raw }}</script>
+
+        {% if cards is empty %}
+            <div class="empty cal-empty">
+                <span class="ico-c">{{ icon('calendar') }}</span>
+                <h2>Zatím tu není žádný kalendář</h2>
+                <p>Vyberte typ a rozložení stránky — systém poskládá celý rok: týdny, data, jmeniny i státní svátky.</p>
+                {% if can_edit %}
+                    <form method="post" action="{{ path('calendar_create', {'projectId': project.id}) }}">
+                        <input type="hidden" name="_token" value="{{ csrf_token('calendar') }}">
+                        <button type="submit" class="btn btn-primary btn-sm" data-cal-action="create">{{ icon('plus', 's16') }}Vytvořit kalendář</button>
+                    </form>
+                {% endif %}
+            </div>
+        {% else %}
+            <ul class="cal-list list-unstyled">
+                {% for card in cards %}
+                    {% set calendar = card.calendar %}
+                    <li class="cal-card" data-calendar-list-target="card" data-calendar-id="{{ calendar.id }}">
+                        <script type="application/json" data-calendar-list-target="doc">{{ card.doc_json|raw }}</script>
+
+                        <a class="cal-card-link" href="{{ path('calendar_workspace', {'calendarId': calendar.id}) }}" aria-label="Otevřít {{ calendar.name }}">
+                            <span class="cal-thumb" data-calendar-list-target="thumb" aria-hidden="true"></span>
+                            <span class="cal-name">{{ calendar.name }}</span>
+                        </a>
+
+                        <span class="cal-meta cap" data-calendar-list-target="meta">{{ calendar.type.value == 'fortnight' ? 'Dvojtýdenní' : 'Týdenní' }} · {{ calendar.year }}</span>
+
+                        {% if not calendar.finished %}
+                            <span class="pill cal-pill-draft">Rozpracovaný vzhled</span>
+                        {% endif %}
+
+                        <span class="cal-card-foot">
+                            {% if card.last_change_at %}
+                                <button type="button" class="cal-hist-chip" data-cal-action="history" data-calendar-id="{{ calendar.id }}" data-history-url="{{ path('calendar_history', {'calendarId': calendar.id}) }}" data-calendar-name="{{ calendar.name }}">
+                                    {{ icon('clock', 's14') }}<span>{{ card.last_change_by }}</span> · <time datetime="{{ card.last_change_at|date('c') }}" data-calendar-list-target="time">{{ card.last_change_at|date('j. n. Y H:i') }}</time>
+                                </button>
+                            {% endif %}
+
+                            {% if can_edit %}
+                                <button type="button" class="btn btn-ghost icon xs cal-del" data-bs-toggle="modal" data-bs-target="#cal-delete-{{ calendar.id }}" aria-label="Smazat {{ calendar.name }}" title="Smazat">{{ icon('trash', 's16') }}</button>
+                            {% endif %}
+                        </span>
+                    </li>
+                {% endfor %}
+            </ul>
+
+            {# Delete confirmations live outside the list so no card ever nests a form. #}
+            {% if can_edit %}
+                {% for card in cards %}
+                    {% set calendar = card.calendar %}
+                    <div class="modal fade" id="cal-delete-{{ calendar.id }}" tabindex="-1" aria-labelledby="cal-delete-title-{{ calendar.id }}" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <form class="modal-content" method="post" action="{{ path('calendar_delete', {'calendarId': calendar.id}) }}">
+                                <input type="hidden" name="_token" value="{{ csrf_token('calendar') }}">
+                                <div class="modal-header">
+                                    <h2 class="modal-title fs-5" id="cal-delete-title-{{ calendar.id }}">Smazat kalendář?</h2>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zavřít"></button>
+                                </div>
+                                <div class="modal-body">Kalendář „{{ calendar.name }}“ se smaže včetně fotek a obsahu. Tuto akci nelze vrátit.</div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-tertiary" data-bs-dismiss="modal">Zrušit</button>
+                                    <button type="submit" class="btn btn-danger">Smazat</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endif %}
+    </div>
+{% endblock %}

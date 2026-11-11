@@ -10,7 +10,7 @@
 {% set shell_route = app.request.attributes.get('_route') %}
 {# The canvas editors open with the sidebar collapsed to the icon rail
    (prototype `body.ed-on`); toggling it there is not persisted. #}
-{% set shell_force_rail = shell_route in ['template_variant_editor', 'template_group_editor'] %}
+{% set shell_force_rail = shell_route in ['template_variant_editor', 'template_group_editor', 'calendar_workspace'] %}
 <html lang="{{ app.request.locale }}" data-turbo="false" data-theme="dark" data-bs-theme="dark"{% if shell_force_rail %} class="sb-rail" data-sb-forced="1"{% endif %}>
     <head>
         <meta charset="UTF-8">

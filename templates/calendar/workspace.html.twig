@@ -1,0 +1,25 @@
+{% extends 'base.html.twig' %}
+
+{#
+    The calendar workspace (docs/calendar/architecture.md §C.4, §D.3): a
+    full-width app screen without the page header, sidebar collapsed to the
+    rail (`calendar_workspace` is in base.html.twig's forced-rail list).
+    Everything inside `.cal-ws` is built by the `calendar-workspace` Stimulus
+    controller from the bootstrap JSON; `mode` = designer | client.
+#}
+
+{% set active_menu_item = 'calendars' %}
+
+{% block title %}{{ calendar.name }}{% endblock %}
+{% block inner_class %}inner-wide{% endblock %}
+{% block page_title_row %}{% endblock %}
+
+{% block custom_styles %}
+    {{ include('editor/_editor_fonts.html.twig', {'fonts': fonts}, with_context = false) }}
+{% endblock %}
+
+{% block content %}
+    <div class="cal-ws" data-controller="calendar-workspace" data-calendar-workspace-mode-value="{{ mode }}">
+        <script type="application/json" data-calendar-workspace-target="bootstrap">{{ bootstrap_json|raw }}</script>
+    </div>
+{% endblock %}

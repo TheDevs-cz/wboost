@@ -104,6 +104,12 @@
                     {% endif %}
                 {% endif %}
 
+                {% if nav_project.hasModule(project_module.Calendars) %}
+                    <a href="{{ path('calendars', {'projectId': nav_project.id}) }}" class="nav-i" title="Kalendáře" aria-current="{{ project_active == 'calendars' ? 'page' : 'false' }}">
+                        {{ icon('calendar') }}<span class="nm hide-c">Kalendáře</span>
+                    </a>
+                {% endif %}
+
                 {# Facebook / Instagram (F6, 2026-11-05: moved here from the
                    global Propojení section) — the project menu's LAST item, no
                    module key. A fake door for now (publishing isn't finished):

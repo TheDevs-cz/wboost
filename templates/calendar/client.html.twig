@@ -1,0 +1,25 @@
+{% extends 'base.html.twig' %}
+
+{#
+    The client view behind the link `/k/{token}` (docs/calendar/architecture.md
+    §C.4): public, standalone — no sidebar, no top bar, nothing that needs a
+    logged-in user. Same root element and bootstrap JSON as the workspace,
+    mode fixed to `client`.
+#}
+
+{% block title %}{{ calendar.name }}{% endblock %}
+
+{% block custom_styles %}
+    <meta name="robots" content="noindex, nofollow">
+    {{ include('editor/_editor_fonts.html.twig', {'fonts': fonts}, with_context = false) }}
+{% endblock %}
+
+{% block body_class %}cal-client-page{% endblock %}
+
+{% block full_content %}
+    <main class="cal-client" id="main">
+        <div class="cal-ws" data-controller="calendar-workspace" data-calendar-workspace-mode-value="client">
+            <script type="application/json" data-calendar-workspace-target="bootstrap">{{ bootstrap_json|raw }}</script>
+        </div>
+    </main>
+{% endblock %}

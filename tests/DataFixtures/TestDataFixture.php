@@ -14,6 +14,8 @@ use League\Bundle\OAuth2ServerBundle\ValueObject\Grant;
 use Ramsey\Uuid\Uuid;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\PasswordHasher\PasswordHasherInterface;
+use WBoost\Web\Entity\Calendar;
+use WBoost\Web\Entity\CalendarHistoryEntry;
 use WBoost\Web\Entity\FileDirectory;
 use WBoost\Web\Entity\FileUpload;
 use WBoost\Web\Entity\Template;
@@ -35,7 +37,10 @@ use WBoost\Web\Entity\TemplateGroup;
 use WBoost\Web\Entity\User;
 use WBoost\Web\Entity\WeeklyMenu;
 use WBoost\Web\Entity\WeeklyMenuDay;
+use WBoost\Web\Services\Calendar\CalendarContentSeed;
 use WBoost\Web\Value\BackgroundMode;
+use WBoost\Web\Value\Calendar\CalendarAuthorKind;
+use WBoost\Web\Value\Calendar\CalendarType;
 use WBoost\Web\Value\DimensionUnit;
 use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
@@ -305,6 +310,51 @@ final class TestDataFixture extends Fixture
      */
     public const string FORM_BACKGROUND_PATH = 'custom-templates/00000000-0000-0000-0000-000000000113/background-1704067200.png';
 
+    // Calendars (module Kalendáře, docs/calendar/architecture.md §C.8):
+    //  1 — PROJECT_1, unfinished, no layout (a freshly created calendar);
+    //  2 — PROJECT_1, finished, with a Fotka vlevo layout (CALENDAR_LAYOUT_JSON);
+    //  3 — PROJECT_2, with the same layout (the "other project" case of layout import).
+    public const string CALENDAR_1_ID = '00000000-0000-0000-0000-000000000120';
+    public const string CALENDAR_1_TOKEN = 'c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1';
+    public const string CALENDAR_2_ID = '00000000-0000-0000-0000-000000000121';
+    public const string CALENDAR_2_TOKEN = 'c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2';
+    public const string CALENDAR_3_ID = '00000000-0000-0000-0000-000000000122';
+    public const string CALENDAR_3_TOKEN = 'c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3';
+    public const int CALENDAR_YEAR = 2027;
+
+    /**
+     * A minimal hand-written Fotka vlevo layout, valid per architecture §C.5
+     * (default boxes of §B.4 with a 5 mm bleed; only a few styles). Phase P8a
+     * swaps it for `tests/Fixtures/calendar/layout-photo-left.json`, the full
+     * layout produced by the JS harness. Note the maps that are empty or keyed
+     * by digits (`offsets`, `iconCells`) — they must survive a round trip.
+     */
+    public const string CALENDAR_LAYOUT_JSON = <<<'JSON'
+        {
+            "v": 1,
+            "boxes": {
+                "head": {"x": -5, "y": -5, "w": 320, "h": 32},
+                "photo": {"x": -5, "y": 27, "w": 202, "h": 123},
+                "cal": {"x": 197, "y": 27, "w": 118, "h": 112},
+                "month": {"x": 203, "y": 12.5, "w": 101, "h": 14.5},
+                "wk": {"x": 203, "y": 139, "w": 101, "h": 4.5},
+                "cap": {"x": 5, "y": 135, "w": 93, "h": 5.5},
+                "logo": {"x": 168.5, "y": 31, "w": 23.5, "h": 23.5},
+                "qr": {"x": 170.5, "y": 116.5, "w": 21, "h": 21, "hidden": true}
+            },
+            "order": ["qr", "logo", "cap", "wk", "month", "head", "cal", "photo"],
+            "styles": {
+                "month": {"family": "Rubik (Rubik Bold)", "weight": 700, "size": 15, "color": "#2B2830", "align": "end", "upper": true, "pad": 3},
+                "logo": {"asset": null, "fit": "contain"},
+                "cal": {"iconGrid": "4", "iconCells": {"4": {"0": {"size": null, "align": "middle"}}}},
+                "moon": {"phases": [true, true, true, true], "icons": [null, null, null, null]},
+                "icons": {"order": []},
+                "waste": {"kinds": {}},
+                "offsets": {}
+            }
+        }
+        JSON;
+
     public function __construct(
         private readonly TokenCrypto $tokenCrypto,
         // Same reasoning as the MCP token generator below: hash through the
@@ -510,6 +560,49 @@ final class TestDataFixture extends Fixture
             'user1@test.cz',
         );
         $manager->persist($weeklyMenu2);
+
+        // Calendars — see the CALENDAR_* constants.
+        $calendar1 = new Calendar(
+            Uuid::fromString(self::CALENDAR_1_ID),
+            $project1,
+            'Stolní kalendář 2027',
+            self::CALENDAR_YEAR,
+            CalendarType::Week,
+            CalendarContentSeed::initial(),
+            self::CALENDAR_1_TOKEN,
+            $date,
+        );
+        $manager->persist($calendar1);
+        $manager->persist(new CalendarHistoryEntry(Uuid::fromString('00000000-0000-0000-0000-000000000123'), $calendar1, CalendarAuthorKind::Designer, $user1, 'Vytvořil kalendář', $date));
+
+        /** @var \stdClass $calendarLayout */
+        $calendarLayout = json_decode(self::CALENDAR_LAYOUT_JSON, false, 64, JSON_THROW_ON_ERROR);
+
+        $calendar2 = new Calendar(
+            Uuid::fromString(self::CALENDAR_2_ID),
+            $project1,
+            'Obecní kalendář',
+            self::CALENDAR_YEAR,
+            CalendarType::Week,
+            CalendarContentSeed::initial(),
+            self::CALENDAR_2_TOKEN,
+            $date,
+        );
+        $calendar2->applyDesign(['preset' => 'photoLeft', 'layout' => $calendarLayout, 'step' => 5, 'finished' => true]);
+        $manager->persist($calendar2);
+
+        $calendar3 = new Calendar(
+            Uuid::fromString(self::CALENDAR_3_ID),
+            $project2,
+            'Cizí kalendář',
+            self::CALENDAR_YEAR,
+            CalendarType::Week,
+            CalendarContentSeed::initial(),
+            self::CALENDAR_3_TOKEN,
+            $date,
+        );
+        $calendar3->applyDesign(['preset' => 'photoLeft', 'layout' => clone $calendarLayout, 'step' => 3]);
+        $manager->persist($calendar3);
 
         // Gallery folders + files for image-placeholder tests (PROJECT_1).
         $dirAllowed = new FileDirectory(

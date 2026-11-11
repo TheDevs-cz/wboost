@@ -12,7 +12,7 @@ namespace WBoost\Web\Value;
  * e-mail). Switching a module off only hides it — no data is deleted.
  *
  * Galerie and Fonty are NOT modules: other modules draw on them, so they are
- * always available. Kalendáře isn't built yet, so it isn't one either.
+ * always available.
  */
 enum ProjectModule: string
 {
@@ -20,6 +20,7 @@ enum ProjectModule: string
     case Templates = 'templates';
     case EmailSignatures = 'email_signatures';
     case WeeklyMenus = 'weekly_menus';
+    case Calendars = 'calendars';
 
     /**
      * What a new project starts with — the core product.
@@ -38,6 +39,7 @@ enum ProjectModule: string
             self::Templates => 'Šablony',
             self::EmailSignatures => 'E-maily',
             self::WeeklyMenus => 'Jídelníčky',
+            self::Calendars => 'Kalendáře',
         };
     }
 
@@ -48,6 +50,7 @@ enum ProjectModule: string
             self::Templates => 'Šablony příspěvků, tiskovin a grafik.',
             self::EmailSignatures => 'Šablony e-mailových podpisů ve firemních barvách a písmech, aby celý tým podepisoval e-maily jednotně.',
             self::WeeklyMenus => 'Týdenní jídelníčky se seznamem jídel, dietami a druhy jídel — pro kantýny, restaurace a stravovací provozy.',
+            self::Calendars => 'Stolní kalendáře v brandu projektu — data, jmeniny a státní svátky doplní systém.',
         };
     }
 
@@ -59,6 +62,7 @@ enum ProjectModule: string
             self::Templates => 'template',
             self::EmailSignatures => 'mail',
             self::WeeklyMenus => 'utensils',
+            self::Calendars => 'calendar',
         };
     }
 
@@ -75,6 +79,7 @@ enum ProjectModule: string
             self::Templates => ['templates', 'projectId'],
             self::EmailSignatures => ['email_signature_templates', 'id'],
             self::WeeklyMenus => ['weekly_menus', 'projectId'],
+            self::Calendars => ['calendars', 'projectId'],
         };
     }
 }

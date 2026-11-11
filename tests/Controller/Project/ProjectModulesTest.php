@@ -61,7 +61,7 @@ final class ProjectModulesTest extends WebTestCase
         $items = $crawler->filter('.sb nav[aria-label="Moduly projektu"] > a.nav-i:not(.side-nav-discover)')->each(
             static fn (Crawler $node): string => trim($node->text()),
         );
-        self::assertSame(['Přehled', 'Manuály', 'Šablony', 'Galerie', 'Fonty', 'Paleta barev', 'E-maily', 'Jídelníčky', 'Facebook a Instagram'], $items);
+        self::assertSame(['Přehled', 'Manuály', 'Šablony', 'Galerie', 'Fonty', 'Paleta barev', 'E-maily', 'Jídelníčky', 'Kalendáře', 'Facebook a Instagram'], $items);
         self::assertSelectorNotExists('.sb nav[aria-label="Propojení"] [title="Facebook a Instagram"]');
         // User 1 has Facebook connected → the item leads to the profile.
         self::assertSelectorExists('.sb nav[aria-label="Moduly projektu"] a[title="Facebook a Instagram"][href="/user-profile"]');
@@ -90,7 +90,7 @@ final class ProjectModulesTest extends WebTestCase
         $client = self::createClient();
         TestingLogin::logInAsUser($client, TestDataFixture::USER_2_EMAIL);
 
-        foreach (['emails', 'weekly-menus', 'meals', 'diets', 'dish-types'] as $path) {
+        foreach (['emails', 'weekly-menus', 'meals', 'diets', 'dish-types', 'calendars'] as $path) {
             $client->request('GET', sprintf('/project/%s/%s', self::PROJECT_2, $path));
             self::assertResponseRedirects(sprintf('/project/%s/modules', self::PROJECT_2), message: $path);
         }
@@ -110,6 +110,10 @@ final class ProjectModulesTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSelectorExists('[data-module="email_signatures"] button[type="submit"]');
         self::assertSelectorExists('[data-module="weekly_menus"] button[type="submit"]');
+        // Kalendáře is an ordinary module now — no "Připravujeme" teaser row.
+        self::assertSelectorExists('[data-module="calendars"] button[type="submit"]');
+        self::assertSelectorNotExists('.pd-mod-soon');
+        self::assertSelectorTextSame('#modsH .pd-n', '3');
         self::assertSelectorNotExists('[data-module="manuals"]');
         self::assertSelectorNotExists('[data-module="templates"]');
     }

@@ -31,7 +31,7 @@
     <section class="pd-box" aria-labelledby="modsH">
         <div class="pd-box-h">
             <div>
-                <h2 id="modsH">Dostupné moduly <span class="pd-n">{{ project.disabledModules|length + 1 }}</span></h2>
+                <h2 id="modsH">Dostupné moduly <span class="pd-n">{{ project.disabledModules|length }}</span></h2>
                 <span class="cap">Zapnutím se modul objeví v menu projektu. O zapnutí dostanou e-mail administrátoři; vypnout ho mohou jen oni a žádná data se tím nesmažou.</span>
             </div>
         </div>
@@ -52,12 +52,6 @@
                     {% endif %}
                 </div>
             {% endfor %}
-
-            <div class="pd-mod pd-mod-soon">
-                <span class="pd-ico" aria-hidden="true">{{ icon('calendar') }}</span>
-                <span class="who"><b>Kalendáře <span class="pill pch">Připravujeme</span></b><span class="cap">Firemní kalendáře v brandu projektu, připravené k tisku.</span></span>
-                <a href="{{ path('calendars', {'projectId': project.id}) }}" class="btn btn-tertiary sm">Zjistit víc</a>
-            </div>
         </div>
 
         <p class="cap pd-foot">{{ icon('info', 's14') }}Galerie a Fonty jsou vždy zapnuté — čerpají z nich ostatní moduly.</p>

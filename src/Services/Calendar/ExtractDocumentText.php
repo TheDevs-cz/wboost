@@ -1,0 +1,128 @@
+<?php
+
+declare(strict_types=1);
+
+namespace WBoost\Web\Services\Calendar;
+
+use WBoost\Web\Exceptions\InvalidCalendarChange;
+
+/**
+ * The plain text of an uploaded document for a "Text z Wordu" special page:
+ * `.docx` (one line per paragraph) or `.txt`. Paragraphs joined by `\n`, at
+ * most 6000 characters — the calendar typesets it in its own style.
+ */
+readonly final class ExtractDocumentText
+{
+    public const int MAX_LENGTH = 6000;
+    public const string UNSUPPORTED = 'Nahrajte dokument ve formátu DOCX nebo TXT.';
+
+    /**
+     * @throws InvalidCalendarChange
+     */
+    public function extract(string $contents, string $fileName): string
+    {
+        $extension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+
+        $text = match (true) {
+            str_starts_with($contents, "PK\x03\x04") => $this->docx($contents),
+            $extension === 'txt' => self::plain($contents),
+            default => throw new InvalidCalendarChange(self::UNSUPPORTED),
+        };
+
+        $paragraphs = [];
+
+        foreach (preg_split('/\R/u', $text) ?: [] as $line) {
+            $line = trim((string) preg_replace('/[^\S\n]+/u', ' ', $line));
+
+            if ($line !== '') {
+                $paragraphs[] = $line;
+            }
+        }
+
+        return mb_substr(implode("\n", $paragraphs), 0, self::MAX_LENGTH);
+    }
+
+    /**
+     * @throws InvalidCalendarChange
+     */
+    private function docx(string $contents): string
+    {
+        $file = tempnam(sys_get_temp_dir(), 'calendar-docx-');
+
+        if ($file === false) {
+            throw new InvalidCalendarChange(self::UNSUPPORTED);
+        }
+
+        try {
+            file_put_contents($file, $contents);
+            $zip = new \ZipArchive();
+
+            if ($zip->open($file, \ZipArchive::RDONLY) !== true) {
+                throw new InvalidCalendarChange(self::UNSUPPORTED);
+            }
+
+            $xml = $zip->getFromName('word/document.xml');
+            $zip->close();
+        } finally {
+            @unlink($file);
+        }
+
+        if (!is_string($xml) || $xml === '') {
+            throw new InvalidCalendarChange(self::UNSUPPORTED);
+        }
+
+        $reader = new \XMLReader();
+
+        if (!@$reader->XML($xml, null, LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING)) {
+            throw new InvalidCalendarChange(self::UNSUPPORTED);
+        }
+
+        $lines = [];
+        $line = '';
+
+        while (@$reader->read()) {
+            if ($reader->nodeType === \XMLReader::ELEMENT) {
+                if ($reader->name === 'w:t') {
+                    $line .= $reader->readString();
+                } elseif ($reader->name === 'w:tab') {
+                    $line .= ' ';
+                } elseif ($reader->name === 'w:br') {
+                    $lines[] = $line;
+                    $line = '';
+                }
+            } elseif ($reader->nodeType === \XMLReader::END_ELEMENT && $reader->name === 'w:p') {
+                $lines[] = $line;
+                $line = '';
+            }
+        }
+
+        $reader->close();
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * @throws InvalidCalendarChange
+     */
+    private static function plain(string $contents): string
+    {
+        // Strip a UTF-8 byte order mark; Windows Notepad still writes ANSI.
+        $contents = (string) preg_replace('/^\xEF\xBB\xBF/', '', $contents);
+
+        if (!mb_check_encoding($contents, 'UTF-8')) {
+            $converted = @iconv('Windows-1250', 'UTF-8//IGNORE', $contents);
+
+            if ($converted === false) {
+                throw new InvalidCalendarChange(self::UNSUPPORTED);
+            }
+
+            $contents = $converted;
+        }
+
+        if (str_contains($contents, "\0")) {
+            throw new InvalidCalendarChange(self::UNSUPPORTED);
+        }
+
+        return $contents;
+    }
+}
