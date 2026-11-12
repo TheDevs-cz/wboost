@@ -1,0 +1,6 @@
+# Client material and heavy prototype artefacts stay out of git until the owner
+# decides otherwise (examples are customers' designs; prototypes hold per-run
+# renders, node_modules and model transcripts; the mock embeds client pictures).
+/examples/
+/prototypes/
+/ux-mock/
