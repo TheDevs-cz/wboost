@@ -65,7 +65,9 @@ src/finish/                keepbest, report, text
 src/caps.mjs, src/resources.mjs
 dev/new-variant.php        development helper (runs inside the app's dev container)
 test/                      node test runner — `npm test`
-eval/                      the evaluation: sets.json, run.mjs, lib.mjs, score.mjs, engine-cli.mjs, report.mjs, RESULTS.md
+eval/                      the evaluation: sets.json, run.mjs, lib.mjs, score.mjs, report.mjs, precheck-eval.mjs, engine-cli.mjs,
+                           fake-provider.mjs, engine-facts.mjs, replay.mjs, container-replay.sh, RESULTS.md
+Dockerfile                 the image (build context: scanner/)
 ```
 
 ## Engines
@@ -90,6 +92,9 @@ measure parity with the prototypes' engine.
 npm test                                                  # 120+ tests, no model, no app; OCR tests need .venv
 node eval/run.mjs --sets easy,photo,hard --runs 2         # real scans, one at a time, on the plan; needs the local app
 node eval/report.mjs                                      # tables from eval/runs/**/record.json
+node eval/precheck-eval.mjs                               # the pre-check alone, positives and synthetic negatives
+node eval/engine-facts.mjs sdk|messages|cli               # fault injection against eval/fake-provider.mjs — no model
+eval/container-replay.sh <name> <memory> <think-ms> <id> [<id>]   # recorded scans replayed in the linux/amd64 image
 ```
 
 `eval/sets.json` names the inputs (the prototypes' easy 7 + 3 and hard 12). The pictures are client
@@ -100,5 +105,7 @@ material and prototype artefacts — git-ignored; so are `eval/runs/`, `runs/`, 
 `main.mjs` (lanes: an intake lane that never waits behind builds, N build workers as child
 processes), `timers.mjs` (tick, provider probe), `health.mjs`, `shutdown.mjs` (SIGTERM → abort,
 usage, one `release`), `config.mjs`, the `HttpScannerApi` exercised against the app (contract
-fixture), `Dockerfile` (node + python + libheif tools, engine binary, pinned OCR models), the
-fault-proxy tests of the pinned request settings, and the calendar adapter.
+fixture), the production form of the `Dockerfile` (today's builds the image the resource
+measurements ran in: node + python + libheif tools, both engine binaries, OCR models fetched at
+build time), the fault-proxy tests as part of `npm test` (today: `eval/engine-facts.mjs` against
+`eval/fake-provider.mjs`), and the calendar adapter.
