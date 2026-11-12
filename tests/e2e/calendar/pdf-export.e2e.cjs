@@ -2,9 +2,9 @@
  * Stáhnout PDF (docs/architecture/calendars.md § "PDF export").
  *
  * A calendar with project fonts, photos on several weeks (one ≥ 3600 px wide, one cropped at 160 %),
- * events, waste, moon and a special page is exported through the UI — both variants as the
- * designer (from step 5, with unsaved changes first), the print variant as the client on
- * `/k/{token}` — and the downloaded files are inspected with the poppler tools on the host
+ * events, waste, moon and a special page is exported through the UI — all three variants as the
+ * designer (from step 5, with unsaved changes first), the print variants (RGB and CMYK) as the
+ * client on `/k/{token}` — and the downloaded files are inspected with the poppler tools on the host
  * (`pdfinfo`, `pdffonts`, `pdfimages`, `pdftotext`, `pdftoppm`): page count, page size and boxes in
  * mm, embedded fonts, pictures at their native pixels, live text. Then the other ways into the same
  * dialog (list card, the Dokončit toast), the history lines, reuse of an unchanged export, the
@@ -36,6 +36,7 @@ function tool(name) {
     }
 }
 const POPPLER = ['pdfinfo', 'pdffonts', 'pdfimages', 'pdftotext', 'pdftoppm'].every(tool);
+const QPDF = tool('qpdf');
 const run = (name, args) => execFileSync(name, args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
 
 /** `{ pages, boxes: { MediaBox, CropBox, BleedBox, TrimBox } in mm as { w, h, x0, y0, x1, y1 } }` of page 1 (all pages when `all`). */
@@ -68,8 +69,47 @@ const pdfImages = (file) =>
         .slice(2)
         .filter(Boolean)
         .map((line) => line.trim().split(/\s+/))
-        .map((c) => ({ page: Number(c[0]), type: c[2], width: Number(c[3]), height: Number(c[4]), enc: c[8] }))
+        .map((c) => ({ page: Number(c[0]), type: c[2], width: Number(c[3]), height: Number(c[4]), color: c[5], enc: c[8] }))
         .filter((image) => image.type === 'image');
+
+/**
+ * What a „Pro tisk (CMYK)“ file must be, as far as the host's tools can tell: PDF 1.6 with the PDF/X-4
+ * marks, every picture CMYK (or grey), fonts embedded, text live, and — with qpdf, which unpacks every
+ * stream — not one RGB colour space or RGB colour operator anywhere in the file.
+ */
+function assertCmykFile(file, pages) {
+    const head = fs.readFileSync(file).subarray(0, 8).toString('latin1');
+    assert.equal(head, '%PDF-1.6', 'PDF/X-4 is PDF 1.6');
+    const info = pdfInfo(file);
+    assert.equal(info.pages, pages);
+    const images = pdfImages(file);
+    assert.ok(images.length > 0);
+    for (const image of images) assert.ok(image.color === 'cmyk' || image.color === 'gray', `every picture is CMYK or grey: ${JSON.stringify(image)}`);
+    assert.ok(pdfFonts(file).every((f) => f.embedded), 'fonts embedded');
+    assert.match(run('pdftotext', [file, '-']), /Pondělí/);
+    if (!QPDF) return { images, checkedOperators: false };
+    assert.match(run('qpdf', ['--check', file]), /No syntax or stream encoding errors found/);
+    const unpacked = path.join(os.tmpdir(), `wb-cal-cmyk-${process.pid}.pdf`);
+    try {
+        execFileSync('qpdf', ['--qdf', '--object-streams=disable', '--stream-data=uncompress', file, unpacked]);
+        // latin1: one byte per character, so the pictures' bytes cannot break the scan
+        const text = fs.readFileSync(unpacked, 'latin1');
+        assert.equal((text.match(/\/DeviceRGB|\/CalRGB/g) || []).length, 0, 'no RGB colour space is named');
+        assert.equal((text.match(/^(?:[\d.]+ ){3}(?:rg|RG)(?: |$)/gm) || []).length, 0, 'no RGB colour operator');
+        assert.ok((text.match(/^(?:[\d.]+ ){4}k$/gm) || []).length > 50, 'fills are set in CMYK');
+        assert.match(text, /\/S \/GTS_PDFX/);
+        assert.match(text, /\/OutputConditionIdentifier \(FOGRA39\)/);
+        assert.match(text, /<pdfxid:GTS_PDFXVersion>PDF\/X-4<\/pdfxid:GTS_PDFXVersion>/);
+        assert.match(text, /\/Trapped \/False/);
+        // the default text colour of the calendar (#2B2830) prints in black ink only
+        assert.match(text, /^0 0 0 0\.836 k\nBT$/m, 'text in the default colour is K-only');
+        // crop marks: the registration colour
+        assert.match(text, /\/Separation\s+\/All/);
+    } finally {
+        fs.rmSync(unpacked, { force: true });
+    }
+    return { images, checkedOperators: true };
+}
 
 /** `r,g,b` of the pixel at a point given in mm from the top-left corner of the sheet (one-pixel PPM from pdftoppm). */
 function pixelAt(file, pageNo, xMm, yMm) {
@@ -179,6 +219,7 @@ module.exports = {
         let designerWatch = null;
         let printFile = null;
         let approvalFile = null;
+        let cmykFile = null;
         let design = null;
 
         try {
@@ -193,7 +234,7 @@ module.exports = {
             });
             if (!built) return;
 
-            await check('step 5: „Stáhnout PDF“ is a labelled button next to „Odkaz pro klienta“; the dialog offers the two variants', async () => {
+            await check('step 5: „Stáhnout PDF“ is a labelled button next to „Odkaz pro klienta“; the dialog offers the three variants', async () => {
                 const acts = await page.$$eval('.cal-5acts > *', (nodes) => nodes.map((n) => n.dataset.calAction || n.className));
                 assert.equal(acts[0], 'export-pdf');
                 assert.equal(acts[1], 'client-link');
@@ -202,9 +243,10 @@ module.exports = {
                 await openDialog(page);
                 assert.equal(await page.$eval(`${DIALOG} .modal-title`, (el) => el.textContent), 'Stáhnout PDF');
                 const cards = await page.$$eval(`${DIALOG} .rcard`, (nodes) => nodes.map((n) => ({ title: n.querySelector('.rt').textContent, text: n.querySelector('.rsub').textContent, value: n.querySelector('input').value, checked: n.querySelector('input').checked })));
-                assert.deepEqual(cards.map((c) => [c.value, c.title, c.checked]), [['print', 'Pro tisk', true], ['approval', 'Náhled k odsouhlasení', false]]);
+                assert.deepEqual(cards.map((c) => [c.value, c.title, c.checked]), [['print', 'Pro tisk', true], ['print_cmyk', 'Pro tisk (CMYK)', false], ['approval', 'Náhled k odsouhlasení', false]]);
                 assert.match(cards[0].text, /spadávkou a ořezovými značkami/);
-                assert.match(cards[1].text, /poslat e.mailem/); // a non-breaking hyphen
+                assert.match(cards[1].text, /CMYK — barvy převedené pro ofset \(FOGRA39, PDF\/X.4\), černý text jen černou, firemní barvy v hodnotách z palety/);
+                assert.match(cards[2].text, /poslat e.mailem/); // a non-breaking hyphen
                 // nothing unsaved: one primary action, no note
                 assert.equal(await page.$eval(`${DIALOG} [data-cal-export-unsaved]`, (el) => el.hidden), true);
                 assert.equal(await page.$eval(`${DIALOG} [data-cal-action="export-save-start"]`, (el) => el.hidden), true);
@@ -249,7 +291,35 @@ module.exports = {
                 const result = await exportThrough(page, designerWatch, 'approval');
                 assert.equal(result.file.name, 'Obecní kalendář - náhled.pdf');
                 approvalFile = keepFile(result.file, 'week-approval.pdf');
+            });
+
+            await check('„Jiná varianta“ → Pro tisk (CMYK): progress, a file of its own; CMYK pictures at native pixels, no RGB left, PDF/X-4 marks, the print page boxes', async () => {
+                await page.click(`${DIALOG} [data-cal-action="export-again"]`);
+                await page.waitForSelector(`${DIALOG}[data-cal-export-state="choose"]`);
+                const result = await exportThrough(page, designerWatch, 'print_cmyk');
+                assert.ok(result.progress.some((text) => new RegExp(`^Připravuji PDF… \\d+ z ${built.pages.length} stran$`).test(text)), `progress: ${JSON.stringify(result.progress)}`);
+                assert.equal(result.file.name, 'Obecní kalendář - tisk CMYK.pdf');
+                cmykFile = keepFile(result.file, 'week-print-cmyk.pdf');
+                await h.shot(page, 'pdf-dialog-done-cmyk');
                 await closeDialog(page);
+                if (!POPPLER) throw new Error('SKIPPED — poppler is not installed on this host');
+                const { images, checkedOperators } = assertCmykFile(cmykFile, built.pages.length);
+                const weekPage = (key) => built.pages.findIndex((p) => p.key === key) + 1;
+                for (const [key, photo] of Object.entries(built.photos)) {
+                    const image = images.find((i) => i.page === weekPage(key));
+                    assert.ok(image, `the photo of ${key} is on page ${weekPage(key)}`);
+                    assert.deepEqual([image.width, image.height, image.color, image.enc], [photo.width, photo.height, 'cmyk', 'jpeg'], `${key}: same pixels, a CMYK JPEG`);
+                }
+                // the same sheets as the RGB print file
+                const [rgb, cmyk] = [pdfInfo(printFile), pdfInfo(cmykFile)];
+                for (const box of ['MediaBox', 'TrimBox', 'BleedBox']) {
+                    for (const side of ['x0', 'y0', 'x1', 'y1']) near(cmyk.perPage[0][box][side], rgb.perPage[0][box][side], 0.01, `${box}.${side}`);
+                }
+                assert.equal(run('pdftotext', [cmykFile, '-']), run('pdftotext', [printFile, '-']), 'the same text as the RGB print file');
+                const first = weekPage(built.big);
+                png(cmykFile, first, 'pdf-week-print-cmyk-big', 110);
+                png(cmykFile, 1, 'pdf-week-print-cmyk-cover', 80);
+                if (!checkedOperators) throw new Error('SKIPPED in part — qpdf is not installed on this host: the content streams were not scanned for RGB');
             });
 
             await check('print file: every page, trim + 2 × (bleed + mark band), TrimBox / BleedBox, fonts embedded, photos at native pixels, live text', async () => {
@@ -337,7 +407,7 @@ module.exports = {
                 png(approvalFile, built.pages.findIndex((p) => p.key === built.big) + 1, 'pdf-week-approval-big', 110);
             });
 
-            await check('Historie records both exports as the designer\'s; an unchanged calendar is answered with the same export', async () => {
+            await check('Historie records the three exports as the designer\'s; an unchanged calendar is answered with the same export', async () => {
                 await page.click('[data-cal-action="history"]');
                 await page.waitForSelector('[data-cal-dialog="history"].show .cal-hrow', { timeout: 8000 });
                 const rows = await page.$$eval('[data-cal-dialog="history"] .cal-hrow', (nodes) => nodes.map((n) => `${n.querySelector('.pill').textContent.trim()}: ${n.querySelector('.cal-hwhat').textContent.trim()}`));
@@ -346,26 +416,28 @@ module.exports = {
                 await page.waitForFunction(() => !document.querySelector('[data-cal-dialog="history"]'), { timeout: 5000 });
                 assert.ok(rows.includes('Grafik: Stáhl PDF pro tisk'), rows.slice(0, 6).join(' | '));
                 assert.ok(rows.includes('Grafik: Stáhl PDF k odsouhlasení'), rows.slice(0, 6).join(' | '));
+                assert.ok(rows.includes('Grafik: Stáhl PDF pro tisk (CMYK)'), rows.slice(0, 6).join(' | '));
 
                 const before = psql(`SELECT count(*) FROM calendar_export WHERE calendar_id = '${built.id}'`);
-                assert.equal(before, '2');
+                assert.equal(before, '3');
                 await openDialog(page);
-                // the dialog found the finished files: both cards say so and the action only fetches
+                // the dialog found the finished files: all three cards say so and the action only fetches
                 await page.waitForFunction((selector) => [...document.querySelectorAll(`${selector} [data-cal-export-ready]`)].every((n) => !n.hidden), { timeout: 5000 }, DIALOG);
                 assert.match(await page.$eval(`${DIALOG} [data-cal-export-ready="print"]`, (el) => el.textContent), /^Připraveno · [\d,.\s]+ (kB|MB)$/);
+                assert.match(await page.$eval(`${DIALOG} [data-cal-export-ready="print_cmyk"]`, (el) => el.textContent), /^Připraveno · [\d,.\s]+ (kB|MB)$/);
                 assert.equal(await page.$eval(`${DIALOG} [data-cal-action="export-start"]`, (el) => el.textContent.trim()), 'Stáhnout PDF');
                 await h.shot(page, 'pdf-dialog-ready');
                 const started = Date.now();
                 const again = await exportThrough(page, designerWatch, 'print');
                 assert.ok(Date.now() - started < 8000, 'the finished file is offered at once');
                 assert.equal(fs.statSync(again.file.path).size, fs.statSync(printFile).size);
-                assert.equal(psql(`SELECT count(*) FROM calendar_export WHERE calendar_id = '${built.id}'`), '2', 'no new job');
+                assert.equal(psql(`SELECT count(*) FROM calendar_export WHERE calendar_id = '${built.id}'`), '3', 'no new job');
                 await closeDialog(page);
             });
 
             // ---- the client on the public link --------------------------------------------------
             let other = null;
-            await check('client /k/{token}: the same button and dialog; a changed calendar is rendered anew with progress; the file is the print variant', async () => {
+            await check('client /k/{token}: the same button and dialog; a changed calendar is rendered anew with progress; the print variant, then the CMYK one', async () => {
                 const anonymous = await browser.createBrowserContext();
                 const client = await h.newPage(anonymous);
                 await client.goto(built.clientUrl, { waitUntil: 'networkidle2' });
@@ -404,9 +476,22 @@ module.exports = {
                     assert.match(run('pdftotext', [file, '-']), /Popisek od klienta/);
                 }
                 await h.shot(client, 'pdf-client-dialog-done');
+
+                // the client may take the CMYK file too
+                await client.click(`${DIALOG} [data-cal-action="export-again"]`);
+                await client.waitForSelector(`${DIALOG}[data-cal-export-state="choose"]`);
+                const cmyk = await exportThrough(client, watch, 'print_cmyk');
+                assert.match(cmyk.link.href, /^\/k\/[a-f0-9]{64}\/export\/[0-9a-f-]{36}\/download$/);
+                assert.equal(cmyk.file.name, 'Obecní kalendář - tisk CMYK.pdf');
+                const clientCmyk = keepFile(cmyk.file, 'week-print-cmyk-client.pdf');
+                if (POPPLER) {
+                    assertCmykFile(clientCmyk, built.pages.length);
+                    assert.match(run('pdftotext', [clientCmyk, '-']), /Popisek od klienta/);
+                }
                 await closeDialog(client);
                 const rows = psql(`SELECT author_kind || ': ' || description FROM calendar_history WHERE calendar_id = '${built.id}' ORDER BY created_at DESC, id DESC LIMIT 3`);
-                assert.match(rows, /client: Stáhl PDF pro tisk/);
+                assert.match(rows, /client: Stáhl PDF pro tisk$/m);
+                assert.match(rows, /client: Stáhl PDF pro tisk \(CMYK\)/);
 
                 // ---- an export id is bound to its calendar ---------------------------------------
                 other = await buildCalendar(page, h, { type: 'week', photos: 0, special: false, name: 'Cizí kalendář' });
