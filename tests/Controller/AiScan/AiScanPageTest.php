@@ -123,7 +123,6 @@ final class AiScanPageTest extends WebTestCase
 
         // The route the e-mails and the MCP answers link to.
         $urls = self::getContainer()->get(AiScanUrls::class);
-        self::assertInstanceOf(AiScanUrls::class, $urls);
         self::assertStringEndsWith(self::NEW . '/' . $scanId, $urls->scan(self::repositoryScan($scanId)));
     }
 
@@ -182,7 +181,10 @@ final class AiScanPageTest extends WebTestCase
         $root = $crawler->filter('[data-controller="ai-scan-page"]');
         self::assertCount(1, $root);
 
-        return self::decoded($root->attr('data-ai-scan-page-boot-value'));
+        /** @var array<string, mixed> $boot */
+        $boot = self::decoded($root->attr('data-ai-scan-page-boot-value'));
+
+        return $boot;
     }
 
     private static function repositoryScan(string $scanId): \WBoost\Web\Entity\AiScan
