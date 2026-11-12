@@ -56,11 +56,19 @@ readonly final class CompilationContextFactory
     ) {
     }
 
-    public function forProject(Project $project, DesignDocument $document): CompilationContext
+    /**
+     * @param array<string, DesignAsset> $extraAssets entries added on top of
+     *        the gallery lookup, keyed by asset id — the AI scan render path
+     *        passes its bundled stand-in here
+     *        ({@see \WBoost\Web\Services\AiScan\AiScanStandIn}); every other
+     *        caller leaves it empty, so no existing template, fill page or
+     *        export can resolve that reserved id
+     */
+    public function forProject(Project $project, DesignDocument $document, array $extraAssets = []): CompilationContext
     {
         return new CompilationContext(
             allowedFonts: $this->allowedFonts($project),
-            assets: $this->assetsById($project, self::referencedAssetIds($document)),
+            assets: $extraAssets + $this->assetsById($project, self::referencedAssetIds($document)),
         );
     }
 
@@ -152,11 +160,11 @@ readonly final class CompilationContextFactory
             return null;
         }
 
-        // Source isolation is enforced by the single FileSource case today (the
-        // gallery IS the project image library) — PHPStan rejects the
-        // comparison as always-false, so this is the same note `ListGalleryTool`
-        // carries: when FileSource gains a case, guard
-        // `$file->source === FileSource::ProjectImage` here too.
+        // No source guard on purpose: besides gallery pictures
+        // (FileSource::ProjectImage) a document may name the project's AI-scan
+        // stand-in row (FileSource::ScanStandIn) — places a scan left empty
+        // reference it after accept, and a later `get_design` → `set_design`
+        // round trip must keep resolving it.
         if ($file->deletedAt !== null) {
             return null;
         }

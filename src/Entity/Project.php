@@ -66,6 +66,30 @@ class Project
     #[Column(type: Types::JSON, options: ['jsonb' => true, 'default' => '["manuals", "templates"]'])]
     public array $modules = ['manuals', 'templates'];
 
+    /**
+     * The AI scan entitlement ("Premium", switched on per project by an
+     * admin — docs/architecture/ai-scan.md § "Permissions"). Off for every
+     * project until an admin turns it on; switching it off never strands a
+     * proposal (USE does not depend on it).
+     */
+    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+    #[Column(options: ['default' => false])]
+    public bool $aiScanEnabled = false;
+
+    /** Scans a month that count (delivered, or cancelled while running); null = no limit. */
+    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+    #[Column(nullable: true, options: ['default' => 10])]
+    public null|int $aiScanMonthlyLimit = 10;
+
+    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+    #[Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    public null|\DateTimeImmutable $aiScanEnabledAt = null;
+
+    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+    #[ManyToOne]
+    #[JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    public null|User $aiScanEnabledBy = null;
+
     public function __construct(
         #[Id]
         #[Immutable]
@@ -143,6 +167,24 @@ class Project
                 return;
             }
         }
+    }
+
+    /**
+     * @return bool whether the switch itself changed (the limit may change either way)
+     */
+    public function setAiScan(bool $enabled, null|int $monthlyLimit, \DateTimeImmutable $now, User $by): bool
+    {
+        $this->aiScanMonthlyLimit = $monthlyLimit === null ? null : max(0, $monthlyLimit);
+
+        if ($this->aiScanEnabled === $enabled) {
+            return false;
+        }
+
+        $this->aiScanEnabled = $enabled;
+        $this->aiScanEnabledAt = $enabled ? $now : null;
+        $this->aiScanEnabledBy = $enabled ? $by : null;
+
+        return true;
     }
 
     public function hasModule(ProjectModule $module): bool

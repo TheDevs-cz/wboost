@@ -75,6 +75,42 @@
                     </div>
                 {% endif %}
             </section>
+
+            {# AI sken — a paid extra switched on per project by an admin
+               (docs/architecture/ai-scan.md § "Permissions"). Two forms, never
+               nested: the switch and the monthly limit. Switching it off
+               deletes nothing — waiting scans are cancelled and not counted,
+               running ones finish, proposals stay usable. #}
+            <section class="pd-box" id="project-ai-scan" aria-labelledby="paiH">
+                <div class="pd-box-h">
+                    <div>
+                        <h2 id="paiH">Funkce Premium <span class="pill pd-admin">{{ icon('shield', 's12') }}Jen administrátor</span></h2>
+                        <span class="cap">Placené funkce zapínáme pro každý projekt zvlášť. Smí je pak použít každý, kdo může projekt upravovat.</span>
+                    </div>
+                </div>
+
+                <div class="pd-mods">
+                    <div class="pd-mod{{ project.aiScanEnabled ? ' on' : '' }}" data-feature="ai-scan">
+                        <span class="pd-ico" aria-hidden="true">{{ icon('sparkle') }}</span>
+                        <span class="who"><b>AI sken</b><span class="cap">Šablona z obrázku a naskenování designu kalendáře. Obrázky zpracovává Anthropic.</span></span>
+                        <span class="pd-st">{{ project.aiScanEnabled ? 'Zapnuto' : 'Vypnuto' }}</span>
+                        <form method="post" action="{{ path('project_ai_scan_set', {'projectId': project.id}) }}" class="pd-mod-f">
+                            <input type="hidden" name="_token" value="{{ csrf_token('project_ai_scan') }}">
+                            <input type="hidden" name="enabled" value="{{ project.aiScanEnabled ? '0' : '1' }}">
+                            <button type="submit" class="sw c-success{{ project.aiScanEnabled ? ' on' : '' }}" role="switch" aria-checked="{{ project.aiScanEnabled ? 'true' : 'false' }}" aria-label="{{ project.aiScanEnabled ? 'Vypnout AI sken' : 'Zapnout AI sken' }}" title="{{ project.aiScanEnabled ? 'Vypnout' : 'Zapnout' }}"></button>
+                        </form>
+                    </div>
+                </div>
+
+                <form method="post" action="{{ path('project_ai_scan_set', {'projectId': project.id}) }}" class="pai-limit">
+                    <input type="hidden" name="_token" value="{{ csrf_token('project_ai_scan') }}">
+                    <label for="paiLimit" class="lbl">Měsíční limit skenů</label>
+                    <input type="number" id="paiLimit" name="monthly_limit" class="form-control" min="0" max="100000" step="1" inputmode="numeric" placeholder="bez limitu" value="{{ project.aiScanMonthlyLimit }}">
+                    <button type="submit" class="btn btn-light">Uložit limit</button>
+                    <span class="cap">Tento měsíc {{ ai_scan_usage.month }}{% if project.aiScanMonthlyLimit is not null %} z {{ project.aiScanMonthlyLimit }}{% endif %} · Celkem {{ ai_scan_usage.total }}</span>
+                </form>
+                <p class="cap pd-foot">{{ icon('info', 's14') }}Vypnutím se nic nesmaže. Čekající skeny zrušíme a nezapočítáme, běžící doběhnou a hotové návrhy půjde dokončit. Prázdný limit znamená bez limitu.</p>
+            </section>
         {% endif %}
     </div>
 {% endblock %}

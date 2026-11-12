@@ -28,6 +28,8 @@ enum StorageCategory: string
     case Calendar = 'calendar';
     case SocialPublish = 'social_publish';
     case Thumbnail = 'thumbnail';
+    /** The AI scan stand-in picture (`ai-scan/…` in the PUBLIC bucket) — a shared by-product, see docs/architecture/ai-scan.md. */
+    case AiScan = 'ai_scan';
     case Other = 'other';
 
     public static function fromPath(string $path): self
@@ -47,6 +49,7 @@ enum StorageCategory: string
             str_starts_with($path, 'calendars/') => self::Calendar,
             str_starts_with($path, 'social-publish/') => self::SocialPublish,
             str_starts_with($path, 'thumbnails/') => self::Thumbnail,
+            str_starts_with($path, 'ai-scan/') => self::AiScan,
             default => self::Other,
         };
     }
@@ -65,6 +68,7 @@ enum StorageCategory: string
             self::Calendar => 'Kalendář',
             self::SocialPublish => 'Publikace na sítě',
             self::Thumbnail => 'Miniatura',
+            self::AiScan => 'AI sken',
             self::Other => 'Ostatní',
         };
     }
@@ -76,6 +80,6 @@ enum StorageCategory: string
      */
     public function isTransient(): bool
     {
-        return $this === self::SocialPublish || $this === self::Thumbnail;
+        return $this === self::SocialPublish || $this === self::Thumbnail || $this === self::AiScan;
     }
 }

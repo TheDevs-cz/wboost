@@ -21,6 +21,15 @@ return App::config([
                     'bucket' => 'wboost',
                 ],
             ],
+            // AI scan files (docs/architecture/ai-scan.md § "Storage"): a
+            // SECOND bucket with no anonymous policy. Nothing in it is ever
+            // addressed by a URL — bytes leave through controllers only.
+            'private' => [
+                'async_aws_s3' => [
+                    'client' => S3Client::class,
+                    'bucket' => '%env(S3_PRIVATE_BUCKET_NAME)%',
+                ],
+            ],
         ],
         'filesystems' => [
             'minio' => [
@@ -31,6 +40,11 @@ return App::config([
             ],
             'cached' => [
                 'adapter' => 'cached',
+            ],
+            'private' => [
+                'adapter' => 'private',
+                'visibility' => 'private',
+                'directory_visibility' => 'private',
             ],
         ],
     ],

@@ -25,6 +25,13 @@
     <groups>
         <exclude>
             <group>gotenberg</group>
+            <!--
+                AI scan fault injection (tests/FaultInjection): real races
+                between forked processes against the real database, outside
+                DAMA's transaction. Opt-in, in a run of its own:
+                vendor/bin/phpunit (dash dash)group fault-injection
+            -->
+            <group>fault-injection</group>
         </exclude>
     </groups>
 

@@ -42,6 +42,12 @@ return static function (ContainerConfigurator $container): void {
     // else refers to it in this environment, so it would be removed.
     $services->set(\WBoost\Web\Services\Calendar\CalendarPdfProducer::class);
 
+    // AI scan: the font faces render is a Gotenberg call — a tiny fake picture.
+    $services->alias(
+        \WBoost\Web\Services\AiScan\Template\FontFacesRendererInterface::class,
+        \WBoost\Web\Tests\Fakes\FakeFontFacesRenderer::class,
+    );
+
     // Meta Graph API double — publish tests never talk to graph.facebook.com.
     $services->alias(
         \WBoost\Web\Services\Meta\MetaGraphApiInterface::class,
@@ -61,6 +67,14 @@ return static function (ContainerConfigurator $container): void {
     // traversal fail ("Fail to hash files under directory").
     $services->set('oneup_flysystem.minio_filesystem', Filesystem::class)
         ->args([inline_service(LocalFilesystemAdapter::class)->args(['/tmp/wboost-test-uploads'])])
+        ->autowire(false)
+        ->autoconfigure(false)
+        ->public();
+
+    // AI scan's PRIVATE bucket: a second local directory, for the same reason
+    // as the public one above (no Minio in CI).
+    $services->set('oneup_flysystem.private_filesystem', Filesystem::class)
+        ->args([inline_service(LocalFilesystemAdapter::class)->args(['/tmp/wboost-test-private'])])
         ->autowire(false)
         ->autoconfigure(false)
         ->public();

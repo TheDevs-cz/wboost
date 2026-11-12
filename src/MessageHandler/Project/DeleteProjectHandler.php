@@ -9,6 +9,7 @@ use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use WBoost\Web\Exceptions\ProjectNotFound;
 use WBoost\Web\Message\Project\DeleteProject;
 use WBoost\Web\Repository\ProjectRepository;
+use WBoost\Web\Services\AiScan\AiScanStorage;
 use WBoost\Web\Services\Storage\CollectProjectStoragePaths;
 use WBoost\Web\Services\Storage\DeleteProjectStorage;
 
@@ -20,6 +21,7 @@ readonly final class DeleteProjectHandler
         private CollectProjectStoragePaths $collectStoragePaths,
         private DeleteProjectStorage $deleteStorage,
         private EntityManagerInterface $entityManager,
+        private AiScanStorage $aiScanStorage,
     ) {
     }
 
@@ -57,5 +59,11 @@ readonly final class DeleteProjectHandler
         $this->entityManager->flush();
 
         $this->deleteStorage->delete($paths);
+
+        // AI scan files live in the PRIVATE bucket, keyed by the project id:
+        // `ai-scan/{projectId}/…`. The scan rows went with the cascade (a
+        // scanner still working on one gets 410 on its next call); the usage
+        // rows are FK-less and stay.
+        $this->aiScanStorage->deleteProject($project->id->toString());
     }
 }

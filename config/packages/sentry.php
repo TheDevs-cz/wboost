@@ -8,6 +8,7 @@ use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
+use WBoost\Web\Services\AiScan\AiScanSentryScrubber;
 
 return App::config([
     'sentry' => [
@@ -35,6 +36,9 @@ return App::config([
                 MethodNotAllowedHttpException::class,
                 TooManyRequestsHttpException::class,
             ],
+            // AI scan routes: no request body, query or cookies in an event
+            // (designs, OCR text, tokens) — see the scrubber.
+            'before_send' => AiScanSentryScrubber::class,
             'traces_sample_rate' => '%env(float:SENTRY_TRACES_SAMPLE_RATE)%',
             'profiles_sample_rate' => '%env(float:SENTRY_PROFILES_SAMPLE_RATE)%',
         ],

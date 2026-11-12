@@ -49,6 +49,7 @@ final class ElementOffsetsEntryPointsTest extends KernelTestCase
         // strict) — neither is listed here any more.
         'Mcp/Design/CandidateRenderer.php' => 'MCP design preview: the design itself, no fill',
         'Mcp/Tool/PreviewDesignTool.php' => 'MCP design preview: the design itself, no fill',
+        'Services/AiScan/Template/TemplateProposal.php' => 'AI scan candidate: an unsaved design through CandidateRenderer, no fill',
         'Mcp/Tool/SetDesignTool.php' => 'MCP design preview: the design itself, no fill',
         // Pages arrive RESOLVED (overrides carry the offsets) — they only forward.
         'Services/Print/ScreenPdfRenderer.php' => 'forwards resolved overrides to the renderer',

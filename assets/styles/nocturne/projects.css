@@ -112,6 +112,10 @@
 .pd-st-ro { display: inline-flex; align-items: center; gap: 6px; }
 .pd-mod .sw { --a: var(--mnt); --a-deep: var(--mnt-deep); --a-line: var(--mnt-line); --a-glow: var(--mnt-glow); }
 .pd-mod .sw:focus-visible { outline: 2px solid var(--lav-ink); outline-offset: 2px; }
+/* AI sken — the monthly-limit row under the Premium switch (edit project). */
+.pai-limit { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; }
+.pai-limit .lbl { margin: 0; }
+.pai-limit .form-control { width: 120px; }
 .pm-hist { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
 .pm-hist .pu-row { font-size: 13px; color: var(--text-2); }
 

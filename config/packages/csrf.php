@@ -12,7 +12,10 @@ return App::config([
             ],
         ],
         'csrf_protection' => [
-            'stateless_token_ids' => ['submit', 'authenticate', 'logout'],
+            // `ai_scan`: the scan surface's JSON POSTs (start, cancel, retry, …)
+            // are same-origin fetches — validated by the Origin header, with
+            // `_token=csrf-token`, no session token to plumb into scripts.
+            'stateless_token_ids' => ['submit', 'authenticate', 'logout', 'ai_scan'],
         ],
     ],
 ]);

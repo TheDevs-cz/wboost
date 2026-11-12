@@ -23,6 +23,11 @@ services:
             - minio
         ports:
             - "${WEB_PORT:-8080}:80"
+        # `scan`: the network the AI scanner calls the app on — its subnet is
+        # what SCAN_NETWORK_CIDR (.env.dev) lets through to /internal/scanner/*.
+        networks:
+            - default
+            - scan
         environment:
             # FRANKENPHP_WORKER: "1"
             # FRANKENPHP_WATCH: "1"
@@ -115,4 +120,15 @@ services:
             MINIO_ACCESS_KEY: "wboost"
             MINIO_SECRET_KEY: "wboostminio"
             BUCKET_NAME: "wboost"
+            # AI scan files: a second bucket WITHOUT an anonymous policy.
+            PRIVATE_BUCKET_NAME: "wboost-private"
         entrypoint: ["sh", "/setup-minio.sh"]
+
+networks:
+    # AI scan (docs/architecture/ai-scan.md § "Scanner API"): `web` and the
+    # scanner container share this network and nothing else does. A fixed
+    # subnet, because the app accepts scanner calls only from it.
+    scan:
+        ipam:
+            config:
+                - subnet: 172.31.250.0/24

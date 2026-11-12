@@ -37,7 +37,15 @@ return static function (ContainerConfigurator $container): void {
         // cannot boot. See config/packages/league_oauth2_server.php for why the
         // committed default is `0` (turning it on is a deployment decision now
         // that the consent screen exists).
-        ->set('env(OAUTH2_DYNAMIC_CLIENT_REGISTRATION)', '0');
+        ->set('env(OAUTH2_DYNAMIC_CLIENT_REGISTRATION)', '0')
+        // AI scan (docs/architecture/ai-scan.md). Same reason as above: prod's
+        // `.env` is rendered from Infisical, so a deploy made before these
+        // exist there must boot — and must boot INERT. An empty network or
+        // token means the scanner endpoints answer 404 to everyone
+        // (ScannerServiceAuthenticator).
+        ->set('env(SCAN_NETWORK_CIDR)', '')
+        ->set('env(SCANNER_TOKEN)', '')
+        ->set('env(S3_PRIVATE_BUCKET_NAME)', 'wboost-private');
 
     $services = $container->services();
 
@@ -151,6 +159,12 @@ return static function (ContainerConfigurator $container): void {
     $services->alias(
         \WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface::class,
         \WBoost\Web\Services\Editor\TemplateVariantImageRenderer::class,
+    );
+
+    // AI scan: the font faces render talks to Gotenberg — tests replace it.
+    $services->alias(
+        \WBoost\Web\Services\AiScan\Template\FontFacesRendererInterface::class,
+        \WBoost\Web\Services\AiScan\Template\FontFacesRenderer::class,
     );
 
     // Meta Graph API client — same pattern: tests replace it with a fake.

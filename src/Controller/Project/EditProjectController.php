@@ -16,7 +16,9 @@ use WBoost\Web\Entity\User;
 use WBoost\Web\FormData\ProjectFormData;
 use WBoost\Web\FormType\ProjectFormType;
 use WBoost\Web\Message\Project\EditProject;
+use Psr\Clock\ClockInterface;
 use WBoost\Web\Repository\ProjectModuleChangeRepository;
+use WBoost\Web\Services\AiScan\AiScanCredits;
 use WBoost\Web\Services\Security\ProjectVoter;
 
 final class EditProjectController extends AbstractController
@@ -24,6 +26,8 @@ final class EditProjectController extends AbstractController
     public function __construct(
         readonly private MessageBusInterface $bus,
         readonly private ProjectModuleChangeRepository $moduleChangeRepository,
+        readonly private AiScanCredits $aiScanCredits,
+        readonly private ClockInterface $clock,
     ) {
     }
     
@@ -85,6 +89,13 @@ final class EditProjectController extends AbstractController
             'module_changes' => $this->isGranted(User::ROLE_ADMIN)
                 ? $this->moduleChangeRepository->latestForProject($project->id)
                 : [],
+            // The admin-only AI scan switch: scans counted this month / ever.
+            'ai_scan_usage' => $this->isGranted(User::ROLE_ADMIN)
+                ? [
+                    'month' => $this->aiScanCredits->usedInMonth($project->id->toString(), $this->clock->now()),
+                    'total' => $this->aiScanCredits->countedTotal($project->id->toString()),
+                ]
+                : null,
         ]);
     }
 }

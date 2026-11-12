@@ -27,6 +27,7 @@ final class StorageCategoryTest extends TestCase
         yield 'calendar upload preview' => ['calendars/0191-a/0192-b-preview.webp', StorageCategory::Calendar];
         yield 'publish temp file' => ['social-publish/0191-a.jpg', StorageCategory::SocialPublish];
         yield 'imagine thumbnail' => ['thumbnails/whatever.png', StorageCategory::Thumbnail];
+        yield 'ai scan stand-in' => ['ai-scan/stand-in-v1.png', StorageCategory::AiScan];
         yield 'unknown' => ['stray-file.txt', StorageCategory::Other];
 
         // Previews win over the template namespace they are nested in — they
@@ -51,6 +52,7 @@ final class StorageCategoryTest extends TestCase
         // Transient = unreferenced by design, so never reported as an orphan.
         self::assertTrue(StorageCategory::SocialPublish->isTransient());
         self::assertTrue(StorageCategory::Thumbnail->isTransient());
+        self::assertTrue(StorageCategory::AiScan->isTransient());
 
         self::assertFalse(StorageCategory::GalleryImage->isTransient());
         self::assertFalse(StorageCategory::Preview->isTransient());

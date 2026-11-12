@@ -74,8 +74,11 @@ readonly final class DesignPreflight
      * @param mixed $design the decoded design document, exactly as the tool
      *        received it — {@see DslParser::parse()} is the validating entry
      *        point and takes it untrusted on purpose
+     * @param array<string, DesignAsset> $extraAssets see
+     *        {@see CompilationContextFactory::forProject()} — only the AI scan
+     *        render path passes any
      */
-    public function review(TemplateVariant $variant, mixed $design): DesignReview
+    public function review(TemplateVariant $variant, mixed $design, array $extraAssets = []): DesignReview
     {
         try {
             $document = DslParser::parse($design);
@@ -87,7 +90,7 @@ readonly final class DesignPreflight
         $issues = self::fitsTheVariant($document, $variant);
 
         $project = $variant->template->project;
-        $compilation = $this->compilationContextFactory->forProject($project, $document)
+        $compilation = $this->compilationContextFactory->forProject($project, $document, $extraAssets)
             ->withBleed($variant->dimension->bleedPixels());
 
         $report = $this->linter->lint($document, LintContext::forProject(

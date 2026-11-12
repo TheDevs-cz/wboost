@@ -70,6 +70,20 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[Column(type: Types::JSON, options: ['default' => self::DEFAULT_MCP_SCOPES_JSON])]
     public array $mcpScopes = self::DEFAULT_MCP_SCOPES;
 
+    /**
+     * The version of the AI scan consent text this user agreed to (transfer of
+     * the picture to the provider + the right to use it), and when. A scan
+     * starts only when it equals the current version
+     * ({@see \WBoost\Web\Services\AiScan\AiScanDefinition::consentVersion()}).
+     */
+    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+    #[Column(length: 32, nullable: true)]
+    public null|string $aiScanConsentVersion = null;
+
+    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+    #[Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    public null|DateTimeImmutable $aiScanConsentAt = null;
+
     public function __construct(
         #[Id]
         #[Immutable]
@@ -163,6 +177,16 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         }
 
         return $allowed;
+    }
+
+    public function giveAiScanConsent(string $version, DateTimeImmutable $now): void
+    {
+        if ($this->aiScanConsentVersion === $version) {
+            return;
+        }
+
+        $this->aiScanConsentVersion = $version;
+        $this->aiScanConsentAt = $now;
     }
 
     public function getDisplayName(): string

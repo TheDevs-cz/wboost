@@ -10,6 +10,7 @@ use WBoost\Web\Entity\User;
 use WBoost\Web\Mcp\Security\McpOAuthAuthenticator;
 use WBoost\Web\Mcp\Security\McpTokenAuthenticator;
 use WBoost\Web\Services\Security\FacebookAuthenticator;
+use WBoost\Web\Services\Security\ScannerServiceAuthenticator;
 use WBoost\Web\Services\Security\UserChecker;
 
 return App::config([
@@ -117,6 +118,23 @@ return App::config([
                 // "nothing usable was presented" case.
                 'entry_point' => McpTokenAuthenticator::class,
             ],
+            // AI scan — the scanner's endpoints (docs/architecture/ai-scan.md
+            // § "Scanner API"). MUST stay above `main`: under `main` an
+            // unauthenticated call would be answered with a 302 to /login.
+            // The authenticator claims EVERY request of the pattern and
+            // answers 404 unless the TCP peer lies in the scan network AND the
+            // bearer token matches — with either unset (the default) nothing
+            // passes. No user provider is involved: the passport carries its
+            // own in-memory `scanner` user.
+            'scanner' => [
+                'pattern' => '^/internal/scanner(/|$)',
+                'stateless' => true,
+                'provider' => 'api_user_provider',
+                'custom_authenticators' => [
+                    ScannerServiceAuthenticator::class,
+                ],
+                'entry_point' => ScannerServiceAuthenticator::class,
+            ],
             'main' => [
                 'lazy' => true,
                 'provider' => 'user_provider',
@@ -195,6 +213,13 @@ return App::config([
             [
                 'path' => '^/_mcp',
                 'roles' => [AuthenticatedVoter::IS_AUTHENTICATED_FULLY],
+            ],
+            // The scanner API: only the `scanner` firewall's authenticator can
+            // grant this role (see above). Everything else under `/internal`
+            // falls to the `^/` rule below.
+            [
+                'path' => '^/internal/scanner(/|$)',
+                'roles' => [ScannerServiceAuthenticator::ROLE],
             ],
             // The apex and the static pages belong to nginx (D61), not to
             // Symfony — but if the landing container is down or a router rule

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+{# AI scan — font faces render (docs/architecture/ai-scan.md § "Font faces").
+   One row per (face, line): black on white, never wrapping, at a fixed left
+   padding. Rendered by Gotenberg; the scanner measures the ink of every row
+   by the cell geometry returned next to the picture. No user text reaches a
+   log from here, and nothing on this page loads from the network. #}
+<html lang="cs">
+<head>
+    <meta charset="utf-8">
+    <style>
+        {% for face in font_faces %}
+        @font-face { font-family: "{{ face.alias }}"; src: url("{{ face.src|raw }}"); }
+        {% endfor %}
+        html, body { margin: 0; padding: 0; background: #fff; }
+        body { width: {{ width }}px; height: {{ height }}px; overflow: hidden; }
+        .cell {
+            position: absolute; left: 0; width: {{ width }}px; box-sizing: border-box;
+            padding-left: {{ padding }}px; overflow: hidden; white-space: pre;
+            color: #000; display: flex; align-items: center;
+            font-kerning: normal; font-synthesis: none; -webkit-font-smoothing: antialiased;
+        }
+    </style>
+</head>
+<body>
+    {% for cell in cells %}
+        <div class="cell" style="top: {{ cell.y }}px; height: {{ cell.height }}px; line-height: {{ cell.height }}px; font-family: '{{ cell.alias }}'; font-size: {{ cell.fontSize }}px;">{{ cell.text }}</div>
+    {% endfor %}
+    <script>
+        (async () => {
+            try {
+                await Promise.all({{ font_faces|map(f => f.alias)|json_encode|raw }}.map((alias) => document.fonts.load('16px "' + alias + '"')));
+                await document.fonts.ready;
+            } finally {
+                window.facesRendered = true;
+            }
+        })();
+    </script>
+</body>
+</html>

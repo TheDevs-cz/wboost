@@ -164,6 +164,13 @@ class FileUpload
             return;
         }
 
+        // An AI-scan stand-in is not a gallery picture: templates reference
+        // it for places still empty, so it never enters the bin (and the
+        // purge only ever takes what is in the bin).
+        if (!$this->source->isGalleryPicture()) {
+            return;
+        }
+
         $this->deletedAt = $now;
         $this->restoreDirectory = $this->directory;
         $this->directory = null;
