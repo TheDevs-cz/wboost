@@ -50,20 +50,29 @@ export function runOcr(imagePath, { threads = 3, scale = 1, timeoutMs = 30_000, 
     });
 }
 
-/** PP-OCR detects word groups; glue fragments that sit on one baseline into lines (left to right). */
+/**
+ * PP-OCR detects word groups; glue fragments that sit on one baseline into lines (left to right).
+ * A fragment's box height says little about the type size — a word with a descender or an accent is
+ * boxed up to 1.6× as tall as its neighbour "2027" — so fragments are compared with the TYPICAL
+ * (median) fragment height of the line, never with the union box, which only grows.
+ */
 export function mergeLines(lines) {
     const items = lines.filter((l) => String(l.text).trim() !== '').map((l) => ({ ...l })).sort((a, b) => a.box.x - b.box.x);
     const out = [];
+    const typical = (o) => { const h = [...o.heights].sort((p, q) => p - q); return h[h.length >> 1]; };
     for (const it of items) {
         let host = null;
         for (const o of out) {
-            const a = o.box, b = it.box;
+            const a = o.box, b = it.box, last = o.last;
+            const ha = typical(o);
             const vOverlap = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
             const gap = b.x - (a.x + a.w);
-            const hRatio = Math.min(a.h, b.h) / Math.max(a.h, b.h);
-            if (vOverlap > 0.6 * Math.min(a.h, b.h) && hRatio > 0.6 && gap < 0.9 * Math.max(a.h, b.h) && gap > -0.5 * Math.min(a.w, b.w)) { host = o; break; }
+            const hRatio = Math.min(ha, b.h) / Math.max(ha, b.h);
+            // the neighbour it would continue: their vertical centres must sit on one line
+            const centres = Math.abs((last.y + last.h / 2) - (b.y + b.h / 2)) < 0.4 * Math.min(last.h, b.h);
+            if (vOverlap > 0.6 * Math.min(ha, b.h) && hRatio > 0.5 && centres && gap < 0.9 * Math.max(ha, b.h) && gap > -0.5 * Math.min(a.w, b.w)) { host = o; break; }
         }
-        if (!host) { out.push({ text: it.text.trim(), conf: it.conf, box: { ...it.box } }); continue; }
+        if (!host) { out.push({ text: it.text.trim(), conf: it.conf, box: { ...it.box }, heights: [it.box.h], last: it.box }); continue; }
         // overlapping fragments repeat characters ("bilé" + "é krvinky,"): drop the duplicated prefix
         let add = it.text;
         const gap = it.box.x - (host.box.x + host.box.w);
@@ -75,6 +84,7 @@ export function mergeLines(lines) {
         host.text = (host.text + ' ' + add.trim()).replace(/\s+/g, ' ').trim();
         host.conf = Math.min(host.conf, it.conf);
         host.box = union([host.box, it.box]);
+        host.heights.push(it.box.h); host.last = it.box;
     }
     return out.sort((a, b) => (a.box.y + a.box.h / 2) - (b.box.y + b.box.h / 2) || a.box.x - b.box.x)
         .map((l, i) => ({ id: i + 1, text: l.text, conf: +l.conf.toFixed(3), box: { x: Math.round(l.box.x), y: Math.round(l.box.y), w: Math.round(l.box.w), h: Math.round(l.box.h) } }));

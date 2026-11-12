@@ -168,22 +168,41 @@ test('cellInk(): empty cell → null', async () => {
     assert.equal(cellInk(await svgRaster(100, 50, ''), { x: 0, y: 0, w: 100, h: 50 }), null);
 });
 
-test('OCR sidecar: reads a rendered line with its box, on the pinned thread count', { skip: !existsSync(ocrPython()) && 'no python with rapidocr (scanner/.venv)' }, async () => {
+test('mergeLines(): a fragment boxed tall by a descender still joins its line; a neighbour of another size does not', () => {
+    // what the detector returns for "Letni kemp 2027" set in DejaVu Sans: "kemp" is boxed 1.6× as tall as its neighbours
+    const frag = (text, x, y, w, h) => ({ text, conf: 1, box: { x, y, w, h } });
+    assert.deepEqual(mergeLines([frag('kemp', 237, 60, 244, 124), frag('Letni', 56, 76, 192, 78), frag('2027', 466, 73, 202, 81)]).map((l) => l.text), ['Letni kemp 2027']);
+    // the same line with a still shorter last fragment (its height is 0.56 of the union box, 0.9 of the typical fragment)
+    assert.deepEqual(mergeLines([frag('Letni', 56, 76, 192, 78), frag('kemp', 237, 60, 244, 124), frag('2027', 466, 80, 202, 70)]).map((l) => l.text), ['Letni kemp 2027']);
+    // a big numeral beside a line of small text, and the line below, stay apart
+    assert.deepEqual(mergeLines([frag('3', 100, 50, 60, 150), frag('small text', 180, 100, 200, 40), frag('next line', 180, 150, 180, 40)]).map((l) => l.text).sort(), ['3', 'next line', 'small text']);
+});
+
+const hasOcr = existsSync(ocrPython());
+test('OCR sidecar: reads a line with its box, on the pinned thread count (fixed picture: the same result on arm64 and x86)', { skip: !hasOcr && 'no python with rapidocr (scanner/.venv)' }, async () => {
+    const r = await runOcr(join(import.meta.dirname, 'fixtures', 'ocr-line.png'), { threads: 2, timeoutMs: 120_000 });
+    assert.equal(r.threads, 2);
+    // the raw fragments are part of the contract: the detector and recogniser are pinned (requirements.txt)
+    assert.deepEqual(r.lines.map((l) => [l.text, l.box.x, l.box.y, l.box.w, l.box.h]).sort((a, b) => a[1] - b[1]), [['Letni', 56, 76, 192, 78], ['kemp', 237, 60, 244, 124], ['2027', 466, 73, 202, 81]]);
+    const lines = mergeLines(r.lines);
+    assert.deepEqual(lines.map((l) => [l.text, l.box]), [['Letni kemp 2027', { x: 56, y: 60, w: 612, h: 124 }]]);
+    assert.ok(r.peakRssMb > 50 && r.cpuSeconds > 0);
+});
+
+test('OCR sidecar: a line set in whatever sans-serif this machine has comes back as ONE line', { skip: !hasOcr && 'no python with rapidocr (scanner/.venv)' }, async (t) => {
     const dir = mkdtempSync(join(tmpdir(), 'scan-ocr-'));
     try {
         const file = join(dir, 'line.png');
         writeFileSync(file, await sharp(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="900" height="240"><rect width="100%" height="100%" fill="#fff"/><text x="60" y="140" font-size="72" font-family="Helvetica, Arial, DejaVu Sans, sans-serif" fill="#111">Letni kemp 2027</text></svg>')).png().toBuffer());
         const r = await runOcr(file, { threads: 2, timeoutMs: 120_000 });
-        assert.equal(r.threads, 2);
+        if (!r.lines.length) return t.skip('this machine has no font to draw the line with');
         const lines = mergeLines(r.lines);
-        assert.equal(lines.length, 1);
+        assert.equal(lines.length, 1, `fragments: ${JSON.stringify(r.lines.map((l) => [l.text, l.box.x, l.box.y, l.box.w, l.box.h]))}`);
         assert.match(lines[0].text.replace(/\s+/g, ' '), /Letni kemp 2027/i);
-        assert.ok(lines[0].box.x > 30 && lines[0].box.x < 90 && lines[0].box.h > 40 && lines[0].box.h < 110, JSON.stringify(lines[0].box));
-        assert.ok(r.peakRssMb > 50 && r.cpuSeconds > 0);
     } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('OCR sidecar: an abort kills the process group', { skip: !existsSync(ocrPython()) && 'no python with rapidocr (scanner/.venv)' }, async () => {
+test('OCR sidecar: an abort kills the process group', { skip: !hasOcr && 'no python with rapidocr (scanner/.venv)' }, async () => {
     const dir = mkdtempSync(join(tmpdir(), 'scan-ocr-'));
     try {
         const file = join(dir, 'big.png');
