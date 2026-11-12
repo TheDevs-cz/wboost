@@ -753,13 +753,15 @@ is Chromium's sans-serif, not Outfit (not shipped to Gotenberg).
 ## PDF export — „Stáhnout PDF“ (2026-11-11)
 
 Whoever can open a calendar can take it away as a PDF: designer, admin,
-read-only member, the client on `/k/{token}`. Two variants
-(`Value/Calendar/CalendarExportVariant`):
+read-only member, the client on `/k/{token}`. Three variants
+(`Value/Calendar/CalendarExportVariant`; the CMYK one since 2026-11-12, see
+"CMYK variant" below):
 
 | Variant | Pages | Photos | For |
 |---|---|---|---|
 | `print` „Pro tisk“ | what step 5 shows the designer: the bleed when it is on, crop marks when they are on. Sheet = the view box of `pageViewBox(design, { bleed, marks })` — trim + 2 × bleed, with marks trim + 2 × (bleed + 2 mm gap + 5 mm mark + 1 mm) = **336 × 171 mm** for the default page with 5 mm bleed | the uploaded file, byte for byte | the print shop |
 | `approval` „Náhled k odsouhlasení“ | trimmed (310 × 145 mm), no bleed, no marks | the ≤ 1600 px preview, as JPEG | e-mail |
+| `print_cmyk` „Pro tisk (CMYK)“ | the `print` sheets, every colour DeviceCMYK, PDF/X-4 with the Coated FOGRA39 output intent; crop marks in the registration colour | the uploaded pixels, re-encoded as CMYK JPEG (ICC) | a print shop that asks for CMYK |
 
 **The file is vector.** The page SVG is *printed* by Gotenberg's Chromium, not
 screenshotted (`templates/calendar/headless_print.html.twig` →
@@ -834,7 +836,7 @@ renderer's default stays `holes: true`).
 - `CalendarExports::request()` dispatches `RequestCalendarExport` (command bus:
   locks the calendar row, so two requests at once end in ONE job; refuses a
   calendar without a layout; writes the history line `Stáhl PDF pro tisk` /
-  `Stáhl PDF k odsouhlasení`; creates the row unless one is reusable) and then
+  `Stáhl PDF pro tisk (CMYK)` / `Stáhl PDF k odsouhlasení`; creates the row unless one is reusable) and then
   `RunCalendarExport` for a row it created.
 - **Reuse**: a `done` (or still pending) export of the same variant with the
   same `calendar.revision` and `renderer_hash`
@@ -883,6 +885,189 @@ response should hold, and a flushing `StreamedResponse` is forbidden
 (CLAUDE.md). File name: `Value/DownloadFileName` — `{název} - tisk.pdf` /
 `{název} - náhled.pdf`.
 
+### CMYK variant — „Pro tisk (CMYK)“ (2026-11-12)
+
+The print file again, for offset print: **the same vector pages** — live text
+with the embedded fonts, shapes, gradients, live transparency, photos with
+the pixels they were uploaded with — and **not one RGB colour left**. Nothing
+is rasterised and nothing is drawn a second time: the RGB chunks Chromium
+prints are rewritten colour by colour (`Services/Print/Cmyk/`), then merged
+into a PDF/X-4 frame. A 2026-11-11 spike had shown why Ghostscript cannot do
+it (`pdfwrite` + FOGRA39: `#000000` text → 89 / 78 / 62 / 97, no brand
+palette, and `-dBlackText -dBlackVector` blackens every shape).
+
+**The colour rules** (`CmykColorRules`; colours are compared as 8-bit values —
+Chromium writes n / 255 with four decimals, so a hex match is exact):
+
+| # | A vector colour (fill, stroke, text, gradient stop, colour-table entry) that… | prints as |
+|---|---|---|
+| 1 | is **neutral**, R = G = B | **black ink only**: 0 / 0 / 0 / K, K = 1 − value / 255 (`#000000` K 100, `#808080` K 49.8, `#FFFFFF` no ink). A palette entry of that hex whose CMYK is K-only gives its own K (`#C6C6C6` = 0/0/0/30); a palette entry with C, M or Y is ignored — neutral is never four-colour |
+| 2 | equals a **project palette** colour with a usable CMYK (`BrandCmykPalette`, hex match) | the palette's CMYK, to the digit |
+| 3 | paints **text** and is nearly neutral — R, G, B within 16 of each other (`TEXT_NEUTRAL_SPREAD`) | **black ink only**, K = 1 − luma / 255 (0.299 R + 0.587 G + 0.114 B). The calendar's default text colours are `#2B2830` and `#6E6977` — tinted greys the profile would spread over four plates (`#2B2830` → 83 / 82 / 52 / 75); as text they are K 83.6 and K 57.6. Fills and strokes keep their tint (the lavender paper stays lavender). **For K 100 text set the text to `#000000`** |
+| 4 | is anything else | **ICC**: sRGB → Coated FOGRA39, relative colorimetric + black point compensation (`IccColorTransform`, lcms through Imagick — the conversion of the template print pipeline), each colour once per export |
+
+Pictures: a **JPEG** is decoded, converted through the profile (its own
+embedded profile is honoured, else sRGB) and re-encoded as a CMYK JPEG —
+same pixels, quality = the source's own (clamped to 80–95: a higher one only
+stores the source's artefacts more faithfully, at 3 × the bytes), no chroma
+subsampling (ImageMagick can only subsample the chroma together with the
+BLACK plate, which would halve the resolution of the shadows — so a 4:2:0
+upload grows about 2.3 ×);
+ImageMagick writes Adobe-style inverted YCCK, so the image gets `/Decode
+[1 0 1 0 1 0 1 0]`. A **losslessly stored** picture (PNG upload, with or
+without alpha) stays lossless (Flate, DeviceCMYK); if EVERY pixel of it is
+neutral — a QR code, the black rectangle Chromium rasterises for the photo
+shadow — it becomes **DeviceGray**, black ink only. Soft masks are kept as
+they are. A JPEG with one channel stays DeviceGray.
+
+**What Chromium (Skia/PDF, Gotenberg 8) writes, and what the pass does with
+it** — found by dumping a page that uses every feature at once
+(`qpdf --qdf`), then by letting the pass fail on whatever it did not know:
+
+| Construct in the chunk | Where it comes from | Rule |
+|---|---|---|
+| `r g b RG r g b rg` (always both, 4 decimals) | every fill, stroke and text | `c m y k K` / `k` by the rules above; `BT … ET` under a nearly neutral fill gets the K-only colour in front of `BT` and the tinted colour again behind `ET` |
+| `/Pattern CS/Pattern cs/P8 SCN/P8 scn` + shading pattern (`PatternType 2`, `ShadingType 2` axial / `3` radial, `/ColorSpace /DeviceRGB`, `FunctionType 2` with `C0` / `C1`, or `FunctionType 3` stitching for more stops) | gradients (header, background, month, SVG logos) | space → DeviceCMYK, every stop converted like a colour; between stops the inks interpolate linearly |
+| tiling pattern (`PatternType 1`, `PaintType 1`) wrapping `gs` + a shading pattern | a gradient with **stop opacity** | content rewritten, resources walked |
+| ExtGState `/SMask << /S /Luminosity /G form >>`, the form a transparency group `/CS /DeviceRGB` painted with a GREY gradient (`C0 [1 1 1]`, `C1 [.6 .6 .6]`) | the opacity of those stops | the group becomes `/CS /DeviceGray`, its colours the PDF luminosity of the RGB ones (0.30 R + 0.59 G + 0.11 B) — the mask's opacity is exact |
+| ExtGState `/ca`, `/CA`, `/BM /Normal`, `/LW /LC /LJ /ML /SA` | opacity (kalendárium, caption, month backgrounds, pictures), line styles | copied; an unknown key or blend mode fails |
+| Form XObject, `/Group << /S /Transparency /I true >>` | a picture with opacity, clipped groups | content rewritten; a group `/CS` → DeviceCMYK |
+| Image `/DCTDecode`, `/ColorSpace [/ICCBased n]` (N 3), `/ColorTransform 0` | a JPEG upload, bytes untouched | CMYK JPEG, see above; the RGB profile object is dropped |
+| Image `/FlateDecode` `/DeviceRGB` + `/SMask` (DeviceGray) | the filter-rasterised photo shadow (300 ppi), PNG uploads | DeviceGray if all-neutral, else DeviceCMYK; the mask untouched |
+| Type 0 fonts (`CIDFontType2`, Identity-H, ToUnicode, `FontFile2`) | text | copied byte for byte |
+| dashes, clip paths, `cm`, `W n`, `re`, Béziers | everything else | untouched |
+| page `/StructParents`, `/Tabs` | accessibility leftovers of the print | dropped |
+
+Also handled by rule, though Chromium was not seen writing them: `sc` / `scn`
+in DeviceRGB or a named RGB space (ICCBased N = 3, CalRGB), `sh`, sampled
+functions (`FunctionType 0`, 8-bit), `Indexed` colour tables (their entries
+follow the vector rules), Type 3 fonts (their glyph procedures are content
+streams), stencil masks, `/Background` of a shading, spot colours with a
+CMYK / grey alternate.
+
+**What makes the export fail** (`CmykConversionFailed` → the row fails with
+`CalendarExports::CMYK_FAILED`, „Převod do CMYK se nepodařil. Použijte prosím
+variantu „Pro tisk“ (RGB) — tiskárna si barvy převede sama.“; the reason is in
+the log): an operator that is not a PDF operator, an inline image, a
+PostScript calculator function (`FunctionType 4`), a mesh shading (types
+4–7), an uncoloured tiling pattern, Lab / spot colours that fall back to
+RGB, a picture that is JPEG 2000 / colour-key masked / not 8-bit / has
+`/Decode` or a pre-multiplied (`/Matte`) soft mask, a colour picture inside a
+luminosity mask, transfer / black-generation / halftone entries in an
+ExtGState, an unknown blend mode, a form without resources of its own, an
+unknown entry of a page / group / pattern / shading / resource dictionary —
+and a chunk that is not a classic-xref file. **There is no fallback to a
+raster and none to Ghostscript**: a CMYK file that is wrong about colour is
+worse than the RGB one.
+
+**Pipeline** (`CalendarPdfProducer`, steps 3–4 of the list above changed):
+each chunk is converted right after it was rendered
+(`PdfCmykConverter::convert`: read with `PdfReader`, walk from the pages
+through everything that carries colour **by type**, write with `PdfWriter`;
+what the walk does not reach is not written) and the RGB chunk is deleted.
+One `CmykPass` serves the export: the colour table, and the converted
+pictures by the digest of their source stream — a header / background
+picture every chunk repeats is converted once (kept while consecutive chunks
+ask for it; a page photo is dropped with the next chunk). Pictures go file →
+file, one at a time; ImageMagick's pixel cache is capped at 192 MB and spills
+to its disk cache. `PdfChunkMerger` then merges with `consume` (the work
+directory never holds the file twice) and `printCondition`: header
+`%PDF-1.6`, `/OutputIntents` with the embedded profile
+(`GTS_PDFX`, `FOGRA39`, „Coated FOGRA39 (ISO 12647-2:2004)“), XMP metadata
+(`pdfxid:GTS_PDFXVersion` PDF/X-4, title, dates, document id = the trailer
+`/ID`), `/Trapped /False`.
+
+**Crop marks are the registration colour** (`/Separation /All`, tint 1,
+0.25 pt): on all four plates, as print shops expect of marks — a black-only
+mark would say nothing about the other three plates. The page therefore
+leaves the mark band EMPTY for this variant (`drawMarks: false` of
+`renderPage`, boot key `drawMarks`) and the pass strokes the eight lines in a
+content stream of its own; `CalendarPdfPlan::cropMarks()` repeats the
+geometry of `cropMarks()` in `render/page.js` (`MARKS` → `MARK_GAP_MM`,
+`MARK_LENGTH_MM`, `MARK_WEIGHT_PT`; `CalendarPdfPlanTest` reads the two JS
+files and fails when they move). Chromium's page content changes the
+coordinate system outside any `q … Q`, so the page's `/Contents` becomes
+`[ q, the page, Q + marks ]`.
+
+**The verifier** (`PdfRgbVerifier::assertNoRgb`, run by the producer on the
+MERGED file — a failure fails the export): it shares no decision with the
+converter and looks at every object, reachable or not — no `/DeviceRGB`,
+`/CalRGB`, `/Lab` name anywhere, every `/ICCBased` profile has 1 or 4
+components, every content stream (page contents, forms, tiling patterns,
+Type 3 glyphs) is lexed and holds no `rg` / `RG` / `/DeviceRGB cs` / inline
+image, every JPEG has the component count its colour space needs. Constant
+memory (pictures are never loaded). `PdfRgbVerifierTest` hands it eleven
+files with ONE leftover each.
+
+**PDF/X-4 — what is and is not claimed.** Present: PDF 1.6; output intent
+`GTS_PDFX` with the embedded CMYK profile; only DeviceCMYK, DeviceGray and
+`/Separation /All`; every font embedded (Chromium); MediaBox ⊇ BleedBox ⊇
+TrimBox on every page; `/Trapped`; XMP with `pdfxid:GTS_PDFXVersion`
+matching Info; trailer `/ID`; no encryption, JavaScript, annotations,
+transfer functions, halftones, OPI, alternates, LZW; live transparency
+(allowed in X-4) with normal blend mode only. **Not validated by a preflight
+tool** — none of the free ones checks X-4 (veraPDF: PDF/A and UA only;
+Ghostscript only *writes* X; qpdf checks syntax). Checked instead: `qpdf
+--check` clean, Ghostscript renders every page without a warning, poppler
+reads fonts / text / images, our own verifier, and the separations
+(`gs -sDEVICE=tiffsep`) looked at. Before the first real print job the file
+should go through Acrobat Preflight or callas once; the likely findings, if
+any: the absent `xmpMM:History`, or a RIP's opinion on DeviceGray inside
+luminosity groups.
+
+**Numbers** (dev stack, Apple silicon, 2026-11-12; the worst case through the
+real async path — request over HTTP, a consumer started as production's with
+`--memory-limit 256M`; the RGB figures of the same calendars are in the table
+below):
+
+| Calendar | Pages / chunks | Total | of it the colour pass | File (RGB print file) | Consumer RSS peak | Work directory peak |
+|---|---|---|---|---|---|---|
+| **worst case**: 53 photos of 5400 × 3600, 9.8 MB each (4:2:0, quality 81) + a 4.2 MB background and a 1 MB header picture | 55 / 53 | **370 s** | 260 s (4.9 s per photo; the two shared pictures converted once, 104 times taken from the pass) | **1 295 MB** (527 MB) | **225 MB** | 2 052 MB |
+| the stress calendar: every colour-bearing feature, 3 photos, a background picture on every page | 59 / 10 | 27 s | 5 s | 21 MB (10 MB) | — (99 MB PHP peak in the foreground command) | 41 MB |
+
+- **Time**: the pass adds ~5 s per 19 MP photo (decode, lcms, encode) — a
+  year takes 6 minutes instead of 2. The row is touched after every chunk
+  (≤ 10 s apart), so the 10-minute "stalled" rule is far away.
+- **Size**: ~2.5 × the RGB file for 4:2:0 uploads (four channels, no chroma
+  subsampling, and ImageMagick's non-optimised Huffman tables). With
+  `KEEP = 6` exports per calendar a calendar at the upload cap can hold
+  several GB of exports — the storage report shows them.
+- **Memory**: bounded by the 64 MB pixel-cache cap, not by the photo. The
+  first version (cap 192 MB + 192 MB mapped) peaked at **605 MB** resident in
+  the consumer — against a 768 MB container; with the cap at 64 MB it is 225
+  MB. PHP's own peak was 89–192 MB (the higher figure in the dev
+  environment, whose debug logger keeps records), under the consumer's soft
+  `--memory-limit 256M`.
+- **Disk**: the CMYK chunk files lie side by side until the merge consumes
+  them, each with its own converted copy of the shared pictures (53 ×
+  (4.2 + 1) MB × 2.3 here), plus one decoded photo in ImageMagick's disk
+  cache (16 bytes per pixel: ~310 MB for 19 MP, ~1 GB for 60 MP).
+  `assertWorkSpace` plans 2.5 × (page pictures + shared pictures × chunks) +
+  16 B × the pixels of the largest picture + 200 MB = 2 496 MB for this
+  calendar
+  and refuses the job up front (`NO_SPACE`) when the disk has less.
+- Not measured: the production host (slower disk, the consumer's real
+  container limit) and a 60 MP photo in the CMYK pass.
+
+**Traps.**
+- The palette is read when the job starts (`BrandCmykPalette::forProject`):
+  only colours a manual links, only those with a plausible CMYK. A brand
+  colour without CMYK goes through the profile.
+- **No overprint.** K 100 text knocks out the colour under it (see "Known
+  gaps").
+- A gradient between a K-only stop and a coloured stop interpolates the INKS
+  (black → brand red passes through a dark red with K), not the RGB values:
+  the midpoint differs a little from the screen.
+- The grey of rule 1 / 3 is linear in the sRGB value. It is consistent with
+  the profile's black point compensation within a few L\*, not a measured
+  tone curve.
+- `Services/**` is loaded as services: the classes of `Services/Print/Cmyk`
+  that are values or per-run objects carry `#[Exclude]` — without it the
+  container fails to compile (it did, for every request of the dev stack).
+- New Chromium → run `ChromiumChunkCmykTest`; regenerate its fixture with
+  `CALENDAR_CMYK_FIXTURE=1 … --group gotenberg --filter CalendarCmyk` and
+  read what fails.
+
 ### UI — `ui/export.js`, one dialog, four doors
 
 `openExport({ name, url, csrf, toast, unsaved? })` needs addresses only, so it
@@ -891,8 +1076,8 @@ actions, every role — also the client page and the read-only member), the
 step-4 toolbar (designer), every **list card** whose calendar has a layout
 („PDF“, title „Stáhnout PDF“), and the Dokončit toast on the list
 (`sessionStorage['wb-cal-toast-calendar']` names the calendar; `toast()` takes
-an optional `{ label, onClick }` action). Radio cards (`.rpick > .rcard`) pick
-the variant; with unsaved changes the dialog says the export uses the saved
+an optional `{ label, onClick }` action). Three radio cards (`.rpick > .rcard`: Pro tisk, Pro tisk (CMYK), Náhled k
+odsouhlasení) pick the variant; with unsaved changes the dialog says the export uses the saved
 state and the primary action becomes „Uložit a exportovat“. Progress
 „Připravuji PDF… 12 z 55 stran“; the download starts through a hidden
 **iframe** (a navigation would trip the workspace's `beforeunload` guard) and
@@ -946,8 +1131,9 @@ pictures, once each), `qpdf --check` clean.
   MediaBox then starts at `y = 0.32`, not 0 — legal; poppler, Ghostscript
   and qpdf read it). If the boxes cannot be set, the page is ≤ 1 pt larger at the
   right / bottom and has no TrimBox.
-- **Colours are RGB** (sRGB-tagged photos, DeviceRGB vectors). No CMYK, no
-  PDF/X, no output intent — see "Known gaps".
+- **`print` and `approval` are RGB** (sRGB-tagged photos, DeviceRGB
+  vectors, no output intent). The CMYK file is the third variant — see
+  "CMYK variant".
 - **Every Gotenberg call must fit its limits**: the scoped client's
   `timeout: 20` / `max_duration: 25` and Gotenberg's own 30 s API timeout.
   Only chunks travel there now (≤ 6 pages, ≤ 16 MB of page photos — a 10 MB
@@ -958,7 +1144,10 @@ pictures, once each), `qpdf --check` clean.
   the merged file beside them — about twice the calendar's pictures, 963 MB
   for the worst case above. `CalendarPdfProducer::assertWorkSpace` checks
   `disk_free_space` BEFORE rendering (2 × the bytes of the pictures the
-  calendar shows + 200 MB) and fails the job at once with
+  calendar shows + 200 MB; for the CMYK variant 2.5 × (the page pictures +
+  the shared pictures ONCE PER CHUNK — every CMYK chunk file carries its own
+  converted copy of the header / background picture until the merge writes
+  them once) + 200 MB) and fails the job at once with
   `CalendarExports::NO_SPACE` („Na serveru teď není dost místa pro tak velké
   PDF. Zkuste to prosím později, nebo si stáhněte Náhled k odsouhlasení.“).
   Nothing else scales with the file: PHP's memory is flat, the upload to the
@@ -1020,7 +1209,7 @@ calendars and `get_calendar` carries the project's fonts and palette).
 - **The client link** is handed out by `manage_calendar` `client_link` only —
   write scope + designer role, recorded in the history — never by a read.
 - **PDF export** is two actions of `manage_calendar` — `export_pdf`
-  (`calendarId`, `variant`) and `export_status` (`calendarId`, `exportId`) —
+  (`calendarId`, `variant`: `print` | `print_cmyk` | `approval`) and `export_status` (`calendarId`, `exportId`) —
   answering `export { exportId, variant, status, pagesDone, pagesTotal,
   revision, fileName, sizeBytes, downloadUrl, error }`. **Any role** may call
   them (the only actions of the tool that are not the designer's), but the
@@ -1073,7 +1262,7 @@ zoom, snap and link behaviour (interaction, not data).
 
 | Layer | Where | Run |
 |---|---|---|
-| PHP | `tests/Controller/Calendar` (export: `CalendarExportControllerTest`), `tests/MessageHandler/Calendar`, `tests/Services/Calendar` (`CalendarPdfProducerTest`; the real export through Gotenberg is `CalendarPdfProducerGotenbergTest`, `--group gotenberg`), `tests/Services/Print/PdfChunkMergerTest.php` + `PdfPageBoxesTest.php`, `tests/Mcp/Tool/Calendar{Tools,DesignTools}Test.php`; fixtures `CALENDAR_{1,2,3}_ID` (+ tokens) in `TestDataFixture`, helpers `CalendarTesting` | `docker compose exec web vendor/bin/phpunit tests/Controller/Calendar …` |
+| PHP | `tests/Controller/Calendar` (export: `CalendarExportControllerTest`), `tests/MessageHandler/Calendar`, `tests/Services/Calendar` (`CalendarPdfProducerTest`; the real export through Gotenberg is `CalendarPdfProducerGotenbergTest`, `--group gotenberg`), `tests/Services/Print/PdfChunkMergerTest.php` + `PdfPageBoxesTest.php`, the CMYK colour pass in `tests/Services/Print/Cmyk/*` (hand-built PDFs, the Chromium chunk fixture `tests/Fixtures/calendar/pdf/chromium-week-chunk.pdf`, the RGB verifier) and its real export `CalendarCmykExportGotenbergTest` (`--group gotenberg --filter CalendarCmyk`: inks read back through Ghostscript), `tests/Value/Calendar/CalendarPdfPlanTest.php`, `tests/Mcp/Tool/Calendar{Tools,DesignTools}Test.php`; fixtures `CALENDAR_{1,2,3}_ID` (+ tokens) in `TestDataFixture`, helpers `CalendarTesting` | `docker compose exec web vendor/bin/phpunit tests/Controller/Calendar …` |
 | Node suites (every pure rule) | `tests/Fixtures/calendar/suites/*.mjs` + `harness.mjs`, `helpers.mjs` | in CI through `tests/Calendar/CalendarJsTest.php` (data provider globs the suites; a new suite file needs no PHP edit, a suite without a test fails); by hand `node tests/Fixtures/calendar/harness.mjs --all` or `… <suite>` |
 | Contract | `tests/Calendar/CalendarSeedContractTest.php` (PHP seed vs `BUILTIN_WASTE` via `dump-defaults.mjs`) | CI |
 | e2e (real pointer, asserts in mm) | `tests/e2e/calendar/*.e2e.cjs`, `lib/harness.cjs`, `lib/editor.cjs` | `node tests/e2e/calendar/run.cjs [filter]` — **not in CI** |
@@ -1189,16 +1378,15 @@ Deliberately not built (handoff §2), with the room left for them:
 - **AI design scan** ("Naskenovat design", Premium) and **layout import from a
   PDF or image** — the Nahrát layout menu has the two rule-based items only.
 - **Excel import** for Odpady and Akce a spolky (rule-based, postponed).
-- **CMYK / PDF/X print file.** The export is RGB. A 2026-11-11 spike converted
-  the vector PDF with Ghostscript (`pdfwrite`, `-sColorConversionStrategy=CMYK`,
-  FOGRA39 output profile): text stays text, fonts stay embedded and the photo
-  becomes a CMYK JPEG — but pure black text comes out as rich black
-  (`#000000` → 89 / 78 / 62 / 97, 326 % ink), brand colours go through the ICC
-  profile instead of `Services/Print/BrandCmykPalette`, and the only switch
-  that gives K-only text (`-dBlackText -dBlackVector`) turns EVERY text and
-  vector black. A clean variant needs our own colour pass over the content
-  streams (fills / strokes by palette, near-black → K 100) before or instead
-  of Ghostscript; not built.
+- **CMYK print file — what is left** (the variant exists since 2026-11-12,
+  "CMYK variant"): no overprint is set (K 100 text KNOCKS OUT what lies under
+  it — most RIPs overprint 100 % black themselves, ours does not ask for it);
+  no formal PDF/X-4 preflight was run (no preflight tool at hand: callas /
+  Acrobat); K-only greys are K = 1 − grey level, not a measured tone curve;
+  flat-colour PNG logos go through the ICC profile like photos (brand CMYK
+  and K-only need an SVG); OpenType-CFF fonts (Type 3 in Chromium's PDF) are
+  handled by rule but were not seen in a real export; a print shop has not
+  yet proofed a file.
 - **Cover, back and special pages**: content is editable since 2026-11-12.
   Not built: free positioning of anything on these pages (they are layouts,
   not a canvas), more than one photo per page, per-group columns or tables

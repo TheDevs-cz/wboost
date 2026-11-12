@@ -277,8 +277,30 @@ structure of the Illustrator-exported reference file.
   file. That export is the opposite design of the one above — a **vector RGB**
   file printed by Chromium (live text, embedded fonts, photos at native
   pixels), not a flattened CMYK raster; the CMYK conversion of such a vector
-  file was spiked and is NOT clean (rich black text, no brand palette — the
-  result is in `calendars.md` "Known gaps").
+  file with Ghostscript was spiked and is NOT clean (rich black text, no
+  brand palette).
+- **`Services/Print/Cmyk/` (2026-11-12, the calendar's „Pro tisk (CMYK)“ —
+  `calendars.md` § "CMYK variant")** is that conversion done by ourselves:
+  `PdfCmykConverter` rewrites the colours of a Chromium-printed vector PDF
+  (content-stream operators, shading functions, colour spaces, transparency
+  groups, pictures) to DeviceCMYK and `PdfRgbVerifier` proves that no RGB is
+  left; `PdfChunkMerger` adds the PDF/X-4 frame. It shares with the raster
+  pipeline above the profile, the conversion intent (`IccColorTransform` =
+  the lcms call of `PrintColorConverter`, for swatches and pictures instead
+  of one page raster), `BrandCmykPalette` and the output-intent names
+  (`PdfX1aWriter::OUTPUT_CONDITION*`). It differs in two decisions: black is
+  decided by COLOUR (neutral → K only; nearly neutral text → K only), not by
+  object role (`BlackInkObjects`: overprint / knock-out), and nothing is
+  flattened — live transparency, hence X-4, not X-1a. **Could the template
+  print export adopt it?** Technically yes: the pass reads any PDF Skia
+  prints, and Fabric's canvas would have to be printed as SVG/DOM instead of
+  screenshotted. Not done, and not free: (1) the render template draws on a
+  `<canvas>` — Chromium prints a canvas as ONE bitmap, so the vector route
+  needs an SVG export of the Fabric scene (`toSVG()` is not pixel-identical
+  to the canvas for rich text, lists, containers); (2) the studio's printers
+  were given PDF/X-1a (no transparency) and K 100 overprint for black
+  objects, which this pass does not produce; (3) the black-ink rules differ
+  as said. Keep the two apart until a printer asks for vector templates.
 - The ICC profile is Adobe's "Coated FOGRA39" (extracted from the studio's
   reference PDF — the profile the designers' own exports embed). If its
   licence ever becomes a concern, ECI's ISOcoated_v2 is the FOGRA39-based

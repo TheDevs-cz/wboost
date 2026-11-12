@@ -249,7 +249,7 @@ ours. Reference: `docs/architecture/calendars.md` § "Content of the cover, back
 
 ## 6. Known gaps / second iteration
 - AI scan, PDF / image layout import, Excel import (out of scope).
-- Print output in CMYK / PDF/X (the export is RGB; the Ghostscript conversion spike gives rich-black text and no brand palette — `docs/architecture/calendars.md` "Known gaps"). The worst case (53 photos at the 10 MB cap) was measured: 527 MB in 118 s.
+- Print output in CMYK: built 2026-11-12 as the third export variant „Pro tisk (CMYK)“ — a vector PDF/X-4 with our own colour pass (neutral and nearly neutral text → black ink only, palette colours → the palette's CMYK, the rest → ICC; `docs/architecture/calendars.md` "CMYK variant"). Left: no overprint for K 100 text, no formal X-4 preflight (no tool at hand), no proof by a print shop yet. The worst case (53 photos at the 10 MB cap) was measured: 527 MB in 118 s.
 - Long holiday + event on the same day of a 14-day page: ~10 mm box, warning only; a stacking rule needs a design decision.
 - Gallery as photo source; page size UI; asset sweeper; client autosave; design conflict detection; launch (preview gate).
 - e2e not in CI; dev container restarts under load.
