@@ -44,6 +44,7 @@ final readonly class AiScanTransitions
         private AiScanCredits $credits,
         private RecordAiUsage $usage,
         private AiScanRuntimeState $runtime,
+        private AiScanNotifications $notifications,
     ) {
     }
 
@@ -766,6 +767,12 @@ final readonly class AiScanTransitions
 
             if ($row !== false) {
                 $row['_from'] = $from->value;
+
+                // A scan that ended tells its requester — once, delayed, and
+                // only if they have not seen it by then (ux.md §7).
+                if ($to !== $from && in_array($to, [AiScanStatus::Ready, AiScanStatus::Stopped, AiScanStatus::Failed, AiScanStatus::Refused], true)) {
+                    $this->notifications->schedule($id);
+                }
 
                 return $row;
             }

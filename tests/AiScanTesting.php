@@ -318,6 +318,115 @@ trait AiScanTesting
     }
 
     /**
+     * A design with everything the review can change: a background photo, a
+     * headline, a small text, a logo, a photo and a shape.
+     *
+     * @return array<string, mixed>
+     */
+    public static function richDesign(): array
+    {
+        return [
+            'canvas' => ['width' => 900, 'height' => 1200],
+            'elements' => [
+                ['kind' => 'background', 'id' => 'bg', 'asset' => AiScanStandIn::ASSET_ID, 'fillable' => true],
+                ['kind' => 'shape', 'id' => 'pruh', 'shape' => 'rectangle', 'fill' => '#c8102e', 'x' => 0, 'y' => 1000, 'width' => 900, 'height' => 200],
+                ['kind' => 'image', 'id' => 'foto', 'asset' => AiScanStandIn::ASSET_ID, 'x' => 100, 'y' => 400, 'width' => 400, 'height' => 300, 'input' => ['name' => 'Fotografie']],
+                ['kind' => 'image', 'id' => 'logo', 'asset' => AiScanStandIn::ASSET_ID, 'x' => 700, 'y' => 60, 'width' => 140, 'height' => 60, 'input' => ['name' => 'Logo']],
+                ['kind' => 'text', 'id' => 'headline', 'text' => 'Headline', 'font' => self::FACE, 'size' => 72, 'color' => '#c8102e', 'x' => 80, 'y' => 120, 'width' => 600],
+                ['kind' => 'text', 'id' => 'sub', 'text' => 'Small print', 'font' => self::FACE, 'size' => 36, 'x' => 80, 'y' => 240, 'width' => 600],
+            ],
+        ];
+    }
+
+    /**
+     * The report the scanner would write for {@see richDesign()}: one font
+     * to decide, one measured match, a doubtful text, a left-out thing, a
+     * shrunk text, a snapped colour, a simplification.
+     *
+     * @return array<string, mixed>
+     */
+    public static function richReport(int $candidate): array
+    {
+        return [
+            'counts' => ['texts' => 2, 'shapes' => 1, 'places' => 3, 'background' => true],
+            'placeholders' => [
+                ['id' => 'bg', 'name' => 'Pozadí', 'role' => 'background', 'fillable' => true, 'box' => [0, 0, 900, 1200]],
+                ['id' => 'logo', 'name' => 'Logo', 'role' => 'logo', 'fillable' => true, 'box' => [700, 60, 140, 60]],
+                ['id' => 'foto', 'name' => 'Fotografie', 'role' => 'photo', 'fillable' => true, 'box' => [100, 400, 400, 300]],
+            ],
+            'fonts' => [
+                [
+                    'group' => 'headline', 'role' => 'headline', 'texts' => ['headline'], 'pattern' => 'nearest_available',
+                    'face' => self::FACE, 'closeness' => 0.62, 'mismatch' => 0.38, 'sizeChangePercent' => -4,
+                    'sourceClass' => 'sans', 'sourceLooksLike' => 'Futura PT', 'guessSupported' => false,
+                ],
+                [
+                    'group' => 'body', 'role' => 'body', 'texts' => ['sub'], 'pattern' => 'measured_match',
+                    'face' => self::FACE, 'closeness' => 0.93, 'mismatch' => 0.07, 'sizeChangePercent' => 0,
+                    'sourceClass' => 'sans', 'sourceLooksLike' => null, 'guessSupported' => false,
+                ],
+            ],
+            'simplifications' => [['code' => 'shadow_omitted', 'element' => 'headline', 'box' => [80, 120, 600, 90], 'n' => 1]],
+            'omitted' => [['code' => 'picture', 'box' => [600, 800, 200, 100], 'diff' => 0.2, 'by' => 'model']],
+            'lowConfidenceTexts' => [['id' => 'sub', 'reason' => 'small', 'box' => [80, 240, 300, 40], 'by' => 'model']],
+            'shrunk' => [['id' => 'sub']],
+            'paletteSnaps' => [['from' => '#c9112f', 'to' => '#c8102e']],
+        ] + self::report($candidate);
+    }
+
+    /**
+     * What the scanner measured on the kept candidate of {@see richDesign()}.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public static function richBoxes(): array
+    {
+        return [
+            ['id' => 'bg', 'kind' => 'background', 'box' => [0, 0, 900, 1200]],
+            ['id' => 'pruh', 'kind' => 'shape', 'box' => [0, 1000, 900, 200]],
+            ['id' => 'foto', 'kind' => 'image', 'box' => [100, 400, 400, 300]],
+            ['id' => 'logo', 'kind' => 'image', 'box' => [700, 60, 140, 60]],
+            ['id' => 'headline', 'kind' => 'text', 'box' => [80, 120, 600, 90], 'colour' => '#c8102e', 'lines' => 1, 'sourceLineWidths' => [420.0], 'fittedSize' => 72],
+            ['id' => 'sub', 'kind' => 'text', 'box' => [80, 240, 300, 40], 'colour' => '#000000', 'lines' => 1, 'sourceLineWidths' => [210.0], 'fittedSize' => 44],
+        ];
+    }
+
+    /**
+     * Upload → intake → build → one candidate → `ready`, with the rich
+     * proposal (or the plain one of {@see design()} / {@see report()}).
+     *
+     * @phpstan-impure
+     */
+    public static function ready(
+        KernelBrowser $client,
+        string $projectId = TestDataFixture::PROJECT_1_ID,
+        string $email = TestDataFixture::USER_1_EMAIL,
+        bool $rich = true,
+    ): string {
+        $build = self::running($client, $projectId, $email);
+        $scanId = $build['id'];
+
+        $render = self::scanner($client, 'POST', $scanId . '/render', ['run' => $build['run'], 'seq' => 1, 'design' => $rich ? self::richDesign() : self::design()], $build['lease']);
+
+        if (($render['json']['candidate'] ?? null) !== 1) {
+            throw new \LogicException('The candidate was not rendered: ' . $render['raw']);
+        }
+
+        $finish = self::scanner($client, 'POST', $scanId . '/finish', [
+            'run' => $build['run'], 'outcome' => 'proposed', 'candidate' => 1,
+            'report' => $rich ? self::richReport(1) : self::report(1),
+            'boxes' => $rich ? self::richBoxes() : [],
+            'usage' => self::usage(2),
+        ], $build['lease']);
+
+        if (($finish['json']['status'] ?? null) !== 'ready') {
+            throw new \LogicException('The scan did not become ready: ' . $finish['raw']);
+        }
+
+        return $scanId;
+    }
+
+    /**
      * @return array<string, mixed>
      *
      * @phpstan-impure

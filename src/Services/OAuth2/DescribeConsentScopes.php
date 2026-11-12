@@ -179,6 +179,12 @@ readonly final class DescribeConsentScopes
                 . 'nasdílený, smí jen to, co klient: obsah a fotky. Mazat kalendáře nemůže. Změny uvidí '
                 . 'každý, kdo má ke kalendáři přístup, a zapíšou se do jeho historie.',
             ],
+            McpScope::AiScan => [
+                'Spouštět AI sken',
+                'Aplikace může nahrát obrázek hotové grafiky ke zpracování službou Claude (Anthropic) a z návrhu '
+                . 'vytvořit šablonu. Každý doručený sken se započítá do měsíčního limitu projektu. Funguje jen '
+                . 'v projektech, kde je AI sken zapnutý.',
+            ],
         };
 
         return new ConsentScope($scope->value, $title, $description, true);

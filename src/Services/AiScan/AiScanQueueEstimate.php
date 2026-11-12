@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use Doctrine\DBAL\Connection;
 use Psr\Clock\ClockInterface;
 use WBoost\Web\Entity\AiScan;
+use WBoost\Web\Value\AiScan\AiScanKind;
 use WBoost\Web\Value\AiScan\AiScanLimits;
 use WBoost\Web\Value\AiScan\AiScanStatus;
 use WBoost\Web\Value\AiScan\AiScanWaiting;
@@ -63,6 +64,26 @@ final readonly class AiScanQueueEstimate
             $runtime->maxRunning,
             $now,
         );
+    }
+
+    /**
+     * The same estimate for a scan that would be started NOW (the queue line
+     * of the start screen): everything waiting or running is ahead of it.
+     */
+    public function forNew(AiScanKind $kind, AiScanRuntimeSnapshot $runtime): QueueEstimate
+    {
+        $now = $this->clock->now();
+
+        if ($runtime->waiting($now) !== null) {
+            return QueueEstimate::none();
+        }
+
+        /** @var list<array{kind: string, status: string, claimed_at: null|string, auto_restart: int|string}> $ahead */
+        $ahead = $this->connection->fetchAllAssociative(
+            "SELECT kind, status, claimed_at, auto_restart FROM ai_scan WHERE status IN ('checking', 'queued', 'running')",
+        );
+
+        return self::compute($kind->value, $ahead, fn (string $name): array => $this->duration($name), $runtime->maxRunning, $now);
     }
 
     /**

@@ -59,6 +59,7 @@ final class RepeatableRowsEntryPointsTest extends KernelTestCase
         'Mcp/Tool/ExportVariantTool.php' => 'VariantFill expands; renderer + PrintPdfRenderer belts',
         'Mcp/Tool/PreviewDesignTool.php' => 'CandidateRenderer expands',
         'Services/AiScan/Template/TemplateProposal.php' => 'CandidateRenderer expands',
+        'MessageHandler/AiScan/AcceptTemplateScanHandler.php' => 'CandidateRenderer expands',
         'Mcp/Tool/RenderVariantTool.php' => 'VariantFill expands; renderer belt',
         'Mcp/Tool/SetDesignTool.php' => 'CandidateRenderer expands',
         'Services/Print/ScreenPdfRenderer.php' => 'TemplateVariantImageRenderer::renderToBytes() belt (pages arrive resolved)',

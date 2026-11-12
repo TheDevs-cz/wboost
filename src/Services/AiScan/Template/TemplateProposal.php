@@ -73,6 +73,25 @@ final readonly class TemplateProposal
     }
 
     /**
+     * The preflight alone — parse, lint, compile, no render: what a review
+     * fix is checked with before it is saved.
+     *
+     * @return array{issues: list<array<string, mixed>>, blocked: bool}
+     */
+    public function check(Project $project, mixed $design): array
+    {
+        $size = self::canvasSize($design);
+
+        if ($size === null) {
+            return ['issues' => [], 'blocked' => true];
+        }
+
+        $review = $this->preflight->review($this->transientVariant->for($project, $size[0], $size[1]), $design, $this->standIn->assets());
+
+        return ['issues' => $review->toArray(), 'blocked' => $review->isBlocked()];
+    }
+
+    /**
      * @param array<string, mixed> $candidate the stored candidate entry (`n`, `design`, `width`, `height`)
      * @param array<string, mixed> $measured what the scanner measured on the kept render: boxes, colours, line widths
      * @return array<string, mixed>

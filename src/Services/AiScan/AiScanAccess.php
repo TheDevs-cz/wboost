@@ -62,6 +62,16 @@ final readonly class AiScanAccess
         return $this->security->isGrantedForUser($user, ProjectVoter::EDIT, $scan->project);
     }
 
+    /**
+     * Who sees a project's scans (lists, history, the entry card): the
+     * people who can edit it — and admins. Read-only members see nothing of
+     * a scan (architecture.md §6).
+     */
+    public function canSeeProjectScans(User $user, Project $project): bool
+    {
+        return $this->isAdmin($user) || $this->security->isGrantedForUser($user, ProjectVoter::EDIT, $project);
+    }
+
     private function isAdmin(User $user): bool
     {
         return in_array(User::ROLE_ADMIN, $user->getRoles(), true);

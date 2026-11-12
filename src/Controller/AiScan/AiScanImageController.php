@@ -21,7 +21,10 @@ use WBoost\Web\Services\Security\AiScanVoter;
  * browser alone. There is no public or presigned URL.
  *
  * `which`: `original` · `working` · `preview` · `candidate` (the kept one, or
- * `?n=` for a numbered candidate of the current run).
+ * `?n=` for a numbered candidate of the current run) · `proposal` (the
+ * proposal with the review's fixes; the kept candidate until the first fix).
+ * Add `?v=<seq>` to get past the browser's five-minute cache when the
+ * picture changed.
  */
 final class AiScanImageController extends AbstractController
 {
@@ -33,7 +36,7 @@ final class AiScanImageController extends AbstractController
     #[Route(
         path: '/ai-scan/{id}/image/{which}',
         name: 'ai_scan_image',
-        requirements: ['id' => '[0-9a-fA-F-]{36}', 'which' => 'original|working|preview|candidate'],
+        requirements: ['id' => '[0-9a-fA-F-]{36}', 'which' => 'original|working|preview|candidate|proposal'],
         methods: ['GET'],
     )]
     #[IsGranted(AiScanVoter::USE, 'scan')]
@@ -53,10 +56,9 @@ final class AiScanImageController extends AbstractController
             default => [AiScanStorage::candidateName(max(1, $request->query->getInt('n', $scan->keptCandidate ?? 1))), 'image/webp'],
         };
 
-        $bytes = $this->storage->read(
-            AiScanStorage::directory($scan->project->id->toString(), $scan->id->toString(), $scan->storageSecret),
-            $file,
-        );
+        $directory = AiScanStorage::directory($scan->project->id->toString(), $scan->id->toString(), $scan->storageSecret);
+        $bytes = $which === 'proposal' ? $this->storage->read($directory, AiScanStorage::PROPOSAL) : null;
+        $bytes ??= $this->storage->read($directory, $file);
 
         if ($bytes === null) {
             throw $this->createNotFoundException();

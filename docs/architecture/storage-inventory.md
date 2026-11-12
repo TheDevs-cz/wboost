@@ -116,6 +116,12 @@ own rules instead, in `AiScanPurge` (`app:ai-scan:purge`, nightly):
   (`DeleteProjectHandler` → `AiScanStorage::deleteProject()`), after the
   public-bucket cleanup below.
 
+Since P3 two kinds of AI scan files ARE ordinary gallery files in the public
+bucket, under `file-upload/{projectId}/` like every `file_upload` row (so the
+reference index needs no new column): pictures uploaded for a proposal's
+places (folder `AI sken / {název}`; to the Koš on discard / expiry) and the
+project's stand-in row (`FileSource::ScanStandIn`, never trashed).
+
 One AI scan object does sit in the PUBLIC bucket: `ai-scan/stand-in-v1.png`,
 the shared stand-in picture candidate renders use (`AiScanStandIn`; the
 renderer inlines pictures by storage key). It is referenced by no row on

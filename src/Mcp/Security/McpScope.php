@@ -47,6 +47,15 @@ enum McpScope: string
     case CalendarsWrite = 'calendars:write';
 
     /**
+     * AI scan (`scan_design`): start scans of pictures, read and fix their
+     * proposals, create templates from them. A paid per-project feature —
+     * what a token may actually do is still decided per action by the
+     * entitlement and the user's role. Implies nothing and is implied by
+     * nothing: a design token does not get to spend scans.
+     */
+    case AiScan = 'ai:scan';
+
+    /**
      * Every scope a token holding THIS one effectively carries — itself first,
      * then the transitive closure of the implications declared below.
      *
@@ -92,6 +101,7 @@ enum McpScope: string
                 // no business reading the project's templates, and vice versa.
                 self::CalendarsWrite => [self::CalendarsRead],
                 self::CalendarsRead => [],
+                self::AiScan => [],
             });
         }
 

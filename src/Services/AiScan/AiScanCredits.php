@@ -96,6 +96,15 @@ final readonly class AiScanCredits
      * reserves minus refunds whose period is that month (grants and
      * adjustments move it too).
      */
+    /** Whether this try of the scan was counted (its reserve was settled, not refunded). */
+    public function wasSettled(string $scanId, int $try): bool
+    {
+        return $this->connection->fetchOne(
+            "SELECT 1 FROM ai_credit_ledger WHERE scan_id = :scan AND try = :try AND reason = 'settle'",
+            ['scan' => $scanId, 'try' => $try],
+        ) !== false;
+    }
+
     public function usedInMonth(string $projectId, DateTimeImmutable $at): int
     {
         $sum = $this->connection->fetchOne(

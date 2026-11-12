@@ -6,6 +6,7 @@ namespace Symfony\Component\DependencyInjection\Loader\Configurator;
 
 use Liip\ImagineBundle\Message\WarmupCache;
 use Symfony\Component\Mailer\Messenger\SendEmailMessage;
+use WBoost\Web\Message\AiScan\SendAiScanEmail;
 use WBoost\Web\Message\Calendar\RunCalendarExport;
 
 return App::config([
@@ -55,6 +56,9 @@ return App::config([
                 'WBoost\Web\Events\*' => ['senders' => ['async']],
                 SendEmailMessage::class => ['senders' => ['async']],
                 RunCalendarExport::class => ['senders' => ['async']],
+                // The one e-mail about an ended scan: dispatched with a delay
+                // (not sooner than 2 min after the end, only if still unseen).
+                SendAiScanEmail::class => ['senders' => ['async']],
             ],
         ],
     ],

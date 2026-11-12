@@ -1,4 +1,4 @@
-# AI sken — the job core (P1)
+# AI sken — the job core (P1) and the review, accept, notifications, access request and MCP (P3, backend)
 
 "AI sken" turns a flat picture of a design into an editable template (later:
 a calendar layout). A picture is uploaded, a **scanner** — a separate service
@@ -8,16 +8,21 @@ the job, its states, credits and spend, storage, permissions and the API the
 scanner calls. Design and reasons: `docs/ai-scan/architecture.md` (§4–§7),
 decisions: `docs/ai-scan/decisions.md`, screens: `docs/ai-scan/ux.md`.
 
-**What exists today (P1):** everything below, proven with a fake scanner
-(`app:ai-scan:fake-run`). **What does not:** the wizard, accept (creating the
-template), notifications, the access request, the MCP tool (P3); the scanner
-on the box and the admin tab (P4); calendars (P5).
+**What exists today:** the job core (P1), proven with a fake scanner
+(`app:ai-scan:fake-run`), and the backend of P3 — the review's fixes and
+pictures, accept (creating the template), the export rule for unfilled
+pictures, notifications, the access request, the JSON endpoints and the MCP
+tools `scan_design` and `create_template` (everything from § "Review state"
+on). **What does not:** the wizard's pages, scripts and styles (P3 UI — built
+on the endpoints below); the scanner on the box and the admin tab (P4);
+calendars (P5).
 
 **The feature is inert unless switched on.** Operating mode defaults to `off`,
 `admin_only` to on, every project's entitlement to off, and the scanner
 endpoints answer 404 while `SCAN_NETWORK_CIDR` / `SCANNER_TOKEN` are unset
 (the default, and production today). The only UI is the admin's switch on the
-edit-project page.
+edit-project page (and the `ai:scan` checkbox among a user's MCP scopes on the
+admin's user page): P3's backend adds no page, no navigation entry and no card.
 
 ## Map
 
@@ -35,6 +40,14 @@ edit-project page.
 | Permissions | `AiScanAccess` + `Services/Security/AiScanVoter` |
 | Definition sent to the scanner | `resources/ai-scan/definition/**`, read by `AiScanDefinition` |
 | Commands | `app:ai-scan:status`, `app:ai-scan:purge`, `app:ai-scan:fake-run` |
+| Review (P3) | `Services/AiScan/Template/{ApplyFixes,ScanProposal,ScanProposalView}` — replay of fixes, state, the document the screens read; messages `ApplyAiScanFix`, `RateAiScan` |
+| Pictures (P3) | `Services/AiScan/Template/{ScanPictureUpload,ScanGalleryFolders,ScanUploads}`; `AiScanStandIn::projectFile()` |
+| Accept (P3) | `Message/AiScan/AcceptTemplateScan` + handler |
+| Export rule (P3) | `Services/AiScan/Template/{UnfilledPictures,UnfilledExportGuard}` — used by every export controller, API processor and MCP export tool |
+| Notifications (P3) | `Services/AiScan/{AiScanNotifications,AiScanUrls}`, message `SendAiScanEmail`, `templates/emails/ai_scan.html.twig` |
+| Access request (P3) | `Entity/AiAccessRequest`, messages `RequestAiAccess` / `ResolveAiAccessRequest`, `Services/AiScan/AiAccessRequests` |
+| Lists (P3) | `Services/AiScan/AiScanLists` — history, strip, entry card, "my scans" + badge |
+| MCP (P3) | `Mcp/Tool/{ScanDesignTool,CreateTemplateTool}`, `McpScope::AiScan` |
 
 ## The one rule about writing a scan
 
@@ -171,13 +184,18 @@ decoded in the web process: normalising is the scanner's intake.
 |---|---|
 | `POST /project/{projectId}/ai-scan` (upload) | entitled, else `not_enabled`; mode and every limit answer with their own code |
 | `POST /ai-scan/{id}/retry`, `/continue` | USE + entitled (a new start) |
-| `GET /ai-scan/{id}`, `GET /ai-scan/{id}/image/{which}`, `POST /ai-scan/{id}/cancel`, `/discard` | USE |
+| `GET /ai-scan/{id}`, `/proposal`, `/image/{which}`; `POST /ai-scan/{id}/cancel`, `/discard`, `/fix`, `/preview`, `/pictures`, `/accept`, `/rating`, `/seen` | USE |
 | `GET /ai-scans/mine` | the caller's own scans |
+| `GET /project/{projectId}/ai-scans`, `/ai-scan/entry` | `AiScanAccess::canSeeProjectScans()` — an admin or a project editor; a read-only member gets 403 |
+| `POST /project/{projectId}/ai-scan/access-request` | `ProjectVoter::EDIT` (the handler refuses whoever can already start scans there) |
+| `GET /admin/ai-scan/access-requests`, `POST /admin/ai-scan/access-request/{id}/{approve\|dismiss}` | `ROLE_ADMIN` |
 | `POST /project/{projectId}/ai-scan/entitlement` | `ROLE_ADMIN` + session CSRF token `project_ai_scan` |
 | `/internal/scanner/*` | the scanner only (below) |
+| MCP `scan_design` | scope `ai:scan`, then START / USE per action |
 
 The JSON POSTs use the stateless CSRF id `ai_scan`: send `_token=csrf-token`
-from a same-origin fetch (the `Origin` header is what is checked).
+from a same-origin fetch (the `Origin` header is what is checked) — as a form
+field, in a JSON body, or as the header `X-CSRF-Token`.
 
 **A refusal is an answer, never an exception**: `{ok: false, code, …}` with a
 status (`AiScanRefusal::httpStatus()`), thrown inside handlers as
@@ -322,6 +340,274 @@ in-process.
   advanceWidth(face, text, 1 px)` from the font file's advance table — no
   pixels, no browser.
 
+## Review state (P3)
+
+A `ready` scan carries two more JSON columns, written only by
+`ScanProposal::save()` — a conditional update `… AND status = 'ready'` under
+the row lock (`SELECT … FOR UPDATE`), so after accept the scan is read-only:
+
+```json
+// ai_scan.fixes
+{"v": 1, "rev": 7, "name": "Výsledek zápasu",
+ "items": {"font:headline": {"type": "choose_font", "face": "Rubik (Rubik Bold)"},
+           "text:sub": {"type": "set_text", "text": "…"}, "confirm:sub": {"type": "confirm_text"},
+           "place:logo": {"type": "placeholder_to_shape", "op": "shape", "shape": "circle"},
+           "omitted:0": {"type": "add_placeholder", "decision": "place"}, "shrink": {…}, "palette": {…}},
+ "preview": {"rev": 7, "seq": 3, "stale": false}}
+// ai_scan.pictures
+{"places": {"foto": {"fileId": "<gallery id>", "kind": "fixed", "fit": "contain"}, "bg": {"none": true}},
+ "uploads": ["<gallery ids uploaded FOR this scan>"]}
+```
+
+**Replay, not mutation.** `ai_scan.proposal.document` is never changed.
+`ApplyFixes::replay()` applies `items` and `places` to it in a fixed order
+every time (added places → place removals / merges / shapes → texts, names,
+input / fixed → undo of the shrink → font swaps with the metric re-fit →
+palette revert → pictures). So "Vrátit" is deleting an item (`undo`), two tabs
+meet per item (the last write of an item wins) and the order of clicks never
+matters. `rev` grows with every saved change; `preview.rev` is the revision
+the stored picture shows.
+
+**Every fix is validated, compiled, saved, rendered.** `ScanProposal::apply()`
+refuses a fix that names something the proposal does not have (`invalid_fix`
++ `field`), replays, runs the design preflight on the result (a fix that would
+BREAK the design is `invalid_fix`; one that leaves an already broken design
+broken is let through — otherwise a font and a picture both gone could never be
+repaired), saves. `ApplyAiScanFixHandler` then renders once through the
+transient path (`TemplateProposal::candidate()`, one of the two scan render
+slots) into `proposal.webp` in the scan's private directory. A renderer that
+is busy or away does not undo the fix: the answer says `previewStale: true`
+and `POST /ai-scan/{id}/preview` renders again.
+
+### Fixes
+
+`POST /ai-scan/{id}/fix` with `{"fix": {"type": …}}`; MCP `apply` takes the
+same objects in `fixes[]`.
+
+| `type` | Fields | Does |
+|---|---|---|
+| `choose_font` | `group`, `face` (a face string of the project) | every text of the report's font group switches and is re-fitted: `size = source line width ÷ advance at 1 px` (`FitTextToWidth`), from the scanner's `sourceLineWidths`; without a usable measurement the rendered width is kept. "Nahrát správné písmo" = the project's ordinary font upload, then this fix |
+| `keep_font` | `group` | "Nechat" — decided, nothing changes |
+| `set_text` | `id`, `text` (≤ 2000) | any text |
+| `confirm_text` | `id`, `text?` | a doubtful text is right (optionally corrected) |
+| `set_input` | `id`, `input: bool` | `vyplňuje uživatel` / `pevný text` (the DSL's `input.locked`) |
+| `rename` | `id`, `name` (≤ 40, plain) | a layer's name |
+| `undo_shrink` | — | shrunk texts get the scanner's `fittedSize` back |
+| `revert_palette` | — | colours snapped to the palette go back to the measured ones |
+| `add_placeholder` / `keep_omitted` | `omitted` (index into `report.omitted`) | a left-out thing becomes a place `misto-{n+1}` over its box / stays out |
+| `remove_placeholder` | `id`, `colour?` | the place goes; a removed BACKGROUND becomes a colour (a design always has a background) |
+| `merge_placeholders` | `ids` (≥ 2, no background) | one place over their common box; the lowest in the stack keeps its id |
+| `placeholder_to_shape` | `id`, `shape` `rectangle` \| `circle` \| `star`, `colour?` | see "Deviations" for the colour |
+| `set_kind` | `id`, `kind` `fixed` \| `input` | "Součást šablony" / "Mění se při každém exportu"; refused on a background |
+| `set_fit` | `id`, `fit` `contain` \| `cover` | |
+| `set_picture` | `id`, `fileId` \| `null` | a gallery picture of the project / "Odebrat obrázek" |
+| `no_picture` | `id` | "Bez ukázky" / "Nechat šedé pozadí" — decided, stays empty |
+| `assign_pictures` | `fileIds` (≤ 50) | gallery multi-pick: into the empty places in card order; answers `assigned` |
+| `move_picture` | `from`, `to` | "Patří jinam" — the two places swap |
+| `set_name` | `name` (3–30, the template form's limits) | the template's name |
+| `undo` | `key` (an item key) | "Vrátit" of anything in `items` |
+
+### The proposal document
+
+`GET /ai-scan/{id}/proposal` → `{ok, scan: <status document>, proposal}`;
+`proposal` (`ScanProposalView`, null without a template proposal) is codes,
+numbers, ids, boxes and the design's own texts — no prose:
+
+- `readOnly`, `name`, `nameChosen`, `unfinished`, `expiresAt`, `revision`,
+  `preview {which: "candidate"|"proposal", seq, stale}` (the picture is
+  `GET /ai-scan/{id}/image/proposal?v={seq}`), `canvas`, `source` (the size
+  the boxes are measured in), `rating`;
+- `counts {texts, shapes, places, background}` — `background` is true for a
+  colour / gradient background only (a background photo is a place), and
+  `toDecide` — the counter of the summary line and the tab;
+- `elements[]` in stack order: `id`, `type` `text` \| `shape` \| `place` \|
+  `background`, `name`, `box` (source px) and per type `text`, `input`,
+  `font`, `size`, `colour`, `doubtful` / `shape`, `fill`;
+- `placeholders[]` in card order: `id`, `number`, `name`, `role`,
+  `background`, `added`, `kind`, `kindLocked`, `fit`, `box` (source px),
+  `canvasBox`, `width`, `height`, `decidedEmpty`, `picture` (`fileId`, `url`,
+  `name`, `width`, `height`, `uploaded`, `tooSmall`, `fitApplied`, `missing`);
+  `pictures {total, filled, unfilled, greyBackground}` — `unfilled` is the
+  tail of the create button;
+- `decisions[]`: `key`, `type` `font` (with `pattern`
+  `nearest_available` \| `undetermined`, `group`, `role`, `face`,
+  `sizeChangePercent`, `texts`, `boxes`) \| `doubtful_text` (`id`, `reason`,
+  `text`, `box`) \| `omitted` (`omitted`, `code`, `box`, `placeId`) \|
+  `missing_font` / `missing_picture` (F15), `decided`, `decision`, `fixes[]`
+  (the fix types it accepts). The left-out rows count as ONE thing to decide;
+- `information[]`: `font_match` (the measured-match pattern), `shrunk` and
+  `palette` (with `undo` — the fix type — `undoKey` and `undone`),
+  `simplification` (`simplification` = the code, `box`), `pictures_not_taken`,
+  `note`;
+- `fonts[]` — the project's face strings for the picker.
+
+The original's typeface is never named: `sourceLooksLike` stays in the stored
+report and is not part of this document.
+
+## Pictures (P3)
+
+Pictures added to a proposal's places are **ordinary gallery files**.
+`POST /ai-scan/{id}/pictures` (`ScanPictureUpload`) stores each file through
+the gallery's own command (`UploadFile` — HEIC → JPEG, pixel size recorded)
+in the folder `AI sken / {název}` (`ScanGalleryFolders`, found by
+`FileDirectory::$systemKey` `ai-scan` / `ai-scan:{scanId}`), with the gallery's
+limits: **10 000 000 bytes** per file, pictures only, ≤ 30 files a request.
+Their ids are remembered in `pictures.uploads`: `ScanUploads::trash()` moves
+them to the gallery's Koš when the proposal is discarded or expires (the
+nightly purge); accept keeps them. Pictures picked from the gallery are never
+trashed. Nothing new stores a storage path, so `BuildStorageReferenceIndex` is
+unchanged.
+
+Kind and fit at accept (`ApplyFixes::pictures()`):
+
+| Place | Filled | Empty |
+|---|---|---|
+| `fixed` ("Součást šablony") | a decorative image — the compiler contain-fits it into the box | a decorative image on the **project's stand-in row** |
+| `input` ("Mění se…") | a fillable slot with the picture as its sample; with `contain` the frame takes the sample's ratio | a fillable slot without a sample |
+| background | fillable background with the sample | fillable background on the stand-in row (a background always carries a picture) |
+
+`cover` is the browser's crop of the chosen picture to the place's ratio before
+upload; a picture of another ratio is fitted whole (`picture.fitApplied` says
+`contain`). The project's stand-in row is `AiScanStandIn::projectFile()`:
+one `FileUpload` of `FileSource::ScanStandIn` per project, a copy of the
+bundled picture under `file-upload/{projectId}/`, created at the first accept
+that needs it.
+
+## Accept (P3)
+
+`AcceptTemplateScan` (rule 14) — under the row lock, in the bus transaction:
+a repeat on an `accepted` scan answers with the first ids (`created: false`);
+`staleReferences()` (a face the project no longer has, a picture trashed)
+→ `stale_references`, nothing created, the proposal document lists
+`missing_font` / `missing_picture`; the template document
+(`ScanProposal::document($scan, $state, $standInRowId)`) is compiled and
+rendered on a transient variant BEFORE anything exists (`renderer_busy` leaves
+nothing behind); then `AddTemplate` (uncategorised), `AddTemplateVariant`,
+`EditTemplateVariantCanvasEditor`, `StoreTemplateVariantPreviewImage`, and
+`AiScanTransitions::accept()`.
+
+The template's size: the proposal's canvas in px, or — when the upload sent
+`options {targetUnit: px|mm|cm, targetWidth, targetHeight}` with the picture's
+ratio (± 2 %) and a long edge ≤ 5000 px — that format, the document scaled to
+it (`ApplyFixes::scaled()`); a print size comes without bleed.
+
+## Unfilled pictures — the export rule (P3, O11)
+
+`UnfilledPictures` finds canvas objects whose `assetPath` is still the
+project's stand-in file: a decorative one is unfilled until replaced in the
+editor; a fillable one (the background) only for an export that supplies no
+picture for its input. `UnfilledExportGuard` applies it on every export path:
+
+| Path | Without `allowUnfilled` |
+|---|---|
+| Web: variant download, publish, group export (+ variant), document export | nothing rendered or recorded; **409** — JSON `{ok: false, code: "unfilled_pictures", count, confirmField: "allowUnfilled", editorUrl}` for `Accept: application/json` / XHR (publish: always), otherwise the `export_failed` page with the Czech sentence. The dialog sends the form again with `allowUnfilled=1` |
+| REST API: the three export operations | **400** `{error, code: "unfilled_pictures", count, variantId, editorUrl}` unless the body has `allowUnfilled: true` |
+| MCP: `export_variant`, `export_document` | a tool error starting `unfilled_pictures:` unless `allowUnfilled: true` |
+
+`UnfilledPictures::count($variant)` is the number behind the pill
+`K doplnění: {n}`.
+
+## Notifications (P3)
+
+`AiScanNotifications`: **seen** (`POST /ai-scan/{id}/seen`, the REQUESTER's
+look only; MCP `status` / `result` on an ended `mcp` scan count too) clears the
+badge and cancels the e-mail. Every transition into `ready`, `stopped`,
+`failed` or `refused` (`AiScanTransitions::applyReturning()`) queues one
+`SendAiScanEmail` on the `async` transport with a 120 s delay; the handler
+decides again from the row and claims `notified_at` with a conditional update
+(`… AND notified_at IS NULL AND seen_at IS NULL AND finished_at <= now − 110 s`),
+so a late, repeated or stale message sends nothing twice, and a retry (which
+clears `seen_at` / `notified_at`) gets its own mail. The nightly purge
+(`sendDue()`) sends what no message sent (scans ended within 48 h) and the
+**one reminder** three days before a `ready` proposal expires (`reminded_at`).
+To the requester only; none when the account is gone. The mail's button opens
+`AiScanUrls::scan()` — the route **`ai_scan_page`** (`projectId`, `scanId`),
+or the project's template list while that route does not exist.
+
+## Access request (P3)
+
+`ai_access_request` (`AiAccessRequest`): user (set null) + copied e-mail and
+name, project (cascade), `origin` `templates` \| `calendars`, `message`
+(≤ 500), `status` `open` \| `approved` \| `dismissed`, resolved at / by.
+`RequestAiAccess`: one OPEN request per user and project (a repeat answers with
+the open one; partial unique index `uniq_ai_access_request_open`), at most
+five requests of a user in 24 hours (`rate_limited`, counted in the table),
+`wrong_state` for somebody who can already start scans there; e-mailed to the
+admins' notification list (`SIGNUP_NOTIFICATION_EMAILS`) with a link to the
+project's switch. `ResolveAiAccessRequest`: once (conditional update);
+`approve` switches the project on through `SetProjectAiScan`, approves the
+project's other open requests and e-mails each requester.
+
+## Endpoints of the wizard (P3) — JSON, for the UI
+
+All answers are JSON (`{ok: true, …}` / `{ok: false, code, …}`) except the
+pictures. Refusal statuses: `AiScanRefusal::httpStatus()` — 403 `not_enabled`;
+409 `wrong_state`, `stale_references`, `no_retries_left`, `source_unscannable`;
+422 `invalid_fix`, `unsupported_image`, `consent_required`, `no_fonts`; 429
+limits, `rate_limited`; 503 `temporarily_unavailable`, `renderer_busy`.
+Every POST needs the CSRF token (above).
+
+| Route name | Method, path | Request | Answer |
+|---|---|---|---|
+| `ai_scan_start` | `POST /project/{projectId}/ai-scan` | multipart: `picture`, `kind`, `requestId`, `consent`, `options` (JSON; `targetUnit` / `targetWidth` / `targetHeight` = the format), `calendarId` | 201 `{scan}`; every start refusal |
+| `ai_scan_status` | `GET /ai-scan/{id}` | — | `{scan}` — the status document (state, `waiting`, `restarted`, stage, note, `round`, `previewSeq`, queue position and estimates, `retriesLeft`, `canRetry`, `canContinue`, `code`, `expiresAt`, result ids) |
+| `ai_scan_proposal` | `GET /ai-scan/{id}/proposal` | — | `{scan, proposal}` (above) |
+| `ai_scan_image` | `GET /ai-scan/{id}/image/{original\|working\|preview\|candidate\|proposal}` | `?n=` (candidate), `?v=` (cache) | the bytes, `Cache-Control: private, max-age=300`; 404 when gone |
+| `ai_scan_fix` | `POST /ai-scan/{id}/fix` | `{fix: {type, …}}` (JSON body, or a form field holding the JSON) | `{previewStale, assigned, proposal}`; `invalid_fix` (+ `field`), `wrong_state` |
+| `ai_scan_fix` | `POST /ai-scan/{id}/preview` | — | `{previewStale, proposal}` |
+| `ai_scan_pictures` | `POST /ai-scan/{id}/pictures` | multipart `pictures[]`, optional `place` (then exactly one file) | `{assigned, fileIds, previewStale, proposal}`; `invalid_fix` with `field` `pictures` \| `size` \| `type` (+ `file`), `wrong_state` |
+| `ai_scan_accept` | `POST /ai-scan/{id}/accept` | — | `{templateId, variantId, editorUrl, elements, unfilledPictures, created, scan}`; `stale_references` (+ `fonts`, `pictures`, `proposal`), `renderer_busy`, `invalid_fix`, `wrong_state` |
+| `ai_scan_action` | `POST /ai-scan/{id}/{cancel\|discard\|retry\|continue}` | — | `{scan}`; `wrong_state`, `no_retries_left`, start refusals |
+| `ai_scan_feedback` | `POST /ai-scan/{id}/rating` | `rating` `1` \| `-1`, `note?` (≤ 500, kept after a 👎 only) | `{ok}`; `invalid_fix`, `wrong_state` (not `ready` / `accepted`) |
+| `ai_scan_feedback` | `POST /ai-scan/{id}/seen` | — | `{seen: bool}` |
+| `ai_scans_mine` | `GET /ai-scans/mine` | — | `{scans: [row], badge: {inProgress, attention}}` |
+| `ai_scans_project` | `GET /project/{projectId}/ai-scans` | `?view=history` (default) + `?filter=all\|templates\|calendars\|waiting\|done\|failed`, or `?view=strip&kind=` | `{scans: [row], templates: {templateId: scanId}}` (templates made from a scan in the last 7 days — the pill `Ze skenu`) |
+| `ai_scan_entry` | `GET /project/{projectId}/ai-scan/entry` | `?kind=` | `{entry: {state, canStart, requestSentAt, credits {limit, used, left}, nextMonth, consent {version, given}, fonts {faces}, queue {position, estimatedStartSeconds, estimatedFinishSeconds}, scans, historyCount}}` — `state`: `enabled` \| `admin_preview` \| `locked` \| `request_sent` \| `limit_reached` \| `service_waiting` |
+| `ai_scan_access_request` | `POST /project/{projectId}/ai-scan/access-request` | `origin`, `message?` | 201 / 200 `{id, created, sentAt, email}`; `rate_limited`, `wrong_state` |
+| `ai_scan_access_requests` | `GET /admin/ai-scan/access-requests` | `?projectId=` | `{requests: [{id, projectId, projectName, requesterName, requesterEmail, origin, message, createdAt}]}` |
+| `ai_scan_access_request_resolve` | `POST /admin/ai-scan/access-request/{id}/{approve\|dismiss}` | — | `{status}`; `wrong_state` |
+
+A list **row** is the status document plus `projectId`, `projectName`, `name`
+(the template's, the proposal's, else the file name), `fileName`, `mine`,
+`requestedBy`, `channel`, `seen`, `hasProposal`, `hasPicture`, `actions[]`
+(`open_proposal`, `open_template`, `retry`, `continue`, `cancel`, `discard`).
+The strip shows somebody else's stopped / failed / refused scan for 24 hours.
+
+Route names the pages must use (links in e-mails and MCP answers):
+**`ai_scan_page`** (`/project/{projectId}/sablony/z-obrazku/{scanId}`) and
+**`ai_scan_history`**.
+
+## MCP (P3)
+
+`scan_design` (`ScanDesignTool`, scope `ai:scan` — implies nothing, off by
+default): `start`, `status`, `result`, `apply`, `list`, `cancel`, `retry`,
+`continue`; `restore` answers `wrong_state` until calendar scans exist. Every
+action dispatches the web's messages with channel `mcp`; refusals are tool
+errors starting with the code. `start` never gives consent
+(`consent_required` until the user agreed in the web). `apply` saves its
+fixes without a render each and renders once at accept. `create_template`
+(`CreateTemplateTool`, scope `templates:design`) creates an empty standalone
+template + variant. The tools' docblocks are their descriptions and are
+written to be enough without the plugin skill.
+
+## Deviations from `docs/ai-scan/ux.md` (backend, P3)
+
+- **Project logo pre-fill** is left out, as ux.md S4b allows: a project stores
+  an icon path, not a reusable gallery file.
+- **"Změnit na tvar … in the colour measured there"**: the report carries no
+  colour per place and the app does not decode pictures. The fix takes an
+  optional `colour` (the browser can sample the original it already draws);
+  without it the shape gets the first of the report's `originalColours`, else
+  a neutral grey.
+- **An empty "Součást šablony" place** is a decorative image on the stand-in:
+  the compiler contain-fits the square stand-in into the place's box, so it
+  shows as a centred grey square, not a grey box of the place's size.
+- **`Vyplnit` (cover)** relies on the browser's crop; the server fits a
+  picture of another ratio whole rather than distorting it.
+- **The 20 s render timeout** of architecture.md §4.6 is the renderer client's
+  own timeout; a review render is one attempt and never retried.
+- MCP `start` takes no `name` (the name is given at `apply`).
+
 ## Logs and Sentry
 
 Ids, codes and counts only — never OCR text, designs, prompts or bytes.
@@ -358,6 +644,11 @@ docker compose exec web bin/console app:ai-scan:status --mode=off
   `tests/Controller/AiScan/*` (the permission matrix, every start refusal, the
   admin switch, the commands, the log capture). Shared set-up:
   `tests/AiScanTesting` (a trait).
+- P3: `tests/Controller/AiScan/{AiScanReviewTest,AiScanReviewPermissionsTest,AiScanNotificationsAndAccessTest}`,
+  `tests/Mcp/Tool/{ScanDesignTest,CreateTemplateTest,ExportUnfilledPicturesTest}`,
+  `tests/Controller/UnfilledPicturesWebExportTest`, `tests/Api/UnfilledPicturesApiExportTest`,
+  `tests/Services/AiScan/Template/UnfilledPicturesTest`. `AiScanTesting::ready()`
+  makes a `ready` scan with a rich proposal.
 - **Fault injection** — real races between forked processes, outside DAMA's
   transaction; not in the default run:
 
@@ -381,5 +672,11 @@ docker compose exec web bin/console app:ai-scan:status --mode=off
 - Advisory locks are per database session and re-entrant: under DAMA's single
   connection a test must hold them from a SECOND connection to see
   `renderer_busy`.
+- A FILLED place is an ordinary picture in the replayed document: ask
+  `ScanProposal::replay()['places']` which ids are places, never the document.
+- Fixes are checked with the preflight inside the request; a new fix type
+  needs its row in § "Fixes", in `ScanDesignTool`'s description and a test.
+- The stand-in is recognised by `assetPath`, not `assetId`: the path is what
+  the renderer needs, so it cannot go stale when the editor swaps a picture.
 - `resources/ai-scan/definition/` is sent to the scanner verbatim; its numbers
   are mirrored in `AiScanLimits` and `AiScanValuesTest` compares the two.

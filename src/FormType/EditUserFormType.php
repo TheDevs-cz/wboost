@@ -30,6 +30,7 @@ final class EditUserFormType extends AbstractType
         'Nahrávat obrázky do galerie (gallery:write)' => McpScope::GalleryWrite->value,
         'Prohlížet kalendáře (calendars:read)' => McpScope::CalendarsRead->value,
         'Vytvářet a upravovat kalendáře (calendars:write)' => McpScope::CalendarsWrite->value,
+        'Spouštět AI sken (ai:scan)' => McpScope::AiScan->value,
     ];
 
     public function buildForm(FormBuilderInterface $builder, array $options): void

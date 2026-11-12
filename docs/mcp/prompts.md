@@ -214,6 +214,24 @@ allowance is stored — the fill page / API side of moving lands later.
 
 Iterate here as much as you like; nothing is persisted.
 
+**From a picture of a finished design (AI scan).** "Udělej z tohohle obrázku
+šablonu v projektu Studio Brno" — with the `ai:scan` scope: `scan_design`
+`start` (the picture from the gallery by `imageId`, or inline), `status` until
+`ready`, `result` to see what was recognised and what there is to decide, then
+`apply` (fixes, pictures for the places, the name) creates the template. The
+project must have AI sken switched on and the user must have agreed to the
+consent text in the web app first; each delivered scan counts against the
+project's monthly limit.
+
+**No empty variant yet?** "Založ v projektu Studio Brno novou šablonu A5 na
+výšku se spadávkou 3 mm a ořezovými značkami" — `create_template` with
+`projectId`, `name` (3–30 characters), `dimension` (`{"unit": "mm", "width":
+148, "height": 210, "bleedMm": 3, "cropMarks": true}`, a px size, or
+`{"preset": "4:5"}` / `"9:16"`) and optionally `categoryId`. It answers the new
+`variantId` and its pixel size, which is what `preview_design` / `set_design`
+then take as `canvas.width` / `canvas.height`. The template starts empty, and
+nothing here can delete it again.
+
 ---
 
 ## 13. Save it

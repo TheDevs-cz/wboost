@@ -9,7 +9,7 @@ wboost is a brand-manual and template platform. A designer authors a **template
 variant** — a canvas with text placeholders, picture slots and brand assets —
 and it is filled with the user's copy and exported as a finished image.
 
-This connector gives you twenty-one tools across four jobs:
+This connector gives you twenty-three tools across four jobs:
 
 - **read** what the account holds (`get_context`, `find_templates`,
   `describe_variant`, `list_gallery`);
@@ -20,7 +20,9 @@ This connector gives you twenty-one tools across four jobs:
   variant's design yourself and arrange multi-page documents
   (`upload_image`, `upload_font`, `preview_design`, `set_design`,
   `manage_document`), and set a print variant's bleed + crop marks
-  (`set_print_setup`);
+  (`set_print_setup`); a design that has no template yet starts with
+  `create_template`, and a finished picture of a design can become a template
+  through the AI scan (`scan_design`, its own scope `ai:scan`);
 - **desk calendars** — a separate module with its own scopes: create a
   calendar, set it up, design its layout, upload its pictures, fill in its
   content and look at any page (`list_calendars`, `get_calendar`,
@@ -57,6 +59,15 @@ get_context          → the exact font faces and brand colours you may use
           ├ preview_design   → compile + draw WITHOUT saving; iterate here
           └ set_design       → the commit, once
 ```
+
+**No variant to design on yet?** `create_template(projectId, name, dimension,
+categoryId?)` makes a new, EMPTY template with one variant — `dimension` is
+`{"unit": "px"|"mm"|"cm", "width", "height"}` (mm / cm also `bleedMm`,
+`cropMarks`) or `{"preset": "4:5"|"9:16"}` — and answers its `variantId` and
+`dimension`. Then `preview_design` / `set_design` on that variant with
+`canvas.width` / `canvas.height` = the returned `dimension.width` /
+`dimension.height` (pixels). Create one only when the user asked for a new
+template: nothing in this connector deletes it again.
 
 A cut missing from `get_context` fonts (e.g. only "Inter (Inter Regular)" when
 the design wants ExtraBold) is fixed with `upload_font` and the user's font
@@ -162,6 +173,31 @@ input, so you can see which texts share a flow *before* you fill them.
 Note the asymmetry: `set_design` **saves** a design whose containers are
 predicted to overflow (it is a warning — a design in progress is still worth
 saving), but `export_variant` still refuses to produce a file from it.
+
+**A picture of a finished design → a template (AI scan).** With the `ai:scan`
+scope, `scan_design` turns a flat export or screenshot into an editable
+template: `{"action": "start", "projectId", "imageId" | "imageBase64"}` →
+poll `{"action": "status", "scanId"}` every `pollAfterSeconds` until `status`
+is `ready` (1–3 minutes is normal) → `{"action": "result"}` to read the
+proposal (texts, places for pictures, `decisions[]` with the `fixes[]` each
+accepts) → `{"action": "apply", "scanId", "fixes"?, "placeholders"?, "name"?}`
+creates the template and answers `variantId` + `editorUrl`. It is a paid,
+per-project feature and every delivered proposal counts against a monthly
+limit — start one scan per picture the user asked for, never in a loop. A
+refusal starts with its code: `not_enabled` (ask the user to request the
+feature in the web app), `consent_required` (the user must agree to the
+data-processing text in the web app — you cannot), `limit_reached`,
+`temporarily_unavailable`, … Pictures are never copied out of the image:
+each becomes a place you fill with a gallery picture (`placeholders[].assetId`)
+or leave grey. Full reference: `references/tools.md`.
+
+**Unfilled pictures.** A template made from an AI scan can still show grey
+stand-in pictures where nobody supplied a picture. `export_variant` and
+`export_document` refuse such a file with `unfilled_pictures: …` (how many,
+and the `editorUrl` where the user fills them). Pass the missing background in
+`images` if that is what is owed, send the user to the editor, or — only when
+they want the grey stand-ins in the file — call again with
+`allowUnfilled: true`.
 
 **Repeatable rows** (`describe_variant` `repeatableRows[]` — a results table,
 a list of scorers): fill them with `rows`, never by guessing ids —
@@ -308,7 +344,7 @@ file. Each page carries its `variantId` — `describe_variant`,
 `render_variant` and `set_design` work on it unchanged. Page templates carry a
 `documentId`.
 
-- **Fill + export:** `export_document(documentId, fields?, pages?, format?, versionId?)`.
+- **Fill + export:** `export_document(documentId, fields?, pages?, format?, versionId?, allowUnfilled?)`.
   - `pages` is keyed by `pageId`; each value is exactly `export_variant`'s body
     for that page's variant.
   - `fields` fills the document's **shared fields** (one value written into

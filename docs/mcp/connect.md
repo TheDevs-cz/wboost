@@ -167,8 +167,9 @@ Pick the narrowest that does the job.
 |---|---|---|
 | `templates:read` | `get_context`, `find_templates`, `describe_variant`, `list_gallery`, `render_variant` | the default when `--scopes` is omitted |
 | `templates:export` | `export_variant` — the full-size lossless PNG | **implies** `templates:read`; exports are counted in the usage report |
-| `templates:design` | `preview_design`, `set_design` — author a variant's design; `upload_font` — add a font file (a variable font is expanded into its cuts) | **implies** `templates:read`; also needs you to OWN the project (`upload_font`: to be able to edit it) |
+| `templates:design` | `preview_design`, `set_design` — author a variant's design; `create_template` — a new empty template + variant to design on; `upload_font` — add a font file (a variable font is expanded into its cuts) | **implies** `templates:read`; also needs you to OWN the project (`upload_font`: to be able to edit it) |
 | `gallery:write` | `upload_image` — add a picture to a project's gallery | implies **nothing**: grant it alongside another scope if the agent should also browse |
+| `ai:scan` | `scan_design` — AI scan: a picture of a finished design becomes a proposal and, on `apply`, a template | implies **nothing**; works only where AI scan is switched on for the project, the user must have agreed to the consent text in the web, and every delivered scan counts against the project's monthly limit |
 | `calendars:read` | `list_calendars`, `get_calendar`, `render_calendar_page` — desk calendars (module Kalendáře): settings, layout and styles, pages, content, uploaded files, history, a rendered picture of any page | implies **nothing**, and no template scope implies it — a calendar-only agent needs no `get_context` |
 | `calendars:write` | `manage_calendar` (create, configure, finish, client link, import a layout, export the calendar as a PDF), `set_calendar_layout` (preset, boxes, order, styles), `upload_calendar_asset`, `update_calendar_content` | **implies** `calendars:read`; the design needs the *designer* role (may edit the project) — a member the project is only shared with stays a calendar *client* (content of the client collections + photos); nothing deletes a calendar |
 
@@ -321,7 +322,7 @@ refreshes it.
 
 ## What the tools can and cannot do
 
-Twenty-one tools (the calendar ones are listed last):
+Twenty-three tools (the calendar ones are listed last):
 
 | tool | scope | what it does |
 |---|---|---|
@@ -332,6 +333,8 @@ Twenty-one tools (the calendar ones are listed last):
 | `render_variant` | `templates:read` | a cheap downscaled WebP preview of a filled variant |
 | `export_variant` | `templates:export` | the deliverable — full-size lossless PNG (or `format: "pdf"`: the print PDF, print formats only), recorded as an export |
 | `upload_image` | `gallery:write` | add a picture to a project's gallery and get its id back |
+| `create_template` | `templates:design` | a new, empty standalone template with its first variant — px / mm / cm (with bleed + crop marks) or a `4:5` / `9:16` preset, optionally in a category; answers the `variantId` and canvas size for `set_design`. Needs the right to edit the project |
+| `scan_design` | `ai:scan` | AI scan ("Šablona z obrázku"): `start` a scan of a gallery picture or inline bytes, poll `status`, read the proposal with `result`, `apply` fixes and pictures and create the template; `list`, `cancel`, `retry`, `continue`. Refusals start with a code (`not_enabled`, `consent_required`, `limit_reached`, …) |
 | `preview_design` | `templates:design` | compile and draw a design document without saving anything |
 | `set_design` | `templates:design` | replace a variant's design, guarded against destroying what it cannot express |
 | `upload_font` | `templates:design` | add a TTF/OTF/WOFF font to a project; a variable font becomes one face per named instance (Inter → 18 cuts); the reply lists the exact font strings to design with |

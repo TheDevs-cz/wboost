@@ -61,6 +61,8 @@ readonly final class DescribeMcpCapabilities
         'document_history',
         'upload_image',
         'upload_font',
+        'create_template',
+        'scan_design',
         'preview_design',
         'set_design',
         'manage_document',
@@ -238,6 +240,22 @@ readonly final class DescribeMcpCapabilities
                 'Přidá do projektu soubor písma (TTF, OTF nebo WOFF), který asistentovi pošlete. '
                 . 'Variabilní písmo rozloží na jednotlivé řezy — stejně jako při nahrání ve WBoostu. '
                 . 'Nic se nepřepisuje ani nemaže.',
+            ],
+            'create_template' => [
+                'Založit novou šablonu',
+                'Asistent může v projektu založit novou prázdnou šablonu s první variantou v '
+                . 'rozměru, který si řeknete — v pixelech, v milimetrech či centimetrech (včetně '
+                . 'spadávky a ořezových značek) nebo ve formátu pro Instagram (4:5, 9:16) — a '
+                . 'volitelně ji zařadit do kategorie. Design do ní pak navrhne a uloží zvlášť. '
+                . 'Zakládat šablony může jen ten, kdo projekt vlastní; mazat odsud nejde.',
+            ],
+            'scan_design' => [
+                'AI sken — šablona z obrázku',
+                'Asistent může nahrát obrázek hotové grafiky, nechat z něj AI poskládat návrh '
+                . 'šablony (texty, tvary, barvy a místa pro obrázky) a z návrhu šablonu vytvořit. '
+                . 'Obrázek zpracovává služba Claude společnosti Anthropic; se zpracováním musíte '
+                . 'nejdřív sami souhlasit ve WBoostu. Každý doručený sken se započítá do měsíčního '
+                . 'limitu projektu. Funguje jen v projektech, kde je AI sken zapnutý.',
             ],
             'preview_design' => [
                 'Navrhnout design nanečisto',

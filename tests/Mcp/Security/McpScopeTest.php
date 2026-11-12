@@ -42,6 +42,8 @@ final class McpScopeTest extends TestCase
             McpScope::GalleryWrite->value => [McpScope::GalleryWrite],
             McpScope::CalendarsRead->value => [McpScope::CalendarsRead],
             McpScope::CalendarsWrite->value => [McpScope::CalendarsWrite, McpScope::CalendarsRead],
+            // AI scan spends a project's scans: it implies nothing and nothing implies it.
+            McpScope::AiScan->value => [McpScope::AiScan],
         ];
     }
 

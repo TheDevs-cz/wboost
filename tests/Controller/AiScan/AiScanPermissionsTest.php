@@ -343,12 +343,23 @@ final class AiScanPermissionsTest extends WebTestCase
 
         ksort($scanRoutes);
 
+        // The P3 routes are walked role by role in AiScanReviewPermissionsTest.
         self::assertSame([
+            'ai_scan_accept' => 'POST /ai-scan/{id}/accept',
+            'ai_scan_access_request' => 'POST /project/{projectId}/ai-scan/access-request',
+            'ai_scan_access_request_resolve' => 'POST /admin/ai-scan/access-request/{id}/{action}',
+            'ai_scan_access_requests' => 'GET /admin/ai-scan/access-requests',
             'ai_scan_action' => 'POST /ai-scan/{id}/{action}',
+            'ai_scan_entry' => 'GET /project/{projectId}/ai-scan/entry',
+            'ai_scan_feedback' => 'POST /ai-scan/{id}/{action}',
+            'ai_scan_fix' => 'POST /ai-scan/{id}/{action}',
             'ai_scan_image' => 'GET /ai-scan/{id}/image/{which}',
+            'ai_scan_pictures' => 'POST /ai-scan/{id}/pictures',
+            'ai_scan_proposal' => 'GET /ai-scan/{id}/proposal',
             'ai_scan_start' => 'POST /project/{projectId}/ai-scan',
             'ai_scan_status' => 'GET /ai-scan/{id}',
             'ai_scans_mine' => 'GET /ai-scans/mine',
+            'ai_scans_project' => 'GET /project/{projectId}/ai-scans',
             'internal_scanner_artifact' => 'PUT /internal/scanner/{id}/artifact/{which}',
             'internal_scanner_beat' => 'POST /internal/scanner/{id}/beat',
             'internal_scanner_claim' => 'POST /internal/scanner/claim',

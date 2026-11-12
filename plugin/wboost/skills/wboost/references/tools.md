@@ -22,8 +22,9 @@ called anyway.
 |---|---|
 | `templates:read` | `get_context`, `find_templates`, `describe_variant`, `list_gallery`, `render_variant` |
 | `templates:export` | `export_variant`, `export_document`, `document_history` |
-| `templates:design` | `preview_design`, `set_design`, `manage_document`, `upload_font`, `set_print_setup` |
+| `templates:design` | `preview_design`, `set_design`, `manage_document`, `upload_font`, `set_print_setup`, `create_template` |
 | `gallery:write` | `upload_image` |
+| `ai:scan` | `scan_design` |
 | `calendars:read` | `list_calendars`, `get_calendar`, `render_calendar_page` |
 | `calendars:write` | `manage_calendar`, `set_calendar_layout`, `upload_calendar_asset`, `update_calendar_content` |
 
@@ -373,7 +374,7 @@ to keep the designed colour.
 
 ---
 
-## `export_variant(variantId, inputs?, images?, shapeColors?, format?, rows?, offsets?)`
+## `export_variant(variantId, inputs?, images?, shapeColors?, format?, rows?, offsets?, allowUnfilled?)`
 
 Same arguments, same fill vocabulary. Reply = JSON summary + the PNG.
 
@@ -392,9 +393,17 @@ recorded. A successful export **is** recorded in the project's usage report,
 and in the variant's export history with its rows (every row's count) and
 moves — the web fill page re-opens it exactly as exported.
 
+**Unfilled pictures.** A template made from an AI scan may still show a grey
+stand-in picture where a picture was never supplied — a decorative image
+nobody replaced in the editor, or a full-page background you pass no picture
+for in `images`. Such an export is refused with a message starting
+`unfilled_pictures:` that says how many there are and gives the `editorUrl`
+where the user fills them. Tell the user; pass `allowUnfilled: true` (default
+`false`) only when they want the file with the grey stand-ins anyway.
+
 ---
 
-## `export_document(documentId, fields?, pages?, format?, versionId?)`
+## `export_document(documentId, fields?, pages?, format?, versionId?, allowUnfilled?)`
 
 `format`: `"pdf-screen"` (default) | `"pdf"` (print; mm / cm only, ≤ 8 pages
 here) | `"png"` (ZIP). `fields`: shared fieldId → a text value in the field's
@@ -408,7 +417,10 @@ over the page's own TEXT for its bound input (the page's own `hide` /
 override it key by key — per input / image / shape id, per moved element
 id, and per row container id (the WHOLE list of rows is replaced). Every page
 is resolved before any renders; a refusal names the page. Every export lands
-in the document's history.
+in the document's history. `allowUnfilled` works as in `export_variant`: pages
+still showing grey stand-in pictures left by an AI scan refuse the export with
+`unfilled_pictures:` (the count is summed over the pages, `editorUrl` is the
+first such page's) unless it is `true`.
 
 Returns a text summary (`documentId`, `documentName`, `projectName`, `format`,
 `pageCount`, `sizeBytes`, `fileName`, `warnings[]`) plus the file as an
@@ -821,6 +833,89 @@ this dimension changes (a group has no shared print setup). Refusals:
 `missing_print_setup`, `print_setup_not_available` (px / social),
 `document_page` (a document page follows its document — use
 `manage_document` `set_print` with the named `documentId`).
+
+## `create_template(projectId, name, dimension, categoryId?)`
+
+Creates a NEW standalone template with its first variant — the web's "Nová
+šablona" form. Scope `templates:design`; the account must be able to edit the
+project (owner or admin — a shared project is view-only). The template starts
+**empty** (no design, no background, no inputs) and uncategorised unless
+`categoryId` (a category of the same project, `find_templates`
+`templates[].categoryId`) is given. Next step: `set_design` on the returned
+`variantId` with `canvas.width` / `canvas.height` = the returned
+`dimension.width` / `dimension.height`.
+
+- `name`: 3–30 characters.
+- `dimension`, one of:
+  - `{"unit": "px"|"mm"|"cm", "width", "height"}` — the size in that unit;
+    each side must come to 16–10000 canvas px (mm / cm at 300 DPI).
+    `unitWidth` / `unitHeight` are synonyms and win, so a `dimension` copied
+    from `get_context` / `describe_variant` works unchanged.
+  - `{"preset": "4:5"|"9:16"}` — the social formats (`1:1` is retired: send
+    px 1080 × 1080).
+  - mm / cm only: `bleedMm` (0–10 per side, 5 when omitted, 0 = none) and
+    `cropMarks` (false when omitted). **Ask the user for the bleed** when they
+    have not said. px / presets take neither.
+
+Answers `{templateId, variantId, templateName, projectId, projectName,
+categoryId, categoryName, dimension, editorUrl, status}` (`dimension` as in
+`describe_variant`; `editorUrl` is absolute, for the human).
+
+Refusals start with their code and create nothing: `project_not_found` (also
+a project the account cannot see), `project_not_editable`, `invalid_name`,
+`invalid_dimension` (unit, size, range; a print-setup problem also names
+`invalid_bleed` / `invalid_crop_marks` / `print_setup_not_available`),
+`unknown_preset`, `unknown_category` (also a category of another project).
+A document page is made with `manage_document` `add_page` instead; nothing
+here deletes.
+
+
+## `scan_design(action, …)` — AI scan: a picture becomes a template
+
+Scope `ai:scan` (implies nothing; a paid feature WBoost switches on per
+project). A flat picture of a finished design (JPG, PNG, WebP, HEIC; ≤ 10 MB,
+sides ≤ 8000 px, ≤ 36 Mpx, shorter side ≥ 600 px) becomes a **proposal**:
+texts, shapes, colours and **places for pictures** (pictures are never taken
+out of the image). Nothing exists among the templates until `apply`. A scan
+runs in the background, usually 1–3 minutes (up to about 12).
+
+| action | arguments | returns |
+|---|---|---|
+| `start` | `projectId`; `imageId` (a gallery picture) **or** `imageBase64` (≤ ~3 MB); `requestId?` (idempotency key); `format?` `{unit: px\|mm\|cm, width, height}` — same aspect ratio as the picture | `scanId`, `status`, `creditsLeft`, `queuePosition`, `estimatedStartSeconds`, `estimatedFinishSeconds`, `pollAfterSeconds` |
+| `status` | `scanId` | `status`, `waiting`, `restarted`, `stage`, `note`, `round`, `elapsedSeconds`, queue fields, `expiresAt`, `unfinished`, `errorCode` + `errorSentence`, `retriesLeft`, `canRetry`, `canContinue`, `pollAfterSeconds` (null once ended) |
+| `result` | `scanId`, `image?` | `name`, `counts`, `toDecide`, `elements[]`, `placeholders[]`, `decisions[]` (each with the `fixes[]` it accepts), `information[]`, `fonts[]` (+ the render with `image: true`) |
+| `apply` | `scanId`, `fixes?[]`, `placeholders?[]` `{id, assetId\|null, kind?: fixed\|input, fit?: contain\|cover}`, `name?` (3–30) | `templateId`, `variantId`, `editorUrl`, `unfilledPictures`, `created` — creates the template; idempotent |
+| `list` | `projectId`, `status?` | `scans[]` |
+| `cancel` | `scanId` | `status`, `counted` (true when it was already running) |
+| `retry` | `scanId` (failed) | `status`, `retriesLeft` — at most twice per upload |
+| `continue` | `scanId` (stopped with `photo_of_print`) | `status` — once per upload |
+
+`status` values: `checking`, `queued`, `running`, `ready`, `accepted`,
+`discarded`, `cancelled`, `stopped`, `failed`, `refused`, `expired`.
+
+`fixes[]` types: `choose_font {group, face}`, `keep_font {group}`,
+`confirm_text {id, text?}`, `set_text {id, text}`, `set_input {id, input}`,
+`rename {id, name}`, `add_placeholder {omitted}`, `keep_omitted {omitted}`,
+`remove_placeholder {id}`, `merge_placeholders {ids}`,
+`placeholder_to_shape {id, shape: rectangle|circle|star, colour?}`,
+`undo_shrink`, `revert_palette`.
+
+**What counts** against the project's monthly limit: a scan that delivers a
+proposal (whatever you then do with it) and a scan cancelled while `running`.
+Stopped, failed, refused and scans cancelled while waiting do not.
+
+Refusals are tool errors that start with a code — nothing is charged for a
+refused `start`: `not_enabled`, `consent_required` (the user must agree to the
+data-processing text in the wboost web app; you cannot agree for them),
+`limit_reached`, `daily_starts_reached`, `project_queue_full`, `queue_full`,
+`temporarily_unavailable`, `project_paused`, `no_fonts`, `unsupported_image`,
+`unsupported_kind` (only `template`), `source_unscannable`, `no_retries_left`,
+`wrong_state` (the action does not apply in the scan's state), `invalid_fix`
+(names the entry; nothing is created), `stale_references`, `renderer_busy`.
+
+Places left empty show a grey stand-in in the new template
+(`unfilledPictures`); `export_variant` / `export_document` then refuse with
+`unfilled_pictures` until they are filled or `allowUnfilled: true` is passed.
 
 ## `preview_design(variantId, design)`
 

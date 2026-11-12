@@ -65,7 +65,7 @@ final class EditUserControllerTest extends WebTestCase
             $fields,
             static fn (mixed $field): bool => $field instanceof ChoiceFormField,
         ));
-        self::assertCount(6, $checkboxes);
+        self::assertCount(7, $checkboxes);
 
         $ticked = [];
         foreach ($checkboxes as $checkbox) {

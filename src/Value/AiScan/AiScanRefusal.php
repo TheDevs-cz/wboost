@@ -29,14 +29,19 @@ enum AiScanRefusal: string
     case RendererBusy = 'renderer_busy';
     case UnfilledPictures = 'unfilled_pictures';
     case LayoutChanged = 'layout_changed';
+    // The review and the access request (P3).
+    /** A fix names something the proposal does not have, or a value it cannot take; nothing was saved. */
+    case InvalidFix = 'invalid_fix';
+    /** Too many access requests from this user today. */
+    case RateLimited = 'rate_limited';
 
     public function httpStatus(): int
     {
         return match ($this) {
             self::NotEnabled => 403,
-            self::UnsupportedImage, self::ConsentRequired, self::NoFonts => 422,
+            self::UnsupportedImage, self::ConsentRequired, self::NoFonts, self::InvalidFix => 422,
             self::TemporarilyUnavailable, self::RendererBusy => 503,
-            self::LimitReached, self::DailyStartsReached, self::ProjectQueueFull, self::QueueFull => 429,
+            self::LimitReached, self::DailyStartsReached, self::ProjectQueueFull, self::QueueFull, self::RateLimited => 429,
             default => 409,
         };
     }

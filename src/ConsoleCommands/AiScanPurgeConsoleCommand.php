@@ -29,12 +29,14 @@ final class AiScanPurgeConsoleCommand extends Command
         $result = $this->purge->run();
 
         (new SymfonyStyle($input, $output))->success(sprintf(
-            'Reaped %d · expired %d · files dropped of %d accepted/discarded · %d orphan directories · %d usage rows closed.',
+            'Reaped %d · expired %d · files dropped of %d accepted/discarded · %d orphan directories · %d usage rows closed · %d uploads to the bin · %d e-mails.',
             $result['reaped'],
             $result['expired'],
             $result['filesDropped'],
             $result['orphanDirectories'],
             $result['usageClosed'],
+            $result['uploadsTrashed'],
+            $result['emails'],
         ));
 
         return Command::SUCCESS;

@@ -452,6 +452,13 @@ Where the implementation is more specific than, or differs from, the text above:
 - **Other fixes** (transcription, any text, input / fixed, names, palette revert, automatic shrink
   with undo, place remove / merge / to-shape, kind, fit) edit the proposal document and re-render.
   After accept the scan page is read-only.
+- **As built in P3** (details: `docs/architecture/ai-scan.md` § "Review state" ff.): fixes are stored per item
+  and REPLAYED on the unchanged proposal document (undo = deleting an item); the re-render is stored as
+  `proposal.webp` next to the candidates; `placeholder_to_shape` takes its colour from the browser (the report
+  has none per place); the project-logo pre-fill is left out (no reusable logo file exists); the template's
+  format travels as `options {targetUnit, targetWidth, targetHeight}` and accept scales the document to it;
+  accept runs inside one bus transaction with the compile and the render BEFORE the first create; the
+  ended-scan e-mail is a delayed `SendAiScanEmail` on the `async` transport with the nightly purge as backstop.
 - **Fit**: `Vejít celý` (contain, centred — default for logos and icons) or `Vyplnit` (cover; the
   browser crops the chosen picture to the place's ratio before upload — default for photos,
   patterns, illustrations).
@@ -820,6 +827,7 @@ for it go to the gallery's Koš, as on discard; the nightly purge also sends the
 | Report notes (`notes[].code`) | `no_texts` |
 | Calendar "kalendář neumí" (`notExpressible[].code`, each with a `box`) | `ornament`, `header_text`, `second_photo`, `more_logos`, `days_in_grid`, `rotated_text`, `month_colours`, `multilingual_names` |
 | Accept, restore and export refusals | `stale_references`, `renderer_busy`, `unfilled_pictures`, `layout_changed` (restore without confirmation after later edits **[r5]**) |
+| Review and access request (as built in P3) | `invalid_fix` (a fix names something the proposal does not have or a value it cannot take; nothing saved), `rate_limited` (access requests: five per user a day) |
 | Scanner API | `stale_run`, `lease_lost` (HTTP 409: this run is over), `gone` (410); in the body of a 200 answer: `protocol_too_old`, `renderer_busy`, `renderer_unavailable`, `candidate_limit`, `missing_artifact`, `invalid_request`, `unsupported_kind` |
 
 The Czech sentence for each stage, note, stop reason and error code is in [UX §4 S3, S5].

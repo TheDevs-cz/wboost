@@ -26,6 +26,8 @@ final readonly class AiScanStorage
     public const string ROOT = 'ai-scan';
     public const string WORKING = 'working.webp';
     public const string PREVIEW = 'preview.webp';
+    /** The proposal as it renders with the review's fixes — written by every fix (P3). */
+    public const string PROPOSAL = 'proposal.webp';
 
     public function __construct(
         #[Autowire(service: 'oneup_flysystem.private_filesystem')]
