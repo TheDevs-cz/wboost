@@ -19,6 +19,8 @@ orchestrator decided on his behalf, so later sessions do not re-open it.
 | 9 | Infra lives in `~/www/lily.srv`. | — |
 | 10 | The user must see an estimated time and how many scans are ahead. | question, answered in ux.md S3 |
 | 11 | **Approval to implement and deliver to production.** | "you can deliver it all on production directly" |
+| 12 | Admins may scan customers' designs before the legal wording is confirmed — those designs reach the team anyway. The legal gate applies to customer self-service access. | "the designs of customers were reaching us anyways" |
+| 13 | The live "Požádat o přístup" card is the gate for non-entitled users from the moment the wizard ships (not a "Brzy" teaser until launch). | "yes požádat o přístup is okay good gate" |
 
 ## Decisions taken by the orchestrator under #11 (architecture.md §11 numbering)
 

@@ -1,19 +1,46 @@
 # AI sken — UX design
 
-Status: design proposal, **revision 4**, 2026-11-12. No application code exists. Rewritten after
+Status: design, **revision 5**, 2026-11-12. Implementation is under way: the job core (P1) and
+the scanner (P2) are being built; the wizard (P3) is built next, from this document and the mock.
+Rewritten after
 three reviews (`review.md`, `review-ux.md`, `review-reliability.md`) so that this document and
 `architecture.md` use the same states, names, numbers and limits. Where they could differ, §2 here
 and `architecture.md` §4.9 / §5.2 are the single tables both refer to.
 
 Scope: "AI scan" in **Šablony** ("Šablona z obrázku") and **Kalendáře** ("Naskenovat design"),
 access UI, admin views, MCP outline. Stage names, time figures and report contents describe the
-**proposed** scanner; the measurement round (`architecture.md` §10 P0) confirms or changes them.
+scanner as designed; `architecture.md` revision 5 is the source of every backend fact here.
 
-The static mock `ux-mock/index.html` is being redrawn from this document now, as part of this
-planning round; until it lands, the old file is obsolete. The redrawn mock and a real-browser
-check of it at 390 / 820 / 1440 px in both themes are a deliverable due before the wizard is built
-(`architecture.md` §10, D0). This document draws the main screens and gives copy for all of them;
-§12 lists the components the mock needs.
+The static mock `ux-mock/index.html` (v2) is drawn from this revision and checked in a real
+browser at 390 / 820 / 1440 px in both themes; `ux-mock/NOTES.md` lists its screens, the class of
+every new component and the paragraph here that specifies it. This document draws the main screens
+and gives copy for all of them; §12 lists the components.
+
+**Changes in revision 5** (targeted edits, nothing renumbered; §2.4 is new):
+
+1. Fonts in the report (S4, C4, principle 5): three fixed copy patterns — *measured match*,
+   *nearest available*, *could not be determined*. The original's typeface is **never named**;
+   only faces of the project are. The earlier `Vypadá jako {rodina} (odhad)` is gone.
+2. §2.4: every counter of the flow with its 1 / 2–4 / 5+ forms and its zero case, the `z` / `ze`
+   rule, and the rule for the background in the summary line. `Rozhodnout zbývá…` is replaced by
+   `Zbývá rozhodnout 1 věc · Zbývají rozhodnout {n} věci · Zbývá rozhodnout {n} věcí`.
+3. S5: a pre-check stop shows a neutral row `Kontrola obrázku — zastaveno`, not the rose ✖; F9
+   says what the retry button looks like when a limit or the queue is in the way.
+4. S4: the left-out item lists each thing with its own crop; simplification lines gained
+   gradient / pattern entries; the compare control is stated as two modes plus `Ukázat vrstvy`.
+5. Layout rules that were open: where the step label sits (§5), order of the columns between 641
+   and 1000 px (§3, S4, S4b), the collapsed `Průběh` inside the status card on phones (S3), the
+   phone's peach dot (§7), the heading of the list strip (T5), the top bar's button whenever the
+   calendar panel shows a primary (§6), the calendar apply label with an empty place (§6).
+6. Copy that was missing: consent as info lines on later scans (S2), "one chance" for `Zkusit
+   přesto` (F3a), `Odebrat obrázek` on a pre-filled logo (S4b), `Tohle kalendář neumí` rows carry
+   a crop instead of free text (C4).
+7. §12: `--on-pch` has a value and a home; one moving element per view; tap area of inline links.
+8. Mirrors `architecture.md` revision 5: at most 8 scans in kontrola + fronta; no PDF in the first
+   build (later "first page only"); `checking` may end in F4 / F5; what counts as "failed twice";
+   a provider-cut run is F5, not `nedokončeno`; `Vypnuto` also fails waiting scans; `layout_origin`
+   column; `Vrátit původní` runs to the proposal's expiry; MCP `restore` `confirm` /
+   `layout_changed`, `wrong_state`.
 
 | Term | Meaning |
 |---|---|
@@ -26,6 +53,7 @@ check of it at 390 / 820 / 1440 px in both themes are a deliverable due before t
 
 Every count in a Czech string uses the app's plural helper (1 / 2–4 / 5+) and `z` / `ze` by the
 number. Strings below show the three forms once where they differ: `1 sken · 2 skeny · 5 skenů`.
+§2.4 is the full list of counters, with the zero case of each.
 
 ---
 
@@ -42,8 +70,9 @@ number. Strings below show the three forms once where they differ: `1 sken · 2 
 4. **Say what did not match, next to where it happened.** Each report item and each picture card
    carries its own small crop of the original and of the proposal, so item and picture are visible
    together on any screen.
-5. **Measured or guessed is said in the words.** A font name is given only as a guess; "nenašli
-   jsme" instead of "není".
+5. **Say only what was measured.** A typeface is named only when it is a face of the project;
+   the typeface of the original is never named, because nothing the scanner has supports a name.
+   "Nenašli jsme" instead of "není"; a mismatch is stated as a mismatch.
 6. **Ask before the scan only what the picture cannot answer.** One question in Šablony (format),
    none in Kalendáře.
 7. **The review decides, the editor edits.** No geometry editing in the wizard.
@@ -58,7 +87,7 @@ number. Strings below show the three forms once where they differ: `1 sken · 2 
 
 | State | Pill (history, cards) | Meaning | Exits |
 |---|---|---|---|
-| `checking` | `Kontrola obrázku` (peach, spinner) | upload stored; the scanner normalises it and runs the pre-check (seconds; does not wait behind running scans) | → `queued`, `stopped`, `cancelled`, `failed` |
+| `checking` | `Kontrola obrázku` (peach, spinner) | upload stored; the scanner normalises it and runs the pre-check (seconds; does not wait behind running scans) | → `queued`, `stopped`, `cancelled`, `failed` (F5), `refused` (F4); "Zkusit znovu" after a failed check returns to `checking` |
 | `queued` | `Ve frontě` (peach) | passed the pre-check, waits for a free scanner | → `running`, `cancelled`, `failed` (queue timeout) |
 | `running` | `Sken běží` (peach, spinner) | the builder works | → `ready`, `failed`, `refused`, `cancelled`, back to `queued` (restart) |
 | `ready` | `Připraveno ke kontrole` (peach) | a proposal waits; flag `nedokončeno` when stopped at a limit | → `accepted`, `discarded`, `expired` |
@@ -81,19 +110,19 @@ called a pokus.
 
 | Quantity | Value |
 |---|---|
-| Upload | JPG, PNG, WebP, HEIC; ≤ 10 MB (10 000 000 bytes); each side ≤ 8000 px; ≤ 36 megapixels; shorter side ≥ 600 px. PDF only if the owner chooses that option (O4) |
+| Upload | JPG, PNG, WebP, HEIC; ≤ 10 MB (10 000 000 bytes); each side ≤ 8000 px; ≤ 36 megapixels; shorter side ≥ 600 px. Pictures only in the first build; PDF comes later, as "first page only" |
 | Template size made from a scan | longer side ≤ 5000 px (A3 at 300 dpi) |
 | Usual duration | 1–3 min; pre-check 5–15 s |
 | Limit of one run | 6 min; the scanner may restart a run once by itself → up to ≈ 12 min of work plus waiting |
 | "Trvá to déle" line | after 3 min of `running` |
-| Queue | a project may have at most 4 scans in progress at once (kontrola, fronta, sken together); one scan runs at a time for everyone, the rest wait; at most 10 wait in the queue in total; a scan waiting 60 min fails and is not counted |
+| Queue | a project may have at most 4 scans in progress at once (kontrola, fronta, sken together); one scan runs at a time for everyone, the rest wait; at most 8 are in kontrola and fronta together; a scan waiting 60 min fails and is not counted |
 | Correction rounds | up to 2 (`kolo {n} ze 2`) |
 | Retention | návrh and původní obrázek: 30 days from the end of the scan, date shown; then `Vypršelo` |
 | Failed, stopped or refused card for other project editors | 24 h, then only the requester sees it |
 | E-mail | one when the scan ends (not sooner than 2 min after, only if still unseen) + one reminder 3 days before a waiting proposal expires |
 | Monthly limit | per project, default 10 |
 | Daily starts | 10 per user, 20 per project |
-| "Zkusit znovu" | 2 per upload. A picture that failed twice (a failure on our side or a run limit — not a cancel or a pre-check stop) is refused, also when uploaded again |
+| "Zkusit znovu" | 2 per upload. A picture that failed twice is refused, also when uploaded again. Only these count as a failure of the picture: run limit, build failure, interruption by a crash, a check that crashed twice — **not** provider, renderer or queue failures, a cancel or a pre-check stop |
 | "Zkusit přesto" | once per upload; not one of the two retries |
 | Page polling | 2 s on the scan surface, 10 s elsewhere |
 
@@ -102,12 +131,50 @@ called a pokus.
 | Outcome | Counted against the monthly limit |
 |---|---|
 | Proposal delivered (also `nedokončeno`), whatever the user does with it | **yes** |
+| Run cut short mainly by the provider, even if a candidate existed | no — it is F5, not a `nedokončeno` proposal |
 | Stopped by the pre-check, failed, refused, queue timeout | no |
 | Cancelled while `checking` or `queued` | no |
 | Cancelled while `running` | **yes** — the work was already paid for |
 | "Zkusit znovu" / "Zkusit přesto" | reserves a scan again; the same rules apply |
 
 One sentence for users: `Počítá se sken, který dostanete, a sken, který zrušíte za běhu.`
+
+### 2.4 Counters — forms and the zero case
+
+One helper, three forms (1 · 2–4 · 5 and more; 0 takes the third form unless the table says
+otherwise). **`z` / `ze`:** `ze` before 2, 3, 4, 6, 7, 12, 13, 14, 16, 17, 100 and 200; `z`
+otherwise (`2 ze 4`, `7 z 10`, `3 ze 12`, `0 z 3`).
+
+| Counter | 1 | 2–4 | 5+ | Zero |
+|---|---|---|---|---|
+| Summary: texts | `1 text` | `{n} texty` | `{n} textů` | part left out |
+| Summary: shapes | `1 tvar` | `{n} tvary` | `{n} tvarů` | part left out |
+| Summary: places for pictures | `1 místo pro obrázek` | `{n} místa pro obrázky` | `{n} míst pro obrázky` | part left out |
+| Summary: background | — | — | — | the word `pozadí` closes the list when the proposal has a background layer (colour or gradient); a full-page background **photo** is a place for a picture and is counted there |
+| To decide (summary, e-mail) | `Zbývá rozhodnout 1 věc.` | `Zbývají rozhodnout {n} věci.` | `Zbývá rozhodnout {n} věcí.` | `Nic k rozhodnutí.` (e-mail: the sentence is left out) |
+| Tab counters `K rozhodnutí {n}`, `Vrstvy {n}` | number only | | | `0` is shown; the tab body says `Nic k rozhodnutí` + the "nothing replaced" text |
+| Scans ahead | `Před vámi je 1 sken` | `Před vámi jsou {n} skeny` | `Před vámi je {n} skenů` | `Jste na řadě — začneme během chvíle.` |
+| Card line, queued | `Ve frontě · 1 před vámi` | `Ve frontě · {n} před vámi` | same | `Ve frontě · jste na řadě` |
+| Texts found (stage note) | `Nalezen 1 text` | `Nalezeny {n} texty` | `Nalezeno {n} textů` | `Texty jsme nenašli` |
+| Day rows (stage note) | `1 řádek dní` | `{n} řádky dní` | `{n} řádků dní` | no note |
+| Texts affected (font item) | `Týká se 1 textu.` | `Týká se {n} textů.` | same | item not shown |
+| Texts shrunk | `u 1 textu` | `u {n} textů` | same | line not shown |
+| Colours unified | `1 barvu jsme sjednotili` | `{n} barvy jsme sjednotili` | `{n} barev jsme sjednotili` | line not shown |
+| Things simplified | `Zjednodušili jsme 1 věc:` | `…{n} věci:` | `…{n} věcí:` | line not shown |
+| Line split into texts | — | `na {n} texty` | `na {n} textů` | — |
+| Things left out | `1 prvek jsme vynechali` · `Nepodařilo se ho převést na text ani tvar.` | `{n} prvky jsme vynechali` · `Nepodařilo se je převést…` | `{n} prvků jsme vynechali` · `…je převést…` | item not shown |
+| Pictures done (S4b head) | `{hotovo} z / ze {n}` | | | `0 z {n}`; with no place at all the step is skipped |
+| Pictures to add later (primary, export dialog) | `1 obrázek doplníte později` · `Šablona má 1 nedoplněný obrázek` · `bude … šedý zástupný obrázek` | `{n} obrázky doplníte později` · `{n} nedoplněné obrázky` · `budou … šedé zástupné obrázky` | `{n} obrázků doplníte později` · `{n} nedoplněných obrázků` · `bude … {n} šedých zástupných obrázků` | label without the tail: `Vytvořit šablonu a otevřít editor` |
+| Pill on the template | `K doplnění: {n}` (number only) | | | no pill |
+| Merge bar | — (button disabled, `Vyberte aspoň dvě místa`) | `Sloučit {n} místa` | `Sloučit {n} míst` | as 1 |
+| Files assigned by the multi-drop | `1 obrázek přiřazen` | `{n} obrázky přiřazeny` | `{n} obrázků přiřazeno` | `Žádné prázdné místo — obrázky jsme nepřiřadili` |
+| Elements created (toast) | `1 prvek` | `{n} prvky` | `{n} prvků` | cannot happen (F8) |
+| Project fonts | `1 řez` | `{n} řezy` | `{n} řezů` | the "no font" row of T2 |
+| Credits left | `zbývá {n} z / ze {limit}` (number only) | | | the limit texts of S2 / T1; the last one: `Spotřebuje poslední sken projektu v tomto měsíci` |
+| Correction round | `kolo {n} ze 2` | | | no pill |
+| History link on the card | `Historie skenů ({n})` | | | link not shown |
+| User's retry | `{n}. pokus` from the second | | | first run: nothing |
+| Minutes in estimates | always a range `{a}–{b} min` | | | under one minute `během chvíle` |
 
 ---
 
@@ -123,8 +190,11 @@ One sentence for users: `Počítá se sken, který dostanete, a sken, který zru
                         leave any time: list card · sidebar · toast · e-mail      history
 ```
 
-At 820 px the side column drops under the main one **with the status / decision card first**; at
-390 px everything is one column.
+Up to 1000 px there is one column, and the order is fixed per screen: **S3 and S5** — the status
+/ result card first, then the pictures; **S2** — the picture and its checks, then "Než začneme";
+**S4** — summary line, viewer, report panel, action block (the same order as on a phone);
+**S4b** — the numbered picture (not sticky, at most 360 px wide; hidden under 641 px), the
+multi-drop zone, the cards, the action block.
 
 ---
 
@@ -133,7 +203,7 @@ At 820 px the side column drops under the main one **with the status / decision 
 ### S1 — Upload
 
 Component: `.gal-drop` with a peach sparkle. One file; the whole page accepts a drop.
-`accept="image/jpeg,image/png,image/webp,image/heic,image/heif"` (+ `application/pdf` if O4 = yes).
+`accept="image/jpeg,image/png,image/webp,image/heic,image/heif"` Pictures only.
 
 ```
 ┌─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┐
@@ -157,11 +227,8 @@ Phone: the zone says `Klepněte a vyberte obrázek`; tips in one column.
 | ✓ | as drawn | `Export stránky z grafického programu` · `Jedna celá týdenní stránka, rovně a bez ořezu` · `Běžný týden — ne titulní strana ani měsíční přehled` |
 | ✗ | as drawn | `Fotka kalendáře na stole — zkreslí barvy i rozměry` · `Více stránek v jednom obrázku` · `Ozdobné pruhy a rámečky — rozvržení má pevnou sadu prvků` |
 
-**PDF (O4).** Until the owner decides, v1 takes pictures only: a PDF gets the message below. If he
-chooses the option: the caption gains `nebo PDF`, the calendar bold line becomes `Přetáhněte sem
-obrázek nebo PDF stránky kalendáře`, and after choosing a PDF with more than one page S2 shows a
-page row (`Stránka [ 2 ▾ ] z 14`) with a thumbnail of the chosen page drawn **by the browser**
-(pdf.js) — before anything is uploaded; the page number travels with the upload.
+**PDF** is not in the first build: a PDF gets the message below. It comes later as "first page
+only" — no page row, no thumbnail.
 
 Refusals (toast `.err` + `.hint.err` under the zone). The browser checks type and byte size; pixel
 size is read from the file header by the browser where it can and by the server (HEIC: by the
@@ -170,7 +237,7 @@ scanner in the checking step, which then stops the scan with F3e if it is out of
 | Case | Message |
 |---|---|
 | Not accepted | `Tento soubor neumíme. Nahrajte obrázek JPG, PNG, WebP nebo HEIC.` |
-| PDF / PSD / AI / IDML (O4 = no) | `PDF a zdrojové soubory zatím neumíme. Uložte stránku jako obrázek (PNG nebo JPG) a nahrajte ji.` |
+| PDF / PSD / AI / IDML | `PDF a zdrojové soubory zatím neumíme. Uložte stránku jako obrázek (PNG nebo JPG) a nahrajte ji.` |
 | More than one | `Nahrajte jen jeden obrázek.` |
 | > 10 MB | `Obrázek je větší než 10 MB. Zmenšete ho nebo ho uložte jako JPG.` |
 | Short side < 600 px | `Obrázek je příliš malý ({w} × {h} px). Kratší strana musí mít aspoň 600 px, lépe 1000 px a víc.` |
@@ -231,6 +298,12 @@ Dialog `Jak s obrázky nakládáme` (S, 460 px), button `Rozumím`:
 >
 > **Co nenahrávat.** Grafiku, ke které nemáte práva, a obrázky s citlivými osobními údaji.
 
+Later scans (both statements already given for the current wording) — two plain lines with an
+info icon in place of the checkboxes, nothing to tick: `Obrázek a údaje z něj odešleme ke
+zpracování službě Claude společnosti Anthropic (USA).` *[`Anthropic je maže do 30 dnů.`]* `My
+uchováme původní obrázek 30 dní.` [Jak s obrázky nakládáme] · `Spuštěním potvrzujete, že tuto
+grafiku smíte použít.`
+
 **Queue line** — shown only when the service works and somebody is ahead:
 
 | Situation | Text |
@@ -281,8 +354,9 @@ ticking time and the list are outside it. Tab title: `Kontrola… — {název}` 
                                                   └──────────────────────────────┘
 ```
 
-Phone: status card first (title, time, bar, current stage + its note, leave box, buttons), then
-the two pictures side by side, then the full stage list collapsed under `Průběh`.
+Phone: status card first — title, time, bar, the current stage with its note, the full stage list
+**inside the card** collapsed under `Průběh` (a disclosure, closed by default under 641 px, open
+above), leave box, buttons — then the two pictures side by side.
 
 **Stages** — exactly what the scanner reports; `note` is a code with integer / enum parameters,
 turned into Czech here. A stage without a note shows none.
@@ -342,15 +416,15 @@ whole minutes, upper bound rounded up; under one minute `během chvíle`. Comput
 ┌──────────────────────────────────────────────┐  ┌──────────────────────────────┐
 │ (Posuvník | Vedle sebe)        ○ Ukázat vrstvy│ │ Hotovo: 12 textů, 3 tvary,   │
 │        ┌──────────────┬───────────────┐      │  │ 4 místa pro obrázky.         │
-│        │ Původní      │   Návrh       │      │  │ Rozhodnout zbývá 2 věci.     │
+│        │ Původní      │   Návrh       │      │  │ Zbývají rozhodnout 2 věci.   │
 │        │ obrázek     ‹│›  šablony     │      │  │ K rozhodnutí 2 · Vrstvy 19   │
 │        └──────────────┴───────────────┘      │  │ ┌──────────────────────────┐ │
 │ T Texty 12 · O Obrázky 4 · Tv Tvary 3 · P 1  │  │ │[výřez pův.][výřez návrh] │ │
 │ V místech pro obrázky je vidět původní       │  │ │A Písmo nadpisů jsme      │ │
 │ obrázek — do šablony se nepřenese.           │  │ │  nahradili               │ │
-└──────────────────────────────────────────────┘  │ │  V projektu jsme ho      │ │
-                                                  │ │  nenašli. Vypadá jako    │ │
-                                                  │ │  Aleo (odhad).           │ │
+└──────────────────────────────────────────────┘  │ │  V projektu jsme stejné  │ │
+                                                  │ │  písmo nenašli. Použili  │ │
+                                                  │ │  jsme nejbližší: Outfit. │ │
                                                   │ │ [Vybrat jiné písmo ▾]    │ │
                                                   │ │ [↑ Nahrát správné písmo] │ │
                                                   │ └──────────────────────────┘ │
@@ -367,7 +441,8 @@ Phone: summary line → viewer → the panel (each item with its own crops, so t
 in view) → action block (not sticky). Desktop: the panel scrolls inside itself (`max-height`); the
 action bar is sticky and never covers it.
 
-**Viewer.** Two modes (`.seg.soft`, remembered per browser): `Posuvník` (one frame, handle with a
+**Viewer.** Two modes and one toggle — there is no third "overlay" mode (`Překrytí` stays cut;
+the outlines of `Ukázat vrstvy` are the only thing drawn over the pictures). Modes (`.seg.soft`, remembered per browser): `Posuvník` (one frame, handle with a
 ≥ 36 px focus target, `role="slider"`, ←/→ 5 %, Home / End, `aria-valuetext="52 % původní"`) and
 `Vedle sebe`. Touch: `touch-action: pan-y`; the slider moves only when dragged by its handle, so
 the page scrolls. Labels `Původní obrázek` / `Návrh šablony` (Kalendáře: `Vaše stránka` /
@@ -378,10 +453,14 @@ the page scrolls. Labels `Původní obrázek` / `Návrh šablony` (Kalendáře: 
   viewer: `V místech pro obrázky je vidět původní obrázek — do šablony se nepřenese.` A filled
   place shows the chosen picture.
 - `Ukázat vrstvy`: neutral outlines with a letter tag (`T` texty, `O` obrázky, `Tv` tvary, `P`
-  pozadí) and counts in the legend; colour only on the highlighted one. Hover or focus of an item,
+  pozadí) and counts in the legend (a type with no layer is left out of the legend); colour only on
+  the highlighted one. Hover or focus of an item,
   a layer row or a picture card highlights its box.
-- **Summary line** (top of the panel, 15 px): `Hotovo: {n} textů, {n} tvary, {n} místa pro
-  obrázky. Rozhodnout zbývá {n} věcí.` / `…Nic k rozhodnutí.` No similarity number.
+- **Summary line** (top of the panel, 15 px): `Hotovo: {texty}, {tvary}, {místa pro obrázky},
+  pozadí. {Zbývá rozhodnout …}` — forms, zero cases and the background rule in §2.4, e.g.
+  `Hotovo: 2 texty, 2 místa pro obrázky, pozadí. Zbývají rozhodnout 4 věci.` Under it, muted:
+  `Tohle je návrh — šablona zatím neexistuje.` (Kalendáře: `…kalendář se zatím nezměnil.`) No
+  similarity number.
 
 **Tab `K rozhodnutí {n}`** — only things the user can change; the counter counts only these.
 Nothing blocks creating. Every item: the two crops, a bold statement, one sentence, buttons; a
@@ -389,10 +468,21 @@ decided item collapses to one line with `Vrátit`.
 
 | Item | Statement and sentence | Actions |
 |---|---|---|
-| Font not found | `Písmo {skupiny} jsme nahradili` · `V projektu jsme ho nenašli. Vypadá jako {rodina} (odhad).` — or, when the scanner has no supported guess, `Písmo se nepodařilo určit.` · then `Nejbližší v projektu: {řez}. Velikost jsme upravili o {x} %, aby řádky vyšly stejně. Týká se 1 textu · {n} textů.` | `Vybrat jiné písmo ▾` (project faces in their own typeface; re-fits and re-renders, ≈ 2 s; on a slow render the choice is kept and the preview says `Náhled se nepodařilo obnovit` · `Zkusit znovu`) · `Nahrát správné písmo` (TTF / OTF / WOFF → affected texts switch and are re-fitted) · `Nechat` |
-| Doubtful text | `Přečetli jsme to správně?` · `Tímto textem si nejsme jistí.` + input with the transcription | `Potvrdit` (Enter) |
-| Left out | `1 prvek jsme vynechali · {n} prvky · {n} prvků` · `Nepodařilo se je převést na text ani tvar.` | per thing `Přidat místo pro obrázek` · `Nechat být` |
-| Font re-identified in the project | `Písmo {skupiny}: {řez}` — shown only when the measured match is weak | `Vybrat jiné písmo ▾` · `Nechat` |
+| Font: nearest available | `Písmo {skupiny} jsme nahradili` · `V projektu jsme stejné písmo nenašli. Použili jsme nejbližší: {řez}. Tvary písmen se od obrázku liší; velikost jsme upravili o {x} %, aby řádky vyšly stejně. Týká se 1 textu · {n} textů.` (`{x}` = 0: `…liší; velikost zůstala stejná.`) | `Vybrat jiné písmo ▾` (project faces in their own typeface; re-fits and re-renders, ≈ 2 s; on a slow render the choice is kept and the preview says `Náhled se nepodařilo obnovit` · `Zkusit znovu`) · `Nahrát správné písmo` (TTF / OTF / WOFF → affected texts switch and are re-fitted) · `Nechat` |
+| Font: could not be determined | `Písmo {skupiny} se nepodařilo určit` · `Textu je málo nebo je písmo příliš ozdobné, takže ho s písmy projektu nejde porovnat. Použili jsme {řez}. Týká se 1 textu · {n} textů.` | the same three |
+| Doubtful text | `Přečetli jsme to správně?` · `Tímto textem si nejsme jistí.` + one crop of the original + input with the transcription | `Potvrdit` (Enter) |
+| Left out | `1 prvek jsme vynechali · {n} prvky · {n} prvků` · `Nepodařilo se ho · je převést na text ani tvar.` Then **one row per thing**: a crop of the original at that spot (the crop says which thing it is — there is no free-text description) | per row `Přidat místo pro obrázek` · `Nechat být` |
+
+**The three font patterns** (the only ones; S4 and C4 use them identically):
+
+| Pattern | When | Where | Copy |
+|---|---|---|---|
+| **Measured match** | a face of the project, rendered, is measurably close to the text in the picture | not a decision: the `Vrstvy` row of the text and one line in `Pro informaci` | `Písmo {skupiny}: {řez} z projektu — změřená shoda s obrázkem.` |
+| **Nearest available** | no face of the project is close; the closest one was used and the mismatch measured | decision item above | as above — it states that the shapes differ and by how much the size was changed |
+| **Could not be determined** | too little text, or lettering no face can be compared with | decision item above | as above |
+
+Never shown: a name for the original's typeface (`Vypadá jako …`), a similarity percentage, or
+"v projektu není". The scanner's guess of a family name is not part of the proposal the UI reads.
 
 **`Pro informaci ({n})`** — collapsed, never counted, no buttons except `Vrátit` where an automatic
 change can be undone:
@@ -401,13 +491,15 @@ change can be undone:
 |---|---|
 | `Zmenšili jsme písmo u 1 textu · {n} textů, aby se vešly jako v originále.` | `Vrátit` |
 | `1 barvu · {n} barvy · {n} barev jsme sjednotili s paletou projektu.` + swatch pairs | `Vrátit přesné barvy` |
-| `Zjednodušili jsme 1 věc · {n} věci · {n} věcí:` `Stín pod nadpisem jsme vynechali.` · `Otočený štítek je narovnaný.` · `Obrys písma neumíme — písmo je plné.` · `Rozestupy písmen jsou jen přibližné.` · `Dvoubarevný řádek je rozdělený na {n} texty · {n} textů.` | — |
+| `Písmo {skupiny}: {řez} z projektu — změřená shoda s obrázkem.` (one line per group; the measured-match pattern) | — |
+| `Zjednodušili jsme 1 věc · {n} věci · {n} věcí:` (closed list) `Stín pod nadpisem jsme vynechali.` · `Otočený štítek je narovnaný.` · `Obrys písma neumíme — písmo je plné.` · `Rozestupy písmen jsou jen přibližné.` · `Dvoubarevný řádek je rozdělený na {n} texty · {n} textů.` · `Přechod barev v pozadí je jen přibližný.` · `Vzor nebo textura má své místo pro obrázek — na tvary ji nepřevádíme.` | — |
 | `Obrázky z nahrané grafiky nepřebíráme. Každý má v šabloně své místo — doplníte je v dalším kroku.` | — |
 
 Nothing replaced: `Nic jsme nenahrazovali` / `Žádné písmo, text ani prvek jsme nemuseli nahradit
 ani vynechat. Přesto si návrh porovnejte s originálem.`
 
-Unfinished (`nedokončeno`, only when a run stopped at its limit and kept its best attempt):
+Unfinished (`nedokončeno`, only when a run stopped at its own time limit and kept its best
+attempt; a run cut short mainly by the provider is F5 instead and is not counted):
 `.alert.c-warning` — `Sken jsme nestihli doladit` / `Zastavili jsme ho po dosažení časového limitu
 a nechali nejlepší verzi. Sken se započítal.` Information only.
 
@@ -473,8 +565,9 @@ Skipped when the scan found no picture. The pictures are the sticky column; card
 └──────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-Phone: the multi-drop zone, then cards (each with its crop of the original, so the big picture is
-not needed), then the action block.
+Phone (under 641 px): the multi-drop zone, then cards (each with its crop of the original, so the
+big picture is not shown), then the action block. 641–1000 px: the numbered picture first, not
+sticky (§3).
 
 | Element | Copy / behaviour |
 |---|---|
@@ -486,7 +579,7 @@ not needed), then the action block.
 | Empty, `Součást šablony` | `Vybrat z galerie` · `Nahrát` (gallery folder `AI sken / {název}`) |
 | Empty, `Mění se…` | `Přidat ukázku` (optional sample) · `Bez ukázky`. **Full-page background:** `Přidat ukázku` · `Nechat šedé pozadí` — a background always carries a picture, so without a sample it shows the grey stand-in until a user fills it |
 | Fit (filled cards) | `Vejít celý` / `Vyplnit` — default `Vejít celý` for logos and icons, `Vyplnit` for photos, patterns, illustrations. The preview updates at once |
-| Filled | thumbnail, mint check, `Změnit` · `Odebrat obrázek` |
+| Filled | thumbnail of the chosen picture next to the crop of the original, mint check, `Změnit` · `Odebrat obrázek` — also on a pre-filled logo, because the scan may have called something a logo that is not one (a pictogram); seeing both thumbnails side by side is how the user notices |
 | Too small | `Obrázek je menší než místo v šabloně ({w} × {h} px) — v exportu bude neostrý.` (peach) |
 | Menu `⋯` | `Smazat místo pro obrázek` · `Sloučit s dalšími…` (the cards get checkboxes and a bar `Sloučit {n} míst` · `Zrušit`; the result is one place over their common box) · `Změnit na tvar ▾` (`Obdélník` / `Kruh` / `Hvězda`, in the colour measured there). Each undoable until the template is created |
 
@@ -496,7 +589,8 @@ editor →`; some `Součást šablony` places empty → `Vytvořit šablonu · 1
 šedá. Doplníte je v editoru — při exportu vás na ně upozorníme.` Tertiary `Zpět na kontrolu`.
 
 Kalendáře lists only `Logo`, `Obrázek v hlavičce`, `Obrázek na pozadí` (always `Součást`, fit
-choice applies). A picture chosen here is kept with the scan and becomes a calendar picture only
+choice applies; no kind segment, no `⋯` menu, no merge). A place left empty stays an element
+without a picture — step 3 shows it empty and it is filled there. A picture chosen here is kept with the scan and becomes a calendar picture only
 when the layout is applied. The page photograph is content of each week and is not asked for.
 
 ### S5 — Stopped or failed
@@ -510,7 +604,7 @@ ticked, the failing one gets a rose ✖. Phone: a 96 px thumbnail above the card
 │ máme uložený — stačí to zkusit znovu.│
 │ Sken se nezapočítal.                 │
 │ ✔ Kontrola obrázku · ✔ Čtení textů   │
-│ ✖ Rozbor grafiky                     │
+│ ✖ Rozbor grafiky   (rose: failed)    │
 │ [↻ Zkusit znovu]  Vybrat jiný obrázek│
 │ Zahodit                              │
 ```
@@ -518,9 +612,15 @@ ticked, the failing one gets a rose ✖. Phone: a 96 px thumbnail above the card
 Every such card has `Zahodit` (ghost) — the scan leaves the lists; without it the card disappears
 by itself after 30 days.
 
+**Stage rows on the result card.** `failed` / `refused`: finished stages ticked, the failing one a
+rose ✖ (`x-circle`). **`stopped` (pre-check, F3a–F3e) is not a failure:** one neutral row
+`Kontrola obrázku — zastaveno` with the `info` icon in `--text-2`, no rose anywhere on the card,
+icon circle and pill neutral; the stages that never ran are not listed. F7q (never started) shows
+no stage rows.
+
 | # | Case | Title | Text | Actions | Counted |
 |---|---|---|---|---|---|
-| F3a | Photo of a print (pre-check) | `Tohle vypadá jako fotka tisku` | `Fotka z ruky zkreslí rozměry i barvy, výsledek bude jen přibližný. Nejlépe funguje export nebo snímek obrazovky.` | `Nahrát jiný obrázek` (primary) · `Zkusit přesto` (tertiary; under it `Spotřebuje 1 sken · v projektu zbývá {n} z {limit}`; disabled with the S2 hints when a limit or the queue stands in the way; offered once per upload — the scan then goes straight to the queue) | no |
+| F3a | Photo of a print (pre-check) | `Tohle vypadá jako fotka tisku` | `Fotka z ruky zkreslí rozměry i barvy, výsledek bude jen přibližný. Nejlépe funguje export nebo snímek obrazovky.` | `Nahrát jiný obrázek` (primary) · `Zkusit přesto` (tertiary; under it `Spotřebuje 1 sken · v projektu zbývá {n} z {limit}. Jde to jen jednou.`; disabled with the S2 hints when a limit or the queue stands in the way; offered once per upload — the scan then goes straight to the queue) | no |
 | F3b | Blurry / too small | `Obrázek je příliš rozmazaný` | `Texty v něm nepřečteme. Nahrajte ostřejší nebo větší verzi.` | `Nahrát jiný obrázek` | no |
 | F3c | Not the expected thing | K: `Tohle nevypadá jako stránka kalendáře` · Š: `V obrázku jsme nenašli grafiku` | K: `Potřebujeme jednu týdenní stránku s fotografií a dny v řádcích.` Š: `Obrázek je prázdný nebo je to jen fotografie bez textů a tvarů.` | `Nahrát jiný obrázek` | no |
 | F3d | Several designs | `V obrázku je víc grafik` | `Z jednoho obrázku umíme udělat jednu šablonu. Ořízněte ho na jednu grafiku.` | `Nahrát jiný obrázek` | no |
@@ -532,7 +632,7 @@ by itself after 30 days.
 | F7 | Interrupted twice | `Sken se přerušil` | `Na naší straně se něco pokazilo. Váš obrázek máme uložený.` | `Zkusit znovu` | no |
 | F7q | Waited 60 min in the queue | `Sken jsme nestihli spustit` | `Čekal ve frontě déle než hodinu, proto jsme ho zastavili. Váš obrázek máme uložený — zkuste to znovu.` | `Zkusit znovu` | no |
 | F8 | Could not be built | `Návrh se nepodařilo sestavit` | `Obrázek jsme přečetli, ale návrh se nepodařilo poskládat. Dali jsme o tom vědět vývojářům.` | `Zkusit znovu` · `Vybrat jiný obrázek` | no |
-| F9 | Retry not possible | (replaces `Zkusit znovu`) | twice failed (also shown when the same file is uploaded again): `Tento obrázek se nám nedaří zpracovat. Zkuste jiný.` · limit / queue / service: the S2 hints | `Vybrat jiný obrázek` | — |
+| F9 | Retry not possible | the card keeps its F5–F8 title and text | twice failed (also shown when the same file is uploaded again): `Zkusit znovu` is **removed** and the line `Tento obrázek se nám nedaří zpracovat. Zkuste jiný.` stands in its place · limit / queue / service: `Zkusit znovu` stays, **disabled**, with the matching S2 hint under it as a plain `.hint` with the `info` icon (a limit is not a failure — no rose) (`Projekt má skeny pro tento měsíc vyčerpané. Další budou od 1. {měsíce}.` etc.); it becomes active again when the reason passes | `Vybrat jiný obrázek` | — |
 | F15 | Creating fails | toast `.err` | `Šablonu se teď nepodařilo vytvořit. Zkuste to za chvíli.` / the review reopens with `Písmo {název} už v projektu není` · `Obrázek {název} už v galerii není` as items | `Zkusit znovu` / fix | — |
 | F12 | AI sken switched off for the project meanwhile | info line on the scan | `AI sken je pro tento projekt vypnutý. Rozpracované návrhy můžete dokončit, nové skeny spustit nejdou.` | review and create still work | — |
 
@@ -546,7 +646,8 @@ Own page: `…/project/{id}/sablony/z-obrazku` (new) and `…/z-obrazku/{scanId}
 Head: back row `← Šablony` with `Historie skenů` at its right; h1 `Šablona z obrázku` + `✦ Premium`;
 lead **on step 1 only**: `Nahrajte hotovou grafiku a AI z ní poskládá upravitelnou šablonu — texty,
 tvary, barvy a místa pro obrázky. Trvá to obvykle 1–3 minuty a nemusíte u toho čekat.` Position
-label instead of a second stepper design: `Krok 3 ze 4 · Kontrola` (steps `Nahrání` ·
+label instead of a second stepper design, as the last line of `.head-main` under the h1 (13 px,
+600, `--muted`, the numbers in `--text`; the eyebrow stays `Projekt · {projekt}`): `Krok 3 ze 4 · Kontrola` (steps `Nahrání` ·
 `Rozpoznávání` · `Kontrola` · `Fotky a loga`; the fourth only when there are pictures).
 
 ### T1 — Card in "Nová šablona"
@@ -613,7 +714,9 @@ treated like an unfilled picture (same dialog, same rule on the API and MCP).
 
 ### T5 — List strip
 
-Above the categories: cards of this project's scans that are not finished with.
+Above the categories: cards of this project's scans that are not finished with, under a small
+heading `✦ Skeny {n}` with `Historie skenů` at its right (the strip is not shown when there is no
+card).
 
 ```
 ┌────────────────────────────┐ ┌────────────────────────────┐ ┌────────────────────────────┐
@@ -665,13 +768,12 @@ not a radio, one button.
 | Proposal waiting | `Zkontrolovat návrh` | `Návrh rozvržení čeká na kontrolu · vyprší {datum}` |
 | Locked / request sent / limit / service waiting | as T1 | as T1 |
 
-When the calendar's layout came from a scan (design key `layoutOrigin: "scan"`), a third **real**
+When the calendar's layout came from a scan (the calendar's `layout_origin` column says `scan`), a third **real**
 radio `Naskenovaný design` / `Rozvržení převzaté z vašeho kalendáře` is shown selected, with a live
 preview like its siblings. Choosing `Fotka vlevo` / `Fotka vpravo` then replaces the layout with
 the default one (never mirrors the scanned one) and toasts `Rozvržení nahrazeno výchozím` with the
 action `Vrátit`.
 
-If PDF is allowed (O4): the card text starts `Nahrajte obrázek nebo PDF stránky…`.
 
 ### C2–C3 — Panel: upload and waiting
 
@@ -730,15 +832,21 @@ Phone: viewer in `Posuvník`, caption, checklist, decisions, switches, action bl
   palette line · `Barvy jsou jen odhad` (photo of a print).
 - **Tohle kalendář neumí** (closed list): `Ozdobný pruh / rámeček / ornament` · `Text v hlavičce`
   · `Druhá fotografie` · `Další loga` · `Dny v mřížce` · `Svislý nebo otočený text` · `Jiné barvy
-  pro každý měsíc` · `Vícejazyčné názvy`.
+  pro každý měsíc` · `Vícejazyčné názvy`. Each row is the list item plus a small crop of the
+  original at that spot — no free text after it, so the scanner returns only the item's code and
+  a box.
 - The photo region of the original is shown in the browser's preview only.
 
 ### Applying — what is saved and how to get back
 
-One lavender button in view: while a proposal is open in step 2 the top bar's `Pokračovat` is drawn
-tertiary; the panel's button is the primary.
+One lavender button in view: whenever the panel shows a primary — `Spustit rozpoznávání` with a
+picture chosen, the review, the pictures — the top bar's `Pokračovat` is drawn tertiary; the
+panel's button is the primary; the same holds for a result card in the panel (S5: `Nahrát jiný
+obrázek`, `Zkusit znovu`). While the panel only waits (upload zone, queue, running) the top bar
+keeps its lavender button. The S2 disabled-reason hints are plain `.hint` lines, never rose.
 
-`Použít rozvržení` (label `Nahradit rozvržení` when the calendar has one):
+`Použít rozvržení` (label `Nahradit rozvržení` when the calendar has one; with an empty picture
+place the label ends `· 1 obrázek doplníte později · {n} obrázky · {n} obrázků`, §2.4):
 
 1. If the calendar has unsaved changes, the button is disabled: `Nejdřív uložte rozpracované
    změny.` + `Uložit`.
@@ -751,7 +859,8 @@ tertiary; the panel's button is the primary.
    the action `Vrátit původní`.
 
 Honest limits, said in the UI: under the button `Uloží se hned. Původní rozvržení vrátíte tlačítkem
-Vrátit původní — do {datum}.` The wizard's `Zpět o krok` does **not** undo it (the step history
+Vrátit původní — do {datum}.` (`{datum}` is the proposal's expiry date shown in the review, not 30
+days from applying.) The wizard's `Zpět o krok` does **not** undo it (the step history
 starts again after applying). `Vrátit původní rozvržení` is also in the scan's history row; it
 saves the kept layout, layout choice and switched features back as a normal change (`Vrátil
 původní rozvržení`) — nothing else: texts, photos and page content stay as they are. If the
@@ -773,7 +882,7 @@ One pill on the calendar's card: `◔ Sken běží` / `Ve frontě` (peach) · `�
 | Where the user is | What they see |
 |---|---|
 | On the scan surface | S3, then S4 opens by itself |
-| Elsewhere in the project | sidebar: a 16 px peach ring on the module item while a scan of theirs is unfinished, a peach `.count` when a proposal waits unseen or a scan failed; rail mode and phone: an 8 px peach dot |
+| Elsewhere in the project | sidebar: a 16 px peach ring on the module item while a scan of theirs is unfinished, a peach `.count` when a proposal waits unseen or a scan failed; rail mode: an 8 px peach dot on the item's icon; phone (the sidebar is a closed drawer): the same dot on the top bar's menu button, whose accessible name gains `— sken čeká na vaši pozornost`, and the ring / count on the item inside the drawer |
 | Anywhere in the app | a toast on the state change (10 s, close ✕). Pages rendered with an unfinished scan of the viewer poll every 10 s. In an editor with unsaved changes the toast's action opens the scan **in a new tab** |
 | Tab in the background | tab title |
 | Gone | one e-mail |
@@ -794,8 +903,8 @@ E-mails (plain transactional layout, to the requester; none when the account no 
 buttons only open pages — nothing happens on a GET):
 
 > **Návrh šablony z obrázku je připravený** — Z obrázku **{soubor}** jsme v projektu **{projekt}**
-> připravili návrh šablony **„{název}“**. **[Zkontrolovat návrh]** · Zbývá rozhodnout 1 věc ·
-> {n} věci · {n} věcí. *(only when any)* · Šablona vznikne, až návrh potvrdíte. **Návrh i původní
+> připravili návrh šablony **„{název}“**. **[Zkontrolovat návrh]** · Zbývá rozhodnout 1 věc · Zbývají
+> rozhodnout {n} věci · Zbývá rozhodnout {n} věcí. *(only when any, §2.4)* · Šablona vznikne, až návrh potvrdíte. **Návrh i původní
 > obrázek uchováme do {datum}; potom je smažeme.**
 >
 > **Návrh rozvržení kalendáře „{kalendář}“ je připravený** — … **[Zkontrolovat návrh]** · Kalendář
@@ -912,7 +1021,7 @@ Denní strop [ 20 ] $ · strop projektu [ 5 ] $ · souběžně [ 1 ]
 ```
 
 - **Provoz** takes effect on the next request, without a deploy: `Pozastaveno` = no new uploads and
-  no new runs, reviews and creating work; `Vypnuto` = also stops running scans (they fail as
+  no new runs, reviews and creating work; `Vypnuto` = also stops running **and waiting** scans (they fail as
   interrupted, not counted). Rose notices in the strip: `Skener neodpovídá {t}` · `Skener je příliš
   starý` · `Poskytovatel odmítá náš účet — ověřujeme každých 5 min` · `Denní strop dosažen`.
 - Scans row menu: `Otevřít sken` (read-only review) · `Otevřít projekt` · `Zobrazit hodnocení`.
@@ -928,11 +1037,11 @@ web; channel `mcp` in usage.
 
 | Action | Input | Returns | Notes |
 |---|---|---|---|
-| `start` | `projectId`, `kind`, picture (`imageId` or small `imageBase64`), `requestId` (idempotency), template `format` / `name` or `calendarId`; for a PDF (if allowed) `page` | `scanId`, `status`, `creditsLeft`, queue fields, `pollAfterSeconds` | refusals (nothing charged): `not_enabled`, `consent_required` (the user must have agreed to the current wording in the web), `limit_reached`, `daily_starts_reached`, `project_queue_full`, `queue_full`, `temporarily_unavailable`, `project_paused` (three pictures refused by the AI today), `no_fonts`, `unsupported_image`, `source_unscannable` |
+| `start` | `projectId`, `kind`, picture (`imageId` or small `imageBase64`), `requestId` (idempotency), template `format` / `name` or `calendarId` (pictures only) | `scanId`, `status`, `creditsLeft`, queue fields, `pollAfterSeconds` | refusals (nothing charged): `not_enabled`, `consent_required` (the user must have agreed to the current wording in the web), `limit_reached`, `daily_starts_reached`, `project_queue_full`, `queue_full`, `temporarily_unavailable`, `project_paused` (three pictures refused by the AI today), `no_fonts`, `unsupported_image`, `source_unscannable` |
 | `status` | `scanId` | `status` (§2.1), `waiting` reason or null, `restarted`, `stage`, `note` + `noteParams`, `round`, `elapsedSeconds`, `queuePosition`, `estimatedStartSeconds: [from, to]`, `estimatedFinishSeconds: [from, to]` (null while waiting), `expiresAt`, `unfinished`, `errorCode` + sentence, `retriesLeft`, `pollAfterSeconds` | 1–3 minutes is normal; up to ≈ 12 |
 | `result` | `scanId`, `image?` | counts, `elements[]` (type, name, text, input / fixed), `placeholders[]` (id, name, role, box, kind, fit), `decisions[]` with `fixes[]`, `information[]`, calendar `recognised[]` / `featuresOffered[]` / `notExpressible[]`, a render | `ready` or later, while the proposal exists |
 | `apply` | `scanId`, `fixes[]` (`choose_font`, `confirm_text`, `set_text`, `set_input`, `add_placeholder`, `remove_placeholder`, `merge_placeholders`, `placeholder_to_shape`), `placeholders[]` (`{id, assetId \| null, kind, fit}`), `name`; calendar `features[]` to switch on | template ids + `editorUrl`, `unfilledPictures`; calendar revision + `restoreUntil` | = create / apply; idempotent |
-| `restore` | `scanId` (calendar) | calendar revision | = "Vrátit původní rozvržení" |
+| `restore` | `scanId` (calendar), `confirm?` | calendar revision | = "Vrátit původní rozvržení"; refused with `layout_changed` when the layout was edited since applying, unless `confirm: true` (the web's confirm dialog) |
 | `list` | `projectId`, `status?` | scans | |
 | `cancel` | `scanId` | `status`, `counted` | counted when it was running |
 | `retry` | `scanId` (failed) | `status`, `retriesLeft` | reserves a scan; refusals as `start` + `source_unscannable`, `no_retries_left` |
@@ -941,6 +1050,8 @@ web; channel `mcp` in usage.
 **`create_template`** — scope `templates:design`: `projectId`, `name`, `dimension`
 (`{unit, width, height, bleedMm?, cropMarks?}` or a preset), `categoryId?` → `templateId`,
 `variantId`, `editorUrl`.
+
+Any action called in a state that does not allow it answers `wrong_state`.
 
 Web-only (owner decision O12): the admin switch, the access request, discard, the operating mode.
 
@@ -988,7 +1099,7 @@ New, all in `ai-scan.css` (classes `as-*`), each needed at 390 / 820 / 1440 px i
 | Decision item (`as-it`) | S4, C4 | open / decided states; `Vrátit` |
 | Information list | S4, C4 | collapsed, no counter |
 | Layer row with inline text edit | S4 "Vrstvy" | peach dot for doubtful texts |
-| Action bar (`as-foot`) | S4, S4b, C4 | expiry line above; one primary |
+| Action bar (`as-foot`) | S4, S4b, C4 | expiry line above; one primary. While it is sticky, toasts and the merge bar sit above it, and a card's `⋯` menu opens over it |
 | Picture card (`as-ph`) | S4b | number, crop, kind segment, fit segment, states empty / pre-filled / filled / too small, menu |
 | Multi-drop zone + reassign menu | S4b | |
 | Merge mode | S4b | checkboxes on cards + sticky bar |
@@ -999,7 +1110,11 @@ New, all in `ai-scan.css` (classes `as-*`), each needed at 390 / 820 / 1440 px i
 | Operating strip | admin tab | mode segment, notices, three number fields |
 | Icons | — | `thumb-up`, `thumb-down` |
 
-Tokens: one new token `--on-pch` (text on a peach fill); no hard-coded colours. Focus: hidden
+Tokens: one new token `--on-pch: #3A2A20` (text on a peach fill, the same in both themes), added
+to `tokens.css`; `.tp-prem` switches to it; no other hard-coded colour. The e-mails keep the
+colours of the existing transactional e-mail layout. Motion: one moving element per view — the
+sweep over the preview pane (and over a running scan card's thumbnail); rings and spinners of the
+flow are drawn static. Inline links inside the consent text get a 32 px tap area on touch devices. Focus: hidden
 inputs show the ring on their label (`:has(:focus-visible)`). Segments are plain buttons with
 `aria-pressed`. Report actions are 40 px high on touch devices. Reduced motion: only the ticking
 time shows activity.
