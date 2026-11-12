@@ -170,22 +170,30 @@ by the research or a reviewer).
 | E36 | PNG / JPEG / GIF / WebP pass `NormalizeImageFormat` unchanged; HEIC cannot be sized from its header in PHP | code | [RR B4, M14] citing `NormalizeImageFormat.php:38-56` |
 | E37 | Buses `command_bus`, `job_bus`; one `async` transport and consumer | code | verified `config/packages/messenger.php` |
 | E38 | Anthropic API: processor role, no training, deletion within 30 days, flagged content up to 2 years, no EU residency on the first-party API | vendor | [RP §5.1] |
-
+| E39 | **Scanner (P2), proposed configuration, 3 runs per input, 66 scans, all proposed, none unfinished.** Easy (7): 7.0 turns, 2.6 candidates, 54 s (35–96), $0.196 ($0.156 at 5-minute cache prices), text words 1.00, box IoU 0.93, face 1.00. Photo-backed (3): 45 s, $0.148, IoU 0.90. Hard (12): 9.8 turns, 2.3 candidates, 83 s (32–154), $0.315 (0.147–0.577), words 0.92, IoU 0.57, size agreement 0.89. Against PA: −29 % / −37 % cost, under half the turns, the same text and picture figures | scanner, plan runs, darwin/arm64 | `scanner/eval/RESULTS.md` §1 |
+| E40 | Builder's own verdicts, run 1: M ≥ 2 on 21 of 22 inputs, E ≥ 2 on 22 of 22; hard set 9 / 3 / 0 / 0 on PA's four-step scale. Weakest point: the weight of a substitute face; the same object still changes layer type between runs. Not a designer's rating | scanner | RESULTS §1 |
+| E41 | Fonts: an absent face was reported as a substitute in 155 of 155 groups (hard); a present face was wrongly reported as a substitute in 44 % of groups (easy) — the score distributions overlap between 0.72 and 0.83, one threshold cannot separate them | scanner | RESULTS §2 |
+| E42 | SDK ≈ `claude -p` on 6 hard inputs (every `claude -p` run inside the spread of 3 SDK runs). SDK vs Messages loop on real inputs: **unmeasured** (no key-free route) | scanner | RESULTS §3 |
+| E43 | Engine facts (Agent SDK 0.3.322 against a fake provider): an aborted run yields no result — usage only from stream events the scanner meters; exit codes are not exposed (binary: 0 / 1 / 143); `error_code` is not passed on (spend cap = `rate_limit`, 402 and usage-limit 400 = `unknown`); retry waits 0.5 / 1.1 / 2.4 / 4.7 s cannot be pinned, 529 stops after 2 retries, 401 is retried; only the byte-level stream watchdog and the header timeout can be pinned; a refused turn is re-run on `claude-opus-4-8` by the harness; in-process tools return images; an isolated config directory hides the plan login | scanner | RESULTS §3 |
+| E44 | Pre-check (Haiku 5.5, `low`): 26 of 26 good uploads passed, 8 of 11 synthetic negatives stopped; 2.2 s median, 2.8 s max, $0.0003 | scanner | RESULTS §4 |
+| E45 | Resources per scan, native arm64: tree peak 837 / 946 / 1092 MB (easy / photo / hard, max 1556), engine 303–367 MB, node 324–808 MB, OCR ≤ 893 MB for ≈ 2 s; 7–10 CPU-s (max 21); ≈ 2 cores peak; provider share of wall 58–78 %. `linux/amd64` container under Rosetta (replayed scans, `--cpus 3`): cgroup peak 0.76–0.96 GiB at concurrency 1, 1.81–1.87 GiB at 2. Largest legal upload: normalise child 393 MB, 5.7 s | scanner | RESULTS §5 |
+| E46 | Timing: normalise ≤ 4.5 s, pre-check ≤ 2.9 s, pre-pass 3–29 s (local driver), model loop 20–122 s, finish ≤ 2.1 s; longest wait for a turn's first output 6 s; turns ≤ 15, pictures ≤ 6, candidates 3 in 26 of 66 runs | scanner | RESULTS §6 |
+| E47 | OCR gives identical fragments and boxes on arm64 and linux/amd64 for the same pixels | scanner | RESULTS §3 |
 ### 2.2 Expected — where each is measured
 
 | # | Expectation | Measured in |
 |---|---|---|
-| X1 | The proposed configuration keeps or improves the prototype agent's results | P2 (existing sets); launch round (outside-made designs) |
-| X2 | SDK ≈ `claude -p` ≈ Messages loop in quality, cost, time | P2 for the SDK against PA; the Messages loop only if O6 is re-examined |
-| X3 | Haiku 5.5 classifies uploads reliably within 5–15 s | P2 |
+| X1 | The proposed configuration keeps or improves the prototype agent's results | **measured on the existing sets (E39, E40): kept, at lower cost**; launch round (outside-made designs) |
+| X2 | SDK ≈ `claude -p` ≈ Messages loop in quality, cost, time | **measured: SDK ≈ `claude -p` (E42)**; the Messages loop is unmeasured — only if O6 is re-examined, with a key |
+| X3 | Haiku 5.5 classifies uploads reliably within 5–15 s | **measured (E44): 2–3 s; no good upload stopped; 3 of 11 synthetic negatives missed** — real photos of prints still owed |
 | X4 | A project font is recognised in a picture from another renderer and not reported missing | launch round — needs the owner's designs with their fonts |
-| X5 | Memory and CPU per scan and stage, at concurrency 1 and 2; `web` memory and latency while it serves scanner calls | P2 (x86), P4 (box) |
+| X5 | Memory and CPU per scan and stage, at concurrency 1 and 2; `web` memory and latency while it serves scanner calls | **scanner side measured (E45)** — in an amd64 container under emulation, not on x86 hardware; `web` and traffic latency: P4 (box) |
 | X6 | Billed cost ≈ 25–30 % below plan-run figures [HR §8] | P4 (ten production scans), P6 (first 50) |
 | X7 | A never-persisted `TemplateVariant` passes the render path (E29) | P1 |
-| X8 | A text-and-shape region score can pick the better candidate | P2 collects data |
-| X9 | A font-metric fit agrees with the scanner's pixel fit to within 2 % of size (§4.6) | P2 |
-| X10 | Longest silent model turn; whether the SDK exposes status, error code and usage on abort | P2 |
-| X11 | 18 images per run are enough for the agent (§4.5) | P2 |
+| X8 | A text-and-shape region score can pick the better candidate | data collected in P2: the text-fit score decided 25 of 63 multi-candidate runs (photo-backed designs); not validated against verdicts |
+| X9 | A font-metric fit agrees with the scanner's pixel fit to within 2 % of size (§4.6) | not measured in P2 step A (the app-side fit was not available); pixel fit alone: every easy-set text within ± 5 % of the true size |
+| X10 | Longest silent model turn; whether the SDK exposes status, error code and usage on abort | **measured (E43, E46)** |
+| X11 | 18 images per run are enough for the agent (§4.5) | **measured: at most 6 used** |
 | X12 | Gotenberg stays within its limit with A3 candidates next to a calendar PDF export | P2 (dev stack), P4 (box) |
 
 ---
@@ -923,17 +931,19 @@ a project paused for refusals. Prometheus rules are an infra backlog item.
 
 ### 8.1 Per scan — measured / expected
 
-Nothing "measured" is from x86 or the proposed configuration.
+**Measured in P2** (`scanner/eval/RESULTS.md` §5; E45) with the proposed configuration: natively on
+darwin/arm64 over 66 plan-run scans, and in a `linux/amd64` container under Rosetta (`--cpus 3`) with
+the model replaced by a replay of recorded tool calls. Not yet from x86 hardware (P4 repeats it on the box).
 
 | Quantity | Measured | Expected until P2 |
 |---|---|---|
-| OCR: peak RSS / CPU | 233 MB / 0.27 s on 3 threads (arm64, PL) | similar; on the ≤ 4096 px working copy |
-| Node instruments: peak RSS | 415–640 MB (PL refinement, different code) | ≤ 0.64 GB per run process |
-| Normalising the largest legal upload (36 Mpx) | — | ≈ 150–300 MB in the intake process |
-| Engine: peak and average RSS | — | ≈ 1 GiB (vendor guidance) |
-| CPU-seconds per scan; peak cores | — | < 30 CPU-s; ≤ 3 cores briefly during OCR |
-| Wall-clock share waiting on the provider | not measured directly; derived ≈ 78 % from "API time ≈ 43 s" of 55 s (PA easy set, [T1]) | 70–85 % |
-| Gotenberg renders per scan | 2.9–3.4 candidates ≈ 1 s each (PA) | ≤ 3 candidates + 2–6 face sheets, ≤ 5000 px |
+| OCR: peak RSS / CPU | **measured:** 336–893 MB native, 376–790 MB in the amd64 container (grows with the picture: 790 MB at 2896 × 4096); 0.4–1.4 s native, 1.3–3.5 s emulated, on 3 threads; the process lives ≈ 2 s | — (the prototype's 233 MB was a smaller build of the same engine) |
+| Scanner node process: peak RSS | **measured:** 324–808 MB native; 443–754 MB in the container (largest on a 2480 × 3508 canvas) | ≈ 0.9 GiB on a 4096 px working copy |
+| Normalising the largest legal upload (35.4 Mpx) | **measured:** 393 MB in the intake child, 3.8 s native / 5.7 s emulated | — |
+| Engine: peak and average RSS | **measured:** 303–367 MB peak native, 268–301 MB peak / ≈ 253 MB average in the container | — (vendor guidance was 1 GiB) |
+| CPU-seconds per scan; peak cores | **measured:** 7–10 CPU-s native (max 21); 19–37 CPU-s emulated; ≈ 2 cores peak native, ≤ 3 in the container | — |
+| Wall-clock share waiting on the provider | **measured:** 67 % (easy), 58 % (photo-backed), 78 % (hard) of the whole scan | — |
+| App renders per scan | **measured:** 2.0–2.6 candidates + face sheets; 7–13 renders with the local MCP driver (small pages), 1.3 s each | with the app's `faces` call: ≤ 3 candidates + 1–3 face renders |
 | `web` while serving scanner calls (render, faces, artifacts) | — | bytes passed through, nothing decoded; < 100 MB extra, ≤ 2 workers held |
 | Shared in the scanner container | — | page cache ≈ 0.39 GiB; `/tmp` tmpfs 0.26 GiB |
 
@@ -943,11 +953,11 @@ largest legal upload and while it serves scanner calls** — at concurrency 1 an
 normal traffic (fill-page renders, a template export, a calendar PDF export) while scans overlap.
 P4 repeats concurrency 1 on the box.
 
-### 8.2 Concurrency 1 / 2 / 3 — expected until P2
+### 8.2 Concurrency 1 / 2 / 3 — memory measured in P2, the rest expected
 
 | | 1 | 2 | 3 |
 |---|---|---|---|
-| Scanner memory limit (rule: peak ≤ 70 % of the limit) | 4.5 g (estimate 2.95 GiB = 2.65 + intake 0.3 → 66 %) | 7 g (4.85 GiB → 69 %; + ≈ 1.9 GiB per extra run) | 10 g (6.75 GiB → 68 %) |
+| Scanner memory limit (rule: peak ≤ 70 % of the limit) | **3 g** — measured peak of one build 0.96 GiB (cgroup), expected ≈ 1.2 GiB on a 4096 px working copy, + intake 0.7 GiB (normalise child 0.39 measured + pre-check engine 0.3) = 1.9 GiB → 63 % | **5 g** — two large builds measured at 1.87 GiB; + intake ≈ 3.1 GiB → 62 % | 7 g (expected: + ≈ 1.2 GiB per extra run) |
 | CPU cap | `cpus: 3` for the whole service | same | same; thread pools 1 per worker |
 | Throughput per hour | ≈ 30–50 | ≈ 60–100 | ≈ 90–150 |
 | Wait with n ahead | n × ≈ 1–3 min (PA means 55 s and 95 s) | ÷ 2 | ÷ 3 |
