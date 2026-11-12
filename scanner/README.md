@@ -163,7 +163,7 @@ What the deployment needs (`~/www/lily.srv/apps/wboost/compose.yaml`, phase P4):
 | environment | `SCANNER_APP_URL=http://web` (the project-unique name on the `scan` network), `SCANNER_TOKEN`, `ANTHROPIC_API_KEY`; optional `SCANNER_CONCURRENCY` |
 | app side (`web`) | `SCAN_NETWORK_CIDR=<subnet of the scan network>`, `SCANNER_TOKEN=<current>[,<previous>]`, the private bucket; the public router must refuse `/internal/` |
 | network | `scan` only (shared with `web`); no route to db, redis, minio, gotenberg |
-| limits | `mem_limit: 3g` at concurrency 1 (5 g at 2), `cpus: 3`, `pids_limit: 512` |
+| limits | `mem_limit: 4g` at concurrency 1 — a large build peaked at 1.8 GiB in the image, an intake next to it adds ≤ 0.7 GiB (`eval/RESULTS.md` §0.5); the scanner itself refuses to start below 3 g. Concurrency 2: 6 g (not measured as a service). `cpus: 3`, `pids_limit: 512` |
 | lifecycle | `init: true`, `stop_grace_period: 45s`, `read_only: true` + `tmpfs: /tmp` (≥ 512 MB), no `depends_on` on `web` |
 | healthcheck | `["CMD", "node", "bin/scanner.mjs", "healthcheck"]`, interval 15 s, timeout 5 s, retries 3, start period 30 s |
 
