@@ -969,8 +969,8 @@ One `CmykPass` serves the export: the colour table, and the converted
 pictures by the digest of their source stream — a header / background
 picture every chunk repeats is converted once (kept while consecutive chunks
 ask for it; a page photo is dropped with the next chunk). Pictures go file →
-file, one at a time; ImageMagick's pixel cache is capped at 192 MB and spills
-to its disk cache. `PdfChunkMerger` then merges with `consume` (the work
+file, one at a time; ImageMagick's pixel cache is capped at 64 MB, the rest
+lives in its disk cache inside the job's work directory. `PdfChunkMerger` then merges with `consume` (the work
 directory never holds the file twice) and `printCondition`: header
 `%PDF-1.6`, `/OutputIntents` with the embedded profile
 (`GTS_PDFX`, `FOGRA39`, „Coated FOGRA39 (ISO 12647-2:2004)“), XMP metadata
@@ -1043,7 +1043,7 @@ below):
   (4.2 + 1) MB × 2.3 here), plus one decoded photo in ImageMagick's disk
   cache (16 bytes per pixel: ~310 MB for 19 MP, ~1 GB for 60 MP).
   `assertWorkSpace` plans 2.5 × (page pictures + shared pictures × chunks) +
-  16 B × the pixels of the largest picture + 200 MB = 2 496 MB for this
+  16 B × the pixels of the largest picture + 200 MB ≈ 2.5 GB for this
   calendar
   and refuses the job up front (`NO_SPACE`) when the disk has less.
 - Not measured: the production host (slower disk, the consumer's real
