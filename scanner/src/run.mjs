@@ -163,9 +163,12 @@ export async function runBuild({ job, api, engine, scratchDir, signal = null, pr
         const context = contextFromClaim(job.context);
         if (!context.fonts.length) return { ...(await failed('build', usagePayload(null))), detail: 'no_fonts', stats };
         const seq = { n: 0 };
+        // a renderer that stays away for the whole tolerance window is counted: a run that ends without a
+        // candidate because of it is `renderer_unavailable`, not a failure of the scan (§7)
+        const counted = (call) => call.catch((e) => { if (['renderer_unavailable', 'renderer_busy'].includes(e?.code)) stats.rendererFailures = (stats.rendererFailures ?? 0) + 1; throw e; });
         const app = {
-            render: (design) => withRendererRetry(() => api.render({ seq: ++seq.n, design }), definition.timing, controller.signal),
-            faces: (req) => withRendererRetry(() => api.faces({ seq: ++seq.n, ...req }), definition.timing, controller.signal),
+            render: (design) => counted(withRendererRetry(() => api.render({ seq: ++seq.n, design }), definition.timing, controller.signal)),
+            faces: (req) => counted(withRendererRetry(() => api.faces({ seq: ++seq.n, ...req }), definition.timing, controller.signal)),
         };
         build = new TemplateBuild({ source, sourcePath, context, app, caps, signal: controller.signal,
             settings: { availableScore: definition.fonts?.availableScore ?? 0.85, undeterminedScore: definition.fonts?.undeterminedScore ?? 0.35, prepassLines: definition.fonts?.prePassLines ?? 6, faceSheets: definition.caps?.faceSheets ?? 12, snapDeltaE: definition.paletteSnapDeltaE ?? 2, ocrThreads: Number(process.env.SCANNER_OCR_THREADS ?? 3) },
@@ -235,7 +238,7 @@ export async function runBuild({ job, api, engine, scratchDir, signal = null, pr
         const capHit = abortReason ?? (result.outcome === 'max_turns' ? 'turns' : result.outcome === 'max_budget' ? 'budget' : null);
         // a run cut short by the provider is not charged — with or without a candidate (§4.9 provider-lost time)
         if (capHit && caps.providerLostDominates(definition.caps?.providerLostShare ?? 0.5)) return { ...(await failed('provider_unavailable', usage)), detail: capHit, stats };
-        if (!build.candidates.length) return { ...(await failed(capHit ? 'timeout' : 'build', usage)), detail: capHit ?? result.error ?? 'no_candidate', stats };
+        if (!build.candidates.length) return { ...(await failed(stats.rendererFailures ? 'renderer_unavailable' : capHit ? 'timeout' : 'build', usage)), detail: capHit ?? result.error ?? 'no_candidate', stats };
         const modelFinish = result.outcome === 'finished' && result.finish && typeof result.finish === 'object' ? result.finish : null;
         const report = await buildTemplateReport({ build, finish: modelFinish, unfinished: !modelFinish, stopReason: modelFinish ? null : (capHit ?? result.outcome),
             rank: caps.runLeftMs() > 20_000 ? (lines) => build.rank(lines) : null });

@@ -88,6 +88,13 @@ test('build: a cap hit without a candidate is failed timeout; a dead end is fail
     assert.deepEqual([none.outcome, none.error], ['failed', 'build']);
 });
 
+test('build: a renderer that stays away ends the scan as renderer_unavailable, not as a failed build', { skip }, async () => {
+    const f = await fixture({ timing: { appOutageToleranceSeconds: 0.2 } });
+    f.api.render = async () => { throw Object.assign(new Error('timeout'), { name: 'TimeoutError' }); };
+    const out = await runBuild({ job: f.job, api: f.api, scratchDir: f.scratchDir, engine: scriptedEngine(async (ctx) => { const r = await ctx.tool('design_preview', { design: DESIGN }); assert.equal(r.isError, true); return FINISH; }) });
+    assert.deepEqual([out.outcome, out.error], ['failed', 'renderer_unavailable']);
+});
+
 test('build: refusal → refused; billing error confirmed by the probe → released as provider_blocked; transient → provider_unavailable', { skip }, async () => {
     const f = await fixture();
     const refused = await runBuild({ job: f.job, api: f.api, scratchDir: f.scratchDir, engine: scriptedEngine(async () => ({ outcome: 'refusal', error: { class: 'refusal', code: 'refusal' } })) });

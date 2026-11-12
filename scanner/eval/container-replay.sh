@@ -19,7 +19,7 @@ cmd+="wait; cat /sys/fs/cgroup/memory.peak > /out/memory.peak; cat /sys/fs/cgrou
 start=$(date +%s)
 docker run --rm --platform linux/amd64 --network "${APP_NETWORK:-wboost_default}" --cpus 3 --memory "$memory" --memory-swap "$memory" \
   -e WBOOST_MCP_TOKEN="$(cat "$WBOOST_MCP_TOKEN_FILE")" -e SCANNER_OCR_THREADS="${OCR_THREADS:-3}" \
-  -v "$PWD/eval/runs/sdk:/rec:ro" -v "$repo/docs/ai-scan:/repo/docs/ai-scan:ro" -v "$PWD/.scratch/variants.json:/scanner/.scratch/variants.json:ro" -v "$PWD/.scratch/standins.json:/scanner/.scratch/standins.json:ro" -v "$PWD/$out:/out" \
+  -v "$PWD/eval/runs/sdk:/rec:ro" -v "$repo/docs/ai-scan:/repo/docs/ai-scan:ro" -v "$repo/resources/ai-scan/definition:/resources/ai-scan/definition:ro" -v "$PWD/.scratch/variants.json:/scanner/.scratch/variants.json:ro" -v "$PWD/.scratch/standins.json:/scanner/.scratch/standins.json:ro" -v "$PWD/$out:/out" \
   wboost-scanner:eval sh -c "$cmd"
 echo "wall $(( $(date +%s) - start )) s; cgroup memory.peak $(( $(cat "$out/memory.peak") / 1048576 )) MB; arch $(cat "$out/arch")"
 grep -h usage_usec "$out/cpu.stat"
