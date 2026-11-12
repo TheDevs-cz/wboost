@@ -86,7 +86,8 @@ jobs:
 
           # Without pcntl the suite would skip itself and the job would be green for nothing.
           -   name: pcntl is there
-              run: php -r 'exit(function_exists("pcntl_fork") && function_exists("posix_kill") ? 0 : 1);'
+              run: |
+                  php -r 'exit(function_exists("pcntl_fork") && function_exists("posix_kill") ? 0 : 1);'
 
           -   run: vendor/bin/phpunit --group fault-injection
 
