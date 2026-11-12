@@ -25,7 +25,7 @@ export class Heartbeat {
     constructor({ api, timing = {}, state, onAbort, now = () => Date.now(), onBeat = null }) {
         this.api = api; this.timing = timingOf(timing); this.state = state; this.onAbort = onAbort; this.now = now; this.onBeat = onBeat;
         this.seq = 0; this.acked = 0; this.failed = 0; this.inFlight = 0;
-        this.lastAckedSend = null; this.lastAnswer = null; this.aborted = null; this.stopped = false;
+        this.lastAckedSend = null; this.lastAnswer = null; this.lastError = null; this.aborted = null; this.stopped = false;
         this.timer = null; this.abortTimer = null;
     }
 
@@ -70,6 +70,7 @@ export class Heartbeat {
             return r;
         } catch (e) {
             this.failed++;
+            this.lastError = { seq: body.seq, code: e?.code ?? 'error', status: e?.status ?? null };
             this.onBeat?.({ seq: body.seq, ok: false, code: e?.code ?? 'error', status: e?.status ?? null });
             if (e?.status === 410 || e?.code === 'gone') this.#abort('gone');
             else if (e?.status === 409 || e?.code === 'lease_lost' || e?.code === 'stale_run') this.#abort('lease_lost', { code: e.code });

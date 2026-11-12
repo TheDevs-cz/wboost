@@ -96,6 +96,26 @@ test('self-abort: no beat is acknowledged → the run is aborted and its process
     assert.deepEqual(readdirSync(f.scratchRoot), []);
 });
 
+test('after a self-abort the closing beat is repeated inside the outage tolerance: when the app is back, the run\'s last usage reaches it before the scan is claimed again', async (t) => {
+    const f = await fixture(t, { stub: { waitMs: 60_000 } });
+    const run = f.runner.run();
+    await until(() => f.scan.beats.length >= 1);
+    const before = f.scan.beats.length;
+    f.app.down(1000); // longer than the self-abort (0.7 s): the run is aborted while the app is away …
+    const s = await run;
+    assert.deepEqual([s.outcome, s.reason, s.closing.call, s.closing.acknowledged], ['cancelled', 'app_unreachable', 'beat', true]);
+    assert.ok(s.closing.attempts >= 2, `the closing beat was repeated: ${s.closing.attempts}`); // … and back inside the tolerance (0.6 s more)
+    assert.equal(f.scan.beats.length, before + 1, 'exactly one closing beat arrived');
+    assert.equal(f.scan.beats.at(-1).usage.outputTokens, 300, 'with the last figures of the aborted run');
+    // 409 is an answer: the app recorded the usage of a run it had already put back
+    const g = await fixture(t, { stub: { waitMs: 60_000 } });
+    const run2 = g.runner.run();
+    await until(() => g.scan.beats.length >= 1);
+    g.app.down(1000); setTimeout(() => { g.scan.leaseLive = false; g.scan.status = 'queued'; }, 800);
+    const s2 = await run2;
+    assert.deepEqual([s2.reason, s2.closing.acknowledged, s2.closing.code], ['app_unreachable', true, 'lease_lost']);
+});
+
 test('abort kills the engine and OCR process groups — by pid: the child, a process in its group, one leading its own group, a grandchild', async (t) => {
     const spawnLog = join(mkdtempSync(join(tmpdir(), 'scan-pids-')), 'pids.jsonl');
     const f = await fixture(t, { stub: { spawn: spawnLog, waitMs: 60_000, ignoreAbort: true } });

@@ -130,12 +130,12 @@ test('softIou(): 1 for identical coverage, lower for a different weight, toleran
     assert.ok(thin > 0.3 && thin < 0.5, String(thin));
 });
 
-test('batchLines(): lines of similar size share a render, at most 8 per call', () => {
-    const lines = [...Array(10).fill({ ink: { h: 29 } }), { ink: { h: 120 } }, { ink: { h: 30 } }];
+test('batchLines(): lines of similar size share a render, at most 8 per call; the sheet size is capped at 64 px', () => {
+    const lines = [...Array(10).fill({ ink: { h: 29 } }), { ink: { h: 220 } }, { ink: { h: 30 } }, { ink: { h: 12 } }];
     const b = batchLines(lines);
-    assert.equal(b.length, 3);
-    assert.deepEqual(b.map((x) => x.indexes.length), [8, 3, 1]);
-    assert.ok(b[2].size > 150 && b[0].size >= 40 && b[0].size <= 42);
+    assert.deepEqual(b.map((x) => x.indexes.length), [8, 5]);
+    assert.deepEqual(b.map((x) => x.size), [40, 40], 'the 220 px line shares the sheet of its smaller neighbours');
+    assert.equal(batchLines([{ ink: { h: 220 } }, { ink: { h: 300 } }])[0].size, 64, 'a 300 dpi headline is ranked on a 64 px sheet: the cap');
 });
 
 test('rankFaces(): the face whose rendered shape matches the source wins, with a fitted size; a blank line stays unranked', async () => {
@@ -215,4 +215,26 @@ test('OCR sidecar: an abort kills the process group', { skip: !hasOcr && 'no pyt
         await new Promise((ok) => setTimeout(ok, 300));
         assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' }, 'the sidecar is gone');
     } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('face sheets stay inside what one render and one raster can hold: ranking at ≤ 64 px, every sheet ≤ 30 Mpx and ≤ 16 000 px tall, a verification sheet ≤ 6 000 px wide', async () => {
+    const { rankFaces, verifyFaces, batchLines, RANK_MAX_SIZE, SHEET_MAX_HEIGHT, SHEET_MAX_PIXELS, SHEET_MAX_WIDTH, sheetWidth } = await import('../src/instruments/fonts.mjs');
+    // an A3 scan at 300 dpi: headline ink 300 px tall, body 110 px
+    assert.ok(batchLines([{ ink: { h: 300 } }, { ink: { h: 290 } }, { ink: { h: 110 } }, { ink: { h: 30 } }]).every((b) => b.size <= RANK_MAX_SIZE));
+    const faces = Array.from({ length: 15 }, (_, i) => `Face ${i}`);
+    const ink = (h) => ({ w: 400, h, n: 500, a: new Uint8Array(400 * h).fill(255), sum: 400 * h * 255 });
+    const empty = { image: { data: Buffer.alloc(0) }, cells: [] }, loadRaster = async () => ({ width: 10, height: 10, data: new Uint8Array(300).fill(255) });
+    const inside = (req, n) => { const chars = Math.max(...req.lines.map((l) => l.length)); const rows = req.lines.length * n, h = rows * 2 * req.size, w = sheetWidth(chars, req.size); assert.ok(h <= SHEET_MAX_HEIGHT && w * h <= SHEET_MAX_PIXELS, `${req.lines.length} lines × ${n} faces at ${req.size} px ≈ ${w} × ${h}`); };
+    const asked = [];
+    const lines = Array.from({ length: 6 }, (_, i) => ({ text: `Řádek číslo ${i} ${'s velmi dlouhým textem přes celou šířku stránky '.repeat(3)}`, ink: ink(300 - i) }));
+    await rankFaces({ lines, faces, maxSheets: 12, loadRaster, renderFaces: async (req) => { asked.push(req); return empty; } });
+    assert.ok(asked.length >= 2, 'six large lines no longer travel in one sheet');
+    for (const req of asked) { assert.ok(req.size <= RANK_MAX_SIZE); inside(req, faces.length); }
+    assert.equal(asked.reduce((n, r) => n + r.lines.length, 0), 6, 'every line is still ranked');
+    // verification: the fitted size of a 300 dpi headline is far above what one sheet may be
+    const verify = [];
+    await verifyFaces({ items: [{ text: 'Velmi dlouhý nadpis přes celou šířku plakátu A3', ink: ink(300), face: 'Face 1', size: 390 }, { text: 'Krátký', ink: ink(290), face: 'Face 2', size: 395 }, { text: 'Text', ink: ink(40), face: 'Face 1', size: 44 }], loadRaster, renderFaces: async (req) => { verify.push(req); return empty; } });
+    for (const req of verify) { inside(req, req.faces.length); assert.ok(sheetWidth(Math.max(...req.lines.map((l) => l.length)), req.size) <= SHEET_MAX_WIDTH + req.size, `width at ${req.size} px`); }
+    assert.ok(verify.some((r) => r.size === 44), 'a small text is rendered at its fitted size');
+    assert.ok(verify.find((r) => r.lines.includes('Velmi dlouhý nadpis přes celou šířku plakátu A3')).size < 390, 'a long line of very large type is set smaller: the rest is one resampling factor');
 });

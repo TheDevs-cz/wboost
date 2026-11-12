@@ -56,7 +56,7 @@ export class JobRunner {
     }
 
     /** SIGTERM path: abort, kill, one release — resolves when this job is given back. */
-    shutdown() { this.abort('shutdown'); return this.done ?? Promise.resolve(); }
+    shutdown() { this.closingCancelled = true; this.abort('shutdown'); return this.done ?? Promise.resolve(); }
 
     run() { this.done ??= this.#run(); return this.done; }
 
@@ -133,7 +133,10 @@ export class JobRunner {
             beats: this.heartbeat?.summary() ?? null, usage: this.#usage(), wallMs: Date.now() - this.startedAt, result: r ?? null,
         };
         this.o.log(outcome === 'crashed' || outcome === 'error' ? 'error' : 'info', 'run ended', {
-            ...this.ids, outcome, reason: this.summary.reason, error: this.summary.error, status: r?.finish?.status ?? closing?.status ?? null, applied: r?.finish?.applied ?? null,
+            ...this.ids, outcome, reason: this.summary.reason, error: this.summary.error,
+            // what went wrong inside the scanner, as its own short message (an error of the code or a library — never text of a picture)
+            detail: typeof r?.detail === 'string' ? r.detail.replace(/[^A-Za-z0-9 _.:()\/-]/g, '').slice(0, 120) : null,
+            status: r?.finish?.status ?? closing?.status ?? null, applied: r?.finish?.applied ?? null,
             closing: closing?.call ?? null, wallMs: this.summary.wallMs, turns: this.summary.usage.turns, model: this.summary.usage.model, exit: exit?.signal ?? exit?.code ?? null,
         });
         return this.summary;
@@ -161,8 +164,17 @@ export class JobRunner {
         if (this.abortReason === 'shutdown' || r?.outcome === 'released') return release({ usage, reason: 'shutdown' });
         if (this.lane === 'intake' || this.abortReason === 'gone') return { call: null };
         if (!this.heartbeat) return { call: null };
-        const b = await this.heartbeat.beat({ final: true });
-        return { call: 'beat', acknowledged: !!b, status: b?.status ?? null };
+        // One closing beat. After a self-abort the app is away by definition: the beat is repeated for as long as
+        // the app-outage tolerance (60 s) — this job's slot stays taken meanwhile, so the scan is not claimed again
+        // before its last figures are in. A 409 is an answer too: the app records the usage of a run it has put back.
+        const until = Date.now() + (this.abortReason === 'app_unreachable' ? this.timing.appOutageToleranceSeconds * 1000 : 0);
+        for (let attempts = 1; ; attempts++) {
+            const b = await this.heartbeat.beat({ final: true });
+            const refused = !b && [409, 410].includes(this.heartbeat.lastError?.status);
+            if (b || refused) return { call: 'beat', acknowledged: true, status: b?.status ?? null, code: refused ? this.heartbeat.lastError.code : null, attempts };
+            if (Date.now() >= until || this.closingCancelled) return { call: 'beat', acknowledged: false, attempts };
+            await new Promise((ok) => setTimeout(ok, Math.min(5000, this.timing.appOutageToleranceSeconds * 1000 / 12)));
+        }
     }
 }
 

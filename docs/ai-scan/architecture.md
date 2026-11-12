@@ -415,6 +415,30 @@ Where the implementation is more specific than, or differs from, the text above:
   tab exists (P4). The admin e-mails of §7 (breaker, provider blocked, project paused, ceilings)
   are not sent yet: the states are written and shown by the status command.
 
+**As built in P2** — the scanner's side of the same contract (`scanner/src/protocol.mjs`; a recording
+of it against the real app is `scanner/test/contract/scanner-api.v1.json`, replayed in the scanner's
+CI and owed to the app's). Where the client is more specific than the text above:
+
+- `claim`, `tick`, `beat` and `release` are **single attempts** — their timers repeat them, and a
+  claim whose answer is lost is not sent again (the job it handed out becomes a lost lease). `source`,
+  `artifact`, `render`, `faces` and `finish` are retried inside R; a retry of `render` carries the
+  same `seq`.
+- A `finish` that did not apply (409 `stale_run` with the scan's `status`) is not an error for the
+  scanner: it is how a repeat after a lost answer, and a finish that lost the race with a cancel or
+  mode `off`, are told what happened. Usage was recorded either way.
+- 404 is treated as "the app is not answering as the app" (wrong network or token, or a container
+  that is still starting): retried inside R and named `not_scanner` in the health document.
+- `usage` also carries `cacheWrite5mTokens` / `cacheWrite1hTokens` (the app reads `cacheWriteTokens`
+  today) and, when a run used more than one model, `model: "mixed"` with the scanner's own sum in
+  `engineCostMicroUsd` — the figure the app books for a model its price table does not know.
+- A run that ends without `finish` or `release` (cancelled, interrupted, lease lost, self-abort, a
+  dead child process) sends **one closing beat** with its last usage; after a self-abort that beat is
+  repeated for up to R while the job's slot stays taken.
+- The scanner asks `faces` for small pictures: ranking sheets at ≤ 64 px, every sheet below 30 Mpx /
+  16 000 px (fewer lines per call), a verification sheet no wider than 6 000 px.
+- The protocol handshake is the `tick` answer's `protocolVersion`: a scanner that is neither N nor
+  N − 1 stops claiming, keeps ticking and reports `protocol.accepted: false` in `/health`.
+
 ### 4.6 Proposal, fixes, accept
 
 - **Candidates** exist only as documents the app validated and rendered itself.
@@ -614,6 +638,26 @@ Pairs — every outer bound outlasts what it wraps:
 
 Usual durations here are expectations taken from PA's means; P2's acceptance re-derives the table
 from measured turn and stage times (G2a item 1).
+
+**Measured in P2** (`scanner/eval/RESULTS.md` §0 and §6; the service against the real local app,
+model on the plan, 2026-11-12) — nothing in the table had to move:
+
+| Quantity | Bound | Measured |
+|---|---|---|
+| Whole scan, upload → `ready` | — | 42–121 s over 8 designs (mean 76 s); hard set ≤ 121 s; "Trvá to déle" (180 s) not reached |
+| Intake (claim → finish) | cap 120 s | 3.7–8.1 s (normalise 0.1–4.5 s, pre-check 1.9–2.9 s); a file that cannot be decoded: stopped in 8.5 s |
+| Claim delay | poll 5 s | intake claimed ≤ 5 s after the upload; the build lane is woken when an intake passes (0.2 s) |
+| Heartbeat | 15 s, attempt ≤ 10 s | beats every 15.00 s from the main process while the run's process was blocked (test) and during every real scan; none queued |
+| Self-abort | 105 s from the send time | **105.003 s** in a real 120 s outage; the engine was dead 2 s later (lease: 120 s) |
+| App outage 30 s mid-build | R = 60 s | the run survived on its first claim (2 beats unacknowledged, calls retried) |
+| App outage 120 s mid-build | — | self-abort, `queued` by the reaper, claimed again when the app was back, `ready`; one `settle` |
+| Cancel / mode `off` → engine stopped | ≤ H = 15 s | 7.1 s / 7.0 s |
+| Lost lease → requeue (scanner killed) | L = 120 s + a reaper call | 113 s and 116 s after the kill (the user's status poll reaped it) |
+| Shutdown (SIGTERM mid-build) | 5 + 20 ≤ 30 s | the real binary with the real engine exits 0 inside the limit with one `release` carrying the usage and no process left (test); an idle container stops in < 1 s; with the app away it is bounded by the kill grace + one release attempt (test) |
+| Pre-pass | W − builder = 60 s | ≈ 5–15 s through the app's `faces` (1–2 ranking sheets), read and OCR included |
+| Keep-best + font verification + report | "local, seconds" | 1–3.3 s — the verification render adds 2–6 `faces` calls (was 0–2 s without it) |
+| Build run (pre-pass + model loop + finish) | run cap 360 s | 37–112 s; turns ≤ 9 of 40; cost ≤ $0.60 (engine figure) of $1.50 |
+| App-backed tool through a 55 s outage + a 25 s render | tool timeout 95 s | 80–85 s, answered (real-time test) |
 
 ### 4.10 Quality definition and bars (D8)
 
@@ -943,6 +987,14 @@ a project paused for refusals. Prometheus rules are an infra backlog item.
 darwin/arm64 over 66 plan-run scans, and in a `linux/amd64` container under Rosetta (`--cpus 3`) with
 the model replaced by a replay of recorded tool calls. Not yet from x86 hardware (P4 repeats it on the box).
 
+**Measured in P2, step B** (`scanner/eval/RESULTS.md` §0.5) — the *service* in its production image
+(`ghcr.io/thedevs-cz/wboost-scanner`, 447 MB to pull, 1.08 GB unpacked), one whole scan against the
+local app in a container with `--memory 3g --cpus 3`, a read-only root and `/tmp` on tmpfs (x86 under
+Rosetta, model answers replayed): cgroup `memory.peak` **1.80 GiB** for the largest canvas of the
+sets (2480 × 3508), 0.88 GiB for a 1240 × 1754 design; no OOM kill; scratch empty afterwards; 57 CPU-s
+emulated. The service holds two node processes (main + one child per run) and the intake in the same
+container, which is why this is about twice the single-process figure of the rows below.
+
 | Quantity | Measured | Expected until P2 |
 |---|---|---|
 | OCR: peak RSS / CPU | **measured:** 336–893 MB native, 376–790 MB in the amd64 container (grows with the picture: 790 MB at 2896 × 4096); 0.4–1.4 s native, 1.3–3.5 s emulated, on 3 threads; the process lives ≈ 2 s | — (the prototype's 233 MB was a smaller build of the same engine) |
@@ -965,7 +1017,7 @@ P4 repeats concurrency 1 on the box.
 
 | | 1 | 2 | 3 |
 |---|---|---|---|
-| Scanner memory limit (rule: peak ≤ 70 % of the limit) | **3 g** — measured peak of one build 0.96 GiB (cgroup), expected ≈ 1.2 GiB on a 4096 px working copy, + intake 0.7 GiB (normalise child 0.39 measured + pre-check engine 0.3) = 1.9 GiB → 63 % | **5 g** — two large builds measured at 1.87 GiB; + intake ≈ 3.1 GiB → 62 % | 7 g (expected: + ≈ 1.2 GiB per extra run) |
+| Scanner memory limit (rule: peak ≤ 70 % of the limit) | **4 g** — measured (step B, the service in its image): one large build peaks at 1.80 GiB (cgroup, page cache and tmpfs included), + an intake next to it ≤ 0.7 GiB (normalise child 0.58 measured on 36 Mpx + pre-check engine 0.3) = 2.5 GiB → 63 % of 4 g (83 % of 3 g; the scanner starts in 3 g and has run there without an OOM kill). Step A's single-process figure was 0.96 GiB | **5 g** — two large builds measured at 1.87 GiB; + intake ≈ 3.1 GiB → 62 % | 7 g (expected: + ≈ 1.2 GiB per extra run) |
 | CPU cap | `cpus: 3` for the whole service | same | same; thread pools 1 per worker |
 | Throughput per hour | ≈ 30–50 | ≈ 60–100 | ≈ 90–150 |
 | Wait with n ahead | n × ≈ 1–3 min (PA means 55 s and 95 s) | ÷ 2 | ÷ 3 |

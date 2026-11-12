@@ -49,8 +49,28 @@ export function cellInk(sheet, cell) {
     return { w, h, a, sum };
 }
 
+/**
+ * The app renders ONE picture per `faces` call: a row 2 × size tall for every (face, line), as wide as the
+ * longest line. At the sizes of a 300 dpi scan that picture would be tens of thousands of pixels tall and
+ * wide (found on the first A3 scan through the app: a sheet above the raster loader's 40 Mpx limit failed
+ * the build). So:
+ *   - a RANKING sheet is rendered at ≤ 64 px (the app's own default): the ranking resamples the glyphs to
+ *     the source line anyway, and the verification render is the one that uses the true size;
+ *   - every sheet stays below SHEET_MAX_PIXELS and SHEET_MAX_HEIGHT by asking for fewer lines per call;
+ *   - a VERIFICATION sheet (one face, a few lines, the fitted size) is rendered no wider than SHEET_MAX_WIDTH:
+ *     a long line of very large type is set a little smaller and the rest is one resampling factor.
+ */
+export const RANK_MAX_SIZE = 64;
+export const SHEET_MAX_HEIGHT = 16_000;
+export const SHEET_MAX_PIXELS = 30_000_000;
+export const SHEET_MAX_WIDTH = 6_000;
+/** A generous estimate of a rendered line's width: left padding + glyphs (spaces included) × 0.7 em + one em. */
+export const sheetWidth = (chars, size) => 24 + Math.ceil(chars * size * 0.7) + size;
+/** How many rows — (face, line) pairs — one sheet may carry at a size, for lines of at most `chars` characters. */
+export const sheetRows = (size, chars) => Math.max(1, Math.floor(Math.min(SHEET_MAX_HEIGHT / (2 * size), SHEET_MAX_PIXELS / (sheetWidth(chars, size) * 2 * size))));
+
 /** Lines of similar size share one render (the app renders a call's lines at ONE size, ≤ `maxLines` lines). */
-export function batchLines(lines, { maxLines = 8, minSize = 24, maxSize = 200 } = {}) {
+export function batchLines(lines, { maxLines = 8, minSize = 24, maxSize = RANK_MAX_SIZE } = {}) {
     const sized = lines.map((l, i) => ({ i, target: Math.max(minSize, Math.min(maxSize, Math.round((l.ink?.h ?? 40) / 0.72))) })).sort((a, b) => a.target - b.target);
     const batches = [];
     for (const it of sized) {
@@ -71,7 +91,14 @@ export async function rankFaces({ lines, faces, renderFaces, availableScore = 0.
     const usable = lines.map((l, i) => ({ ...l, index: i })).filter((l) => l.ink && l.ink.n >= 30 && String(l.text).trim());
     const out = lines.map(() => ({ candidates: [], best: null, runnerUp: null, available: false, note: 'no_ink' }));
     if (!usable.length || !faces.length) return { results: out, sheets: 0 };
-    const batches = batchLines(usable);
+    // a sheet is one picture: keep it inside the sheet bounds by asking for fewer lines per call
+    const batches = batchLines(usable).flatMap((b) => {
+        const chars = Math.max(...b.indexes.map((i) => String(usable[i].text).length));
+        const lines = Math.max(1, Math.min(8, Math.floor(sheetRows(b.size, chars) / faces.length)));
+        const out = [];
+        for (let i = 0; i < b.indexes.length; i += lines) out.push({ size: b.size, indexes: b.indexes.slice(i, i + lines) });
+        return out;
+    });
     const per = usable.map(() => []);
     let sheets = 0, truncated = false;
     for (const batch of batches) {
@@ -184,6 +211,8 @@ export function wordIou(a, b, { reach = 2 } = {}) {
 export async function verifyFaces({ items, renderFaces, loadRaster, signal = null, maxRenders = 6, minSize = 8, maxSize = 400 }) {
     const out = items.map(() => null);
     const clean = (t) => String(t).replace(/\s+/g, ' ').trim();
+    // the size a sheet is rendered at: the fitted size, inside the app's range, and no wider than the sheet bound
+    const sizeFor = (wanted, chars) => Math.max(minSize, Math.min(maxSize, Math.round(wanted), Math.floor((SHEET_MAX_WIDTH - 24) / (chars * 0.7 + 1))));
     let renders = 0;
     const round = async (list) => {
         const again = [];
@@ -192,7 +221,13 @@ export async function verifyFaces({ items, renderFaces, loadRaster, signal = nul
         for (const it of usable) {
             const text = clean(it.text);
             const b = batches.at(-1);
-            if (b && it.size <= b.min * 1.03 && (b.lines.includes(text) || b.lines.length < 8) && (b.faces.includes(it.face) || b.faces.length < 6)) b.items.push({ ...it, text });
+            // would this item still fit the sheet of the current batch? (rows = lines × faces, at the batch's size and longest line)
+            const fits = (bb) => {
+                const lines = bb.lines.includes(text) ? bb.lines.length : bb.lines.length + 1, fcs = bb.faces.includes(it.face) ? bb.faces.length : bb.faces.length + 1;
+                const chars = Math.max(text.length, ...bb.lines.map((l) => l.length));
+                return lines <= 8 && fcs <= 6 && lines * fcs <= sheetRows(sizeFor(Math.max(it.size, bb.min * 1.03), chars), chars);
+            };
+            if (b && it.size <= b.min * 1.03 && fits(b)) b.items.push({ ...it, text });
             else batches.push({ min: it.size, items: [{ ...it, text }], lines: [], faces: [] });
             const cur = batches.at(-1);
             if (!cur.lines.includes(text)) cur.lines.push(text);
@@ -202,7 +237,7 @@ export async function verifyFaces({ items, renderFaces, loadRaster, signal = nul
             if (renders >= maxRenders) break;
             if (signal?.aborted) throw Object.assign(new Error('aborted'), { code: 'aborted' });
             const wanted = batch.items[batch.items.length >> 1].size;
-            const size = Math.max(minSize, Math.min(maxSize, Math.round(wanted)));
+            const size = sizeFor(wanted, Math.max(...batch.lines.map((l) => l.length)));
             const sheet = await renderFaces({ lines: batch.lines, faces: batch.faces, size });
             renders += sheet.sheets ?? 1;
             const raster = sheet.raster ?? await loadRaster(sheet.image.data);
@@ -215,7 +250,8 @@ export async function verifyFaces({ items, renderFaces, loadRaster, signal = nul
                 if (r.h > fontSize * 1.45) { out[it.index] = { score: 0, size: fontSize, scale: null, words: 0, wrapped: true }; continue; }
                 // what is left between the rendered and the fitted size: one factor for both axes, from the line width
                 const k = glyphs(it.text) >= 4 ? it.ink.w / r.w : it.ink.h / r.h;
-                if (Math.abs(k - 1) > 0.03 && !it.corrected && fontSize * k >= minSize && fontSize * k <= maxSize) again.push({ ...it, size: fontSize * k, corrected: true });
+                // (a sheet that was set smaller on purpose — the width bound — is not a wrong fit)
+                if (Math.abs(k - 1) > 0.03 && !it.corrected && fontSize * k >= minSize && sizeFor(fontSize * k, it.text.length) > fontSize * 1.03) again.push({ ...it, size: fontSize * k, corrected: true });
                 if (Math.abs(k - 1) > 0.01) {
                     const toW = Math.max(1, Math.round(r.w * k)), toH = Math.max(1, Math.round(r.h * k));
                     const a = await resizeCoverage(r.a, r.w, r.h, toW, toH);
