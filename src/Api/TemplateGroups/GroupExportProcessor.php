@@ -14,6 +14,7 @@ use WBoost\Web\Exceptions\ContainerOverflow;
 use WBoost\Web\Exceptions\InvalidExportValue;
 use WBoost\Web\Exceptions\InvalidRichTextValue;
 use WBoost\Web\Exceptions\TemplateRenderUnavailable;
+use WBoost\Web\Services\AiScan\Template\UnfilledExportGuard;
 use WBoost\Web\Services\Template\ApiExportRenderer;
 use WBoost\Web\Services\Template\ApiRepeatableRows;
 use WBoost\Web\Services\Template\ApiSubjectLoader;
@@ -51,6 +52,7 @@ final readonly class GroupExportProcessor implements ProcessorInterface
         private RecordExportUsage $recordExportUsage,
         private RecordExportVersion $recordExportVersion,
         private TemplateExportFileNames $fileNames,
+        private UnfilledExportGuard $unfilledGuard,
     ) {
     }
 
@@ -110,12 +112,35 @@ final readonly class GroupExportProcessor implements ProcessorInterface
             return ExportErrorResponse::fromThrowable($error) ?? throw $error;
         }
 
+        // Every dimension's values before any render — a grey stand-in an AI
+        // scan left behind (summed over the dimensions rendered) refuses the
+        // whole export with a structured 400 unless `allowUnfilled`.
+        $memberValues = [];
+        $exports = [];
+
+        foreach ($variants as $variant) {
+            try {
+                $values = ApiExportRenderer::groupMemberValues($variant, $data->inputs, $data->images, $data->placements, $data->shapeColors, $rows);
+            } catch (InvalidExportValue $error) {
+                return ExportErrorResponse::fromThrowable($error, $variant->id->toString()) ?? throw $error;
+            }
+
+            $memberValues[$variant->id->toString()] = $values;
+            $exports[] = [$variant, $values->images];
+        }
+
+        $refusal = $this->unfilledGuard->apiRefusal($data->allowUnfilled, $exports);
+
+        if ($refusal !== null) {
+            return $refusal;
+        }
+
         /** @var list<array{TemplateVariant, string}> $renders */
         $renders = [];
 
         foreach ($variants as $variant) {
             try {
-                $values = ApiExportRenderer::groupMemberValues($variant, $data->inputs, $data->images, $data->placements, $data->shapeColors, $rows);
+                $values = $memberValues[$variant->id->toString()];
                 $renders[] = [$variant, $this->apiExportRenderer->renderExport(
                     $format,
                     $variant,

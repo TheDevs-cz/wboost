@@ -340,6 +340,29 @@ so what previews fine exports fine. The difference is what they ARE:
   The group export (`/api/template-groups/{id}/export[/{variantId}]`) takes
   the same `format`; its PDF ZIP (`{group} - PDF.zip`) holds the print-format
   members only.
+- **Unfilled pictures — `allowUnfilled`** (all three export endpoints: variant,
+  group ZIP / single dimension, document; never the previews). A template made
+  from an **AI scan** may still show a grey stand-in picture where a picture
+  was never supplied: a decorative image nobody replaced in the editor (no
+  request can fill it), or a full-page background **your request sends no
+  picture for** (`images[<its imageInputId>]` absent — a picked image or
+  `{hide: true}` both count as supplied). Such an export is refused, nothing
+  rendered or recorded:
+
+  ```json
+  { "error": "The export would show 2 grey stand-in pictures left by an AI scan. …",
+    "code": "unfilled_pictures", "count": 2,
+    "variantId": "<first affected variant>", "editorUrl": "https://…/template-variant/<id>/editor" }
+  ```
+
+  `count` is summed over everything the request exports (a group's
+  dimensions, a document's pages). Show the user
+  `Šablona má 1 nedoplněný obrázek · {n} nedoplněné obrázky · {n} nedoplněných obrázků.
+  V exportu bude · budou na jejich místě šedé zástupné obrázky.` and offer
+  **„Exportovat přesto“**, which resends the SAME body plus
+  `"allowUnfilled": true` (optional boolean, default `false`) — the export
+  then goes through with the grey stand-ins. Ordinary templates never answer
+  this code.
 - **`PATCH /api/template-variants/{id}/print-setup`** (2026-11-09) sets the
   bleed and crop marks of a **standalone** print variant — the web's
   "Nastavení tisku". Body `{bleedMm?, cropMarks?}` (`application/json` or
@@ -512,6 +535,7 @@ retry) · `500` render backend failure.
 | `invalid_value` (rows) | `rows` is not an object of lists, or a row entry is not an object. | `containerId`, `rowIndex` (when known) |
 | any value code inside `rows` | A row's VALUE refused with its usual code (`value_too_long`, `image_not_allowed`, …): the id field holds the template member id you sent. | + `rowContainerId`, `rowIndex` (0-based) |
 | rich-text codes | See "Rich-text 400s" below. | `inputId` (+ `allowedFonts` / `allowedColors`) |
+| `unfilled_pictures` | Exports only: the file would show grey stand-in pictures an AI scan left behind. Resend with `"allowUnfilled": true` to export anyway (see `/export` above). | `count`, `variantId`, `editorUrl` |
 
 Group renders (see "Template groups") add the `variantId` of the dimension
 that failed.
@@ -1402,6 +1426,11 @@ hide them from a "templates" list and present the document instead.
     `variantId`).
   - `invalid_format` / `pdf_not_available` / `document_empty` are
     document-level codes.
+  - `"allowUnfilled": true` (top level, optional) exports even though pages
+    still show grey stand-in pictures left by an AI scan; without it such an
+    export answers 400 `unfilled_pictures` (`count` summed over the pages,
+    `variantId` of the first such page, `editorUrl`) — see the variant
+    `/export` above.
 - **Writes** (designer + project owner; others get 403). Each answers the
   document as it is afterwards:
   - `POST /api/projects/{projectId}/template-documents`

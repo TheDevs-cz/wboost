@@ -19,6 +19,7 @@ use WBoost\Web\Mcp\Fill\VariantFill;
 use WBoost\Web\Mcp\Response\ExportDocumentResponse;
 use WBoost\Web\Mcp\Security\McpScope;
 use WBoost\Web\Mcp\Security\McpToolScope;
+use WBoost\Web\Services\AiScan\Template\UnfilledExportGuard;
 use WBoost\Web\Repository\TemplateDocumentExportVersionRepository;
 use WBoost\Web\Services\TemplateDocument\DocumentApiValues;
 use WBoost\Web\Services\Template\RepeatableRows;
@@ -61,6 +62,7 @@ readonly final class ExportDocumentTool
         private RecordDocumentExportVersion $recordExportVersion,
         private DocumentFillInput $fillInput,
         private TemplateDocumentExportVersionRepository $versionRepository,
+        private UnfilledExportGuard $unfilledGuard,
     ) {
     }
 
@@ -90,6 +92,15 @@ readonly final class ExportDocumentTool
      *   page's rows per row container id (the whole list), its offsets per
      *   element id.
      *
+     * - allowUnfilled: a page made from an AI scan may still show a grey
+     *   stand-in picture where a picture was never supplied (a decorative
+     *   image nobody replaced in the editor, or a full-page background no
+     *   picture is passed for). Such an export is REFUSED with a message
+     *   starting "unfilled_pictures:" that says how many there are (summed
+     *   over the pages) and gives the editorUrl of the first such page. Tell
+     *   the user; pass true only when they want the export with the grey
+     *   stand-ins anyway.
+     *
      * Preview a page first with render_variant (its variantId + the same
      * inputs) — it is fast and lossy; this call renders every page in full.
      * Every export lands in the document's history (document_history).
@@ -98,6 +109,7 @@ readonly final class ExportDocumentTool
      * @param array<string, mixed> $fields shared fieldId → value
      * @param array<string, mixed> $pages pageId → {inputs, images, shapeColors, rows, offsets}
      * @param null|string $versionId document_history versions[].id to start from
+     * @param bool $allowUnfilled export even with grey stand-in pictures left by an AI scan (default false: refused with "unfilled_pictures:")
      */
     #[McpTool(name: 'export_document')]
     public function __invoke(
@@ -109,6 +121,7 @@ readonly final class ExportDocumentTool
         #[Schema(enum: ['pdf-screen', 'pdf', 'png'])]
         string $format = 'pdf-screen',
         null|string $versionId = null,
+        bool $allowUnfilled = false,
     ): CallToolResult {
         $document = $this->loader->viewable($documentId);
         $exportFormat = ExportFormat::tryFrom(strtolower($format));
@@ -150,6 +163,7 @@ readonly final class ExportDocumentTool
         $pageValues = [];
         $pageOffsets = [];
         $pageRowCounts = [];
+        $exports = [];
         foreach ($documentPages as $page) {
             $values = DocumentApiValues::forPage($document, $page, $fields, $pages[$page->id->toString()] ?? []);
             $templateId = $page->template->id->toString();
@@ -180,6 +194,14 @@ readonly final class ExportDocumentTool
             $pageOffsets[$templateId] = [$page->variant->id->toString() => $overrides->offsets];
 
             $resolved[] = [$page, $overrides, $imageOverrides];
+            $exports[] = [$page->variant, $applied->images];
+        }
+
+        // A grey stand-in an AI scan left behind is never exported silently.
+        $refusal = $this->unfilledGuard->mcpRefusal($allowUnfilled, $exports);
+
+        if ($refusal !== null) {
+            throw new ToolCallException($refusal);
         }
 
         try {

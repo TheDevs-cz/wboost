@@ -6,9 +6,15 @@ namespace WBoost\Web\Services\AiScan;
 
 use League\Flysystem\FilesystemException;
 use League\Flysystem\FilesystemOperator;
+use Psr\Clock\ClockInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use WBoost\Web\Entity\FileUpload;
+use WBoost\Web\Entity\Project;
 use WBoost\Web\Mcp\Design\DesignAsset;
+use WBoost\Web\Repository\FileUploadRepository;
+use WBoost\Web\Services\ProvideIdentity;
 use WBoost\Web\Services\UploaderHelper;
+use WBoost\Web\Value\FileSource;
 
 /**
  * The stand-in picture for places a scan leaves empty.
@@ -41,7 +47,49 @@ final readonly class AiScanStandIn
         private UploaderHelper $uploaderHelper,
         #[Autowire('%kernel.project_dir%/resources/ai-scan/stand-in.png')]
         private string $bundledFile,
+        private FileUploadRepository $files,
+        private ProvideIdentity $provideIdentity,
+        private ClockInterface $clock,
     ) {
+    }
+
+    /**
+     * The project's own stand-in row — what places still empty reference
+     * once a proposal became a template. One per project, created on first
+     * use: a copy of the bundled picture under the project's gallery prefix
+     * (so project deletion and the storage inventory treat it like any other
+     * file of the project), with {@see FileSource::ScanStandIn} — which no
+     * gallery listing shows and the bin never takes.
+     *
+     * @throws FilesystemException
+     */
+    public function projectFile(Project $project): FileUpload
+    {
+        $existing = $this->findProjectFile($project);
+
+        if ($existing !== null) {
+            return $existing;
+        }
+
+        $id = $this->provideIdentity->next();
+        $path = sprintf('file-upload/%s/%s.png', $project->id->toString(), $id->toString());
+        $bytes = file_get_contents($this->bundledFile);
+
+        if ($bytes === false) {
+            throw new \RuntimeException('The bundled AI scan stand-in picture is missing.');
+        }
+
+        $this->filesystem->write($path, $bytes);
+
+        $file = new FileUpload($id, $project, $this->clock->now(), FileSource::ScanStandIn, $path, null, 'zastupny-obrazek.png', self::WIDTH, self::HEIGHT);
+        $this->files->add($file);
+
+        return $file;
+    }
+
+    public function findProjectFile(Project $project): null|FileUpload
+    {
+        return $this->files->listByProjectAndSource($project->id, FileSource::ScanStandIn)[0] ?? null;
     }
 
     /**

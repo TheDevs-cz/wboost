@@ -15,6 +15,7 @@ use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Entity\TemplateGroup;
 use WBoost\Web\Exceptions\TemplateRenderUnavailable;
 use WBoost\Web\Query\GetTemplateGroupMembers;
+use WBoost\Web\Services\AiScan\Template\UnfilledExportGuard;
 use WBoost\Web\Services\ReleaseSessionLock;
 use WBoost\Web\Services\Security\TemplateGroupVoter;
 use WBoost\Web\Services\Template\RecordExportVersion;
@@ -44,6 +45,7 @@ final class TemplateGroupExportController extends AbstractController
         readonly private ReleaseSessionLock $releaseSessionLock,
         readonly private GroupExportArchive $archive,
         readonly private TemplateExportFileNames $fileNames,
+        readonly private UnfilledExportGuard $unfilledGuard,
     ) {
     }
 
@@ -99,6 +101,19 @@ final class TemplateGroupExportController extends AbstractController
             if ($variants === []) {
                 return $this->renderFailed($group, 'Skupina nemá žádný tiskový formát (mm / cm) — export do PDF není k dispozici.', Response::HTTP_BAD_REQUEST);
             }
+        }
+
+        // Scanned members still showing the grey stand-in (summed over the
+        // dimensions this export renders): ask first unless confirmed.
+        $confirmation = $this->unfilledGuard->webConfirmation(
+            $request,
+            $group->project,
+            $this->generateUrl('template_group_fill', ['groupId' => $group->id]),
+            array_map(static fn (TemplateVariant $variant): array => [$variant, $rawImages], $variants),
+        );
+
+        if ($confirmation !== null) {
+            return $confirmation;
         }
 
         /** @var list<array{TemplateVariant, string}> $renders */

@@ -119,4 +119,14 @@ final class ExportRequest
      * `invalid_format`.
      */
     public null|string $format = null;
+
+    /**
+     * Export only. A template made from an AI scan may still show the grey
+     * stand-in picture where a picture was never supplied — a decorative
+     * image nobody replaced in the editor, or a full-page background this
+     * request sends no picture for. Such an export is refused with 400
+     * `unfilled_pictures` (`count`, `variantId`, `editorUrl`) unless this is
+     * `true`, which exports with the grey stand-ins. Previews ignore it.
+     */
+    public bool $allowUnfilled = false;
 }

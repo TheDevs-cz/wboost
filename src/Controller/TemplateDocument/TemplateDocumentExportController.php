@@ -13,6 +13,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\TemplateDocument;
 use WBoost\Web\Exceptions\TemplateRenderUnavailable;
+use WBoost\Web\Services\AiScan\Template\UnfilledExportGuard;
 use WBoost\Web\Services\ReleaseSessionLock;
 use WBoost\Web\Services\Security\TemplateDocumentVoter;
 use WBoost\Web\Services\Template\TemplateExportFileNames;
@@ -49,6 +50,7 @@ final class TemplateDocumentExportController extends AbstractController
         readonly private RecordExportUsage $recordExportUsage,
         readonly private ReleaseSessionLock $releaseSessionLock,
         readonly private RecordDocumentExportVersion $recordExportVersion,
+        readonly private UnfilledExportGuard $unfilledGuard,
     ) {
     }
 
@@ -97,6 +99,25 @@ final class TemplateDocumentExportController extends AbstractController
         set_time_limit(self::TIME_LIMIT);
 
         $keys = DocumentFillKeys::forDocument($document);
+
+        // Scanned pages still showing the grey stand-in (summed over the
+        // pages, each against ITS image values): ask first unless confirmed.
+        $exports = [];
+
+        foreach ($pages as $page) {
+            $exports[] = [$page->variant, $keys->valuesForPage($page, $raw)['images']];
+        }
+
+        $confirmation = $this->unfilledGuard->webConfirmation(
+            $request,
+            $document->project,
+            $this->generateUrl('template_document_fill', ['documentId' => $document->id]),
+            $exports,
+        );
+
+        if ($confirmation !== null) {
+            return $confirmation;
+        }
 
         try {
             $resolved = [];

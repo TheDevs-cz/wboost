@@ -19,6 +19,7 @@ use WBoost\Web\Exceptions\ContainerOverflow;
 use WBoost\Web\Mcp\Fill\VariantFill;
 use WBoost\Web\Mcp\Tool\ExportVariantTool;
 use WBoost\Web\Repository\TemplateVariantRepository;
+use WBoost\Web\Services\AiScan\Template\UnfilledExportGuard;
 use WBoost\Web\Services\Editor\TemplateVariantImageRenderer;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Services\SocialNetwork\ResolveImageOverrides;
@@ -481,6 +482,7 @@ final class ExportVariantTest extends WebTestCase
             $container->get(RecordExportUsage::class),
             $container->get(RecordExportVersion::class),
             $container->get(PrintPdfRenderer::class),
+            $container->get(UnfilledExportGuard::class),
         );
 
         $result = $tool(TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID, [

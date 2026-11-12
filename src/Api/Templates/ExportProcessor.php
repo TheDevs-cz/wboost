@@ -11,6 +11,7 @@ use WBoost\Web\Exceptions\ContainerOverflow;
 use WBoost\Web\Exceptions\InvalidExportValue;
 use WBoost\Web\Exceptions\InvalidRichTextValue;
 use WBoost\Web\Exceptions\TemplateRenderUnavailable;
+use WBoost\Web\Services\AiScan\Template\UnfilledExportGuard;
 use WBoost\Web\Services\Template\ApiExportRenderer;
 use WBoost\Web\Services\Template\ApiRepeatableRows;
 use WBoost\Web\Services\Template\ApiSubjectLoader;
@@ -38,6 +39,7 @@ final readonly class ExportProcessor implements ProcessorInterface
         private RecordExportUsage $recordExportUsage,
         private RecordExportVersion $recordExportVersion,
         private TemplateExportFileNames $fileNames,
+        private UnfilledExportGuard $unfilledGuard,
     ) {
     }
 
@@ -67,6 +69,15 @@ final readonly class ExportProcessor implements ProcessorInterface
             // stores them like the web fill does (values under the rows'
             // slot ids + the counts).
             $applied = ApiRepeatableRows::apply(RepeatableRows::expand($variant), $data->rows, $data->inputs, $data->images, $data->shapeColors);
+
+            // A grey stand-in an AI scan left behind is never exported
+            // silently: refused (structured 400) unless `allowUnfilled`.
+            $refusal = $this->unfilledGuard->apiRefusal($data->allowUnfilled, [[$variant, $applied->images]]);
+
+            if ($refusal !== null) {
+                return $refusal;
+            }
+
             $bytes = $this->apiExportRenderer->renderExport(
                 $format,
                 $variant,

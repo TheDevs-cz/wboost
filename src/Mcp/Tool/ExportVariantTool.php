@@ -17,6 +17,7 @@ use WBoost\Web\Mcp\Fill\VariantFill;
 use WBoost\Web\Mcp\Response\ExportVariantResponse;
 use WBoost\Web\Mcp\Security\McpScope;
 use WBoost\Web\Mcp\Security\McpToolScope;
+use WBoost\Web\Services\AiScan\Template\UnfilledExportGuard;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Services\Print\PrintPdfRenderer;
 use WBoost\Web\Services\Security\TemplateVariantVoter;
@@ -99,6 +100,7 @@ readonly final class ExportVariantTool
         private RecordExportUsage $recordExportUsage,
         private RecordExportVersion $recordExportVersion,
         private PrintPdfRenderer $printPdfRenderer,
+        private UnfilledExportGuard $unfilledGuard,
     ) {
     }
 
@@ -147,6 +149,14 @@ readonly final class ExportVariantTool
      * reports bleedMm 0 and the artwork reaches the edge, tell the user
      * before exporting.
      *
+     * A template made from an AI scan may still show a grey stand-in picture
+     * where a picture was never supplied (a decorative image nobody replaced
+     * in the editor, or a full-page background you pass no picture for in
+     * images). Such an export is REFUSED with a message starting
+     * "unfilled_pictures:" that says how many there are and gives the
+     * editorUrl where the user fills them. Tell the user; pass allowUnfilled
+     * true only when they want the export with the grey stand-ins anyway.
+     *
      * The reply is a JSON summary followed by the PNG (or the PDF as an
      * embedded resource). Nothing about the template is changed — this only draws. A variant id this account cannot
      * see reports exactly the same failure as an id that does not exist.
@@ -158,6 +168,7 @@ readonly final class ExportVariantTool
      * @param string $format "png" (default) or "pdf" — the print PDF, print formats (mm / cm) only.
      * @param array<array-key, mixed> $rows Map of repeatable row container id (describe_variant repeatableRows[].containerId) to a list of row objects keyed by repeatableRows[].members[].id; the list length is the row count. Omit to show every row's default count.
      * @param array<array-key, mixed> $offsets Map of movable element id (describe_variant movableElements[].id) to {"x": px, "y": px} from its designed position. Omit to keep every element where the designer put it.
+     * @param bool $allowUnfilled Export even though the variant still shows grey stand-in pictures left by an AI scan (default false: such an export is refused with "unfilled_pictures:").
      */
     #[McpTool(name: 'export_variant')]
     public function __invoke(
@@ -174,6 +185,7 @@ readonly final class ExportVariantTool
         array $rows = [],
         #[Schema(type: 'object', additionalProperties: true)]
         array $offsets = [],
+        bool $allowUnfilled = false,
     ): CallToolResult {
         $variant = $this->fill->variant($variantId);
         $exportFormat = ExportFormat::tryFrom(strtolower($format));
@@ -202,6 +214,13 @@ readonly final class ExportVariantTool
             $offsets,
         );
         $imageOverrides = $this->fill->images($variant, $applied->images, $applied);
+
+        // A grey stand-in an AI scan left behind is never exported silently.
+        $refusal = $this->unfilledGuard->mcpRefusal($allowUnfilled, [[$variant, $applied->images]]);
+
+        if ($refusal !== null) {
+            throw new ToolCallException($refusal);
+        }
 
         $bytes = $this->render($variant, $overrides, $imageOverrides, $exportFormat);
 

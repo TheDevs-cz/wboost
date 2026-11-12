@@ -22,4 +22,14 @@ final class DocumentExportRequest
 
     /** `pdf` (print, mm/cm only) | `pdf-screen` (default) | `png` (ZIP). */
     public null|string $format = null;
+
+    /**
+     * Export only. A page made from an AI scan may still show the grey
+     * stand-in picture (a decorative image nobody replaced in the editor, or
+     * a full-page background the body supplies no picture for). Such an
+     * export is refused with 400 `unfilled_pictures` (`count` — summed over
+     * the pages —, `variantId` of the first such page, `editorUrl`) unless
+     * this is `true`. The page preview ignores it.
+     */
+    public bool $allowUnfilled = false;
 }

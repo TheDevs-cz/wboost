@@ -22,6 +22,7 @@ use WBoost\Web\Exceptions\FacebookTokenExpired;
 use WBoost\Web\Exceptions\InstagramRateLimited;
 use WBoost\Web\Exceptions\MetaApiError;
 use WBoost\Web\Message\SocialAccount\MarkSocialAccountNeedsReconnect;
+use WBoost\Web\Services\AiScan\Template\UnfilledExportGuard;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Services\Meta\GetFacebookDestinations;
 use WBoost\Web\Services\ReleaseSessionLock;
@@ -70,6 +71,7 @@ final class TemplateVariantPublishController extends AbstractController
         private readonly LoggerInterface $logger,
         private readonly ReleaseSessionLock $releaseSessionLock,
         private readonly ResolveShapeColorOverrides $resolveShapeColorOverrides,
+        private readonly UnfilledExportGuard $unfilledGuard,
     ) {
     }
 
@@ -98,6 +100,22 @@ final class TemplateVariantPublishController extends AbstractController
 
         if (!in_array($platform, ['facebook', 'instagram'], true) || $targetId === '') {
             return new JsonResponse(['error' => 'Neplatný požadavek na publikování.'], Response::HTTP_BAD_REQUEST);
+        }
+
+        // Publishing is an export: a scanned template still showing the grey
+        // stand-in is not posted until the fill page confirmed
+        // (`allowUnfilled=1`). Always JSON here, like every answer of this
+        // endpoint.
+        $confirmation = $this->unfilledGuard->webConfirmation(
+            $request,
+            $variant->template->project,
+            $this->generateUrl('template_variant_export', ['variantId' => $variant->id]),
+            [[$variant, $request->request->all('images')]],
+            json: true,
+        );
+
+        if ($confirmation !== null) {
+            return $confirmation;
         }
 
         // Everything below is slow outbound work (Meta Graph calls + a

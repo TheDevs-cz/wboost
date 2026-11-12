@@ -210,6 +210,38 @@ The MCP half of P5 + M5 — same contract, same codes, one implementation:
 - Tests: `tests/Mcp/Tool/FillRowsAndOffsetsTest.php`; the MCP tools left
   `ElementOffsetsEntryPointsTest::DELEGATES`.
 
+### Unfilled pictures of a scanned template (`allowUnfilled`, 2026-11-12)
+
+Owner decision O11 (`docs/ai-scan/ux.md` §T4): an export that would show the
+grey stand-in an AI scan left behind is never produced silently. The detector
+is `Services/AiScan/Template/UnfilledPictures` (canvas objects whose
+`assetPath` is the project's `FileSource::ScanStandIn` file; a fillable
+background counts only when the export supplies no picture for its input);
+the ONE rule for every export path is `UnfilledExportGuard`, fed a list of
+`[variant, images]` pairs — the image values each render uses, after
+repeatable-row folding (group: per dimension, document: per page; counts are
+summed). Previews never call it.
+
+- **REST** (`ExportProcessor`, `GroupExportProcessor`,
+  `TemplateDocumentRenderProcessor::export()`): the request DTOs carry
+  `allowUnfilled` (bool, default false). Without it → 400
+  `{error, code: "unfilled_pictures", count, variantId, editorUrl}` — a
+  returned `JsonResponse` like every structured 400 (never thrown, so it does
+  not reach Sentry). Checked after the values resolved and before any render:
+  nothing rendered, nothing recorded.
+- **MCP** (`export_variant`, `export_document`): argument `allowUnfilled`;
+  without it a `ToolCallException` whose message starts `unfilled_pictures:`.
+- **Web** (variant download + publish, group ZIP + single dimension,
+  document): asks first — 409 until the form posts `allowUnfilled=1`; JSON
+  `{ok: false, code, count, confirmField: "allowUnfilled", editorUrl}` for
+  `Accept: application/json` / XHR (and always for the publish endpoint),
+  otherwise `export_failed.html.twig` with the Czech reason.
+- Tests: `tests/Api/UnfilledPicturesApiExportTest.php`,
+  `tests/Controller/UnfilledPicturesWebExportTest.php`,
+  `tests/Mcp/Tool/ExportUnfilledPicturesTest.php`,
+  `tests/Services/AiScan/Template/UnfilledPicturesTest.php` (fixtures:
+  `tests/UnfilledPicturesTestData.php`).
+
 ### Print PDF over the API + MCP (2026-10-30)
 
 `ExportRequest` / `GroupExportRequest` carry an optional `format`

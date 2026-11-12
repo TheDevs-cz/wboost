@@ -14,6 +14,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Exceptions\TemplateRenderUnavailable;
+use WBoost\Web\Services\AiScan\Template\UnfilledExportGuard;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Services\ReleaseSessionLock;
 use WBoost\Web\Services\Security\TemplateVariantVoter;
@@ -50,6 +51,7 @@ final class TemplateVariantDownloadController extends AbstractController
         private readonly ResolveShapeColorOverrides $resolveShapeColorOverrides,
         private readonly PrintPdfRenderer $printPdfRenderer,
         private readonly TemplateExportFileNames $fileNames,
+        private readonly UnfilledExportGuard $unfilledGuard,
     ) {
     }
 
@@ -76,6 +78,19 @@ final class TemplateVariantDownloadController extends AbstractController
 
         if ($format === ExportFormat::Pdf && !$variant->dimension->isPrintFormat()) {
             return $this->renderFailed($variant, 'Export do PDF je k dispozici jen pro tiskové formáty (mm / cm).', Response::HTTP_BAD_REQUEST);
+        }
+
+        // A scanned template still showing the grey stand-in: ask first
+        // (nothing rendered, nothing recorded) unless the form confirmed.
+        $confirmation = $this->unfilledGuard->webConfirmation(
+            $request,
+            $variant->template->project,
+            $this->generateUrl('template_variant_export', ['variantId' => $variant->id]),
+            [[$variant, $request->request->all('images')]],
+        );
+
+        if ($confirmation !== null) {
+            return $confirmation;
         }
 
         $rawTextValues = $request->request->all('textValues');

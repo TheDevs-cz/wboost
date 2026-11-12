@@ -15,6 +15,7 @@ use WBoost\Web\Exceptions\ContainerOverflow;
 use WBoost\Web\Exceptions\InvalidExportValue;
 use WBoost\Web\Exceptions\InvalidRichTextValue;
 use WBoost\Web\Exceptions\TemplateRenderUnavailable;
+use WBoost\Web\Services\AiScan\Template\UnfilledExportGuard;
 use WBoost\Web\Services\Template\ApiExportRenderer;
 use WBoost\Web\Services\Template\ApiRepeatableRows;
 use WBoost\Web\Services\Template\ApiSubjectLoader;
@@ -49,6 +50,7 @@ final readonly class TemplateDocumentRenderProcessor implements ProcessorInterfa
         private RecordExportUsage $recordExportUsage,
         private RecordDocumentExportVersion $recordExportVersion,
         private TemplateExportFileNames $fileNames,
+        private UnfilledExportGuard $unfilledGuard,
     ) {
     }
 
@@ -116,6 +118,7 @@ final readonly class TemplateDocumentRenderProcessor implements ProcessorInterfa
         $pageValues = [];
         $pageOffsets = [];
         $pageRowCounts = [];
+        $exports = [];
         foreach ($pages as $page) {
             $values = DocumentApiValues::forPage($document, $page, $data->fields, $this->pageEntry($page, $data->pages));
             $templateId = $page->template->id->toString();
@@ -133,9 +136,18 @@ final readonly class TemplateDocumentRenderProcessor implements ProcessorInterfa
             $pageRowCounts[$templateId] = RepeatableRows::normalizeCounts([$page->variant], $applied->counts);
 
             $resolved[] = [$page, $overrides, $imageOverrides];
+            $exports[] = [$page->variant, $applied->images];
             // The page's moves as rendered (strict, canonical) — stored per
             // page under its variant, like the web document page does.
             $pageOffsets[$page->template->id->toString()] = [$page->variant->id->toString() => $overrides->offsets];
+        }
+
+        // A grey stand-in an AI scan left behind (summed over the pages) is
+        // never exported silently: refused unless `allowUnfilled`.
+        $refusal = $this->unfilledGuard->apiRefusal($data->allowUnfilled, $exports);
+
+        if ($refusal !== null) {
+            return $refusal;
         }
 
         try {
