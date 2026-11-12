@@ -33,7 +33,7 @@ use WBoost\Web\Value\AiScan\AiAccessRequestStatus;
 #[Table(name: 'ai_access_request')]
 #[Index(name: 'idx_ai_access_request_status', columns: ['status', 'created_at'])]
 #[Index(name: 'idx_ai_access_request_user', columns: ['user_id', 'created_at'])]
-#[UniqueConstraint(name: 'uniq_ai_access_request_open', columns: ['user_id', 'project_id'], options: ['where' => "(status = 'open')"])]
+#[UniqueConstraint(name: 'uniq_ai_access_request_open', columns: ['user_id', 'project_id'], options: ['where' => "((status)::text = 'open'::text)"])]
 class AiAccessRequest
 {
     public const int MESSAGE_MAX = 500;
