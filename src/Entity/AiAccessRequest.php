@@ -13,6 +13,7 @@ use Doctrine\ORM\Mapping\Index;
 use Doctrine\ORM\Mapping\JoinColumn;
 use Doctrine\ORM\Mapping\ManyToOne;
 use Doctrine\ORM\Mapping\Table;
+use Doctrine\ORM\Mapping\UniqueConstraint;
 use JetBrains\PhpStorm\Immutable;
 use Ramsey\Uuid\Doctrine\UuidType;
 use Ramsey\Uuid\UuidInterface;
@@ -32,7 +33,7 @@ use WBoost\Web\Value\AiScan\AiAccessRequestStatus;
 #[Table(name: 'ai_access_request')]
 #[Index(name: 'idx_ai_access_request_status', columns: ['status', 'created_at'])]
 #[Index(name: 'idx_ai_access_request_user', columns: ['user_id', 'created_at'])]
-#[Index(name: 'uniq_ai_access_request_open', columns: ['user_id', 'project_id'], options: ['unique' => true, 'where' => "(status = 'open')"])]
+#[UniqueConstraint(name: 'uniq_ai_access_request_open', columns: ['user_id', 'project_id'], options: ['where' => "(status = 'open')"])]
 class AiAccessRequest
 {
     public const int MESSAGE_MAX = 500;
