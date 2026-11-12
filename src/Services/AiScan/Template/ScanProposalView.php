@@ -57,6 +57,29 @@ final readonly class ScanProposalView
             }
         }
 
+        // Names as the scanner gave them: a place that got a picture as
+        // "Součást šablony" is a plain picture in the replayed document and
+        // carries no input any more — its card must not lose its name.
+        $original = [];
+        $originalDocument = is_array($scan->proposal['document'] ?? null) ? $scan->proposal['document'] : [];
+        foreach (ApplyFixes::rows($originalDocument['elements'] ?? null) as $element) {
+            if (is_string($element['id'] ?? null)) {
+                $original[$element['id']] = $element;
+            }
+        }
+        $nameOf = static function (array $element) use ($original, $items): null|string {
+            /** @var array<string, mixed> $element */
+            $id = is_string($element['id'] ?? null) ? $element['id'] : '';
+            $input = is_array($element['input'] ?? null) ? $element['input'] : [];
+            $renamed = is_array($items['name:' . $id] ?? null) && is_string($items['name:' . $id]['name'] ?? null) ? $items['name:' . $id]['name'] : null;
+            $first = is_array($original[$id]['input'] ?? null) && is_string($original[$id]['input']['name'] ?? null) ? $original[$id]['input']['name'] : null;
+
+            return (is_string($input['name'] ?? null) ? $input['name'] : null)
+                ?? (is_string($element['name'] ?? null) ? $element['name'] : null)
+                ?? $renamed
+                ?? $first;
+        };
+
         $doubtful = [];
 
         foreach (ApplyFixes::rows($report['lowConfidenceTexts'] ?? null) as $row) {
@@ -84,7 +107,7 @@ final readonly class ScanProposalView
             $row = [
                 'id' => $id,
                 'type' => $place ? 'place' : $kind,
-                'name' => is_string($input['name'] ?? null) ? $input['name'] : (is_string($element['name'] ?? null) ? $element['name'] : null),
+                'name' => $nameOf($element),
                 'box' => $kind === 'background' ? null : $sourceBox($element),
             ];
 
@@ -171,7 +194,7 @@ final readonly class ScanProposalView
             $placeholders[] = [
                 'id' => $placeId,
                 'number' => $number + 1,
-                'name' => is_string($input['name'] ?? null) ? $input['name'] : null,
+                'name' => $nameOf($element),
                 'role' => $role,
                 'background' => $background,
                 'added' => !isset($roles[$placeId]),
@@ -329,6 +352,27 @@ final readonly class ScanProposalView
             }
         }
 
+        // Places the user removed, merged or turned into a shape: gone from
+        // `placeholders`, so the pictures step could not offer "Vrátit"
+        // after a reload without them.
+        $changes = [];
+        foreach ($items as $key => $item) {
+            if (!str_starts_with($key, 'place:')) {
+                continue;
+            }
+
+            $id = substr($key, 6);
+            $input = is_array($original[$id]['input'] ?? null) ? $original[$id]['input'] : [];
+            $changes[] = [
+                'key' => $key,
+                'id' => $id,
+                'op' => is_string($item['op'] ?? null) ? $item['op'] : null,
+                'shape' => is_string($item['shape'] ?? null) ? $item['shape'] : null,
+                'with' => is_array($item['with'] ?? null) ? array_values(array_filter($item['with'], is_string(...))) : [],
+                'name' => is_string($input['name'] ?? null) ? $input['name'] : (is_string($original[$id]['name'] ?? null) ? $original[$id]['name'] : null),
+            ];
+        }
+
         $source = ApplyFixes::sourceSize($scan->proposal);
 
         return [
@@ -354,6 +398,7 @@ final readonly class ScanProposalView
             'pictures' => ['total' => count($placeholders), 'filled' => $filled, 'unfilled' => $unfilled, 'greyBackground' => $greyBackground],
             'decisions' => $decisions,
             'information' => $information,
+            'changes' => $changes,
             'fonts' => $this->proposal->faces($scan->project->id),
             'rating' => $scan->rating,
         ];

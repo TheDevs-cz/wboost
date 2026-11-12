@@ -301,3 +301,30 @@ as **deprecated aliases** over the very same providers/processors/controllers
 (`deprecationReason` on the API Platform operations; `*_legacy_custom` /
 `*_legacy_social` route names on the thumbnail + upload controllers). mfkfm is
 already ported to the canonical paths.
+
+### "Šablona z obrázku" — AI scan in the template list (2026-11-12)
+
+The fourth card of "Nová šablona" is live (it replaced the "Brzy" teaser);
+everything about the feature is in `ai-scan.md` (§ "UI"). What it adds here:
+
+- `_template_new_dialog.html.twig` includes `ai_scan/_entry_card.html.twig`
+  with `ai_scan_entry(project)` (`AiScanLists::entry()`): `enabled` /
+  `admin_preview` (links to `ai_scan_new`, lines for running / queued / ready
+  scans, "Historie skenů (n)"), `locked` (button "Požádat o přístup" → the
+  request dialog), `request_sent`, `limit_reached`, `service_waiting`
+  (disabled). **Production state** (mode `off`, nobody entitled): every editor
+  sees `locked` — the one visible change; the other three cards are
+  untouched; a viewer without `can_create` has no dialog at all.
+- `templates.html.twig`: the strip "✦ Skeny {n}" above the categories
+  (`ai-scan-strip`, only when the project has a scan that is not finished
+  with — otherwise no element and no request), and a second call to action
+  "Vytvořit z obrázku" in the empty state when the viewer may start a scan.
+- `_template.html.twig`: the pills `Ze skenu` (7 days after accept, links to
+  the scan's read-only page) and `K doplnění: {n}` (unfilled pictures) from
+  `ai_scan_template_marks(project)`.
+- Routes: `ai_scan_new` `/project/{projectId}/sablony/z-obrazku`,
+  `ai_scan_page` `…/z-obrazku/{scanId}`, `ai_scan_history`
+  `/project/{projectId}/sablony/historie-skenu` — all behind
+  `RequiresProjectModule(Templates)`.
+- A template created from a scan is an ordinary uncategorised template with
+  one variant; the scan row keeps `result_template_id` / `result_variant_id`.

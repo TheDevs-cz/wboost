@@ -1,0 +1,12 @@
+{# AI scan signals on a sidebar item (docs/ai-scan/ux.md §7): the peach ring
+   while a scan of the viewer is unfinished, the peach count when a proposal
+   waits unseen or a scan ended badly, and the 8 px dot the icon rail shows
+   instead. Nothing at all without a scan. `ai_scan_shell_controller.js`
+   redraws exactly this markup from its poll. Needs `signal` (ai_scan_shell()). #}
+{% if signal.inProgress > 0 %}<span class="as-ring hide-c" data-ai-scan-signal role="img" aria-label="Sken běží"></span>{% endif %}
+{% if signal.attention > 0 %}
+    {% set n = signal.attention %}
+    {% set text = n ~ ' ' ~ (n == 1 ? 'sken čeká' : (n < 5 ? 'skeny čekají' : 'skenů čeká')) ~ ' na vaši pozornost' %}
+    <span class="count as-pch hide-c" data-ai-scan-signal title="{{ text }}"><span aria-hidden="true">{{ n }}</span><span class="sr">{{ text }}</span></span>
+{% endif %}
+{% if signal.inProgress > 0 or signal.attention > 0 %}<span class="as-ndot" data-ai-scan-signal aria-hidden="true"></span>{% endif %}

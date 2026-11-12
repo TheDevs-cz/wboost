@@ -207,3 +207,53 @@ Jídelníčky (`active_menu_item = 'calendars'`).
   the render pipeline, the API and MCP are deliberately NOT gated — this is
   decluttering, not access control. A new module = enum case + nav/dashboard
   `if` + attribute on its landing controller + backfill decision.
+
+### AI scan signals + the app-wide toast (2026-11-12)
+
+Spec: `docs/ai-scan/ux.md` §7 ("Leaving and coming back"); the feature itself
+is `ai-scan.md`.
+
+- **Twig function `ai_scan_shell(shell_project)`** (`Twig/AiScanShellExtension`)
+  — ONE DBAL query per request (memoised; no entity loads, no reaper) over the
+  viewer's 20 newest scans, the same window as `AiScanLists::mine()`. Returns
+  `{inProgress, attention, any, poll, known}`: the counts are the viewer's
+  template scans in the sidebar's project (`inProgress` = checking / queued /
+  running; `attention` = ready / stopped / failed / refused and not seen),
+  `poll` = the viewer has an unfinished scan anywhere, `known` = scan id →
+  status of those.
+- **Markup** (`_shell/_ai_scan_signal.html.twig`): the "Šablony" item carries
+  `data-ai-scan-nav`; signals are `[data-ai-scan-signal]` — a 16 px peach ring
+  (`.as-ring`, `aria-label` "sken běží"), a peach `.count.as-pch` with a
+  visually hidden sentence in the 1 / 2–4 / 5+ forms, the 8 px dot in rail
+  mode (`.as-ndot`) and, on phones, the same dot on the top bar's menu button,
+  whose accessible name gains "— sken čeká na vaši pozornost". Never a
+  colour-only signal. Ring and count show together when both apply.
+- **`ai_scan_shell_controller.js`** sits on one hidden `<span>` rendered for
+  signed-in users only (visitors get nothing). It polls `GET /ai-scans/mine`
+  every **10 s only when the page was rendered with an unfinished scan of the
+  viewer** (`poll`) or after the window event `ai-scan:changed` (the scan page
+  dispatches it on start / retry / cancel / accept / seen; then one poll at
+  once). It stops when nothing is in progress, rests while the tab is hidden
+  (one poll on return) and stops for good on a non-JSON answer (an expired
+  session). **A user without scans causes no request** — tested in
+  `AiScanShellAndAdminTest`.
+- **Toast on a state change** of a scan it knew as in progress: ready /
+  stopped / failed-refused with the action "Zkontrolovat" / "Zobrazit" (ux.md
+  §7 table; another project's scan gets the `{projekt}: ` prefix), 10 s, with
+  a close button. Skipped for the scan the current page shows
+  (`<html data-as-scan="{id}">`, set by the scan page) — the badge is still
+  updated. The action opens the scan page in a NEW TAB when the page has
+  unsaved changes: `.ed-state--dirty:not(.d-none)`,
+  `.group-variant-dirty:not(.d-none)` or a `.cal-status` that is not `clean`.
+- **`assets/shell/toast.js`** — the app-wide toast: `toast(message, {error,
+  ai, action: {label, href | onClick, newTab}, timeout, key})` into the one
+  `.toasts` stack (`aria-live`; the calendar's own `toast()` uses the same
+  element). `toastAfterNavigation()` stores one toast in `sessionStorage`
+  (`wb-toast`) and the shell controller shows it on the next page
+  (`showPendingToast()`) — how "Šablona … vytvořena ze skenu" reaches the
+  editor.
+- Traps: the scan page's URL is built in the controller as
+  `/project/{p}/sablony/z-obrazku/{s}` (the default of its `page` value), not
+  from the router — keep it in step with `ai_scan_page`. While a page has a
+  sticky action bar (`.as-foot`) the toast stack sits above it
+  (`body:has(.as-foot) .toasts`).

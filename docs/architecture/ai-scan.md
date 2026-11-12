@@ -1,4 +1,4 @@
-# AI sken — the job core (P1) and the review, accept, notifications, access request and MCP (P3, backend)
+# AI sken — the job core (P1), the review, accept, notifications, access request and MCP (P3 backend) and the wizard (P3 UI)
 
 "AI sken" turns a flat picture of a design into an editable template (later:
 a calendar layout). A picture is uploaded, a **scanner** — a separate service
@@ -9,20 +9,25 @@ scanner calls. Design and reasons: `docs/ai-scan/architecture.md` (§4–§7),
 decisions: `docs/ai-scan/decisions.md`, screens: `docs/ai-scan/ux.md`.
 
 **What exists today:** the job core (P1), proven with a fake scanner
-(`app:ai-scan:fake-run`), and the backend of P3 — the review's fixes and
+(`app:ai-scan:fake-run`); the backend of P3 — the review's fixes and
 pictures, accept (creating the template), the export rule for unfilled
 pictures, notifications, the access request, the JSON endpoints and the MCP
 tools `scan_design` and `create_template` (everything from § "Review state"
-on). **What does not:** the wizard's pages, scripts and styles (P3 UI — built
-on the endpoints below); the scanner on the box and the admin tab (P4);
-calendars (P5).
+on); and the **wizard in the browser** (§ "UI"): the page "Šablona z obrázku",
+the card in "Nová šablona", the scan cards above the template list, "Historie
+skenů", the shell's badge and toast, the export dialog and the admin's
+switches. **What does not:** the scanner on the box and the admin tab
+"AI skeny" (P4); calendars (P5).
 
 **The feature is inert unless switched on.** Operating mode defaults to `off`,
 `admin_only` to on, every project's entitlement to off, and the scanner
 endpoints answer 404 while `SCAN_NETWORK_CIDR` / `SCANNER_TOKEN` are unset
-(the default, and production today). The only UI is the admin's switch on the
-edit-project page (and the `ai:scan` checkbox among a user's MCP scopes on the
-admin's user page): P3's backend adds no page, no navigation entry and no card.
+(the default, and production today). In that state the ONE thing a user sees
+is the locked card "Šablona z obrázku" with a live "Požádat o přístup" (an
+editor of a project; a viewer sees nothing): no strip, no badge, no request
+from any page (`AiScanListSurfacesTest`, `AiScanShellAndAdminTest`). An admin
+switches a project on in "Funkce Premium" on the edit-project page (or on the
+user's page) and the mode with `app:ai-scan:status`.
 
 ## Map
 
@@ -48,6 +53,10 @@ admin's user page): P3's backend adds no page, no navigation entry and no card.
 | Access request (P3) | `Entity/AiAccessRequest`, messages `RequestAiAccess` / `ResolveAiAccessRequest`, `Services/AiScan/AiAccessRequests` |
 | Lists (P3) | `Services/AiScan/AiScanLists` — history, strip, entry card, "my scans" + badge |
 | MCP (P3) | `Mcp/Tool/{ScanDesignTool,CreateTemplateTool}`, `McpScope::AiScan` |
+| Wizard page (P3 UI) | `Controller/AiScan/AiScanPageController` (`ai_scan_new`, `ai_scan_page`), `templates/ai_scan/page.html.twig`, `assets/controllers/ai_scan_page_controller.js`, `assets/ai-scan/page/**` |
+| Lists (P3 UI) | `Controller/AiScan/AiScanHistoryController` (`ai_scan_history`), `templates/ai_scan/{history,_entry_card}.html.twig`, `Twig/AiScanExtension`, `assets/controllers/ai_scan_{entry,strip,history}_controller.js`, `assets/ai-scan/lists.js` |
+| Shell, export, admin (P3 UI) | `Twig/{AiScanShellExtension,AiScanExportExtension}`, `templates/_shell/_ai_scan_signal.html.twig`, `assets/controllers/ai_scan_{shell,export_guard,admin}_controller.js`, `assets/ai-scan/export-guard.js`, `assets/shell/toast.js` |
+| Shared browser code | `assets/ai-scan/{kit,copy,file-checks}.js`, `assets/styles/nocturne/ai-scan.css` |
 
 ## The one rule about writing a scan
 
@@ -137,7 +146,18 @@ It runs on every scanner `claim` and `tick`, in the nightly purge — and
   back), closed with an outcome when the run ends — however it ends. A killed
   run therefore has a closed row with the last heartbeat's figures. Cost: the
   price table of `definition.json` when it knows the model, otherwise the
-  engine's own figure.
+  engine's own figure. **Cache writes are priced by lifetime**: the scanner
+  sends the total (`cacheWriteTokens`) and its split (`cacheWrite5mTokens`,
+  `cacheWrite1hTokens`); the 1-hour part is stored in `cache_write_1h_tokens`
+  and charged at `cacheWrite1h` (2 × input), the rest at `cacheWrite`
+  (1.25 ×). A payload with the total only is all 5-minute.
+- **Usage belongs to the run, not to the lease.** A usage row keeps the hash
+  of the lease token that opened it (`ai_usage_event.lease_token_hash`). A
+  `beat`, `finish` or `release` of a run that is no longer the scan's latest
+  claim — replaced after a lost lease, released, retried, or the scan row is
+  gone — is still refused (409 / 410) and changes no state, but its `usage`
+  is recorded on that run's own row (`ScannerApi::recordReplacedRun()`):
+  spend that happened is never dropped, and the ceilings count it.
 - **Circuit breaker**: three scans in a row ending in the same failure class
   set the mode to `paused` (`AiScanRuntimeState::scanEnded()`).
 
@@ -187,6 +207,9 @@ decoded in the web process: normalising is the scanner's intake.
 | `GET /ai-scan/{id}`, `/proposal`, `/image/{which}`; `POST /ai-scan/{id}/cancel`, `/discard`, `/fix`, `/preview`, `/pictures`, `/accept`, `/rating`, `/seen` | USE |
 | `GET /ai-scans/mine` | the caller's own scans |
 | `GET /project/{projectId}/ai-scans`, `/ai-scan/entry` | `AiScanAccess::canSeeProjectScans()` — an admin or a project editor; a read-only member gets 403 |
+| `GET /project/{projectId}/sablony/z-obrazku` (`ai_scan_new`, the wizard's page) | `canSeeProjectScans()` (403), then the entitlement — without it a redirect to the template list |
+| `GET /project/{projectId}/sablony/z-obrazku/{scanId}` (`ai_scan_page`) | USE; 404 for a scan of another project |
+| `GET /project/{projectId}/sablony/historie-skenu` (`ai_scan_history`) | `canSeeProjectScans()` |
 | `POST /project/{projectId}/ai-scan/access-request` | `ProjectVoter::EDIT` (the handler refuses whoever can already start scans there) |
 | `GET /admin/ai-scan/access-requests`, `POST /admin/ai-scan/access-request/{id}/{approve\|dismiss}` | `ROLE_ADMIN` |
 | `POST /project/{projectId}/ai-scan/entitlement` | `ROLE_ADMIN` + session CSRF token `project_ai_scan` |
@@ -247,8 +270,8 @@ tells the scanner what to do with the run:
 | Status | Codes | Meaning |
 |---|---|---|
 | 200 | `ok: true`; or `protocol_too_old`, `renderer_busy`, `renderer_unavailable`, `candidate_limit`, `missing_artifact`, `invalid_request`, `unsupported_kind` | carry on (retry a busy / unavailable renderer inside the outage tolerance) |
-| 409 | `stale_run` (the `run` is not the claim's, or a `finish` that did not apply — with `status`), `lease_lost` (wrong / missing lease token, or the scan left the run) | this run is over: abort |
-| 410 | `gone` | the scan does not exist (project deleted): abort |
+| 409 | `stale_run` (the `run` is not the claim's, or a `finish` that did not apply — with `status`), `lease_lost` (wrong / missing lease token, or the scan left the run) | this run is over: abort. The `usage` of a `beat` / `finish` / `release` is recorded all the same when the lease token is one the app handed out for that run |
+| 410 | `gone` | the scan does not exist (project deleted): abort (usage recorded as above) |
 | 503 | `storage_unavailable` | storage is down: retry inside the tolerance |
 | 404 | — | not the scanner (network / token) |
 
@@ -290,7 +313,9 @@ the original's `contentType` / `bytes`. `source.width` / `height` are what the
 upload's header declared (null for HEIC).
 
 `usage` is **cumulative for this `(scan, run, lane)`**:
-`{provider, model, inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens, engineCostMicroUsd, turns, durationMs}`.
+`{provider, model, inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens, cacheWrite5mTokens?, cacheWrite1hTokens?, engineCostMicroUsd, turns, durationMs}`
+— `cacheWriteTokens` is every cache write; the two optional fields split it by
+lifetime (absent = all 5-minute). Anything else in the object is ignored.
 
 What is stored of what the scanner sends is closed, on purpose — no free text
 of a picture reaches a column the screens read:
@@ -439,7 +464,17 @@ numbers, ids, boxes and the design's own texts — no prose:
   `palette` (with `undo` — the fix type — `undoKey` and `undone`),
   `simplification` (`simplification` = the code, `box`), `pictures_not_taken`,
   `note`;
+- `changes[]` — places the user removed (`op: remove`), merged away
+  (`merge`, with `with[]`) or turned into a shape (`shape`, with `shape`):
+  `key` (the item key `undo` takes), `id`, `name` (the scanner's). They are
+  gone from `placeholders`, so this is what lets the pictures step offer
+  "Vrátit" after a reload (added with the UI);
 - `fonts[]` — the project's face strings for the picker.
+
+A place keeps the name the scanner gave it when it is filled as "Součást
+šablony" (then it is a plain picture in the replayed document and has no
+input): `name` falls back to the element's name, a `rename` fix, the original
+document's input name.
 
 The original's typeface is never named: `sourceLooksLike` stays in the stored
 report and is not part of this document.
@@ -577,6 +612,157 @@ Route names the pages must use (links in e-mails and MCP answers):
 **`ai_scan_page`** (`/project/{projectId}/sablony/z-obrazku/{scanId}`) and
 **`ai_scan_history`**.
 
+## UI (P3) — the wizard in the browser
+
+Specification: `docs/ai-scan/ux.md` (revision 5; behaviour and the exact Czech
+copy) and the mock `docs/ai-scan/ux-mock/` (the visual target; git-ignored).
+Styles: `assets/styles/nocturne/ai-scan.css` (`as-*`; tokens only; `--on-pch`
+in `tokens.css`). One lavender primary per view, peach = AI and "now", mint =
+done, one moving element per view (the sweep), nothing moves under
+`prefers-reduced-motion`.
+
+### The page "Šablona z obrázku"
+
+`AiScanPageController` — two routes, one template, nothing happens on a GET:
+
+| Route | Path | Who |
+|---|---|---|
+| `ai_scan_new` | `/project/{projectId}/sablony/z-obrazku` | `canSeeProjectScans` (403 otherwise) AND entitled — an editor without the entitlement is redirected to the template list, where the card says what to do |
+| `ai_scan_page` | `/project/{projectId}/sablony/z-obrazku/{scanId}` | `AiScanVoter::USE`; the scan must belong to the project and be a template scan (404) |
+
+The template hands the browser one JSON value (`data-ai-scan-page-boot-value`:
+project, the scan's list row or null, the entry facts, URL patterns built
+with the nil uuid) and holds the gallery picker (`Project:ImageGallery` in
+`#aiScanGalleryModal`) **outside** the controller's element and outside any
+form. `ai_scan_page_controller.js` (lazy) starts `ScanApp`
+(`assets/ai-scan/page/app.js`), which owns the state and draws every screen
+as a function of it:
+
+| Screen (`data-view` on `.as-page`) | When | File |
+|---|---|---|
+| `upload` (S1), `chosen` (S2, T2) | no scan | `page/upload.js` + `file-checks.js` |
+| `wait` (S3), `fail` (S5), `gone` | `checking` / `queued` / `running`; `stopped` / `failed` / `refused`; `cancelled` / `discarded` / `expired` | `page/wait.js` |
+| `review` (S4), `readonly` (T4) | `ready`; `accepted` | `page/review.js` |
+| `pictures` (S4b) | `ready`, step "Fotky a loga" (`#obrazky`) | `page/pictures.js` |
+
+**Rendering.** A screen is a string of markup (the mock's structure);
+`morph()` replaces only the `data-region` parts whose markup changed, so a
+poll never rebuilds a picture, and focus (`data-k`), unsent text and the
+panel's scroll survive a re-render. Events are delegated: `data-act` (click),
+`data-chg` (change), `data-enter`, `data-hl` (hover / focus highlights the
+box with the same `data-box`). Everything that did not come from the code
+goes through `esc()`.
+
+**The status / poll contract as consumed.**
+
+- `GET ai_scan_status` every **2 s** while the scan is `checking` / `queued` /
+  `running`, and never otherwise. A failed poll keeps the last state and tries
+  again; 403 / 404 reloads the page.
+- Phase texts come from `status`, `waiting` (no position, no estimate, no
+  "Jste na řadě"), `restarted`, `queuePosition`, `estimatedStartSeconds` /
+  `estimatedFinishSeconds` (always shown as a range of minutes; under one
+  minute "během chvíle"; the browser never counts down).
+- Stages: `stage` + `note` + `noteParams` + `round`. The document carries the
+  CURRENT stage only, so **the duration of a finished stage and the note it
+  ended with are what this browser saw** — kept per scan and try in
+  `sessionStorage` (`wb-as:{scan}:{try}`), so a reload keeps them; a stage that
+  ran while nobody watched is ticked without a duration.
+- The running preview is `GET ai_scan_image/candidate?n={previewSeq}`; the
+  uploaded picture is `working` once the pre-check passed (any browser can
+  show it — also a HEIC), `original` before that and after a stop.
+- The end: `ready` → `GET ai_scan_proposal`, the review opens by itself with
+  the focus on its heading and a toast; other ends → the result card.
+  `POST …/seen` is sent when the requester's browser got a final state.
+  Phase and stage changes are announced in a visually hidden live region
+  (`#asLive`); the ticking time is outside it. The tab title follows the
+  phase.
+- A start, retry, continue, cancel, discard, accept and "seen" dispatch the
+  window event `ai-scan:changed` — the shell reads the badge again.
+
+**Review and pictures.** Every change is one `POST ai_scan_fix`, sent one at a
+time in the order of the clicks; the answer's `proposal` replaces the state
+(nothing about a fix is kept in the browser, so two tabs meet per item).
+`previewStale: true` shows "Náhled se nepodařilo obnovit · Zkusit znovu"
+(`POST …/preview`). Uploads go to `POST ai_scan_pictures` (several files → the
+empty places in order; one file + `place`). Gallery picks listen to the
+gallery's `asset-selected` window event; the multi-pick collects ids in a bar
+under the gallery and sends one `assign_pictures`. Crops, the dimmed original
+inside empty places and the layer outlines are CSS backgrounds / boxes drawn
+from `image/working` and `image/proposal` with the document's `box` values —
+nothing is decoded except for "Změnit na tvar" (the average colour of the
+place) and "Vyplnit" (the crop of an uploaded file).
+
+**Accept** waits for the fix queue, posts `ai_scan_accept`, puts the toast
+`Šablona „…“ vytvořena ze skenu — {n} prvků` into `sessionStorage`
+(`assets/shell/toast.js` → shown by the next page's shell) and opens
+`editorUrl`. `stale_references` reopens the review with the `missing_font` /
+`missing_picture` items.
+
+**Upload checks in the browser** (`file-checks.js`) mirror `AiScanUpload`:
+type by magic bytes, bytes ≤ 10 000 000, the header's pixel size (short side
+≥ 600, side ≤ 8000, ≤ 36 Mpx); plus a sharpness hint (Laplacian on a ≤ 1024 px
+copy) and "small" (< 1000 px) as warnings that never block. A refused file is
+never sent. The request id is created when the file is chosen and reused on a
+network retry.
+
+### Lists, shell, export, admin
+
+- **Card in "Nová šablona"** (`templates/ai_scan/_entry_card.html.twig`,
+  `ai_scan_entry()` = `AiScanLists::entry()`): the states of ux.md T1.
+  `locked` opens the request dialog (a native `<dialog>`; the Bootstrap modal
+  closes first) and posts `ai_scan_access_request`.
+- **Strip above the template list** (`ai_scan_strip_controller.js`): cards
+  drawn from the entry's rows inlined as JSON; it polls
+  `ai_scans_project?view=strip` every 10 s only while a card is in progress
+  and is not rendered at all without a card. More than six cards fold under
+  "Zobrazit dalších {n}".
+- **Template cards**: `ai_scan_template_marks()` → the pills `Ze skenu`
+  (7 days, links to the scan's page) and `K doplnění: {n}`; costs nothing for
+  a project that never accepted a scan.
+- **"Historie skenů"** (`ai_scan_history`,
+  `/project/{projectId}/sablony/historie-skenu`): server-rendered rows, filter
+  chips as links, the row menu from the row's `actions[]`.
+- **Shell** — `docs/architecture/app-shell.md` § "AI scan signals".
+- **Export dialog**: forms whose variants may have unfilled pictures
+  (`ai_scan_unfilled()` > 0 — an upper bound) carry
+  `ai-scan-export-guard`: the same POST is sent with `Accept:
+  application/json` first; a 409 `unfilled_pictures` shows the dialog,
+  "Exportovat přesto" submits the form with `allowUnfilled=1`, and a file that
+  comes back instead is saved from that response (one render). Publish handles
+  the 409 in `variant_publish_controller.js`. A template without a stand-in
+  picture is not touched by any of this.
+- **Admin**: the open access requests of a project are rows in "Funkce
+  Premium" (`ai_scan_admin_controller.js` → `ai_scan_access_request_resolve`);
+  the admin's user page has the switch per owned project (`form=` anchors,
+  `return_user` — a uuid — brings the admin back).
+
+### Deviations from `docs/ai-scan/ux.md` (UI)
+
+- **S3 preview "Tyto texty jsme našli"** (the original with the found lines
+  outlined) is not drawn: the status document carries no boxes during a run.
+  The pane shows the dimmed original with the sweep until the first rendered
+  candidate.
+- **Per-stage durations** are what the browser observed (above).
+- **"Vybrat jiné písmo"** is a native select of the project's face strings,
+  not a list drawn in each typeface.
+- **S2 fonts row**: "Přidat" uploads font files inline; "Přidat písmo Outfit"
+  is left out (nothing in the app installs a bundled font).
+- **"Naskenovat znovu" → "Stejný obrázek…"** puts the stored original back on
+  S2 (the browser fetches it) instead of starting at once — the user sees the
+  format and the credit line; there is no server-side "rescan".
+- **No project-logo pre-fill; "Změnit na tvar" uses the colour the browser
+  measured; an empty "Součást šablony" place renders as a centred grey square;
+  "Vyplnit" is the browser's crop** — a file uploaded into a place (or
+  uploaded in this session) is cropped to the place's ratio; a gallery picture
+  of another ratio is fitted whole and the card says so.
+- A full-page background place shows no dimmed original in the viewer (it
+  would cover the whole proposal) and its card has no `⋯` menu.
+- **History** has no `Šablony` / `Kalendáře` chips and "Nový sken" is a plain
+  link (calendar scans do not exist yet); the read-only page has no "Využití
+  tohoto skenu" link and the admin box no "Využití →" (P4).
+- The read-only page lists a decision as open or settled from the proposal;
+  it does not know what was changed in the editor afterwards.
+
 ## MCP (P3)
 
 `scan_design` (`ScanDesignTool`, scope `ai:scan` — implies nothing, off by
@@ -626,8 +812,20 @@ and greps a whole run's log records.
 
 Local use: `.env.dev` sets a dev token and the local `scan` network
 (`compose.yaml`) plus `127.0.0.1` (the fake run calls in-process). A scanner
-started on the host reaches the app from the Docker gateway — add that address
-to `SCAN_NETWORK_CIDR` in `.env.local`.
+started on the host reaches the app from the Docker gateway — put the whole
+list, with that address added, into **`.env.dev.local`** (git-ignored):
+
+```dotenv
+# .env.dev.local
+SCAN_NETWORK_CIDR=172.31.250.0/24,127.0.0.1/32,::1/128,<the address web sees the host from>
+```
+
+Not `.env.local`: Symfony loads `.env`, `.env.local`, `.env.dev`, then
+`.env.dev.local`, so the value of `.env.dev` overrides `.env.local` and the
+scanner keeps getting 404. The address is the gateway of the compose network
+(`docker network inspect wboost_default`) or, on Docker Desktop, an address of
+`192.168.65.0/24`; a scanner whose `/health` says `app.lastError:
+"not_scanner"` while the token is right is missing from this list.
 
 ```bash
 docker compose exec web bin/console app:ai-scan:status --mode=on
@@ -649,8 +847,24 @@ docker compose exec web bin/console app:ai-scan:status --mode=off
   `tests/Controller/UnfilledPicturesWebExportTest`, `tests/Api/UnfilledPicturesApiExportTest`,
   `tests/Services/AiScan/Template/UnfilledPicturesTest`. `AiScanTesting::ready()`
   makes a `ready` scan with a rich proposal.
+- **Contract fixture** — `tests/Controller/Internal/ScannerContractFixtureTest`
+  replays `scanner/test/contract/scanner-api.v<N>.json` (recorded by the
+  scanner build against the real app) against the real controllers, for every
+  protocol version the app accepts; the scanner's suite replays the same file
+  against its client. Part of the default run, so it is in the Tests workflow.
+  A deliberate contract change: edit § "Scanner API", record the fixture again
+  (`scanner/test/contract/README.md`), commit both.
+- P3 UI: `tests/Controller/AiScan/{AiScanPageTest,AiScanListSurfacesTest,AiScanShellAndAdminTest}`
+  (who gets which page, the rollout state, the shell's markup), and the
+  browser scripts `tests/e2e/ai-scan/` (README there): puppeteer drives a real
+  Chrome through the wizard against the dev stack while
+  `tests/e2e/ai-scan/lib/fake-scanner.cjs` plays the scanner over the real
+  scanner API. Not part of CI.
 - **Fault injection** — real races between forked processes, outside DAMA's
-  transaction; not in the default run:
+  transaction (`tests/FaultInjection/`: `AiScanRaceTest` — claims, cancels,
+  the reaper, starts, a replaced run's usage; `AiScanReviewRaceTest` — accept
+  × 2, accept vs discard, accept vs expiry, fix vs accept, two tabs fixing);
+  not in the default run — a job of its own in the Tests workflow:
 
   ```bash
   docker compose exec web vendor/bin/phpunit --group fault-injection
@@ -678,5 +892,16 @@ docker compose exec web bin/console app:ai-scan:status --mode=off
   needs its row in § "Fixes", in `ScanDesignTool`'s description and a test.
 - The stand-in is recognised by `assetPath`, not `assetId`: the path is what
   the renderer needs, so it cannot go stale when the editor swaps a picture.
+- UI: after a JS / CSS edit the dev cache serves stale asset digests — one
+  404 in the importmap stops EVERY controller (`rm -rf public/assets` +
+  `cache:clear`). The page's controllers are `stimulusFetch: 'lazy'`; only
+  `ai_scan_shell_controller` (and `assets/shell/toast.js`) load on every page.
+- UI: never build a file input on the fly and click it — the pages keep
+  their hidden inputs (`#asFile`, `#asPics`, `#asPlaceFile`, `#asFontFile`,
+  `#asReviewFont`) in the markup, which is also what the e2e scripts fill.
+- UI: `app:ai-scan:fake-run` drives only its OWN scan. To move a scan started
+  in the browser use `node tests/e2e/ai-scan/lib/fake-scanner.cjs
+  --project=<id>` (without `--project` it takes every waiting scan — never
+  beside a real scanner).
 - `resources/ai-scan/definition/` is sent to the scanner verbatim; its numbers
   are mirrored in `AiScanLimits` and `AiScanValuesTest` compares the two.

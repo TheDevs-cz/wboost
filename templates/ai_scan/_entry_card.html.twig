@@ -1,0 +1,66 @@
+{# "Šablona z obrázku" — the fourth card of "Nová šablona" (docs/ai-scan/ux.md
+   T1). `entry` is AiScanLists::entry() (ai_scan_entry(project)); its `state`
+   picks the card:
+
+     enabled / admin_preview  → "Nahrát obrázek" (a stretched link to the scan
+                                page) + a line per scan in progress / waiting
+     locked                   → "Požádat o přístup" — closes this modal and
+                                opens the request dialog (ai-scan-entry
+                                controller; never a modal over a modal)
+     request_sent / limit_reached / service_waiting → inert, with the reason
+
+   Needs `project`. Without an entry (no signed-in editor) nothing renders. #}
+{% if entry %}
+    {% set state = entry.state %}
+    {% set inert = state in ['request_sent', 'limit_reached', 'service_waiting'] %}
+    {% set stage_labels = {check: 'Kontrola obrázku', read: 'Čtení textů', analyse: 'Rozbor grafiky', build: 'Sestavení šablony', refine: 'Porovnání a doladění', finish: 'Dokončení'} %}
+    <div class="tp-type prem as-t1{{ inert ? ' as-inert is-soon' : '' }}"
+         data-ai-scan-state="{{ state }}"
+         {% if state == 'locked' %}
+         data-controller="ai-scan-entry"
+         data-ai-scan-entry-url-value="{{ path('ai_scan_access_request', {'projectId': project.id}) }}"
+         data-ai-scan-entry-project-value="{{ project.name }}"
+         data-ai-scan-entry-modal-value="#templateNewModal"
+         {% endif %}>
+        <span class="tp-type-wf"><svg viewBox="0 0 200 120" aria-hidden="true"><rect class="wf-card" x="16" y="18" width="62" height="80" rx="5"/><rect class="wf-ph" x="21" y="23" width="52" height="70" rx="3"/><circle class="wf-b" cx="35" cy="38" r="5"/><path class="wf-b" d="M24 86l18-20 12 12 8-8 11 16z"/><path class="wf-line" d="M88 58h22"/><path class="wf-arrow" d="M104 52l7 6-7 6"/><path class="wf-spark" d="M99 36l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/><rect class="wf-card" x="122" y="18" width="62" height="80" rx="5"/><rect class="wf-dash" x="128" y="24" width="50" height="34" rx="3"/><rect class="wf-dash" x="128" y="64" width="34" height="9" rx="2"/><rect class="wf-dash" x="128" y="78" width="46" height="12" rx="2"/></svg></span>
+        <span class="tp-type-b">
+            <span class="tp-type-t"><b>Šablona z obrázku</b><span class="tp-prem">{{ icon('sparkle', 's14') }}Premium</span></span>
+            <span class="cap">Nahrajte hotovou grafiku (JPG nebo PNG) a AI z ní poskládá upravitelnou šablonu — texty, tvary, barvy a místa pro obrázky.</span>
+
+            {% if state in ['enabled', 'admin_preview'] %}
+                {% if state == 'admin_preview' %}
+                    <span class="as-t1-line">{{ icon('shield', 's14') }}<span>Projekt AI sken zapnutý nemá — vidíte ho jako administrátor.</span></span>
+                {% endif %}
+                {% for scan in entry.scans|filter(s => s.status in ['checking', 'queued', 'running', 'ready'])|slice(0, 3) %}
+                    <a href="{{ path('ai_scan_page', {'projectId': project.id, 'scanId': scan.id}) }}" class="as-t1-line" data-ai-scan-line="{{ scan.status }}">
+                        {%- if scan.status == 'running' -%}
+                            <span class="as-spin" style="width:12px;height:12px;margin-top:2px"></span><span>Sken běží{% if scan.stage and stage_labels[scan.stage] is defined %} — {{ stage_labels[scan.stage] }}{% endif %}</span>
+                        {%- elseif scan.status == 'checking' -%}
+                            <span class="as-spin" style="width:12px;height:12px;margin-top:2px"></span><span>Kontrola obrázku…</span>
+                        {%- elseif scan.status == 'queued' -%}
+                            {{ icon('clock', 's14') }}<span>Ve frontě{% if scan.waiting is null and scan.queuePosition is not null %} · {{ scan.queuePosition > 0 ? scan.queuePosition ~ ' před vámi' : 'jste na řadě' }}{% endif %}</span>
+                        {%- else -%}
+                            {{ icon('eye', 's14') }}<span>Návrh <span class="as-nm">„{{ scan.name }}“</span> čeká na kontrolu</span>
+                        {%- endif -%}
+                    </a>
+                {% endfor %}
+                {% if entry.historyCount > 0 %}
+                    <a href="{{ path('ai_scan_history', {'projectId': project.id}) }}" class="as-t1-line as-t1-hist">{{ icon('history', 's14') }}<span>Historie skenů ({{ entry.historyCount }})</span></a>
+                {% endif %}
+                <a href="{{ path('ai_scan_new', {'projectId': project.id}) }}" class="btn btn-tertiary sm tp-type-go">{{ icon('upload', 's16') }}Nahrát obrázek<span class="sr"> — Šablona z obrázku</span></a>
+            {% elseif state == 'locked' %}
+                <span class="as-t1-line" data-ai-scan-entry-target="sentLine" hidden>{{ icon('check-circle', 's14') }}<span data-ai-scan-entry-target="sentText"></span></span>
+                <button type="button" class="btn btn-tertiary sm tp-type-go" data-ai-scan-entry-target="button" data-action="ai-scan-entry#request" aria-haspopup="dialog">{{ icon('lock', 's16') }}Požádat o přístup<span class="sr"> — Šablona z obrázku</span></button>
+            {% elseif state == 'request_sent' %}
+                <span class="as-t1-line">{{ icon('check-circle', 's14') }}<span>Odesláno {{ entry.requestSentAt|date('j. n. Y', 'Europe/Prague') }}. Dáme vám vědět.</span></span>
+                <button type="button" class="btn btn-tertiary sm tp-type-go" disabled>{{ icon('check', 's16') }}Žádost odeslána</button>
+            {% elseif state == 'limit_reached' %}
+                <span class="as-t1-line" id="asT1Why">{{ icon('info', 's14') }}<span>Projekt má tento měsíc vyčerpáno {{ entry.credits.limit }} {{ ai_scan_zz(entry.credits.limit) }} {{ entry.credits.limit }} skenů. Další budou od {{ ai_scan_day_month(entry.nextMonth) }}.</span></span>
+                <button type="button" class="btn btn-tertiary sm tp-type-go" disabled aria-describedby="asT1Why">{{ icon('upload', 's16') }}Nahrát obrázek</button>
+            {% else %}
+                <span class="as-t1-line" id="asT1Why">{{ icon('alert', 's14') }}<span>AI sken je dočasně nedostupný. Víme o tom.</span></span>
+                <button type="button" class="btn btn-tertiary sm tp-type-go" disabled aria-describedby="asT1Why">{{ icon('upload', 's16') }}Nahrát obrázek</button>
+            {% endif %}
+        </span>
+    </div>
+{% endif %}

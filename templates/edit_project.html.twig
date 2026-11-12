@@ -90,9 +90,9 @@
                 </div>
 
                 <div class="pd-mods">
-                    <div class="pd-mod{{ project.aiScanEnabled ? ' on' : '' }}" data-feature="ai-scan">
+                    <div class="pd-mod as-mod{{ project.aiScanEnabled ? ' on' : '' }}" data-feature="ai-scan">
                         <span class="pd-ico" aria-hidden="true">{{ icon('sparkle') }}</span>
-                        <span class="who"><b>AI sken</b><span class="cap">Šablona z obrázku a naskenování designu kalendáře. Obrázky zpracovává Anthropic.</span></span>
+                        <span class="who"><b>AI sken <span class="tp-prem">{{ icon('sparkle', 's14') }}Premium</span></b><span class="cap">Šablona z obrázku a naskenování designu kalendáře. Obrázky zpracovává Anthropic.</span></span>
                         <span class="pd-st">{{ project.aiScanEnabled ? 'Zapnuto' : 'Vypnuto' }}</span>
                         <form method="post" action="{{ path('project_ai_scan_set', {'projectId': project.id}) }}" class="pd-mod-f">
                             <input type="hidden" name="_token" value="{{ csrf_token('project_ai_scan') }}">
@@ -101,6 +101,33 @@
                         </form>
                     </div>
                 </div>
+
+                {# Open access requests of this project (ux.md §9.2): `Zapnout`
+                   switches the project on and e-mails every requester,
+                   `Zamítnout` closes the request — JSON endpoint, no form. #}
+                {% if ai_scan_requests is not empty %}
+                    <div class="as-reqs" aria-label="Žádosti o AI sken"
+                         data-controller="ai-scan-admin"
+                         data-ai-scan-admin-project-value="{{ project.name }}">
+                        {% for request in ai_scan_requests %}
+                            <div class="as-req" data-ai-scan-request="{{ request.id }}">
+                                <span class="av req" aria-hidden="true">{{ initials(request.requesterName) }}</span>
+                                <span class="who">
+                                    <b>{{ request.requesterName }} žádá o AI sken{% if request.createdAt %} · {{ request.createdAt|date('j. n. Y', 'Europe/Prague') }}{% endif %}</b>
+                                    <span>{% if request.message %}„{{ request.message }}“{% else %}Bez zprávy{% endif %} · {{ request.requesterEmail }}</span>
+                                </span>
+                                <button type="button" class="btn xs btn-ghost"
+                                        data-action="ai-scan-admin#resolve"
+                                        data-url="{{ path('ai_scan_access_request_resolve', {'id': request.id, 'action': 'dismiss'}) }}"
+                                        data-decision="dismiss">Zamítnout<span class="sr"> žádost: {{ request.requesterName }}</span></button>
+                                <button type="button" class="btn xs btn-tertiary"
+                                        data-action="ai-scan-admin#resolve"
+                                        data-url="{{ path('ai_scan_access_request_resolve', {'id': request.id, 'action': 'approve'}) }}"
+                                        data-decision="approve">Zapnout<span class="sr"> AI sken na žádost: {{ request.requesterName }}</span></button>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
 
                 <form method="post" action="{{ path('project_ai_scan_set', {'projectId': project.id}) }}" class="pai-limit">
                     <input type="hidden" name="_token" value="{{ csrf_token('project_ai_scan') }}">

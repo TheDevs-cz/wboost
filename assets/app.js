@@ -38,6 +38,8 @@ import './styles/nocturne/calendar-content.css';
 import './styles/nocturne/calendar-tools.css';
 import './styles/nocturne/calendar-preview.css';
 import './styles/nocturne/calendar-dialogs.css';
+// AI sken (docs/architecture/ai-scan.md § "UI").
+import './styles/nocturne/ai-scan.css';
 
 import './styles/app.css';
 // Fill pages re-skin app.css's fill-overlay rules, so they load after it.

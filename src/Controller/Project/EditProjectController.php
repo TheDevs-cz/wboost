@@ -18,6 +18,7 @@ use WBoost\Web\FormType\ProjectFormType;
 use WBoost\Web\Message\Project\EditProject;
 use Psr\Clock\ClockInterface;
 use WBoost\Web\Repository\ProjectModuleChangeRepository;
+use WBoost\Web\Services\AiScan\AiAccessRequests;
 use WBoost\Web\Services\AiScan\AiScanCredits;
 use WBoost\Web\Services\Security\ProjectVoter;
 
@@ -27,6 +28,7 @@ final class EditProjectController extends AbstractController
         readonly private MessageBusInterface $bus,
         readonly private ProjectModuleChangeRepository $moduleChangeRepository,
         readonly private AiScanCredits $aiScanCredits,
+        readonly private AiAccessRequests $aiAccessRequests,
         readonly private ClockInterface $clock,
     ) {
     }
@@ -96,6 +98,10 @@ final class EditProjectController extends AbstractController
                     'total' => $this->aiScanCredits->countedTotal($project->id->toString()),
                 ]
                 : null,
+            // Open access requests of the project (ux.md §9.2) — admin only.
+            'ai_scan_requests' => $this->isGranted(User::ROLE_ADMIN)
+                ? $this->aiAccessRequests->open($project->id->toString())
+                : [],
         ]);
     }
 }

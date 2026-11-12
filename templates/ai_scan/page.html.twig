@@ -1,0 +1,70 @@
+{# "Šablona z obrázku" — the AI scan wizard (docs/ai-scan/ux.md §5, S1–S5;
+   docs/architecture/ai-scan.md § "UI"). The page is a shell: every screen is
+   drawn by ai_scan_page_controller.js (assets/ai-scan/page/**) from the JSON
+   handed over here and from the scan's JSON endpoints. The page header is
+   part of those screens (step label, lead on step 1 only), so the shell's
+   own header is dropped.
+
+   The gallery picker (Project:ImageGallery, a Live component with its own
+   forms) sits OUTSIDE the controller's root and outside any <form>; picking
+   dispatches `asset-selected` on window. #}
+{% extends 'base.html.twig' %}
+{% set active_menu_item = 'templates' %}
+
+{% block title %}Šablona z obrázku{% endblock %}
+{% block page_title_row %}{% endblock %}
+
+{% block content %}
+    {% set nil = '00000000-0000-0000-0000-000000000000' %}
+    <div class="as-page"
+         data-controller="ai-scan-page"
+         data-ai-scan-page-boot-value="{{ {
+             project: { id: project.id.toString, name: project.name },
+             scan: scan,
+             entry: entry,
+             admin: is_granted('ROLE_ADMIN'),
+             fontToken: csrf_token('upload_font'),
+             urls: {
+                 templates: path('templates', {projectId: project.id}),
+                 history: path('ai_scan_history', {projectId: project.id}),
+                 fonts: path('fonts_list', {id: project.id}),
+                 fontUpload: path('upload_font', {id: project.id}),
+                 new: path('ai_scan_new', {projectId: project.id}),
+                 page: path('ai_scan_page', {projectId: project.id, scanId: nil}),
+                 entry: path('ai_scan_entry', {projectId: project.id}),
+                 start: path('ai_scan_start', {projectId: project.id}),
+                 status: path('ai_scan_status', {id: nil}),
+                 proposal: path('ai_scan_proposal', {id: nil}),
+                 image: path('ai_scan_image', {id: nil, which: 'original'}),
+                 fix: path('ai_scan_fix', {id: nil, action: 'fix'}),
+                 preview: path('ai_scan_fix', {id: nil, action: 'preview'}),
+                 pictures: path('ai_scan_pictures', {id: nil}),
+                 accept: path('ai_scan_accept', {id: nil}),
+                 action: path('ai_scan_action', {id: nil, action: 'cancel'}),
+                 rating: path('ai_scan_feedback', {id: nil, action: 'rating'}),
+                 seen: path('ai_scan_feedback', {id: nil, action: 'seen'}),
+                 editor: path('template_variant_editor', {variantId: nil}),
+                 contact: 'mailto:info@wboost.cz',
+             },
+         }|json_encode }}">
+        {# First paint before the script connects — the same head the screens draw. #}
+        <div class="as-backrow">
+            <a href="{{ path('templates', {projectId: project.id}) }}" class="back">{{ icon('arrow-left', 's16') }}Šablony</a>
+        </div>
+        <header class="head as-head">
+            <div class="head-main">
+                <span class="lbl">Projekt · {{ project.name }}</span>
+                <h1>Šablona z obrázku <span class="tp-prem">{{ icon('sparkle', 's14') }}Premium</span></h1>
+            </div>
+        </header>
+        <noscript><p class="hint">Tato stránka potřebuje zapnutý JavaScript.</p></noscript>
+    </div>
+
+    <div class="modal fade" id="aiScanGalleryModal" tabindex="-1" aria-hidden="true" aria-label="Galerie projektu">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <twig:Project:ImageGallery :project="project" :currentDirectoryId="gallery_directory_id" />
+            </div>
+        </div>
+    </div>
+{% endblock %}

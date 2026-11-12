@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus";
+import { askUnfilled, UNFILLED, CONFIRM_FIELD } from "../ai-scan/export-guard.js";
 
 /**
  * Direct publish to Facebook / Instagram from the user-fill page.
@@ -32,7 +33,8 @@ export default class extends Controller {
         this.pages = null;
         this.publishing = false;
         this._onKeydown = (event) => {
-            if (event.key === "Escape" && this.modalTarget.classList.contains("is-open")) {
+            // Escape inside a native dialog on top (the unfilled-pictures question) is its own.
+            if (event.key === "Escape" && this.modalTarget.classList.contains("is-open") && !document.querySelector("dialog[open]")) {
                 this.close();
             }
         };
@@ -90,6 +92,11 @@ export default class extends Controller {
         formData.append("platform", this.platform);
         formData.append("targetId", selected.dataset.pageId);
         formData.append("caption", this.captionTarget.value);
+        if (this._allowUnfilled) {
+            formData.append(CONFIRM_FIELD, "1");
+            this._allowUnfilled = false;
+        }
+        let again = false;
 
         this.publishing = true;
         this.submitTarget.disabled = true;
@@ -103,6 +110,14 @@ export default class extends Controller {
             });
             const data = await response.json().catch(() => null);
 
+            // A template with unfilled pictures (AI scan, ux.md T4): publishing
+            // is an export — ask first, then repeat with `allowUnfilled=1`.
+            if (response.status === 409 && data && data.code === UNFILLED && !formData.has(CONFIRM_FIELD)) {
+                this._setStatus("", "");
+                again = await askUnfilled(data);
+                return;
+            }
+
             if (response.ok && data && data.ok) {
                 this._setStatus("Hotovo — příspěvek byl publikován.", "ok");
                 return;
@@ -115,6 +130,11 @@ export default class extends Controller {
         } finally {
             this.publishing = false;
             this.submitTarget.disabled = false;
+        }
+
+        if (again) {
+            this._allowUnfilled = true;
+            await this.submit();
         }
     }
 

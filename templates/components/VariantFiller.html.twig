@@ -84,7 +84,7 @@
         action="{{ this.downloadPath() }}"
         data-turbo="false"
         class="fill-form fill-highlight-on fill-captions-on"
-        data-controller="variant-fill-overlay{% if hasImages %} variant-image-fill{% endif %}{% if echoPayload %} variant-text-echo{% endif %}{% if this.canPublish() and this.facebookConnected %} variant-publish{% endif %}"
+        data-controller="{% if ai_scan_unfilled([this.variant]) > 0 %}ai-scan-export-guard {% endif %}variant-fill-overlay{% if hasImages %} variant-image-fill{% endif %}{% if echoPayload %} variant-text-echo{% endif %}{% if this.canPublish() and this.facebookConnected %} variant-publish{% endif %}"
         data-variant-fill-overlay-fonts-value="{{ fontFaces|map(face => face.family)|json_encode }}"
         data-action="rich-text-editor:changed->variant-fill-overlay#richTextChanged checklist-editor:changed->variant-fill-overlay#richTextChanged variant-image-fill:frame-changed->variant-fill-overlay#imageFrameChanged variant-image-fill:picked->variant-fill-overlay#imagePicked variant-image-fill:view-bounds->variant-fill-overlay#viewBoundsChanged{% if echoPayload and hasImages %} variant-text-echo:mode->variant-image-fill#echoModeChanged{% endif %}"
         {% if echoPayload %}

@@ -13,6 +13,7 @@
    Vars: template; optional `is_top` (the "Nejpoužívanější" row: no grip, no
    menu, no sort id, the exp line shows `uses`) + `uses`. #}
 {% set top = is_top ?? false %}
+{% set ai_marks = ai_marks ?? {fromScan: {}, unfilled: {}} %}
 {% set grouped = template.group is not null %}
 {% set can_edit = is_granted('template_edit', template) %}
 {% set can_group_edit = grouped and can_edit and is_granted('ROLE_DESIGNER') %}
@@ -97,8 +98,14 @@
         <span class="cap tp-exp">{{ icon('history', 's14') }}{{ uses }}× exportováno za 30 dní</span>
     {% endif %}
 
-    {% if labels is not empty or grouped %}
+    {# AI sken marks (ai_scan_template_marks, set by the listing): made from a
+       scan in the last week → the scan page; pictures still on the stand-in. #}
+    {% set from_scan = ai_marks.fromScan[template.id.toString] ?? null %}
+    {% set unfilled = ai_marks.unfilled[template.id.toString] ?? 0 %}
+    {% if labels is not empty or grouped or from_scan or unfilled > 0 %}
         <div class="tp-vars" aria-label="Formáty: {{ labels|join(', ') }}">
+            {% if from_scan %}<a href="{{ path('ai_scan_page', {'projectId': template.project.id, 'scanId': from_scan}) }}" class="pill neutral as-tp-pill" title="Vytvořeno ze skenu — otevřít sken">Ze skenu</a>{% endif %}
+            {% if unfilled > 0 %}<span class="pill pch as-tp-pill" title="Obrázky, které jste při skenu nedoplnili — doplníte je v editoru">K doplnění: {{ unfilled }}</span>{% endif %}
             {% if grouped %}<span class="tp-var tp-var-sync" title="Šablona ve více formátech — formáty se upravují společně ({{ template.group.name }})" role="img" aria-label="Šablona ve více formátech">{{ icon('layers', 's12') }}</span>{% endif %}
             {% for label in labels %}<span class="tp-var">{{ label }}</span>{% endfor %}
         </div>

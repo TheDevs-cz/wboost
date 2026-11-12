@@ -79,21 +79,33 @@
                 </div>
             </section>
 
-            <section class="up-sec" aria-labelledby="upsJ">
+            <section class="up-sec" id="user-projects" aria-labelledby="upsJ">
                 <div class="up-sec-h">
                     <h3 id="upsJ">Projekty</h3>
                     <p>Projekty, ke kterým má přístup. Sdílení se spravuje v nastavení projektu.</p>
+                    {% if owned is not empty %}<p>AI sken se zapíná pro projekt — smí ho pak použít každý, kdo může projekt upravovat.</p>{% endif %}
                     <span class="cap">{{ owned|length }} vlastní · {{ shared|length }} sdílené</span>
                 </div>
                 <div class="up-sec-b">
                     <ul class="share-list boxed" aria-label="Projekty uživatele">
                         {% for project in projects %}
-                            <li class="share-row">
+                            <li class="share-row as-urow">
                                 {{ include('_project_avatar.html.twig', {'logo_path': project.iconPath, 'initials': project.initials, 'class': 'sm', 'alt': ''}, with_context = false) }}
                                 <span class="who">
                                     <a href="{{ path('project_dashboard', {'id': project.projectId}) }}">{{ project.projectName }}</a>
                                     <span>{{ project.isOwner ? 'Vlastní projekt' : 'Vlastník: ' ~ project.ownerName }}</span>
                                 </span>
+                                {% if project.isOwner %}
+                                    {# The project's AI scan switch (ux.md §9.3): its own request through
+                                       the form= anchor — the form itself sits after this page's form. #}
+                                    <span class="as-urow-sw">
+                                        <span class="as-urow-l" aria-hidden="true">{{ icon('sparkle', 's14') }}AI sken</span>
+                                        <button type="submit" form="uaiForm{{ loop.index }}" formnovalidate
+                                                class="sw sm c-success{{ project.aiScanEnabled ? ' on' : '' }}" role="switch"
+                                                aria-checked="{{ project.aiScanEnabled ? 'true' : 'false' }}"
+                                                aria-label="AI sken pro projekt {{ project.projectName }}"></button>
+                                    </span>
+                                {% endif %}
                                 {% if project.isOwner %}<span class="pill pch">Vlastník</span>{% else %}<span class="pill r-user">Čtení</span>{% endif %}
                             </li>
                         {% else %}
@@ -128,6 +140,19 @@
             <button type="submit" class="btn btn-primary sm">Uložit změny</button>
         </div>
     {{ form_end(form) }}
+
+    {# AI scan switches of the owned projects (§9.3) — one form per project,
+       OUTSIDE the user form (never nested); the switch in the row above
+       submits it through its form= attribute. #}
+    {% for project in projects %}
+        {% if project.isOwner %}
+            <form method="post" id="uaiForm{{ loop.index }}" action="{{ path('project_ai_scan_set', {'projectId': project.projectId}) }}" hidden>
+                <input type="hidden" name="_token" value="{{ csrf_token('project_ai_scan') }}">
+                <input type="hidden" name="enabled" value="{{ project.aiScanEnabled ? '0' : '1' }}">
+                <input type="hidden" name="return_user" value="{{ user.id }}">
+            </form>
+        {% endif %}
+    {% endfor %}
 
     {% if not is_me %}
         <twig:ConfirmModal

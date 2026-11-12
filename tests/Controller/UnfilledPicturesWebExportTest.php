@@ -11,12 +11,14 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\Messenger\MessageBusInterface;
 use WBoost\Web\Entity\ExportEvent;
 use WBoost\Web\Entity\TemplateDocument;
+use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Tests\Fakes\FakeMetaGraphApi;
 use WBoost\Web\Tests\Fakes\FakeTemplateVariantImageRenderer;
 use WBoost\Web\Tests\TemplateDocumentTestData;
 use WBoost\Web\Tests\TestingLogin;
+use WBoost\Web\Twig\AiScanExportExtension;
 use WBoost\Web\Tests\UnfilledPicturesTestData;
 use WBoost\Web\Value\DocumentFillKeys;
 
@@ -242,6 +244,37 @@ final class UnfilledPicturesWebExportTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertStringContainsString('"ok":true', (string) $client->getResponse()->getContent());
         self::assertSame(1, $this->exportEvents());
+    }
+
+    /**
+     * The fill pages arm their export form (`ai-scan-export-guard`, the dialog
+     * of ux.md T4) only when `ai_scan_unfilled()` finds something on the
+     * stand-in — every other template submits natively, as it always did.
+     */
+    public function testTheFillPagesArmTheExportGuardOnlyForATemplateWithUnfilledPictures(): void
+    {
+        $client = $this->client();
+        $unfilled = function (): int {
+            $em = self::getContainer()->get(EntityManagerInterface::class);
+            $em->clear();
+
+            return self::getContainer()->get(AiScanExportExtension::class)->unfilled([$em->find(TemplateVariant::class, TestDataFixture::GROUPED_FREEFORM_VARIANT_ID), 'not a variant']);
+        };
+        $page = '/template-group/' . TestDataFixture::TEMPLATE_GROUP_1_ID . '/fill';
+
+        self::assertSame(0, $unfilled());
+        $crawler = $client->request('GET', $page);
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('form[data-controller~="group-fill"]'));
+        self::assertCount(0, $crawler->filter('[data-controller~="ai-scan-export-guard"]'));
+
+        self::addDecorative(TestDataFixture::GROUPED_FREEFORM_VARIANT_ID, 2);
+
+        self::assertSame(2, $unfilled());
+        $crawler = $client->request('GET', $page);
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('form[data-controller~="group-fill"][data-controller~="ai-scan-export-guard"]'));
+        self::assertCount(0, $crawler->filter('form form'));
     }
 
     private function client(): KernelBrowser

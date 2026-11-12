@@ -6,6 +6,12 @@
    instances, so the project-level equivalent is the gate AddTemplateController
    itself enforces: project_edit. Groups + documents stay designer tools. #}
 {% set can_create = is_granted('project_edit', project) %}
+{# AI sken (docs/architecture/ai-scan.md § "UI"): the entry card of "Nová
+   šablona" + the strip of scans, for whoever can add templates here; the
+   marks are the two pills on a card made from a scan. #}
+{% set ai_entry = can_create ? ai_scan_entry(project) : null %}
+{% set ai_marks = ai_scan_template_marks(project) %}
+{% set nil_uuid = '00000000-0000-0000-0000-000000000000' %}
 {% set total = categories|reduce((sum, entry) => sum + entry.items|length, uncategorized|length) %}
 {% set group_count = categories|length + (uncategorized is not empty ? 1 : 0) %}
 
@@ -77,6 +83,28 @@
             </div>
         {% endif %}
 
+        {# T5: this project's scans that are not finished with. Drawn by the
+           ai-scan-strip controller from the inline rows; rendered only when
+           there is a card, so a project without scans gets no markup and no
+           request. #}
+        {% if ai_entry and ai_entry.scans is not empty %}
+            <section class="as-strip" aria-labelledby="asStripH" hidden
+                     data-controller="ai-scan-strip"
+                     data-ai-scan-strip-scans-value="{{ ai_entry.scans|json_encode }}"
+                     data-ai-scan-strip-list-url-value="{{ path('ai_scans_project', {'projectId': project.id, 'view': 'strip', 'kind': 'template'}) }}"
+                     data-ai-scan-strip-page-url-value="{{ path('ai_scan_page', {'projectId': project.id, 'scanId': nil_uuid}) }}"
+                     data-ai-scan-strip-image-url-value="{{ path('ai_scan_image', {'id': nil_uuid, 'which': 'working'}) }}"
+                     data-ai-scan-strip-action-url-value="{{ path('ai_scan_action', {'id': nil_uuid, 'action': 'discard'}) }}">
+                <div class="as-strip-h">
+                    <h2 id="asStripH">{{ icon('sparkle') }}Skeny <span class="pd-n" data-ai-scan-strip-target="count">{{ ai_entry.scans|length }}</span></h2>
+                    <span class="as-sp"></span>
+                    <a href="{{ path('ai_scan_history', {'projectId': project.id}) }}" class="btn xs btn-ghost">{{ icon('history', 's14') }}Historie skenů</a>
+                </div>
+                <ul class="as-scans" data-ai-scan-strip-target="list"></ul>
+                <button type="button" class="btn xs btn-ghost as-strip-more" data-ai-scan-strip-target="more" data-action="ai-scan-strip#showAll" hidden></button>
+            </section>
+        {% endif %}
+
         {% if total == 0 %}
             <div class="empty">
                 <span class="ico-c">{{ icon('template') }}</span>
@@ -84,6 +112,9 @@
                 <p>Šablona je grafika, kterou pak kdokoli z projektu jen vyplní vlastními texty a obrázky a stáhne hotový export.</p>
                 {% if can_create %}
                     <a href="{{ path('add_template', {'id': project.id}) }}" class="btn btn-primary sm">{{ icon('plus', 's16') }}Nová šablona</a>
+                    {% if ai_entry and ai_entry.canStart %}
+                        <a href="{{ path('ai_scan_new', {'projectId': project.id}) }}" class="btn btn-tertiary sm as-empty-cta">Vytvořit z obrázku{{ icon('sparkle', 's16') }}</a>
+                    {% endif %}
                 {% endif %}
             </div>
         {% else %}

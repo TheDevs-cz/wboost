@@ -20,6 +20,8 @@ readonly final class ProjectAccessRow
         public null|string $iconPath,
         public string $ownerName,
         public bool $isOwner,
+        /** The project's AI scan entitlement — the admin's switch on the user page. */
+        public bool $aiScanEnabled = false,
     ) {
     }
 

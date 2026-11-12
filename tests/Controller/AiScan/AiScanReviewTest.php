@@ -26,9 +26,9 @@ use WBoost\Web\Value\FileSource;
  *
  * @phpstan-type Element array{type: string, name: null|string, text: string, input: bool, font: string, size: float|int, colour: string, shape: string, fill: string}
  * @phpstan-type Picture array{fileId: string, uploaded: bool, width: null|int, height: null|int, tooSmall: bool}
- * @phpstan-type Place array{id: string, kind: string, fit: string, kindLocked: bool, added: bool, box: mixed, decidedEmpty: bool, picture: null|Picture}
+ * @phpstan-type Place array{id: string, name: null|string, kind: string, fit: string, kindLocked: bool, added: bool, box: mixed, decidedEmpty: bool, picture: null|Picture}
  * @phpstan-type Decision array{key: string, type: string, decided: bool, pattern: string, face: string, sizeChangePercent: int, texts: list<string>, box: mixed}
- * @phpstan-type Proposal array{readOnly: bool, name: string, revision: int, toDecide: int, counts: array{texts: int, shapes: int, places: int, background: bool}, source: array<string, int>, preview: array{which: string, seq: int, stale: bool}, fonts: list<string>, decisions: list<Decision>, information: list<array<string, mixed>>, placeholders: list<Place>, pictures: array<string, mixed>, elements: list<array<string, mixed>>}
+ * @phpstan-type Proposal array{readOnly: bool, name: string, revision: int, toDecide: int, counts: array{texts: int, shapes: int, places: int, background: bool}, source: array<string, int>, preview: array{which: string, seq: int, stale: bool}, fonts: list<string>, decisions: list<Decision>, information: list<array<string, mixed>>, placeholders: list<Place>, pictures: array<string, mixed>, elements: list<array<string, mixed>>, changes: list<array{key: string, id: string, op: null|string, shape: null|string, with: list<string>, name: null|string}>}
  * @phpstan-type Answer array{ok: bool, code: string, field: string, previewStale: bool, assigned: int, fileIds: list<string>, proposal: Proposal, created: bool, elements: int, unfilledPictures: int, templateId: string, variantId: string, editorUrl: string, scan: array{status: string}, fonts: int, pictures: int, seen: bool}
  */
 final class AiScanReviewTest extends WebTestCase
@@ -189,6 +189,11 @@ final class AiScanReviewTest extends WebTestCase
         $merged = $this->fix(['type' => 'merge_placeholders', 'ids' => ['misto-1', 'foto']]);
         self::assertSame(['bg', 'logo', 'foto'], array_column($merged['proposal']['placeholders'], 'id'), 'the lower place keeps its id');
         self::assertEquals([100, 400, 700, 500], $merged['proposal']['placeholders'][2]['box'], 'one place over their common box');
+        self::assertSame(
+            [['key' => 'place:foto', 'id' => 'foto', 'op' => 'merge', 'shape' => null, 'with' => ['misto-1'], 'name' => 'Fotografie']],
+            $merged['proposal']['changes'],
+            'what the pictures step can undo after a reload',
+        );
         self::assertSame('invalid_fix', $this->fix(['type' => 'merge_placeholders', 'ids' => ['foto']])['code']);
         self::assertSame('invalid_fix', $this->fix(['type' => 'merge_placeholders', 'ids' => ['foto', 'bg']])['code'], 'a background does not merge');
 
@@ -202,6 +207,9 @@ final class AiScanReviewTest extends WebTestCase
 
         $removed = $this->fix(['type' => 'remove_placeholder', 'id' => 'misto-1']);
         self::assertSame(['bg', 'foto'], array_column($removed['proposal']['placeholders'], 'id'));
+
+        self::assertSame(['place:logo' => 'shape', 'place:misto-1' => 'remove'], array_column($removed['proposal']['changes'], 'op', 'key'));
+        self::assertSame('circle', $removed['proposal']['changes'][0]['shape']);
 
         $kind = $this->fix(['type' => 'set_kind', 'id' => 'foto', 'kind' => 'fixed']);
         self::assertSame('fixed', $kind['proposal']['placeholders'][1]['kind']);
@@ -228,6 +236,7 @@ final class AiScanReviewTest extends WebTestCase
         self::assertSame($dropped['fileIds'][0], self::pictureOf($dropped['proposal'], 0)['fileId']);
         self::assertSame($dropped['fileIds'][1], self::pictureOf($dropped['proposal'], 1)['fileId']);
         self::assertNull($places[2]['picture']);
+        self::assertSame('Logo', $places[1]['name'], 'a filled place keeps the name the scanner gave it');
         self::assertTrue(self::pictureOf($dropped['proposal'], 1)['uploaded']);
         self::assertSame([280, 120], [self::pictureOf($dropped['proposal'], 1)['width'], self::pictureOf($dropped['proposal'], 1)['height']]);
         self::assertFalse(self::pictureOf($dropped['proposal'], 1)['tooSmall']);

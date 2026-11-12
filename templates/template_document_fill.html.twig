@@ -85,7 +85,7 @@
 
         <form method="post" action="{{ path('template_document_export', {'documentId': document.id}) }}" data-turbo="false"
               class="fill-form fill-highlight-on fill-captions-on document-fill"
-              data-controller="group-fill variant-fill-overlay document-fill fill-draft"
+              data-controller="{% if ai_scan_unfilled(fill.pages|map(entry => entry.variant)) > 0 %}ai-scan-export-guard {% endif %}group-fill variant-fill-overlay document-fill fill-draft"
               data-fill-draft-url-value="{{ path('template_document_fill_draft', {documentId: document.id}) }}"
               data-group-fill-seed-value="{{ {'pictures': seed.images, 'placements': seed.placements}|json_encode }}"
               data-group-fill-lazy-value="true"

@@ -26,12 +26,12 @@ readonly final class GetProjectAccess
         $sql = <<<SQL
             SELECT * FROM (
                 SELECT p.owner_id AS user_id, p.id AS project_id, p.name, p.icon,
-                       COALESCE(o.name, o.email) AS owner_name, 1 AS is_owner
+                       COALESCE(o.name, o.email) AS owner_name, 1 AS is_owner, p.ai_scan_enabled
                 FROM project p
                 JOIN "user" o ON o.id = p.owner_id
                 UNION ALL
                 SELECT ps.user_id, p.id, p.name, p.icon,
-                       COALESCE(o.name, o.email), 0
+                       COALESCE(o.name, o.email), 0, p.ai_scan_enabled
                 FROM project_share ps
                 JOIN project p ON p.id = ps.project_id
                 JOIN "user" o ON o.id = p.owner_id
@@ -44,7 +44,7 @@ readonly final class GetProjectAccess
             $params['userId'] = $userId;
         }
 
-        /** @var list<array{user_id: string, project_id: string, name: string, icon: null|string, owner_name: string, is_owner: int|string}> $rows */
+        /** @var list<array{user_id: string, project_id: string, name: string, icon: null|string, owner_name: string, is_owner: int|string, ai_scan_enabled: bool|int|string}> $rows */
         $rows = $this->connection->executeQuery($sql, $params)->fetchAllAssociative();
 
         $access = array_map(
@@ -55,6 +55,7 @@ readonly final class GetProjectAccess
                 iconPath: $row['icon'],
                 ownerName: $row['owner_name'],
                 isOwner: (int) $row['is_owner'] === 1,
+                aiScanEnabled: in_array($row['ai_scan_enabled'], [true, 1, '1', 't', 'true'], true),
             ),
             $rows,
         );

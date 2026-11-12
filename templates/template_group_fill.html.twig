@@ -84,7 +84,7 @@
 
         <form method="post" action="{{ export_url }}" data-turbo="false"
               class="fill-form fill-highlight-on fill-captions-on"
-              data-controller="group-fill variant-fill-overlay fill-draft fill-formats"
+              data-controller="{% if ai_scan_unfilled(variants|map(v => v.variant)) > 0 %}ai-scan-export-guard {% endif %}group-fill variant-fill-overlay fill-draft fill-formats"
               data-fill-draft-url-value="{{ path('template_group_fill_draft', {groupId: group.id}) }}"
               {# With the instant echo covering the gap, the settle render can
                  afford to be lazier than the echo-less 900ms. #}

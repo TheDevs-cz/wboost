@@ -3,7 +3,8 @@
    project_edit), synchronized template (add_template_group — designers; plus
    "z existující šablony" → template_group_from_template), multi-page
    document (add_template_document — designers), and the Premium "Šablona
-   z obrázku" teaser (AI import does not exist yet → disabled, "Brzy").
+   z obrázku" card (AI sken — ai_scan/_entry_card.html.twig: enabled, locked →
+   access request, or inert).
    Each card is one stretched link (the CTA's ::after covers the card); the
    secondary link sits above it. Needs `project`. #}
 {% set is_designer = is_granted('ROLE_DESIGNER') %}
@@ -46,14 +47,9 @@
                         </div>
                     {% endif %}
 
-                    <div class="tp-type prem is-soon">
-                        <span class="tp-type-wf"><svg viewBox="0 0 200 120" aria-hidden="true"><rect class="wf-card" x="16" y="18" width="62" height="80" rx="5"/><rect class="wf-ph" x="21" y="23" width="52" height="70" rx="3"/><circle class="wf-b" cx="35" cy="38" r="5"/><path class="wf-b" d="M24 86l18-20 12 12 8-8 11 16z"/><path class="wf-line" d="M88 58h22"/><path class="wf-arrow" d="M104 52l7 6-7 6"/><path class="wf-spark" d="M99 36l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/><rect class="wf-card" x="122" y="18" width="62" height="80" rx="5"/><rect class="wf-dash" x="128" y="24" width="50" height="34" rx="3"/><rect class="wf-dash" x="128" y="64" width="34" height="9" rx="2"/><rect class="wf-dash" x="128" y="78" width="46" height="12" rx="2"/></svg></span>
-                        <span class="tp-type-b">
-                            <span class="tp-type-t"><b>Šablona z obrázku</b><span class="tp-prem">{{ icon('sparkle', 's14') }}Premium</span></span>
-                            <span class="cap">Nahrajte hotovou grafiku (JPG nebo PNG) a systém z ní sám vytvoří upravitelnou šablonu v editoru — texty, obrázky i barvy.</span>
-                            <button type="button" class="btn btn-tertiary sm tp-type-go" disabled>{{ icon('upload', 's16') }}Brzy</button>
-                        </span>
-                    </div>
+                    {# "Šablona z obrázku" (AI sken, docs/ai-scan/ux.md T1): the card's
+                       state comes from ai_scan_entry(); `ai_entry` is set by the page. #}
+                    {{ include('ai_scan/_entry_card.html.twig', { entry: ai_entry ?? ai_scan_entry(project) }) }}
                 </div>
             </div>
         </div>

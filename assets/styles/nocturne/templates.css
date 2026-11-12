@@ -109,7 +109,7 @@
 .tp-type-alt { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; color: var(--lav-ink); font-size: 13px; font-weight: 600; text-decoration: none; }
 .tp-type-alt:hover { text-decoration: underline; text-underline-offset: 3px; }
 .tp-type-t { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.tp-prem { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 10px; border-radius: 999px; background: var(--pch); color: #3A2A20; font-size: 11px; font-weight: 700; letter-spacing: .02em; }
+.tp-prem { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 10px; border-radius: 999px; background: var(--pch); color: var(--on-pch); font-size: 11px; font-weight: 700; letter-spacing: .02em; }
 .tp-prem .i { width: 14px; height: 14px; }
 .tp-type.prem { border-color: color-mix(in oklab, var(--pch) 45%, var(--line-2)); }
 .tp-type.prem:hover { border-color: var(--pch); box-shadow: 0 0 0 1.5px var(--pch); }

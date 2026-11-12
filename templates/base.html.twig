@@ -93,7 +93,9 @@
 
             <main class="main" id="main">
                 <div class="mbar wrap">
-                    <button type="button" class="btn icon ghost" data-action="shell#openDrawer" aria-label="Otevřít menu" aria-controls="sidebar">{{ icon('menu') }}</button>
+                    {# The phone's AI scan dot (ux.md §7): the sidebar is a closed drawer there. #}
+                    {% set scan_signal = ai_scan_shell(shell_project) %}
+                    <button type="button" class="btn icon ghost" data-action="shell#openDrawer" aria-label="Otevřít menu{{ scan_signal.any ? ' — sken čeká na vaši pozornost' : '' }}" aria-controls="sidebar">{{ icon('menu') }}{% if scan_signal.any %}<span class="as-ndot" data-ai-scan-signal aria-hidden="true"></span>{% endif %}</button>
                     <a href="{{ path('dashboard') }}" class="brand" aria-label="Wboost – všechny projekty">{{ include('_shell/_logo.html.twig', {}, with_context = false) }}</a>
                     <div class="mbar-side">{{ block('mobile_primary_action') }}</div>
                 </div>
@@ -120,6 +122,17 @@
             </main>
 
             <div class="scrim" data-shell-target="scrim" data-action="click->shell#closeDrawer" hidden></div>
+
+            {# AI scan signals: polls only when rendered with an unfinished scan of
+               the viewer (or after `ai-scan:changed`) — app-shell.md. #}
+            {% if app.user %}
+                <span hidden
+                      data-controller="ai-scan-shell"
+                      data-ai-scan-shell-url-value="{{ path('ai_scans_mine') }}"
+                      data-ai-scan-shell-poll-value="{{ scan_signal.poll ? 'true' : 'false' }}"
+                      data-ai-scan-shell-known-value="{{ scan_signal.known|keys|json_encode }}"
+                      data-ai-scan-shell-project-id-value="{{ shell_project ? shell_project.id : '' }}"></span>
+            {% endif %}
 
             {% if shell_projects is not empty %}
                 {{ include('_shell/_quick_nav.html.twig') }}

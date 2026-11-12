@@ -13,6 +13,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\Project;
 use WBoost\Web\Entity\User;
+use Ramsey\Uuid\Uuid;
 use WBoost\Web\Message\AiScan\SetProjectAiScan;
 
 /**
@@ -58,6 +59,14 @@ final class SetProjectAiScanController extends AbstractController
             $this->addFlash('success', sprintf('AI sken zapnut pro projekt %s.', $project->name));
         } else {
             $this->addFlash('success', 'AI sken vypnut. Čekající skeny jsme zrušili a nezapočítali.');
+        }
+
+        // The same switch sits on the admin's user page (ux.md §9.3): it names
+        // the user to come back to — an id, never a URL.
+        $returnUser = $request->request->getString('return_user');
+
+        if (Uuid::isValid($returnUser)) {
+            return $this->redirect($this->generateUrl('admin_edit_user', ['id' => $returnUser]) . '#user-projects');
         }
 
         return $this->redirect($this->generateUrl('edit_project', ['id' => $project->id->toString()]) . '#project-ai-scan');

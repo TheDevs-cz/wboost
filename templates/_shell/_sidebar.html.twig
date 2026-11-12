@@ -63,8 +63,10 @@
                 {% endif %}
 
                 {% if nav_project.hasModule(project_module.Templates) %}
-                    <a href="{{ path('templates', {'projectId': nav_project.id}) }}" class="nav-i" title="Šablony" aria-current="{{ project_active == 'templates' ? 'page' : 'false' }}">
+                    {# AI scan signals (ring / count / dot) — _ai_scan_signal.html.twig, redrawn by ai_scan_shell_controller. #}
+                    <a href="{{ path('templates', {'projectId': nav_project.id}) }}" class="nav-i" title="Šablony" data-ai-scan-nav aria-current="{{ project_active == 'templates' ? 'page' : 'false' }}">
                         {{ icon('template') }}<span class="nm hide-c">Šablony</span>
+                        {{- include('_shell/_ai_scan_signal.html.twig', {signal: ai_scan_shell(nav_project)}, with_context = false) -}}
                     </a>
                 {% endif %}
 
