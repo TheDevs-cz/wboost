@@ -1,0 +1,62 @@
+# Changelog — wboost plugin and skill
+
+The skill is a copy on your machine; the MCP tools update on the server with
+every deploy. When the server is newer than your skill, Claude tells you once
+per session how to update (see the README). Versions follow `x.y.z`: a new or
+changed tool or parameter is at least a minor bump.
+
+## 0.3.0 — 2026-11-12
+
+Everything the server learned since 0.2.0 (2026-08-07), now taught by the skill.
+
+**New tools**
+- Desk calendars (Kalendáře), scopes `calendars:read` / `calendars:write`:
+  `list_calendars`, `get_calendar`, `render_calendar_page`, `manage_calendar`
+  (create, configure, finish, client link, import a layout, PDF export
+  `print` / `print_cmyk` / `approval` + `export_status`),
+  `set_calendar_layout`, `upload_calendar_asset`, `update_calendar_content`.
+- Multi-page documents: `export_document` (screen PDF, print PDF, PNG ZIP),
+  `document_history` (list, reload, rename, pin, save a draft),
+  `manage_document` (create, rename, set pages, add / duplicate a page, shared
+  fields, print setup).
+- `upload_font` — TTF / OTF / WOFF; a variable font becomes one face per cut.
+- `set_print_setup` — bleed (0–10 mm) and crop marks of a standalone print variant.
+- `create_template` — a new, empty standalone template with its first variant.
+- `scan_design` (scope `ai:scan`, a paid per-project feature) — a picture of a
+  finished design becomes an editable template proposal, then a template.
+
+**New parameters and behaviour**
+- `export_variant` `format: "pdf"` — the PDF/X-1a CMYK print PDF of an mm / cm variant.
+- `render_variant` / `export_variant`: `shapeColors` (recolourable shapes),
+  `rows` (repeatable rows), `offsets` (elements the designer lets the user move);
+  hiding a whole container with `{"hide": true}`.
+- `export_variant` / `export_document`: `allowUnfilled` — grey stand-in pictures
+  left by an AI scan refuse the export unless the user wants them.
+- `get_context` / `list_calendars`: `skillVersion` — the version check; the
+  answer's `skill` says whether this skill is current and how to update.
+- Design DSL: vector shapes with multi-stop gradients, `userColor`
+  (recolourable shapes), `opacity` on texts and images, `mirror`,
+  `userMove`, repeatable rows (`repeat`), image slots inside containers,
+  `allowedFonts` / `fontChoice` / `allowedColors`, the `background` element
+  (the "Pozadí" layer), dotted / dashed lines.
+
+**Skill**
+- Restructured: a short `SKILL.md` with the rules that make runs succeed, and
+  references for filling, design, documents and print, calendars and every
+  tool's fields; `references/tools.json` is generated from the server.
+- Corrected: the print bleed is 0–10 mm (5 mm by default on a new print
+  document) and crop marks sit 3 mm from the trim; every visible text is a
+  fillable input (lock fixed copy); moving elements is live; calendars export
+  CMYK too.
+- New command `/wboost:calendar`; `/wboost:projects` lists calendars and
+  documents; `/wboost:export` exports print PDFs.
+- `name`/`description`/`license`/`metadata` frontmatter only, so the same
+  folder uploads to claude.ai.
+
+## 0.2.0 — 2026-08-07
+
+OAuth sign-in (no token to paste) and the design tools: `upload_image`,
+`preview_design`, `set_design`, the design DSL and the `acknowledgeLosses`
+overwrite guard, next to the read and export tools `get_context`,
+`find_templates`, `describe_variant`, `list_gallery`, `render_variant`,
+`export_variant`.

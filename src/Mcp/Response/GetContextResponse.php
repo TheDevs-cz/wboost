@@ -24,6 +24,7 @@ readonly final class GetContextResponse
         public ContextUserResponse $user,
         public array $scopes,
         public array $projects,
+        public SkillVersionResponse $skill,
     ) {
     }
 }

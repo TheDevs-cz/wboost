@@ -122,6 +122,12 @@ design DSL), `docs/plans/` (historical plans, not current truth).
   (`src/Mcp/Design/`, `DesignCompiler`, `src/Value/CanvasShape*`), and
   `DesignCompilerTest` parses the JS custom-property list — run the PHP suite
   even for JS-only editor changes.
+- **MCP tool changes ship with a skill release**: a new / changed tool or
+  parameter (`src/Mcp/Tool/`) needs the wboost skill updated
+  (`plugin/wboost/skills/wboost/`), `references/tools.json` regenerated and
+  the plugin version bumped — `SkillManifestTest` and the `skill-release-guard`
+  CI job fail otherwise. Process: `docs/mcp/skill-maintenance.md`
+  (`/skill-release`).
 - **API-shape changes** are documented in `docs/api/consumer-prompt.md` and
   ported to the mfkfm consumer (`~/www/mfkfm/backoffice`) in the same session.
 - The shared fill engine lives under `Services/SocialNetwork/*` and storage

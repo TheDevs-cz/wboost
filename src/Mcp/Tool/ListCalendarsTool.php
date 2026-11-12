@@ -11,6 +11,7 @@ use WBoost\Web\Mcp\Fill\CalendarLoader;
 use WBoost\Web\Mcp\Response\CalendarSummaryResponse;
 use WBoost\Web\Mcp\Response\ListCalendarsResponse;
 use WBoost\Web\Mcp\Security\McpScope;
+use WBoost\Web\Mcp\Skill\SkillRelease;
 use WBoost\Web\Mcp\Security\McpToolScope;
 use WBoost\Web\Query\GetCalendars;
 use WBoost\Web\Value\Calendar\CalendarListRow;
@@ -70,10 +71,16 @@ readonly final class ListCalendarsTool
      * set_calendar_layout designs them, update_calendar_content fills them in,
      * render_calendar_page shows a page. Deleting a calendar is done on the web.
      *
+     * skill reports whether the wboost skill you run is the current release
+     * ("current", "outdated", "unknown" = no skillVersion sent); when it is
+     * not current, tell the user its message once per session, after doing
+     * what they asked.
+     *
      * @param null|string $projectId UUID of one project to narrow the listing to (calendars[].projectId of an earlier call, or get_context projects[].id). Omit to list every reachable project's calendars.
+     * @param null|string $skillVersion The version your wboost skill states (e.g. "0.3.0"). Omit when you have no wboost skill.
      */
     #[McpTool(name: 'list_calendars')]
-    public function __invoke(null|string $projectId = null): ListCalendarsResponse
+    public function __invoke(null|string $projectId = null, null|string $skillVersion = null): ListCalendarsResponse
     {
         $narrowed = $projectId !== null && trim($projectId) !== '';
         $projects = $narrowed ? [$this->loader->project($projectId)] : $this->loader->projects();
@@ -89,6 +96,7 @@ readonly final class ListCalendarsTool
         return new ListCalendarsResponse(
             projectId: $narrowed ? $projects[0]->id->toString() : null,
             calendars: $calendars,
+            skill: SkillRelease::check($skillVersion),
         );
     }
 

@@ -1,0 +1,74 @@
+# Publishes the wboost Claude plugin/skill when its version changes on main.
+#
+# Runs after the Tests workflow succeeded on main (same gate as the app
+# release). When plugin/wboost/.claude-plugin/plugin.json carries a version that
+# has no `wboost-plugin-v<version>` tag yet, it tags the tested commit and
+# creates a GitHub release with the skill folder zipped for claude.ai —
+# `wboost-skill.zip`, whose top level is the `wboost/` folder as claude.ai
+# requires. The stable download URL is
+#   https://github.com/TheDevs-cz/wboost/releases/latest/download/wboost-skill.zip
+# (src/Mcp/Skill/SkillRelease::ZIP_URL hands it to outdated clients).
+#
+# The tag is also what test.yml's `skill-release-guard` compares against: once
+# a version is released, plugin changes without a bump fail CI.
+# Claude Code users get the update from the marketplace (git), not from here.
+# See docs/mcp/skill-maintenance.md.
+
+name: Plugin release
+
+on:
+    workflow_run:
+        workflows: [Tests]
+        types:
+            - completed
+        branches:
+            - main
+    workflow_dispatch:
+
+permissions:
+    contents: write
+
+concurrency:
+    group: plugin-release
+    cancel-in-progress: false
+
+jobs:
+    release:
+        runs-on: ubuntu-latest
+        if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+        steps:
+            - uses: actions/checkout@v6
+              with:
+                  fetch-depth: 0
+                  ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+            - name: Release the skill version if it is new
+              shell: bash
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  git fetch --tags --force --quiet
+                  version=$(jq -r .version plugin/wboost/.claude-plugin/plugin.json)
+                  tag="wboost-plugin-v${version}"
+                  if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
+                    echo "${tag} already released — nothing to do."
+                    exit 0
+                  fi
+
+                  # claude.ai wants the skill folder itself at the top of the zip.
+                  mkdir -p dist
+                  (cd plugin/wboost/skills && zip -qr "../../../dist/wboost-skill.zip" wboost)
+                  unzip -l dist/wboost-skill.zip
+
+                  # This version's CHANGELOG entry = the release notes.
+                  awk -v v="${version}" '
+                    $0 ~ "^## " v "( |$)" {on=1; next}
+                    on && /^## / {exit}
+                    on {print}
+                  ' plugin/wboost/CHANGELOG.md > dist/notes.md
+
+                  gh release create "${tag}" dist/wboost-skill.zip \
+                    --target "$(git rev-parse HEAD)" \
+                    --title "wboost plugin ${version}" \
+                    --notes-file dist/notes.md \
+                    --latest

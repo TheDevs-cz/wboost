@@ -17,6 +17,8 @@ readonly final class ListCalendarsResponse
         /** The project the listing was narrowed to; null = every reachable project. */
         public null|string $projectId,
         public array $calendars,
+        /** Whether the client's wboost skill is current — see SkillVersionResponse. */
+        public SkillVersionResponse $skill,
     ) {
     }
 }

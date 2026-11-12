@@ -1,0 +1,76 @@
+# Weekly: has the product changed since the last released wboost skill?
+#
+# The drift test (tests/Mcp/SkillManifestTest.php) already fails CI when a tool
+# or parameter changes without the skill. This catches the rest — behaviour,
+# limits and workflows that change inside existing tools, and new
+# architecture docs — by listing what touched the MCP surface since the last
+# `wboost-plugin-v*` tag, and opening (or refreshing) ONE issue labelled
+# `skill-release` that asks for the /skill-release routine
+# (.claude/commands/skill-release.md). See docs/mcp/skill-maintenance.md.
+
+name: Skill drift
+
+on:
+    schedule:
+        - cron: '0 6 * * 1'   # Mondays 06:00 UTC
+    workflow_dispatch:
+
+permissions:
+    contents: read
+    issues: write
+
+jobs:
+    detect:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v6
+              with:
+                  fetch-depth: 0
+
+            - name: List product changes since the last skill release
+              shell: bash
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  REPO: ${{ github.repository }}
+              run: |
+                  git fetch --tags --force --quiet
+                  tag=$(git tag -l 'wboost-plugin-v*' --sort=-v:refname | head -n 1)
+                  if [ -z "${tag}" ]; then
+                    echo "No released skill yet — nothing to compare."
+                    exit 0
+                  fi
+
+                  paths=(src/Mcp config/packages/mcp.php docs/architecture docs/mcp docs/api/consumer-prompt.md)
+                  commits=$(git log --no-merges --format='- %h %s' "${tag}..HEAD" -- "${paths[@]}")
+                  if [ -z "${commits}" ]; then
+                    echo "Nothing touched the MCP surface since ${tag}."
+                    exit 0
+                  fi
+
+                  {
+                    echo "The product changed since the last released wboost skill (\`${tag}\`)."
+                    echo "Run the release routine: in Claude Code, \`/skill-release\` (\`.claude/commands/skill-release.md\`; process in \`docs/mcp/skill-maintenance.md\`)."
+                    echo "If nothing here changes what the skill should teach, close this issue."
+                    echo
+                    echo "### Commits touching the MCP surface since ${tag}"
+                    echo "${commits}" | head -n 150
+                    echo
+                    echo "### Files changed"
+                    echo '```'
+                    git diff --stat "${tag}" HEAD -- "${paths[@]}" | tail -n 60
+                    echo '```'
+                    echo
+                    echo "_Updated by .github/workflows/skill-drift.yml on $(date -u +%Y-%m-%d)._"
+                  } > body.md
+
+                  gh label create skill-release --repo "${REPO}" --color 5319e7 \
+                    --description "The wboost Claude skill needs a release" 2>/dev/null || true
+
+                  number=$(gh issue list --repo "${REPO}" --label skill-release --state open --json number --jq '.[0].number // empty')
+                  if [ -n "${number}" ]; then
+                    gh issue edit "${number}" --repo "${REPO}" --body-file body.md
+                    echo "Refreshed issue #${number}."
+                  else
+                    gh issue create --repo "${REPO}" --label skill-release \
+                      --title "wboost skill: product changed since ${tag}" --body-file body.md
+                  fi

@@ -1,5 +1,5 @@
 ---
-description: Find a wboost template, fill it with the given copy, preview it, and export the PNG.
+description: Find a wboost template, fill it with the given copy, preview it, and export the PNG (or the print PDF).
 argument-hint: "<template name or brief, e.g. plakát A4 pro jarní workshop 14. 3.>"
 ---
 
@@ -7,7 +7,9 @@ Produce a finished wboost export from this brief: **$ARGUMENTS**
 
 Follow the wboost skill's loop and do not skip a step:
 
-1. `get_context` — pick the project. If several could match the brief, ask.
+1. `get_context` with `{"skillVersion": "0.3.0"}` — pick the project. If several
+   could match the brief, ask. (If `skill.status` is not `current`, mention the
+   update once at the end, as the wboost skill says.)
 2. `find_templates` with a `query` drawn from the brief. Show the candidates and
    let the user choose if it is not obvious; a template with several variants
    means several dimensions, so confirm which one they want.
@@ -19,7 +21,10 @@ Follow the wboost skill's loop and do not skip a step:
 5. `render_variant`, keyed by `inputs[].id`. Read `warnings[]` and look at the
    picture. Fix overflow and any warning, then render again. Iterate here.
 6. When it is right, `export_variant` **once** with the same map, and tell the
-   user the PNG's size and dimensions.
+   user the file's size and dimensions. For a print variant (mm / cm) that the
+   user wants printed, export `format: "pdf"` — and if they have not said which
+   bleed they want, ask first (suggest 3 mm with crop marks) and store it with
+   `set_print_setup`.
 
 If a container overflows, shorten the copy yourself and re-render rather than
 asking the user to — only escalate if the text cannot be shortened without

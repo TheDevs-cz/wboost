@@ -1,0 +1,759 @@
+{
+    "skillVersion": "0.3.0",
+    "generatedBy": "docker compose exec -e WBOOST_WRITE_SKILL_MANIFEST=1 web vendor/bin/phpunit tests/Mcp/SkillManifestTest.php",
+    "note": "Generated from the MCP tools this build registers. Do not edit by hand — tests/Mcp/SkillManifestTest.php compares it with the server.",
+    "tools": [
+        {
+            "name": "create_template",
+            "scope": "templates:design",
+            "required": [
+                "dimension",
+                "name",
+                "projectId"
+            ],
+            "parameters": {
+                "categoryId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ]
+                },
+                "dimension": {
+                    "type": "object"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "projectId": {
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "name": "describe_variant",
+            "scope": "templates:read",
+            "required": [
+                "variantId"
+            ],
+            "parameters": {
+                "variantId": {
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "name": "document_history",
+            "scope": "templates:export",
+            "required": [
+                "action",
+                "documentId"
+            ],
+            "parameters": {
+                "action": {
+                    "type": "string",
+                    "enum": [
+                        "list",
+                        "get",
+                        "rename",
+                        "pin",
+                        "unpin",
+                        "save_draft"
+                    ]
+                },
+                "documentId": {
+                    "type": "string"
+                },
+                "fields": {
+                    "type": "object"
+                },
+                "name": {
+                    "type": [
+                        "null",
+                        "string"
+                    ]
+                },
+                "pages": {
+                    "type": "object"
+                },
+                "versionId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "export_document",
+            "scope": "templates:export",
+            "required": [
+                "documentId"
+            ],
+            "parameters": {
+                "allowUnfilled": {
+                    "type": "boolean"
+                },
+                "documentId": {
+                    "type": "string"
+                },
+                "fields": {
+                    "type": "object"
+                },
+                "format": {
+                    "type": "string",
+                    "enum": [
+                        "pdf-screen",
+                        "pdf",
+                        "png"
+                    ]
+                },
+                "pages": {
+                    "type": "object"
+                },
+                "versionId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "export_variant",
+            "scope": "templates:export",
+            "required": [
+                "variantId"
+            ],
+            "parameters": {
+                "allowUnfilled": {
+                    "type": "boolean"
+                },
+                "format": {
+                    "type": "string",
+                    "enum": [
+                        "png",
+                        "pdf"
+                    ]
+                },
+                "images": {
+                    "type": "object"
+                },
+                "inputs": {
+                    "type": "object"
+                },
+                "offsets": {
+                    "type": "object"
+                },
+                "rows": {
+                    "type": "object"
+                },
+                "shapeColors": {
+                    "type": "object"
+                },
+                "variantId": {
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "name": "find_templates",
+            "scope": "templates:read",
+            "required": [
+                "projectId"
+            ],
+            "parameters": {
+                "projectId": {
+                    "type": "string"
+                },
+                "query": {
+                    "type": [
+                        "null",
+                        "string"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "get_calendar",
+            "scope": "calendars:read",
+            "required": [
+                "calendarId"
+            ],
+            "parameters": {
+                "calendarId": {
+                    "type": "string"
+                },
+                "historyLimit": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "get_context",
+            "scope": "templates:read",
+            "required": [],
+            "parameters": {
+                "skillVersion": {
+                    "type": [
+                        "null",
+                        "string"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "list_calendars",
+            "scope": "calendars:read",
+            "required": [],
+            "parameters": {
+                "projectId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ]
+                },
+                "skillVersion": {
+                    "type": [
+                        "null",
+                        "string"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "list_gallery",
+            "scope": "templates:read",
+            "required": [
+                "projectId"
+            ],
+            "parameters": {
+                "directoryId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ]
+                },
+                "projectId": {
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "name": "manage_calendar",
+            "scope": "calendars:write",
+            "required": [
+                "action"
+            ],
+            "parameters": {
+                "action": {
+                    "type": "string",
+                    "enum": [
+                        "create",
+                        "configure",
+                        "finish",
+                        "client_link",
+                        "import_layout",
+                        "export_pdf",
+                        "export_status"
+                    ]
+                },
+                "calendarId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ]
+                },
+                "exportId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ]
+                },
+                "features": {
+                    "type": "object"
+                },
+                "fromCalendarId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ]
+                },
+                "linkElements": {
+                    "type": [
+                        "null",
+                        "boolean"
+                    ]
+                },
+                "name": {
+                    "type": [
+                        "null",
+                        "string"
+                    ]
+                },
+                "preset": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "enum": [
+                        "photoLeft",
+                        "photoRight",
+                        "twoSided"
+                    ]
+                },
+                "print": {
+                    "type": "object"
+                },
+                "projectId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ]
+                },
+                "regenerate": {
+                    "type": [
+                        "null",
+                        "boolean"
+                    ]
+                },
+                "type": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "enum": [
+                        "week",
+                        "fortnight"
+                    ]
+                },
+                "variant": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "enum": [
+                        "print",
+                        "print_cmyk",
+                        "approval"
+                    ]
+                },
+                "year": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "manage_document",
+            "scope": "templates:design",
+            "required": [
+                "action"
+            ],
+            "parameters": {
+                "action": {
+                    "type": "string",
+                    "enum": [
+                        "create",
+                        "rename",
+                        "set_pages",
+                        "add_page",
+                        "set_fields",
+                        "duplicate_page",
+                        "set_print"
+                    ]
+                },
+                "bleedMm": {
+                    "type": [
+                        "null",
+                        "number"
+                    ]
+                },
+                "categoryId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ]
+                },
+                "cropMarks": {
+                    "type": [
+                        "null",
+                        "boolean"
+                    ]
+                },
+                "dimension": {
+                    "type": "object"
+                },
+                "documentId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ]
+                },
+                "fields": {
+                    "type": "array"
+                },
+                "name": {
+                    "type": [
+                        "null",
+                        "string"
+                    ]
+                },
+                "pageId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ]
+                },
+                "position": {
+                    "type": [
+                        "null",
+                        "integer"
+                    ]
+                },
+                "projectId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ]
+                },
+                "templateIds": {
+                    "type": "array"
+                }
+            }
+        },
+        {
+            "name": "preview_design",
+            "scope": "templates:design",
+            "required": [
+                "design",
+                "variantId"
+            ],
+            "parameters": {
+                "design": {
+                    "type": "object"
+                },
+                "variantId": {
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "name": "render_calendar_page",
+            "scope": "calendars:read",
+            "required": [
+                "calendarId",
+                "page"
+            ],
+            "parameters": {
+                "bleed": {
+                    "type": "boolean"
+                },
+                "calendarId": {
+                    "type": "string"
+                },
+                "marks": {
+                    "type": "boolean"
+                },
+                "page": {
+                    "type": "string"
+                },
+                "sampleTexts": {
+                    "type": "boolean"
+                }
+            }
+        },
+        {
+            "name": "render_variant",
+            "scope": "templates:read",
+            "required": [
+                "variantId"
+            ],
+            "parameters": {
+                "images": {
+                    "type": "object"
+                },
+                "inputs": {
+                    "type": "object"
+                },
+                "offsets": {
+                    "type": "object"
+                },
+                "rows": {
+                    "type": "object"
+                },
+                "shapeColors": {
+                    "type": "object"
+                },
+                "variantId": {
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "name": "scan_design",
+            "scope": "ai:scan",
+            "required": [
+                "action"
+            ],
+            "parameters": {
+                "action": {
+                    "type": "string",
+                    "enum": [
+                        "start",
+                        "status",
+                        "result",
+                        "apply",
+                        "list",
+                        "cancel",
+                        "retry",
+                        "continue",
+                        "restore"
+                    ]
+                },
+                "confirm": {
+                    "type": "boolean"
+                },
+                "fixes": {
+                    "type": "array"
+                },
+                "format": {
+                    "type": "object"
+                },
+                "image": {
+                    "type": "boolean"
+                },
+                "imageBase64": {
+                    "type": [
+                        "null",
+                        "string"
+                    ]
+                },
+                "imageId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ]
+                },
+                "kind": {
+                    "type": [
+                        "null",
+                        "string"
+                    ]
+                },
+                "name": {
+                    "type": [
+                        "null",
+                        "string"
+                    ]
+                },
+                "placeholders": {
+                    "type": "array"
+                },
+                "projectId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ]
+                },
+                "requestId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ]
+                },
+                "scanId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ]
+                },
+                "status": {
+                    "type": [
+                        "null",
+                        "string"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "set_calendar_layout",
+            "scope": "calendars:write",
+            "required": [
+                "calendarId"
+            ],
+            "parameters": {
+                "boxes": {
+                    "type": "object"
+                },
+                "calendarId": {
+                    "type": "string"
+                },
+                "order": {
+                    "type": "array"
+                },
+                "preset": {
+                    "type": [
+                        "null",
+                        "string"
+                    ],
+                    "enum": [
+                        "photoLeft",
+                        "photoRight",
+                        "twoSided"
+                    ]
+                },
+                "reset": {
+                    "type": [
+                        "null",
+                        "boolean"
+                    ]
+                },
+                "styles": {
+                    "type": "object"
+                }
+            }
+        },
+        {
+            "name": "set_design",
+            "scope": "templates:design",
+            "required": [
+                "design",
+                "variantId"
+            ],
+            "parameters": {
+                "acknowledgeLosses": {
+                    "type": "boolean"
+                },
+                "design": {
+                    "type": "object"
+                },
+                "variantId": {
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "name": "set_print_setup",
+            "scope": "templates:design",
+            "required": [
+                "variantId"
+            ],
+            "parameters": {
+                "bleedMm": {
+                    "type": [
+                        "null",
+                        "number"
+                    ]
+                },
+                "cropMarks": {
+                    "type": [
+                        "null",
+                        "boolean"
+                    ]
+                },
+                "variantId": {
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "name": "update_calendar_content",
+            "scope": "calendars:write",
+            "required": [
+                "calendarId",
+                "operations"
+            ],
+            "parameters": {
+                "calendarId": {
+                    "type": "string"
+                },
+                "operations": {
+                    "type": "array"
+                }
+            }
+        },
+        {
+            "name": "upload_calendar_asset",
+            "scope": "calendars:write",
+            "required": [
+                "calendarId",
+                "fileBase64",
+                "filename",
+                "kind"
+            ],
+            "parameters": {
+                "calendarId": {
+                    "type": "string"
+                },
+                "fileBase64": {
+                    "type": "string"
+                },
+                "filename": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string",
+                    "enum": [
+                        "photo",
+                        "logo",
+                        "icon",
+                        "qr",
+                        "image",
+                        "page"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "upload_font",
+            "scope": "templates:design",
+            "required": [
+                "filename",
+                "fontBase64",
+                "projectId"
+            ],
+            "parameters": {
+                "filename": {
+                    "type": "string"
+                },
+                "fontBase64": {
+                    "type": "string"
+                },
+                "projectId": {
+                    "type": "string"
+                }
+            }
+        },
+        {
+            "name": "upload_image",
+            "scope": "gallery:write",
+            "required": [
+                "filename",
+                "imageBase64",
+                "projectId"
+            ],
+            "parameters": {
+                "directoryId": {
+                    "type": [
+                        "null",
+                        "string"
+                    ]
+                },
+                "filename": {
+                    "type": "string"
+                },
+                "imageBase64": {
+                    "type": "string"
+                },
+                "projectId": {
+                    "type": "string"
+                }
+            }
+        }
+    ]
+}

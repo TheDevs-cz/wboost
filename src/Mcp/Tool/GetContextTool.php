@@ -18,6 +18,7 @@ use WBoost\Web\Mcp\Response\ContextProjectResponse;
 use WBoost\Web\Mcp\Response\ContextUserResponse;
 use WBoost\Web\Mcp\Response\GetContextResponse;
 use WBoost\Web\Mcp\Security\McpScope;
+use WBoost\Web\Mcp\Skill\SkillRelease;
 use WBoost\Web\Mcp\Security\McpScopeChecker;
 use WBoost\Web\Mcp\Security\McpToolScope;
 use WBoost\Web\Query\GetFonts;
@@ -104,12 +105,18 @@ readonly final class GetContextTool
      * (unit, unitWidth, unitHeight) and the canvas pixels (width, height) that
      * every coordinate elsewhere is expressed in.
      *
-     * Takes no arguments and changes nothing. Call it once at the start of a
-     * session, and again only if the user says they have just added a font,
-     * colour or project.
+     * Changes nothing. Call it once at the start of a session, and again only
+     * if the user says they have just added a font, colour or project.
+     *
+     * skill reports whether the wboost skill you run is the current release:
+     * status "current", "outdated" or "unknown" (no skillVersion sent); when
+     * it is not current, tell the user its message once per session, after
+     * doing what they asked — never instead of it.
+     *
+     * @param null|string $skillVersion The version your wboost skill states (e.g. "0.3.0"). Omit when you have no wboost skill.
      */
     #[McpTool(name: 'get_context')]
-    public function __invoke(): GetContextResponse
+    public function __invoke(null|string $skillVersion = null): GetContextResponse
     {
         $user = $this->security->getUser();
 
@@ -145,6 +152,7 @@ readonly final class GetContextTool
                 $this->scopeChecker->grantedScopes(),
             ),
             projects: $projects,
+            skill: SkillRelease::check($skillVersion),
         );
     }
 

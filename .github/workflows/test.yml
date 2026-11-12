@@ -52,6 +52,37 @@ jobs:
       -   run: vendor/bin/phpunit
 
 
+  # A released skill is immutable: once `wboost-plugin-v<version>` is tagged
+  # (plugin-release.yml), any change under plugin/wboost or the marketplace
+  # manifest needs a version bump — otherwise users with that version would
+  # never receive it (Claude Code keys plugin updates on the version string).
+  # The MCP tool ↔ skill comparison itself is tests/Mcp/SkillManifestTest.php.
+  # See docs/mcp/skill-maintenance.md.
+  skill-release-guard:
+      runs-on: ubuntu-latest
+      steps:
+        -   uses: actions/checkout@v6
+            with:
+                fetch-depth: 0
+        -   name: Plugin changed after its version was released?
+            shell: bash
+            run: |
+                git fetch --tags --force --quiet
+                version=$(jq -r .version plugin/wboost/.claude-plugin/plugin.json)
+                tag="wboost-plugin-v${version}"
+                if ! git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
+                  echo "Skill ${version} is not released yet (no tag ${tag}) — nothing to guard."
+                  exit 0
+                fi
+                if git diff --quiet "${tag}" HEAD -- plugin/wboost .claude-plugin; then
+                  echo "plugin/wboost is identical to the released ${tag}."
+                  exit 0
+                fi
+                echo "::error::The wboost plugin changed after ${version} was released (tag ${tag}), but its version did not. Users who have ${version} would never get this change. Bump the version (plugin.json, marketplace.json, SkillRelease::VERSION, SKILL.md metadata + skillVersion line, a new CHANGELOG entry), regenerate references/tools.json — see docs/mcp/skill-maintenance.md."
+                git diff --stat "${tag}" HEAD -- plugin/wboost .claude-plugin
+                exit 1
+
+
   phpstan:
       runs-on: ubuntu-latest
       container: ghcr.io/thedevs-cz/php:8.5-wboost

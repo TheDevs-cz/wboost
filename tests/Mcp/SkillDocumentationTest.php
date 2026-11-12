@@ -72,6 +72,9 @@ final class SkillDocumentationTest extends KernelTestCase
 
     private const string REFERENCE = __DIR__ . '/../../plugin/wboost/skills/wboost/references/tools.md';
 
+    /** The design reference: the DSL key tables and the worked design document. */
+    private const string DESIGN = __DIR__ . '/../../plugin/wboost/skills/wboost/references/design.md';
+
     /**
      * Where the test-only probe tools live. Their names are READ from there
      * rather than copied, exactly as `McpGuideControllerTest` does it, so
@@ -215,12 +218,12 @@ final class SkillDocumentationTest extends KernelTestCase
 
         self::assertSame($kinds, $documented, sprintf(
             'The DSL element kinds documented in %s do not match ElementKind.',
-            self::REFERENCE,
+            self::DESIGN,
         ));
 
         self::assertSame($kinds, self::enumeratedValues('`kind`'), sprintf(
             'The "kind" row of the enumerated-values table in %s does not match ElementKind.',
-            self::REFERENCE,
+            self::DESIGN,
         ));
     }
 
@@ -237,7 +240,7 @@ final class SkillDocumentationTest extends KernelTestCase
         foreach (self::GRAMMAR_BLOCKS as $label => $keys) {
             self::assertArrayHasKey($label, $rows, sprintf(
                 'The "Keys per block" table in %s has no row labelled %s.',
-                self::REFERENCE,
+                self::DESIGN,
                 $label,
             ));
 
@@ -250,7 +253,7 @@ final class SkillDocumentationTest extends KernelTestCase
             self::assertSame($expected, $documented, sprintf(
                 'The documented keys for %s do not match the parser. Update the row in %s.',
                 $label,
-                self::REFERENCE,
+                self::DESIGN,
             ));
         }
     }
@@ -275,7 +278,7 @@ final class SkillDocumentationTest extends KernelTestCase
             self::assertContains($constants[$name], self::GRAMMAR_BLOCKS, sprintf(
                 'DslParser::%s is a grammar key set with no row in %s (and none in this test\'s GRAMMAR_BLOCKS map).',
                 $name,
-                self::REFERENCE,
+                self::DESIGN,
             ));
         }
     }
@@ -290,7 +293,7 @@ final class SkillDocumentationTest extends KernelTestCase
 
         self::assertSame($areas, self::enumeratedValues('`at.area`'), sprintf(
             'The "at.area" row in %s does not match PlacementArea.',
-            self::REFERENCE,
+            self::DESIGN,
         ));
 
         $aligns = TextAlign::values();
@@ -298,12 +301,12 @@ final class SkillDocumentationTest extends KernelTestCase
 
         self::assertSame($aligns, self::enumeratedValues('`align`'), sprintf(
             'The "align" row in %s does not match TextAlign.',
-            self::REFERENCE,
+            self::DESIGN,
         ));
     }
 
     /**
-     * The worked example in `SKILL.md` is run through the real parser.
+     * The worked example in `references/design.md` is run through the real parser.
      *
      * An agent copies this document as its starting shape, so "it looks right"
      * is not good enough — a grammar change that invalidates it has to fail the
@@ -313,12 +316,12 @@ final class SkillDocumentationTest extends KernelTestCase
      */
     public function testTheSkillsExampleDesignDocumentParses(): void
     {
-        $fences = self::jsonFences(self::read(self::SKILL));
+        $fences = self::jsonFences(self::read(self::DESIGN));
 
         self::assertCount(1, $fences, sprintf(
             'Expected exactly one ```json fence in %s (the worked design document). '
             . 'Fill-value fragments must stay ```jsonc so they are not parsed as documents.',
-            self::SKILL,
+            self::DESIGN,
         ));
 
         try {
@@ -331,7 +334,7 @@ final class SkillDocumentationTest extends KernelTestCase
 
             self::fail(sprintf(
                 "The worked design document in %s no longer parses:\n  - %s",
-                self::SKILL,
+                self::DESIGN,
                 implode("\n  - ", $problems),
             ));
         }
@@ -352,7 +355,7 @@ final class SkillDocumentationTest extends KernelTestCase
 
         self::assertSame($all, $kinds, sprintf(
             'The worked design document in %s no longer exercises every element kind.',
-            self::SKILL,
+            self::DESIGN,
         ));
     }
 
@@ -370,7 +373,7 @@ final class SkillDocumentationTest extends KernelTestCase
     {
         $rows = [];
 
-        foreach (self::tableRows(self::read(self::REFERENCE)) as $row) {
+        foreach (self::tableRows(self::read(self::DESIGN)) as $row) {
             if (count($row) < 2) {
                 continue;
             }
@@ -399,7 +402,7 @@ final class SkillDocumentationTest extends KernelTestCase
         self::assertArrayHasKey($label, $rows, sprintf(
             'No row labelled %s in %s.',
             $label,
-            self::REFERENCE,
+            self::DESIGN,
         ));
 
         $values = $rows[$label];

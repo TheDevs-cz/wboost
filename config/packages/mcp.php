@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Symfony\Component\DependencyInjection\Loader\Configurator;
 
 use Symfony\Component\Cache\Psr16Cache;
+use WBoost\Web\Mcp\Skill\SkillRelease;
 use WBoost\Web\Mcp\Transport\BufferedMcpController;
 use WBoost\Web\Mcp\Transport\BufferStreamedResponse;
 
@@ -60,7 +61,13 @@ return App::config([
         // DSL that did not exist yet; a client cannot discover that the
         // instructions are aspirational, it just tries and fails. Whatever this
         // says must be checkable against src/Mcp/Tool/.
-        'instructions' => <<<'INSTRUCTIONS'
+        //
+        // Claude Code shows only the first 4096 characters
+        // (SkillManifestTest enforces the cap). The skill-version line goes
+        // FIRST so a cut can never drop it, and comes from the one place the
+        // released skill version lives (SkillRelease) — a client with no skill,
+        // or one too old to report its version, still learns what is current.
+        'instructions' => SkillRelease::instructions() . "\n" . <<<'INSTRUCTIONS'
             wboost is a brand-manual platform: a project holds brand manuals (colours,
             fonts, logos) and templates — designed canvases whose text and image slots are
             filled in and rendered to images.

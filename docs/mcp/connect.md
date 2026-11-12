@@ -47,12 +47,13 @@ claude mcp login wboost
 
 What you get:
 
-- the MCP server `wboost` with its nine tools;
+- the MCP server `wboost` with its tools ([list below](#what-the-tools-can-and-cannot-do));
 - the **wboost skill**, which teaches the assistant to use them well — it fires
-  automatically when a conversation is about wboost templates, or on
-  `/wboost:wboost`;
+  automatically when a conversation is about wboost templates, documents or
+  desk calendars, or on `/wboost:wboost`;
 - `/wboost:projects` — what does this account hold;
-- `/wboost:export` — brief → template → fill → preview → PNG.
+- `/wboost:export` — brief → template → fill → preview → PNG / print PDF;
+- `/wboost:calendar` — brief → desk calendar created / designed / filled → page renders.
 
 The marketplace lives in this same repository (`.claude-plugin/marketplace.json`
 at the root, pointing at `plugin/wboost/`), which is public, so the command above
@@ -66,12 +67,36 @@ claude plugin marketplace add TheDevs-cz/wboost --sparse .claude-plugin plugin
 
 ### Updating
 
+The MCP tools update with every wboost deploy; the plugin (skill + commands) is
+a copy on your machine and updates only when you pull it. Claude Code does
+**not** auto-update third-party marketplaces by default, and it keys an update
+on the plugin's `version` — so a new skill reaches you as a new version:
+
 ```bash
-claude plugin marketplace update wboost
-claude plugin update wboost
+claude plugin marketplace update wboost && claude plugin update wboost@wboost
 ```
 
-Restart the session to apply.
+then restart Claude Code (inside a running session: `/plugin marketplace update
+wboost`, update wboost under `/plugin` → Installed, then `/reload-plugins`).
+
+**Let it update itself:** `/plugin` → Marketplaces → wboost → *Enable
+auto-update*. Claude Code then refreshes the marketplace at startup and tells
+you to `/reload-plugins` when a new version arrived. (An organization can set
+`"autoUpdate": true` for the marketplace under `extraKnownMarketplaces` in its
+managed settings.)
+
+**You are told when you are behind.** The skill sends its version
+(`skillVersion`) on its first call; `get_context` / `list_calendars` answer
+with a `skill` object, and when your copy is older Claude mentions — once per
+session, after doing what you asked — what is new and the commands above. A
+client with no skill at all is told how to get it.
+
+**claude.ai / Claude Desktop (uploaded skill):** an uploaded skill never
+updates itself. Download the latest
+<https://github.com/TheDevs-cz/wboost/releases/latest/download/wboost-skill.zip>,
+delete the old *wboost* skill under Settings → Capabilities → Skills and upload
+the new zip. What changed: [`plugin/wboost/CHANGELOG.md`](../../plugin/wboost/CHANGELOG.md).
+How releases are made: [`skill-maintenance.md`](skill-maintenance.md).
 
 ### Why the plugin does not ask for a token
 
@@ -258,7 +283,9 @@ and Claude's custom connector does not retry. It is now registered as a public
 client (`none`, PKCE) instead. In the *Add custom connector* dialog leave the
 OAuth fields empty, or choose **Register automatically** — not "Use Claude's
 published identity", which wboost does not support. The skill can be uploaded
-separately (zip `plugin/wboost/skills/wboost`, *Customize → Skills*).
+separately: the release zip
+<https://github.com/TheDevs-cz/wboost/releases/latest/download/wboost-skill.zip>
+under Settings → Capabilities → Skills.
 
 **401 and the browser flow never starts.**
 Something is sending an `Authorization` header. A client that thinks it is
@@ -326,7 +353,7 @@ Twenty-three tools (the calendar ones are listed last):
 
 | tool | scope | what it does |
 |---|---|---|
-| `get_context` | `templates:read` | the account, its scopes, and every project's brand fonts, colours and dimensions |
+| `get_context` | `templates:read` | the account, its scopes, and every project's brand fonts, colours and dimensions; with `skillVersion`, whether the client's wboost skill is current (`skill`) |
 | `find_templates` | `templates:read` | one project's templates and variant summaries |
 | `describe_variant` | `templates:read` | one variant's fillable surface — input ids, their rules, image slots, containers |
 | `list_gallery` | `templates:read` | one level of a project's picture library |
@@ -338,7 +365,7 @@ Twenty-three tools (the calendar ones are listed last):
 | `preview_design` | `templates:design` | compile and draw a design document without saving anything |
 | `set_design` | `templates:design` | replace a variant's design, guarded against destroying what it cannot express |
 | `upload_font` | `templates:design` | add a TTF/OTF/WOFF font to a project; a variable font becomes one face per named instance (Inter → 18 cuts); the reply lists the exact font strings to design with |
-| `list_calendars` | `calendars:read` | the desk calendars of one project, or of every project the account can reach |
+| `list_calendars` | `calendars:read` | the desk calendars of one project, or of every project the account can reach; takes the same `skillVersion` check as `get_context` |
 | `get_calendar` | `calendars:read` | one calendar as the browser sees it: settings, the layout with every style, the page list (page keys), all content collections, uploaded files, the project's fonts and colours, history lines (never the client link) |
 | `render_calendar_page` | `calendars:read` | a WebP picture of one page (cover, any week, a special page, back) drawn by the calendar's own renderer in headless Chromium — optionally with bleed / crop marks; saves nothing |
 | `manage_calendar` | `calendars:write` | `create` a calendar, `configure` it (name, year, type, feature switches, print), `finish` it, `client_link` (get / regenerate), `import_layout` from a sibling calendar — designer only, no delete |

@@ -1,9 +1,11 @@
 # wboost plugin for Claude Code
 
-Connects Claude to a [wboost](https://wboost.cz) account so it can list your
-projects and brand assets, fill a template variant's placeholders, preview the
-result, export the finished PNG, add pictures to a project gallery and author a
-variant's design.
+Connects Claude to a [wboost](https://wboost.cz) account: list your projects and
+brand assets, fill, preview and export templates (PNG or print PDF), fill and
+export multi-page documents, add pictures and fonts, author a variant's design,
+and create, design, fill and export desk calendars (Kalendáře).
+
+Current version: **0.3.0** — see [CHANGELOG.md](CHANGELOG.md).
 
 ## Install
 
@@ -23,36 +25,49 @@ Full instructions, scope meanings and troubleshooting:
 [`docs/mcp/connect.md`](../../docs/mcp/connect.md).
 Copy-paste prompts to try: [`docs/mcp/prompts.md`](../../docs/mcp/prompts.md).
 
+## Update
+
+Third-party marketplaces do not auto-update by default. Update by hand:
+
+```bash
+claude plugin marketplace update wboost && claude plugin update wboost@wboost   # then restart Claude Code
+```
+
+or turn auto-update on once: `/plugin` → Marketplaces → wboost → Enable
+auto-update. Claude also tells you when your copy is outdated: the skill sends
+its version to the server on the first call and the server answers whether a
+newer one exists. The same skill for claude.ai (upload under Settings →
+Capabilities → Skills; delete the old one first):
+<https://github.com/TheDevs-cz/wboost/releases/latest/download/wboost-skill.zip>.
+
 ## What you get
 
 | component | what it is |
 |---|---|
-| MCP server `wboost` | HTTP transport to `https://wboost.cz/_mcp` — nine tools: `get_context`, `find_templates`, `describe_variant`, `list_gallery`, `render_variant`, `export_variant`, `upload_image`, `preview_design`, `set_design` |
-| skill `/wboost:wboost` | how to use those tools well — ids not names, render before export, container overflow, the fill value shapes, the design DSL, and what `acknowledgeLosses` really does |
+| MCP server `wboost` | HTTP transport to `https://wboost.cz/_mcp` — the tools listed in [`skills/wboost/references/tools.json`](skills/wboost/references/tools.json) (templates, documents, design, gallery, fonts, print setup, desk calendars) |
+| skill `/wboost:wboost` | how to use those tools well — the version check, ids not names, render before export, container overflow, fill value shapes, print bleed, multi-page documents, the design DSL and `acknowledgeLosses`, and the whole calendar workflow |
 | `/wboost:projects` | what does this account hold |
-| `/wboost:export` | brief → template → fill → preview → PNG |
+| `/wboost:export` | brief → template → fill → preview → PNG / print PDF |
+| `/wboost:calendar` | brief → desk calendar created / designed / filled → page renders |
 
 The skill is also picked up automatically when a conversation is about wboost
-templates; you do not have to invoke it by hand.
+templates or calendars; you do not have to invoke it by hand.
 
 ## Scope of this release
 
-Read, render, **and author**. The tools can look at anything the account can see,
-produce images from it, add pictures to a project gallery, and write a variant's
-design.
+Read, render, export **and author** — templates and desk calendars.
 
-**Nothing deletes.** No tool removes a template, a variant or a picture; gallery
-pictures can be added but never removed, moved or renamed from a client.
+**Nothing deletes.** No tool removes a template, variant, document, picture,
+font, calendar or calendar file.
 
-Two capabilities are deliberately absent: there is no tool that reads a design
-back as a document (so `set_design` authors designs rather than edits them), and
-there is no tool for group design — a synchronized group's shared design is
-authored in the wboost group editor.
+Deliberately absent: no tool reads a design back as a document (so `set_design`
+authors designs rather than edits them), no tool designs a synchronized group
+(the wboost group editor does), and new templates are created on the web.
 
 Permissions are granted per connection on the consent screen and can only narrow
 what your own account may reach, never widen it. Designing additionally requires
-*owning* the project: a project shared with you grants viewing, rendering and
-exporting only.
+the right to edit the project: a project shared with you grants viewing,
+rendering and exporting only (and, in a calendar, filling content as a client).
 
 ## Authentication
 
@@ -75,14 +90,22 @@ rather than through this plugin. See
 
 ```
 plugin/wboost/
-├── .claude-plugin/plugin.json   # manifest
+├── .claude-plugin/plugin.json   # manifest (version = the skill release)
 ├── .mcp.json                    # HTTP transport, no auth header (OAuth by discovery)
+├── CHANGELOG.md
 ├── skills/wboost/
-│   ├── SKILL.md
-│   └── references/tools.md      # field-by-field response + DSL grammar reference
+│   ├── SKILL.md                 # lean entry point + the version check
+│   └── references/
+│       ├── tools.md             # template tools, field by field
+│       ├── filling.md           # fill value shapes, rows, moves
+│       ├── design.md            # authoring, acknowledgeLosses, the DSL key tables
+│       ├── documents-and-print.md
+│       ├── calendars.md         # the calendar workflow + the seven calendar tools
+│       └── tools.json           # GENERATED manifest of every tool + parameters
 └── commands/
     ├── projects.md
-    └── export.md
+    ├── export.md
+    └── calendar.md
 ```
 
 The marketplace manifest lives at the repository root
@@ -104,9 +127,11 @@ Load it without installing:
 claude --plugin-dir plugin/wboost
 ```
 
-The skill's tool list and DSL grammar tables are asserted against the running
-code by `tests/Mcp/SkillDocumentationTest.php` — a tool that lands or changes
-scope, or a change to the parser's accepted keys, fails that test until the skill
-is updated.
+The skill is kept in step with the server by `tests/Mcp/SkillManifestTest.php`
+(every tool and parameter vs `references/tools.json`, one version everywhere,
+claude.ai upload rules) and `tests/Mcp/SkillDocumentationTest.php` (scope table,
+DSL grammar, the worked design document). Changing anything here after a
+release needs a version bump — the `skill-release-guard` CI job fails
+otherwise. The routine: [`docs/mcp/skill-maintenance.md`](../../docs/mcp/skill-maintenance.md).
 
 Never commit a token.
