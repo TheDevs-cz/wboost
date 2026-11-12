@@ -1,15 +1,21 @@
 #!/usr/bin/env node
 // scanner — command line of the WBoost AI scan scanner.
 //
+//   scanner [serve]          the service: claims scans from the app (SCANNER_APP_URL, SCANNER_TOKEN) until SIGTERM
+//   scanner healthcheck      exit 0 while the running service is healthy (the container healthcheck)
+//   scanner selftest         sharp, the OCR sidecar and its models, the engine binary, a HEIC decoder — no network needed
+//   scanner version
 //   scanner scan-file <image> --project <projectId> [--kind template] [--variant <variantId>] [--out <dir>]
 //                     [--engine sdk|messages] [--mcp-url http://localhost:8099/_mcp] [--approximate] [--no-precheck]
 //
-// Runs ONE scan of a picture on disk against a local app through its MCP design tools and writes
+// `serve` reads its configuration from the environment only (src/config.mjs).
+// `scan-file` runs ONE scan of a picture on disk against a local app through its MCP design tools and writes
 // proposal.json (the design document), render.webp (the kept candidate), report.json, usage.json and
 // run.json into --out. Credentials come from the environment only: with ANTHROPIC_API_KEY unset the
 // engine uses the Claude plan this machine is logged in to; the MCP token comes from WBOOST_MCP_TOKEN
 // or WBOOST_MCP_TOKEN_FILE.
-import { readFileSync, writeFileSync, appendFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, appendFileSync, mkdirSync, mkdtempSync, rmSync, realpathSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import { basename, extname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { FileJobApi } from '../src/drivers/file-job.mjs';
@@ -86,10 +92,21 @@ export async function scanFile({ image, project, kind = 'template', variant = nu
 }
 
 async function main() {
-    const [command, ...rest] = process.argv.slice(2);
+    const [command = 'serve', ...rest] = process.argv.slice(2);
+    if (command === 'serve') {
+        const { serve } = await import('../src/main.mjs');
+        try { await serve(); } catch (e) {
+            console.error(e?.name === 'ConfigError' ? e.message : (e?.stack ?? String(e)));
+            process.exit(e?.name === 'ConfigError' ? 78 : 1);
+        }
+        return; // runs until a signal
+    }
+    if (command === 'healthcheck') { const { healthcheck } = await import('../src/health.mjs'); process.exit(await healthcheck()); }
+    if (command === 'selftest') { const { selftest } = await import('../src/selftest.mjs'); const r = await selftest(); console.log(JSON.stringify(r, null, 2)); process.exit(r.ok ? 0 : 1); }
+    if (command === 'version') { const { packageVersion } = await import('../src/config.mjs'); console.log(`${packageVersion()}${process.env.SCANNER_BUILD ? `+${process.env.SCANNER_BUILD.slice(0, 12)}` : ''}`); process.exit(0); }
     const args = parseArgs(rest);
     if (command !== 'scan-file' || !args._[0] || !args.project) {
-        console.error('usage: scanner scan-file <image> --project <projectId> [--kind template] [--variant <id>] [--out <dir>] [--engine sdk|messages] [--mcp-url <url>] [--approximate] [--no-precheck]');
+        console.error('usage: scanner [serve] | healthcheck | selftest | version | scan-file <image> --project <projectId> [--kind template] [--variant <id>] [--out <dir>] [--engine sdk|messages] [--mcp-url <url>] [--approximate] [--no-precheck]');
         process.exit(2);
     }
     const token = (process.env.WBOOST_MCP_TOKEN ?? (process.env.WBOOST_MCP_TOKEN_FILE ? readFileSync(process.env.WBOOST_MCP_TOKEN_FILE, 'utf8') : '')).trim();
@@ -103,4 +120,4 @@ async function main() {
     process.exit(s.outcome === 'proposed' ? 0 : 1);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) await main();
+if (import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) await main();

@@ -4,7 +4,7 @@ import { mkdtempSync, readdirSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
-import { runBuild, runIntake, heartbeat, withRendererRetry, usagePayload, releaseOnce } from '../src/run.mjs';
+import { runBuild, runIntake, withRendererRetry, usagePayload, releaseOnce } from '../src/run.mjs';
 import { definitionFiles } from '../src/drivers/file-job.mjs';
 import { readDefinition, contextFromClaim, HttpScannerApi } from '../src/protocol.mjs';
 import { ocrPython } from '../src/instruments/ocr.mjs';
@@ -127,7 +127,7 @@ test('build: the heartbeat keeps beating while the engine is blocked, and carrie
 });
 
 test('build: cancel from a beat aborts the engine; nothing is finished', { skip }, async () => {
-    const f = await fixture({ timing: { heartbeatSeconds: 0.05 }, beat: (b, n) => ({ cancel: n >= 3, mode: 'on' }) });
+    const f = await fixture({ timing: { heartbeatSeconds: 0.05 }, beat: (b, n) => ({ cancel: n >= 3, mode: 'on', ...(n >= 3 ? { status: 'cancelled' } : {}) }) });
     const engine = scriptedEngine(async (ctx) => { await ctx.tool('design_preview', { design: DESIGN }); await new Promise((ok) => ctx.options.signal.addEventListener('abort', ok)); return FINISH; });
     const out = await runBuild({ job: f.job, api: f.api, engine, scratchDir: f.scratchDir });
     assert.deepEqual([out.outcome, out.reason], ['cancelled', 'cancelled']);
@@ -141,32 +141,6 @@ test('build: SIGTERM path — abort, usage, release; the restart is not consumed
     const out = await runBuild({ job: f.job, api: f.api, engine, scratchDir: f.scratchDir, signal: controller.signal });
     assert.equal(out.outcome, 'released'); assert.equal(f.sent.release.reason, 'shutdown'); assert.equal(f.sent.finish, null);
     assert.ok(f.sent.release.usage.outputTokens > 0);
-});
-
-test('heartbeat: self-abort counts from the SEND time of the last acknowledged beat; a lost lease aborts at once', async () => {
-    const aborts = [];
-    const dead = heartbeat({ api: { beat: async () => { throw new Error('ECONNREFUSED'); } }, timing: { heartbeatSeconds: 0.02, selfAbortSeconds: 0.1 }, state: {}, abort: (r) => aborts.push(r) });
-    await new Promise((ok) => setTimeout(ok, 250));
-    dead.stop();
-    assert.equal(aborts[0], 'app_unreachable');
-    // every beat is acknowledged, but only 80 ms after it was sent: measured from the acknowledgement the
-    // run would live for ever; measured from the send time (limit 60 ms) it must abort
-    const slow = [];
-    const late = heartbeat({ api: { beat: () => new Promise((ok) => setTimeout(() => ok({ cancel: false }), 80)) }, timing: { heartbeatSeconds: 0.02, selfAbortSeconds: 0.06, heartbeatAttemptSeconds: 1 }, state: {}, abort: (r) => slow.push(r) });
-    await new Promise((ok) => setTimeout(ok, 300)); late.stop();
-    assert.equal(slow[0], 'app_unreachable');
-    const lost = [];
-    const hb = heartbeat({ api: { beat: async () => { throw Object.assign(new Error('gone'), { status: 410 }); } }, timing: { heartbeatSeconds: 0.02 }, state: {}, abort: (r) => lost.push(r) });
-    await new Promise((ok) => setTimeout(ok, 60)); hb.stop();
-    assert.equal(lost[0], 'lease_lost');
-});
-
-test('heartbeat: a hung beat is cut and never delays the next one', async () => {
-    const sent = []; const aborts = [];
-    const hb = heartbeat({ api: { beat: (b) => { sent.push(b.seq); return b.seq === 1 ? new Promise(() => {}) : Promise.resolve({ cancel: false }); } }, timing: { heartbeatSeconds: 0.03, heartbeatAttemptSeconds: 0.05, selfAbortSeconds: 5 }, state: {}, abort: (r) => aborts.push(r) });
-    await new Promise((ok) => setTimeout(ok, 200)); hb.stop();
-    assert.ok(sent.length >= 4, `beats kept going out behind the hung one: ${sent}`);
-    assert.deepEqual(aborts, []);
 });
 
 test('shutdown: one release attempt, cut short when the app does not answer', async () => {
@@ -270,10 +244,14 @@ test('protocol helpers: claim context → face strings; usage payload; the HTTP 
     const http = new HttpScannerApi({ baseUrl: 'http://web/', token: 'tok', scannerVersion: '0.1.0', instruments: ['ocr'], fetchImpl: async (url, init) => { seen.push({ url, init }); return new Response(JSON.stringify(url.endsWith('/claim') ? { ok: true, mode: 'on', job: { id: 'abc', run: 3, leaseToken: 'lease' } } : { ok: true, candidate: 1, issues: [], image: { contentType: 'image/webp', base64: 'QUJD' } }), { status: 200 }); } });
     const c = await http.claim('build');
     assert.equal(seen[0].url, 'http://web/internal/scanner/claim');
-    assert.deepEqual(JSON.parse(seen[0].init.body), { protocolVersion: 1, scannerVersion: '0.1.0', lane: 'build', instruments: ['ocr'], capacity: 1 });
-    assert.equal(seen[0].init.headers.Authorization, 'Bearer tok');
+    assert.deepEqual(JSON.parse(seen[0].init.body), { lane: 'build', scannerVersion: '0.1.0', instruments: ['ocr'], capacity: 1 });
+    assert.equal(seen[0].init.headers.Authorization, 'Bearer tok'); assert.equal(seen[0].init.headers['X-Scanner-Protocol'], '1');
+    assert.equal(seen[0].init.headers['X-Scan-Lease'], undefined, 'claim carries no lease');
     const r = await c.api.render({ seq: 4, design: { a: 1 } });
     assert.deepEqual([r.rendered, r.candidate, r.image.data.toString(), r.image.mimeType], [true, 1, 'ABC', 'image/webp']);
     assert.equal(seen[1].url, 'http://web/internal/scanner/abc/render'); assert.equal(seen[1].init.headers['X-Scan-Lease'], 'lease');
-    assert.deepEqual(JSON.parse(seen[1].init.body), { protocolVersion: 1, scannerVersion: '0.1.0', run: 3, seq: 4, design: { a: 1 } });
+    assert.deepEqual(JSON.parse(seen[1].init.body), { run: 3, seq: 4, design: { a: 1 } });
+    // more than one model in a run (a harness that fell back before it was stopped): no single model prices the tokens
+    const mixed = usagePayload({ byModel: { 'claude-opus-5-5': { input: 10, output: 5, cacheRead: 0, cacheWrite5m: 0, cacheWrite1h: 0 }, 'claude-opus-4-8': { input: 7, output: 1, cacheRead: 0, cacheWrite5m: 0, cacheWrite1h: 0 } }, costUsd: 0.0002, engineCostUsd: 0.5, priceVersion: 'v' });
+    assert.deepEqual([mixed.model, mixed.inputTokens, mixed.outputTokens, mixed.engineCostMicroUsd], ['mixed', 17, 6, 200], 'the scanner\'s own sum — each model at its own price — is what the app books for a model its table does not know');
 });

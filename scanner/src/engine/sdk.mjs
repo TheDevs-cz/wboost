@@ -8,6 +8,7 @@
 //   systemPrompt: string       the scanner's own prompt replaces the harness prompt
 //   persistSession: false      no transcript on disk
 //   cwd                        an empty per-run scratch directory
+//   CLAUDE_CODE_DISABLE_REFUSAL_FALLBACK=1   a refused turn is never re-run on another model
 //   CLAUDE_CONFIG_DIR          a dedicated directory — ONLY when an API key is the credential: with it set
 //                              the harness no longer finds the locally logged-in plan ("Not logged in")
 //
@@ -34,7 +35,9 @@ function toolServer(tools, dispatch) {
 /** The environment the harness subprocess gets: the scanner's own, plus pinned request behaviour. */
 export function engineEnv({ base = process.env, settings = {}, scratchDir }) {
     const env = { ...base };
-    const keyed = !!env.ANTHROPIC_API_KEY;
+    // the credential comes from the environment: an API key (production), or the plan's token for a machine
+    // that has no login (CLAUDE_CODE_OAUTH_TOKEN — a container in development)
+    const keyed = !!env.ANTHROPIC_API_KEY || !!env.CLAUDE_CODE_OAUTH_TOKEN;
     Object.assign(env, {
         // request behaviour pinned by the definition (the harness defaults are 10 retries / 600 s)
         API_TIMEOUT_MS: String((settings.requestTimeoutSeconds ?? 120) * 1000),
@@ -48,11 +51,21 @@ export function engineEnv({ base = process.env, settings = {}, scratchDir }) {
         DISABLE_AUTOUPDATER: '1',
         DISABLE_ERROR_REPORTING: '1',
         MAX_MCP_OUTPUT_TOKENS: '50000',
+        // No silent model fallback (decisions.md): by default the harness re-runs a turn a safety classifier
+        // flagged on another model (Opus 5.5 → claude-opus-4-8 for `cyber`, → claude-opus-5 for `bio`) and
+        // goes on there at that model's prices. Switched off — documented at code.claude.com/docs/en/env-vars:
+        // "Set to 1 to turn off the automatic model switch when a safety classifier flags a request".
+        // A refusal then ends the turn (`model_refusal_no_fallback`) and the scan is `refused` (§5.2).
+        CLAUDE_CODE_DISABLE_REFUSAL_FALLBACK: '1',
     });
+    delete env.CLAUDE_CODE_REFUSAL_FALLBACK_CATCH_ALL; // would switch a catch-all fallback back on
     delete env.CLAUDE_CODE_EFFORT_LEVEL; // would override the definition's effort
     if (keyed) {
+        // nothing of the engine outlives the run or touches the image: its configuration and its home are in the run's scratch
         env.CLAUDE_CONFIG_DIR = join(scratchDir, 'engine-config');
+        env.HOME = join(scratchDir, 'engine-home');
         mkdirSync(env.CLAUDE_CONFIG_DIR, { recursive: true });
+        mkdirSync(env.HOME, { recursive: true });
         env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = '1';
     } else {
         delete env.ANTHROPIC_AUTH_TOKEN;
@@ -120,7 +133,11 @@ export async function runSdk(o) {
                 facts.refusal = { subtype: m.subtype, category: m.api_refusal_category ?? null };
             } else if (m.type === 'system' && m.subtype === 'model_refusal_fallback') {
                 // the harness re-ran the refused turn on another model: the run goes on, the usage names both models
-                facts.refusalFallback = { from: m.original_model, to: m.fallback_model, category: m.api_refusal_category ?? null };
+                // — which must not happen with the switch above. If a harness ignores it, the run is stopped here: no
+                // further turn is paid for on the other model, the outcome is a refusal, and whatever the fallback
+                // request already used is in the usage under ITS model name (priced by that model's row).
+                facts.refusalFallback = { from: m.original_model, to: m.fallback_model, category: m.api_refusal_category ?? null, stopped: true };
+                controller.abort();
             } else if (m.type === 'rate_limit_event') {
                 facts.rateLimit = m.rate_limit_info;
                 if (m.rate_limit_info?.status === 'rejected') planLimit = true;
@@ -172,8 +189,9 @@ export async function runSdk(o) {
         const c = classifyProviderError({ sdkError, status, planLimit, message: facts.assistantErrors.at(-1)?.text ?? '', ...extra });
         return { ...base, outcome: c.class === 'refusal' ? 'refusal' : 'provider', error: { ...c, status, sdkError, message: base.text?.slice(0, 300) ?? null } };
     };
-    if (o.signal?.aborted || (controller.signal.aborted && !result)) return { ...base, outcome: 'aborted', error: null };
-    if (facts.refusal || result?.stop_reason === 'refusal') return providerError({ stopReason: 'refusal' });
+    if (o.signal?.aborted) return { ...base, outcome: 'aborted', error: null };
+    if (facts.refusalFallback || facts.refusal || result?.stop_reason === 'refusal') return providerError({ stopReason: 'refusal' });
+    if (controller.signal.aborted && !result) return { ...base, outcome: 'aborted', error: null };
     if (!result) return facts.assistantErrors.length || planLimit ? providerError({}) : { ...base, outcome: 'error', error: { class: 'unknown', code: 'engine_exit', message: facts.thrown?.message ?? 'the engine ended without a result' } };
     if (result.subtype === 'error_max_turns') return { ...base, outcome: 'max_turns', error: null };
     if (result.subtype === 'error_max_budget_usd') return { ...base, outcome: 'max_budget', error: null };

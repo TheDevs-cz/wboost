@@ -115,7 +115,11 @@
     "fonts": {
         "availableScore": 0.85,
         "prePassLines": 6,
-        "undeterminedScore": 0.35
+        "undeterminedScore": 0.35,
+        "verifiedScore": 0.85,
+        "verifiedScoreLong": 0.8,
+        "verifiedLongGlyphs": 12,
+        "verifyRenders": 6
     },
     "paletteSnapDeltaE": 2,
     "standInAssetId": "00000000-0000-4000-8000-0000000a15ca",

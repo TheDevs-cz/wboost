@@ -17,20 +17,23 @@ export function ocrPython(env = process.env) {
 }
 
 /**
- * Runs the sidecar on an image file. The child is the leader of its own process group, so an abort
- * (signal) or the timeout kills python and every thread pool it started.
+ * Runs the sidecar on an image file. An abort (signal) or the timeout kills python and every thread
+ * pool it started.
  * → {lines: [{text, conf, box}], seconds, loadSeconds, peakRssMb, cpuSeconds, wallMs, pid}
  */
 export function runOcr(imagePath, { threads = 3, scale = 1, timeoutMs = 30_000, signal = null, python = ocrPython(), onSpawn = null } = {}) {
     return new Promise((done, fail) => {
         const started = Date.now();
+        // standalone: the sidecar leads its own process group. Inside a run's child process (SCANNER_WORKER) it
+        // stays in that process's group, so one group kill by the main process takes the engine and the OCR together
+        const detached = process.env.SCANNER_WORKER !== '1';
         const child = spawn(python, [OCR_SCRIPT, imagePath, '--threads', String(threads), '--scale', String(scale)], {
-            stdio: ['ignore', 'pipe', 'pipe'], detached: true,
+            stdio: ['ignore', 'pipe', 'pipe'], detached,
             env: { ...process.env, OMP_NUM_THREADS: String(threads), OMP_THREAD_LIMIT: String(threads) },
         });
         onSpawn?.(child.pid);
         let out = '', err = '', settled = false;
-        const kill = () => { try { process.kill(-child.pid, 'SIGKILL'); } catch { /* gone */ } };
+        const kill = () => { try { if (detached) process.kill(-child.pid, 'SIGKILL'); else child.kill('SIGKILL'); } catch { /* gone */ } };
         const finish = (fn, v) => { if (settled) return; settled = true; clearTimeout(timer); signal?.removeEventListener('abort', onAbort); fn(v); };
         const timer = setTimeout(() => { kill(); finish(fail, Object.assign(new Error(`OCR timed out after ${timeoutMs} ms`), { code: 'tool_timeout' })); }, timeoutMs);
         const onAbort = () => { kill(); finish(fail, Object.assign(new Error('OCR aborted'), { code: 'aborted' })); };

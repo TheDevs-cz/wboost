@@ -3,7 +3,7 @@
 import * as im from '../instruments/raster.mjs';
 import { lineInk } from '../instruments/textink.mjs';
 import { fitBackground, backgroundFill } from '../instruments/background.mjs';
-import { rankFaces } from '../instruments/fonts.mjs';
+import { rankFaces, verifyFaces } from '../instruments/fonts.mjs';
 import { runOcr, mergeLines } from '../instruments/ocr.mjs';
 import { placeholderMask, compositeMasked, maskShare } from './mask.mjs';
 import { ToolUserError } from '../tools/server.mjs';
@@ -80,7 +80,7 @@ export class TemplateBuild {
         const toRank = pickLinesToRank(lines, this.settings.prepassLines);
         if (toRank.length && this.context.fonts.length) {
             const { results } = await this.#rank(toRank.map((l) => ({ text: l.text, ink: l.ink })));
-            toRank.forEach((l, i) => { l.font = results[i]; this.rankings.push({ text: l.text, box: l.ink.box, group: null, origin: 'prepass', line: l.id, ...results[i] }); });
+            toRank.forEach((l, i) => { l.font = results[i]; this.rankings.push({ text: l.text, box: l.ink.box, ink: l.ink, group: null, origin: 'prepass', line: l.id, ...results[i] }); });
         }
         this.lines = lines;
         this.stats.prepassMs = Date.now() - started;
@@ -119,6 +119,17 @@ export class TemplateBuild {
 
     /** Ranks more lines after the run (the finish stage ranks text groups the run left unranked). */
     async rank(lines) { return (await this.#rank(lines)).results; }
+
+    /**
+     * The verification render of the finish stage: [{text, ink, face, size}] → [{score, …} | null] — the text in
+     * the chosen face at the fitted size, compared 1 : 1 with the source line (instruments/fonts.mjs).
+     */
+    async verify(items) {
+        const started = Date.now();
+        const r = await verifyFaces({ items, signal: this.signal, maxRenders: this.settings.verifyRenders ?? 6, loadRaster: (data) => im.loadRgb(data), renderFaces: (req) => this.app.faces(req) });
+        this.stats.verifyRenders = (this.stats.verifyRenders ?? 0) + r.renders; this.stats.verifyMs = (this.stats.verifyMs ?? 0) + Date.now() - started;
+        return r.results;
+    }
 
     // ---------------------------------------------------------------- measured feedback
 
@@ -267,7 +278,7 @@ export class TemplateBuild {
                 self.onNote('fonts');
                 const { results } = await self.#rank([{ text: line, ink: k }]);
                 const r = results[0];
-                self.rankings.push({ text: line, box: k.box, group: typeof a.group === 'string' ? a.group.slice(0, 40) : null, origin: 'tool', ...r });
+                self.rankings.push({ text: line, box: k.box, ink: k, group: typeof a.group === 'string' ? a.group.slice(0, 40) : null, origin: 'tool', ...r });
                 return { json: { text: line, ink: arr(k.box), colour: k.colourHex, backdrop: k.bgHex, available: r.available, candidates: r.candidates.slice(0, 6),
                     note: 'size = the size at which the face sets this line exactly as wide as the source; score compares glyph shapes (1 = identical). available=false: no project face draws these glyphs — use the top face as a substitute.' } };
             },

@@ -111,3 +111,135 @@ export async function rankFaces({ lines, faces, renderFaces, availableScore = 0.
     });
     return { results: out, sheets, truncated };
 }
+
+/** Runs of columns that carry ink, split at gaps of ≥ `gap` empty columns: the words of a line. → [{x0, x1}] */
+export function inkSegments(m, gap) {
+    const col = new Uint32Array(m.w);
+    for (let y = 0; y < m.h; y++) { const row = y * m.w; for (let x = 0; x < m.w; x++) col[x] += m.a[row + x]; }
+    const floor = 24; // a column of faint anti-aliasing is not ink
+    const out = [];
+    let start = -1, empty = 0;
+    for (let x = 0; x < m.w; x++) {
+        if (col[x] > floor) { if (start < 0) start = x; empty = 0; } else if (start >= 0 && ++empty >= gap) { out.push({ x0: start, x1: x - empty + 1 }); start = -1; empty = 0; }
+    }
+    if (start >= 0) out.push({ x0: start, x1: m.w - empty });
+    return out;
+}
+
+/**
+ * Soft IoU of two lines of text compared WORD BY WORD: each word of the render is laid over the same word
+ * of the source with its own small shift (± `reach` px), intersections and unions are summed over the line.
+ *
+ * Why not the whole line at once: two renderers that set the same face at the same size place the glyphs a
+ * fraction of a pixel apart, and along a line that drift adds up — at the end of a 30-glyph line the right
+ * face lies a pixel or two off its own source and the overlap of thin strokes collapses (measured: Arial 32 px,
+ * 33 glyphs: 0.79 whole line). Inside one word the drift is below a pixel. Another face still fails: its
+ * words are not as wide and its strokes are elsewhere.
+ * When the two lines do not split into the same words, the whole lines are compared.
+ */
+export function wordIou(a, b, { reach = 2 } = {}) {
+    const gap = Math.max(3, Math.round(0.2 * Math.min(a.h, b.h)));
+    const sa = inkSegments(a, gap), sb = inkSegments(b, gap);
+    if (sa.length < 2 || sa.length !== sb.length) return { score: softIou(a, b), words: 1, mode: 'line' };
+    const cut = (m, s) => {
+        const w = s.x1 - s.x0, out = new Uint8Array(w * m.h);
+        let sum = 0;
+        for (let y = 0; y < m.h; y++) for (let x = 0; x < w; x++) { const v = m.a[y * m.w + s.x0 + x]; out[y * w + x] = v; sum += v; }
+        return { w, h: m.h, a: out, sum };
+    };
+    let inter = 0, total = 0;
+    for (let i = 0; i < sa.length; i++) {
+        const wa = cut(a, sa[i]), wb = cut(b, sb[i]);
+        let best = 0;
+        // the word's own shift: its left edges meet, ± reach; vertically the lines' tops or bottoms meet, ± 1
+        for (const anchor of wa.h === wb.h ? [0] : [0, wa.h - wb.h]) for (let dy = -1; dy <= 1; dy++) for (let dx = -reach; dx <= reach; dx++) {
+            const oy = anchor + dy;
+            let sum = 0;
+            const y0 = Math.max(0, oy), y1 = Math.min(wa.h, wb.h + oy), x0 = Math.max(0, dx), x1 = Math.min(wa.w, wb.w + dx);
+            for (let y = y0; y < y1; y++) { const ra = y * wa.w, rb = (y - oy) * wb.w - dx; for (let x = x0; x < x1; x++) { const va = wa.a[ra + x], vb = wb.a[rb + x]; sum += va < vb ? va : vb; } }
+            if (sum > best) best = sum;
+        }
+        inter += best; total += wa.sum + wb.sum;
+    }
+    return { score: inter / (total - inter || 1), words: sa.length, mode: 'words' };
+}
+
+/**
+ * The verification render (the decision between `measured_match` and `nearest_available`).
+ *
+ * The ranking compares glyph shapes RESAMPLED from one sheet size to the size of the source line; a
+ * resampled true face scores as low as a near twin at its best (0.72 … 0.83 overlap), so the ranking
+ * alone cannot tell "this is the face" from "this is the nearest face". Here the app renders the text in
+ * the chosen face AT THE FITTED SIZE — the pixels the template itself would produce — and the scanner
+ * compares them with the source crop without resampling, word by word (wordIou): the same face reproduces
+ * the source glyphs almost exactly, another face cannot.
+ *
+ * `items`: [{text, ink, face, size}] — `ink` from lineInk() of the source line, `size` the fitted size of
+ * that face for that line. Items whose sizes lie within ±3 % share one render (≤ 8 lines); the app renders
+ * whole pixels between 8 and 400. A render that comes out more than 1 % narrower or wider than the source
+ * line is resampled by that factor (a size above 400 px, a half-pixel size); one that is more than 3 % off
+ * was fitted wrongly and is rendered once more at the corrected size while the budget lasts.
+ * → {results: [{score, size, scale, words, glyphs, wrapped} | null], renders}
+ */
+export async function verifyFaces({ items, renderFaces, loadRaster, signal = null, maxRenders = 6, minSize = 8, maxSize = 400 }) {
+    const out = items.map(() => null);
+    const clean = (t) => String(t).replace(/\s+/g, ' ').trim();
+    let renders = 0;
+    const round = async (list) => {
+        const again = [];
+        const usable = list.filter((it) => it.ink && it.ink.n >= 30 && clean(it.text) && it.face && it.size > 0).sort((a, b) => a.size - b.size);
+        const batches = [];
+        for (const it of usable) {
+            const text = clean(it.text);
+            const b = batches.at(-1);
+            if (b && it.size <= b.min * 1.03 && (b.lines.includes(text) || b.lines.length < 8) && (b.faces.includes(it.face) || b.faces.length < 6)) b.items.push({ ...it, text });
+            else batches.push({ min: it.size, items: [{ ...it, text }], lines: [], faces: [] });
+            const cur = batches.at(-1);
+            if (!cur.lines.includes(text)) cur.lines.push(text);
+            if (!cur.faces.includes(it.face)) cur.faces.push(it.face);
+        }
+        for (const batch of batches) {
+            if (renders >= maxRenders) break;
+            if (signal?.aborted) throw Object.assign(new Error('aborted'), { code: 'aborted' });
+            const wanted = batch.items[batch.items.length >> 1].size;
+            const size = Math.max(minSize, Math.min(maxSize, Math.round(wanted)));
+            const sheet = await renderFaces({ lines: batch.lines, faces: batch.faces, size });
+            renders += sheet.sheets ?? 1;
+            const raster = sheet.raster ?? await loadRaster(sheet.image.data);
+            for (const it of batch.items) {
+                const cell = sheet.cells.find((c) => c.face === it.face && c.line === batch.lines.indexOf(it.text));
+                if (!cell) continue;
+                let r = cellInk(raster, { x: cell.x, y: cell.y, w: cell.width, h: cell.height });
+                if (!r) continue;
+                const fontSize = cell.fontSize ?? size;
+                if (r.h > fontSize * 1.45) { out[it.index] = { score: 0, size: fontSize, scale: null, words: 0, wrapped: true }; continue; }
+                // what is left between the rendered and the fitted size: one factor for both axes, from the line width
+                const k = glyphs(it.text) >= 4 ? it.ink.w / r.w : it.ink.h / r.h;
+                if (Math.abs(k - 1) > 0.03 && !it.corrected && fontSize * k >= minSize && fontSize * k <= maxSize) again.push({ ...it, size: fontSize * k, corrected: true });
+                if (Math.abs(k - 1) > 0.01) {
+                    const toW = Math.max(1, Math.round(r.w * k)), toH = Math.max(1, Math.round(r.h * k));
+                    const a = await resizeCoverage(r.a, r.w, r.h, toW, toH);
+                    let sum = 0; for (let i = 0; i < a.length; i++) sum += a[i];
+                    r = { w: toW, h: toH, a, sum };
+                }
+                const v = wordIou({ w: it.ink.w, h: it.ink.h, a: it.ink.a, sum: it.ink.sum }, r);
+                out[it.index] = { score: +v.score.toFixed(3), size: fontSize, scale: +k.toFixed(4), words: v.words, glyphs: glyphs(it.text) };
+            }
+        }
+        return again;
+    };
+    const again = await round(items.map((it, index) => ({ ...it, index })));
+    if (again.length) await round(again);
+    return { results: out, renders };
+}
+
+/**
+ * Does a verification score say "this IS the face"? A longer line is stronger evidence: a near twin of
+ * the true face overlaps a few bold glyphs almost as well as the face itself (measured: up to 0.82 on
+ * 2–5 glyphs, never above 0.78 on 12 or more), the true face stays above 0.82 at any length once the words
+ * are aligned one by one. Thresholds: definition.json `fonts` (eval/RESULTS.md §2).
+ */
+export function verifiedMatch(v, { verifiedScore = 0.85, verifiedScoreLong = 0.8, verifiedLongGlyphs = 12 } = {}) {
+    if (!v || v.wrapped) return false;
+    return v.score >= ((v.glyphs ?? 0) >= verifiedLongGlyphs ? verifiedScoreLong : verifiedScore);
+}

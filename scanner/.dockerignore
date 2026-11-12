@@ -1,6 +1,8 @@
-node_modules
-.venv
-.scratch
-runs
-eval/runs
-*.log
+# the image gets bin/, src/ and the manifests — nothing else
+*
+!package.json
+!package-lock.json
+!requirements.lock
+!bin
+!src
+**/.DS_Store

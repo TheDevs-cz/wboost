@@ -1,6 +1,6 @@
 {
   "name": "wboost-scanner",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "WBoost AI scan — the scanner service (engine, instruments, caps, finish).",
   "type": "module",
@@ -11,7 +11,9 @@
     "scanner": "bin/scanner.mjs"
   },
   "scripts": {
+    "start": "node bin/scanner.mjs serve",
     "test": "node --test test/*.test.mjs",
+    "test:slow": "node --test test/slow/*.slow.mjs",
     "scan": "node bin/scanner.mjs scan-file"
   },
   "dependencies": {

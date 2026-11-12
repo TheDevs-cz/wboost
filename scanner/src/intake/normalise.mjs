@@ -99,17 +99,22 @@ export async function normalise(input, { limits = UPLOAD_LIMITS, working = WORKI
  * preview.webp into `outDir`. → {ok, meta, files} | {ok: false, stop, detail}; a crash or a timeout is
  * reported as {ok: false, stop: 'unusable_input', detail: 'intake_crashed' | 'intake_timeout'}.
  */
-export function normaliseInChild(inputPath, outDir, { timeoutMs = 20_000, heapMb = 384, format = 'webp', limits = UPLOAD_LIMITS, working = WORKING_COPY, onSpawn = null } = {}) {
+export function normaliseInChild(inputPath, outDir, { timeoutMs = 20_000, heapMb = 384, format = 'webp', limits = UPLOAD_LIMITS, working = WORKING_COPY, onSpawn = null, signal = null } = {}) {
     return new Promise((resolve) => {
-        const child = spawn(process.execPath, [`--max-old-space-size=${heapMb}`, join(HERE, 'normalise-child.mjs'), inputPath, outDir, JSON.stringify({ format, limits, working })], { stdio: ['ignore', 'pipe', 'pipe'], detached: true });
+        const detached = process.env.SCANNER_WORKER !== '1'; // inside a run's child process it stays in that process's group
+        const child = spawn(process.execPath, [`--max-old-space-size=${heapMb}`, join(HERE, 'normalise-child.mjs'), inputPath, outDir, JSON.stringify({ format, limits, working })], { stdio: ['ignore', 'pipe', 'pipe'], detached });
         onSpawn?.(child.pid);
         let out = '', done = false;
-        const finish = (v) => { if (done) return; done = true; clearTimeout(timer); resolve(v); };
-        const timer = setTimeout(() => { try { process.kill(-child.pid, 'SIGKILL'); } catch { /* gone */ } finish({ ok: false, stop: 'unusable_input', detail: 'intake_timeout' }); }, timeoutMs);
+        const kill = () => { try { if (detached) process.kill(-child.pid, 'SIGKILL'); else child.kill('SIGKILL'); } catch { /* gone */ } };
+        const finish = (v) => { if (done) return; done = true; clearTimeout(timer); signal?.removeEventListener('abort', onAbort); resolve(v); };
+        const timer = setTimeout(() => { kill(); finish({ ok: false, stop: 'unusable_input', detail: 'intake_timeout' }); }, timeoutMs);
+        const onAbort = () => { kill(); finish({ ok: false, stop: 'unusable_input', detail: 'aborted' }); };
+        signal?.addEventListener('abort', onAbort, { once: true });
+        if (signal?.aborted) onAbort();
         child.stdout.on('data', (d) => { out += d; });
         child.on('error', () => finish({ ok: false, stop: 'unusable_input', detail: 'intake_crashed' }));
-        child.on('close', (code, signal) => {
-            try { finish({ ...JSON.parse(out.trim().split('\n').pop()), exit: { code, signal } }); } catch { finish({ ok: false, stop: 'unusable_input', detail: 'intake_crashed', exit: { code, signal } }); }
+        child.on('close', (code, sig) => {
+            try { finish({ ...JSON.parse(out.trim().split('\n').pop()), exit: { code, signal: sig } }); } catch { finish({ ok: false, stop: 'unusable_input', detail: 'intake_crashed', exit: { code, signal: sig } }); }
         });
     });
 }

@@ -2,6 +2,16 @@ name: Scanner
 
 # The AI scan scanner (scanner/) is a separate service with its own image; its tests do not need
 # the app. The definition it runs on lives in resources/ai-scan/definition and is covered here too.
+#
+#   test   every push / PR that touches the scanner: unit tests, the service against a fake app and a
+#          fault proxy in place of the provider (real engine binary, real OCR sidecar), the real-time
+#          outage test
+#   image  main only, after the tests: build scanner/Dockerfile (linux/amd64) and push it to
+#          ghcr.io/thedevs-cz/wboost-scanner — tags sha-<commit>, main, latest (the shared build workflow
+#          of TheDevs-cz/ci, the one the app's Release uses)
+#   smoke  the pushed image runs its self-test with no network and a read-only root file system
+#
+# Nothing is deployed from here: the box pins the image tag in apps/wboost/compose.yaml (lily.srv).
 on:
     push:
         paths:
@@ -13,10 +23,17 @@ on:
             - 'scanner/**'
             - 'resources/ai-scan/**'
 
+permissions:
+    contents: read
+
+concurrency:
+    group: scanner-${{ github.ref }}
+    cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
     test:
         runs-on: ubuntu-latest
-        timeout-minutes: 15
+        timeout-minutes: 20
         defaults:
             run:
                 working-directory: scanner
@@ -27,11 +44,47 @@ jobs:
                   node-version: 24
                   cache: npm
                   cache-dependency-path: scanner/package-lock.json
+            # the image's python (Debian bookworm: 3.11) and the image's pinned OCR stack
             - uses: actions/setup-python@v6
               with:
-                  python-version: '3.12'
+                  python-version: '3.11'
                   cache: pip
-                  cache-dependency-path: scanner/requirements.txt
+                  cache-dependency-path: scanner/requirements.lock
+            # HEIC uploads are converted by libheif's tool, as in the image
+            - run: sudo apt-get update -qq && sudo apt-get install -y -qq libheif-examples
             - run: npm ci
-            - run: python -m venv .venv && .venv/bin/pip install -r requirements.txt
+            - run: python -m venv .venv && .venv/bin/pip install --no-deps -r requirements.lock
             - run: npm test
+            - run: npm run test:slow
+
+    image:
+        needs: test
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        permissions:
+            contents: read
+            packages: write
+        uses: TheDevs-cz/ci/.github/workflows/_build.yml@v1
+        with:
+            image: ghcr.io/thedevs-cz/wboost-scanner
+            context: scanner
+            build_args: SCANNER_BUILD=${{ github.sha }}
+
+    smoke:
+        needs: image
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+        permissions:
+            contents: read
+            packages: read
+        steps:
+            - uses: docker/login-action@v4
+              with:
+                  registry: ghcr.io
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
+            - name: Self-test of the pushed image (no network, read-only root, not root)
+              run: |
+                  docker run --rm --network none --read-only --tmpfs /tmp:rw,exec,size=256m \
+                      ghcr.io/thedevs-cz/wboost-scanner:sha-${{ github.sha }} node bin/scanner.mjs selftest
+            - name: Image size
+              run: docker image inspect ghcr.io/thedevs-cz/wboost-scanner:sha-${{ github.sha }} --format '{{.Size}} bytes'

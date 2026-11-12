@@ -1,0 +1,2811 @@
+{
+ "what": "Recorded exchanges between the scanner's client (scanner/src/protocol.mjs) and the app's /internal/scanner/* endpoints.",
+ "protocolVersion": 1,
+ "recordedAt": "2026-11-12",
+ "recordedAgainst": {
+  "app": "local dev stack",
+  "commit": "03931a4fd86997be8b426536476d8250ded07851"
+ },
+ "scannerVersion": "0.2.0",
+ "placeholders": "Scan ids are <scan:N>, lease tokens <lease:<scan>:<lane>:<run>>, the bearer token <SCANNER_TOKEN>; pictures are byte counts; definition files are character counts; the picture uploaded is synthetic.",
+ "entries": [
+  {
+   "step": "tick (every 30 s and at start)",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/tick",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1"
+    },
+    "body": {
+     "scannerVersion": "0.2.0+contract"
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "mode": "on",
+     "providerState": "ok",
+     "maxRunning": 1,
+     "reaped": 0,
+     "protocolVersion": 1
+    }
+   }
+  },
+  {
+   "step": "claim with nothing to do",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/claim",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1"
+    },
+    "body": {
+     "lane": "intake",
+     "scannerVersion": "0.2.0+contract",
+     "instruments": [
+      "ocr",
+      "crop",
+      "measure",
+      "font_rank",
+      "compare"
+     ],
+     "capacity": 1
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "mode": "on",
+     "job": null,
+     "reason": null
+    }
+   }
+  },
+  {
+   "step": "scan 1: claim intake → a job",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/claim",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1"
+    },
+    "body": {
+     "lane": "intake",
+     "scannerVersion": "0.2.0+contract",
+     "instruments": [
+      "ocr",
+      "crop",
+      "measure",
+      "font_rank",
+      "compare"
+     ],
+     "capacity": 1
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "mode": "on",
+     "job": {
+      "id": "<scan:1>",
+      "kind": "template",
+      "lane": "intake",
+      "run": 1,
+      "try": 1,
+      "approximate": false,
+      "leaseToken": "<lease:<scan:1>:intake:1>",
+      "leaseSeconds": 150,
+      "options": {},
+      "source": {
+       "sha256": "<sha256 of the upload>",
+       "contentType": "image/png",
+       "bytes": 40670,
+       "width": 1080,
+       "height": 1350
+      },
+      "definition": {
+       "version": "5-010a74b2247e",
+       "files": {
+        "definition.json": "<4233 characters>",
+        "finish.template.schema.json": "<4355 characters>",
+        "precheck.md": "<1037 characters>",
+        "precheck.schema.json": "<471 characters>",
+        "system.common.md": "<1937 characters>",
+        "system.template.md": "<15654 characters>",
+        "task.template.md": "<306 characters>",
+        "tools.json": "<9574 characters>"
+       }
+      }
+     }
+    }
+   }
+  },
+  {
+   "step": "scan 1: source (the original, as bytes)",
+   "request": {
+    "method": "GET",
+    "path": "/internal/scanner/<scan:1>/source?run=1",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:1>:intake:1>"
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "image/png",
+    "body": "<40670 bytes>"
+   }
+  },
+  {
+   "step": "scan 1: finish intake `passed` before the working copy is stored",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/<scan:1>/finish",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:1>:intake:1>"
+    },
+    "body": {
+     "run": 1,
+     "outcome": "passed",
+     "preCheck": {
+      "verdict": "design",
+      "confidence": "high",
+      "approximate": false,
+      "ms": 2100
+     },
+     "usage": {
+      "provider": "anthropic",
+      "model": null,
+      "inputTokens": 0,
+      "outputTokens": 0,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "engineCostMicroUsd": 0,
+      "turns": 0,
+      "durationMs": 0
+     }
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": false,
+     "code": "missing_artifact"
+    }
+   }
+  },
+  {
+   "step": "scan 1: artifact working",
+   "request": {
+    "method": "PUT",
+    "path": "/internal/scanner/<scan:1>/artifact/working?run=1",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:1>:intake:1>"
+    },
+    "body": "<3068 bytes>"
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "bytes": 3068
+    }
+   }
+  },
+  {
+   "step": "scan 1: artifact preview",
+   "request": {
+    "method": "PUT",
+    "path": "/internal/scanner/<scan:1>/artifact/preview?run=1",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:1>:intake:1>"
+    },
+    "body": "<6480 bytes>"
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "bytes": 6480
+    }
+   }
+  },
+  {
+   "step": "scan 1: finish intake `passed`",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/<scan:1>/finish",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:1>:intake:1>"
+    },
+    "body": {
+     "run": 1,
+     "outcome": "passed",
+     "preCheck": {
+      "verdict": "design",
+      "confidence": "high",
+      "approximate": false,
+      "ms": 2100
+     },
+     "sourceMeta": {
+      "format": "png",
+      "bytes": 40670,
+      "width": 1080,
+      "height": 1350,
+      "workingWidth": 1080,
+      "workingHeight": 1350,
+      "workingFormat": "webp",
+      "scale": 1,
+      "space": "srgb",
+      "depth": "uchar",
+      "hasAlpha": true,
+      "orientation": 1,
+      "frames": 1,
+      "density": 72,
+      "facts": [
+       "alpha_flattened"
+      ],
+      "workingBytes": 3068
+     },
+     "usage": {
+      "provider": "anthropic",
+      "model": "claude-haiku-5-5",
+      "inputTokens": 1000,
+      "outputTokens": 100,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "engineCostMicroUsd": 150,
+      "turns": 1,
+      "durationMs": 1000
+     }
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "applied": true,
+     "status": "queued",
+     "code": null
+    }
+   }
+  },
+  {
+   "step": "scan 1: finish intake again (a repeat records usage only)",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/<scan:1>/finish",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:1>:intake:1>"
+    },
+    "body": {
+     "run": 1,
+     "outcome": "passed",
+     "usage": {
+      "provider": "anthropic",
+      "model": null,
+      "inputTokens": 0,
+      "outputTokens": 0,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "engineCostMicroUsd": 0,
+      "turns": 0,
+      "durationMs": 0
+     }
+    }
+   },
+   "response": {
+    "status": 409,
+    "contentType": "application/json",
+    "body": {
+     "ok": false,
+     "code": "stale_run",
+     "status": "queued"
+    }
+   }
+  },
+  {
+   "step": "scan 1: claim build → a job with the context",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/claim",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1"
+    },
+    "body": {
+     "lane": "build",
+     "scannerVersion": "0.2.0+contract",
+     "instruments": [
+      "ocr",
+      "crop",
+      "measure",
+      "font_rank",
+      "compare"
+     ],
+     "capacity": 1
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "mode": "on",
+     "job": {
+      "id": "<scan:1>",
+      "kind": "template",
+      "lane": "build",
+      "run": 1,
+      "try": 1,
+      "approximate": false,
+      "leaseToken": "<lease:<scan:1>:build:1>",
+      "leaseSeconds": 120,
+      "options": {},
+      "source": {
+       "sha256": "<sha256 of the upload>",
+       "contentType": "image/webp",
+       "bytes": null,
+       "width": 1080,
+       "height": 1350
+      },
+      "definition": {
+       "version": "5-010a74b2247e",
+       "files": {
+        "definition.json": "<4233 characters>",
+        "finish.template.schema.json": "<4355 characters>",
+        "precheck.md": "<1037 characters>",
+        "precheck.schema.json": "<471 characters>",
+        "system.common.md": "<1937 characters>",
+        "system.template.md": "<15654 characters>",
+        "task.template.md": "<306 characters>",
+        "tools.json": "<9574 characters>"
+       }
+      },
+      "context": {
+       "fonts": [
+        {
+         "family": "Arial (Arial Italique)",
+         "font": "Arial",
+         "face": "Arial Italique",
+         "weight": 400,
+         "italic": false
+        },
+        {
+         "family": "Arial (Arial)",
+         "font": "Arial",
+         "face": "Arial",
+         "weight": 400,
+         "italic": false
+        },
+        "<13 more faces of the same shape>"
+       ],
+       "palette": [],
+       "standInAssetId": "00000000-0000-4000-8000-0000000a15ca",
+       "templateMaxLongEdgePx": 5000
+      }
+     }
+    }
+   }
+  },
+  {
+   "step": "scan 1: source (the working copy, as bytes)",
+   "request": {
+    "method": "GET",
+    "path": "/internal/scanner/<scan:1>/source?run=1",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:1>:build:1>"
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "image/webp",
+    "body": "<3068 bytes>"
+   }
+  },
+  {
+   "step": "scan 1: beat",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/<scan:1>/beat",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:1>:build:1>"
+    },
+    "body": {
+     "run": 1,
+     "seq": 1,
+     "stage": "analyse",
+     "note": "texts_found",
+     "noteParams": {
+      "n": 2
+     },
+     "round": 0,
+     "usage": {
+      "provider": "anthropic",
+      "model": "claude-opus-5-5",
+      "inputTokens": 1000,
+      "outputTokens": 100,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "engineCostMicroUsd": 6000,
+      "turns": 1,
+      "durationMs": 1000
+     },
+     "resources": {
+      "peakRssMb": 640,
+      "cpuSeconds": 3.2
+     }
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "cancel": false,
+     "mode": "on",
+     "leaseExpiresAt": "<ISO 8601 date>"
+    }
+   }
+  },
+  {
+   "step": "scan 1: beat with an older seq (changes nothing)",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/<scan:1>/beat",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:1>:build:1>"
+    },
+    "body": {
+     "run": 1,
+     "seq": 1,
+     "stage": "build",
+     "note": null,
+     "noteParams": null,
+     "usage": {
+      "provider": "anthropic",
+      "model": "claude-opus-5-5",
+      "inputTokens": 1000,
+      "outputTokens": 100,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "engineCostMicroUsd": 6000,
+      "turns": 1,
+      "durationMs": 1000
+     }
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "cancel": false,
+     "mode": "on",
+     "leaseExpiresAt": "<ISO 8601 date>"
+    }
+   }
+  },
+  {
+   "step": "scan 1: faces",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/<scan:1>/faces",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:1>:build:1>"
+    },
+    "body": {
+     "run": 1,
+     "seq": 1,
+     "lines": [
+      "Letní kemp 2027"
+     ],
+     "faces": [
+      "Arial (Arial Italique)"
+     ],
+     "size": 64
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "width": 1104,
+     "height": 128,
+     "cells": [
+      {
+       "face": "Arial (Arial Italique)",
+       "line": 0,
+       "x": 0,
+       "y": 0,
+       "width": 1104,
+       "height": 128,
+       "fontSize": 64
+      }
+     ],
+     "image": {
+      "contentType": "image/webp",
+      "base64": "<5334 bytes of image/webp>"
+     }
+    }
+   }
+  },
+  {
+   "step": "scan 1: faces without lines (invalid request)",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/<scan:1>/faces",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:1>:build:1>"
+    },
+    "body": {
+     "run": 1,
+     "seq": 2,
+     "lines": []
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": false,
+     "code": "invalid_request"
+    }
+   }
+  },
+  {
+   "step": "scan 1: render → candidate 1",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/<scan:1>/render",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:1>:build:1>"
+    },
+    "body": {
+     "run": 1,
+     "seq": 3,
+     "design": {
+      "canvas": {
+       "width": 1080,
+       "height": 1350
+      },
+      "elements": [
+       {
+        "kind": "background",
+        "id": "pozadi",
+        "fill": "#f4f1ea"
+       },
+       {
+        "kind": "shape",
+        "id": "panel",
+        "shape": "rectangle",
+        "name": "Panel",
+        "x": 80,
+        "y": 90,
+        "width": 920,
+        "height": 420,
+        "fill": "#0b3d6b"
+       },
+       {
+        "kind": "image",
+        "id": "obrazek",
+        "asset": "00000000-0000-4000-8000-0000000a15ca",
+        "x": 660,
+        "y": 890,
+        "width": 320,
+        "height": 320,
+        "input": {
+         "name": "Obrázek"
+        }
+       },
+       {
+        "kind": "text",
+        "id": "nadpis",
+        "text": "Letní kemp 2027",
+        "font": "Arial (Arial Italique)",
+        "size": 64,
+        "color": "#ffffff",
+        "x": 120,
+        "y": 160,
+        "width": 800
+       }
+      ]
+     }
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "candidate": 1,
+     "issues": [],
+     "width": 1080,
+     "height": 1350,
+     "image": {
+      "contentType": "image/webp",
+      "base64": "<12172 bytes of image/webp>"
+     }
+    }
+   }
+  },
+  {
+   "step": "scan 1: render with the same seq (idempotent: the stored candidate)",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/<scan:1>/render",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:1>:build:1>"
+    },
+    "body": {
+     "run": 1,
+     "seq": 3,
+     "design": {
+      "canvas": {
+       "width": 1080,
+       "height": 1350
+      },
+      "elements": [
+       {
+        "kind": "background",
+        "id": "pozadi",
+        "fill": "#f4f1ea"
+       },
+       {
+        "kind": "shape",
+        "id": "panel",
+        "shape": "rectangle",
+        "name": "Panel",
+        "x": 80,
+        "y": 90,
+        "width": 920,
+        "height": 420,
+        "fill": "#0b3d6b"
+       },
+       {
+        "kind": "image",
+        "id": "obrazek",
+        "asset": "00000000-0000-4000-8000-0000000a15ca",
+        "x": 660,
+        "y": 890,
+        "width": 320,
+        "height": 320,
+        "input": {
+         "name": "Obrázek"
+        }
+       },
+       {
+        "kind": "text",
+        "id": "nadpis",
+        "text": "Letní kemp 2027",
+        "font": "Arial (Arial Italique)",
+        "size": 64,
+        "color": "#ffffff",
+        "x": 120,
+        "y": 160,
+        "width": 800
+       }
+      ]
+     }
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "candidate": 1,
+     "issues": [],
+     "width": 1080,
+     "height": 1350,
+     "image": {
+      "contentType": "image/webp",
+      "base64": "<12172 bytes of image/webp>"
+     }
+    }
+   }
+  },
+  {
+   "step": "scan 1: render a design the validation rejects",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/<scan:1>/render",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:1>:build:1>"
+    },
+    "body": {
+     "run": 1,
+     "seq": 4,
+     "design": {
+      "canvas": {
+       "width": 1080,
+       "height": 1350
+      },
+      "elements": [
+       {
+        "kind": "background",
+        "id": "pozadi",
+        "fill": "#f4f1ea"
+       },
+       {
+        "kind": "shape",
+        "id": "panel",
+        "shape": "rectangle",
+        "name": "Panel",
+        "x": 80,
+        "y": 90,
+        "width": 920,
+        "height": 420,
+        "fill": "#0b3d6b"
+       },
+       {
+        "kind": "image",
+        "id": "obrazek",
+        "asset": "00000000-0000-4000-8000-0000000a15ca",
+        "x": 660,
+        "y": 890,
+        "width": 320,
+        "height": 320,
+        "input": {
+         "name": "Obrázek"
+        }
+       },
+       {
+        "kind": "text",
+        "id": "nadpis",
+        "text": "Letní kemp 2027",
+        "font": "Arial (Arial Italique)",
+        "size": 64,
+        "color": "#ffffff",
+        "x": 120,
+        "y": 160,
+        "width": 800
+       },
+       {
+        "kind": "text",
+        "id": "spatne",
+        "text": "x",
+        "font": "No Such Font (Regular)",
+        "size": 20,
+        "color": "#000000",
+        "x": 10,
+        "y": 10,
+        "width": 100
+       }
+      ]
+     }
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "candidate": null,
+     "issues": [
+      {
+       "severity": "error",
+       "stage": "lint",
+       "code": "font_not_allowed",
+       "path": "elements[4].font",
+       "message": "elements[4].font: \"No Such Font (Regular)\" is not one of this project's fonts. Use one of: \"Arial (Arial Italique)\", \"Arial (Arial)\", \"Arial (Arial Gras Italique)\", \"Arial (Arial Gras)\", \"Arial Black (Arial Black Normal)\", \"Arial Narrow (Arial Narrow)\", \"Montserrat (Montserrat-ExtraLight)\", \"Montserrat (Montserrat-Thin)\", \"Montserrat (Montserrat-Light)\", \"Montserrat (Montserrat-Regular)\", \"Montserrat (Montserrat-Medium)\", \"Montserrat (Montserrat-SemiBold)\", \"Montserrat (Montserrat Bold)\", \"Montserrat (Montserrat-ExtraBold)\", \"Montserrat (Montserrat-Black)\" (exactly as written — call get_context for the list).",
+       "slug": "spatne"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "step": "scan 1: render → candidate 2",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/<scan:1>/render",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:1>:build:1>"
+    },
+    "body": {
+     "run": 1,
+     "seq": 5,
+     "design": {
+      "canvas": {
+       "width": 1080,
+       "height": 1350
+      },
+      "elements": [
+       {
+        "kind": "background",
+        "id": "pozadi",
+        "fill": "#f4f1ea"
+       },
+       {
+        "kind": "shape",
+        "id": "panel",
+        "shape": "rectangle",
+        "name": "Panel",
+        "x": 90,
+        "y": 90,
+        "width": 920,
+        "height": 420,
+        "fill": "#0b3d6b"
+       },
+       {
+        "kind": "image",
+        "id": "obrazek",
+        "asset": "00000000-0000-4000-8000-0000000a15ca",
+        "x": 660,
+        "y": 890,
+        "width": 320,
+        "height": 320,
+        "input": {
+         "name": "Obrázek"
+        }
+       },
+       {
+        "kind": "text",
+        "id": "nadpis",
+        "text": "Letní kemp 2027",
+        "font": "Arial (Arial Italique)",
+        "size": 64,
+        "color": "#ffffff",
+        "x": 120,
+        "y": 160,
+        "width": 800
+       }
+      ]
+     }
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "candidate": 2,
+     "issues": [],
+     "width": 1080,
+     "height": 1350,
+     "image": {
+      "contentType": "image/webp",
+      "base64": "<12114 bytes of image/webp>"
+     }
+    }
+   }
+  },
+  {
+   "step": "scan 1: render → candidate 3",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/<scan:1>/render",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:1>:build:1>"
+    },
+    "body": {
+     "run": 1,
+     "seq": 6,
+     "design": {
+      "canvas": {
+       "width": 1080,
+       "height": 1350
+      },
+      "elements": [
+       {
+        "kind": "background",
+        "id": "pozadi",
+        "fill": "#f4f1ea"
+       },
+       {
+        "kind": "shape",
+        "id": "panel",
+        "shape": "rectangle",
+        "name": "Panel",
+        "x": 100,
+        "y": 90,
+        "width": 920,
+        "height": 420,
+        "fill": "#0b3d6b"
+       },
+       {
+        "kind": "image",
+        "id": "obrazek",
+        "asset": "00000000-0000-4000-8000-0000000a15ca",
+        "x": 660,
+        "y": 890,
+        "width": 320,
+        "height": 320,
+        "input": {
+         "name": "Obrázek"
+        }
+       },
+       {
+        "kind": "text",
+        "id": "nadpis",
+        "text": "Letní kemp 2027",
+        "font": "Arial (Arial Italique)",
+        "size": 64,
+        "color": "#ffffff",
+        "x": 120,
+        "y": 160,
+        "width": 800
+       }
+      ]
+     }
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "candidate": 3,
+     "issues": [],
+     "width": 1080,
+     "height": 1350,
+     "image": {
+      "contentType": "image/webp",
+      "base64": "<12266 bytes of image/webp>"
+     }
+    }
+   }
+  },
+  {
+   "step": "scan 1: render past the cap (candidate_limit)",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/<scan:1>/render",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:1>:build:1>"
+    },
+    "body": {
+     "run": 1,
+     "seq": 7,
+     "design": {
+      "canvas": {
+       "width": 1080,
+       "height": 1350
+      },
+      "elements": [
+       {
+        "kind": "background",
+        "id": "pozadi",
+        "fill": "#f4f1ea"
+       },
+       {
+        "kind": "shape",
+        "id": "panel",
+        "shape": "rectangle",
+        "name": "Panel",
+        "x": 110,
+        "y": 90,
+        "width": 920,
+        "height": 420,
+        "fill": "#0b3d6b"
+       },
+       {
+        "kind": "image",
+        "id": "obrazek",
+        "asset": "00000000-0000-4000-8000-0000000a15ca",
+        "x": 660,
+        "y": 890,
+        "width": 320,
+        "height": 320,
+        "input": {
+         "name": "Obrázek"
+        }
+       },
+       {
+        "kind": "text",
+        "id": "nadpis",
+        "text": "Letní kemp 2027",
+        "font": "Arial (Arial Italique)",
+        "size": 64,
+        "color": "#ffffff",
+        "x": 120,
+        "y": 160,
+        "width": 800
+       }
+      ]
+     }
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": false,
+     "code": "candidate_limit",
+     "candidates": 3
+    }
+   }
+  },
+  {
+   "step": "scan 1: a call with another run number (stale_run)",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/<scan:1>/beat",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:1>:build:1>"
+    },
+    "body": {
+     "run": 2,
+     "seq": 9,
+     "usage": {
+      "provider": "anthropic",
+      "model": "claude-opus-5-5",
+      "inputTokens": 2000,
+      "outputTokens": 200,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "engineCostMicroUsd": 12000,
+      "turns": 2,
+      "durationMs": 2000
+     }
+    }
+   },
+   "response": {
+    "status": 409,
+    "contentType": "application/json",
+    "body": {
+     "ok": false,
+     "code": "stale_run"
+    }
+   }
+  },
+  {
+   "step": "scan 1: a call with a wrong lease token (lease_lost)",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/<scan:1>/beat",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<a lease token the app does not know>"
+    },
+    "body": {
+     "run": 1,
+     "seq": 9,
+     "usage": {
+      "provider": "anthropic",
+      "model": "claude-opus-5-5",
+      "inputTokens": 2000,
+      "outputTokens": 200,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "engineCostMicroUsd": 12000,
+      "turns": 2,
+      "durationMs": 2000
+     }
+    }
+   },
+   "response": {
+    "status": 409,
+    "contentType": "application/json",
+    "body": {
+     "ok": false,
+     "code": "lease_lost"
+    }
+   }
+  },
+  {
+   "step": "scan 1: finish build `proposed`",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/<scan:1>/finish",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:1>:build:1>"
+    },
+    "body": {
+     "run": 1,
+     "outcome": "proposed",
+     "candidate": 2,
+     "report": {
+      "status": "proposed",
+      "unfinished": false,
+      "stopReason": null,
+      "candidate": 2,
+      "headline": "nadpis",
+      "placeholders": [
+       {
+        "id": "obrazek",
+        "name": "Obrázek",
+        "role": "photo",
+        "fillable": true,
+        "box": [
+         660,
+         890,
+         320,
+         320
+        ]
+       }
+      ],
+      "fonts": [
+       {
+        "group": "nadpis",
+        "role": "headline",
+        "texts": [
+         "nadpis"
+        ],
+        "pattern": "measured_match",
+        "closeness": 0.93,
+        "mismatch": 0.07,
+        "sizeChangePercent": 0,
+        "face": "Arial (Arial Italique)",
+        "verified": true,
+        "verifiedScore": 0.93
+       }
+      ],
+      "simplifications": [],
+      "omitted": [
+       {
+        "code": "other",
+        "box": [
+         80,
+         600,
+         520,
+         110
+        ],
+        "diff": 0.09,
+        "by": "scanner"
+       }
+      ],
+      "approximations": [],
+      "lowConfidenceTexts": [
+       {
+        "id": "nadpis",
+        "reason": "not_found_by_ocr",
+        "by": "scanner",
+        "box": [
+         120,
+         160,
+         800,
+         74
+        ]
+       }
+      ],
+      "shrunk": [],
+      "paletteSnaps": [],
+      "notes": [],
+      "counts": {
+       "texts": 1,
+       "shapes": 1,
+       "places": 1,
+       "background": true
+      },
+      "measures": {
+       "mae": 0.03,
+       "textFit": 0.1
+      }
+     },
+     "boxes": [
+      {
+       "id": "panel",
+       "kind": "shape",
+       "box": [
+        90,
+        90,
+        920,
+        420
+       ]
+      },
+      {
+       "id": "nadpis",
+       "kind": "text",
+       "box": [
+        120,
+        160,
+        800,
+        74
+       ],
+       "ink": null,
+       "sourceInk": null,
+       "colour": "#ffffff",
+       "lines": 1,
+       "sourceLineWidths": [],
+       "fittedSize": null
+      }
+     ],
+     "usage": {
+      "provider": "anthropic",
+      "model": "claude-opus-5-5",
+      "inputTokens": 4000,
+      "outputTokens": 400,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "engineCostMicroUsd": 24000,
+      "turns": 4,
+      "durationMs": 4000
+     }
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "applied": true,
+     "status": "ready",
+     "code": null
+    }
+   }
+  },
+  {
+   "step": "scan 1: finish again (the answer of the first was lost) → stale_run with the state",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/<scan:1>/finish",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:1>:build:1>"
+    },
+    "body": {
+     "run": 1,
+     "outcome": "proposed",
+     "candidate": 2,
+     "report": {
+      "status": "proposed",
+      "unfinished": false,
+      "stopReason": null,
+      "candidate": 2,
+      "headline": "nadpis",
+      "placeholders": [
+       {
+        "id": "obrazek",
+        "name": "Obrázek",
+        "role": "photo",
+        "fillable": true,
+        "box": [
+         660,
+         890,
+         320,
+         320
+        ]
+       }
+      ],
+      "fonts": [
+       {
+        "group": "nadpis",
+        "role": "headline",
+        "texts": [
+         "nadpis"
+        ],
+        "pattern": "measured_match",
+        "closeness": 0.93,
+        "mismatch": 0.07,
+        "sizeChangePercent": 0,
+        "face": "Arial (Arial Italique)",
+        "verified": true,
+        "verifiedScore": 0.93
+       }
+      ],
+      "simplifications": [],
+      "omitted": [
+       {
+        "code": "other",
+        "box": [
+         80,
+         600,
+         520,
+         110
+        ],
+        "diff": 0.09,
+        "by": "scanner"
+       }
+      ],
+      "approximations": [],
+      "lowConfidenceTexts": [
+       {
+        "id": "nadpis",
+        "reason": "not_found_by_ocr",
+        "by": "scanner",
+        "box": [
+         120,
+         160,
+         800,
+         74
+        ]
+       }
+      ],
+      "shrunk": [],
+      "paletteSnaps": [],
+      "notes": [],
+      "counts": {
+       "texts": 1,
+       "shapes": 1,
+       "places": 1,
+       "background": true
+      },
+      "measures": {
+       "mae": 0.03,
+       "textFit": 0.1
+      }
+     },
+     "boxes": [
+      {
+       "id": "panel",
+       "kind": "shape",
+       "box": [
+        90,
+        90,
+        920,
+        420
+       ]
+      },
+      {
+       "id": "nadpis",
+       "kind": "text",
+       "box": [
+        120,
+        160,
+        800,
+        74
+       ],
+       "ink": null,
+       "sourceInk": null,
+       "colour": "#ffffff",
+       "lines": 1,
+       "sourceLineWidths": [],
+       "fittedSize": null
+      }
+     ],
+     "usage": {
+      "provider": "anthropic",
+      "model": "claude-opus-5-5",
+      "inputTokens": 4000,
+      "outputTokens": 400,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "engineCostMicroUsd": 24000,
+      "turns": 4,
+      "durationMs": 4000
+     }
+    }
+   },
+   "response": {
+    "status": 409,
+    "contentType": "application/json",
+    "body": {
+     "ok": false,
+     "code": "stale_run",
+     "status": "ready"
+    }
+   }
+  },
+  {
+   "step": "scan 1: beat after the finish (the run no longer holds the scan)",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/<scan:1>/beat",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:1>:build:1>"
+    },
+    "body": {
+     "run": 1,
+     "seq": 10,
+     "usage": {
+      "provider": "anthropic",
+      "model": "claude-opus-5-5",
+      "inputTokens": 4000,
+      "outputTokens": 400,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "engineCostMicroUsd": 24000,
+      "turns": 4,
+      "durationMs": 4000
+     }
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "cancel": true,
+     "mode": "on",
+     "status": "ready"
+    }
+   }
+  },
+  {
+   "step": "scan 1: render after the finish (lease_lost)",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/<scan:1>/render",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:1>:build:1>"
+    },
+    "body": {
+     "run": 1,
+     "seq": 11,
+     "design": {
+      "canvas": {
+       "width": 1080,
+       "height": 1350
+      },
+      "elements": [
+       {
+        "kind": "background",
+        "id": "pozadi",
+        "fill": "#f4f1ea"
+       },
+       {
+        "kind": "shape",
+        "id": "panel",
+        "shape": "rectangle",
+        "name": "Panel",
+        "x": 80,
+        "y": 90,
+        "width": 920,
+        "height": 420,
+        "fill": "#0b3d6b"
+       },
+       {
+        "kind": "image",
+        "id": "obrazek",
+        "asset": "00000000-0000-4000-8000-0000000a15ca",
+        "x": 660,
+        "y": 890,
+        "width": 320,
+        "height": 320,
+        "input": {
+         "name": "Obrázek"
+        }
+       },
+       {
+        "kind": "text",
+        "id": "nadpis",
+        "text": "Letní kemp 2027",
+        "font": "Arial (Arial Italique)",
+        "size": 64,
+        "color": "#ffffff",
+        "x": 120,
+        "y": 160,
+        "width": 800
+       }
+      ]
+     }
+    }
+   },
+   "response": {
+    "status": 409,
+    "contentType": "application/json",
+    "body": {
+     "ok": false,
+     "code": "lease_lost"
+    }
+   }
+  },
+  {
+   "step": "scan 2: claim intake → a job",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/claim",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1"
+    },
+    "body": {
+     "lane": "intake",
+     "scannerVersion": "0.2.0+contract",
+     "instruments": [
+      "ocr",
+      "crop",
+      "measure",
+      "font_rank",
+      "compare"
+     ],
+     "capacity": 1
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "mode": "on",
+     "job": {
+      "id": "<scan:2>",
+      "kind": "template",
+      "lane": "intake",
+      "run": 1,
+      "try": 1,
+      "approximate": false,
+      "leaseToken": "<lease:<scan:2>:intake:1>",
+      "leaseSeconds": 150,
+      "options": {},
+      "source": {
+       "sha256": "<sha256 of the upload>",
+       "contentType": "image/png",
+       "bytes": 40670,
+       "width": 1080,
+       "height": 1350
+      },
+      "definition": {
+       "version": "5-010a74b2247e",
+       "files": {
+        "definition.json": "<4233 characters>",
+        "finish.template.schema.json": "<4355 characters>",
+        "precheck.md": "<1037 characters>",
+        "precheck.schema.json": "<471 characters>",
+        "system.common.md": "<1937 characters>",
+        "system.template.md": "<15654 characters>",
+        "task.template.md": "<306 characters>",
+        "tools.json": "<9574 characters>"
+       }
+      }
+     }
+    }
+   }
+  },
+  {
+   "step": "scan 2: source (the original, as bytes)",
+   "request": {
+    "method": "GET",
+    "path": "/internal/scanner/<scan:2>/source?run=1",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:2>:intake:1>"
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "image/png",
+    "body": "<40670 bytes>"
+   }
+  },
+  {
+   "step": "scan 2: finish intake `stopped`",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/<scan:2>/finish",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:2>:intake:1>"
+    },
+    "body": {
+     "run": 1,
+     "outcome": "stopped",
+     "reason": "photo_of_print",
+     "preCheck": {
+      "verdict": "photo_of_print",
+      "confidence": "high",
+      "approximate": false,
+      "ms": 2000,
+      "continuable": true
+     },
+     "usage": {
+      "provider": "anthropic",
+      "model": "claude-haiku-5-5",
+      "inputTokens": 1000,
+      "outputTokens": 100,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "engineCostMicroUsd": 6000,
+      "turns": 1,
+      "durationMs": 1000
+     }
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "applied": true,
+     "status": "stopped",
+     "code": "photo_of_print"
+    }
+   }
+  },
+  {
+   "step": "scan 3: claim intake → a job",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/claim",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1"
+    },
+    "body": {
+     "lane": "intake",
+     "scannerVersion": "0.2.0+contract",
+     "instruments": [
+      "ocr",
+      "crop",
+      "measure",
+      "font_rank",
+      "compare"
+     ],
+     "capacity": 1
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "mode": "on",
+     "job": {
+      "id": "<scan:3>",
+      "kind": "template",
+      "lane": "intake",
+      "run": 1,
+      "try": 1,
+      "approximate": false,
+      "leaseToken": "<lease:<scan:3>:intake:1>",
+      "leaseSeconds": 150,
+      "options": {},
+      "source": {
+       "sha256": "<sha256 of the upload>",
+       "contentType": "image/png",
+       "bytes": 40670,
+       "width": 1080,
+       "height": 1350
+      },
+      "definition": {
+       "version": "5-010a74b2247e",
+       "files": {
+        "definition.json": "<4233 characters>",
+        "finish.template.schema.json": "<4355 characters>",
+        "precheck.md": "<1037 characters>",
+        "precheck.schema.json": "<471 characters>",
+        "system.common.md": "<1937 characters>",
+        "system.template.md": "<15654 characters>",
+        "task.template.md": "<306 characters>",
+        "tools.json": "<9574 characters>"
+       }
+      }
+     }
+    }
+   }
+  },
+  {
+   "step": "scan 3: source (the original, as bytes)",
+   "request": {
+    "method": "GET",
+    "path": "/internal/scanner/<scan:3>/source?run=1",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:3>:intake:1>"
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "image/png",
+    "body": "<40670 bytes>"
+   }
+  },
+  {
+   "step": "scan 3: release intake (shutdown): the lease is given back",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/<scan:3>/release",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:3>:intake:1>"
+    },
+    "body": {
+     "run": 1,
+     "usage": {
+      "provider": "anthropic",
+      "model": null,
+      "inputTokens": 0,
+      "outputTokens": 0,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "engineCostMicroUsd": 0,
+      "turns": 0,
+      "durationMs": 0
+     },
+     "reason": "shutdown"
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "applied": true,
+     "status": "checking",
+     "code": null
+    }
+   }
+  },
+  {
+   "step": "scan 3 (second intake claim: a new run number): claim intake → a job",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/claim",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1"
+    },
+    "body": {
+     "lane": "intake",
+     "scannerVersion": "0.2.0+contract",
+     "instruments": [
+      "ocr",
+      "crop",
+      "measure",
+      "font_rank",
+      "compare"
+     ],
+     "capacity": 1
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "mode": "on",
+     "job": {
+      "id": "<scan:3>",
+      "kind": "template",
+      "lane": "intake",
+      "run": 2,
+      "try": 1,
+      "approximate": false,
+      "leaseToken": "<lease:<scan:3>:intake:2>",
+      "leaseSeconds": 150,
+      "options": {},
+      "source": {
+       "sha256": "<sha256 of the upload>",
+       "contentType": "image/png",
+       "bytes": 40670,
+       "width": 1080,
+       "height": 1350
+      },
+      "definition": {
+       "version": "5-010a74b2247e",
+       "files": {
+        "definition.json": "<4233 characters>",
+        "finish.template.schema.json": "<4355 characters>",
+        "precheck.md": "<1037 characters>",
+        "precheck.schema.json": "<471 characters>",
+        "system.common.md": "<1937 characters>",
+        "system.template.md": "<15654 characters>",
+        "task.template.md": "<306 characters>",
+        "tools.json": "<9574 characters>"
+       }
+      }
+     }
+    }
+   }
+  },
+  {
+   "step": "scan 3 (second intake claim: a new run number): source (the original, as bytes)",
+   "request": {
+    "method": "GET",
+    "path": "/internal/scanner/<scan:3>/source?run=2",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:3>:intake:2>"
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "image/png",
+    "body": "<40670 bytes>"
+   }
+  },
+  {
+   "step": "scan 3: finish intake `passed`",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/<scan:3>/finish",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:3>:intake:2>"
+    },
+    "body": {
+     "run": 2,
+     "outcome": "passed",
+     "preCheck": {
+      "verdict": "design",
+      "confidence": "medium",
+      "approximate": false,
+      "ms": 1900
+     },
+     "sourceMeta": {
+      "format": "png",
+      "bytes": 40670,
+      "width": 1080,
+      "height": 1350,
+      "workingWidth": 1080,
+      "workingHeight": 1350,
+      "workingFormat": "webp",
+      "scale": 1,
+      "space": "srgb",
+      "depth": "uchar",
+      "hasAlpha": true,
+      "orientation": 1,
+      "frames": 1,
+      "density": 72,
+      "facts": [
+       "alpha_flattened"
+      ],
+      "workingBytes": 3068
+     },
+     "usage": {
+      "provider": "anthropic",
+      "model": null,
+      "inputTokens": 0,
+      "outputTokens": 0,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "engineCostMicroUsd": 0,
+      "turns": 0,
+      "durationMs": 0
+     }
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "applied": true,
+     "status": "queued",
+     "code": null
+    }
+   }
+  },
+  {
+   "step": "scan 3: claim build",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/claim",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1"
+    },
+    "body": {
+     "lane": "build",
+     "scannerVersion": "0.2.0+contract",
+     "instruments": [
+      "ocr",
+      "crop",
+      "measure",
+      "font_rank",
+      "compare"
+     ],
+     "capacity": 1
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "mode": "on",
+     "job": {
+      "id": "<scan:3>",
+      "kind": "template",
+      "lane": "build",
+      "run": 1,
+      "try": 1,
+      "approximate": false,
+      "leaseToken": "<lease:<scan:3>:build:1>",
+      "leaseSeconds": 120,
+      "options": {},
+      "source": {
+       "sha256": "<sha256 of the upload>",
+       "contentType": "image/webp",
+       "bytes": null,
+       "width": 1080,
+       "height": 1350
+      },
+      "definition": {
+       "version": "5-010a74b2247e",
+       "files": {
+        "definition.json": "<4233 characters>",
+        "finish.template.schema.json": "<4355 characters>",
+        "precheck.md": "<1037 characters>",
+        "precheck.schema.json": "<471 characters>",
+        "system.common.md": "<1937 characters>",
+        "system.template.md": "<15654 characters>",
+        "task.template.md": "<306 characters>",
+        "tools.json": "<9574 characters>"
+       }
+      },
+      "context": {
+       "fonts": [
+        {
+         "family": "Arial (Arial Italique)",
+         "font": "Arial",
+         "face": "Arial Italique",
+         "weight": 400,
+         "italic": false
+        },
+        {
+         "family": "Arial (Arial)",
+         "font": "Arial",
+         "face": "Arial",
+         "weight": 400,
+         "italic": false
+        },
+        "<13 more faces of the same shape>"
+       ],
+       "palette": [],
+       "standInAssetId": "00000000-0000-4000-8000-0000000a15ca",
+       "templateMaxLongEdgePx": 5000
+      }
+     }
+    }
+   }
+  },
+  {
+   "step": "scan 3: release build (shutdown): queued again, the restart not consumed",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/<scan:3>/release",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:3>:build:1>"
+    },
+    "body": {
+     "run": 1,
+     "usage": {
+      "provider": "anthropic",
+      "model": "claude-opus-5-5",
+      "inputTokens": 1000,
+      "outputTokens": 100,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "engineCostMicroUsd": 6000,
+      "turns": 1,
+      "durationMs": 1000
+     },
+     "reason": "shutdown"
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "applied": true,
+     "status": "queued",
+     "code": null
+    }
+   }
+  },
+  {
+   "step": "scan 3: claim build again (run 2)",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/claim",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1"
+    },
+    "body": {
+     "lane": "build",
+     "scannerVersion": "0.2.0+contract",
+     "instruments": [
+      "ocr",
+      "crop",
+      "measure",
+      "font_rank",
+      "compare"
+     ],
+     "capacity": 1
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "mode": "on",
+     "job": {
+      "id": "<scan:3>",
+      "kind": "template",
+      "lane": "build",
+      "run": 2,
+      "try": 1,
+      "approximate": false,
+      "leaseToken": "<lease:<scan:3>:build:2>",
+      "leaseSeconds": 120,
+      "options": {},
+      "source": {
+       "sha256": "<sha256 of the upload>",
+       "contentType": "image/webp",
+       "bytes": null,
+       "width": 1080,
+       "height": 1350
+      },
+      "definition": {
+       "version": "5-010a74b2247e",
+       "files": {
+        "definition.json": "<4233 characters>",
+        "finish.template.schema.json": "<4355 characters>",
+        "precheck.md": "<1037 characters>",
+        "precheck.schema.json": "<471 characters>",
+        "system.common.md": "<1937 characters>",
+        "system.template.md": "<15654 characters>",
+        "task.template.md": "<306 characters>",
+        "tools.json": "<9574 characters>"
+       }
+      },
+      "context": {
+       "fonts": [
+        {
+         "family": "Arial (Arial Italique)",
+         "font": "Arial",
+         "face": "Arial Italique",
+         "weight": 400,
+         "italic": false
+        },
+        {
+         "family": "Arial (Arial)",
+         "font": "Arial",
+         "face": "Arial",
+         "weight": 400,
+         "italic": false
+        },
+        "<13 more faces of the same shape>"
+       ],
+       "palette": [],
+       "standInAssetId": "00000000-0000-4000-8000-0000000a15ca",
+       "templateMaxLongEdgePx": 5000
+      }
+     }
+    }
+   }
+  },
+  {
+   "step": "scan 3: beat",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/<scan:3>/beat",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:3>:build:2>"
+    },
+    "body": {
+     "run": 2,
+     "seq": 1,
+     "stage": "build",
+     "note": "measuring",
+     "noteParams": null,
+     "round": 0,
+     "usage": {
+      "provider": "anthropic",
+      "model": "claude-opus-5-5",
+      "inputTokens": 2000,
+      "outputTokens": 200,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "engineCostMicroUsd": 12000,
+      "turns": 2,
+      "durationMs": 2000
+     }
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "cancel": false,
+     "mode": "on",
+     "leaseExpiresAt": "<ISO 8601 date>"
+    }
+   }
+  },
+  {
+   "step": "scan 3: beat after the user cancelled (cancel: true)",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/<scan:3>/beat",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:3>:build:2>"
+    },
+    "body": {
+     "run": 2,
+     "seq": 2,
+     "stage": "build",
+     "usage": {
+      "provider": "anthropic",
+      "model": "claude-opus-5-5",
+      "inputTokens": 3000,
+      "outputTokens": 300,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "engineCostMicroUsd": 18000,
+      "turns": 3,
+      "durationMs": 3000
+     }
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "cancel": true,
+     "mode": "on",
+     "status": "cancelled"
+    }
+   }
+  },
+  {
+   "step": "scan 3: a late finish after the cancel (usage only, stale_run)",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/<scan:3>/finish",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:3>:build:2>"
+    },
+    "body": {
+     "run": 2,
+     "outcome": "failed",
+     "error": "build",
+     "usage": {
+      "provider": "anthropic",
+      "model": "claude-opus-5-5",
+      "inputTokens": 3000,
+      "outputTokens": 300,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "engineCostMicroUsd": 18000,
+      "turns": 3,
+      "durationMs": 3000
+     }
+    }
+   },
+   "response": {
+    "status": 409,
+    "contentType": "application/json",
+    "body": {
+     "ok": false,
+     "code": "stale_run",
+     "status": "cancelled"
+    }
+   }
+  },
+  {
+   "step": "scan 3: release after the cancel (applied: false)",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/<scan:3>/release",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:3>:build:2>"
+    },
+    "body": {
+     "run": 2,
+     "usage": {
+      "provider": "anthropic",
+      "model": "claude-opus-5-5",
+      "inputTokens": 3000,
+      "outputTokens": 300,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "engineCostMicroUsd": 18000,
+      "turns": 3,
+      "durationMs": 3000
+     },
+     "reason": "shutdown"
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "applied": false,
+     "status": "cancelled",
+     "code": null
+    }
+   }
+  },
+  {
+   "step": "scan 4: claim intake → a job",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/claim",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1"
+    },
+    "body": {
+     "lane": "intake",
+     "scannerVersion": "0.2.0+contract",
+     "instruments": [
+      "ocr",
+      "crop",
+      "measure",
+      "font_rank",
+      "compare"
+     ],
+     "capacity": 1
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "mode": "on",
+     "job": {
+      "id": "<scan:4>",
+      "kind": "template",
+      "lane": "intake",
+      "run": 1,
+      "try": 1,
+      "approximate": false,
+      "leaseToken": "<lease:<scan:4>:intake:1>",
+      "leaseSeconds": 150,
+      "options": {},
+      "source": {
+       "sha256": "<sha256 of the upload>",
+       "contentType": "image/png",
+       "bytes": 40670,
+       "width": 1080,
+       "height": 1350
+      },
+      "definition": {
+       "version": "5-010a74b2247e",
+       "files": {
+        "definition.json": "<4233 characters>",
+        "finish.template.schema.json": "<4355 characters>",
+        "precheck.md": "<1037 characters>",
+        "precheck.schema.json": "<471 characters>",
+        "system.common.md": "<1937 characters>",
+        "system.template.md": "<15654 characters>",
+        "task.template.md": "<306 characters>",
+        "tools.json": "<9574 characters>"
+       }
+      }
+     }
+    }
+   }
+  },
+  {
+   "step": "scan 4: source (the original, as bytes)",
+   "request": {
+    "method": "GET",
+    "path": "/internal/scanner/<scan:4>/source?run=1",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:4>:intake:1>"
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "image/png",
+    "body": "<40670 bytes>"
+   }
+  },
+  {
+   "step": "scan 4: finish intake `failed provider_unavailable` (rule 3c)",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/<scan:4>/finish",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:4>:intake:1>"
+    },
+    "body": {
+     "run": 1,
+     "outcome": "failed",
+     "error": "provider_unavailable",
+     "usage": {
+      "provider": "anthropic",
+      "model": null,
+      "inputTokens": 0,
+      "outputTokens": 0,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "engineCostMicroUsd": 0,
+      "turns": 0,
+      "durationMs": 0
+     }
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "applied": true,
+     "status": "failed",
+     "code": "provider_unavailable"
+    }
+   }
+  },
+  {
+   "step": "scan 5: claim intake → a job",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/claim",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1"
+    },
+    "body": {
+     "lane": "intake",
+     "scannerVersion": "0.2.0+contract",
+     "instruments": [
+      "ocr",
+      "crop",
+      "measure",
+      "font_rank",
+      "compare"
+     ],
+     "capacity": 1
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "mode": "on",
+     "job": {
+      "id": "<scan:5>",
+      "kind": "template",
+      "lane": "intake",
+      "run": 1,
+      "try": 1,
+      "approximate": false,
+      "leaseToken": "<lease:<scan:5>:intake:1>",
+      "leaseSeconds": 150,
+      "options": {},
+      "source": {
+       "sha256": "<sha256 of the upload>",
+       "contentType": "image/png",
+       "bytes": 40670,
+       "width": 1080,
+       "height": 1350
+      },
+      "definition": {
+       "version": "5-010a74b2247e",
+       "files": {
+        "definition.json": "<4233 characters>",
+        "finish.template.schema.json": "<4355 characters>",
+        "precheck.md": "<1037 characters>",
+        "precheck.schema.json": "<471 characters>",
+        "system.common.md": "<1937 characters>",
+        "system.template.md": "<15654 characters>",
+        "task.template.md": "<306 characters>",
+        "tools.json": "<9574 characters>"
+       }
+      }
+     }
+    }
+   }
+  },
+  {
+   "step": "scan 5: source (the original, as bytes)",
+   "request": {
+    "method": "GET",
+    "path": "/internal/scanner/<scan:5>/source?run=1",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:5>:intake:1>"
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "image/png",
+    "body": "<40670 bytes>"
+   }
+  },
+  {
+   "step": "scan 5: claim build",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/claim",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1"
+    },
+    "body": {
+     "lane": "build",
+     "scannerVersion": "0.2.0+contract",
+     "instruments": [
+      "ocr",
+      "crop",
+      "measure",
+      "font_rank",
+      "compare"
+     ],
+     "capacity": 1
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "mode": "on",
+     "job": {
+      "id": "<scan:5>",
+      "kind": "template",
+      "lane": "build",
+      "run": 1,
+      "try": 1,
+      "approximate": false,
+      "leaseToken": "<lease:<scan:5>:build:1>",
+      "leaseSeconds": 120,
+      "options": {},
+      "source": {
+       "sha256": "<sha256 of the upload>",
+       "contentType": "image/webp",
+       "bytes": null,
+       "width": 1080,
+       "height": 1350
+      },
+      "definition": {
+       "version": "5-010a74b2247e",
+       "files": {
+        "definition.json": "<4233 characters>",
+        "finish.template.schema.json": "<4355 characters>",
+        "precheck.md": "<1037 characters>",
+        "precheck.schema.json": "<471 characters>",
+        "system.common.md": "<1937 characters>",
+        "system.template.md": "<15654 characters>",
+        "task.template.md": "<306 characters>",
+        "tools.json": "<9574 characters>"
+       }
+      },
+      "context": {
+       "fonts": [
+        {
+         "family": "Arial (Arial Italique)",
+         "font": "Arial",
+         "face": "Arial Italique",
+         "weight": 400,
+         "italic": false
+        },
+        {
+         "family": "Arial (Arial)",
+         "font": "Arial",
+         "face": "Arial",
+         "weight": 400,
+         "italic": false
+        },
+        "<13 more faces of the same shape>"
+       ],
+       "palette": [],
+       "standInAssetId": "00000000-0000-4000-8000-0000000a15ca",
+       "templateMaxLongEdgePx": 5000
+      }
+     }
+    }
+   }
+  },
+  {
+   "step": "scan 5: finish build `failed` with an error code",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/<scan:5>/finish",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:5>:build:1>"
+    },
+    "body": {
+     "run": 1,
+     "outcome": "failed",
+     "error": "renderer_unavailable",
+     "usage": {
+      "provider": "anthropic",
+      "model": "claude-opus-5-5",
+      "inputTokens": 1000,
+      "outputTokens": 100,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "engineCostMicroUsd": 6000,
+      "turns": 1,
+      "durationMs": 1000
+     }
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "applied": true,
+     "status": "failed",
+     "code": "renderer_unavailable"
+    }
+   }
+  },
+  {
+   "step": "scan 6: claim intake → a job",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/claim",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1"
+    },
+    "body": {
+     "lane": "intake",
+     "scannerVersion": "0.2.0+contract",
+     "instruments": [
+      "ocr",
+      "crop",
+      "measure",
+      "font_rank",
+      "compare"
+     ],
+     "capacity": 1
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "mode": "on",
+     "job": {
+      "id": "<scan:6>",
+      "kind": "template",
+      "lane": "intake",
+      "run": 1,
+      "try": 1,
+      "approximate": false,
+      "leaseToken": "<lease:<scan:6>:intake:1>",
+      "leaseSeconds": 150,
+      "options": {},
+      "source": {
+       "sha256": "<sha256 of the upload>",
+       "contentType": "image/png",
+       "bytes": 40670,
+       "width": 1080,
+       "height": 1350
+      },
+      "definition": {
+       "version": "5-010a74b2247e",
+       "files": {
+        "definition.json": "<4233 characters>",
+        "finish.template.schema.json": "<4355 characters>",
+        "precheck.md": "<1037 characters>",
+        "precheck.schema.json": "<471 characters>",
+        "system.common.md": "<1937 characters>",
+        "system.template.md": "<15654 characters>",
+        "task.template.md": "<306 characters>",
+        "tools.json": "<9574 characters>"
+       }
+      }
+     }
+    }
+   }
+  },
+  {
+   "step": "scan 6: source (the original, as bytes)",
+   "request": {
+    "method": "GET",
+    "path": "/internal/scanner/<scan:6>/source?run=1",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:6>:intake:1>"
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "image/png",
+    "body": "<40670 bytes>"
+   }
+  },
+  {
+   "step": "scan 6: finish intake `refused` (rule 3c)",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/<scan:6>/finish",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:6>:intake:1>"
+    },
+    "body": {
+     "run": 1,
+     "outcome": "refused",
+     "usage": {
+      "provider": "anthropic",
+      "model": "claude-haiku-5-5",
+      "inputTokens": 1000,
+      "outputTokens": 100,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "engineCostMicroUsd": 6000,
+      "turns": 1,
+      "durationMs": 1000
+     }
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "applied": true,
+     "status": "refused",
+     "code": null
+    }
+   }
+  },
+  {
+   "step": "a scan that does not exist (gone)",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/00000000-0000-7000-8000-000000000000/beat",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<a lease token the app does not know>"
+    },
+    "body": {
+     "run": 1,
+     "seq": 1,
+     "usage": {
+      "provider": "anthropic",
+      "model": null,
+      "inputTokens": 0,
+      "outputTokens": 0,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "engineCostMicroUsd": 0,
+      "turns": 0,
+      "durationMs": 0
+     }
+    }
+   },
+   "response": {
+    "status": 410,
+    "contentType": "application/json",
+    "body": {
+     "ok": false,
+     "code": "gone"
+    }
+   }
+  },
+  {
+   "step": "a protocol version the app does not accept (protocol_too_old)",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/tick",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "0"
+    },
+    "body": {
+     "scannerVersion": "0.0.1+old"
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": false,
+     "code": "protocol_too_old",
+     "protocolVersion": 1
+    }
+   }
+  },
+  {
+   "step": "tick again: the app recorded the old scanner; the next accepted call clears it",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/tick",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1"
+    },
+    "body": {
+     "scannerVersion": "0.2.0+contract"
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "mode": "on",
+     "providerState": "ok",
+     "maxRunning": 1,
+     "reaped": 0,
+     "protocolVersion": 1
+    }
+   }
+  },
+  {
+   "step": "a wrong bearer token: 404 with an empty body",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/tick",
+    "headers": {
+     "Authorization": "Bearer <a wrong token>",
+     "X-Scanner-Protocol": "1"
+    },
+    "body": {
+     "scannerVersion": "x"
+    }
+   },
+   "response": {
+    "status": 404,
+    "contentType": "text/html",
+    "body": null
+   }
+  }
+ ]
+}

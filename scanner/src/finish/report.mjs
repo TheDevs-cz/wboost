@@ -5,6 +5,7 @@ import * as im from '../instruments/raster.mjs';
 import { elementBox } from '../adapters/template.mjs';
 import { similarity, containment, family, normalise } from './text.mjs';
 import { keepBest } from './keepbest.mjs';
+import { verifiedMatch } from '../instruments/fonts.mjs';
 
 export const ROLES = ['background', 'photo', 'logo', 'icon', 'pattern', 'illustration', 'other'];
 export const SOURCE_CLASSES = ['sans', 'serif', 'slab', 'script', 'display', 'mono', 'unknown'];
@@ -37,11 +38,39 @@ export function sourceLinesOf(element, ocrLines) {
 }
 
 /**
+ * The lines a text group is verified on: its own source lines (OCR lines matched to its texts by wording and
+ * place), the longest first, at most `max` — each as {text, ink, face, size}: the wording of the design where
+ * a design line is that source line (the model corrected what OCR misread), the face and size the design gives
+ * the text. The verification render compares exactly what the template would print with what the picture shows.
+ */
+export function verificationLines(texts, srcOf, max = 2) {
+    const count = (t) => [...String(t).replace(/\s/g, '')].length;
+    const usable = [];
+    for (const t of texts) {
+        if (!t || t.kind !== 'text' || !t.font || !(t.size > 0)) continue;
+        const own = String(t.text ?? '').split('\n').map((l) => l.trim()).filter(Boolean);
+        for (const s of srcOf(t.id)) {
+            if (!s.line?.ink || s.line.ink.n < 30) continue;
+            const exact = own.map((line) => ({ line, sim: similarity(line, s.line.text) })).sort((p, q) => q.sim - p.sim)[0];
+            // a design line that IS this source line → its wording; else the OCR wording when OCR was sure (a wrapped paragraph)
+            const text = exact && exact.sim >= 0.9 ? exact.line : (s.sim >= 0.8 && s.line.conf >= 0.9 ? s.line.text : null);
+            if (!text || count(text) < 2) continue;
+            usable.push({ text, ink: s.line.ink, face: t.font, size: t.size, glyphs: count(text) });
+        }
+    }
+    const seen = new Set();
+    return usable.sort((a, b) => b.glyphs - a.glyphs).filter((u) => { const k = `${u.face}|${u.text}`; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, max);
+}
+
+/**
  * @param build   TemplateBuild after the run (candidates, rankings, lines, paletteSnaps)
  * @param finish  the model's final report (validated against the finish schema) or null
  * @param rank    optional async (lines) → rankings, used to rank text groups the run left unranked
+ * @param verify  optional async ([{text, ink, face, size}]) → [{score} | null]: the verification render — the
+ *                text in the chosen face at the fitted size against the source line, 1 : 1. With it,
+ *                `measured_match` / `nearest_available` is decided by that measurement
  */
-export async function buildTemplateReport({ build, finish = null, unfinished = false, stopReason = null, rank = null }) {
+export async function buildTemplateReport({ build, finish = null, unfinished = false, stopReason = null, rank = null, verify = null }) {
     const preferred = Number.isInteger(finish?.preferredCandidate) ? finish.preferredCandidate : null;
     const kb = keepBest(build.source, build.candidates, { preferred });
     if (!kb) return { status: 'failed', error: 'no_candidate', unfinished, stopReason, candidate: null };
@@ -95,12 +124,16 @@ export async function buildTemplateReport({ build, finish = null, unfinished = f
     for (const face of new Set(rest.map((t) => t.font))) {
         groups.push({ group: plainName(face, 'text'), role: 'other', texts: rest.filter((t) => t.font === face).map((t) => t.id), sourceClass: 'unknown', sourceLooksLike: '', by: 'scanner' });
     }
+    // a ranking belongs to a text when it ranked one of the text's source lines, or — for a line the model
+    // ranked itself — when the wording is that text's AND the line lies where the text is (the same words in
+    // another style elsewhere on the page are another group's evidence)
     const rankingFor = (t) => {
         const { src } = perText.get(t.id);
         const own = String(t.text ?? '').split('\n');
+        const eb = elementBox(t);
         return build.rankings.filter((r) => r.candidates?.length && (
             src.some((s) => im.iou(r.box, s.line.ink?.box ?? s.line.box) > 0.5)
-            || own.some((line) => similarity(line, r.text) >= 0.8)));
+            || (own.some((line) => similarity(line, r.text) >= 0.8) && (!eb || im.coverage(r.box, im.grow(eb, 30)) >= 0.5))));
     };
     // rank what the run left unranked (bounded by the scan's face-sheet budget)
     if (rank) {
@@ -113,13 +146,35 @@ export async function buildTemplateReport({ build, finish = null, unfinished = f
         if (missing.length) {
             try {
                 const results = await rank(missing.map((l) => ({ text: l.text, ink: l.ink })));
-                missing.forEach((l, i) => build.rankings.push({ text: l.text, box: l.ink.box, group: null, origin: 'finish', line: l.id, ...results[i] }));
+                missing.forEach((l, i) => build.rankings.push({ text: l.text, box: l.ink.box, ink: l.ink, group: null, origin: 'finish', line: l.id, ...results[i] }));
             } catch { /* the budget is used or the renderer is away: those groups stay unranked */ }
         }
     }
     // the group that holds the headline text is the headline group, whatever the model called it
     const headlineId = byId.get(finish?.headline)?.kind === 'text' ? finish.headline : ([...texts].sort((a, b) => (b.size ?? 0) - (a.size ?? 0))[0]?.id ?? null);
     for (const g of groups) if (g.texts.includes(headlineId)) g.role = 'headline';
+    // ---- the verification render: the group's own source lines, set in the face the kept design uses at the
+    //      size the design gives them, compared with the source pixels (instruments/fonts.mjs verifyFaces)
+    const verification = new Map(); // group → the best verified line {score, glyphs, size, scale}
+    const thresholds = { verifiedScore: build.settings.verifiedScore ?? 0.85, verifiedScoreLong: build.settings.verifiedScoreLong ?? 0.8, verifiedLongGlyphs: build.settings.verifiedLongGlyphs ?? 12 };
+    const stats = { groups: groups.length, asked: 0, verified: 0, failed: null };
+    if (verify) {
+        const asks = groups.flatMap((g) => verificationLines(g.texts.map((id) => byId.get(id)), (id) => perText.get(id)?.src ?? []).map((line) => ({ g, ...line })));
+        stats.asked = asks.length;
+        if (asks.length) {
+            try {
+                const results = await verify(asks.map(({ text, ink, face, size }) => ({ text, ink, face, size })));
+                asks.forEach((a, i) => {
+                    const r = results[i];
+                    if (!r || r.wrapped) return;
+                    const best = verification.get(a.g);
+                    // any line of the group that IS the face proves the face is there; otherwise the best line speaks
+                    if (!best || (verifiedMatch(r, thresholds) && !verifiedMatch(best, thresholds)) || (verifiedMatch(r, thresholds) === verifiedMatch(best, thresholds) && r.score > best.score)) verification.set(a.g, r);
+                });
+                stats.verified = verification.size;
+            } catch (e) { stats.failed = e?.code ?? 'error'; /* the renderer is away or the run is over: those groups are decided by the ranking score */ }
+        }
+    }
     const textFits = new Map(); // text id → {fitted, ratio}
     const fonts = groups.map((g) => {
         const faces = g.texts.map((id) => byId.get(id).font);
@@ -146,13 +201,17 @@ export async function buildTemplateReport({ build, finish = null, unfinished = f
         }
         const top = [...pooled.entries()].map(([f, p]) => ({ face: f, score: p.sum / p.n })).sort((a, b) => b.score - a.score)[0] ?? null;
         const score = chosen.length ? +(chosen.reduce((a, b) => a + b, 0) / chosen.length).toFixed(3) : null;
-        const matched = score !== null && score >= available;
-        // the three patterns the review words a font with — decided by measurement alone
-        const undetermined = score === null || (top && top.score < (build.settings.undeterminedScore ?? 0.35));
+        // the three patterns the review words a font with — decided by measurement alone. With a verification
+        // render its 1 : 1 score decides; without one (nothing to render, the renderer away) the ranking score does
+        const v = verification.get(g) ?? null;
+        const decisive = v ? v.score : score;
+        const matched = v ? verifiedMatch(v, thresholds) : (score !== null && score >= available);
+        const undetermined = !v && (score === null || (top && top.score < (build.settings.undeterminedScore ?? 0.35)));
         const pattern = undetermined ? 'undetermined' : matched ? 'measured_match' : 'nearest_available';
         const change = median(changes);
         return {
-            group: g.group, role: g.role, texts: g.texts, pattern, closeness: score, mismatch: score === null ? null : +(1 - score).toFixed(3),
+            group: g.group, role: g.role, texts: g.texts, pattern, closeness: decisive, mismatch: decisive === null ? null : +(1 - decisive).toFixed(3),
+            verified: !!v, verifiedScore: v?.score ?? null, verifiedSize: v?.size ?? null, verifiedGlyphs: v?.glyphs ?? null,
             sizeChangePercent: pattern === 'nearest_available' && change !== null ? Math.round(change * 100) : 0,
             sourceClass: g.sourceClass, sourceLooksLike: g.sourceLooksLike,
             guessSupported: matched && !!g.sourceLooksLike && (normalise(g.sourceLooksLike).startsWith(family(face)) || family(face).startsWith(normalise(g.sourceLooksLike))),
@@ -212,7 +271,7 @@ export async function buildTemplateReport({ build, finish = null, unfinished = f
         notes: [...(texts.length === 0 ? [{ code: 'no_texts' }] : [])],
         counts: { texts: texts.length, shapes: elements.filter((e) => e.kind === 'shape').length, places: placeholders.length, background: elements.some((e) => e.kind === 'background') },
         boxes,
-        measures: { mae: kept.mae, textFit: kept.textFit, placeholderShare: kept.placeholderShare, keepBest: kb, unlistedPlaceholders, warnings: kept.issues.filter((i) => i.severity !== 'error').length },
+        measures: { mae: kept.mae, textFit: kept.textFit, placeholderShare: kept.placeholderShare, keepBest: kb, unlistedPlaceholders, warnings: kept.issues.filter((i) => i.severity !== 'error').length, fontVerification: { ...stats, renders: build.stats.verifyRenders ?? 0, ms: build.stats.verifyMs ?? 0, ...thresholds } },
         originalColours: build.prepassResult?.palette ?? [],
     };
 }
