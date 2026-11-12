@@ -55,10 +55,17 @@ readonly final class CalendarPdfProducer implements CalendarPdfProducerInterface
 
     /**
      * A photo re-encoded as a CMYK JPEG (four channels, no chroma
-     * subsampling — black must stay sharp) weighs 1.5–2.5 × its upload, so
-     * the CMYK work directory is planned for 3 × the pictures (+ margin).
+     * subsampling — the black plate must not be halved) weighs up to 2.3 ×
+     * its upload (measured: a 4:2:0 JPEG of 9.8 MB → 22.5 MB).
      */
-    private const int CMYK_WORK_SPACE_FACTOR = 3;
+    private const float CMYK_PICTURE_FACTOR = 2.5;
+
+    /**
+     * One picture at a time lies decoded in ImageMagick's disk cache beside
+     * the chunks: 16 bytes per pixel (four channels of a Q16 HDRI build) —
+     * ~310 MB for a 19 MP photo, ~1 GB for 60 MP.
+     */
+    private const int CMYK_PIXEL_CACHE_BYTES_PER_PIXEL = 16;
 
     public function __construct(
         private CalendarAssetRepository $assetRepository,
@@ -83,7 +90,8 @@ readonly final class CalendarPdfProducer implements CalendarPdfProducerInterface
         $progress(0, $plan->pageCount());
 
         $assets = $this->assetRepository->forCalendar($calendar->id);
-        $this->assertWorkSpace($calendar, $assets, $variant, $directory);
+        $chunks = self::chunks($plan->pageKeys, $this->pageBytes($calendar, $assets, $variant));
+        $this->assertWorkSpace($calendar, $assets, $variant, $directory, count($chunks));
         $paths = [];
         $done = 0;
         $started = microtime(true);
@@ -92,7 +100,7 @@ readonly final class CalendarPdfProducer implements CalendarPdfProducerInterface
         // one colour table and one store of converted pictures for the whole file
         $pass = $variant->isCmyk() ? $this->cmykConverter->pass($this->brandPalette->forProject($calendar->project->id), $directory) : null;
 
-        foreach (self::chunks($plan->pageKeys, $this->pageBytes($calendar, $assets, $variant)) as $index => $pageKeys) {
+        foreach ($chunks as $index => $pageKeys) {
             $chunkStarted = microtime(true);
             $path = $this->renderChunk($calendar, $plan, $pageKeys, $directory, sprintf('chunk-%04d', $index), $assets);
 
@@ -144,30 +152,50 @@ readonly final class CalendarPdfProducer implements CalendarPdfProducerInterface
      *
      * @param list<CalendarAsset> $assets
      *
+     * The CMYK variant needs more, and counts differently: every chunk file
+     * carries its own converted copy of the pictures all pages share (the
+     * merger writes them once, but the chunks lie side by side until then),
+     * so it is planned as {@see CMYK_PICTURE_FACTOR} × (the page pictures +
+     * the shared pictures once per chunk). The chunks are consumed by the
+     * merge, so the merged file needs no room of its own.
+     *
      * @throws CalendarExportNeedsMoreSpace
      */
-    private function assertWorkSpace(Calendar $calendar, array $assets, CalendarExportVariant $variant, string $directory): void
+    private function assertWorkSpace(Calendar $calendar, array $assets, CalendarExportVariant $variant, string $directory, int $chunks): void
     {
         if (!$variant->isPrint()) {
             // previews: tens of MB at most
             return;
         }
 
-        $shown = $this->renderAssets->shared($calendar);
+        $shared = $this->renderAssets->shared($calendar);
+        $own = [];
 
         foreach ($this->renderAssets->perPage($calendar) as $ids) {
-            $shown += $ids;
+            $own += $ids;
         }
 
-        $bytes = 0;
+        $sharedBytes = 0;
+        $ownBytes = 0;
+        $largestPixels = 0;
 
         foreach ($assets as $asset) {
-            if (isset($shown[strtolower($asset->id->toString())])) {
-                $bytes += $asset->sizeBytes;
+            $id = strtolower($asset->id->toString());
+
+            if (isset($shared[$id]) || isset($own[$id])) {
+                $largestPixels = max($largestPixels, ($asset->width ?? 0) * ($asset->height ?? 0));
+            }
+
+            if (isset($shared[$id])) {
+                $sharedBytes += $asset->sizeBytes;
+            } elseif (isset($own[$id])) {
+                $ownBytes += $asset->sizeBytes;
             }
         }
 
-        $needed = ($variant->isCmyk() ? self::CMYK_WORK_SPACE_FACTOR : 2) * $bytes + self::WORK_SPACE_MARGIN_BYTES;
+        $needed = $variant->isCmyk()
+            ? (int) (self::CMYK_PICTURE_FACTOR * ($ownBytes + max(1, $chunks) * $sharedBytes)) + self::CMYK_PIXEL_CACHE_BYTES_PER_PIXEL * $largestPixels + self::WORK_SPACE_MARGIN_BYTES
+            : 2 * ($ownBytes + $sharedBytes) + self::WORK_SPACE_MARGIN_BYTES;
         $free = @disk_free_space($directory);
 
         if ($free !== false && $free < $needed) {

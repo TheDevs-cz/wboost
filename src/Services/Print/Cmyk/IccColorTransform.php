@@ -15,17 +15,26 @@ use WBoost\Web\Exceptions\CmykConversionFailed;
  * at a time ({@see jpeg()}, {@see raw()}).
  *
  * Pictures are converted file → file. ImageMagick is Q16, so a 5400 × 3600
- * photo is ~230 MB of pixels; the in-RAM pixel cache is capped and the rest
- * spills to ImageMagick's disk cache — slower, but the export job lives in a
- * container with 768 MB.
+ * photo is ~300 MB of pixels: the in-RAM pixel cache is capped at 64 MB and
+ * everything larger lives in ImageMagick's disk cache, placed beside the
+ * target file. Measured on such a photo: 7 s and 50 MB resident with the cap,
+ * 7 s and 340 MB without — the export job lives in a container with 768 MB,
+ * and the uncapped worker peaked at 605 MB. (The price: ImageMagick skips
+ * the optimised Huffman tables when the pixels are on disk, +3.5 % bytes;
+ * the pixels are identical.)
  */
 readonly final class IccColorTransform
 {
-    /** What a photo is re-encoded with at least / at most; in between the source's own quality is kept. */
-    public const int JPEG_QUALITY_MIN = 90;
+    /**
+     * What a photo is re-encoded with at least / at most; in between the
+     * source's own quality is kept — a higher one would only store the
+     * source's artefacts more faithfully, at up to 3 × the bytes (measured:
+     * a 9.8 MB upload of quality 81 → 22.5 MB at 81, 30 MB at 90).
+     */
+    public const int JPEG_QUALITY_MIN = 80;
     public const int JPEG_QUALITY_MAX = 95;
 
-    private const int PIXEL_CACHE_MEMORY_BYTES = 192 * 1024 * 1024;
+    private const int PIXEL_CACHE_MEMORY_BYTES = 64 * 1024 * 1024;
 
     public function __construct(
         #[Autowire('%kernel.project_dir%/resources/icc/sRGB-v4.icc')]
@@ -100,7 +109,7 @@ readonly final class IccColorTransform
      */
     public function jpeg(string $source, string $target): array
     {
-        return $this->limited(function () use ($source, $target): array {
+        return $this->limited(dirname($target), function () use ($source, $target): array {
             try {
                 $image = new \Imagick();
                 $image->readImage('jpeg:' . $source);
@@ -139,7 +148,7 @@ readonly final class IccColorTransform
      */
     public function raw(string $source, int $width, int $height, string $target): void
     {
-        $this->limited(function () use ($source, $width, $height, $target): bool {
+        $this->limited(dirname($target), function () use ($source, $width, $height, $target): bool {
             try {
                 $image = new \Imagick();
                 $image->setSize($width, $height);
@@ -196,23 +205,27 @@ readonly final class IccColorTransform
     /**
      * @template T
      *
+     * @param string $directory where ImageMagick's disk cache goes: the caller's work directory, whose room was checked
      * @param callable(): T $work
      *
      * @return T
      */
-    private function limited(callable $work): mixed
+    private function limited(string $directory, callable $work): mixed
     {
         // process-wide (the worker keeps the process): restored afterwards
         $memory = \Imagick::getResourceLimit(\Imagick::RESOURCETYPE_MEMORY);
         $map = \Imagick::getResourceLimit(\Imagick::RESOURCETYPE_MAP);
+        $temporary = \Imagick::getRegistry('temporary-path');
         \Imagick::setResourceLimit(\Imagick::RESOURCETYPE_MEMORY, self::PIXEL_CACHE_MEMORY_BYTES);
         \Imagick::setResourceLimit(\Imagick::RESOURCETYPE_MAP, self::PIXEL_CACHE_MEMORY_BYTES);
+        \Imagick::setRegistry('temporary-path', $directory);
 
         try {
             return $work();
         } finally {
             \Imagick::setResourceLimit(\Imagick::RESOURCETYPE_MEMORY, $memory);
             \Imagick::setResourceLimit(\Imagick::RESOURCETYPE_MAP, $map);
+            \Imagick::setRegistry('temporary-path', is_string($temporary) && $temporary !== '' ? $temporary : sys_get_temp_dir());
         }
     }
 
