@@ -1,0 +1,6 @@
+node_modules
+.venv
+.scratch
+runs
+eval/runs
+*.log

@@ -25,6 +25,13 @@ const TABLE = [
     [{ sdkError: 'authentication_failed' }, 'billing_auth', 'authentication'],
     [{ sdkError: 'account_on_hold' }, 'billing_auth', 'account_on_hold'],
     [{ sdkError: 'rate_limit', planLimit: true }, 'billing_auth', 'plan_limit'],
+    // what the Agent SDK really hands over (eval/engine-facts.mjs): status + its own error word + the message text
+    [{ status: 429, sdkError: 'rate_limit', message: 'API Error: Request rejected (429) · spend limit reached' }, 'billing_auth', 'spend_limit'],
+    [{ status: 400, sdkError: 'unknown', message: 'API Error: 400 You have reached your specified workspace API usage limits. You will regain access on 2026-12-01 at 00:00 UTC.' }, 'billing_auth', 'usage_limit'],
+    [{ status: 402, sdkError: 'unknown', message: 'API Error: 402 billing_error' }, 'billing_auth', 'billing'],
+    [{ status: 403, sdkError: 'authentication_failed' }, 'billing_auth', 'permission'],
+    [{ status: 529, sdkError: 'server_error', message: 'API Error: Repeated 529 Overloaded errors.' }, 'transient', 'overloaded'],
+    [{ status: 400, sdkError: 'invalid_request', message: 'Image was too large.' }, 'request', 'invalid_request'],
     // request
     [{ status: 400, type: 'invalid_request_error', message: 'messages.0.content: image exceeds 8000 px' }, 'request', 'invalid_request'],
     [{ status: 404, type: 'not_found_error' }, 'request', 'model_not_found'],

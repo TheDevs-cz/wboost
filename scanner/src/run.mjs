@@ -168,7 +168,7 @@ export async function runBuild({ job, api, engine, scratchDir, signal = null, pr
             faces: (req) => withRendererRetry(() => api.faces({ seq: ++seq.n, ...req }), definition.timing, controller.signal),
         };
         build = new TemplateBuild({ source, sourcePath, context, app, caps, signal: controller.signal,
-            settings: { availableScore: definition.fonts?.availableScore ?? 0.8, prepassLines: definition.fonts?.prePassLines ?? 6, faceSheets: definition.caps?.faceSheets ?? 12, snapDeltaE: definition.paletteSnapDeltaE ?? 2, ocrThreads: Number(process.env.SCANNER_OCR_THREADS ?? 3) },
+            settings: { availableScore: definition.fonts?.availableScore ?? 0.85, undeterminedScore: definition.fonts?.undeterminedScore ?? 0.35, prepassLines: definition.fonts?.prePassLines ?? 6, faceSheets: definition.caps?.faceSheets ?? 12, snapDeltaE: definition.paletteSnapDeltaE ?? 2, ocrThreads: Number(process.env.SCANNER_OCR_THREADS ?? 3) },
             onNote: (note, params = null) => {
                 if (['read', 'analyse', 'build', 'refine', 'finish'].includes(note)) { state.stage = note; if (note === 'refine') state.round = Math.min(2, Math.max(1, build.candidates.length)); } else { state.note = note; state.noteParams = params; }
             } });

@@ -44,7 +44,7 @@ const SCENARIOS = {
 const run = { sdk: runSdk, cli: runCli, messages: runMessages }[which];
 for (const [name, sc] of Object.entries(SCENARIOS)) {
     if (only && !only.includes(name)) continue;
-    const fake = await startFakeProvider({ plan: sc.plan });
+    const fake = await startFakeProvider({ plan: sc.plan, latencyMs: sc.abortAfterTools ? 700 : 0 });
     fake.state.treatAllAsMain = which === 'messages';
     const scratchDir = mkdtempSync(join(tmpdir(), 'scan-facts-'));
     const controller = new AbortController();

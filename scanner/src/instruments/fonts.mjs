@@ -97,7 +97,7 @@ export async function rankFaces({ lines, faces, renderFaces, availableScore = 0.
                 let sum = 0; for (let i = 0; i < a.length; i++) sum += a[i];
                 score = softIou({ w: line.ink.w, h: line.ink.h, a: line.ink.a, sum: line.ink.sum }, { w: toW, h: toH, a, sum });
             }
-            per[li].push({ face: c.face, score: +score.toFixed(3), size: Math.round(fontSize * k * 2) / 2, aspectError: +Math.abs(r.h * byW / line.ink.h - 1).toFixed(3), ...(wrapped ? { wrapped: true } : {}) });
+            per[li].push({ face: c.face, score: +score.toFixed(3), size: Math.round(fontSize * k * 2) / 2, sizeByHeight: Math.round(fontSize * byH * 2) / 2, aspectError: +Math.abs(r.h * byW / line.ink.h - 1).toFixed(3), ...(wrapped ? { wrapped: true } : {}) });
         }
     }
     usable.forEach((line, i) => {

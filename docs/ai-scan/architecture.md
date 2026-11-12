@@ -423,7 +423,10 @@ Where the implementation is more specific than, or differs from, the text above:
   export supplies no picture for it.
 - **Per-element boxes, original colours, source line widths and counts** are measured by the
   scanner on the kept candidate and stored with the proposal — the review's outlines, crops,
-  palette revert and font re-fit read them.
+  palette revert and font re-fit read them. Every report item that the review illustrates (a font
+  group's texts, a doubtful text, a simplification, a left-out thing, a place for a picture) carries
+  its own source-pixel `box`; the review cuts the crop from the working copy and never receives a
+  description (§4.7).
 - **Font swap and re-fit run in the app without pixels.** `FitTextToWidth` computes
   `size = sourceLineWidth ÷ advanceWidth(face, text, 1 px)` from font metrics (the existing
   `FontMetricsLoader` behind `TextMeasurer`, [DT §3.6]), then one normal candidate render. It is
@@ -476,22 +479,39 @@ Flat arrays, all properties required, no recursion (E16). No free text reaches t
 with integer / enum parameters; names ≤ 40 characters, plain, never rendered as a link or as HTML. ⚙ = written by the scanner from
 measurements.
 
-Template: `status`, `candidate` ⚙, `headline` (id of the text to name the template from),
-`placeholders[{id, name, role: background | photo | logo | icon | pattern | illustration | other,
-fillable}]`, `fonts[{group, texts[], sourceClass, sourceLooksLike, guessSupported ⚙, face ⚙,
-score ⚙, matched ⚙, sizeRatio ⚙}]`, `approximations[{element, kind}]`, `omitted[{kind, x, y, w,
-h}]`, `lowConfidenceTexts[{id, reason}]`, `shrunk[{id}]` ⚙, `paletteSnaps[{from, to}]` ⚙.
+Template — the model's part (`finish.template.schema.json`): `status`, `preferredCandidate`,
+`headline`, `placeholders[{id, name, role, fillable}]`, `fonts[{group, role, texts[], sourceClass,
+sourceLooksLike}]`, `approximations[{element, kind}]`, `omitted[{kind, x, y, w, h}]`,
+`lowConfidenceTexts[{id, reason}]`. The scanner turns it into the **report** the app stores — every
+item checked against the kept design, every number measured (`scanner/src/finish/report.mjs`):
+
+| Field of the report | Content | Source |
+|---|---|---|
+| `status`, `candidate`, `unfinished`, `stopReason` | `proposed`; the kept candidate (scanner-side keep-best); whether the model finished | ⚙ |
+| `headline` | id of the text the template is named from; an unknown id falls back to the largest text | model, checked |
+| `counts {texts, shapes, places, background}` | the summary line of the review | ⚙ |
+| `placeholders[{id, name, role, fillable, box}]` | rebuilt from the kept design; only `role` (`background \| photo \| logo \| icon \| pattern \| illustration \| other`) is the model's | ⚙ + role |
+| `fonts[{group, role, texts[], pattern, face, closeness, mismatch, sizeChangePercent, …}]` | one entry per text group. `pattern` is one of `measured_match` (a project face; `closeness` = the measured glyph-shape score 0…1), `nearest_available` (a substitute; `mismatch` = 1 − closeness; `sizeChangePercent` = the size change applied so that the lines come out as wide as in the picture, against the size at which the substitute is as tall as the source glyphs), `undetermined` (nothing to compare: too little text, or no face scores above the floor). `face` = the project face used. `role` (`headline \| subheadline \| body \| button \| caption \| other`) names the group in the copy; the group holding `headline` is always `headline`. Evaluation only, never shown: `score`, `matched`, `sizeRatio`, `bestFace`, `bestScore`, `sourceClass`, `sourceLooksLike`, `guessSupported` **[UX r5]** | ⚙ (grouping and role: model) |
+| `simplifications[{code, element, box, n}]` | the closed list of §5.6; `box` = source-pixel rectangle `[x, y, w, h]` for the crop; `n` = number of texts for `mixed_styles` | model's `approximations` that have a code + ⚙ `pattern_as_place` for every place whose role is `pattern` |
+| `omitted[{code, box, diff, by}]` | things left out: `code` ∈ `text \| picture \| shape \| effect \| other`, `box` for the crop, `diff` = measured difference there; `by: scanner` rows are areas of large measured difference nobody listed (neighbouring cells merged, at most 4) | model + ⚙ |
+| `lowConfidenceTexts[{id, reason, box, by}]` | `not_found_by_ocr`, `ocr_low_confidence`, `differs_from_ocr` (⚙) and the model's `small \| low_contrast \| stylised \| partly_hidden \| guessed` | ⚙ + model |
+| `shrunk[{id}]`, `paletteSnaps[{from, to}]` | texts set smaller than their fitted size; colours snapped to the project palette (ΔE ≤ 2) | ⚙ |
+| `notes[{code}]` | `no_texts` — the picture has no text the scan could find | ⚙ |
+| `approximations[{element, kind, box, diff}]`, `measures` | everything the model called an approximation (also kinds without a sentence), keep-best scores | evaluation |
+| `boxes[]` (sent next to the report) | per element: `box`, and for texts `ink`, `sourceInk`, `colour`, `lines`, `sourceLineWidths`, `fittedSize` | ⚙ |
+
+No field carries prose: names are ≤ 40 characters, plain; everything else is a code, a number or a
+box. Where the review shows "what" a thing is, it shows the crop of `box`.
 
 Calendar: `status`, `candidate` ⚙, `type`, `recognised[{element, state: found | approximate |
 absent, fact code}]`, `needsUpload[{slot}]`, `featuresOffered[{key}]` (to switch on, never off; MCP `result` returns the
-same name, `apply` takes the accepted subset as `features[]`), `fonts[…]`,
-`notExpressible[{code}]`.
+same name, `apply` takes the accepted subset as `features[]`), `fonts[…]` (the same three patterns),
+`notExpressible[{code, box}]` — the "Tohle kalendář neumí" rows: a code of §5.6 and the
+source-pixel box of the crop **[UX r5]**, `notes[{code}]`.
 
-`guessSupported` is true only when the model's family name is backed by a measured class match.
-Both it and `sourceLooksLike` stay in the contract for evaluation only: [UX] revision 5 never
-names the original's typeface, and words the font item from the measured `matched` and `score`
-alone. When a run stops at a cap without the model's
-finish, the scanner writes the report alone: measured fields, empty model fields, flag `unfinished`.
+When a run stops at a cap without the model's finish, the scanner writes the report alone:
+measured fields, model fields from the design only (`role: other`, groups by face), flag
+`unfinished`.
 
 ### 4.8 System improvements (D7)
 
@@ -779,11 +799,18 @@ for it go to the gallery's Koš, as on discard; the nightly purge also sends the
 | Kind | Codes |
 |---|---|
 | Stages (`stage`) | `check`, `read`, `analyse`, `build`, `refine`, `finish` |
-| Notes (`note` + `noteParams`) | `texts_found {n}`, `rows_found {n}`, `zooming`, `measuring`, `fonts`, `provider_retry {n, of}` |
+| Notes (`note` + `noteParams`) | `texts_found {n}`, `no_texts`, `rows_found {n}`, `zooming`, `measuring`, `fonts`, `provider_retry {n, of}` |
 | `waiting` | `scanner_absent`, `scanner_too_old`, `provider_blocked`, `paused` |
 | Stop reasons (`stopped`) | `photo_of_print` (continuable), `blurry_or_small`, `not_expected_kind`, `several_designs`, `unusable_input` |
 | Error codes (`failed`) | `provider_unavailable`, `renderer_unavailable`, `timeout`, `interrupted`, `queue_timeout`, `build` |
 | Start, retry and action refusals (web hints and MCP) | `not_enabled`, `consent_required`, `limit_reached`, `daily_starts_reached`, `project_queue_full`, `queue_full`, `temporarily_unavailable` (mode, scanner absent or too old, provider blocked, spend ceiling), `project_paused`, `no_fonts`, `unsupported_image`, `source_unscannable`, `no_retries_left`, `wrong_state` (the scan is not in a state the action applies to, §5.2) |
+| Font patterns (`fonts[].pattern`) | `measured_match`, `nearest_available`, `undetermined` |
+| Font group roles (`fonts[].role`) | `headline`, `subheadline`, `body`, `button`, `caption`, `other` |
+| Simplifications (`simplifications[].code`, each with a `box`) | `shadow_omitted`, `rotation_straightened`, `outline_filled`, `letter_spacing_approximate`, `mixed_styles {n}`, `gradient_approximate`, `pattern_as_place` — the last two are new in [UX] revision 5 |
+| Left out (`omitted[].code`, each with a `box`) | `text`, `picture`, `shape`, `effect`, `other` |
+| Doubtful texts (`lowConfidenceTexts[].reason`) | `not_found_by_ocr`, `ocr_low_confidence`, `differs_from_ocr`, `small`, `low_contrast`, `stylised`, `partly_hidden`, `guessed` |
+| Report notes (`notes[].code`) | `no_texts` |
+| Calendar "kalendář neumí" (`notExpressible[].code`, each with a `box`) | `ornament`, `header_text`, `second_photo`, `more_logos`, `days_in_grid`, `rotated_text`, `month_colours`, `multilingual_names` |
 | Accept, restore and export refusals | `stale_references`, `renderer_busy`, `unfilled_pictures`, `layout_changed` (restore without confirmation after later edits **[r5]**) |
 | Scanner API | `stale_run`, `lease_lost` (HTTP 409: this run is over), `gone` (410); in the body of a 200 answer: `protocol_too_old`, `renderer_busy`, `renderer_unavailable`, `candidate_limit`, `missing_artifact`, `invalid_request`, `unsupported_kind` |
 

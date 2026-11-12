@@ -40,7 +40,8 @@ export function classifyProviderError(e = {}) {
     const message = String(e.message ?? '');
     if (status !== null) {
         if (status === 429) {
-            if (e.errorCode === 'enforced_spend_limit_reached') return out('billing_auth', 'spend_limit');
+            // the API names a spend cap in error.details.error_code; the Agent SDK passes on only the message text
+            if (e.errorCode === 'enforced_spend_limit_reached' || USAGE_LIMIT.test(message)) return out('billing_auth', 'spend_limit');
             return out('transient', 'rate_limit');
         }
         if (status === 402) return out('billing_auth', 'billing');

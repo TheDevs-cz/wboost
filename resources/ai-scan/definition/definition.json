@@ -1,5 +1,5 @@
 {
-    "version": "3",
+    "version": "5",
     "protocolVersion": 1,
     "requiresInstruments": [
         "ocr",
@@ -96,6 +96,13 @@
                 "cacheRead": 0.01,
                 "cacheWrite": 0.125,
                 "cacheWrite1h": 0.2
+            },
+            "claude-opus-4-8": {
+                "input": 5,
+                "output": 25,
+                "cacheRead": 0.5,
+                "cacheWrite": 6.25,
+                "cacheWrite1h": 10
             }
         }
     },
@@ -107,7 +114,8 @@
     },
     "fonts": {
         "availableScore": 0.85,
-        "prePassLines": 6
+        "prePassLines": 6,
+        "undeterminedScore": 0.35
     },
     "paletteSnapDeltaE": 2,
     "standInAssetId": "00000000-0000-4000-8000-0000000a15ca",

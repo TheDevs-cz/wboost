@@ -17,7 +17,25 @@ export function toToolResultContent(content) {
         : { type: 'text', text: b.text }));
 }
 
+/**
+ * The final message of a stream, under two watchdogs the SDK's own timeout does not give (it stops
+ * counting once the response has started): no event for `idleMs` → abort; the whole request, stream
+ * included, longer than `totalMs` → abort. Either is reported as a mid-stream failure (transient).
+ */
+function watched(stream, idleMs, totalMs) {
+    let idle, cut = null;
+    const stop = (why) => { cut = why; try { stream.abort(); } catch { /* already over */ } };
+    const total = setTimeout(() => stop('request_timeout'), totalMs);
+    const arm = () => { clearTimeout(idle); idle = setTimeout(() => stop('stream_idle'), idleMs); };
+    arm();
+    stream.on?.('streamEvent', arm);
+    return stream.finalMessage()
+        .catch((e) => { throw cut ? Object.assign(new Error(cut), { midStream: true, watchdog: cut }) : e; })
+        .finally(() => { clearTimeout(idle); clearTimeout(total); });
+}
+
 function describeError(e) {
+    if (e?.midStream) return { status: null, type: null, message: e.message, midStream: true };
     if (e instanceof Anthropic.APIError) {
         const body = e.error?.error ?? e.error ?? {};
         return { status: e.status ?? null, type: e.type ?? body.type ?? null, errorCode: body.details?.error_code ?? null, message: e.message, network: e instanceof Anthropic.APIConnectionError };
@@ -63,8 +81,7 @@ export async function runMessages(o) {
             const t0 = Date.now();
             try {
                 facts.requests++;
-                const stream = client.messages.stream(params(), { signal: o.signal ?? undefined });
-                response = await stream.finalMessage();
+                response = await watched(client.messages.stream(params(), { signal: o.signal ?? undefined }), (settings.streamIdleSeconds ?? 60) * 1000, (settings.requestTimeoutSeconds ?? 120) * 1000);
                 apiMs += Date.now() - t0;
                 facts.maxModelGapMs = Math.max(facts.maxModelGapMs, Date.now() - t0);
                 break;
@@ -95,7 +112,9 @@ export async function runMessages(o) {
             // one call at a time, in order: previews mutate the working copy
             for (const b of response.content.filter((x) => x.type === 'tool_use')) {
                 emit({ type: 'tool_use', name: b.name });
-                const r = await o.dispatch(b.name, b.input ?? {});
+                // an abort must not wait for a tool that is still working
+                const r = await Promise.race([o.dispatch(b.name, b.input ?? {}), new Promise((ok) => { if (o.signal?.aborted) ok(null); else o.signal?.addEventListener('abort', () => ok(null), { once: true }); })]);
+                if (r === null) return { ...base(), outcome: 'aborted', error: null };
                 results.push({ type: 'tool_result', tool_use_id: b.id, content: toToolResultContent(r.content), ...(r.isError ? { is_error: true } : {}) });
             }
             messages.push({ role: 'user', content: results });

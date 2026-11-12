@@ -58,6 +58,17 @@
           "group": {
             "type": "string"
           },
+          "role": {
+            "type": "string",
+            "enum": [
+              "headline",
+              "subheadline",
+              "body",
+              "button",
+              "caption",
+              "other"
+            ]
+          },
           "texts": {
             "type": "array",
             "items": {
@@ -82,6 +93,7 @@
         },
         "required": [
           "group",
+          "role",
           "texts",
           "sourceClass",
           "sourceLooksLike"

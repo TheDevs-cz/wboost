@@ -58,6 +58,15 @@ test('Messages loop: 529 and 429 are retried with the pinned delays, then the ru
     assert.ok(events.find((e) => e.type === 'retry').lostMs >= 1);
 });
 
+test('Messages loop: a stream that goes silent is cut by the idle watchdog and retried', async () => {
+    const hung = { requests: [], messages: { stream(params) { this.requests = (this.requests ?? []); hung.requests.push(params); let fail; const first = hung.requests.length === 1;
+        return { on() {}, abort() { fail?.(new Error('aborted by the client')); }, finalMessage: () => (first ? new Promise((_, no) => { fail = no; }) : Promise.resolve(msg('m1', 'end_turn', [{ type: 'text', text: '{"status":"done"}' }]))) }; } } };
+    const t0 = Date.now();
+    const r = await runMessages(base(hung, { settings: { retries: 2, retryDelaysSeconds: [0.001], streamIdleSeconds: 0.05, requestTimeoutSeconds: 5 } }));
+    assert.equal(r.outcome, 'finished'); assert.ok(Date.now() - t0 < 2000);
+    assert.deepEqual(r.facts.retries.map((x) => x.error), ['stream_interrupted']);
+});
+
 test('Messages loop: retries used up → provider / transient', async () => {
     const client = fakeClient([0, 1, 2, 3, 4].map(() => apiError(529, 'overloaded_error')));
     const r = await runMessages(base(client));

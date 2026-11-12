@@ -81,9 +81,12 @@ test('report: places for pictures are rebuilt from the kept design; what the mod
     } });
     assert.equal(report.status, 'proposed'); assert.equal(report.candidate, 1); assert.equal(report.unfinished, false);
     assert.deepEqual(report.placeholders, [{ id: 'logo', name: 'Logo', role: 'logo', fillable: true, box: [480, 280, 100, 100] }], 'name and fillable come from the design, the role from the model');
-    assert.deepEqual(report.approximations, [{ element: 'karta', kind: 'shadow' }, { element: 'text', kind: 'other' }]);
-    assert.deepEqual([report.omitted[0].x, report.omitted[0].w, report.omitted[0].by], [0, 600, 'model'], 'boxes are clipped to the canvas');
-    assert.deepEqual(report.lowConfidenceTexts, [{ id: 'text', reason: 'small', by: 'model' }]);
+    assert.deepEqual(report.approximations.map((a) => [a.element, a.kind, a.box]), [['karta', 'shadow', [20, 20, 560, 150]], ['text', 'other', [40, 220, 400, 23]]]);
+    assert.deepEqual(report.simplifications, [{ code: 'shadow_omitted', element: 'karta', box: [20, 20, 560, 150], n: 1 }], 'a code from the shared list + the box of the crop; "other" has no sentence and stays out');
+    assert.deepEqual([report.omitted[0].code, report.omitted[0].box, report.omitted[0].by], ['effect', [0, 10, 600, 20], 'model'], 'a code and a box clipped to the canvas — no description');
+    assert.deepEqual(report.lowConfidenceTexts.map((l) => [l.id, l.reason, l.by, Array.isArray(l.box)]), [['text', 'small', 'model', true]]);
+    assert.deepEqual(report.counts, { texts: 2, shapes: 1, places: 1, background: true });
+    assert.deepEqual(report.notes, []);
     assert.equal(report.headline, 'nadpis');
 });
 
@@ -101,6 +104,8 @@ test('report: fonts are measured — matched comes from the ranking, never from 
     assert.equal(g1.matched, true); assert.ok(g1.score >= 0.8, String(g1.score));
     assert.equal(g1.guessSupported, true, 'the family guess is backed by a measured match');
     assert.ok(Math.abs(g1.sizeRatio - 1) < 0.08, String(g1.sizeRatio));
+    assert.deepEqual([g1.pattern, g1.role, g1.sizeChangePercent], ['measured_match', 'headline', 0]);
+    assert.ok(g1.closeness >= 0.85 && Math.abs(g1.closeness + g1.mismatch - 1) < 1e-9);
     assert.deepEqual([g2.texts, g2.by], [['text'], 'scanner'], 'a text the model left out of every group still gets one');
     assert.equal(g2.ranked, 1, 'and is ranked at finish');
     assert.equal(report.headline, 'nadpis', 'an unknown headline id falls back to the largest text');
@@ -115,6 +120,22 @@ test('report: a face that does not draw the source glyphs is a substitute — ma
     const g = report.fonts[0];
     assert.equal(g.matched, false); assert.equal(g.guessSupported, false);
     assert.equal(g.bestFace, 'Sans (Bold)'); assert.ok(g.score < g.bestScore);
+    assert.equal(g.pattern, 'nearest_available'); assert.ok(g.mismatch > 0.15);
+    assert.equal(typeof g.sizeChangePercent, 'number');
+});
+
+test('report: the third font pattern — nothing to compare with → undetermined; no texts at all → the no_texts note; a pattern place is a simplification', async () => {
+    const { build, tools } = await newBuild({ ocr: [] });
+    const d = structuredClone(DESIGN); d.elements[2].input.name = 'Vzor';
+    await tools.design_preview({ design: d });
+    const report = await buildTemplateReport({ build, finish: { status: 'done', preferredCandidate: 1, headline: 'nadpis', placeholders: [{ id: 'logo', name: 'x', role: 'pattern', fillable: true }], fonts: [{ group: 'a', role: 'button', texts: ['text'], sourceClass: 'sans', sourceLooksLike: '' }], approximations: [{ element: 'bg', kind: 'gradient' }], omitted: [], lowConfidenceTexts: [] }, rank: (lines) => build.rank(lines) });
+    assert.deepEqual(report.fonts.map((f) => [f.role, f.pattern, f.closeness, f.sizeChangePercent]), [['button', 'undetermined', null, 0], ['headline', 'undetermined', null, 0]]);
+    assert.deepEqual(report.simplifications, [{ code: 'gradient_approximate', element: 'bg', box: [0, 0, 600, 400], n: 1 }, { code: 'pattern_as_place', element: 'logo', box: [480, 280, 100, 100], n: 1 }]);
+    const none = structuredClone(DESIGN); none.elements = none.elements.filter((e) => e.kind !== 'text');
+    const b2 = await newBuild({ ocr: [] });
+    await b2.tools.design_preview({ design: none });
+    const r2 = await buildTemplateReport({ build: b2.build, finish: null, unfinished: true });
+    assert.deepEqual(r2.notes, [{ code: 'no_texts' }]); assert.equal(r2.counts.texts, 0); assert.equal(r2.headline, null);
 });
 
 test('report: when the model never finished, the scanner writes the report alone', async () => {
@@ -145,7 +166,8 @@ test('report: low-confidence texts are measured — not found by OCR, weak OCR, 
     d.elements.push({ kind: 'text', id: 'web', text: 'www.kemp.cz', font: 'Sans (Regular)', size: 16, x: 40, y: 330, width: 300 });
     await tools.design_preview({ design: d });
     const report = await buildTemplateReport({ build, finish: null, unfinished: true });
-    assert.deepEqual(report.lowConfidenceTexts, [{ id: 'nadpis', reason: 'ocr_low_confidence', by: 'scanner' }, { id: 'text', reason: 'differs_from_ocr', by: 'scanner' }, { id: 'web', reason: 'not_found_by_ocr', by: 'scanner' }]);
+    assert.deepEqual(report.lowConfidenceTexts.map((l) => [l.id, l.reason, l.by]), [['nadpis', 'ocr_low_confidence', 'scanner'], ['text', 'differs_from_ocr', 'scanner'], ['web', 'not_found_by_ocr', 'scanner']]);
+    assert.ok(report.lowConfidenceTexts.every((l) => l.box.length === 4), 'each with the box of its crop');
 });
 
 test('report: a large unexplained difference is listed by the scanner as left out', async () => {
@@ -153,7 +175,8 @@ test('report: a large unexplained difference is listed by the scanner as left ou
     const missing = structuredClone(DESIGN); missing.elements.splice(1, 1);   // the big panel is not built
     await tools.design_preview({ design: missing });
     const report = await buildTemplateReport({ build, finish: null, unfinished: true });
-    assert.ok(report.omitted.length >= 1 && report.omitted.every((o) => o.by === 'scanner' && o.diff >= 0.05), JSON.stringify(report.omitted));
+    assert.equal(report.omitted.length, 1, 'neighbouring cells are one thing');
+    assert.deepEqual([report.omitted[0].code, report.omitted[0].by], ['other', 'scanner']); assert.ok(report.omitted[0].diff >= 0.08 && report.omitted[0].box[2] >= 75);
 });
 
 test('text helpers', () => {

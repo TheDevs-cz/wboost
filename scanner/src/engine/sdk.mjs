@@ -116,8 +116,11 @@ export async function runSdk(o) {
             } else if (m.type === 'system' && m.subtype === 'api_retry') {
                 facts.retries.push({ attempt: m.attempt, of: m.max_retries, delayMs: m.retry_delay_ms, status: m.error_status, error: m.error });
                 emit({ type: 'retry', attempt: m.attempt, of: m.max_retries, delayMs: m.retry_delay_ms, status: m.error_status, error: m.error });
-            } else if (m.type === 'system' && (m.subtype === 'model_refusal_no_fallback' || m.subtype === 'model_refusal_fallback')) {
+            } else if (m.type === 'system' && m.subtype === 'model_refusal_no_fallback') {
                 facts.refusal = { subtype: m.subtype, category: m.api_refusal_category ?? null };
+            } else if (m.type === 'system' && m.subtype === 'model_refusal_fallback') {
+                // the harness re-ran the refused turn on another model: the run goes on, the usage names both models
+                facts.refusalFallback = { from: m.original_model, to: m.fallback_model, category: m.api_refusal_category ?? null };
             } else if (m.type === 'rate_limit_event') {
                 facts.rateLimit = m.rate_limit_info;
                 if (m.rate_limit_info?.status === 'rejected') planLimit = true;
@@ -166,7 +169,7 @@ export async function runSdk(o) {
     const providerError = (extra) => {
         const sdkError = facts.assistantErrors.at(-1)?.error ?? facts.retries.at(-1)?.error ?? null;
         const status = result?.api_error_status ?? facts.retries.at(-1)?.status ?? null;
-        const c = classifyProviderError({ sdkError, status, planLimit, ...extra });
+        const c = classifyProviderError({ sdkError, status, planLimit, message: facts.assistantErrors.at(-1)?.text ?? '', ...extra });
         return { ...base, outcome: c.class === 'refusal' ? 'refusal' : 'provider', error: { ...c, status, sdkError, message: base.text?.slice(0, 300) ?? null } };
     };
     if (o.signal?.aborted || (controller.signal.aborted && !result)) return { ...base, outcome: 'aborted', error: null };
