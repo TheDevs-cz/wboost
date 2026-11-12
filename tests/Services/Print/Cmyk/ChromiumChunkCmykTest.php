@@ -155,7 +155,9 @@ final class ChromiumChunkCmykTest extends TestCase
             if ($value->has('Length1')) {
                 $facts['fontPrograms'][] = md5($reader->streamBytes($number));
             } elseif ($value->name('Subtype') === 'Image') {
-                $facts['pictures'][] = ['size' => $reader->resolve($value->get('Width')) . 'x' . $reader->resolve($value->get('Height')), 'space' => $space($value->get('ColorSpace'))];
+                $width = $reader->resolve($value->get('Width'));
+                $height = $reader->resolve($value->get('Height'));
+                $facts['pictures'][] = ['size' => (is_string($width) ? $width : '?') . 'x' . (is_string($height) ? $height : '?'), 'space' => $space($value->get('ColorSpace'))];
             } elseif (!$value->has('N') && !$value->has('FunctionType')) {
                 // Skia leaves short streams uncompressed
                 $data = $value->name('Filter') === 'FlateDecode' ? (string) @gzuncompress($reader->streamBytes($number)) : $reader->streamBytes($number);

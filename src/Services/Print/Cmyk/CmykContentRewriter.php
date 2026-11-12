@@ -70,15 +70,18 @@ final class CmykContentRewriter
             ];
         };
 
-        /**
-         * @param array{float, float, float} $color
-         */
         $inks = static function (array $color, bool $text) use ($rules, $mask): string {
+            [$r, $g, $b] = [
+                is_float($color[0] ?? null) ? $color[0] : 0.0,
+                is_float($color[1] ?? null) ? $color[1] : 0.0,
+                is_float($color[2] ?? null) ? $color[2] : 0.0,
+            ];
+
             if ($mask) {
-                return PdfSyntax::number(CmykColorRules::luminosity(...$color));
+                return PdfSyntax::number(CmykColorRules::luminosity($r, $g, $b));
             }
 
-            return implode(' ', array_map(PdfSyntax::number(...), $text ? $rules->textCmyk(...$color) : $rules->cmyk(...$color)));
+            return implode(' ', array_map(PdfSyntax::number(...), $text ? $rules->textCmyk($r, $g, $b) : $rules->cmyk($r, $g, $b)));
         };
 
         try {
@@ -158,7 +161,7 @@ final class CmykContentRewriter
                     case 'CS':
                         $name = $operands[0] ?? '';
 
-                        if (count($operands) !== 1 || !is_string($name) || !str_starts_with($name, '/')) {
+                        if (count($operands) !== 1 || !str_starts_with($name, '/')) {
                             throw new CmykConversionFailed(sprintf('The colour space operator "%s" has no name.', $operator));
                         }
 

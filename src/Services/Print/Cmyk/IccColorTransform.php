@@ -215,7 +215,8 @@ readonly final class IccColorTransform
         // process-wide (the worker keeps the process): restored afterwards
         $memory = \Imagick::getResourceLimit(\Imagick::RESOURCETYPE_MEMORY);
         $map = \Imagick::getResourceLimit(\Imagick::RESOURCETYPE_MAP);
-        $temporary = \Imagick::getRegistry('temporary-path');
+        // false when it was never set, whatever the stubs say
+        $temporary = (string) \Imagick::getRegistry('temporary-path');
         \Imagick::setResourceLimit(\Imagick::RESOURCETYPE_MEMORY, self::PIXEL_CACHE_MEMORY_BYTES);
         \Imagick::setResourceLimit(\Imagick::RESOURCETYPE_MAP, self::PIXEL_CACHE_MEMORY_BYTES);
         \Imagick::setRegistry('temporary-path', $directory);
@@ -225,7 +226,7 @@ readonly final class IccColorTransform
         } finally {
             \Imagick::setResourceLimit(\Imagick::RESOURCETYPE_MEMORY, $memory);
             \Imagick::setResourceLimit(\Imagick::RESOURCETYPE_MAP, $map);
-            \Imagick::setRegistry('temporary-path', is_string($temporary) && $temporary !== '' ? $temporary : sys_get_temp_dir());
+            \Imagick::setRegistry('temporary-path', $temporary !== '' ? $temporary : sys_get_temp_dir());
         }
     }
 

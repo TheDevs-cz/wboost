@@ -209,23 +209,26 @@ final class CalendarCmykExportGotenbergTest extends WebTestCase
         // the materialised layout, with everything that carries colour switched on
         $layout = self::getContainer()->get(CalendarModelBridge::class)->run(self::calendar(TestDataFixture::CALENDAR_2_ID))->design->layout;
         self::assertInstanceOf(\stdClass::class, $layout);
-        $styles = $layout->styles;
-        $styles->head->bg->colorOn = true;
-        $styles->head->bg->color = '#C8102E';
-        $styles->head->bg->colorOpacity = 100;
-        $styles->head->bg->gradient->on = false;
-        $styles->bg->gradient = ['on' => true, 'type' => 'linear', 'angle' => 45, 'stops' => [['color' => '#FFE9B0', 'opacity' => 100, 'pos' => 0], ['color' => '#8FC7FF', 'opacity' => 60, 'pos' => 100]]];
-        $styles->cal->bg = ['color' => '#FFFFFF', 'opacity' => 100];
-        $styles->photo->radius = 6;
-        $styles->photo->border = ['on' => true, 'width' => 1, 'color' => '#FFFFFF'];
-        $styles->photo->shadow = ['on' => true, 'blur' => 4, 'opacity' => 45, 'dx' => 2, 'dy' => 2.5, 'color' => '#000000'];
+        $styles = self::node($layout, 'styles');
+        $headFill = self::node(self::node($styles, 'head'), 'bg');
+        $headFill->colorOn = true;
+        $headFill->color = '#C8102E';
+        $headFill->colorOpacity = 100;
+        self::node($headFill, 'gradient')->on = false;
+        self::node($styles, 'bg')->gradient = ['on' => true, 'type' => 'linear', 'angle' => 45, 'stops' => [['color' => '#FFE9B0', 'opacity' => 100, 'pos' => 0], ['color' => '#8FC7FF', 'opacity' => 60, 'pos' => 100]]];
+        self::node($styles, 'cal')->bg = ['color' => '#FFFFFF', 'opacity' => 100];
+        $photoStyle = self::node($styles, 'photo');
+        $photoStyle->radius = 6;
+        $photoStyle->border = ['on' => true, 'width' => 1, 'color' => '#FFFFFF'];
+        $photoStyle->shadow = ['on' => true, 'blur' => 4, 'opacity' => 45, 'dx' => 2, 'dy' => 2.5, 'color' => '#000000'];
         $styles->lines = ['on' => true, 'width' => 0.8, 'style' => 'dashed', 'color' => '#004E7C'];
         // the day numbers in pure black; the names and the day words keep the calendar's default
         // text colours (#2B2830, #6E6977 — tinted greys)
-        $styles->num->color = '#000000';
-        $styles->qr->asset = $qr['id'];
-        $layout->boxes->photo = ['x' => 8, 'y' => 34, 'w' => 180, 'h' => 100];
-        $layout->boxes->qr = ['x' => 170, 'y' => 110, 'w' => 20, 'h' => 20];
+        self::node($styles, 'num')->color = '#000000';
+        self::node($styles, 'qr')->asset = $qr['id'];
+        $boxes = self::node($layout, 'boxes');
+        $boxes->photo = ['x' => 8, 'y' => 34, 'w' => 180, 'h' => 100];
+        $boxes->qr = ['x' => 170, 'y' => 110, 'w' => 20, 'h' => 20];
 
         self::save($browser, self::WORKSPACE_URL . '/save', [
             'design' => [
@@ -245,11 +248,19 @@ final class CalendarCmykExportGotenbergTest extends WebTestCase
         return array_column($model->pages ?? [], 'key');
     }
 
+    private static function node(\stdClass $of, string $key): \stdClass
+    {
+        $node = $of->{$key} ?? null;
+        self::assertInstanceOf(\stdClass::class, $node, $key);
+
+        return $node;
+    }
+
     /**
      * One page rendered on Ghostscript's CMYK device: a byte per plate and
      * pixel, no colour management on the way — the numbers in the file.
      */
-    private function inks(string $gs, string $file, int $page): object
+    private function inks(string $gs, string $file, int $page): InkPlates
     {
         $tiff = $this->directory . '/inks.tif';
         $this->command([$gs, '-q', '-dBATCH', '-dNOPAUSE', '-sDEVICE=tiff32nc', '-sCompression=none', '-r' . (self::PX * 25.4), '-dFirstPage=' . $page, '-dLastPage=' . $page, '-o', $tiff, $file]);
@@ -265,91 +276,7 @@ final class CalendarCmykExportGotenbergTest extends WebTestCase
         unlink($tiff);
         self::assertSame(4 * $width * $height, strlen($pixels));
 
-        return new class($pixels, $width, $height, self::PX, self::INSET) {
-            public function __construct(
-                private readonly string $pixels,
-                private readonly int $width,
-                private readonly int $height,
-                private readonly int $px,
-                private readonly float $inset,
-            ) {
-            }
-
-            /**
-             * @return array{int, int, int, int} percent of C, M, Y, K at a point given in mm from the trim corner
-             */
-            public function at(float $xMm, float $yMm): array
-            {
-                return $this->pixel((int) round(($this->inset + $xMm) * $this->px), (int) round(($this->inset + $yMm) * $this->px));
-            }
-
-            /**
-             * @return array{int, int, int, int} the pixel with the most ink in a rectangle (mm from the trim corner)
-             */
-            public function darkest(float $x0, float $y0, float $x1, float $y1): array
-            {
-                $darkest = [0, 0, 0, 0];
-
-                foreach ($this->area($x0, $y0, $x1, $y1) as [$x, $y]) {
-                    $pixel = $this->pixel($x, $y);
-
-                    if (array_sum($pixel) > array_sum($darkest)) {
-                        $darkest = $pixel;
-                    }
-                }
-
-                return $darkest;
-            }
-
-            /**
-             * @return array{int, int, int} how many pixels of the rectangle have K ≥ 50 %, how many of those carry any C, M or Y, and how many are K 100
-             */
-            public function darkPixels(float $x0, float $y0, float $x1, float $y1): array
-            {
-                $dark = 0;
-                $rich = 0;
-                $solid = 0;
-
-                foreach ($this->area($x0, $y0, $x1, $y1) as [$x, $y]) {
-                    [$c, $m, $yellow, $k] = $this->pixel($x, $y);
-
-                    if ($k >= 50) {
-                        ++$dark;
-                        $rich += $c + $m + $yellow > 0 ? 1 : 0;
-                        $solid += $k === 100 ? 1 : 0;
-                    }
-                }
-
-                return [$dark, $rich, $solid];
-            }
-
-            /**
-             * @return iterable<array{int, int}>
-             */
-            private function area(float $x0, float $y0, float $x1, float $y1): iterable
-            {
-                for ($y = (int) round(($this->inset + $y0) * $this->px), $bottom = (int) round(($this->inset + $y1) * $this->px); $y <= $bottom; ++$y) {
-                    for ($x = (int) round(($this->inset + $x0) * $this->px), $right = (int) round(($this->inset + $x1) * $this->px); $x <= $right; ++$x) {
-                        yield [$x, $y];
-                    }
-                }
-            }
-
-            /**
-             * @return array{int, int, int, int}
-             */
-            private function pixel(int $x, int $y): array
-            {
-                $at = 4 * (max(0, min($this->height - 1, $y)) * $this->width + max(0, min($this->width - 1, $x)));
-
-                return [
-                    (int) round(ord($this->pixels[$at]) / 2.55),
-                    (int) round(ord($this->pixels[$at + 1]) / 2.55),
-                    (int) round(ord($this->pixels[$at + 2]) / 2.55),
-                    (int) round(ord($this->pixels[$at + 3]) / 2.55),
-                ];
-            }
-        };
+        return new InkPlates($pixels, $width, $height, self::PX, self::INSET);
     }
 
     /**
