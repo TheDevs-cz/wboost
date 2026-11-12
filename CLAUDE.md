@@ -60,6 +60,7 @@ commit when you change a contract described there — not this file.
 | `manuals.md` | mockup page grid + attachments, logo own-page variants, colours (RAL), logo width cascade, page texts |
 | `templates-documents.md` | multi-page documents: `TemplateDocument` / pages / shared fields, invariants (`TemplateDocumentRules`), diffing page list, rollout switch, listing cards, document page, editor page strip, fill keys, multi-page PDF export |
 | `storage-inventory.md` | `storage_object` scan, `BuildStorageReferenceIndex` (add every new path-storing column there!), project deletion storage cleanup |
+| `ai-scan.md` | AI sken (job core): `ai_scan` / `ai_usage_event` / `ai_credit_ledger` / `ai_scan_runtime`, the transition table + conditional updates (never write a scan through the ORM), credits vs spend, the private bucket, permissions (start / use), the runtime row + operating mode, the scanner API contract (`/internal/scanner/*`), render tools (transient variant, stand-in, font faces, metric fit), `app:ai-scan:*` commands, the fault-injection suite |
 | `calendars.md` | Kalendáře module: `calendar` / `calendar_asset` / `calendar_history` / `calendar_export`, design vs content JSON, save contract + item merge, roles + client link `/k/{token}`, `assets/calendar/**` (model / generate / render / editor / state / ui), `window.__calendar`, node suites + e2e (`tests/e2e/calendar/`), the server-side model in node (`resources/calendar/model.mjs`, `CalendarModelBridge`) + headless page render (`CalendarPageRenderer`), the vector PDF export („Stáhnout PDF“: `CalendarPdfExporter`, the async `job_bus`, `PdfPageBoxes`), the seven calendar MCP tools |
 
 ### Design system (Nocturne UI) — read BEFORE touching templates or CSS
@@ -135,6 +136,7 @@ design DSL), `docs/plans/` (historical plans, not current truth).
   synchronization groups (`TemplateVariant`, `TemplateCategory`,
   `TemplateGroup`)
 - **EmailSignatureTemplate**: Email signature templates with variants
+- **AiScan**: One AI scan of a picture (job, proposal, usage, credits) — inert unless switched on; see `docs/architecture/ai-scan.md`
 - **Calendar**: Desk calendars (module Kalendáře) — one design + item-wise merged content, assets and change history
 - **User**: User management with authentication and profiles
 

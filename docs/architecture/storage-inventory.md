@@ -98,6 +98,30 @@ survives purely for the untouched `social-networks/…` keys and historical rows
 - The scan also reports **dangling references** — DB rows pointing at keys that
   are not in the bucket (broken images), the mirror image of an orphan.
 
+**AI scan files are NOT in this inventory** (docs/architecture/ai-scan.md
+§ "Storage"). They live in a second, PRIVATE bucket (`S3_PRIVATE_BUCKET_NAME`,
+`oneup_flysystem.private_filesystem`) under
+`ai-scan/{projectId}/{scanId}/{secret}/…`; `ScanStorage` lists the public
+bucket only, and no column stores one of those keys (the key is derived from
+the scan row: project id, scan id, `ai_scan.storage_secret`) — so
+`BuildStorageReferenceIndex` has nothing to add for them. That bucket has its
+own rules instead, in `AiScanPurge` (`app:ai-scan:purge`, nightly):
+
+- a scan's files go when it is discarded (at once), or 30 days after it ended
+  (`ai_scan.expires_at`; `accepted` scans keep their row and state, only the
+  files go);
+- a scan directory whose newest object is **older than 24 hours** and whose
+  row is missing or `expired` is deleted — uploads whose transaction failed;
+- deleting a project deletes `ai-scan/{projectId}/` there
+  (`DeleteProjectHandler` → `AiScanStorage::deleteProject()`), after the
+  public-bucket cleanup below.
+
+One AI scan object does sit in the PUBLIC bucket: `ai-scan/stand-in-v1.png`,
+the shared stand-in picture candidate renders use (`AiScanStandIn`; the
+renderer inlines pictures by storage key). It is referenced by no row on
+purpose — `StorageCategory::AiScan` files it and it is never flagged as an
+orphan, like the other by-products.
+
 **Deleting a project deletes its storage.** `DeleteProjectHandler` collects the
 project's key namespaces via `CollectProjectStoragePaths` **before** removing
 the row, flushes so the DELETE + cascades actually execute, and only then calls
