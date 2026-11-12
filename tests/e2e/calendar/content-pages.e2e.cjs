@@ -436,7 +436,7 @@ module.exports = {
 
         await check('page panel shows only the fields that apply; own header / background picture and own photo per page', async () => {
             await showPage(page, 2);
-            let labels = await page.$$eval('.cal-p4s:not(.cal-pw) > .lbl', (nodes) => nodes.map((n) => n.textContent));
+            let labels = await page.$$eval('.cal-p4b > .cal-p4s:not(.cal-pw) > .lbl', (nodes) => nodes.map((n) => n.textContent));
             assert.deepEqual(labels, ['Fotografie', 'Popisek fotografie'], 'default style: the client supplies photos, no picture slots, no QR');
             assert.equal(await page.$eval('.cal-p4b', (el) => el.textContent.includes('Fotky doplní klient.')), true);
             assert.equal(await exists(page, '[data-page-field="photo"]'), false);
@@ -449,7 +449,7 @@ module.exports = {
             await h.seed(page, { design: { layout } });
             await openStep4(page, h, id);
             await showPage(page, 2);
-            labels = await page.$$eval('.cal-p4s:not(.cal-pw) > .lbl', (nodes) => nodes.map((n) => n.textContent));
+            labels = await page.$$eval('.cal-p4b > .cal-p4s:not(.cal-pw) > .lbl', (nodes) => nodes.map((n) => n.textContent));
             assert.deepEqual(labels, ['Fotografie', 'Popisek fotografie', 'Obrázek v hlavičce', 'Fotka pozadí']);
             assert.equal(await text(page, '.cal-p4s:has([data-page-field="head"]) .cal-ftb .cap'), 'Výchozí ze stylu');
             const key = weeks[1].key;
@@ -473,7 +473,8 @@ module.exports = {
 
             // the cover has a background slot only; removing one picture keeps the other
             await showPage(page, 0);
-            assert.deepEqual(await page.$$eval('.cal-p4s > .lbl', (nodes) => nodes.map((n) => n.textContent)), ['Fotka pozadí']);
+            // (its own content — title, photo, logo — sits above, in `.cal-p4c`: special-content.e2e.cjs)
+            assert.deepEqual(await page.$$eval('.cal-p4b > .cal-p4s > .lbl', (nodes) => nodes.map((n) => n.textContent)), ['Fotka pozadí']);
             await showPage(page, 2);
             await page.click('[data-page-remove="head"]');
             assert.deepEqual((await h.state(page)).content.pageImages[key], { head: null, bg: saved.pageImages[key].bg });
@@ -633,7 +634,7 @@ module.exports = {
             assert.deepEqual([graphic.kind, graphic.name, graphic.fileName, graphic.on, graphic.position, typeof graphic.asset], ['image', 'Mapa obce', 'Mapa obce.png', true, 'front', 'string']);
             assert.equal(await text(page, '[data-page-title]'), 'Mapa obce', 'the new page is shown');
             const svg = await stageSvg(page);
-            assert.match(svg, /data-kind="image"><image [^>]*preserveAspectRatio="xMidYMid slice"/, 'the graphic covers the page');
+            assert.match(svg, /data-kind="image"[^>]*><image [^>]*preserveAspectRatio="xMidYMid slice"/, 'the graphic covers the page');
             const pageOf = (await h.cal(page, (c) => c.pages())).find((p) => p.key === `sp:${graphicId}`);
             assert.deepEqual([pageOf.title, pageOf.subtitle], ['Mapa obce', 'Vlastní strana']);
 
@@ -652,7 +653,7 @@ module.exports = {
             own = await uploaded();
             const [pdfId, pdfPage] = own.find(([itemId]) => itemId !== graphicId);
             assert.deepEqual([pdfPage.kind, pdfPage.name, pdfPage.fileName, typeof pdfPage.asset], ['image', 'Hotova strana', 'Hotova strana.pdf', 'string']);
-            assert.match(await stageSvg(page), /data-kind="image"><image /);
+            assert.match(await stageSvg(page), /data-kind="image"[^>]*><image /);
 
             // text document
             await addVia('text', files.text);

@@ -748,7 +748,7 @@ module.exports = {
             await openStep4(page, h, id);
             await showPage(page, index);
             let drawn = await stage(page);
-            assert.ok(Number(/data-el="groups" data-size="([\d.]+)"/.exec(drawn.markup)[1]) < sizeBefore, 'fourteen groups: smaller type');
+            assert.ok(Number(/data-el="groups" data-size="([\d.]+)"/.exec(drawn.markup)[1]) <= sizeBefore, 'fourteen groups: the type never grows');
             assert.equal(await h.cal(page, (c) => c.warnings().length), 0, '…and still no warning');
             await h.seed(page, { content: many.slice(8) });
             await openStep4(page, h, id);
@@ -756,6 +756,7 @@ module.exports = {
             drawn = await stage(page);
             const warnings = await h.cal(page, (c, i) => c.warnings().filter((w) => w.pageIndex === i).map((w) => [w.kind, w.message]), index);
             assert.deepEqual(warnings, [['overflow', 'Kontakty se na stránku nevejdou — uberte řádky, nebo zvolte rozvržení s více sloupci']]);
+            assert.ok(Number(/data-el="groups" data-size="([\d.]+)"/.exec(drawn.markup)[1]) < sizeBefore, 'the type shrank to its smallest size before the page gave up');
             const { width, height } = (await h.state(page)).design.page;
             assert.ok(drawn.texts.every((t) => t.y > 0 && t.y < height && t.x > 0 && t.x < width), 'nothing is drawn outside the page');
             await page.waitForSelector(`[data-page-thumb="${index}"][data-warn="1"]`);

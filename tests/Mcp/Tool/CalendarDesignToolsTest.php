@@ -770,6 +770,60 @@ final class CalendarDesignToolsTest extends WebTestCase
         }
     }
 
+    /**
+     * The cover, intro and contacts pages filled through `update_calendar_content`
+     * are drawn with that content, and a text that does not fit comes back as
+     * an `overflow` warning. Set CALENDAR_SPECIAL_SHOTS to a directory to keep
+     * the pictures.
+     */
+    #[Group('gotenberg')]
+    public function testRendersTheFilledCoverIntroAndContactsPagesAndWarnsAboutAnOverflow(): void
+    {
+        $id = TestDataFixture::CALENDAR_2_ID;
+        $photo = $this->ok('upload_calendar_asset', ['calendarId' => $id, 'kind' => 'photo', 'fileBase64' => base64_encode(self::jpeg(1200, 600)), 'filename' => 'titulka.jpg']);
+        $page = static fn (string $kind, int $layout, int $pos): array => ['kind' => $kind, 'on' => true, 'layout' => $layout, 'position' => 'front', 'nextYear' => false, 'name' => '', 'asset' => null, 'text' => null, 'fileName' => null, 'pos' => $pos];
+        $paragraph = 'Vážení spoluobčané, rok utekl jako voda a máme tu nový obecní kalendář s **akcemi** a *svozy odpadu*.';
+        $intro = ['heading' => '', 'salutation' => 'Milí občané,', 'body' => $paragraph . "\n\n" . $paragraph, 'signName' => 'Ing. Jana Nováková', 'signRole' => 'starostka obce', 'photo' => null];
+
+        $this->ok('manage_calendar', ['action' => 'configure', 'calendarId' => $id, 'features' => ['specialPages' => true]]);
+        $this->ok('update_calendar_content', ['calendarId' => $id, 'operations' => [
+            ['collection' => 'specialPages', 'id' => 'intro', 'value' => $page('intro', 1, 0)],
+            ['collection' => 'specialPages', 'id' => 'contacts', 'value' => $page('contacts', 1, 1)],
+            ['collection' => 'pageContent', 'id' => 'cover', 'value' => ['title' => 'Kalendář obce Testov', 'subtitle' => 'Ze života v obci', 'note' => 'www.testov.cz', 'photo' => ['asset' => $photo['assetId'], 'zoom' => 1.2, 'px' => 0.5, 'py' => 0.5]]],
+            ['collection' => 'pageContent', 'id' => 'sp:intro', 'value' => $intro],
+            ['collection' => 'pageGroups', 'id' => 'grpObecniUrad001', 'value' => ['page' => 'sp:contacts', 'heading' => 'Obecní úřad', 'lines' => [['label' => 'Po, St', 'value' => '7 – 12, 13 – 17'], ['label' => 'T:', 'value' => '558 733 131']], 'highlight' => false, 'pos' => 0]],
+            ['collection' => 'pageGroups', 'id' => 'grpTisnovaCisla1', 'value' => ['page' => 'sp:contacts', 'heading' => 'Důležitá čísla', 'lines' => [['label' => 'Policie ČR', 'value' => '158'], ['label' => 'Hasiči', 'value' => '150']], 'highlight' => true, 'pos' => 1]],
+        ]]);
+
+        $keep = getenv('CALENDAR_SPECIAL_SHOTS');
+
+        foreach (['cover' => 'cover', 'sp:intro' => 'special', 'sp:contacts' => 'special'] as $key => $kind) {
+            $rendered = $this->call('render_calendar_page', ['calendarId' => $id, 'page' => $key], TestDataFixture::MCP_TOKEN_CALENDARS_READ);
+            self::assertFalse($rendered['isError'] ?? false, $rendered['content'][0]['text']);
+            $summary = self::decode($rendered['content'][0]['text']);
+            self::assertSame($kind, $summary['kind']);
+            self::assertStringNotContainsString('nevejd', self::text($summary['warnings']), $key);
+            $bytes = (string) base64_decode(self::str(self::dig($rendered, 'content', 1, 'data')), true);
+            self::assertSame('RIFF', substr($bytes, 0, 4));
+            // a drawn page is far from an empty sheet
+            self::assertGreaterThan(6000, strlen($bytes), $key);
+
+            if (is_string($keep) && $keep !== '') {
+                @mkdir($keep, 0777, true);
+                file_put_contents($keep . '/mcp-' . str_replace(':', '-', $key) . '.webp', $bytes);
+            }
+        }
+
+        // Far too long a text: the page says so instead of cutting it silently.
+        $this->ok('update_calendar_content', ['calendarId' => $id, 'operations' => [
+            ['collection' => 'specialPages', 'id' => 'intro', 'value' => $page('intro', 0, 0)],
+            ['collection' => 'pageContent', 'id' => 'sp:intro', 'value' => [...$intro, 'body' => mb_substr(str_repeat($paragraph . "\n\n", 60), 0, 4000)]],
+        ]]);
+        $long = $this->call('render_calendar_page', ['calendarId' => $id, 'page' => 'sp:intro'], TestDataFixture::MCP_TOKEN_CALENDARS_READ);
+        self::assertFalse($long['isError'] ?? false, $long['content'][0]['text']);
+        self::assertStringContainsString('Text úvodního slova se na stránku nevejde', self::text(self::decode($long['content'][0]['text'])['warnings']));
+    }
+
     // -----------------------------------------------------------------
     // helpers
     // -----------------------------------------------------------------
