@@ -178,7 +178,10 @@ final class ScannerApiTest extends WebTestCase
         self::assertSame('spend_ceiling', $this->claimRaw('build')['reason']);
 
         $this->bus()->dispatch(new SetAiScanRuntime(dailyCeilingMicroUsd: 20_000_000));
-        self::assertSame($first, self::claim($this->client, 'build')['id']);
+        // Which of the two: the released run waits since its release, so it is
+        // behind the second scan whenever a second boundary fell in between
+        // (and ahead by id within the same second). Either is a claim.
+        self::assertContains(self::claim($this->client, 'build')['id'], [$first, $second]);
     }
 
     // ---- one whole scan ----------------------------------------------------
