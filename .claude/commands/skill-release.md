@@ -50,8 +50,8 @@ Read first: `docs/mcp/skill-maintenance.md` (the process and the checks),
    `claude plugin validate plugin/wboost --strict && claude plugin validate . --strict`.
 7. **Commit** with explicit pathspecs (`git commit -- <paths>`), message
    `docs(skill): wboost skill x.y.z — <summary>`; push to main if the user's
-   standing rules allow it, otherwise leave it for review. After Tests pass,
-   `plugin-release.yml` tags `wboost-plugin-vx.y.z` and publishes the zip;
+   standing rules allow it, otherwise leave it for review. The push of the
+   bump triggers `plugin-release.yml`, which tags `wboost-plugin-vx.y.z` and publishes the zip;
    check `gh release view wboost-plugin-vx.y.z`. Close the `skill-release` issue
    with a link to the release.
 

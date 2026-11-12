@@ -87,8 +87,9 @@ claude.ai upload / re-upload — support.claude.com/en/articles/12512180;
 - **The routine** — `/skill-release` (`.claude/commands/skill-release.md`): a
   Claude session or subagent with no other context computes the delta, drafts
   the skill changes, regenerates the manifest, runs the verification sessions,
-  bumps version + changelog and commits for review. Pushing to main then tags
-  and publishes the release (`plugin-release.yml`).
+  bumps version + changelog and commits for review. Pushing the version bump
+  to main then tags and publishes the release (`plugin-release.yml`, also
+  runnable by hand: `gh workflow run plugin-release.yml`).
 - **Not automatic yet, and why:** a fully unattended run needs (1) an Anthropic
   credential in GitHub secrets (`ANTHROPIC_API_KEY` or a Claude Code OAuth token
   for `anthropics/claude-code-action`), (2) the whole stack in CI (Postgres,

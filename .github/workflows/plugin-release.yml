@@ -1,8 +1,11 @@
 # Publishes the wboost Claude plugin/skill when its version changes on main.
 #
-# Runs after the Tests workflow succeeded on main (same gate as the app
-# release). When plugin/wboost/.claude-plugin/plugin.json carries a version that
-# has no `wboost-plugin-v<version>` tag yet, it tags the tested commit and
+# Runs on a push to main that changes plugin/wboost/.claude-plugin/plugin.json
+# (i.e. a version bump), or by hand. (Not as a workflow_run after Tests: the
+# token of a workflow_run-triggered run was refused creating the release with
+# HTTP 403 "Resource not accessible by integration" on 2026-11-12, although it
+# carried contents: write.) When plugin.json carries a version that has no
+# `wboost-plugin-v<version>` tag yet, it tags the pushed commit and
 # creates a GitHub release with the skill folder zipped for claude.ai —
 # `wboost-skill.zip`, whose top level is the `wboost/` folder as claude.ai
 # requires. The stable download URL is
@@ -17,12 +20,11 @@
 name: Plugin release
 
 on:
-    workflow_run:
-        workflows: [Tests]
-        types:
-            - completed
+    push:
         branches:
             - main
+        paths:
+            - plugin/wboost/.claude-plugin/plugin.json
     workflow_dispatch:
 
 permissions:
@@ -35,12 +37,11 @@ concurrency:
 jobs:
     release:
         runs-on: ubuntu-latest
-        if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
         steps:
             - uses: actions/checkout@v6
               with:
                   fetch-depth: 0
-                  ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+                  ref: ${{ github.sha }}
 
             - name: Release the skill version if it is new
               shell: bash
