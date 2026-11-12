@@ -96,7 +96,11 @@ final class TemplateDocumentExportController extends AbstractController
         // The longest request this app makes: off the session lock, and a
         // time budget that fits a full 30-page print PDF.
         $this->releaseSessionLock->release($request);
-        set_time_limit(self::TIME_LIMIT);
+        // (Not on the command line: there the limit would outlive this call and end
+        // a long test run or a console command 600 s later — PHP counts wall time.)
+        if (\PHP_SAPI !== 'cli') {
+            set_time_limit(self::TIME_LIMIT);
+        }
 
         $keys = DocumentFillKeys::forDocument($document);
 

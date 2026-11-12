@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 // The heartbeat at the real numbers of architecture §4.9 — on a mocked clock: H 15 s, one attempt ≤ 10 s,
 // self-abort 105 s after the SEND time of the last acknowledged beat, app-outage tolerance 60 s.
 import { test, mock } from 'node:test';
@@ -21,6 +22,17 @@ test('timing: the pairs of §4.9 hold in the defaults (heartbeat < self-abort < 
     assert.ok(t.appOutageToleranceSeconds + t.appCallAttemptSeconds <= 90);
     assert.ok(t.killGraceSeconds + t.releaseAttemptSeconds <= t.shutdownSeconds, '5 + 20 = 25 ≤ 30');
     assert.ok(t.intakeCapSeconds + t.appCallAttemptSeconds <= t.intakeLeaseSeconds);
+});
+
+test('timing: every number the scanner carries itself is the definition\'s — one source, no drift', () => {
+    // The service needs its transport timing BEFORE the first claim brings a definition (claim poll, tick, the
+    // HTTP client's attempt and tolerance, the probe, the shutdown), so those are constants here. They must be
+    // the numbers of resources/ai-scan/definition/definition.json — the document's §4.9 has one value per quantity.
+    const timing = JSON.parse(readFileSync(new URL('../../resources/ai-scan/definition/definition.json', import.meta.url), 'utf8')).timing;
+    for (const [key, value] of Object.entries(DEFAULT_TIMING)) assert.equal(timing[key], value, `timing.${key}: definition ${timing[key]}, scanner ${value}`);
+    // and nothing in the definition's timing is a name the scanner does not know
+    const read = new Set([...Object.keys(DEFAULT_TIMING), 'localToolTimeoutSeconds', 'appToolTimeoutSeconds', 'normaliseSeconds']);
+    assert.deepEqual(Object.keys(timing).filter((k) => !read.has(k)), [], 'a timing key nobody reads');
 });
 
 test('heartbeat: beats leave every 15 s for 200 s while nothing else happens, each with its own seq, the stage and the usage', async (t) => {

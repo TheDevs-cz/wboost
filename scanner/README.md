@@ -84,6 +84,8 @@ child process of one run (src/worker.mjs)
 | Usage is closed on every path: `finish` (the child), `release` (shutdown, provider blocked), a closing beat (cancelled, interrupted, lost, crashed) | `JobRunner.#close` |
 | A child that dies or hangs is never released (a poisonous input would come straight back): the lease lapses, the app's reaper restarts the scan once, then fails it | `JobRunner` |
 | Thread pools pinned to `floor(3 ÷ concurrency)`; a concurrency the memory limit cannot hold is refused at start | `src/config.mjs` |
+| The timing the service needs before its first claim (claim poll, tick, the HTTP client's attempt and tolerance, probe, shutdown, kill grace) are constants — `DEFAULT_TIMING` — and a test holds them equal to the definition's `timing`, key by key; a run takes its own timing from its claim's definition | `src/protocol.mjs`, `test/timers.test.mjs` |
+| A run that hangs while the heartbeat lives is killed at run cap + R + one attempt + 15 s = 465 s (intake: 150 s) and never released | `src/lanes.mjs` |
 | No model fallback: a refused turn is never re-run on another model (`CLAUDE_CODE_DISABLE_REFUSAL_FALLBACK=1`); were the harness to do it anyway, the run is stopped as a refusal and the other model's tokens are priced by its own row | `src/engine/sdk.mjs` |
 
 ### Health
@@ -213,6 +215,7 @@ node eval/engine-facts.mjs sdk|messages|cli               # fault injection agai
 node eval/e2e.mjs <input …>                               # real scans through the REAL app job core (the service must run)
 node eval/font-verify.mjs                                 # the font verification on the recorded scans, both error rates
 node eval/record-contract.mjs                             # records test/contract/scanner-api.v1.json against the local app
+node eval/g2a.mjs soak|faults|queue|limits|kill|orphans|idle|audit   # the local reliability gate (G2a) — docs/ai-scan/reliability-report.md
 eval/container-run.sh                                     # one scan in the linux/amd64 image; cgroup memory peak, wall time
 ```
 

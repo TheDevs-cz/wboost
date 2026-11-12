@@ -32,6 +32,7 @@ use Ramsey\Uuid\UuidInterface;
 #[UniqueConstraint(name: 'uniq_ai_usage_scan_run_step', columns: ['scan_id', 'run', 'step'])]
 #[Index(name: 'idx_ai_usage_occurred', columns: ['occurred_at'])]
 #[Index(name: 'idx_ai_usage_project', columns: ['project_id', 'occurred_at'])]
+#[Index(name: 'idx_ai_usage_lease', columns: ['scan_id', 'lease_token_hash'])]
 class AiUsageEvent
 {
     #[Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
@@ -54,6 +55,18 @@ class AiUsageEvent
 
     #[Column(type: Types::BIGINT, options: ['default' => 0])]
     public int $cacheWriteTokens = 0;
+
+    /** The part of the cache writes made with the 1-hour lifetime (priced apart). */
+    #[Column(name: 'cache_write_1h_tokens', type: Types::BIGINT, options: ['default' => 0])]
+    public int $cacheWrite1hTokens = 0;
+
+    /**
+     * sha256 of the lease token of the claim that opened this row. A call of
+     * a run the app has since replaced proves itself with it, so its usage is
+     * still recorded here — and nowhere else.
+     */
+    #[Column(length: 64, nullable: true)]
+    public null|string $leaseTokenHash = null;
 
     /** What the app charges this step with: the price table when it knows the model, else the engine's own figure. */
     #[Column(type: Types::BIGINT, options: ['default' => 0])]

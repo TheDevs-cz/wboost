@@ -4,7 +4,7 @@ import { mkdtempSync, readdirSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import sharp from 'sharp';
-import { runBuild, runIntake, withRendererRetry, usagePayload, releaseOnce } from '../src/run.mjs';
+import { runBuild, runIntake, withRendererRetry, usagePayload, wireUsage, releaseOnce } from '../src/run.mjs';
 import { definitionFiles } from '../src/drivers/file-job.mjs';
 import { readDefinition, contextFromClaim, HttpScannerApi } from '../src/protocol.mjs';
 import { ocrPython } from '../src/instruments/ocr.mjs';
@@ -134,6 +134,19 @@ test('build: cancel from a beat aborts the engine; nothing is finished', { skip 
     assert.equal(f.sent.finish, null);
 });
 
+test('build: the builder cap cuts a request the provider never answered → provider_unavailable (refunded, not counted); a slow turn that was answering → timeout', { skip }, async () => {
+    // what a stalled stream looks like to the run: no retry event ever comes (the request has not failed yet),
+    // the cap aborts the engine, and the engine says how long it had been waiting for the provider
+    const silent = (pendingWaitMs) => ({ name: 'silent', run: async (o) => { await new Promise((ok) => o.signal.addEventListener('abort', ok, { once: true })); return { outcome: 'aborted', finish: null, error: null, text: '', usage: usage(), turns: 0, apiMs: 0, wallMs: 700, facts: { engine: 'silent', pendingWaitMs } }; } });
+    const f = await fixture({ timing: { builderCapSeconds: 0.7 } });
+    const stalled = await runBuild({ job: f.job, api: f.api, engine: silent(70_000), scratchDir: f.scratchDir });
+    assert.deepEqual([stalled.outcome, stalled.error, stalled.detail, f.sent.finish.error], ['failed', 'provider_unavailable', 'builder_time', 'provider_unavailable']);
+    // the same cap while the model had been at work for 5 s (under the 60 s stream-idle bound): that is the run's own time
+    const g = await fixture({ timing: { builderCapSeconds: 0.7 } });
+    const slow = await runBuild({ job: g.job, api: g.api, engine: silent(5_000), scratchDir: g.scratchDir });
+    assert.deepEqual([slow.outcome, slow.error, g.sent.finish.error], ['failed', 'timeout', 'timeout']);
+});
+
 test('build: SIGTERM path — abort, usage, release; the restart is not consumed', { skip }, async () => {
     const f = await fixture();
     const controller = new AbortController();
@@ -172,6 +185,10 @@ test('withRendererRetry: a busy or failing renderer is retried inside R, a lost 
     await assert.rejects(withRendererRetry(async () => ({ code: 'renderer_busy' }), { appOutageToleranceSeconds: 0 }), { code: 'renderer_busy' });
     let m = 0;
     await assert.rejects(withRendererRetry(async () => { m++; throw Object.assign(new Error('x'), { status: 410 }); }, { appOutageToleranceSeconds: 10 }), /x/);
+    // every attempt of the app call timed out for the whole tolerance (a renderer that is too slow): renderer_unavailable, not `timeout` → `build`
+    await assert.rejects(withRendererRetry(async () => { throw Object.assign(new Error('timeout'), { code: 'timeout', retryable: true, outage: true }); }, { appOutageToleranceSeconds: 10 }), (e) => e.code === 'renderer_unavailable' && e.transport === 'timeout');
+    // a lost lease, a full candidate list and an abort keep their own word
+    for (const code of ['lease_lost', 'candidate_limit']) await assert.rejects(withRendererRetry(async () => { throw Object.assign(new Error(code), { code, status: code === 'lease_lost' ? 409 : 200 }); }, { appOutageToleranceSeconds: 10 }), (e) => e.code === code);
     assert.equal(m, 1);
 });
 
@@ -240,6 +257,13 @@ test('protocol helpers: claim context → face strings; usage payload; the HTTP 
         { fonts: ['Arial (Arial Gras)', 'Montserrat (Montserrat-Black)'], brandColours: ['#112233'], standInAssetId: 'sid', templateMaxLongEdgePx: 5000 });
     const u = usagePayload({ byModel: { 'claude-opus-5-5': { input: 1, output: 2, cacheRead: 3, cacheWrite5m: 4, cacheWrite1h: 5 } }, costUsd: 0.25, engineCostUsd: 0.3, priceVersion: 'v' }, { turns: 7 });
     assert.deepEqual([u.model, u.inputTokens, u.outputTokens, u.cacheReadTokens, u.cacheWriteTokens, u.costMicroUsd, u.engineCostMicroUsd, u.turns], ['claude-opus-5-5', 1, 2, 3, 9, 250_000, 300_000, 7]);
+    // the cache-write split reaches the app on every path: finish (the payload itself) and beat / release / closing beat (the wire usage)
+    assert.deepEqual([u.cacheWrite5mTokens, u.cacheWrite1hTokens], [4, 5]);
+    const w = wireUsage(u);
+    assert.deepEqual([w.cacheWriteTokens, w.cacheWrite5mTokens, w.cacheWrite1hTokens, w.model, w.turns, w.engineCostMicroUsd], [9, 4, 5, 'claude-opus-5-5', 7, 300_000]);
+    assert.equal(w.byModel, undefined, 'a beat carries figures, not the per-model table');
+    assert.deepEqual([wireUsage({ cacheWriteTokens: 9 }).cacheWrite5mTokens, wireUsage({ cacheWriteTokens: 9 }).cacheWrite1hTokens], [9, 0], 'a total without a split is all 5-minute');
+    assert.equal(wireUsage(null), null);
     const seen = [];
     const http = new HttpScannerApi({ baseUrl: 'http://web/', token: 'tok', scannerVersion: '0.1.0', instruments: ['ocr'], fetchImpl: async (url, init) => { seen.push({ url, init }); return new Response(JSON.stringify(url.endsWith('/claim') ? { ok: true, mode: 'on', job: { id: 'abc', run: 3, leaseToken: 'lease' } } : { ok: true, candidate: 1, issues: [], image: { contentType: 'image/webp', base64: 'QUJD' } }), { status: 200 }); } });
     const c = await http.claim('build');

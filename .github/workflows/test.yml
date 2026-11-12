@@ -52,6 +52,45 @@ jobs:
       -   run: vendor/bin/phpunit
 
 
+  # AI scan fault injection (tests/FaultInjection): REAL races between forked
+  # processes, each with its own kernel and database connection, against a real
+  # Postgres and outside DAMA's transaction — so it cannot share a run with the
+  # suite above (it commits, and cleans up after itself). What it proves: one
+  # transition and one ledger line whoever wins — claims, cancels, the reaper,
+  # two starts, a replaced run's usage, accept × 2, accept vs discard / expiry,
+  # fix vs accept, two tabs fixing. See docs/architecture/ai-scan.md § "Tests".
+  fault-injection:
+      runs-on: ubuntu-latest
+      container: ghcr.io/thedevs-cz/php:8.5-wboost
+
+      services:
+          postgres:
+              image: postgres:16
+              env:
+                  POSTGRES_PASSWORD: postgres
+              options: --health-cmd pg_isready --health-interval 3s --health-timeout 3s --health-retries 5
+              ports:
+                  - 5432:5432
+
+      steps:
+          -   uses: actions/checkout@v6
+
+          -   uses: actions/cache@v5
+              with:
+                  path: vendor
+                  key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+                  restore-keys: |
+                      ${{ runner.os }}-composer-
+
+          -   run: composer install --no-scripts --no-progress
+
+          # Without pcntl the suite would skip itself and the job would be green for nothing.
+          -   name: pcntl is there
+              run: php -r 'exit(function_exists("pcntl_fork") && function_exists("posix_kill") ? 0 : 1);'
+
+          -   run: vendor/bin/phpunit --group fault-injection
+
+
   # A released skill is immutable: once `wboost-plugin-v<version>` is tagged
   # (plugin-release.yml), any change under plugin/wboost or the marketplace
   # manifest needs a version bump — otherwise users with that version would

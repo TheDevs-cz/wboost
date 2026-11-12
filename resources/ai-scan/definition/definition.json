@@ -49,8 +49,7 @@
         "normaliseSeconds": 20,
         "releaseAttemptSeconds": 20,
         "intakeLeaseSeconds": 150,
-        "beatAttemptSeconds": 10,
-        "shutdownReleaseSeconds": 20
+        "killGraceSeconds": 5
     },
     "caps": {
         "turns": 40,
@@ -152,12 +151,5 @@
             ],
             "finish": "finish.template.schema.json"
         }
-    },
-    "preCheckRequest": {
-        "timeoutSeconds": 18,
-        "retries": 1,
-        "retryDelaysSeconds": [
-            2
-        ]
     }
 }

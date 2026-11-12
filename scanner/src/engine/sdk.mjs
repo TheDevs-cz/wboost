@@ -127,8 +127,13 @@ export async function runSdk(o) {
                 facts.init = { model: m.model, tools: m.tools, mcp: m.mcp_servers, version: m.claude_code_version, apiKeySource: m.apiKeySource, permissionMode: m.permissionMode };
                 waitingSince = now;
             } else if (m.type === 'system' && m.subtype === 'api_retry') {
-                facts.retries.push({ attempt: m.attempt, of: m.max_retries, delayMs: m.retry_delay_ms, status: m.error_status, error: m.error });
-                emit({ type: 'retry', attempt: m.attempt, of: m.max_retries, delayMs: m.retry_delay_ms, status: m.error_status, error: m.error });
+                // time lost to the provider (§4.9): the request that failed — since the engine began to wait for it —
+                // and the wait before the next one. The next request leaves when the delay is over.
+                const delayMs = m.retry_delay_ms ?? 0;
+                const lostMs = (waitingSince !== null ? Math.max(0, now - waitingSince) : 0) + delayMs;
+                waitingSince = now + delayMs;
+                facts.retries.push({ attempt: m.attempt, of: m.max_retries, delayMs, status: m.error_status, error: m.error, lostMs });
+                emit({ type: 'retry', attempt: m.attempt, of: m.max_retries, delayMs, status: m.error_status, error: m.error, lostMs });
             } else if (m.type === 'system' && m.subtype === 'model_refusal_no_fallback') {
                 facts.refusal = { subtype: m.subtype, category: m.api_refusal_category ?? null };
             } else if (m.type === 'system' && m.subtype === 'model_refusal_fallback') {
@@ -174,6 +179,9 @@ export async function runSdk(o) {
         o.signal?.removeEventListener('abort', onAbort);
     }
     const wallMs = Date.now() - started;
+    // how long the engine had been waiting for the provider's answer when the run ended: a request that was cut
+    // (a cap, an abort) while the provider said nothing — a stalled stream, a request that never came back
+    facts.pendingWaitMs = waitingSince !== null ? Math.max(0, Date.now() - waitingSince) : 0;
     if (result?.modelUsage && Object.keys(result.modelUsage).length) {
         facts.meterEstimate = meter.estimate();
         meter.setFinal(Object.fromEntries(Object.entries(result.modelUsage).map(([k, v]) => [k.replace(/\[.*\]$/, ''), fromModelUsage(v)])));

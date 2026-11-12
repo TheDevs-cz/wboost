@@ -88,6 +88,38 @@ final readonly class AiScanStorage
         }
     }
 
+    /**
+     * Removes the candidate renders of a scan directory, except `$keep` — the
+     * kept one, which is the proposal's picture. Candidates exist for the
+     * run that rendered them: once it has ended, or another run starts, the
+     * others are nothing anybody reads. Returns how many were removed; a
+     * storage failure is left to the nightly purge.
+     */
+    public function dropCandidates(string $directory, null|int $keep = null): int
+    {
+        $dropped = 0;
+
+        try {
+            /** @var StorageAttributes $entry */
+            foreach ($this->filesystem->listContents($directory, false) as $entry) {
+                if (!$entry->isFile() || preg_match('/(?:^|\/)candidate-(\d+)\.webp$/', $entry->path(), $match) !== 1) {
+                    continue;
+                }
+
+                if ($keep !== null && (int) $match[1] === $keep) {
+                    continue;
+                }
+
+                $this->filesystem->delete($entry->path());
+                $dropped++;
+            }
+        } catch (FilesystemException) {
+            // Left to the purge.
+        }
+
+        return $dropped;
+    }
+
     /** Everything of one scan. Failures are the purge's to retry. */
     public function deleteScan(string $projectId, string $scanId): bool
     {

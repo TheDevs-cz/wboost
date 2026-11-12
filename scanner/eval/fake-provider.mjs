@@ -17,8 +17,11 @@ import { createServer } from 'node:http';
 let counter = 0;
 const id = (p) => `${p}_fake${String(++counter).padStart(6, '0')}`;
 
-export function startFakeProvider({ plan, port = 0, host = '127.0.0.1', latencyMs = 0, log = null }) {
-    const state = { requests: [], main: 0, plan: [...plan] };
+export function startFakeProvider({ plan = [], port = 0, host = '127.0.0.1', latencyMs = 0, log = null, stepFor = null }) {
+    // `stepFor(body, rec, state)` → a step, or undefined for the plan: a provider that answers by what a request IS
+    // (its model, how many assistant turns it carries) instead of by the order requests arrive in — so that one
+    // provider serves any number of scans one after another (the soak) and its behaviour can be changed while it runs.
+    const state = { requests: [], main: 0, plan: [...plan], stepFor };
     const server = createServer((req, res) => {
         let body = '';
         req.on('data', (d) => { body += d; });
@@ -33,13 +36,15 @@ export function startFakeProvider({ plan, port = 0, host = '127.0.0.1', latencyM
             if (!url.includes('/v1/messages') || req.method !== 'POST') return json(404, { type: 'error', error: { type: 'not_found_error', message: 'not here' } });
             if (url.includes('count_tokens')) return json(200, { input_tokens: 1000 });
             const isMain = tools.some((t) => t.startsWith('mcp__') || state.toolNames?.includes(t)) || j.system?.toString().includes('__MAIN__') || rec.tools > 0 || state.treatAllAsMain;
-            const step = isMain ? (state.plan.length > 1 ? state.plan.shift() : state.plan[0]) : { text: 'ok' };
+            const chosen = state.stepFor ? state.stepFor(j, rec, state) : undefined;
+            const step = chosen !== undefined ? chosen : isMain ? (state.plan.length > 1 ? state.plan.shift() : state.plan[0]) : { text: 'ok' };
             if (isMain) state.main++;
             rec.step = Object.keys(step)[0];
             if (latencyMs) await new Promise((ok) => setTimeout(ok, latencyMs));
             if (step.status) return json(step.status, { type: 'error', error: { type: step.type, message: step.message ?? step.type, ...(step.details ? { details: step.details } : {}) }, request_id: id('req') }, step.retryAfter !== undefined ? { 'retry-after': String(step.retryAfter) } : {});
             const model = j.model ?? 'claude-opus-5-5';
-            const usage = { input_tokens: 1200, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, output_tokens: 1 };
+            // a step may carry the usage the provider reports (`usage: {input_tokens, cache_creation_input_tokens, cache_creation: {ephemeral_1h_input_tokens}, …}`)
+            const usage = { input_tokens: 1200, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, output_tokens: 1, ...(step.usage ?? {}) };
             const start = { type: 'message_start', message: { id: id('msg'), type: 'message', role: 'assistant', model, content: [], stop_reason: null, stop_sequence: null, usage } };
             const blocks = [];
             let stop = 'end_turn';
@@ -53,6 +58,9 @@ export function startFakeProvider({ plan, port = 0, host = '127.0.0.1', latencyM
             } else if (step.refusal) { stop = 'refusal'; }
             else blocks.push({ type: 'text', text: step.text ?? 'ok' });
             const outTokens = Math.max(8, Math.round(JSON.stringify(blocks).length / 4));
+            // a stall is a provider that does not answer: a request without a stream gets nothing either (the
+            // engine falls back to one when a stream went silent), until the client gives up
+            if (step.stall && !j.stream) { rec.stalled = true; setTimeout(() => res.destroy(), step.stall).unref(); return; }
             if (!j.stream) return json(200, { ...start.message, content: blocks, stop_reason: stop, ...(stop === 'refusal' ? { stop_details: { type: 'refusal', category: 'cyber', explanation: 'fake' } } : {}), usage: { ...usage, output_tokens: outTokens } });
             res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'request-id': id('req') });
             const send = (ev) => res.write(`event: ${ev.type}\ndata: ${JSON.stringify(ev)}\n\n`);

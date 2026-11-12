@@ -43,6 +43,22 @@ export function usagePayload(usage, extra = {}) {
     };
 }
 
+/**
+ * The usage the run's process hands to the main process, which sends it with every beat, with the release and
+ * with the closing beat — the fields the app reads. The cache-write split travels with it: the app prices 1-hour
+ * writes at their own rate, and a beat is the only word a killed or replaced run gets in.
+ */
+export function wireUsage(u) {
+    if (!u) return null;
+    const cacheWriteTokens = u.cacheWriteTokens ?? 0;
+    const cacheWrite1hTokens = Math.min(u.cacheWrite1hTokens ?? 0, cacheWriteTokens);
+    return {
+        provider: u.provider ?? 'anthropic', model: u.model ?? null, inputTokens: u.inputTokens ?? 0, outputTokens: u.outputTokens ?? 0,
+        cacheReadTokens: u.cacheReadTokens ?? 0, cacheWriteTokens, cacheWrite5mTokens: u.cacheWrite5mTokens ?? (cacheWriteTokens - cacheWrite1hTokens), cacheWrite1hTokens,
+        engineCostMicroUsd: u.engineCostMicroUsd ?? 0, turns: u.turns ?? 0, durationMs: u.durationMs ?? 0, costMicroUsd: u.costMicroUsd ?? 0,
+    };
+}
+
 /** What the caller of a lane owns. The file driver runs everything in one process; under main.mjs the
  *  MAIN process owns the heartbeat and every release, and the run's child process reports its state. */
 const HOST = Object.freeze({ ownsHeartbeat: true, ownsRelease: true, onState: null });
@@ -181,8 +197,8 @@ export async function runBuild({ job, api, engine, scratchDir, signal = null, pr
         });
         // `render` is idempotent by (run, seq): every retry of one call carries the same seq
         const app = {
-            render: (design) => { const s = ++seq; return counted(withRendererRetry(() => api.render({ seq: s, design }), definition.timing, controller.signal)); },
-            faces: (req) => { const s = ++seq; return counted(withRendererRetry(() => api.faces({ seq: s, ...req }), definition.timing, controller.signal)); },
+            render: (design) => { const s = ++seq; return counted(withRendererRetry((o) => api.render({ seq: s, design }, o), definition.timing, controller.signal)); },
+            faces: (req) => { const s = ++seq; return counted(withRendererRetry((o) => api.faces({ seq: s, ...req }, o), definition.timing, controller.signal)); },
         };
         build = new TemplateBuild({ source, sourcePath, context, app, caps, signal: controller.signal,
             settings: { availableScore: definition.fonts?.availableScore ?? 0.85, undeterminedScore: definition.fonts?.undeterminedScore ?? 0.35, verifiedScore: definition.fonts?.verifiedScore ?? 0.85, verifiedScoreLong: definition.fonts?.verifiedScoreLong ?? 0.8, verifiedLongGlyphs: definition.fonts?.verifiedLongGlyphs ?? 12, verifyRenders: definition.fonts?.verifyRenders ?? 6, prepassLines: definition.fonts?.prePassLines ?? 6, faceSheets: definition.caps?.faceSheets ?? 12, snapDeltaE: definition.paletteSnapDeltaE ?? 2, ocrThreads: Number(process.env.SCANNER_OCR_THREADS ?? 3) },
@@ -255,6 +271,11 @@ export async function runBuild({ job, api, engine, scratchDir, signal = null, pr
         probeResources?.mark('build:finish');
         state.stage = 'finish'; state.note = null; state.noteParams = null; changed();
         const capHit = abortReason ?? (result.outcome === 'max_turns' ? 'turns' : result.outcome === 'max_budget' ? 'budget' : null);
+        // The request a time cap cut while the provider had said nothing for longer than the stream-idle bound was
+        // lost to the provider too (a stalled stream, a request that never came back): the engine reports retries
+        // only once a request has failed, and the last one never got that far.
+        const pendingWaitMs = result.facts?.pendingWaitMs ?? 0;
+        if (capHit && pendingWaitMs >= (definition.engine?.streamIdleSeconds ?? 60) * 1000) caps.noteProviderLost(pendingWaitMs);
         // a run cut short by the provider is not charged — with or without a candidate (§4.9 provider-lost time)
         if (capHit && caps.providerLostDominates(definition.caps?.providerLostShare ?? 0.5)) return { ...(await failed('provider_unavailable', usage)), detail: capHit, stats };
         if (!build.candidates.length) return { ...(await failed(stats.rendererFailures ? 'renderer_unavailable' : capHit ? 'timeout' : 'build', usage)), detail: capHit ?? result.error ?? 'no_candidate', stats };
@@ -293,8 +314,10 @@ function beatResources(probe) {
 /**
  * A failing or busy renderer is retried inside the app-outage tolerance R (architecture §4.9, §7): attempts
  * START only inside R, counted from the first one — a call the HTTP client already retried for the whole
- * tolerance (`outage`) is not started again, so the last attempt ends ≤ R + one attempt = 90 s < the 95 s
- * tool timeout. Every retry of one call carries the same `seq` (the caller fixes it).
+ * tolerance (`outage`) is not started again, and every call is told when the window ends (`startBy`), so the
+ * HTTP client's own retries cannot open a second window after a busy answer: the last attempt ends
+ * ≤ R + one attempt = 90 s < the 95 s tool timeout. Every retry of one call carries the same `seq` (the caller
+ * fixes it).
  */
 export async function withRendererRetry(call, timing = {}, signal = null) {
     const toleranceMs = (timing.appOutageToleranceSeconds ?? 60) * 1000;
@@ -302,13 +325,17 @@ export async function withRendererRetry(call, timing = {}, signal = null) {
     const pause = (ms) => new Promise((ok) => setTimeout(ok, Math.min(ms, toleranceMs / 40)));
     for (let attempt = 0; ; attempt++) {
         try {
-            const r = await call();
+            const r = await call({ startBy: until });
             if (r?.code === 'renderer_busy' || r?.code === 'renderer_unavailable') throw Object.assign(new Error(r.code), { code: r.code });
             return r;
         } catch (e) {
             const renderer = e?.code === 'renderer_busy' || e?.code === 'renderer_unavailable';
             const fatal = signal?.aborted || Date.now() >= until || e?.outage || e?.status === 409 || e?.status === 410 || (!renderer && e?.retryable === false) || ['lease_lost', 'stale_run', 'gone', 'candidate_limit', 'aborted'].includes(e?.code);
-            if (fatal) throw Object.assign(e, { code: e.code ?? 'renderer_unavailable' });
+            // A render the app could not answer for the whole tolerance — attempts that timed out, a connection
+            // that failed, a 5xx — is the renderer staying away, whatever word the transport used for it: the
+            // scan then fails as `renderer_unavailable` (refunded, not counted against the picture), never as `build`.
+            const transport = e?.outage === true || (e?.retryable === true && !signal?.aborted);
+            if (fatal) throw Object.assign(e, { code: !renderer && (transport || !e.code) ? 'renderer_unavailable' : e.code, transport: !renderer && transport ? e.code : undefined });
             await pause(renderer ? 1500 : Math.min(5000, 1000 * (attempt + 1)));
         }
     }

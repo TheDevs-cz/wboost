@@ -121,6 +121,24 @@ test('a busy renderer is retried inside the tolerance with the same seq; one tha
     assert.equal(scan.candidates.length, 1);
 });
 
+test('a busy renderer and then an app that is away: the retries of the two share ONE tolerance window', async (t) => {
+    // R = 2 s. The renderer is busy for 1.4 s (answers), then the app goes away for good. The HTTP client's own
+    // retries of the next render call must not open a second window of R: nothing starts after 2 s.
+    const timing = { ...FAST, appOutageToleranceSeconds: 2, appCallAttemptSeconds: 1 };
+    const { app, api } = await claimed(t, { timing });
+    const t0 = Date.now();
+    app.state.renderer = () => 'renderer_busy';
+    setTimeout(() => app.down(60_000), 1400);
+    // …and what comes out is the renderer staying away — not a transport word that would be booked as a failed build
+    await assert.rejects(withRendererRetry((o) => api.render({ seq: 1, design: DESIGN }, o), timing), (e) => e.code === 'renderer_unavailable' && ['network', 'timeout'].includes(e.transport));
+    const took = Date.now() - t0;
+    assert.ok(took >= 1400, `it went on into the outage (${took} ms)`);
+    assert.ok(took < 2600, `nothing started after R (${took} ms; a second window would end after 3400 ms)`);
+    const starts = app.state.calls.filter((c) => c.op === 'render').map((c) => c.at - t0);
+    assert.ok(starts.length >= 2 && app.state.calls.some((c) => c.op === 'render' && c.fault === 'down'), 'some attempts met the outage');
+    for (const at of starts) assert.ok(at <= 2000 + 50, `an attempt started ${at} ms after the first one`);
+});
+
 test('409 and 410 are never retried: stale run, lost lease, a deleted project', async (t) => {
     const { app, api, scan } = await claimed(t);
     app.end(scan, 'cancelled');

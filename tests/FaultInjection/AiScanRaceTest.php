@@ -46,6 +46,7 @@ use WBoost\Web\Value\AiScan\AiScanRefused;
 final class AiScanRaceTest extends KernelTestCase
 {
     use AiScanTesting;
+    use RacesProcesses;
 
     private const int ROUNDS = 6;
     private const string LEASE = 'race-lease-token';
@@ -63,6 +64,7 @@ final class AiScanRaceTest extends KernelTestCase
 
     public static function tearDownAfterClass(): void
     {
+        self::printTally();
         StaticDriver::setKeepStaticConnections(true);
     }
 
@@ -221,6 +223,69 @@ final class AiScanRaceTest extends KernelTestCase
         }
     }
 
+    /**
+     * A run loses its lease while it is still spending: the reaper puts the
+     * scan back, another run claims it — and the first run's beat and finish
+     * arrive at that very moment, with usage. What it spent is recorded on
+     * ITS usage row whoever is first; it changes no state, and the run that
+     * holds the scan keeps its own figures.
+     */
+    public function testAReplacedRunsUsageIsRecordedAndChangesNoState(): void
+    {
+        for ($round = 0; $round < self::ROUNDS; $round++) {
+            $this->clean(false);
+            $id = $this->scan('queued');
+            $api = self::getContainer()->get(ScannerApi::class);
+            $claim = ['lane' => 'build', 'scannerVersion' => 'race', 'instruments' => self::instrumentsOf(self::getContainer()), 'capacity' => 1];
+
+            $first = self::dig(self::decoded($api->claim($claim)->getContent()), 'job', 'leaseToken');
+            self::assertIsString($first);
+            $api->beat($id, ['run' => 1, 'seq' => 1, 'usage' => self::usage(1)], $first);
+            self::connection()->executeStatement("UPDATE ai_scan SET lease_expires_at = NOW() - INTERVAL '10 seconds' WHERE id = :id", ['id' => $id]);
+
+            // The reaper + the next claim (run 2) against run 1's late beat and late finish.
+            [$second, $beat, $finish] = $this->race(
+                static fn (ContainerInterface $c): mixed => self::dig(self::decoded($c->get(ScannerApi::class)->claim($claim)->getContent()), 'job', 'leaseToken'),
+                static fn (ContainerInterface $c): int => $c->get(ScannerApi::class)->beat($id, ['run' => 1, 'seq' => 2, 'usage' => self::usage(6)], $first)->getStatusCode(),
+                static fn (ContainerInterface $c): mixed => self::decoded($c->get(ScannerApi::class)->finish($id, ['run' => 1, 'outcome' => 'failed', 'error' => 'timeout', 'usage' => self::usage(7)], $first)->getContent()),
+            );
+
+            $row = self::row($id);
+            $ledger = self::ledger($id);
+            $usage = [];
+
+            foreach (self::connection()->fetchAllKeyValue("SELECT run, input_tokens FROM ai_usage_event WHERE scan_id = :id AND step = 'builder' ORDER BY run", ['id' => $id]) as $run => $tokens) {
+                $usage[(int) $run] = is_numeric($tokens) ? (int) $tokens : -1;
+            }
+
+            // Whatever the order: run 1's row holds its last figures (7 × 1000 input tokens).
+            self::assertSame(7000, $usage[1] ?? -1, 'usage of the replaced run: ' . json_encode([$second, $beat, $finish, $row['status']]));
+
+            self::won('replaced run', is_string($second) ? 'second claim first' : 'late finish first');
+
+            if (is_string($second)) {
+                // The reaper and the second claim came first: run 2 holds the scan.
+                self::assertSame('running', $row['status']);
+                self::assertSame(2, $row['run']);
+                self::assertSame(hash('sha256', $second), $row['lease_token_hash']);
+                self::assertSame(0, $usage[2] ?? -1, 'the new run has spent nothing yet');
+                self::assertSame(['1:reserve:-1'], $ledger, 'a stale run moves no credit');
+                self::assertSame(409, $beat);
+                self::assertFalse(self::dig($finish, 'ok'));
+            } else {
+                // Run 1's finish got there before anybody claimed the scan again: it is the scan's outcome (rule 6) — once.
+                self::assertSame('failed', $row['status']);
+                self::assertSame('timeout', $row['error_code']);
+                self::assertSame(1, $row['run']);
+                self::assertSame(['1:reserve:-1', '1:refund:1'], $ledger);
+            }
+
+            // The scan's totals are the sums of its usage rows, and the day's spend counts them.
+            self::assertSame(array_sum($usage), $row['input_tokens']);
+            self::assertSame(0, self::rowCount('ai_usage_event', "scan_id = '" . $id . "' AND closed_at IS NULL AND run = 1"), 'the replaced run is closed');
+        }
+    }
+
     public function testAcceptTwiceAndAcceptAgainstDiscardAndAgainstThePurge(): void
     {
         for ($round = 0; $round < self::ROUNDS; $round++) {
@@ -338,81 +403,6 @@ final class AiScanRaceTest extends KernelTestCase
             self::assertSame(1, self::rowCount('ai_scan'));
             self::assertSame(1, self::rowCount('ai_credit_ledger'));
         }
-    }
-
-    // ---- the race ----------------------------------------------------------
-
-    /**
-     * Runs every racer in its own process — own kernel, own connection —
-     * released together, and returns what each returned, in order.
-     *
-     * @param \Closure(ContainerInterface): mixed ...$racers
-     * @return list<mixed>
-     */
-    private function race(\Closure ...$racers): array
-    {
-        // No connection may be shared across the fork.
-        self::connection()->close();
-
-        $start = microtime(true) + 1.2;
-        $files = [];
-        $pids = [];
-
-        foreach (array_values($racers) as $index => $racer) {
-            $files[$index] = sprintf('%s/ai-scan-race-%s-%d', sys_get_temp_dir(), bin2hex(random_bytes(4)), $index);
-            $pid = pcntl_fork();
-
-            if ($pid === -1) {
-                self::fail('fork failed');
-            }
-
-            if ($pid === 0) {
-                try {
-                    // A kernel of its own (the parent's connection was closed
-                    // before the fork, so shutting its copy down touches nothing shared).
-                    self::ensureKernelShutdown();
-                    self::bootKernel();
-                    $container = self::getContainer();
-                    // Open the connection before the barrier, so the race is the statement, not the handshake.
-                    $container->get(EntityManagerInterface::class)->getConnection()->executeQuery('SELECT 1');
-
-                    $wait = (int) (($start - microtime(true)) * 1_000_000);
-
-                    if ($wait > 0) {
-                        usleep($wait);
-                    }
-
-                    $result = ['ok' => $racer($container)];
-                } catch (\Throwable $failure) {
-                    $result = ['error' => $failure::class . ': ' . $failure->getMessage()];
-                }
-
-                file_put_contents($files[$index], serialize($result));
-                // No shutdown handlers, no destructors: this copy of the test process just ends.
-                posix_kill(posix_getpid(), SIGKILL);
-            }
-
-            $pids[] = $pid;
-        }
-
-        foreach ($pids as $pid) {
-            pcntl_waitpid($pid, $status);
-        }
-
-        $results = [];
-
-        foreach ($files as $file) {
-            $result = is_file($file) ? unserialize((string) file_get_contents($file)) : ['error' => 'the racer left no result'];
-            @unlink($file);
-
-            if (!is_array($result) || array_key_exists('error', $result)) {
-                self::fail('A racer failed: ' . (is_array($result) && is_string($result['error'] ?? null) ? $result['error'] : 'unknown'));
-            }
-
-            $results[] = $result['ok'] ?? null;
-        }
-
-        return $results;
     }
 
     /**

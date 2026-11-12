@@ -18,6 +18,7 @@ use WBoost\Web\Repository\ProjectRepository;
 use WBoost\Web\Services\AiScan\AiScanPurge;
 use WBoost\Web\Services\AiScan\AiScanSpend;
 use WBoost\Web\Services\AiScan\AiScanStandIn;
+use WBoost\Web\Services\AiScan\AiScanStorage;
 use WBoost\Web\Services\AiScan\AiScanRuntimeState;
 use WBoost\Web\Services\AiScan\AiScanTransitions;
 use WBoost\Web\Services\Font\FitTextToWidth;
@@ -161,6 +162,34 @@ final class AiScanPurgeAndStorageTest extends WebTestCase
         self::assertSame(1, self::rowCount('ai_usage_event', "outcome = 'purged' AND closed_at IS NOT NULL"));
 
         (new \Symfony\Component\Filesystem\Filesystem())->remove(dirname($newOrphan));
+    }
+
+    public function testThePurgeDropsCandidateRendersARunLeftBehindWhenItEndedWithoutAFinish(): void
+    {
+        $storage = self::getContainer()->get(AiScanStorage::class);
+
+        // Cancelled while running: the scanner sends no finish, so nothing dropped the candidate at the end.
+        $build = self::running($this->client);
+        $cancelled = $build['id'];
+        self::scanner($this->client, 'POST', $cancelled . '/render', ['run' => 1, 'seq' => 1, 'design' => self::design()], $build['lease']);
+        self::getContainer()->get(AiScanTransitions::class)->cancel($cancelled);
+        $cancelledDirectory = $this->directoryOf($cancelled);
+        self::assertTrue($storage->exists($cancelledDirectory, 'candidate-1.webp'));
+
+        // A proposal whose other candidate is still there (written behind the finish's back).
+        $ready = $this->ready($this->client);
+        $readyDirectory = $this->directoryOf($ready);
+        $storage->write($readyDirectory, 'candidate-3.webp', 'LEFTOVER');
+
+        $result = self::getContainer()->get(AiScanPurge::class)->run();
+
+        self::assertSame(2, $result['candidatesDropped']);
+        self::assertFalse($storage->exists($cancelledDirectory, 'candidate-1.webp'));
+        self::assertTrue($storage->exists($cancelledDirectory, AiScanStorage::WORKING));
+        self::assertFalse($storage->exists($readyDirectory, 'candidate-3.webp'));
+        self::assertTrue($storage->exists($readyDirectory, 'candidate-1.webp'), 'the kept candidate is the proposal picture');
+
+        self::assertSame(0, self::getContainer()->get(AiScanPurge::class)->run()['candidatesDropped'], 'nothing left for a second night');
     }
 
     public function testDiscardDeletesTheFilesAtOnceAndKeepsTheRow(): void
@@ -349,5 +378,14 @@ final class AiScanPurgeAndStorageTest extends WebTestCase
         self::scanner($client, 'POST', $build['id'] . '/finish', ['run' => 1, 'outcome' => 'proposed', 'candidate' => 1, 'report' => self::report(1), 'usage' => self::usage(1)], $build['lease']);
 
         return $build['id'];
+    }
+
+    private function directoryOf(string $scanId): string
+    {
+        $row = self::row($scanId);
+        self::assertIsString($row['project_id']);
+        self::assertIsString($row['storage_secret']);
+
+        return AiScanStorage::directory($row['project_id'], $scanId, $row['storage_secret']);
     }
 }

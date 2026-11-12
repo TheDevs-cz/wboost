@@ -218,6 +218,12 @@ final readonly class ScannerApi
             return $this->noJob(null);
         }
 
+        if ($lane === AiScanLane::Build) {
+            // A new run renders its own candidates: what an earlier run of
+            // this scan left (a restart, a retry) is nobody's any more.
+            $this->storage->dropCandidates(AiScanStorage::directory(self::string($row['project_id']), $claimed['id'], self::string($row['storage_secret'])));
+        }
+
         $this->logger->info('AI scan claimed.', ['scan' => $claimed['id'], 'lane' => $lane->value, 'run' => $claimed['run']]);
 
         return new JsonResponse([
@@ -333,6 +339,8 @@ final readonly class ScannerApi
         $held = $this->held($id, $body['run'] ?? null, $lease);
 
         if ($held instanceof JsonResponse) {
+            $this->recordReplacedRun($id, $body['run'] ?? null, $lease, $body['usage'] ?? null);
+
             return $held;
         }
 
@@ -592,6 +600,8 @@ final readonly class ScannerApi
         $held = $this->held($id, $body['run'] ?? null, $lease);
 
         if ($held instanceof JsonResponse) {
+            $this->recordReplacedRun($id, $body['run'] ?? null, $lease, $body['usage'] ?? null);
+
             return $held;
         }
 
@@ -651,6 +661,13 @@ final readonly class ScannerApi
             return $done;
         }
 
+        if ($done) {
+            // The run is over: only the kept candidate — the proposal's
+            // picture — stays; a run that delivered nothing keeps none.
+            $kept = $this->connection->fetchOne("SELECT kept_candidate FROM ai_scan WHERE id = :id AND status = 'ready'", ['id' => $id]);
+            $this->storage->dropCandidates($held['directory'], is_numeric($kept) ? (int) $kept : null);
+        }
+
         return $this->finished($id, $done, true);
     }
 
@@ -665,6 +682,8 @@ final readonly class ScannerApi
         $held = $this->held($id, $body['run'] ?? null, $lease);
 
         if ($held instanceof JsonResponse) {
+            $this->recordReplacedRun($id, $body['run'] ?? null, $lease, $body['usage'] ?? null);
+
             return $held;
         }
 
@@ -770,6 +789,35 @@ final readonly class ScannerApi
         }
 
         return new JsonResponse(['ok' => true, 'cancel' => true, 'mode' => $this->runtime->get()->mode->value, 'status' => $status->value]);
+    }
+
+    /**
+     * Usage of a run that no longer holds its scan AND is no longer the
+     * latest claim: the reaper put the scan back and another run claimed it,
+     * the scan was released, retried or continued — or the row is gone
+     * (project deleted). What the run spent was spent: the figures go to ITS
+     * usage row, found by the lease token that opened it (`run` must be that
+     * row's). Nothing else happens — the caller is still told `lease_lost` /
+     * `stale_run` / `gone`, and no state can change from here.
+     */
+    private function recordReplacedRun(string $id, mixed $run, null|string $lease, mixed $usage): void
+    {
+        if (!Uuid::isValid($id) || $lease === null || $lease === '' || !is_array($usage)) {
+            return;
+        }
+
+        if (is_string($run) && ctype_digit($run)) {
+            $run = (int) $run;
+        }
+
+        $replaced = $this->usage->staleRun($id, hash('sha256', $lease));
+
+        if ($replaced === null || $replaced['run'] !== $run) {
+            return;
+        }
+
+        $this->usage->record($id, $replaced['run'], $replaced['step'], AiUsageFigures::fromPayload($usage));
+        $this->logger->info('AI scan: usage of a replaced run recorded.', ['scan' => $id, 'run' => $replaced['run'], 'step' => $replaced['step']->value]);
     }
 
     /**

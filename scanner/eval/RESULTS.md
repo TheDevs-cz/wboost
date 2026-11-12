@@ -181,6 +181,13 @@ is a synthetic single-image HEIC); a soak of 100 scans (G2a item 11); the calend
 
 ### 0.7 Found in the app while running against it (not changed — `src/` belongs to the app phases)
 
+**All four were closed in G2a** (`docs/ai-scan/reliability-report.md`, "App-side follow-ups"): 1 — the
+documents and the comment in `.env.dev` name `.env.dev.local`; 2 — the app reads the split and prices
+1-hour writes with `cacheWrite1h` (recorded = the engine's figure on the stored builder rows and on a
+100-scan soak); 3 — a usage row keeps its claim's lease-token hash, so a replaced run's figures are
+recorded on its own row; 4 — `tests/Controller/Internal/ScannerContractFixtureTest.php` replays the
+fixture in the Tests workflow. The list as it was found:
+
 1. **`.env.dev` wins over `.env.local`** (Symfony loads `.env.local` before `.env.<env>`), so the
    documented "add your address to `SCAN_NETWORK_CIDR` in `.env.local`" has no effect in dev; the file
    that works is `.env.dev.local` (`docs/architecture/ai-scan.md` "Local use", the comment in `.env.dev`).

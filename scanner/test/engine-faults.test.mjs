@@ -130,6 +130,16 @@ test('Agent SDK × proxy: a stalled stream is cut by the byte watchdog (pinned 1
     assert.ok(ms < 40_000);
 });
 
+test('Agent SDK × proxy: a stream that stalls every time is a provider that is not there — transient, never a finished run without a result', async (t) => {
+    // the stream goes silent (cut by the byte watchdog, 10 s), the request the harness repeats without a stream
+    // gets no answer either (cut by the request timeout, 4 s here), and so on until the retries are used up
+    const { r, fake, ms } = await sdk(t, [{ stall: 120_000 }], { settings: { requestTimeoutSeconds: 4, retries: 2, streamIdleSeconds: 10 } });
+    const main = fake.state.requests.filter((q) => q.tools > 0);
+    assert.deepEqual([r.outcome, r.error?.class], ['provider', 'transient'], `after ${main.length} stalled requests in ${ms} ms: ${JSON.stringify({ outcome: r.outcome, error: r.error, subtype: r.facts.resultSubtype, terminal: r.facts.terminalReason, text: String(r.text ?? '').slice(0, 200), assistantErrors: r.facts.assistantErrors, retries: r.facts.retries?.length })}`);
+    assert.equal(r.finish, null);
+    assert.ok(main.length >= 2, 'the stalled request was retried at least once');
+});
+
 test('Agent SDK × proxy: a refusal ends the run — the switch that keeps the harness from re-running the turn on another model is set', async (t) => {
     const { r, fake } = await sdk(t, [{ refusal: true }]);
     assert.deepEqual([r.outcome, r.error.class], ['refusal', 'refusal']);

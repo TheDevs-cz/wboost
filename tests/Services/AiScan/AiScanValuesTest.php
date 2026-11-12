@@ -69,7 +69,7 @@ final class AiScanValuesTest extends TestCase
     public function testTheDefinitionCarriesTheSameNumbersAsTheApp(): void
     {
         $definition = new AiScanDefinition(__DIR__ . '/../../../resources/ai-scan/definition');
-        /** @var array{timing: array<string, int>, caps: array<string, int|float>, preCheckRequest: array<string, mixed>, engine: array<string, mixed>} $json */
+        /** @var array{timing: array<string, int>, caps: array<string, int|float>, preCheck: array<string, mixed>, engine: array<string, mixed>} $json */
         $json = $definition->definition();
 
         self::assertSame(AiScanLimits::HEARTBEAT_SECONDS, $json['timing']['heartbeatSeconds']);
@@ -77,22 +77,41 @@ final class AiScanValuesTest extends TestCase
         self::assertSame(AiScanLimits::INTAKE_LEASE_SECONDS, $json['timing']['intakeLeaseSeconds']);
         self::assertSame(AiScanLimits::RUN_CAP_SECONDS, $json['timing']['runCapSeconds']);
         self::assertSame(105, $json['timing']['selfAbortSeconds']);
-        self::assertSame(10, $json['timing']['beatAttemptSeconds']);
+        self::assertSame(10, $json['timing']['heartbeatAttemptSeconds']);
         self::assertSame(20, $json['timing']['normaliseSeconds']);
-        self::assertSame(20, $json['timing']['shutdownReleaseSeconds']);
+        self::assertSame(20, $json['timing']['releaseAttemptSeconds']);
+        self::assertSame(5, $json['timing']['killGraceSeconds']);
         self::assertSame(AiScanStandIn::ASSET_ID, $definition->definition()['standInAssetId'] ?? null);
         self::assertSame(AiScanLimits::TEMPLATE_MAX_LONG_EDGE, $definition->definition()['templateMaxLongEdgePx'] ?? null);
-        self::assertSame(['timeoutSeconds' => 18, 'retries' => 1, 'retryDelaysSeconds' => [2]], $json['preCheckRequest']);
+        // The pre-check's own request settings: 18 s, one retry after 2 s, 38 s in all (the keys the scanner reads).
+        self::assertSame(
+            ['requestTimeoutSeconds' => 18, 'retries' => 1, 'retryDelaysSeconds' => [2], 'maxSeconds' => 38],
+            array_intersect_key($json['preCheck'], ['requestTimeoutSeconds' => 1, 'retries' => 1, 'retryDelaysSeconds' => 1, 'maxSeconds' => 1]),
+        );
+        // One name per number: a second key nobody reads would drift unnoticed.
+        self::assertArrayNotHasKey('preCheckRequest', $json);
+        self::assertArrayNotHasKey('beatAttemptSeconds', $json['timing']);
+        self::assertArrayNotHasKey('shutdownReleaseSeconds', $json['timing']);
         self::assertSame([2, 8, 20, 30], $json['engine']['retryDelaysSeconds']);
 
         // Every outer bound exceeds what it wraps (architecture.md §4.9).
         $t = $json['timing'];
-        self::assertLessThan($t['heartbeatSeconds'], $t['beatAttemptSeconds']);
-        self::assertLessThan($t['selfAbortSeconds'], 2 * $t['heartbeatSeconds'] + $t['appOutageToleranceSeconds'] + $t['beatAttemptSeconds']);
+        self::assertLessThan($t['heartbeatSeconds'], $t['heartbeatAttemptSeconds']);
+        self::assertLessThan($t['selfAbortSeconds'], 2 * $t['heartbeatSeconds'] + $t['appOutageToleranceSeconds'] + $t['heartbeatAttemptSeconds']);
         self::assertLessThan($t['leaseSeconds'], $t['selfAbortSeconds']);
         self::assertSame($t['intakeCapSeconds'] + $t['appCallAttemptSeconds'], $t['intakeLeaseSeconds']);
         self::assertLessThan($t['runCapSeconds'], $t['builderCapSeconds']);
         self::assertLessThan(AiScanLimits::SCANNER_ABSENT_SECONDS, $t['tickSeconds']);
+        // The engine is dead before the app gives the lease up; the shutdown fits its limit.
+        self::assertLessThan($t['leaseSeconds'], $t['selfAbortSeconds'] + $t['killGraceSeconds']);
+        self::assertLessThanOrEqual($t['shutdownSeconds'], $t['killGraceSeconds'] + $t['releaseAttemptSeconds']);
+        // Attempts of an app call start inside R, each ≤ one attempt: the last ends before the tool timeout.
+        self::assertLessThan($t['appToolTimeoutSeconds'], $t['appOutageToleranceSeconds'] + $t['appCallAttemptSeconds']);
+        self::assertLessThan($t['builderCapSeconds'], $t['appToolTimeoutSeconds']);
+        // The pre-check ends inside the intake's work, the intake inside its cap.
+        $preCheckSeconds = $json['preCheck']['maxSeconds'] ?? null;
+        self::assertIsInt($preCheckSeconds);
+        self::assertLessThan($t['intakeCapSeconds'] - $t['appOutageToleranceSeconds'], $preCheckSeconds + $t['normaliseSeconds']);
 
         self::assertSame(1_500_000, $definition->engineBudgetMicroUsd());
         self::assertSame(3, $definition->maxCandidates());
@@ -128,6 +147,8 @@ final class AiScanValuesTest extends TestCase
         self::assertSame(3_000_000 + 1_500_000 + 300_000 + 375_000, $definition->costMicroUsd('m-1', 1_000_000, 100_000, 1_000_000, 100_000));
         self::assertNull($definition->costMicroUsd('other', 1, 1, 1, 1));
         self::assertSame('2026-11', $definition->priceVersion());
+        // A row without a 1-hour price charges 1-hour writes at twice its input price.
+        self::assertSame(3_000_000 + 1_500_000 + 300_000 + 93_750 + 6 * 75_000, $definition->costMicroUsd('m-1', 1_000_000, 100_000, 1_000_000, 100_000, 75_000));
 
         unlink($directory . '/definition.json');
         rmdir($directory);
@@ -166,6 +187,54 @@ final class AiScanValuesTest extends TestCase
             self::assertSame(AiScanRefusal::UnsupportedImage, $refused->refusal);
             self::assertSame(['reason' => 'unreadable'], $refused->params);
         }
+    }
+
+    public function testThePriceTableChargesCacheWritesByLifetimeAtTheOfficialMultipliers(): void
+    {
+        $definition = new AiScanDefinition(dirname(__DIR__, 3) . '/resources/ai-scan/definition');
+        $prices = $definition->definition()['prices'] ?? null;
+        self::assertIsArray($prices);
+        $models = $prices['models'] ?? null;
+        self::assertIsArray($models);
+        self::assertSame('2026-11-03', $definition->priceVersion());
+
+        // platform.claude.com/docs/en/about-claude/pricing (read 2026-11-12): a 5-minute cache write is
+        // 1.25 × the base input price, a 1-hour write 2 ×; a cache read 0.1 × — 0.05 × on Opus 5.5 and Sonnet 5.5.
+        $readMultiplier = ['claude-opus-5-5' => 0.05, 'claude-sonnet-5-5' => 0.05, 'claude-haiku-5-5' => 0.1, 'claude-opus-4-8' => 0.1];
+        self::assertEqualsCanonicalizing(array_keys($readMultiplier), array_keys($models));
+
+        foreach ($models as $model => $price) {
+            self::assertIsArray($price);
+            self::assertIsString($model);
+            $input = $price['input'] ?? null;
+            self::assertIsNumeric($input);
+            self::assertEqualsWithDelta(1.25 * $input, $price['cacheWrite'] ?? null, 1e-9, $model);
+            self::assertEqualsWithDelta(2 * $input, $price['cacheWrite1h'] ?? null, 1e-9, $model);
+            self::assertEqualsWithDelta($readMultiplier[$model] * $input, $price['cacheRead'] ?? null, 1e-9, $model);
+
+            // One million tokens of each kind, priced apart.
+            self::assertSame((int) round(1_000_000 * 1.25 * $input), $definition->costMicroUsd($model, 0, 0, 0, 1_000_000, 0));
+            self::assertSame((int) round(1_000_000 * 2 * $input), $definition->costMicroUsd($model, 0, 0, 0, 1_000_000, 1_000_000));
+            self::assertSame((int) round(250_000 * 1.25 * $input + 750_000 * 2 * $input), $definition->costMicroUsd($model, 0, 0, 0, 1_000_000, 750_000));
+            // A 1-hour figure larger than the total cannot price more tokens than were written.
+            self::assertSame((int) round(1_000_000 * 2 * $input), $definition->costMicroUsd($model, 0, 0, 0, 1_000_000, 5_000_000));
+        }
+    }
+
+    public function testUsageFiguresReadTheCacheWriteSplit(): void
+    {
+        $figures = AiUsageFigures::fromPayload(['cacheWriteTokens' => 400, 'cacheWrite5mTokens' => 100, 'cacheWrite1hTokens' => 300]);
+        self::assertSame([400, 300], [$figures->cacheWriteTokens, $figures->cacheWrite1hTokens]);
+
+        // The total alone (an older scanner): all 5-minute.
+        $figures = AiUsageFigures::fromPayload(['cacheWriteTokens' => 400]);
+        self::assertSame([400, 0], [$figures->cacheWriteTokens, $figures->cacheWrite1hTokens]);
+
+        // The split alone: the total is its sum; a 1-hour figure never exceeds the total.
+        $figures = AiUsageFigures::fromPayload(['cacheWrite5mTokens' => 100, 'cacheWrite1hTokens' => 300]);
+        self::assertSame([400, 300], [$figures->cacheWriteTokens, $figures->cacheWrite1hTokens]);
+        $figures = AiUsageFigures::fromPayload(['cacheWriteTokens' => 500, 'cacheWrite1hTokens' => -3]);
+        self::assertSame([500, 0], [$figures->cacheWriteTokens, $figures->cacheWrite1hTokens]);
     }
 
     public function testUsageFiguresAreClampedAndCodesOnly(): void

@@ -131,6 +131,59 @@ final class AiScanAdminSwitchAndLogsTest extends WebTestCase
         self::assertSame(2, $status->getStatusCode());
     }
 
+    public function testTheStatusCommandListsScansShowsOneWithItsSpendAndCancelsOne(): void
+    {
+        $client = self::createClient();
+        $kernel = self::$kernel;
+        self::assertNotNull($kernel);
+        $status = new CommandTester((new Application($kernel))->find('app:ai-scan:status'));
+        self::entitle(TestDataFixture::PROJECT_1_ID, true, null);
+        self::switchOn();
+
+        // One scan running with a heartbeat's figures, one waiting.
+        $build = self::running($client);
+        self::scanner($client, 'POST', $build['id'] . '/beat', ['run' => 1, 'seq' => 1, 'stage' => 'build', 'usage' => self::usage(3, 'claude-opus-5-5')], $build['lease']);
+        $waiting = self::start()->toString();
+
+        $status->execute(['--scans' => true]);
+        $status->assertCommandIsSuccessful();
+        $list = $status->getDisplay();
+        self::assertStringContainsString('In progress (2)', $list);
+        self::assertStringContainsString($build['id'], $list);
+        self::assertStringContainsString($waiting, $list);
+        self::assertStringContainsString('running', $list);
+        self::assertStringContainsString('checking', $list);
+
+        // One scan: its usage rows are its spend — the open builder row carries the last heartbeat.
+        $status->execute(['--scan' => $build['id']]);
+        $status->assertCommandIsSuccessful();
+        $detail = $status->getDisplay();
+        self::assertStringContainsString('builder', $detail);
+        self::assertStringContainsString('pre_check', $detail);
+        self::assertStringContainsString('OPEN', $detail);
+        self::assertStringContainsString('claude-opus-5-5', $detail);
+        // 3000 in × $4 + 600 out × $20 + 1500 read × $0.2 + 50 written × $5, per million.
+        self::assertStringContainsString('$0.024', $detail);
+        self::assertStringContainsString('try 1: reserve -1', $detail);
+        self::assertStringNotContainsString('Headline', $detail, 'no text of a design');
+
+        // Cancelled from the console: the conditional transition of "Zrušit sken" — counted, because it was running.
+        $status->execute(['--cancel' => $build['id']]);
+        self::assertStringContainsString('Scan cancelled', $status->getDisplay());
+        self::assertStringContainsString('cancelled', $status->getDisplay());
+        self::assertSame('cancelled', self::text($build['id'], 'status'));
+        self::assertSame(['1:reserve:-1', '1:settle:0'], self::ledger($build['id']));
+        self::assertSame(['1:pre_check:passed', '1:builder:cancelled'], self::usageRows($build['id']));
+
+        // A second cancel, an unknown id, something that is no id.
+        $status->execute(['--cancel' => $build['id']]);
+        self::assertStringContainsString('Nothing cancelled', $status->getDisplay());
+        $status->execute(['--scan' => '00000000-0000-7000-8000-000000000000']);
+        self::assertSame(1, $status->getStatusCode());
+        $status->execute(['--cancel' => 'not-an-id']);
+        self::assertSame(2, $status->getStatusCode());
+    }
+
     public function testTheFakeRunDrivesAScanThroughEveryStateAndThePurgeCommandRuns(): void
     {
         self::createClient();

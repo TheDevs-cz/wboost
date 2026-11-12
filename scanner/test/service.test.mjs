@@ -100,6 +100,24 @@ test('serve: SIGTERM mid-build → the engine and its children are dead, ONE rel
     assert.equal(stopped.how, 'clean');
 });
 
+test('serve: the main process is SIGKILLed mid-build → the run\'s own process ends the engine and itself; nothing is left to go on spending', { skip }, async (t) => {
+    // what an OOM kill or `docker kill` does: no signal handler runs, nobody releases, nobody kills the run's tree
+    const s = await serve(t, { plan: [preview, { stall: 600_000 }] });
+    const scan = await s.app.addScan({ design: DESIGN });
+    await until(() => scan.candidates.length === 1 && s.provider.state.main >= 2, { timeoutMs: 90_000, what: 'the build to be mid-turn' });
+    const before = descendants(s.child.pid);
+    assert.ok(before.some((p) => /claude/i.test(p.comm)), `the engine binary runs: ${before.map((p) => p.comm).join(', ')}`);
+    const requests = s.provider.state.requests.length;
+    s.child.kill('SIGKILL');
+    await s.exited;
+    await until(() => before.every((p) => !alive(p.pid)), { timeoutMs: 8000, everyMs: 100, what: `the run's processes to end: ${before.filter((p) => alive(p.pid)).map((p) => p.comm).join(', ')}` });
+    await new Promise((ok) => setTimeout(ok, 1500));
+    assert.equal(s.provider.state.requests.length, requests, 'no request reaches the provider after the kill');
+    // nothing was released: the lease lapses and the app decides (the scan is still the run's, as far as the app knows)
+    assert.equal(s.app.calls('release').length, 0);
+    assert.equal(scan.status, 'running');
+});
+
 test('serve: an intake — the original is normalised in its own child, the pre-check runs on the engine, the scan is queued and then built', { skip }, async (t) => {
     const verdict = { final: { verdict: 'design', confidence: 'high' } };
     const s = await serve(t, { plan: [verdict, verdict, preview, { final: FINISH }] });

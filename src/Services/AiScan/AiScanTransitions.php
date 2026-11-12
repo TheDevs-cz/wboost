@@ -77,7 +77,7 @@ final readonly class AiScanTransitions
                 return null;
             }
 
-            $this->usage->open($id, $tries, AiUsageStep::PreCheck);
+            $this->usage->open($id, $tries, AiUsageStep::PreCheck, $leaseTokenHash);
 
             return $tries;
         });
@@ -268,7 +268,7 @@ final readonly class AiScanTransitions
                 return null;
             }
 
-            $this->usage->open($id, $run, AiUsageStep::Builder);
+            $this->usage->open($id, $run, AiUsageStep::Builder, $leaseTokenHash);
 
             return $run;
         });

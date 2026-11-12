@@ -57,10 +57,12 @@ final readonly class AiScanQueueEstimate
             ['id' => $scan->id->toString(), 'since' => AiScanTime::sql($scan->waitingSince ?? $scan->createdAt)],
         );
 
+        $durations = $this->durations($scan->kind->value, $ahead);
+
         return self::compute(
             $scan->kind->value,
             $ahead,
-            fn (string $kind): array => $this->duration($kind),
+            static fn (string $kind): array => $durations[$kind] ?? self::percentiles($kind, []),
             $runtime->maxRunning,
             $now,
         );
@@ -83,7 +85,15 @@ final readonly class AiScanQueueEstimate
             "SELECT kind, status, claimed_at, auto_restart FROM ai_scan WHERE status IN ('checking', 'queued', 'running')",
         );
 
-        return self::compute($kind->value, $ahead, fn (string $name): array => $this->duration($name), $runtime->maxRunning, $now);
+        $durations = $this->durations($kind->value, $ahead);
+
+        return self::compute(
+            $kind->value,
+            $ahead,
+            static fn (string $name): array => $durations[$name] ?? self::percentiles($name, []),
+            $runtime->maxRunning,
+            $now,
+        );
     }
 
     /**
@@ -138,6 +148,24 @@ final readonly class AiScanQueueEstimate
         $at = static fn (float $share): int => $seconds[(int) floor($share * (count($seconds) - 1))];
 
         return [$at(0.25), max($at(0.25), $at(0.75))];
+    }
+
+    /**
+     * The duration of every kind an estimate needs — its own and those of
+     * the scans ahead — read once per kind, however many scans are ahead.
+     *
+     * @param list<array{kind: string, status: string, claimed_at: null|string, auto_restart: int|string}> $ahead
+     * @return array<string, array{int, int}>
+     */
+    private function durations(string $own, array $ahead): array
+    {
+        $durations = [];
+
+        foreach (array_unique([$own, ...array_column($ahead, 'kind')]) as $kind) {
+            $durations[$kind] = $this->duration($kind);
+        }
+
+        return $durations;
     }
 
     /**

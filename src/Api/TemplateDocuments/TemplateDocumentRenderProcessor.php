@@ -110,7 +110,11 @@ final readonly class TemplateDocumentRenderProcessor implements ProcessorInterfa
             return new JsonResponse(['error' => 'The document has no pages.', 'code' => 'document_empty'], Response::HTTP_BAD_REQUEST);
         }
 
-        set_time_limit(self::TIME_LIMIT);
+        // (Not on the command line: there the limit would outlive this call and end
+        // a long test run or a console command 600 s later — PHP counts wall time.)
+        if (\PHP_SAPI !== 'cli') {
+            set_time_limit(self::TIME_LIMIT);
+        }
 
         // Resolve EVERY page before rendering ANY: a refused value on the
         // last page must not arrive after minutes of renders.

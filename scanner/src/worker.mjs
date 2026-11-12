@@ -14,9 +14,10 @@ import { pathToFileURL } from 'node:url';
 import { mkdirSync } from 'node:fs';
 import sharp from 'sharp';
 import { HttpScannerApi } from './protocol.mjs';
-import { runBuild, runIntake } from './run.mjs';
+import { runBuild, runIntake, wireUsage } from './run.mjs';
 import { engine as pickEngine, probe } from './engine/index.mjs';
 import { ResourceProbe } from './resources.mjs';
+import { descendants } from './proc.mjs';
 
 const controller = new AbortController();
 let started = false;
@@ -46,12 +47,6 @@ function brief(lane, r) {
         prepass: stats.prepass ?? null, fontVerification: r.report?.measures?.fontVerification ?? null,
     };
 }
-/** The usage a beat / release carries (the app reads exactly these). */
-function wireUsage(u) {
-    if (!u) return null;
-    return { provider: u.provider ?? 'anthropic', model: u.model ?? null, inputTokens: u.inputTokens ?? 0, outputTokens: u.outputTokens ?? 0, cacheReadTokens: u.cacheReadTokens ?? 0, cacheWriteTokens: u.cacheWriteTokens ?? 0, engineCostMicroUsd: u.engineCostMicroUsd ?? 0, turns: u.turns ?? 0, durationMs: u.durationMs ?? 0, costMicroUsd: u.costMicroUsd ?? 0 };
-}
-
 async function run(m) {
     const threads = Math.max(1, Number(process.env.SCANNER_OCR_THREADS ?? 3));
     sharp.concurrency(threads);
@@ -88,11 +83,28 @@ process.on('message', async (m) => {
         result = { lane: m.lane ?? m.type, outcome: controller.signal.aborted ? 'aborted' : 'error', reason: controller.signal.aborted ? String(controller.signal.reason) : null, error: e?.code ?? 'error', detail: String(e?.message ?? e).slice(0, 200), usage: null };
     }
     await send({ type: 'result', result });
-    process.disconnect?.();
-    process.exit(0);
+    // whoever is still below this process ends with it (the main process kills the group too — unless it is gone)
+    endTree(0);
 });
-// the main process died: nothing may go on spending
-process.on('disconnect', () => { if (!controller.signal.aborted) controller.abort('shutdown'); setTimeout(() => process.exit(1), 3000).unref(); });
+/** Kills every process that descends from this one — the engine binary, the OCR sidecar — and exits. */
+let ending = false;
+function endTree(code) {
+    ending = true;
+    for (const d of descendants(process.pid)) { try { process.kill(d.pid, 'SIGKILL'); } catch { /* already gone */ } }
+    try { process.disconnect?.(); } catch { /* the channel is closed */ }
+    process.exit(code);
+}
+
+// The main process died (an OOM kill, `docker kill`): nothing may go on spending, and nobody is left to kill this
+// run's process tree — so this process ends it itself. The abort gets 3 s to stop the engine the ordinary way
+// (the run then returns and ends through `endTree` above); after that whatever still descends from here is
+// killed by pid. Without that the engine binary outlived the run's process by 2–3 s (measured with the real
+// provider: the run's process gone 2.4 s after the kill, the engine 4.7–5.0 s after it).
+process.on('disconnect', () => {
+    if (ending) return;
+    if (!controller.signal.aborted) controller.abort('shutdown');
+    setTimeout(() => endTree(1), 3000).unref();
+});
 // SIGTERM reaches the whole group at a container stop: the main process drives the shutdown over IPC
 process.on('SIGTERM', () => {});
 process.on('SIGINT', () => {});

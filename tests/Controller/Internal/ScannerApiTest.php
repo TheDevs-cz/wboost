@@ -466,6 +466,9 @@ final class ScannerApiTest extends WebTestCase
         self::assertSame(409, $late['status']);
         self::assertSame('lease_lost', $late['json']['code'] ?? null);
         self::assertSame('running', self::row($id)['status']);
+        self::assertSame(2, self::row($id)['run'], 'a stale run changes no state');
+        // …but what it spent is recorded, on ITS row (see testUsageOfAReplacedRunIsRecordedOnItsOwnRow).
+        self::assertSame(9000, $this->usageOf($id, 1, 'builder')['input_tokens']);
 
         // The second run loses its lease too: no second restart — failed, refunded.
         $this->expireLease($id);
@@ -477,6 +480,124 @@ final class ScannerApiTest extends WebTestCase
         self::assertSame(['1:reserve:-1', '1:refund:1'], self::ledger($id));
         self::assertSame(['1:pre_check:passed', '1:builder:lease_lost', '2:builder:lease_lost'], self::usageRows($id));
         self::assertSame(1, $row['failure_count'], 'a run that died twice counts against the picture');
+    }
+
+    public function testUsageOfAReplacedRunIsRecordedOnItsOwnRow(): void
+    {
+        $build = self::running($this->client);
+        $id = $build['id'];
+
+        self::scanner($this->client, 'POST', $id . '/beat', ['run' => 1, 'seq' => 1, 'usage' => self::usage(2)], $build['lease']);
+        $this->expireLease($id);
+        self::scanner($this->client, 'POST', 'tick', []);
+        $second = self::claim($this->client, 'build');
+        self::scanner($this->client, 'POST', $id . '/beat', ['run' => 2, 'seq' => 1, 'usage' => self::usage(1)], $second['lease']);
+
+        $before = self::row($id);
+
+        // Run 1 was still spending while the app gave the scan to run 2. Its beat, its finish and its
+        // release are all refused — and each leaves its figures on run 1's usage row.
+        $beat = self::scanner($this->client, 'POST', $id . '/beat', ['run' => 1, 'seq' => 9, 'stage' => 'refine', 'usage' => self::usage(5)], $build['lease']);
+        self::assertSame([409, 'lease_lost'], [$beat['status'], $beat['json']['code'] ?? null]);
+        self::assertSame(5000, $this->usageOf($id, 1, 'builder')['input_tokens']);
+
+        $finish = self::scanner($this->client, 'POST', $id . '/finish', ['run' => 1, 'outcome' => 'proposed', 'candidate' => 1, 'report' => self::report(1), 'usage' => self::usage(7)], $build['lease']);
+        self::assertSame([409, 'lease_lost'], [$finish['status'], $finish['json']['code'] ?? null]);
+
+        $release = self::scanner($this->client, 'POST', $id . '/release', ['run' => 1, 'reason' => 'provider_blocked', 'usage' => self::usage(8)], $build['lease']);
+        self::assertSame([409, 'lease_lost'], [$release['status'], $release['json']['code'] ?? null]);
+
+        $first = $this->usageOf($id, 1, 'builder');
+        self::assertSame(8000, $first['input_tokens']);
+        self::assertSame(800_000, $first['engine_cost_micro_usd']);
+        self::assertSame('lease_lost', $first['outcome'], 'the row keeps the outcome it was closed with');
+        self::assertSame(1000, $this->usageOf($id, 2, 'builder')['input_tokens'], 'the run that holds the scan is not touched');
+
+        // No state moved: same status, run, stage, lease, beat sequence, candidates; no ledger line; the provider is not blocked.
+        $after = self::row($id);
+
+        foreach (['status', 'run', 'stage', 'lease_token_hash', 'lease_expires_at', 'beat_seq', 'candidates', 'auto_restart', 'error_code'] as $column) {
+            self::assertSame($before[$column], $after[$column], $column);
+        }
+
+        self::assertSame(['1:reserve:-1'], self::ledger($id));
+        self::assertSame('ok', self::runtimeValue('provider_state'));
+        // The scan's totals are the sums of its rows: pre-check 1 + run 1 (8) + run 2 (1).
+        self::assertSame(1000 + 8000 + 1000, $after['input_tokens']);
+
+        // The spend of the day counts it (that is what the ceilings read).
+        self::assertSame(
+            $after['cost_micro_usd'],
+            self::rowCount('ai_usage_event', "scan_id = '" . $id . "'") > 0
+                ? self::sum('SELECT SUM(cost_micro_usd) FROM ai_usage_event WHERE scan_id = :id', ['id' => $id])
+                : null,
+        );
+
+        // A token that opened no row of this scan records nothing; neither does the right token with another run number.
+        self::scanner($this->client, 'POST', $id . '/beat', ['run' => 1, 'seq' => 10, 'usage' => self::usage(50)], 'a-token-nobody-was-given');
+        self::scanner($this->client, 'POST', $id . '/beat', ['run' => 3, 'seq' => 10, 'usage' => self::usage(50)], $build['lease']);
+        self::assertSame(8000, $this->usageOf($id, 1, 'builder')['input_tokens']);
+        self::assertSame(1000, $this->usageOf($id, 2, 'builder')['input_tokens']);
+    }
+
+    public function testUsageAfterAReleaseARetryAndADeletedScanIsStillRecorded(): void
+    {
+        // Released: the scan's lease hash is cleared, the run's closing beat arrives late.
+        $build = self::running($this->client);
+        $id = $build['id'];
+        self::scanner($this->client, 'POST', $id . '/release', ['run' => 1, 'usage' => self::usage(1)], $build['lease']);
+        self::assertSame('queued', self::row($id)['status']);
+
+        $late = self::scanner($this->client, 'POST', $id . '/beat', ['run' => 1, 'seq' => 5, 'usage' => self::usage(3)], $build['lease']);
+        self::assertSame(409, $late['status']);
+        self::assertSame(3000, $this->usageOf($id, 1, 'builder')['input_tokens']);
+        self::assertSame('released', $this->usageOf($id, 1, 'builder')['outcome']);
+        self::assertSame('queued', self::row($id)['status']);
+
+        // The intake's row is found by ITS token (run 1 of the pre-check, not of the builder).
+        $intakeScan = self::start()->toString();
+        $intake = self::claim($this->client, 'intake');
+        self::assertSame($intakeScan, $intake['id']);
+        self::scanner($this->client, 'POST', $intakeScan . '/release', ['run' => 1, 'usage' => self::usage(1, 'claude-haiku-5-5')], $intake['lease']);
+        self::scanner($this->client, 'POST', $intakeScan . '/finish', ['run' => 1, 'outcome' => 'passed', 'usage' => self::usage(2, 'claude-haiku-5-5')], $intake['lease']);
+        self::assertSame(2000, $this->usageOf($intakeScan, 1, 'pre_check')['input_tokens']);
+        self::assertSame('checking', self::row($intakeScan)['status']);
+
+        // The scan row is gone (project deleted): 410 — and the usage row, which outlives the scan, takes the figures.
+        self::connection()->executeStatement('DELETE FROM ai_scan WHERE id = :id', ['id' => $id]);
+        $gone = self::scanner($this->client, 'POST', $id . '/beat', ['run' => 1, 'seq' => 6, 'usage' => self::usage(4)], $build['lease']);
+        self::assertSame([410, 'gone'], [$gone['status'], $gone['json']['code'] ?? null]);
+        self::assertSame(4000, $this->usageOf($id, 1, 'builder')['input_tokens']);
+    }
+
+    public function testCacheWritesArePricedByTheirLifetime(): void
+    {
+        $build = self::running($this->client);
+        $id = $build['id'];
+
+        // 10 k input, 1 k output, 20 k cache read, 4 k cache writes of which 3 k for one hour — Opus 5.5.
+        $usage = [
+            'provider' => 'anthropic', 'model' => 'claude-opus-5-5', 'inputTokens' => 10_000, 'outputTokens' => 1_000,
+            'cacheReadTokens' => 20_000, 'cacheWriteTokens' => 4_000, 'cacheWrite5mTokens' => 1_000, 'cacheWrite1hTokens' => 3_000,
+            'engineCostMicroUsd' => 93_000, 'turns' => 3, 'durationMs' => 1000,
+        ];
+        self::scanner($this->client, 'POST', $id . '/beat', ['run' => 1, 'seq' => 1, 'usage' => $usage], $build['lease']);
+
+        $row = $this->usageOf($id, 1, 'builder');
+        // (10 k × 4 + 1 k × 20 + 20 k × 0.2 + 1 k × 5 + 3 k × 8) ÷ 1 M = $0.093 — the engine's own figure.
+        self::assertSame(40_000 + 20_000 + 4_000 + 5_000 + 24_000, $row['cost_micro_usd']);
+        self::assertSame($row['engine_cost_micro_usd'], $row['cost_micro_usd']);
+        self::assertSame(4_000, $row['cache_write_tokens']);
+        self::assertSame(3_000, $row['cache_write_1h_tokens']);
+        self::assertSame('2026-11-03', $row['price_version']);
+
+        // A scanner that sends the total only (older build): every write at the 5-minute rate, as before.
+        self::scanner($this->client, 'POST', $id . '/release', ['run' => 1, 'usage' => $usage], $build['lease']);
+        $again = self::claim($this->client, 'build');
+        unset($usage['cacheWrite5mTokens'], $usage['cacheWrite1hTokens']);
+        self::scanner($this->client, 'POST', $id . '/beat', ['run' => 2, 'seq' => 1, 'usage' => $usage], $again['lease']);
+        self::assertSame(40_000 + 20_000 + 4_000 + 20_000, $this->usageOf($id, 2, 'builder')['cost_micro_usd']);
+        self::assertSame(0, $this->usageOf($id, 2, 'builder')['cache_write_1h_tokens']);
     }
 
     public function testReleasePutsTheScanBackWithoutConsumingTheRestart(): void
@@ -616,6 +737,53 @@ final class ScannerApiTest extends WebTestCase
         self::scanner($this->client, 'POST', $build['id'] . '/render', ['run' => 1, 'seq' => 1, 'design' => self::design()], $build['lease']);
         $finish = self::scanner($this->client, 'POST', $build['id'] . '/finish', ['run' => 1, 'outcome' => 'proposed', 'candidate' => 1, 'report' => self::report(1), 'usage' => []], $build['lease']);
         self::assertSame('ready', $finish['json']['status'] ?? null);
+    }
+
+    public function testOnlyTheKeptCandidateRenderOutlivesItsRun(): void
+    {
+        $storage = $this->client->getContainer()->get(\WBoost\Web\Services\AiScan\AiScanStorage::class);
+        $build = self::running($this->client);
+        $id = $build['id'];
+        $row = self::row($id);
+        self::assertIsString($row['project_id']);
+        self::assertIsString($row['storage_secret']);
+        $directory = \WBoost\Web\Services\AiScan\AiScanStorage::directory($row['project_id'], $id, $row['storage_secret']);
+        $candidates = static fn (): array => array_values(array_filter([1, 2, 3], static fn (int $n): bool => $storage->exists($directory, \WBoost\Web\Services\AiScan\AiScanStorage::candidateName($n))));
+
+        foreach ([1, 2, 3] as $seq) {
+            self::scanner($this->client, 'POST', $id . '/render', ['run' => 1, 'seq' => $seq, 'design' => self::design('Candidate ' . $seq)], $build['lease']);
+        }
+
+        self::assertSame([1, 2, 3], $candidates());
+
+        // The run is given back (a shutdown) and claimed again: the new run starts with no candidate of the old one.
+        self::scanner($this->client, 'POST', $id . '/release', ['run' => 1, 'usage' => []], $build['lease']);
+        self::assertSame([1, 2, 3], $candidates(), 'a released run may still be the one that finishes');
+        $second = self::claim($this->client, 'build');
+        self::assertSame([], $candidates());
+
+        foreach ([1, 2, 3] as $seq) {
+            self::scanner($this->client, 'POST', $id . '/render', ['run' => 2, 'seq' => $seq, 'design' => self::design('Again ' . $seq)], $second['lease']);
+        }
+
+        // The proposal keeps candidate 2: its render stays (it is the proposal's picture), the other two go.
+        $finish = self::scanner($this->client, 'POST', $id . '/finish', ['run' => 2, 'outcome' => 'proposed', 'candidate' => 2, 'report' => self::report(2), 'usage' => []], $second['lease']);
+        self::assertSame('ready', $finish['json']['status'] ?? null);
+        self::assertSame([2], $candidates());
+        self::assertTrue($storage->exists($directory, \WBoost\Web\Services\AiScan\AiScanStorage::WORKING), 'nothing else of the scan is touched');
+        self::assertTrue($storage->exists($directory, \WBoost\Web\Services\AiScan\AiScanStorage::PREVIEW));
+
+        // A run that fails keeps none.
+        $failed = self::running($this->client, TestDataFixture::PROJECT_1_ID, TestDataFixture::ADMIN_USER_EMAIL);
+        $failedRow = self::row($failed['id']);
+        self::assertIsString($failedRow['project_id']);
+        self::assertIsString($failedRow['storage_secret']);
+        $failedDirectory = \WBoost\Web\Services\AiScan\AiScanStorage::directory($failedRow['project_id'], $failed['id'], $failedRow['storage_secret']);
+        self::scanner($this->client, 'POST', $failed['id'] . '/render', ['run' => 1, 'seq' => 1, 'design' => self::design()], $failed['lease']);
+        self::assertTrue($storage->exists($failedDirectory, 'candidate-1.webp'));
+        self::scanner($this->client, 'POST', $failed['id'] . '/finish', ['run' => 1, 'outcome' => 'failed', 'error' => 'timeout', 'usage' => []], $failed['lease']);
+        self::assertFalse($storage->exists($failedDirectory, 'candidate-1.webp'));
+        self::assertTrue($storage->exists($failedDirectory, \WBoost\Web\Services\AiScan\AiScanStorage::WORKING), 'a retry reuses the working copy');
     }
 
     // ---- the reaper --------------------------------------------------------
@@ -973,4 +1141,30 @@ final class ScannerApiTest extends WebTestCase
 
         return $entityManager->getRepository(Template::class)->count([]) * 1000 + $entityManager->getRepository(TemplateVariant::class)->count([]);
     }
+    /**
+     * One usage row of a scan.
+     *
+     * @return array<string, mixed>
+     */
+    private function usageOf(string $scanId, int $run, string $step): array
+    {
+        $row = self::connection()->fetchAssociative(
+            'SELECT * FROM ai_usage_event WHERE scan_id = :id AND run = :run AND step = :step',
+            ['id' => $scanId, 'run' => $run, 'step' => $step],
+        );
+        self::assertIsArray($row, sprintf('no usage row %d:%s', $run, $step));
+
+        return $row;
+    }
+
+    /**
+     * @param array<string, mixed> $params
+     */
+    private static function sum(string $sql, array $params): int
+    {
+        $sum = self::connection()->fetchOne($sql, $params);
+
+        return is_numeric($sum) ? (int) $sum : -1;
+    }
+
 }

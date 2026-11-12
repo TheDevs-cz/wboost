@@ -34,12 +34,17 @@ final readonly class RecordAiUsage
     ) {
     }
 
-    public function open(string $scanId, int $run, AiUsageStep $step): void
+    /**
+     * `$leaseTokenHash`: the claim's lease token (hashed), kept on the row so
+     * that this run can still report what it spent after the scan was given
+     * to another run ({@see staleRun()}).
+     */
+    public function open(string $scanId, int $run, AiUsageStep $step, null|string $leaseTokenHash = null): void
     {
         $this->connection->executeStatement(
             'INSERT INTO ai_usage_event
-                    (id, scan_id, run, step, occurred_at, project_id, project_name, owner_id, owner_email, user_id, user_email, channel, kind)
-             SELECT :id, s.id, :run, :step, :now, p.id, p.name, o.id, o.email, s.requested_by_id, s.requester_email, s.channel, s.kind
+                    (id, scan_id, run, step, occurred_at, project_id, project_name, owner_id, owner_email, user_id, user_email, channel, kind, lease_token_hash)
+             SELECT :id, s.id, :run, :step, :now, p.id, p.name, o.id, o.email, s.requested_by_id, s.requester_email, s.channel, s.kind, :hash
                FROM ai_scan s
                JOIN project p ON p.id = s.project_id
                JOIN "user" o ON o.id = p.owner_id
@@ -51,8 +56,33 @@ final readonly class RecordAiUsage
                 'run' => $run,
                 'step' => $step->value,
                 'now' => AiScanTime::sql($this->clock->now()),
+                'hash' => $leaseTokenHash,
             ],
         );
+    }
+
+    /**
+     * The usage row a lease token opened — for a call whose run no longer
+     * holds the scan (the reaper put it back and somebody claimed it again, it
+     * was released, retried, or the scan row is gone). Null when the token
+     * opened no row of this scan.
+     *
+     * @return null|array{run: int, step: AiUsageStep}
+     */
+    public function staleRun(string $scanId, string $leaseTokenHash): null|array
+    {
+        $row = $this->connection->fetchAssociative(
+            'SELECT run, step FROM ai_usage_event WHERE scan_id = :scan AND lease_token_hash = :hash ORDER BY occurred_at DESC LIMIT 1',
+            ['scan' => $scanId, 'hash' => $leaseTokenHash],
+        );
+
+        if ($row === false) {
+            return null;
+        }
+
+        $step = AiUsageStep::tryFrom(is_string($row['step']) ? $row['step'] : '');
+
+        return $step === null || !is_numeric($row['run']) ? null : ['run' => (int) $row['run'], 'step' => $step];
     }
 
     public function record(string $scanId, int $run, AiUsageStep $step, AiUsageFigures $figures): void
@@ -65,6 +95,7 @@ final readonly class RecordAiUsage
             $figures->outputTokens,
             $figures->cacheReadTokens,
             $figures->cacheWriteTokens,
+            $figures->cacheWrite1hTokens,
         );
 
         // GREATEST: the figures are cumulative, so an out-of-order heartbeat
@@ -77,6 +108,7 @@ final readonly class RecordAiUsage
                     output_tokens = GREATEST(output_tokens, :output),
                     cache_read_tokens = GREATEST(cache_read_tokens, :cacheRead),
                     cache_write_tokens = GREATEST(cache_write_tokens, :cacheWrite),
+                    cache_write_1h_tokens = GREATEST(cache_write_1h_tokens, :cacheWrite1h),
                     engine_cost_micro_usd = GREATEST(engine_cost_micro_usd, :engineCost),
                     cost_micro_usd = GREATEST(cost_micro_usd, :cost),
                     price_version = :priceVersion,
@@ -90,6 +122,7 @@ final readonly class RecordAiUsage
                 'output' => $figures->outputTokens,
                 'cacheRead' => $figures->cacheReadTokens,
                 'cacheWrite' => $figures->cacheWriteTokens,
+                'cacheWrite1h' => $figures->cacheWrite1hTokens,
                 'engineCost' => $figures->engineCostMicroUsd,
                 'cost' => $priced ?? $figures->engineCostMicroUsd,
                 'priceVersion' => $priced === null ? null : $this->definition->priceVersion(),

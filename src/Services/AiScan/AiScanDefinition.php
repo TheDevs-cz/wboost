@@ -84,8 +84,13 @@ final class AiScanDefinition
      * Cost of a usage figure by the price table (USD per million tokens), or
      * null when the table does not know the model — the caller then keeps the
      * engine's own figure.
+     *
+     * `$cacheWrite` is every cache write; `$cacheWrite1h` the part of it
+     * written with the 1-hour lifetime, priced by `cacheWrite1h` (2 × input —
+     * the 5-minute rate `cacheWrite` is 1.25 ×). A table row without a 1-hour
+     * price charges those tokens at twice its input price.
      */
-    public function costMicroUsd(string $model, int $input, int $output, int $cacheRead, int $cacheWrite): null|int
+    public function costMicroUsd(string $model, int $input, int $output, int $cacheRead, int $cacheWrite, int $cacheWrite1h = 0): null|int
     {
         $prices = $this->definition()['prices'] ?? null;
         $models = is_array($prices) ? ($prices['models'] ?? null) : null;
@@ -97,12 +102,16 @@ final class AiScanDefinition
 
         $perMillion = static fn (string $key): float => is_numeric($price[$key] ?? null) ? (float) $price[$key] : 0.0;
 
+        $oneHour = max(0, min($cacheWrite1h, $cacheWrite));
+        $oneHourPrice = is_numeric($price['cacheWrite1h'] ?? null) ? (float) $price['cacheWrite1h'] : 2 * $perMillion('input');
+
         // USD per million tokens × tokens = micro-USD.
         return (int) round(
             $input * $perMillion('input')
             + $output * $perMillion('output')
             + $cacheRead * $perMillion('cacheRead')
-            + $cacheWrite * $perMillion('cacheWrite'),
+            + ($cacheWrite - $oneHour) * $perMillion('cacheWrite')
+            + $oneHour * $oneHourPrice,
         );
     }
 

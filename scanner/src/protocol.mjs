@@ -131,9 +131,14 @@ export class HttpScannerApi {
         return { status: res.status, json, bytes };
     }
 
-    /** Attempts until an answer, a final error, or the app-outage tolerance R has passed since the first attempt. */
+    /**
+     * Attempts until an answer, a final error, or the app-outage tolerance R has passed since the first attempt.
+     * `opts.startBy` (a time of `now()`): no attempt starts after it — a caller that already used part of R on
+     * earlier calls of the same work (a busy renderer answered, then the app went away) passes what is left, so
+     * that the whole sequence stays inside R + one attempt.
+     */
     async call(method, path, opts = {}) {
-        const until = this.now() + this.timing.appOutageToleranceSeconds * 1000;
+        const until = Math.min(this.now() + this.timing.appOutageToleranceSeconds * 1000, opts.startBy ?? Infinity);
         for (let n = 0; ; n++) {
             try { return await this.attempt(method, path, opts); } catch (e) {
                 if (!(e instanceof ScannerApiError) || !e.retryable || opts.signal?.aborted) throw e;
@@ -182,13 +187,13 @@ export class HttpScannerApi {
             /** One attempt, cut at 10 s. → {cancel, mode, status?, leaseExpiresAt}; 409 / 410 throw (runOver). */
             beat: async (b) => (await this.attempt('POST', `${id}/beat`, { lease, body: { ...base, ...b }, attemptMs: this.timing.heartbeatAttemptSeconds * 1000 })).json,
             /** Idempotent by (run, seq): a retry sends the SAME seq. A busy / absent renderer comes back as `code`. */
-            render: async ({ seq, design }) => {
-                const { json } = await this.call('POST', `${id}/render`, { lease, body: { ...base, seq, design }, signal });
+            render: async ({ seq, design }, { startBy = null } = {}) => {
+                const { json } = await this.call('POST', `${id}/render`, { lease, body: { ...base, seq, design }, signal, startBy });
                 if (json.ok === false && !['renderer_busy', 'renderer_unavailable'].includes(json.code)) refused(json);
                 return { rendered: json.ok === true && Number.isInteger(json.candidate), candidate: json.candidate ?? null, issues: json.issues ?? [], width: json.width ?? null, height: json.height ?? null, image: image(json.image), code: json.ok === false ? json.code : null, status: json.ok === true && !Number.isInteger(json.candidate) ? 'rejected' : null };
             },
-            faces: async ({ seq, lines, faces = null, size = null }) => {
-                const { json } = await this.call('POST', `${id}/faces`, { lease, body: { ...base, seq, lines, ...(faces ? { faces } : {}), ...(size ? { size: Math.round(size) } : {}) }, signal });
+            faces: async ({ seq, lines, faces = null, size = null }, { startBy = null } = {}) => {
+                const { json } = await this.call('POST', `${id}/faces`, { lease, body: { ...base, seq, lines, ...(faces ? { faces } : {}), ...(size ? { size: Math.round(size) } : {}) }, signal, startBy });
                 if (json.ok === false && !['renderer_busy', 'renderer_unavailable'].includes(json.code)) refused(json);
                 return { image: image(json.image), cells: json.cells ?? [], width: json.width ?? null, height: json.height ?? null, code: json.ok === false ? json.code : null };
             },
