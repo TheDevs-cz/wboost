@@ -1,0 +1,203 @@
+{
+  "type": "object",
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": [
+        "done",
+        "failed"
+      ]
+    },
+    "preferredCandidate": {
+      "type": "integer"
+    },
+    "headline": {
+      "type": "string"
+    },
+    "placeholders": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "background",
+              "photo",
+              "logo",
+              "icon",
+              "pattern",
+              "illustration",
+              "other"
+            ]
+          },
+          "fillable": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "role",
+          "fillable"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "fonts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "group": {
+            "type": "string"
+          },
+          "texts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sourceClass": {
+            "type": "string",
+            "enum": [
+              "sans",
+              "serif",
+              "slab",
+              "script",
+              "display",
+              "mono",
+              "unknown"
+            ]
+          },
+          "sourceLooksLike": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "group",
+          "texts",
+          "sourceClass",
+          "sourceLooksLike"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "approximations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "element": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "rotation",
+              "shadow",
+              "outline",
+              "letter_spacing",
+              "mixed_styles",
+              "mask",
+              "blur",
+              "blend",
+              "gradient",
+              "curved_text",
+              "vector_path",
+              "corner_radius",
+              "opacity_estimate",
+              "other"
+            ]
+          }
+        },
+        "required": [
+          "element",
+          "kind"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "omitted": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "text",
+              "picture",
+              "shape",
+              "effect",
+              "other"
+            ]
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "w": {
+            "type": "number"
+          },
+          "h": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "kind",
+          "x",
+          "y",
+          "w",
+          "h"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "lowConfidenceTexts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "small",
+              "low_contrast",
+              "stylised",
+              "partly_hidden",
+              "guessed"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "reason"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "status",
+    "preferredCandidate",
+    "headline",
+    "placeholders",
+    "fonts",
+    "approximations",
+    "omitted",
+    "lowConfidenceTexts"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,184 @@
+// Engine backend 1: the Claude Agent SDK (TypeScript), locked down to the scanner's own tools.
+//
+// Lock-down (verified against @anthropic-ai/claude-agent-sdk 0.3.322, see eval/RESULTS.md):
+//   tools: []                  no built-in tool at all (no Bash / Read / Write / Web / subagents)
+//   mcpServers + strictMcpConfig   only the in-process "scan" server; nothing from .mcp.json, plugins, connectors
+//   allowedTools + dontAsk     the scan tools are pre-approved, anything else is denied without a prompt
+//   settingSources: []         no CLAUDE.md, no user / project / local settings, hooks or skills
+//   systemPrompt: string       the scanner's own prompt replaces the harness prompt
+//   persistSession: false      no transcript on disk
+//   cwd                        an empty per-run scratch directory
+//   CLAUDE_CONFIG_DIR          a dedicated directory — ONLY when an API key is the credential: with it set
+//                              the harness no longer finds the locally logged-in plan ("Not logged in")
+//
+// Credentials come from the environment only: ANTHROPIC_API_KEY set → the key; unset → the plan the
+// machine is logged in to (development and tests).
+import { query, createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
+import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import { mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { UsageMeter, fromModelUsage } from './pricing.mjs';
+import { classifyProviderError } from './classify.mjs';
+
+export const SERVER_NAME = 'scan';
+
+function toolServer(tools, dispatch) {
+    const server = createSdkMcpServer({ name: SERVER_NAME, version: '1.0.0', tools: [] });
+    const low = server.instance.server;
+    low.registerCapabilities({ tools: {} });
+    low.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: tools.map((t) => ({ name: t.name, description: t.description, inputSchema: t.input_schema })) }));
+    low.setRequestHandler(CallToolRequestSchema, async (req) => dispatch(req.params.name, req.params.arguments ?? {}));
+    return server;
+}
+
+/** The environment the harness subprocess gets: the scanner's own, plus pinned request behaviour. */
+export function engineEnv({ base = process.env, settings = {}, scratchDir }) {
+    const env = { ...base };
+    const keyed = !!env.ANTHROPIC_API_KEY;
+    Object.assign(env, {
+        // request behaviour pinned by the definition (the harness defaults are 10 retries / 600 s)
+        API_TIMEOUT_MS: String((settings.requestTimeoutSeconds ?? 120) * 1000),
+        CLAUDE_CODE_MAX_RETRIES: String(settings.retries ?? 4),
+        // the event-level watchdog cannot be set below 5 minutes; the byte-level one can (clamped 10 s … 30 min)
+        CLAUDE_BYTE_STREAM_IDLE_TIMEOUT_MS: String(Math.max(10, settings.streamIdleSeconds ?? 60) * 1000),
+        CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1',
+        CLAUDE_CODE_DISABLE_TERMINAL_TITLE: '1',
+        CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: '1',
+        CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS: '0',
+        DISABLE_AUTOUPDATER: '1',
+        DISABLE_ERROR_REPORTING: '1',
+        MAX_MCP_OUTPUT_TOKENS: '50000',
+    });
+    delete env.CLAUDE_CODE_EFFORT_LEVEL; // would override the definition's effort
+    if (keyed) {
+        env.CLAUDE_CONFIG_DIR = join(scratchDir, 'engine-config');
+        mkdirSync(env.CLAUDE_CONFIG_DIR, { recursive: true });
+        env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = '1';
+    } else {
+        delete env.ANTHROPIC_AUTH_TOKEN;
+    }
+    return env;
+}
+
+/**
+ * Runs one model loop.
+ * @param o {model, effort, system, content, tools, dispatch, finishSchema, maxTurns, maxBudgetUsd,
+ *           signal, onEvent, settings, scratchDir, prices, env}
+ *   content  user content blocks in Messages-API shape (text / image base64)
+ * → {outcome, finish, text, usage, turns, apiMs, wallMs, error, facts}
+ */
+export async function runSdk(o) {
+    const started = Date.now();
+    const meter = new UsageMeter(o.prices);
+    const controller = new AbortController();
+    const onAbort = () => controller.abort();
+    if (o.signal?.aborted) controller.abort(); else o.signal?.addEventListener('abort', onAbort, { once: true });
+    const cwd = join(o.scratchDir, 'engine-cwd');
+    mkdirSync(cwd, { recursive: true });
+    const tools = o.tools ?? [];
+    const facts = { engine: 'agent-sdk', init: null, retries: [], rateLimit: null, maxModelGapMs: 0, maxGapMs: 0, stderrTail: '', refusal: null, assistantErrors: [], resultSubtype: null, terminalReason: null, thrown: null, resultAfterAbort: false, pid: null };
+    let result = null, lastEventAt = Date.now(), waitingSince = Date.now(), error = null, planLimit = false, lastText = '';
+    const seenMessages = new Set();
+    const emit = (ev) => { try { o.onEvent?.(ev); } catch { /* an observer must never break the run */ } };
+    async function* input() {
+        yield { type: 'user', message: { role: 'user', content: o.content }, parent_tool_use_id: null };
+    }
+    const options = {
+        model: o.model,
+        ...(o.effort ? { effort: o.effort } : {}),
+        tools: [],
+        mcpServers: tools.length ? { [SERVER_NAME]: toolServer(tools, o.dispatch) } : {},
+        strictMcpConfig: true,
+        allowedTools: tools.map((t) => `mcp__${SERVER_NAME}__${t.name}`),
+        permissionMode: 'dontAsk',
+        settingSources: [],
+        systemPrompt: o.system,
+        persistSession: false,
+        cwd,
+        env: o.env ?? engineEnv({ settings: o.settings, scratchDir: o.scratchDir }),
+        abortController: controller,
+        ...(o.maxTurns ? { maxTurns: o.maxTurns } : {}),
+        ...(o.maxBudgetUsd ? { maxBudgetUsd: o.maxBudgetUsd } : {}),
+        ...(o.finishSchema ? { outputFormat: { type: 'json_schema', schema: o.finishSchema } } : {}),
+        // stream events carry the running output-token count: without them an aborted run would lose its output usage
+        includePartialMessages: true,
+        stderr: (d) => { facts.stderrTail = (facts.stderrTail + d).slice(-2000); },
+    };
+    let streaming = null; // {id, model, usage} of the message being streamed
+    try {
+        for await (const m of query({ prompt: input(), options })) {
+            const now = Date.now();
+            facts.maxGapMs = Math.max(facts.maxGapMs, now - lastEventAt);
+            lastEventAt = now;
+            if (m.type === 'system' && m.subtype === 'init') {
+                facts.init = { model: m.model, tools: m.tools, mcp: m.mcp_servers, version: m.claude_code_version, apiKeySource: m.apiKeySource, permissionMode: m.permissionMode };
+                waitingSince = now;
+            } else if (m.type === 'system' && m.subtype === 'api_retry') {
+                facts.retries.push({ attempt: m.attempt, of: m.max_retries, delayMs: m.retry_delay_ms, status: m.error_status, error: m.error });
+                emit({ type: 'retry', attempt: m.attempt, of: m.max_retries, delayMs: m.retry_delay_ms, status: m.error_status, error: m.error });
+            } else if (m.type === 'system' && (m.subtype === 'model_refusal_no_fallback' || m.subtype === 'model_refusal_fallback')) {
+                facts.refusal = { subtype: m.subtype, category: m.api_refusal_category ?? null };
+            } else if (m.type === 'rate_limit_event') {
+                facts.rateLimit = m.rate_limit_info;
+                if (m.rate_limit_info?.status === 'rejected') planLimit = true;
+                emit({ type: 'rate_limit', info: m.rate_limit_info });
+            } else if (m.type === 'stream_event') {
+                const ev = m.event;
+                if (ev?.type === 'message_start' && ev.message) { streaming = { id: ev.message.id, model: ev.message.model, usage: ev.message.usage ?? {} }; meter.note(streaming.id, streaming.model, streaming.usage); }
+                else if (ev?.type === 'message_delta' && streaming && ev.usage) { streaming.usage = { ...streaming.usage, ...ev.usage }; meter.note(streaming.id, streaming.model, streaming.usage); emit({ type: 'usage', usage: meter.snapshot() }); }
+                if (waitingSince !== null && ev?.type === 'content_block_start') { facts.maxModelGapMs = Math.max(facts.maxModelGapMs, now - waitingSince); waitingSince = null; }
+            } else if (m.type === 'assistant') {
+                if (waitingSince !== null) { facts.maxModelGapMs = Math.max(facts.maxModelGapMs, now - waitingSince); }
+                waitingSince = null;
+                const msg = m.message;
+                meter.note(msg?.id, msg?.model, msg?.usage);
+                if (m.error) facts.assistantErrors.push({ error: m.error, text: (msg?.content ?? []).filter((b) => b.type === 'text').map((b) => b.text).join(' ').slice(0, 200) });
+                if (msg?.id && !seenMessages.has(msg.id)) { seenMessages.add(msg.id); emit({ type: 'turn', turns: seenMessages.size, usage: meter.snapshot() }); }
+                for (const b of msg?.content ?? []) {
+                    if (b.type === 'tool_use') emit({ type: 'tool_use', name: String(b.name).replace(`mcp__${SERVER_NAME}__`, '') });
+                    if (b.type === 'text') lastText = b.text;
+                }
+            } else if (m.type === 'user') {
+                waitingSince = now; // a tool result went back: the model is thinking again
+            } else if (m.type === 'result') {
+                result = m;
+                if (controller.signal.aborted) facts.resultAfterAbort = true;
+            }
+        }
+    } catch (e) {
+        facts.thrown = { name: e?.name ?? 'Error', message: String(e?.message ?? e).slice(0, 400) };
+        const code = /exited with code (\d+)/.exec(String(e?.message ?? ''));
+        if (code) facts.exitCode = Number(code[1]);
+        error = e;
+    } finally {
+        o.signal?.removeEventListener('abort', onAbort);
+    }
+    const wallMs = Date.now() - started;
+    if (result?.modelUsage && Object.keys(result.modelUsage).length) {
+        facts.meterEstimate = meter.estimate();
+        meter.setFinal(Object.fromEntries(Object.entries(result.modelUsage).map(([k, v]) => [k.replace(/\[.*\]$/, ''), fromModelUsage(v)])));
+    }
+    const usage = { ...meter.snapshot(), engineCostUsd: result?.total_cost_usd ?? null };
+    facts.resultSubtype = result?.subtype ?? null;
+    facts.terminalReason = result?.terminal_reason ?? null;
+    facts.permissionDenials = result?.permission_denials?.length ?? 0;
+    const base = { finish: null, text: typeof result?.result === 'string' ? result.result : lastText, usage, turns: result?.num_turns ?? seenMessages.size, apiMs: result?.duration_api_ms ?? null, wallMs, facts };
+    const providerError = (extra) => {
+        const sdkError = facts.assistantErrors.at(-1)?.error ?? facts.retries.at(-1)?.error ?? null;
+        const status = result?.api_error_status ?? facts.retries.at(-1)?.status ?? null;
+        const c = classifyProviderError({ sdkError, status, planLimit, ...extra });
+        return { ...base, outcome: c.class === 'refusal' ? 'refusal' : 'provider', error: { ...c, status, sdkError, message: base.text?.slice(0, 300) ?? null } };
+    };
+    if (o.signal?.aborted || (controller.signal.aborted && !result)) return { ...base, outcome: 'aborted', error: null };
+    if (facts.refusal || result?.stop_reason === 'refusal') return providerError({ stopReason: 'refusal' });
+    if (!result) return facts.assistantErrors.length || planLimit ? providerError({}) : { ...base, outcome: 'error', error: { class: 'unknown', code: 'engine_exit', message: facts.thrown?.message ?? 'the engine ended without a result' } };
+    if (result.subtype === 'error_max_turns') return { ...base, outcome: 'max_turns', error: null };
+    if (result.subtype === 'error_max_budget_usd') return { ...base, outcome: 'max_budget', error: null };
+    if (result.is_error || result.subtype !== 'success') {
+        if (facts.assistantErrors.length || planLimit || result.api_error_status) return providerError({});
+        return { ...base, outcome: 'error', error: { class: 'unknown', code: result.subtype, message: (result.errors ?? []).join('; ').slice(0, 300) || base.text?.slice(0, 300) } };
+    }
+    let finish = result.structured_output ?? null;
+    if (finish === null && o.finishSchema && typeof result.result === 'string') { try { finish = JSON.parse(result.result); } catch { /* not JSON */ } }
+    return { ...base, outcome: 'finished', finish, error: null };
+}

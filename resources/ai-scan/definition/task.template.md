@@ -1,0 +1,1 @@
+Scan this picture and rebuild it as an editable WBoost template. The pre-pass measured by the scanner follows as JSON; the picture is attached. Build the complete design, check it against the source, correct it at most twice, then return the final report as the JSON object described in your instructions.

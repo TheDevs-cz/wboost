@@ -20,3 +20,6 @@ phpstan.neon
 Dockerfile
 
 .docker-data/
+
+# the AI scan scanner is its own image (scanner/Dockerfile); the app image needs only resources/ai-scan
+scanner/

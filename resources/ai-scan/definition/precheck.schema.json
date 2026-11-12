@@ -1,0 +1,29 @@
+{
+  "type": "object",
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "design",
+        "calendar_page",
+        "photo_of_print",
+        "several_designs",
+        "blurry_or_small",
+        "not_a_design"
+      ]
+    },
+    "confidence": {
+      "type": "string",
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ]
+    }
+  },
+  "required": [
+    "verdict",
+    "confidence"
+  ],
+  "additionalProperties": false
+}

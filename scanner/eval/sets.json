@@ -1,0 +1,132 @@
+{
+ "note": "Paths are relative to the repository root. The pictures are client material and prototype artefacts: git-ignored, present only on the machine that ran the prototypes.",
+ "fonts": "docs/ai-scan/examples/templates/project-fonts.json",
+ "easy": [
+  {
+   "id": "informace-s-fotkou",
+   "image": "docs/ai-scan/examples/templates/informace-s-fotkou/truth.png",
+   "truth": "docs/ai-scan/examples/templates/informace-s-fotkou/canvas.json"
+  },
+  {
+   "id": "vedeli-jste",
+   "image": "docs/ai-scan/examples/templates/vedeli-jste/truth.png",
+   "truth": "docs/ai-scan/examples/templates/vedeli-jste/canvas.json"
+  },
+  {
+   "id": "otazka-carousel",
+   "image": "docs/ai-scan/examples/templates/otazka-carousel/truth.png",
+   "truth": "docs/ai-scan/examples/templates/otazka-carousel/canvas.json"
+  },
+  {
+   "id": "pripomenuti",
+   "image": "docs/ai-scan/examples/templates/pripomenuti/truth.png",
+   "truth": "docs/ai-scan/examples/templates/pripomenuti/canvas.json"
+  },
+  {
+   "id": "mouzaika-s-textem",
+   "image": "docs/ai-scan/examples/templates/mouzaika-s-textem/truth.png",
+   "truth": "docs/ai-scan/examples/templates/mouzaika-s-textem/canvas.json"
+  },
+  {
+   "id": "argumenty",
+   "image": "docs/ai-scan/examples/templates/argumenty/truth.png",
+   "truth": "docs/ai-scan/examples/templates/argumenty/canvas.json"
+  },
+  {
+   "id": "vite-ze-2-strana",
+   "image": "docs/ai-scan/examples/templates/vite-ze-2-strana/truth.png",
+   "truth": "docs/ai-scan/examples/templates/vite-ze-2-strana/canvas.json"
+  }
+ ],
+ "photo": [
+  {
+   "id": "informace-s-fotkou-photo",
+   "image": "docs/ai-scan/prototypes/t1-agent/inputs/informace-s-fotkou-photo/truth.png",
+   "truth": "docs/ai-scan/prototypes/t1-agent/inputs/informace-s-fotkou-photo/canvas.json"
+  },
+  {
+   "id": "mouzaika-s-textem-photo",
+   "image": "docs/ai-scan/prototypes/t1-agent/inputs/mouzaika-s-textem-photo/truth.png",
+   "truth": "docs/ai-scan/prototypes/t1-agent/inputs/mouzaika-s-textem-photo/canvas.json"
+  },
+  {
+   "id": "pripomenuti-photo",
+   "image": "docs/ai-scan/prototypes/t1-agent/inputs/pripomenuti-photo/truth.png",
+   "truth": "docs/ai-scan/prototypes/t1-agent/inputs/pripomenuti-photo/canvas.json"
+  }
+ ],
+ "hard": [
+  {
+   "id": "A1-kandidat",
+   "set": "A",
+   "image": "docs/ai-scan/examples/hard/inputs/A1-kandidat.png",
+   "truth": "docs/ai-scan/examples/hard/inputs/A1-kandidat.canvas.json"
+  },
+  {
+   "id": "A2-cestovatelska",
+   "set": "A",
+   "image": "docs/ai-scan/examples/hard/inputs/A2-cestovatelska.png",
+   "truth": "docs/ai-scan/examples/hard/inputs/A2-cestovatelska.canvas.json"
+  },
+  {
+   "id": "A3-terapie-a4",
+   "set": "A",
+   "image": "docs/ai-scan/examples/hard/inputs/A3-terapie-a4.png",
+   "truth": "docs/ai-scan/examples/hard/inputs/A3-terapie-a4.canvas.json"
+  },
+  {
+   "id": "A4-napsali",
+   "set": "A",
+   "image": "docs/ai-scan/examples/hard/inputs/A4-napsali.png",
+   "truth": "docs/ai-scan/examples/hard/inputs/A4-napsali.canvas.json"
+  },
+  {
+   "id": "A5-poukaz-dl",
+   "set": "A",
+   "image": "docs/ai-scan/examples/hard/inputs/A5-poukaz-dl.png",
+   "truth": "docs/ai-scan/examples/hard/inputs/A5-poukaz-dl.canvas.json"
+  },
+  {
+   "id": "B1-koncert",
+   "set": "B",
+   "image": "docs/ai-scan/examples/hard/inputs/B1-koncert.png",
+   "truth": "docs/ai-scan/examples/hard/inputs/B1-koncert.canvas.json"
+  },
+  {
+   "id": "B2-sleva",
+   "set": "B",
+   "image": "docs/ai-scan/examples/hard/inputs/B2-sleva.png",
+   "truth": "docs/ai-scan/examples/hard/inputs/B2-sleva.canvas.json"
+  },
+  {
+   "id": "B3-letak-a4",
+   "set": "B",
+   "image": "docs/ai-scan/examples/hard/inputs/B3-letak-a4.png",
+   "truth": "docs/ai-scan/examples/hard/inputs/B3-letak-a4.canvas.json"
+  },
+  {
+   "id": "B4-citat",
+   "set": "B",
+   "image": "docs/ai-scan/examples/hard/inputs/B4-citat.png",
+   "truth": "docs/ai-scan/examples/hard/inputs/B4-citat.canvas.json"
+  },
+  {
+   "id": "B5-otevreno",
+   "set": "B",
+   "image": "docs/ai-scan/examples/hard/inputs/B5-otevreno.png",
+   "truth": "docs/ai-scan/examples/hard/inputs/B5-otevreno.canvas.json"
+  },
+  {
+   "id": "C1-kandidat-jpeg60",
+   "set": "C",
+   "image": "docs/ai-scan/examples/hard/inputs/C1-kandidat-jpeg60.jpg",
+   "truth": "docs/ai-scan/examples/hard/inputs/C1-kandidat-jpeg60.canvas.json"
+  },
+  {
+   "id": "C2-letak-720",
+   "set": "C",
+   "image": "docs/ai-scan/examples/hard/inputs/C2-letak-720.png",
+   "truth": "docs/ai-scan/examples/hard/inputs/C2-letak-720.canvas.json"
+  }
+ ]
+}

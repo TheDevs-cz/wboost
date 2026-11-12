@@ -1,0 +1,262 @@
+[
+  {
+    "name": "scan_source",
+    "kinds": [
+      "template",
+      "calendar"
+    ],
+    "description": "Returns the source picture again together with the pre-pass measured by the scanner: canvas size, OCR text lines with boxes / measured ink boxes / colours / font ranking, the background fit, the palette, the project's font faces and brand colours, and the stand-in asset id. The same pre-pass is already in your first message — call this only if you need the picture again (it counts against the picture budget).",
+    "input_schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "scan_crop",
+    "kinds": [
+      "template",
+      "calendar"
+    ],
+    "description": "Zooms into a region of the source picture. Returns the region enlarged with pixel rulers along the top and left edges labelled in canvas coordinates, so positions and sizes can be read off precisely. Use it for small things (icons, logos, small text, corner radii, thin lines) and whenever a coordinate matters. `zoom` (default: chosen so the crop is about 900 px) and `grid` (default true: ruler lines across the crop) are optional. Counts against the picture budget.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number",
+          "description": "Left edge, canvas px."
+        },
+        "y": {
+          "type": "number",
+          "description": "Top edge, canvas px."
+        },
+        "w": {
+          "type": "number",
+          "description": "Width, canvas px."
+        },
+        "h": {
+          "type": "number",
+          "description": "Height, canvas px."
+        },
+        "zoom": {
+          "type": "number",
+          "description": "Optional magnification, 0.25–6."
+        },
+        "grid": {
+          "type": "boolean",
+          "description": "Optional; false hides the ruler lines across the crop."
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "w",
+        "h"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "scan_measure",
+    "kinds": [
+      "template",
+      "calendar"
+    ],
+    "description": "Measures a region of the source picture with code instead of by eye (numbers only, no picture). Returns the region's background colour (median of its border), the dominant colours with their share, mean colours at the four edges and the centre (a gradient shows as left≠right or top≠bottom), the tight box of everything that is not background (`ink`), and the horizontal bands of ink (for text: one band per line). Boxes are [x, y, w, h] in canvas px. Put the region around ONE thing with a little margin.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number",
+          "description": "Left edge, canvas px."
+        },
+        "y": {
+          "type": "number",
+          "description": "Top edge, canvas px."
+        },
+        "w": {
+          "type": "number",
+          "description": "Width, canvas px."
+        },
+        "h": {
+          "type": "number",
+          "description": "Height, canvas px."
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "w",
+        "h"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "font_rank",
+    "kinds": [
+      "template",
+      "calendar"
+    ],
+    "description": "Ranks the project's font faces for ONE line of text (numbers only). Give the line exactly as written in the picture and a region that contains that line only (a little margin is fine; no other text or graphics inside). The app renders the line in every project face, the scanner compares the glyph shapes with the source and fits the size. Returns `candidates` (best first: `face`, `score` 0…1, `size` = the size at which that face sets the line as wide as the source), the measured glyph `colour`, and `available` — false when no project face draws these glyphs, i.e. the typeface is a substitute. `group` is the name of the text style group this line stands for. The pre-pass already ranked a selection of lines; rank only styles it did not cover.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "The single line of text, exactly as in the picture."
+        },
+        "x": {
+          "type": "number",
+          "description": "Left edge, canvas px."
+        },
+        "y": {
+          "type": "number",
+          "description": "Top edge, canvas px."
+        },
+        "w": {
+          "type": "number",
+          "description": "Width, canvas px."
+        },
+        "h": {
+          "type": "number",
+          "description": "Height, canvas px."
+        },
+        "group": {
+          "type": "string",
+          "description": "Name of the text style group this line stands for, e.g. \"nadpis\"."
+        }
+      },
+      "required": [
+        "text",
+        "x",
+        "y",
+        "w",
+        "h",
+        "group"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "compare_region",
+    "kinds": [
+      "template",
+      "calendar"
+    ],
+    "description": "Looks closely at one region of a rendered candidate against the source: returns the source crop, the candidate crop and a difference panel (white = identical, darker = more different) side by side at the same zoom, plus numbers: the region's mean difference, the shift {dx, dy} that would best align the candidate with the source, and the ink boxes of both. `candidate` defaults to the latest one. Counts against the picture budget — use it where the numbers of the preview leave a doubt.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number",
+          "description": "Left edge, canvas px."
+        },
+        "y": {
+          "type": "number",
+          "description": "Top edge, canvas px."
+        },
+        "w": {
+          "type": "number",
+          "description": "Width, canvas px."
+        },
+        "h": {
+          "type": "number",
+          "description": "Height, canvas px."
+        },
+        "candidate": {
+          "type": "integer",
+          "description": "Optional candidate number; default the latest."
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "w",
+        "h"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "design_preview",
+    "kinds": [
+      "template"
+    ],
+    "description": "Validates a COMPLETE design document and renders it with the app's real renderer. Nothing is saved. Read `rendered` first: false means nothing was drawn and `issues` lists what blocked it (fix them all and call again; such refusals are limited). When it rendered, the answer is candidate number `candidate`, the rendered picture, and measured feedback against the source: `mae` (overall difference, 0 = identical; areas of places for pictures excluded), `history` of all candidates, `worstCells`, and per element `mae`, `sourceInk` / `renderInk` and — for texts — `move {dx, dy}` (add to x / y) and `widthRatio` (multiply the size by it when the line breaks match). At most 3 candidates are rendered in a scan; the scanner keeps the best-measured one.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "design": {
+          "type": "object",
+          "description": "{\"canvas\": {\"width\", \"height\"}, \"elements\": [...]} — see the DSL reference in the instructions.",
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "design"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "design_patch",
+    "kinds": [
+      "template"
+    ],
+    "description": "Edits the working copy (the last design sent to design_preview or produced by design_patch) and renders the result as the next candidate, exactly like design_preview — without resending the whole document. `set`: change keys of existing elements by id (a value of null deletes the key; `input` is merged one level deep). `remove`: element ids to delete. `add`: new elements, each inserted before the element with id `before` (or on top when `before` is absent). Put ALL corrections of a round into one call: every call that renders uses up one of the 3 candidates.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "set": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "props": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "required": [
+              "id",
+              "props"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "remove": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "add": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "element": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "before": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "element"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  }
+]

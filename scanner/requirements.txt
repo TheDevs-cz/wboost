@@ -1,0 +1,4 @@
+# The OCR sidecar (src/instruments/ocr/ocr.py). Pinned: a new detector or recogniser moves every measured box.
+rapidocr==3.10.0
+onnxruntime==1.31.1
+pillow==13.0.0

@@ -1,0 +1,151 @@
+{
+    "version": "3",
+    "protocolVersion": 1,
+    "requiresInstruments": [
+        "ocr",
+        "crop",
+        "measure",
+        "font_rank",
+        "compare"
+    ],
+    "models": {
+        "builder": "claude-opus-5-5",
+        "preCheck": "claude-haiku-5-5"
+    },
+    "effort": {
+        "template": "high",
+        "calendar": "high",
+        "preCheck": "low"
+    },
+    "engine": {
+        "requestTimeoutSeconds": 120,
+        "streamIdleSeconds": 60,
+        "retries": 4,
+        "retryDelaysSeconds": [
+            2,
+            8,
+            20,
+            30
+        ],
+        "maxOutputTokens": 32000,
+        "refusalFallback": null
+    },
+    "timing": {
+        "heartbeatSeconds": 15,
+        "claimPollSeconds": 5,
+        "tickSeconds": 30,
+        "appCallAttemptSeconds": 30,
+        "appOutageToleranceSeconds": 60,
+        "selfAbortSeconds": 105,
+        "leaseSeconds": 120,
+        "intakeCapSeconds": 120,
+        "builderCapSeconds": 300,
+        "runCapSeconds": 360,
+        "localToolTimeoutSeconds": 30,
+        "appToolTimeoutSeconds": 95,
+        "providerProbeSeconds": 300,
+        "shutdownSeconds": 30,
+        "heartbeatAttemptSeconds": 10,
+        "normaliseSeconds": 20,
+        "releaseAttemptSeconds": 20,
+        "intakeLeaseSeconds": 150,
+        "beatAttemptSeconds": 10,
+        "shutdownReleaseSeconds": 20
+    },
+    "caps": {
+        "turns": 40,
+        "engineBudgetMicroUsd": 1500000,
+        "candidates": 3,
+        "validationRejections": 3,
+        "images": 18,
+        "correctionRounds": 2,
+        "providerLostShare": 0.5,
+        "faceSheets": 12
+    },
+    "imageRule": {
+        "longEdgePx": 2576,
+        "maxBytes": 3000000
+    },
+    "workingCopy": {
+        "longEdgePx": 4096,
+        "format": "webp",
+        "previewLongEdgePx": 1600
+    },
+    "templateMaxLongEdgePx": 5000,
+    "prices": {
+        "version": "2026-11-03",
+        "unit": "USD per million tokens",
+        "models": {
+            "claude-opus-5-5": {
+                "input": 4,
+                "output": 20,
+                "cacheRead": 0.2,
+                "cacheWrite": 5,
+                "cacheWrite1h": 8
+            },
+            "claude-sonnet-5-5": {
+                "input": 2,
+                "output": 10,
+                "cacheRead": 0.1,
+                "cacheWrite": 2.5,
+                "cacheWrite1h": 4
+            },
+            "claude-haiku-5-5": {
+                "input": 0.1,
+                "output": 0.5,
+                "cacheRead": 0.01,
+                "cacheWrite": 0.125,
+                "cacheWrite1h": 0.2
+            }
+        }
+    },
+    "upload": {
+        "maxBytes": 10000000,
+        "maxSidePx": 8000,
+        "maxPixels": 36000000,
+        "minShortSidePx": 600
+    },
+    "fonts": {
+        "availableScore": 0.85,
+        "prePassLines": 6
+    },
+    "paletteSnapDeltaE": 2,
+    "standInAssetId": "00000000-0000-4000-8000-0000000a15ca",
+    "preCheck": {
+        "system": "precheck.md",
+        "schema": "precheck.schema.json",
+        "longEdgePx": 1568,
+        "requestTimeoutSeconds": 18,
+        "retries": 1,
+        "retryDelaysSeconds": [
+            2
+        ],
+        "maxSeconds": 38
+    },
+    "kinds": {
+        "template": {
+            "system": [
+                "system.common.md",
+                "system.template.md"
+            ],
+            "task": "task.template.md",
+            "tools": [
+                "scan_source",
+                "scan_crop",
+                "scan_measure",
+                "font_rank",
+                "compare_region",
+                "design_preview",
+                "design_patch"
+            ],
+            "finish": "finish.template.schema.json"
+        }
+    },
+    "preCheckRequest": {
+        "timeoutSeconds": 18,
+        "retries": 1,
+        "retryDelaysSeconds": [
+            2
+        ]
+    }
+}
