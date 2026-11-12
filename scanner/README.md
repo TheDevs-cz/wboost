@@ -187,7 +187,7 @@ measure parity with the prototypes' engine.
 ## Tests
 
 ```bash
-npm test                # 212 tests, ≈ 35 s — no model, no app
+npm test                # 213 tests, ≈ 40 s — no model, no app
 npm run test:slow       # the app-outage rules at their real times (≈ 85 s)
 ```
 

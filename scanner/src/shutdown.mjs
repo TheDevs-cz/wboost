@@ -15,22 +15,24 @@ import { killTree } from './proc.mjs';
  */
 export function installShutdown({ scanner, limitMs = 30_000, log = () => {}, exit = (code) => process.exit(code), signals = ['SIGTERM', 'SIGINT'], proc = process }) {
     let running = null;
+    const say = (...args) => { try { log(...args); } catch { /* a log that cannot be written never keeps the process alive */ } };
     const shutdown = (reason) => {
         if (running) return running;
         const started = Date.now();
-        log('info', 'shutdown started', { reason });
+        say('info', 'shutdown started', { reason });
         running = (async () => {
             let timer;
             const limit = new Promise((resolve) => { timer = setTimeout(() => resolve('limit'), limitMs); });
-            const how = await Promise.race([scanner.stop(reason).then(() => 'clean', (e) => { log('error', 'shutdown failed', { error: String(e?.message ?? e).slice(0, 200) }); return 'failed'; }), limit]);
+            const how = await Promise.race([scanner.stop(reason).then(() => 'clean', (e) => { say('error', 'shutdown failed', { error: String(e?.message ?? e).slice(0, 200) }); return 'failed'; }), limit]);
             clearTimeout(timer);
-            if (how !== 'clean') {
-                // the limit: nothing of a run may outlive the scanner
-                for (const pid of scanner.children?.() ?? []) await killTree(pid, { waitMs: 500 });
-            }
-            log(how === 'clean' ? 'info' : 'error', 'shutdown finished', { how, ms: Date.now() - started });
             const code = how === 'clean' ? 0 : 1;
-            exit(code);
+            try {
+                if (how !== 'clean') {
+                    // the limit: nothing of a run may outlive the scanner
+                    for (const pid of scanner.children?.() ?? []) await killTree(pid, { waitMs: 500 });
+                }
+                say(how === 'clean' ? 'info' : 'error', 'shutdown finished', { how, ms: Date.now() - started });
+            } finally { exit(code); } // whatever went wrong above: the process ends
             return code;
         })();
         return running;

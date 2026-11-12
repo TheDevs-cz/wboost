@@ -48,6 +48,7 @@ function forwarder() {
 
 // ---- the scanner service as its own process
 const logs = [];
+const running = new Set(); // scanner processes of this script: none may outlive a scenario
 function startScanner(name) {
     const env = { ...process.env, SCANNER_APP_URL: `http://127.0.0.1:${VIA}`, SCANNER_TOKEN: 'dev-scanner-token-not-a-secret-0000', SCANNER_LOG: 'json', SCANNER_HEALTH_PORT: '0' };
     delete env.ANTHROPIC_API_KEY; delete env.ANTHROPIC_AUTH_TOKEN;
@@ -57,6 +58,7 @@ function startScanner(name) {
     child.stdout.on('data', (d) => { file.write(d); buf += d; let i; while ((i = buf.indexOf('\n')) >= 0) { try { logs.push({ at: now(), ...JSON.parse(buf.slice(0, i)) }); } catch { /* not JSON */ } buf = buf.slice(i + 1); } });
     child.stderr.on('data', (d) => file.write(d));
     const exited = new Promise((ok) => child.on('exit', (code, signal) => ok({ code, signal })));
+    running.add(child); child.on('exit', () => running.delete(child));
     return { child, exited, kill: (sig) => { child.kill(sig); return exited; } };
 }
 const started = async () => { for (let i = 0; i < 200; i++) { if (logs.some((l) => l.msg === 'scanner started' && l.at > mark)) return; await sleep(100); } throw new Error('the scanner did not start'); };
@@ -66,10 +68,10 @@ const untilLog = async (since, test, timeoutS = 200) => { for (let i = 0; i < ti
 
 // ---- the user
 const user = await new AppUser({ baseUrl: APP }).login();
-async function upload(picture) {
+async function upload(picture, { allowRefusal = false } = {}) {
     const t0 = now();
     const s = await user.start(project, picture);
-    if (!s.ok) return { refused: s.code, http: s.http };
+    if (!s.ok) { if (!allowRefusal) throw new Error(`the app refused the upload: ${s.code}`); return { refused: s.code, http: s.http }; }
     const timeline = [];
     const watch = async ({ until, stage = null, timeoutS = 600 } = {}) => user.wait(s.scan.id, { until, stage, timeoutS, onChange: (x) => { timeline.push({ t: +((now() - t0) / 1000).toFixed(1), status: x.status, stage: x.stage ?? null, note: x.note ?? null, waiting: x.waiting ?? null, restarted: x.restarted ?? null, code: x.code ?? null }); console.error(`    +${timeline.at(-1).t}s ${x.status} ${x.stage ?? ''} ${x.note ?? ''} ${x.waiting ?? ''} ${x.restarted ? 'restarted' : ''} ${x.code ?? ''}`); } });
     return { id: s.scan.id, t0, timeline, watch, since: () => +((now() - t0) / 1000).toFixed(1) };
@@ -175,7 +177,7 @@ const scenarios = {
         const rows = {};
         for (const f of ['vector.svg', 'small.png']) { const s = await user.start(project, join(dir, f)); rows[f] = { refusedAtUpload: s.code ?? null, http: s.http, reason: s.reason ?? null }; }
         for (const f of ['truncated.jpg', 'blank.png']) {
-            const scan = await upload(join(dir, f));
+            const scan = await upload(join(dir, f), { allowRefusal: true });
             if (scan.refused) { rows[f] = { refusedAtUpload: scan.refused }; continue; }
             await scan.watch({ until: END, timeoutS: 120 });
             await sleep(1000);
@@ -193,6 +195,7 @@ try {
     for (const name of wanted) {
         console.error(`== ${name}`);
         try { await scenarios[name](); } catch (e) { console.log(JSON.stringify({ scenario: name, error: String(e?.message ?? e) })); }
+        for (const child of [...running]) { child.kill('SIGTERM'); await new Promise((ok) => child.once('exit', ok)); }
         await sleep(1500);
     }
 } finally {

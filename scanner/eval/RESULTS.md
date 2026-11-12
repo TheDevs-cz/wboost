@@ -84,6 +84,11 @@ scanner that is an app that is down.
 | Truncated JPEG with a whole header | accepted by the app; intake: `stopped unusable_input` in 8.5 s, `refund`, usage row closed (no model call) | cannot be normalised → stopped | ✔ |
 | A blank page | pre-check: `stopped not_expected_kind` in 8.9 s, `refund`, Haiku usage $0.0004 | pre-check stop | ✔ |
 
+Found on the way: two scanner processes whose log reader had gone away (their parent script died) spun in
+an exception loop — every log line raised `EPIPE`, the handler logged it — and ignored SIGTERM. Fixed: a
+log line that cannot be written is dropped, a broken stdout never reaches the exception handler, and
+the shutdown always ends the process (`test/service.test.mjs`, the last test). They had claimed nothing.
+
 A real refusal by the provider could not be provoked with these inputs; the path is covered against
 the fault proxy with the real engine binary (`test/service.test.mjs`, `test/engine-faults.test.mjs`).
 
@@ -165,7 +170,7 @@ child), the intake runs in the same container, and the font verification holds m
 
 ### 0.6 Tests and what they do not cover
 
-`npm test`: 212 tests, ≈ 35 s, no model, no app; `npm run test:slow`: the outage rules at their real
+`npm test`: 213 tests, ≈ 35 s, no model, no app; `npm run test:slow`: the outage rules at their real
 times (85 s). Both run in CI on every push that touches `scanner/` (ubuntu, node 24, python 3.11, the
 image's pinned OCR stack). The list of §10 P2 and where each is: README "Tests".
 

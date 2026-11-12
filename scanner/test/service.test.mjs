@@ -116,3 +116,14 @@ test('serve: an intake — the original is normalised in its own child, the pre-
     assert.deepEqual([intake.outcome, intake.status, intake.model], ['passed', 'queued', 'claude-haiku-5-5']);
     s.child.kill('SIGTERM'); await s.exited;
 });
+
+test('serve: when whoever read its log goes away (stdout closed), the scanner keeps working and still stops on SIGTERM — no exception loop', { skip }, async (t) => {
+    const s = await serve(t, { plan: [preview, { final: FINISH }] });
+    s.child.stdout.destroy(); s.child.stderr.destroy(); // EPIPE on the next log line
+    const scan = await s.app.addScan({ design: DESIGN });
+    await until(() => scan.status === 'ready', { timeoutMs: 90_000, what: 'a scan to finish without a log reader' });
+    const t0 = Date.now();
+    s.child.kill('SIGTERM');
+    const exit = await Promise.race([s.exited, new Promise((ok) => setTimeout(() => ok('still running'), 35_000))]);
+    assert.deepEqual(exit, { code: 0, signal: null }, `exit ${Date.now() - t0} ms after SIGTERM`);
+});

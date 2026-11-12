@@ -20,6 +20,9 @@ import { ocrPython } from './instruments/ocr.mjs';
 
 export function logger(mode = 'json', write = (line) => process.stdout.write(line + '\n')) {
     if (mode === 'silent') return () => {};
+    const out = write;
+    // a log line that cannot be written (the reader of stdout is gone) must never become an exception of the service
+    write = (line) => { try { out(line); } catch { /* nowhere to say it */ } };
     // ids, codes, counts and durations only — never OCR text, a design, a prompt or bytes
     return (level, msg, fields = {}) => write(mode === 'text'
         ? `${new Date().toISOString()} ${level.toUpperCase().padEnd(5)} ${msg} ${Object.entries(fields).filter(([, v]) => v !== null && v !== undefined).map(([k, v]) => `${k}=${typeof v === 'object' ? JSON.stringify(v) : v}`).join(' ')}`
@@ -200,7 +203,16 @@ export async function serve(env = process.env) {
     const scanner = new Scanner(config);
     const shutdownMs = DEFAULT_TIMING.shutdownSeconds * 1000;
     const { shutdown } = installShutdown({ scanner, limitMs: shutdownMs, log: scanner.log });
-    process.on('uncaughtException', (e) => { scanner.log('error', 'uncaught exception', { error: String(e?.stack ?? e).slice(0, 500) }); shutdown('uncaught_exception'); });
+    // a broken stdout / stderr (EPIPE: whoever read the log is gone) is not a reason to stop scanning — and must not
+    // turn into an exception loop: the stream's error is swallowed, the service goes on without a log
+    for (const stream of [process.stdout, process.stderr]) stream.on('error', () => {});
+    let crashing = false;
+    process.on('uncaughtException', (e) => {
+        if (e?.code === 'EPIPE') return;
+        if (crashing) return; crashing = true;
+        scanner.log('error', 'uncaught exception', { error: String(e?.stack ?? e).slice(0, 500) });
+        shutdown('uncaught_exception');
+    });
     process.on('unhandledRejection', (e) => { scanner.log('error', 'unhandled rejection', { error: String(e?.stack ?? e).slice(0, 500) }); });
     await scanner.start();
     return scanner;
