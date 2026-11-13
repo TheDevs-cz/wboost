@@ -23,6 +23,7 @@ orchestrator decided on his behalf, so later sessions do not re-open it.
 | 13 | The live "Požádat o přístup" card is the gate for non-entitled users from the moment the wizard ships (not a "Brzy" teaser until launch). | "yes požádat o přístup is okay good gate" |
 | 14 | Whatever the feature needs on the host server may be installed; preferably as infrastructure-as-code in `~/www/lily.srv`. | "if anything needs to be installed on the host server - you can" |
 | 15 | The `ANTHROPIC_API_KEY` already present in the WBoost secret store (Infisical `wboost` / `prod`) is the intended production key for the scanner. | "yes i confirm api key" (2026-11-13) |
+| 16 | No legal gate in the app. Legal and consent matters are handled individually with each customer outside the system; customer access needs only the per-project switch (AI functions on for the project). Production runs `on` with `admin-only = 0` from 2026-11-13: admins and editors of switched-on projects may scan. Supersedes the P6 legal gate and O10. | "no legal gate or put it to TODO somewhere, we handle this individually outside of the system, the app should only need for now the switch AI funcions per project on" |
 
 ## Decisions taken by the orchestrator under #11 (architecture.md §11 numbering)
 
@@ -52,3 +53,11 @@ access is a separate, explicit step.
 
 `examples/`, `prototypes/`, `ux-mock/` are git-ignored: client material and
 heavy run artefacts, pending the owner's decision.
+
+## TODO (not blocking)
+
+- Legal: have the in-wizard consent line and the privacy dialog wording reviewed;
+  answer the EU-residency question for the provider (decision 16 moved this out
+  of the launch gate — handled per customer outside the system for now).
+- Premium pricing for AI functions; a designer rating of results on designs made
+  outside WBoost; whether to commit `examples/`, `prototypes/`, `ux-mock/`.
