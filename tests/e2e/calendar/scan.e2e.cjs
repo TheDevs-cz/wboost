@@ -180,6 +180,7 @@ module.exports = {
         }
 
         let calendarId = null;
+        let fortnightId = null; // the 14-day calendar of the last checks
         try {
             calendarId = await h.createCalendar(page);
             await h.gotoStep(page, 2);
@@ -618,7 +619,8 @@ module.exports = {
                 await startScan(await picture('stranka-2.png'));
                 await waitPanel('review', 60000);
                 options.calendar = null;
-                assert.match(await text('[data-cal-scan-fortnight]'), /Stránka má dva týdny, kalendář jeden.*návrh převzal jen levý týden a fotografii — pravý sloupec dnů v něm není\. Rozvržení čtrnáctidenního kalendáře zatím skenovat neumíme\./);
+                assert.match(await text('[data-cal-scan-fortnight]'), /Na obrázku jsou dva týdny, tento kalendář je týdenní.*Návrh proto převzal jen levý týden a fotografii — pravý sloupec dnů v něm není\. Celou stránku převezmete, když ji naskenujete u čtrnáctidenního kalendáře\./);
+                assert.equal(await page.$eval('[data-cal-scan-fortnight]', (el) => el.dataset.calScanFortnight), 'fortnight_left_half');
                 assert.doesNotMatch(await text('[data-cal-scan-panel]'), /převzali jsme levou polovinu/);
                 await shot('scan-10a-fortnight');
                 assert.match(await text('[data-cal-scan-panel]'), /Číslo týdne.*zůstane jako dosud/);
@@ -758,6 +760,74 @@ module.exports = {
                 }
             });
 
+            // ---- a 14-day calendar: the scan targets the two-sided layout (additive block, 2026-11-13)
+            await check('14 days: the card is offered, the proposal is the two-sided layout, and nothing is said when the page fits the calendar', async () => {
+                fortnightId = await h.createCalendar(page);
+                await page.click('[data-type="fortnight"]');
+                await h.save(page);
+                await h.gotoStep(page, 2);
+                await page.waitForSelector('[data-preset="twoSided"]');
+                // the one layout on its static card — and the action card under it
+                assert.equal(await page.$('[role="radiogroup"][aria-label="Rozvržení stránky"]'), null);
+                await page.waitForSelector('[data-cal-scan-card] [data-cal-action="scan-open"]', { timeout: 20000 });
+                await shot('scan-15-fortnight-card');
+                await startScan(await picture('stranka-14.png'));
+                await waitPanel('review', 60000);
+                assert.equal(await page.$('[data-cal-scan-fortnight]'), null, 'a two-week proposal for a two-week calendar needs no warning');
+                assert.match(await text('[data-cal-scan-panel]'), /Návrh rozvržení je připravený/);
+                // the live preview is the calendar's own renderer with the proposed layout: both week columns
+                const preview = await page.$eval('[data-proposal]', (el) => el.querySelectorAll('svg').length);
+                assert.ok(preview >= 1, 'the proposal is drawn');
+                await shot('scan-16-fortnight-review');
+                await page.click('[data-cal-action="scan-apply"]');
+                await page.waitForSelector('.cal-ws[data-cal-shown-step="3"]', { timeout: 20000 });
+                await h.waitToast(page, 'Rozvržení převzato ze skenu');
+                const s = await state();
+                assert.equal(s.layoutOrigin, 'scan');
+                assert.equal(s.design.type, 'fortnight');
+                assert.equal(s.design.preset, 'twoSided');
+                assert.deepEqual([s.design.layout.boxes.cal.w, s.design.layout.boxes.cal2.x, s.design.layout.boxes.cal2.w], [79, 236, 79]);
+                assert.equal(psql(`SELECT layout_origin || ':' || layout_preset || ':' || type FROM calendar WHERE id = ${quote(fortnightId)}`), 'scan:twoSided:fortnight');
+            });
+
+            await check('14 days: step 2 offers „Naskenovaný design“ beside the two-sided layout; the layout card puts the default back, one undo returns the scan', async () => {
+                await h.gotoStep(page, 2);
+                await page.waitForSelector('[role="radiogroup"] [data-preset="scan"]');
+                assert.deepEqual(await page.$$eval('[role="radiogroup"] [role="radio"]', (els) => els.map((el) => `${el.dataset.preset}:${el.getAttribute('aria-checked')}`)), ['twoSided:false', 'scan:true']);
+                await shot('scan-17-fortnight-scanned');
+                await page.click('[role="radiogroup"] [data-preset="twoSided"]');
+                await page.waitForSelector('.cal-ws[data-cal-shown-step="3"]');
+                await h.waitToast(page, 'Rozvržení nahrazeno výchozím');
+                let s = await state();
+                assert.equal(s.layoutOrigin, null);
+                assert.equal(s.design.layout.boxes.cal2.x, 226);
+                // „Vrátit“ of THIS toast — the apply's own toast („Vrátit původní“) may still be on screen
+                await page.evaluate(() => [...document.querySelectorAll('.toast-n')].filter((toast) => toast.textContent.includes('Rozvržení nahrazeno výchozím')).pop().querySelector('[data-cal-toast-action]').click());
+                s = await state();
+                assert.equal(s.layoutOrigin, 'scan');
+                assert.equal(s.design.layout.boxes.cal2.x, 236);
+                assert.equal(s.status, 'clean');
+            });
+
+            await check('14 days: a ONE-week picture for a 14-day calendar is said above the review, in its own words', async () => {
+                await h.gotoStep(page, 2);
+                await page.waitForSelector('[data-cal-scan-card] [data-cal-action="scan-open"], [data-cal-scan-panel]');
+                options.calendar = { notes: [{ code: 'week_page_on_fortnight' }] };
+                try {
+                    await startScan(await picture('stranka-7-pro-14.png'));
+                    await waitPanel('review', 60000);
+                } finally {
+                    options.calendar = null;
+                }
+                assert.match(await text('[data-cal-scan-fortnight]'), /Na obrázku je jeden týden, tento kalendář je čtrnáctidenní.*první týden a druhý sloupec dnů doplnil zrcadlově — zkontrolujte ho v náhledu\. Stránku tak, jak je, převezmete u týdenního kalendáře\./);
+                assert.equal(await page.$eval('[data-cal-scan-fortnight]', (el) => el.dataset.calScanFortnight), 'week_page_on_fortnight');
+                assert.doesNotMatch(await text('[data-cal-scan-panel]'), /doplnili zrcadlově/, 'said once, above — not again under „Pro informaci“');
+                await shot('scan-18-fortnight-mismatch');
+                await page.click('[data-cal-action="scan-discard"]');
+                await h.answerDialog(page, 'confirm');
+                await h.waitToast(page, 'Návrh zahozen');
+            });
+
             await check('Nothing the pages asked for was missing (no 404)', async () => {
                 assert.deepEqual(missing, []);
             });
@@ -771,6 +841,10 @@ module.exports = {
                 // scans keep a calendar from being forgotten by the list only through their rows: drop them with it
                 psql(`DELETE FROM ai_scan WHERE calendar_id = ${quote(calendarId)}; DELETE FROM ai_usage_event WHERE project_id = ${quote(h.config.projectId)}; DELETE FROM ai_credit_ledger WHERE project_id = ${quote(h.config.projectId)};`);
                 await h.deleteCalendar(page, calendarId).catch(() => null);
+            }
+            if (fortnightId) {
+                psql(`DELETE FROM ai_scan WHERE calendar_id = ${quote(fortnightId)};`);
+                await h.deleteCalendar(page, fortnightId).catch(() => null);
             }
             fs.rmSync(tmp, { recursive: true, force: true });
         }
