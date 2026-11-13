@@ -5,7 +5,7 @@ import * as im from '../instruments/raster.mjs';
 import { elementBox } from '../adapters/template.mjs';
 import { similarity, containment, family, normalise } from './text.mjs';
 import { keepBest } from './keepbest.mjs';
-import { verifiedMatch } from '../instruments/fonts.mjs';
+import { verifiedMatch, verificationThresholds } from '../instruments/fonts.mjs';
 
 export const ROLES = ['background', 'photo', 'logo', 'icon', 'pattern', 'illustration', 'other'];
 export const SOURCE_CLASSES = ['sans', 'serif', 'slab', 'script', 'display', 'mono', 'unknown'];
@@ -157,7 +157,7 @@ export async function buildTemplateReport({ build, finish = null, unfinished = f
     // ---- the verification render: the group's own source lines, set in the face the kept design uses at the
     //      size the design gives them, compared with the source pixels (instruments/fonts.mjs verifyFaces)
     const verification = new Map(); // group → the best verified line {score, glyphs, size, scale}
-    const thresholds = { verifiedScore: build.settings.verifiedScore ?? 0.9, verifiedScoreLong: build.settings.verifiedScoreLong ?? 0.83, verifiedLongGlyphs: build.settings.verifiedLongGlyphs ?? 12 };
+    const thresholds = verificationThresholds(build.settings);
     const stats = { groups: groups.length, asked: 0, verified: 0, failed: null };
     if (verify) {
         const asks = groups.flatMap((g) => verificationLines(g.texts.map((id) => byId.get(id)), (id) => perText.get(id)?.src ?? []).map((line) => ({ g, ...line })));
@@ -213,7 +213,7 @@ export async function buildTemplateReport({ build, finish = null, unfinished = f
         const change = median(changes);
         return {
             group: g.group, role: g.role, texts: g.texts, pattern, closeness: decisive, mismatch: decisive === null ? null : +(1 - decisive).toFixed(3),
-            verified: !!v, verifiedScore: v?.score ?? null, verifiedSize: v?.size ?? null, verifiedGlyphs: v?.glyphs ?? null,
+            verified: !!v, verifiedScore: v?.score ?? null, verifiedSize: v?.size ?? null, verifiedGlyphs: v?.glyphs ?? null, verifiedInkHeight: v?.inkHeight ?? null,
             sizeChangePercent: pattern === 'nearest_available' && change !== null ? Math.round(change * 100) : 0,
             sourceClass: g.sourceClass, sourceLooksLike: g.sourceLooksLike,
             guessSupported: matched && !!g.sourceLooksLike && (normalise(g.sourceLooksLike).startsWith(family(face)) || family(face).startsWith(normalise(g.sourceLooksLike))),

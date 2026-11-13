@@ -111,7 +111,7 @@ on the 66 recorded scans of step A (the same 223 groups as the "before"), no mod
   max 0.83 — on lines of ≥ 12 glyphs max 0.76, on shorter ones max 0.83. A near twin overlaps a few
   bold glyphs almost as well as the face itself, hence the higher bar for short lines. The margin to
   the bar is 0.02–0.04: thin. The fixed target (absent → substitute in 100 %) is kept; **the
-  provisional target ≤ 10 % for present fonts is not met** (18 %).
+  provisional target ≤ 10 % for present fonts is not met** (18 %) — **met since: 0 of 68, §10.1**.
 - The 12 remaining errors are 4 lines, all Arial regular at 32–40 px with 20–33 glyphs (0.68–0.79):
   the template's renderer (Fabric canvas text) and the face sheet (HTML text) place thin strokes a
   fraction of a pixel apart. Comparing word by word instead of the whole line lifted these from
@@ -456,7 +456,7 @@ Nothing in the table has to move. Two values could be lowered once production ti
 | text box IoU | ≥ 0.85 | ≥ 0.50 |
 | "closely matching" texts | ≥ 0.85 | not a bar (see §1) |
 | absent font reported as a substitute | — | 100 % |
-| present font wrongly reported as a substitute | ≤ 20 % with the verification render (measured 18 %; before 44 %); target ≤ 10 % | — |
+| present font wrongly reported as a substitute | ≤ 20 % with the verification render (measured 18 %; before 44 %); target ≤ 10 % — **met: 0 of 68 with the sub-pixel comparison (§10.1)** | — |
 | pictures P / R | ≥ 0.85 / ≥ 0.55 | ≥ 0.75 / ≥ 0.60 |
 | cost per scan, mean / p95 | ≤ $0.25 / ≤ $0.35 | ≤ $0.40 / ≤ $0.65 |
 | whole scan, mean / p95 | ≤ 70 s / ≤ 100 s | ≤ 100 s / ≤ 160 s |
@@ -565,9 +565,9 @@ E15). Read against it:
 | Time | **met**: whole scan 31–108 s, mean 64 s (prototype agent 82 s); "Trvá to déle" (180 s) never reached; build ≤ 101 s of the 300 s cap | — |
 | ≥ 95 % of scans within the caps | **met**: 27 of 27 finished by the model, ≤ 18 of 40 turns, ≤ 3 candidates | — |
 | Font: an absent face reported as a substitute in 100 % | **not measurable here** — every face of the synthetic pages is in the project | — |
-| Font: a present face wrongly reported as a substitute (template bar ≤ 20 %) | **not met** — see 9.3 | 9 of 17 determined rows (53 %) with the verification render; 18 of 27 (67 %) without |
-| Run-to-run agreement | **not measured** (one run per input; the two runs of seven inputs differ by ≤ 0.07 mm frames, ≤ 0.15 pt type, ≤ 0.01 F1) | — |
-| Pre-check errors | 27 of 27 uploads of calendar pages passed; **nothing that is NOT a calendar page was tried** against `kind = calendar` | — |
+| Font: a present face wrongly reported as a substitute (template bar ≤ 20 %) | **not met** — see 9.3; re-measured in §10.5 | 9 of 17 determined rows (53 %) with the verification render; 18 of 27 (67 %) without |
+| Run-to-run agreement | **not measured** here (one run per input; the two runs of seven inputs differ by ≤ 0.07 mm frames, ≤ 0.15 pt type, ≤ 0.01 F1) — **measured in §10.5** (three pages five times) | — |
+| Pre-check errors | 27 of 27 uploads of calendar pages passed; **nothing that is NOT a calendar page was tried** against `kind = calendar` — **tried in §10.3: 16 of 16 stopped** | — |
 
 No bar that has a prototype reference is missed by the agent, so the fallback (single structured call +
 guarded measurement) is not called for. For the record, what it would need if type size had to go below
@@ -693,7 +693,7 @@ the source. At the right phase the true face reproduces the source's anti-aliasi
 phase. Same number of `faces` calls as before (≤ 6 a scan), sheets three times as large in each direction.
 
 Measured on the same 66 recorded scans as §0.3 (3 runs of each of the 22 inputs; 223 groups, 217 verified;
-`node eval/font-verify.mjs`, 319 renders, no model):
+`node eval/font-verify.mjs`, 319 renders, no model; the last row re-run after every change of the rule):
 
 | | present font reported as a substitute (easy + photo, 68 groups) | absent font reported as a match (hard, 155 groups) |
 |---|---|---|
@@ -701,23 +701,38 @@ Measured on the same 66 recorded scans as §0.3 (3 runs of each of the 22 inputs
 | verification at the fitted size, whole pixels, 0.85 / 0.80 from 12 glyphs (step B, §0.3) | 18 % (12 / 68) | 0 % |
 | sub-pixel, the OLD thresholds 0.85 / 0.80 | 0 % | **2 % (3 / 155)** — not acceptable |
 | sub-pixel, one threshold 0.85 | 4 % (3 / 68) | 0 % |
-| **sub-pixel, 0.90 / 0.83 from 12 glyphs — `definition.json` version 7** | **4 % (3 / 68)** | **0 % (0 / 155)** |
+| sub-pixel, 0.90 / 0.83 from 12 glyphs (`definition.json` version 7, a first cut) | 4 % (3 / 68) | 0 % |
+| **sub-pixel, 0.88 / 0.85 from 12 glyphs / 0.78 from 20 glyphs — `definition.json` version 8** | **0 % (0 / 68)** | **0 % (0 / 155)** |
 
-- **Target ≤ 10 %: met (4 %)**, with "measured match" still never wrong (0 of 155).
+- **Target ≤ 10 %: met (0 of 68)**, with "measured match" still never wrong (0 of 155).
 - Verified score, true face present: median 0.93, p10 0.89, min 0.82 (was 0.91 / 0.73 / 0.68). Absent:
-  median 0.57, p90 0.81, max 0.84 — on lines of ≥ 12 glyphs max 0.81, shorter ones max 0.84. The sub-pixel
-  search lifts both distributions (a near twin also finds its best phase), which is why the thresholds moved:
-  0.90 for a short line (margin 0.06 above the best wrong face), 0.83 from 12 glyphs (0.02 above it).
-- The three remaining errors are ONE line in three runs: `argumenty`, Arial regular 32 px, 33 glyphs, 0.816 —
-  the source and the render do not split into the same words there, so the whole line is compared (no
-  per-word shift). The margin on long lines is thin on both sides (best wrong face 0.808, worst right face
-  0.816 / next 0.853): the rule holds on these sets; a set of other typefaces could move it.
+  median 0.57, p90 0.81, max 0.84. The sub-pixel search lifts both distributions (a near twin also finds its
+  best phase), and the length of the line separates them better than one number does — the best score of
+  another face / the worst of the true face:
+
+  | Line | another face, best | the true face, worst | threshold | margin below / above |
+  |---|---|---|---|---|
+  | < 12 glyphs | 0.84 | 0.94 | **0.88** | 0.04 / 0.06 |
+  | 12–19 glyphs | 0.81 | 0.89 | **0.85** | 0.04 / 0.04 |
+  | ≥ 20 glyphs | 0.73 | 0.82 | **0.78** | 0.05 / 0.04 |
+
+  Margins of 0.04–0.06 on each side, against 0.02–0.04 on one side before. They are margins on THESE sets
+  (four families in the project; Arial, Montserrat and their neighbours among the absent faces): a set of
+  other typefaces could move them, and the launch round should re-measure both rates.
+- **Small type gets no allowance for its length** (`verifiedSmallInkPx: 22`): where the source's ink is under
+  22 px tall the short-line bar (0.88) holds whatever the glyph count. Found on calendar pages (§10.5): a
+  caption of 29 glyphs, 15 px tall, scored 0.78 in the NEIGHBOURING weight of its family and 0.74–0.81 in its
+  own — at that size two weights differ by a third of a pixel of stroke. No group of the template sets
+  changes its verdict under this guard (0 / 68 and 0 / 155 were measured with it).
+- The line that was still wrong under definition 7 — `argumenty`, Arial regular 32 px, 33 glyphs, 0.816: the
+  source and the render do not split into the same words there, so the whole line is compared — is right
+  under the three-step rule (0.816 ≥ 0.78).
 - Offline view of every pair (`node eval/font-pairs.mjs` once, then `node eval/font-metric.mjs`: 358 lines of
-  215 groups, each rendered at 1 × and at 3 ×): at 1 × no threshold gives less than 14 % wrong substitutes
-  without a wrong match; at 3 × any threshold between 0.81 and 0.85 on long lines gives 0 % / 0 %.
-- Through the scanner's own run (file driver, 25 scans of §10.4): every group of `vite-ze-2-strana` and
-  `pripomenuti-photo` `measured_match` in 5 of 5 runs; `argumenty` 2 of 3 groups in 5 of 5 (the line above);
-  the two hard inputs 0 matches in 10 runs.
+  215 groups, each rendered at 1 × and at 3 ×): at 1 × no rule gives less than 14 % wrong substitutes
+  without a wrong match.
+- Through the scanner's own run (file driver, the 25 scans of §10.4, still under definition 7): every group
+  of `vite-ze-2-strana` and `pripomenuti-photo` `measured_match` in 5 of 5 runs; `argumenty` 2 of 3 groups in
+  5 of 5 (the line above); the two hard inputs 0 matches in 10 runs. Through the real app: §10.7.
 - Tried and dropped: cutting the line into as many words as the text has, at its widest gaps — two faces do
   not put their widest gaps in the same places (`argumenty` fell to 0.67).
 

@@ -120,6 +120,26 @@ test('design_preview: a rendered candidate gets a number, measured feedback and 
     assert.equal(build.candidates.length, 2);
 });
 
+test('letter spacing is kept only where it was measured: an estimate of the model is removed and named', async () => {
+    const { tools, build } = await newBuild();
+    const tracked = structuredClone(DESIGN);
+    const text = tracked.elements[3];
+    text.letterSpacing = 240;
+    // nothing measured tracking for that face: removed, the candidate still renders
+    const invented = await tools.design_preview({ design: tracked });
+    assert.equal(invented.json.rendered, true);
+    assert.deepEqual(invented.json.letterSpacingRemoved, [text.id]);
+    assert.equal(build.candidates[0].design.elements[3].letterSpacing, undefined);
+    // a ranking that measured 250 for that face (this text's line, or another line of the same style): 240 stays, 80 does not
+    build.rankings.push({ text: 'another line of the style', candidates: [{ face: text.font, score: 0.5, size: 40, spaced: { size: 30, letterSpacing: 250 } }] });
+    text.letterSpacing = 240;
+    const kept = await tools.design_preview({ design: structuredClone(tracked) });
+    assert.equal(kept.json.letterSpacingRemoved, undefined);
+    assert.equal(build.candidates[1].design.elements[3].letterSpacing, 240);
+    const far = structuredClone(tracked); far.elements[3].letterSpacing = 80;
+    assert.deepEqual((await tools.design_preview({ design: far })).json.letterSpacingRemoved, [text.id]);
+});
+
 test('the feedback ignores what lies inside a place for a picture', async () => {
     const { tools } = await newBuild();
     const moved = structuredClone(DESIGN);

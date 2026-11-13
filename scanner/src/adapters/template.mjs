@@ -94,7 +94,7 @@ export class TemplateBuild {
             ocrLines: lines.map((l) => ({
                 id: l.id, text: l.text, conf: l.conf, box: arr(l.box),
                 ...(l.ink ? { ink: arr(l.ink.box), colour: l.ink.colourHex, backdrop: l.ink.bgHex } : { ink: null }),
-                ...(l.font?.best ? { font: { face: l.font.best.face, size: l.font.best.size, score: l.font.best.score, available: l.font.available, ...(l.font.best.spaced ? { spaced: l.font.best.spaced } : {}), next: l.font.candidates.slice(1, 3).map((c) => ({ face: c.face, score: c.score })) } } : {}),
+                ...(l.font?.best ? { font: { face: l.font.best.face, size: l.font.best.size, score: l.font.best.score, available: l.font.available, next: l.font.candidates.slice(1, 3).map((c) => ({ face: c.face, score: c.score })) } } : {}),
             })),
             notes: [
                 'boxes are [x, y, w, h] in canvas px; "box" is what OCR reported, "ink" the measured tight box of the glyphs',
@@ -205,10 +205,28 @@ export class TemplateBuild {
         return d;
     }
 
+    /**
+     * Letter spacing is a MEASURED property: a text keeps `letterSpacing` only when a ranking (pre-pass or
+     * font_rank) reported `spaced` for the face the text uses — for one of its lines, or for another line of the
+     * same style — and its value lies within ± 30 % of a measured one. Anything else is removed (a model that "sees" tracking in normally set type made an
+     * easy input worse: eval/RESULTS.md §10.6). The instructions of definition 8 do not offer the key at all —
+     * this is the guard for the day they do. → the ids it was removed from
+     */
+    #measuredTrackingOnly(design) {
+        const removed = [];
+        for (const e of design.elements ?? []) {
+            if (e.kind !== 'text' || !e.letterSpacing) continue;
+            const measured = this.rankings.flatMap((r) => (r.candidates ?? []).filter((c) => c.face === e.font && c.spaced).map((c) => c.spaced.letterSpacing));
+            if (!measured.some((v) => Math.abs(e.letterSpacing - v) <= 0.3 * v)) { delete e.letterSpacing; removed.push(e.id); }
+        }
+        return removed;
+    }
+
     async #preview(designIn, via) {
         if (this.caps.candidatesLeft() < 1) throw new ToolUserError(`the candidate budget is used (${this.caps.limits.candidates} of ${this.caps.limits.candidates} rendered) — return the final report now; the scanner keeps the best candidate`);
         if (this.caps.rejectionsLeft() < 1) throw new ToolUserError('the validation budget is used — return the final report now');
         const design = this.#snapPalette(designIn);
+        const untracked = this.#measuredTrackingOnly(design);
         this.working = design;
         this.onNote(this.candidates.length ? 'refine' : 'build');
         const res = await this.app.render(design, { purpose: 'candidate' });
@@ -229,7 +247,8 @@ export class TemplateBuild {
         const history = this.candidates.map((c) => ({ candidate: c.n, mae: c.mae }));
         return {
             json: { candidate: n, rendered: true, mae: fb.mae, placeholderShare: fb.placeholderShare, history,
-                warnings: issues.filter((i) => i.severity !== 'error'), worstCells: fb.worstCells, elements: fb.elements },
+                warnings: issues.filter((i) => i.severity !== 'error'), worstCells: fb.worstCells, elements: fb.elements,
+                ...(untracked.length ? { letterSpacingRemoved: untracked, note: 'letterSpacing was removed from these texts: it is taken only from a measurement (`spaced` of the pre-pass or of font_rank, for that face), never estimated' } : {}) },
             images: [res.image.data],
         };
     }
@@ -279,8 +298,9 @@ export class TemplateBuild {
                 const { results } = await self.#rank([{ text: line, ink: k }]);
                 const r = results[0];
                 self.rankings.push({ text: line, box: k.box, ink: k, group: typeof a.group === 'string' ? a.group.slice(0, 40) : null, origin: 'tool', ...r });
-                return { json: { text: line, ink: arr(k.box), colour: k.colourHex, backdrop: k.bgHex, available: r.available, candidates: r.candidates.slice(0, 6),
-                    note: 'size = the size at which the face sets this line exactly as wide as the source; score compares glyph shapes (1 = identical). available=false: no project face draws these glyphs — use the top face as a substitute. spaced (only when the line is clearly wider than the face sets it at the source\'s letter height): the size and letterSpacing that give the same width with space between the letters — for tracked-out type.' } };
+                // (`spaced` — the tracked-type measurement — stays inside the scanner: the instructions do not use it yet, eval/RESULTS.md §10.6)
+                return { json: { text: line, ink: arr(k.box), colour: k.colourHex, backdrop: k.bgHex, available: r.available, candidates: r.candidates.slice(0, 6).map(({ spaced, ...c }) => c),
+                    note: 'size = the size at which the face sets this line exactly as wide as the source; score compares glyph shapes (1 = identical). available=false: no project face draws these glyphs — use the top face as a substitute.' } };
             },
             async design_preview(a) {
                 if (!a.design || typeof a.design !== 'object' || !Array.isArray(a.design.elements)) throw new ToolUserError('"design" must be an object with "canvas" and "elements"');

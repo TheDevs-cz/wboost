@@ -108,7 +108,7 @@ healthy and says so (`protocol.accepted: false`, the lanes are `held`).
 | Model loop | `src/engine/` | Opus 5.5 at effort `high` gets the picture + the pre-pass as its first message and 7 tools: `scan_source`, `scan_crop`, `scan_measure`, `font_rank`, `compare_region`, `design_preview`, `design_patch` |
 | Caps | `src/caps.mjs`, `src/tools/server.mjs`, `src/run.mjs` | ≤ 40 turns, $1.50, builder 300 s, run 360 s, ≤ 3 rendered candidates, ≤ 3 validation rejections, ≤ 18 pictures (each ≤ 2576 px, ≤ 3 MB), tool timeouts 30 / 95 s |
 | Calendar scans | `src/adapters/calendar.mjs`, `src/finish/calendar-report.mjs` | the same runner with millimetre instruments — see "Calendar scans" |
-| Finish | `src/finish/`, `src/instruments/fonts.mjs` | keep-best by measurement; **font verification**: each text group's own source lines are rendered by the app in the face the kept design uses at **three times** its size and compared with the source pixels word by word **at sub-pixel positions** (`wordIouFine`: the 3 × render box-averaged onto the source's pixel grid at every grid phase) — that score decides `measured_match` (≥ 0.90; ≥ 0.83 for a line of ≥ 12 glyphs) / `nearest_available`. A text with `letterSpacing` is not verified (the face sheet has no tracking); report fields written from measurements; when the model never finished, the scanner reports alone (`unfinished`) |
+| Finish | `src/finish/`, `src/instruments/fonts.mjs` | keep-best by measurement; **font verification**: each text group's own source lines are rendered by the app in the face the kept design uses at **three times** its size and compared with the source pixels word by word **at sub-pixel positions** (`wordIouFine`: the 3 × render box-averaged onto the source's pixel grid at every grid phase) — that score decides `measured_match` (≥ 0.88; ≥ 0.85 for a line of ≥ 12 glyphs; ≥ 0.78 from 20 glyphs; type whose ink is under 22 px tall always needs 0.88) / `nearest_available`. A text with `letterSpacing` is not verified (the face sheet has no tracking), and `letterSpacing` itself is kept on a text only where a ranking measured it — the instructions do not offer the key yet (`eval/RESULTS.md` §10.6); report fields written from measurements; when the model never finished, the scanner reports alone (`unfinished`) |
 
 ## Calendar scans (kind `calendar`)
 
@@ -214,7 +214,7 @@ measure parity with the prototypes' engine.
 ## Tests
 
 ```bash
-npm test                # 230 tests, ≈ 45 s — no model, no app
+npm test                # 236 tests, ≈ 85 s — no model, no app
 npm run test:slow       # the app-outage rules at their real times (≈ 85 s)
 ```
 
@@ -240,6 +240,9 @@ node eval/precheck-eval.mjs                               # the pre-check alone
 node eval/engine-facts.mjs sdk|messages|cli               # fault injection against eval/fake-provider.mjs — no model
 node eval/e2e.mjs <input …>                               # real scans through the REAL app job core (the service must run)
 node eval/calendar.mjs --calendar <id> <input …>          # calendar scans through the real job core, scored with the prototype's scorer (CALENDAR_PROTO_DIR)
+node eval/calendar-fonts.mjs [--out <dir>]                # their font rows against the truth of the synthetic pages
+node eval/one.mjs --project <id> [--calendar <id>] [--continue] <picture | pdf>   # one scan through the job core: a PDF, another project, "Zkusit přesto"
+node eval/spread.mjs --label <label>                      # run-to-run spread of repeated runs of eval/run.mjs
 node eval/font-verify.mjs                                 # the font verification on the recorded scans, both error rates
 node eval/font-pairs.mjs && node eval/font-metric.mjs     # the pairs the verification compares, dumped once (needs the app) and scored offline (1 × vs 3 ×)
 node eval/record-contract.mjs                             # records test/contract/scanner-api.v1.json against the local app

@@ -85,7 +85,9 @@ export function batchLines(lines, { maxLines = 8, minSize = 24, maxSize = RANK_M
  * Tracked-out type. A line that is clearly WIDER than the face sets it at the size at which the face is as
  * tall as the source was set with extra space between its letters: the size is then the one read from the
  * height, and the rest of the width is letter spacing — in the DSL's unit, thousandths of an em after every
- * character. Reported only from 0.04 em (below that it is the fit's own noise) and for lines of ≥ 4 characters.
+ * character. Reported only from 0.1 em — the size is read from the ink height, a pixel of which is 3 % of a
+ * 30 px line and with it 0.03–0.05 em of apparent spacing: below 0.1 em it is the fit's own noise — and for
+ * lines of ≥ 4 characters.
  * → {spaced: {size, letterSpacing}} | {}
  */
 export function spacedFit(line, r, fontSize, byH) {
@@ -94,7 +96,7 @@ export function spacedFit(line, r, fontSize, byH) {
     if (chars < 4 || !(size > 0)) return {};
     const perChar = (line.ink.w - r.w * byH) / (chars - 1);
     const letterSpacing = Math.round(perChar / size * 1000 / 5) * 5;
-    return letterSpacing >= 40 && letterSpacing <= 1000 ? { spaced: { size: Math.round(size * 2) / 2, letterSpacing } } : {};
+    return letterSpacing >= 100 && letterSpacing <= 1000 ? { spaced: { size: Math.round(size * 2) / 2, letterSpacing } } : {};
 }
 
 /**
@@ -308,7 +310,7 @@ export async function scoreRender(src, ren, { n = 1, glyphs: count = 4 } = {}) {
  * Items whose rendered sizes lie within ±3 % share one render (≤ 8 lines). What is left between the rendered
  * and the fitted size is one resampling factor (scoreRender); a render that is more than 3 % off was fitted
  * wrongly and is rendered once more at the corrected size while the budget lasts.
- * → {results: [{score, size, scale, words, glyphs, n, wrapped} | null], renders}
+ * → {results: [{score, size, scale, words, glyphs, n, inkHeight, wrapped} | null], renders}
  */
 export async function verifyFaces({ items, renderFaces, loadRaster, signal = null, maxRenders = 6, minSize = 8, maxSize = 400, supersample = 3 }) {
     const out = items.map(() => null);
@@ -357,7 +359,7 @@ export async function verifyFaces({ items, renderFaces, loadRaster, signal = nul
                 // (a sheet that was set smaller on purpose — the width bound — is not a wrong fit)
                 const fitted = fontSize * v.scale / batch.n;
                 if (Math.abs(v.scale - 1) > 0.03 && !it.corrected && fitted >= minSize && sizeFor(fitted * batch.n, it.text.length) > fontSize * 1.03) again.push({ ...it, size: fitted, corrected: true });
-                out[it.index] = { score: +v.score.toFixed(3), size: +(fontSize / batch.n).toFixed(2), scale: +v.scale.toFixed(4), words: v.words, glyphs: glyphs(it.text), n: batch.n };
+                out[it.index] = { score: +v.score.toFixed(3), size: +(fontSize / batch.n).toFixed(2), scale: +v.scale.toFixed(4), words: v.words, glyphs: glyphs(it.text), n: batch.n, inkHeight: it.ink.h };
             }
         }
         return again;
@@ -369,12 +371,30 @@ export async function verifyFaces({ items, renderFaces, loadRaster, signal = nul
 
 /**
  * Does a verification score say "this IS the face"? A longer line is stronger evidence: a near twin of
- * the true face overlaps a few bold glyphs almost as well as the face itself. Measured with the sub-pixel
- * comparison on the 215 groups of the evaluation (eval/RESULTS.md §0.3): another face reaches 0.84 on a line
- * of < 12 glyphs and 0.81 on a longer one; the true face's best line is never below 0.85. Hence 0.90 for a
- * short line and 0.83 from 12 glyphs. Thresholds: definition.json `fonts`.
+ * the true face overlaps a few bold glyphs almost as well as the face itself, and less and less of a longer
+ * line. Measured with the sub-pixel comparison on the 223 groups of the evaluation (eval/RESULTS.md §10.1) —
+ * the best score of ANOTHER face / the worst of the TRUE face, by the length of the line:
+ *   < 12 glyphs   0.84 / 0.94   → 0.88
+ *   12–19 glyphs  0.81 / 0.89   → 0.85
+ *   ≥ 20 glyphs   0.73 / 0.82   → 0.78
+ * SMALL type gets no allowance for its length: on calendar pages (eval/RESULTS.md §10.5) a caption of 29
+ * glyphs whose ink is 15 px tall scored 0.78 in the NEIGHBOURING weight of its family and 0.74–0.81 in its own
+ * — at that size a stroke differs by a third of a pixel between two weights. Under `verifiedSmallInkPx` of
+ * ink height the short-line bar holds whatever the length.
+ * Thresholds: definition.json `fonts` (`verifiedScore`, `verifiedScoreLong` from `verifiedLongGlyphs`,
+ * `verifiedScoreLonger` from `verifiedLongerGlyphs`, `verifiedSmallInkPx`).
  */
-export function verifiedMatch(v, { verifiedScore = 0.9, verifiedScoreLong = 0.83, verifiedLongGlyphs = 12 } = {}) {
+export function verifiedMatch(v, { verifiedScore = 0.88, verifiedScoreLong = 0.85, verifiedLongGlyphs = 12, verifiedScoreLonger = null, verifiedLongerGlyphs = 20, verifiedSmallInkPx = 0 } = {}) {
     if (!v || v.wrapped) return false;
-    return v.score >= ((v.glyphs ?? 0) >= verifiedLongGlyphs ? verifiedScoreLong : verifiedScore);
+    const glyphCount = v.glyphs ?? 0;
+    const small = (v.inkHeight ?? Infinity) < verifiedSmallInkPx;
+    const bar = small ? verifiedScore : verifiedScoreLonger !== null && glyphCount >= verifiedLongerGlyphs ? verifiedScoreLonger : glyphCount >= verifiedLongGlyphs ? verifiedScoreLong : verifiedScore;
+    return v.score >= bar;
 }
+
+/** The thresholds of verifiedMatch as a build's settings carry them (definition.json `fonts`). */
+export const verificationThresholds = (settings = {}) => ({
+    verifiedScore: settings.verifiedScore ?? 0.88, verifiedScoreLong: settings.verifiedScoreLong ?? 0.85, verifiedLongGlyphs: settings.verifiedLongGlyphs ?? 12,
+    verifiedScoreLonger: settings.verifiedScoreLonger ?? 0.78, verifiedLongerGlyphs: settings.verifiedLongerGlyphs ?? 20,
+    verifiedSmallInkPx: settings.verifiedSmallInkPx ?? 22,
+});

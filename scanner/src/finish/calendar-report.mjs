@@ -4,7 +4,7 @@
 // finished (a cap), the scanner writes the report alone: `unfinished: true`.
 import { keepBest } from './keepbest.mjs';
 import { ELEMENTS, FEATURES } from '../adapters/calendar.mjs';
-import { verifiedMatch } from '../instruments/fonts.mjs';
+import { verifiedMatch, verificationThresholds } from '../instruments/fonts.mjs';
 import { normalise } from './text.mjs';
 
 export const STATES = ['found', 'approximate', 'absent'];
@@ -140,16 +140,17 @@ export async function buildCalendarReport({ build, finish = null, unfinished = f
                 fontStats.verified = verified.size;
             } catch (e) { fontStats.failed = e?.code ?? 'verify'; }
         }
-        const thresholds = { verifiedScore: build.settings.verifiedScore ?? 0.9, verifiedScoreLong: build.settings.verifiedScoreLong ?? 0.83, verifiedLongGlyphs: build.settings.verifiedLongGlyphs ?? 12 };
+        const thresholds = verificationThresholds(build.settings);
         for (const { group, face, r, own } of rows) {
             if (!r || !own) { fonts.push({ group, pattern: 'undetermined', face, closeness: null }); continue; }
             const v = verified.get(group) ?? null;
-            // too little to judge by: a line of ≤ 3 glyphs, or glyphs under 16 px tall in the picture (a 9 pt name day on a 1600 px page)
-            const short = glyphCount(r.text) <= 3 || (r.ink?.h ?? 0) < 16;
+            // too little to judge by: a line of ≤ 3 glyphs, or glyphs under 22 px tall in the picture (a 9 pt name day on a
+            // 1600 px page is 14 px: its own face and the neighbouring weight score alike — eval/RESULTS.md §10.5)
+            const short = glyphCount(r.text) <= 3 || (r.ink?.h ?? 0) < thresholds.verifiedSmallInkPx;
             const matched = v ? verifiedMatch(v, thresholds) : (r.available && r.best.face === face);
             const pattern = matched ? 'measured_match' : (short || (!v && !r.available && own.score < (build.settings.undeterminedScore ?? 0.35)) ? 'undetermined' : 'nearest_available');
             const closeness = v ? v.score : own.score;
-            fonts.push({ group, pattern, face, closeness: pattern === 'undetermined' ? null : closeness, mismatch: pattern === 'undetermined' ? null : +(1 - closeness).toFixed(3), verified: !!v, rankScore: own.score, bestFace: r.best.face, bestScore: r.best.score, glyphs: glyphCount(r.text), origin: r.origin });
+            fonts.push({ group, pattern, face, closeness: pattern === 'undetermined' ? null : closeness, mismatch: pattern === 'undetermined' ? null : +(1 - closeness).toFixed(3), verified: !!v, verifiedScore: v?.score ?? null, inkHeightPx: r.ink?.h ?? null, rankScore: own.score, bestFace: r.best.face, bestScore: r.best.score, glyphs: glyphCount(r.text), origin: r.origin });
         }
     }
 

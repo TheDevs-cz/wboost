@@ -1,5 +1,5 @@
 {
-    "version": "7",
+    "version": "8",
     "protocolVersion": 1,
     "requiresInstruments": [
         "ocr",
@@ -116,9 +116,12 @@
         "availableScore": 0.85,
         "prePassLines": 6,
         "undeterminedScore": 0.35,
-        "verifiedScore": 0.9,
-        "verifiedScoreLong": 0.83,
+        "verifiedScore": 0.88,
+        "verifiedScoreLong": 0.85,
         "verifiedLongGlyphs": 12,
+        "verifiedScoreLonger": 0.78,
+        "verifiedLongerGlyphs": 20,
+        "verifiedSmallInkPx": 22,
         "verifyRenders": 6,
         "verifySupersample": 3
     },

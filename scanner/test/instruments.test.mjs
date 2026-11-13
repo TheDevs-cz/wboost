@@ -268,8 +268,13 @@ test('the sub-pixel comparison: the same glyphs half a pixel off the grid are th
     const larger = fine({ stem: 9, pitch: 21 }), big = await sharp(Buffer.from(larger.a), { raw: { width: larger.w, height: larger.h, channels: 1 } }).resize(Math.round(larger.w * 1.04), Math.round(larger.h * 1.04), { fit: 'fill' }).raw().toBuffer({ resolveWithObject: true });
     const scaled = await scoreRender(source, { w: big.info.width, h: big.info.height, a: new Uint8Array(big.data.buffer, big.data.byteOffset, big.info.width * big.info.height * big.info.channels).filter((_, i) => i % big.info.channels === 0), sum: 1 }, { n: 3, glyphs: 16 });
     assert.ok(scaled.score > 0.9 && Math.abs(scaled.scale - 1 / 1.04) < 0.01, JSON.stringify(scaled));
-    // the rule: 0.90 for a short line, 0.83 from 12 glyphs
-    assert.deepEqual([verifiedMatch({ score: 0.84, glyphs: 30 }), verifiedMatch({ score: 0.82, glyphs: 30 }), verifiedMatch({ score: 0.89, glyphs: 6 }), verifiedMatch({ score: 0.91, glyphs: 6 }), verifiedMatch({ score: 0.99, glyphs: 30, wrapped: true })], [true, false, false, true, false]);
+    // the rule: 0.88 for a short line, 0.85 from 12 glyphs, 0.78 from 20
+    const T = { verifiedScore: 0.88, verifiedScoreLong: 0.85, verifiedLongGlyphs: 12, verifiedScoreLonger: 0.78, verifiedLongerGlyphs: 20 };
+    assert.deepEqual([verifiedMatch({ score: 0.79, glyphs: 30 }, T), verifiedMatch({ score: 0.77, glyphs: 30 }, T), verifiedMatch({ score: 0.84, glyphs: 15 }, T), verifiedMatch({ score: 0.86, glyphs: 15 }, T), verifiedMatch({ score: 0.87, glyphs: 6 }, T), verifiedMatch({ score: 0.89, glyphs: 6 }, T), verifiedMatch({ score: 0.99, glyphs: 30, wrapped: true }, T)], [true, false, false, true, false, true, false]);
+    // small type gets no allowance for its length: 29 glyphs whose ink is 15 px tall need the short-line bar
+    assert.deepEqual([verifiedMatch({ score: 0.81, glyphs: 29, inkHeight: 15 }, { ...T, verifiedSmallInkPx: 22 }), verifiedMatch({ score: 0.89, glyphs: 29, inkHeight: 15 }, { ...T, verifiedSmallInkPx: 22 }), verifiedMatch({ score: 0.81, glyphs: 29, inkHeight: 30 }, { ...T, verifiedSmallInkPx: 22 })], [false, true, true]);
+    // without the third step (an older definition) a long line is held to the 12-glyph bar
+    assert.equal(verifiedMatch({ score: 0.8, glyphs: 30 }, { verifiedScore: 0.9, verifiedScoreLong: 0.83, verifiedLongGlyphs: 12 }), false);
 });
 
 test('tracked-out type: a line wider than the face at the source\'s letter height reads as size + letter spacing', async () => {
@@ -280,6 +285,7 @@ test('tracked-out type: a line wider than the face at the source\'s letter heigh
     assert.deepEqual(spacedFit(line, r, 64, 30 / 40), { spaced: { size: 48, letterSpacing: 365 } });
     // as wide as the face sets it: nothing to report; narrower: nothing either (a condensed original is not tracking)
     assert.deepEqual(spacedFit({ text: 'KONCERT', ink: { w: 226, h: 30 } }, r, 64, 0.75), {});
+    assert.deepEqual(spacedFit({ text: 'KONCERT', ink: { w: 250, h: 30 } }, r, 64, 0.75), {}, '0.087 em: inside the noise of a size read from the ink height');
     assert.deepEqual(spacedFit({ text: 'KONCERT', ink: { w: 200, h: 30 } }, r, 64, 0.75), {});
     assert.deepEqual(spacedFit({ text: 'OK', ink: { w: 330, h: 30 } }, r, 64, 0.75), {}, 'too short to tell');
 });
