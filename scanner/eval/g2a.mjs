@@ -482,6 +482,34 @@ async function orphans() {
     console.log(JSON.stringify(out, null, 1));
 }
 
+// ---- modes: what `paused` and `off` do to scans in each state (the runbook's kill switch) --------------------
+
+async function modes() {
+    const name = `modes-${stamp()}`; const prov = await provider({ thinkMs: 2000 }); prov.use('A1-kandidat');
+    const scanner = await scannerUp(name, { providerUrl: prov.url }); const user = await new AppUser({ baseUrl: APP }).login();
+    const out = {}; consoleStatus('--mode=on');
+    // paused: one running, one waiting
+    const a = await user.start(PROJECTS[0], await freshPicture('m-a')); await user.wait(a.scan.id, { until: END, stage: 'build', timeoutS: 300 });
+    const b = await user.start(PROJECTS[0], await freshPicture('m-b')); await sleep(8000);
+    consoleStatus('--mode=paused'); const tp = Date.now();
+    const refused = await user.start(PROJECTS[0], await freshPicture('m-c'));
+    const aEnd = (await user.wait(a.scan.id, { timeoutS: 600 })).scan; await sleep(12_000);
+    const bNow = (await user.status(b.scan.id)).scan;
+    out.paused = { uploadWhilePaused: refused.ok ? 'accepted' : `${refused.code} (HTTP ${refused.http})`, theRunningScan: `${aEnd.status} ${+((Date.now() - tp) / 1000).toFixed(0)} s after the switch`, ledgerOfIt: stored(a.scan.id).ledger, theWaitingScan: { status: bNow.status, waiting: bNow.waiting }, claimsWhilePaused: scanner.logs.filter((l) => l.at >= tp && l.msg === 'claimed').length };
+    consoleStatus('--mode=on'); const bEnd = (await user.wait(b.scan.id, { timeoutS: 600 })).scan; out.paused.afterOn = bEnd.status;
+    // off: one running, one waiting
+    const c = await user.start(PROJECTS[0], await freshPicture('m-d')); await user.wait(c.scan.id, { until: END, stage: 'build', timeoutS: 300 });
+    const d = await user.start(PROJECTS[0], await freshPicture('m-e')); await sleep(6000);
+    const requestsBefore = prov.requests.length; consoleStatus('--mode=off'); const to = Date.now();
+    const aborted = await scanner.untilLog((l) => l.msg === 'run aborted' && l.scan === c.scan.id, { since: to - 100, timeoutS: 40 });
+    await sleep(8000); const late = prov.requests.slice(requestsBefore).filter((r) => String(r.url).includes('/v1/messages'));
+    const cNow = (await user.status(c.scan.id)).scan, dNow = (await user.status(d.scan.id)).scan; const up = await user.start(PROJECTS[0], await freshPicture('m-f'));
+    const ready = await user.act(a.scan.id, 'discard');
+    out.off = { theRunningScan: `${cNow.status} ${cNow.code}`, theWaitingScan: `${dNow.status} ${dNow.code}`, ledgers: [stored(c.scan.id).ledger, stored(d.scan.id).ledger], usageOfTheRunningOne: stored(c.scan.id).usageRows, scannerAbortedAfterS: aborted ? +((aborted.at - to) / 1000).toFixed(1) : null, reason: aborted?.reason ?? null, lastProviderRequestAfterS: late.length ? +((late.at(-1).at - to) / 1000).toFixed(1) : 'none after the switch', uploadWhileOff: up.ok ? 'accepted' : `${up.code} (HTTP ${up.http})`, aReadyProposalCanStillBeDiscarded: ready.scan?.status ?? ready.code };
+    consoleStatus('--mode=on'); out.audit = audit({ scanner }); out.stop = await scanner.stop(); await prov.close();
+    writeFileSync(join(OUT, `${name}.json`), JSON.stringify(out, null, 1)); console.log(JSON.stringify(out, null, 1));
+}
+
 // ---- idle --------------------------------------------------------------------------------------------------
 
 async function idle() {
@@ -608,7 +636,7 @@ async function limits() {
     console.log(JSON.stringify(out, null, 1));
 }
 
-const commands = { soak, faults, queue, kill, idle, limits, orphans, audit: async () => console.log(JSON.stringify(audit(), null, 1)) };
+const commands = { soak, faults, queue, kill, idle, limits, orphans, modes, audit: async () => console.log(JSON.stringify(audit(), null, 1)) };
 const command = argv[0];
 if (!commands[command]) { console.error(`usage: g2a.mjs ${Object.keys(commands).join(' | ')} — see the head of this file`); process.exit(2); }
 await commands[command]();

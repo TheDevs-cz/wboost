@@ -662,6 +662,25 @@ model on the plan, 2026-11-12) — nothing in the table had to move:
 | Build run (pre-pass + model loop + finish) | run cap 360 s | 37–112 s; turns ≤ 9 of 40; cost ≤ $0.60 (engine figure) of $1.50 |
 | App-backed tool through a 55 s outage + a 25 s render | tool timeout 95 s | 80–85 s, answered (real-time test) |
 
+**Measured in G2a** (`reliability-report.md`; the real app in production mode, the real scanner
+service, a replayed or faulted provider unless said, 2026-11-12 / 13; the machine was heavily loaded,
+so durations are upper bounds):
+
+| Quantity | Bound | Measured |
+|---|---|---|
+| Lost lease → requeue / fail (scanner or run killed) | L = 120 s + a reaper call | 116–123 s after the kill, ten times (real model and replay) |
+| What a killed scanner leaves running | nothing may go on spending | the run's process and the engine gone 2.3 s after the kill (real provider); before the fix the engine lived 4.7–5.0 s |
+| Cancel → the run stopped | ≤ H = 15 s | 9.3–11.8 s |
+| Mode `off` → the last provider request | ≤ H = 15 s | 1.1 s |
+| Mode `paused` | a running scan finishes | delivered 22 s later; no claim while paused |
+| Provider probe → blocked state cleared | probe every 5 min + tick 30 s | 278–295 s after the provider came back, six times |
+| Transient provider error, SDK engine | 4 retries, 2 / 8 / 20 / 30 s (pinned for the Messages loop only) | 429 and 5xx: 4 retries after ≈ 0.6, 1.2, 2.5, 4.4 s; 529: 2 retries (0.6, 1.1 s); then `failed provider_unavailable` |
+| A provider that never answers | stream idle 60 s, request 120 s, builder cap 300 s | cut at 60 s, 120 s, 120 s → cap → `failed provider_unavailable` after 312 s |
+| Status poll, 20 tabs every 2 s (estimate computed per poll) | — | p50 17 ms, p95 32 ms, p99 44 ms; 0 errors in 4 680 polls |
+| 100 scans back to back | no memory trend | scanner 96–99 MB between scans (peak in a scan ≤ 1.6 GiB on A3); `web` 293–307 MB, flat after the warm-up; Gotenberg 187 → 215 MB, still creeping (+0.1 MB a scan) |
+| Recorded cost against the engine's figure | within a few percent | equal: $26.524 over 100 replayed scans with 1-hour cache writes; $3.8098 over the 20 stored real builder rows |
+| Spend under a ceiling, a client in a loop | ≤ the ceiling | $0.27 of a $1.60 project ceiling; $0.54 of a $1.90 total ceiling — the next run's $1.50 no longer fitted |
+
 ### 4.10 Quality definition and bars (D8)
 
 **"Closely matches" per text:** right words; right face, or a reported substitute; size within
@@ -1102,7 +1121,7 @@ ships **admins-only** (`admin_only` on) behind the per-project entitlement and t
 | P1 | job core, runtime row, private storage, scanner endpoints, permissions, usage and ledger — with a fake scanner | being built |
 | P2 | the scanner (intake + template builder: Opus agent with the pre-pass on the Agent SDK) and the measurements of the former Phase 0 that need no outside input | being built |
 | P3 | Šablony wizard, accept, export rule, notification, access request, `scan_design` (templates), `create_template` | approved |
-| G2a | reliability gate, the part that runs locally | gate |
+| G2a | reliability gate, the part that runs locally | **passed 2026-11-13** — `reliability-report.md`; its open points go to G2b |
 | P4 | scanner on the box; G2b (reliability on the box); admins scan in production | approved |
 | P5 | calendars, on the same agent runner | approved |
 | Launch round | outside-made designs with their fonts and real calendar pages, 3 runs each on the API key, rated blind by the named designer; bars fixed | gate for P6 — inputs and the designer are owed by the owner |
