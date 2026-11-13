@@ -1,4 +1,4 @@
-# AI sken — the job core (P1), the review, accept, notifications, access request and MCP (P3 backend) and the wizard (P3 UI)
+# AI sken — the job core (P1), the review, accept, notifications, access request and MCP (P3 backend) and the wizard (P3 UI), the admin tab and operating e-mails (P4)
 
 "AI sken" turns a flat picture of a design into an editable template (later:
 a calendar layout). A picture is uploaded, a **scanner** — a separate service
@@ -16,8 +16,10 @@ tools `scan_design` and `create_template` (everything from § "Review state"
 on); and the **wizard in the browser** (§ "UI"): the page "Šablona z obrázku",
 the card in "Nová šablona", the scan cards above the template list, "Historie
 skenů", the shell's badge and toast, the export dialog and the admin's
-switches. **What does not:** the scanner on the box and the admin tab
-"AI skeny" (P4); calendars (P5).
+switches; and the app side of P4: the **admin tab "AI skeny"** on
+`/admin/usage` (§ "Admin tab") and the **operating e-mails to admins** with
+`app:ai-scan:watch` (§ "Operating e-mails"). **What does not:** calendars
+(P5). The scanner on the box is infrastructure — `docs/ai-scan/runbook.md`.
 
 **The feature is inert unless switched on.** Operating mode defaults to `off`,
 `admin_only` to on, every project's entitlement to off, and the scanner
@@ -27,7 +29,8 @@ is the locked card "Šablona z obrázku" with a live "Požádat o přístup" (an
 editor of a project; a viewer sees nothing): no strip, no badge, no request
 from any page (`AiScanListSurfacesTest`, `AiScanShellAndAdminTest`). An admin
 switches a project on in "Funkce Premium" on the edit-project page (or on the
-user's page) and the mode with `app:ai-scan:status`.
+user's page, or in the admin tab) and the mode in the admin tab "AI skeny" or
+with `app:ai-scan:status`.
 
 ## Map
 
@@ -44,7 +47,9 @@ user's page) and the mode with `app:ai-scan:status`.
 | User side | messages `Message/AiScan/*` + handlers; `Controller/AiScan/*` (JSON); `Controller/Project/SetProjectAiScanController` (admin switch) |
 | Permissions | `AiScanAccess` + `Services/Security/AiScanVoter` |
 | Definition sent to the scanner | `resources/ai-scan/definition/**`, read by `AiScanDefinition` |
-| Commands | `app:ai-scan:status`, `app:ai-scan:purge`, `app:ai-scan:fake-run` |
+| Commands | `app:ai-scan:status`, `app:ai-scan:watch`, `app:ai-scan:purge`, `app:ai-scan:fake-run` |
+| Admin tab (P4) | `Query/{GetAiUsageOverview,AiUsageOverview}`, `Controller/Admin/{AdminUsageController,SetAiScanRuntimeController}`, `templates/admin/_usage_ai_scans.html.twig`, `ai-*` in `assets/styles/nocturne/admin.css` |
+| Operating e-mails (P4) | `Value/AiScan/AiScanAlertCode`, `Services/AiScan/{AiScanConditions,AiScanCondition,AiScanAlerts}`, `Entity/AiScanAlert`, `ConsoleCommands/AiScanWatchConsoleCommand`, `templates/emails/ai_scan_alert.html.twig` |
 | Review (P3) | `Services/AiScan/Template/{ApplyFixes,ScanProposal,ScanProposalView}` — replay of fixes, state, the document the screens read; messages `ApplyAiScanFix`, `RateAiScan` |
 | Pictures (P3) | `Services/AiScan/Template/{ScanPictureUpload,ScanGalleryFolders,ScanUploads}`; `AiScanStandIn::projectFile()` |
 | Accept (P3) | `Message/AiScan/AcceptTemplateScan` + handler |
@@ -216,6 +221,7 @@ decoded in the web process: normalising is the scanner's intake.
 | `POST /project/{projectId}/ai-scan/access-request` | `ProjectVoter::EDIT` (the handler refuses whoever can already start scans there) |
 | `GET /admin/ai-scan/access-requests`, `POST /admin/ai-scan/access-request/{id}/{approve\|dismiss}` | `ROLE_ADMIN` |
 | `POST /project/{projectId}/ai-scan/entitlement` | `ROLE_ADMIN` + session CSRF token `project_ai_scan` |
+| `GET /admin/usage` (tab "AI skeny"), `POST /admin/ai-scan/runtime` (`admin_ai_scan_runtime`) | `ROLE_ADMIN`; the POST + session CSRF token `admin_ai_scan_runtime` |
 | `/internal/scanner/*` | the scanner only (below) |
 | MCP `scan_design` | scope `ai:scan`, then START / USE per action |
 
@@ -232,7 +238,10 @@ issue. Codes: `docs/ai-scan/architecture.md` §5.6.
 
 `ai_scan_runtime` has one row: `mode` (`on` / `paused` / `off`), `admin_only`,
 `max_running`, the two ceilings, daily starts, provider state, when the
-scanner was last seen and whether it is too old, the breaker's counters. Read
+scanner was last seen and whether it is too old, the breaker's counters and
+`breaker_tripped_at` (set when the BREAKER pauses the feature, cleared
+whenever an admin sets a mode — it is what tells its pause from one set by
+hand). Read
 on every use (never cached), so a change takes effect on the next request:
 
 ```bash
@@ -246,6 +255,105 @@ every scan in progress as `interrupted`, refunded. `waiting` (shown on a
 waiting scan, never stored) is derived from this row: `paused`,
 `scanner_absent` (no scanner call for 60 s), `scanner_too_old`,
 `provider_blocked`.
+
+The same row is written from the admin tab (below). `SetAiScanRuntime` with
+nothing set writes nothing — ask `changesNothing()`, never `== new
+SetAiScanRuntime()` (loosely compared, `false` and `0` equal "leave as it
+is": `--admin-only=0` alone used to be ignored).
+
+## Admin tab "AI skeny" (P4)
+
+The fourth tab of `/admin/usage` (`#ai-skeny`; ux.md §9.4) — the web version
+of `app:ai-scan:status`. `GetAiUsageOverview::overview()` reads everything
+(raw SQL, no entity, **no reaper**: looking at the page changes nothing) and
+`templates/admin/_usage_ai_scans.html.twig` draws four blocks:
+
+- **Provoz** — the mode segment, "Jen administrátoři", the three numbers
+  (denní strop, strop projektu, souběžně), the facts line (waiting, oldest
+  waiting, running, scanner last seen + version, provider) and the spend of
+  today against the ceiling (with what running scans reserve) and of the
+  month. Rose `.notice`s, only while the mode is not `off`:
+  `scanner_absent` (the users' 60 s), `scanner_too_old`, `provider_blocked`,
+  `spend_ceiling` (today's total + one run's budget no longer fits — what
+  refuses uploads), `breaker_tripped`.
+- **Žádosti o přístup** — the open requests of every project; each row is its
+  own `ai-scan-admin` controller (the existing JSON endpoints).
+- **Projekty** — projects with AI scan on or with any use; the others fold
+  under "Ostatní projekty". The switch is the edit-project form
+  (`project_ai_scan_set`) with `return_to=admin_ai_scans`, which brings the
+  admin back here. Month / total = counted scans (ledger), cost = usage rows.
+- **Skeny** — every scan in progress (oldest first, tinted), then the last
+  50 ended: when, project, user, module, state + code, try (↻ = restarted),
+  duration, tokens, cost, credit of the current try (`rezervován` /
+  `započten` / `vrácen`), rating, channel, memory / CPU (`resources.peakRssMb`
+  / `cpuSeconds` of the last heartbeat) and the links "Otevřít sken"
+  (`ai_scan_page`) and "Otevřít projekt".
+
+**Writes** are plain forms (never nested) to `POST /admin/ai-scan/runtime`
+(`SetAiScanRuntimeController`, route `admin_ai_scan_runtime`), which
+dispatches the same `SetAiScanRuntime` the console command does — so a change
+is effective on the next request and `off` runs rule 13a. Fields, all
+optional, only what is sent changes: `mode` `on` \| `paused` \| `off`,
+`confirmed`, `admin_only` `0` \| `1`, `daily_ceiling_usd`,
+`project_ceiling_usd` (0–1000, decimal comma accepted), `max_running` (1–8).
+**`mode=off` needs `confirmed=1`** unless the mode is `off` already: the
+"Vypnuto" button opens a Bootstrap modal whose own form sends it. A value
+that makes no sense is a flash notice and a redirect, never an exception.
+The answer is always a redirect to `/admin/usage#ai-skeny`.
+
+Tables become cards in a narrow container (`.ai-wrap` is a size container;
+each cell carries its label in `data-l`). The tab list lives in
+`usage_stats_controller.js` (`TABS`).
+
+Not built of ux.md §9.4: a row menu (the two links are plain), "Zobrazit
+hodnocení" as a dialog (the note of a 👎 is the pill's `title`), the review
+page's link "Využití tohoto skenu", and paging of the scans table.
+
+## Operating e-mails (P4)
+
+`AiScanConditions::evaluate()` reads the runtime row, the queue and today's
+usage and answers one `AiScanCondition` per `AiScanAlertCode`:
+
+| Code | True when | Since |
+|---|---|---|
+| `scanner_absent` | no scanner call for 180 s (or never), and it is not "too old" | `scanner_seen_at` |
+| `scanner_too_old` | `scanner_too_old` | first seen by the watch |
+| `provider_blocked` | `provider_state = blocked` — announced after it lasted 10 min | first seen by the watch |
+| `breaker_tripped` | mode `paused` AND `breaker_tripped_at` set | `breaker_tripped_at` |
+| `spend_80` | RECORDED spend of the day ≥ 80 % of the daily ceiling, and one more run still fits | first seen |
+| `spend_ceiling` | recorded spend + one run's budget > the daily ceiling (`AiScanSpend::dayExhausted()`) | first seen |
+| `queue_stalled` | the oldest `checking` / `queued` scan waits > 15 min | its `waiting_since` |
+
+The spend conditions use recorded spend on purpose: it only grows within a
+day, while the total with reservations goes up and down with every run.
+
+`AiScanAlerts::run()` — what **`app:ai-scan:watch`** runs — sends to the
+admins' notification list (`SIGNUP_NOTIFICATION_EMAILS`, as the access
+request does), with one row per code in **`ai_scan_alert`** (`active_since`,
+`opened_at`, `last_sent_at`, `cleared_at`):
+
+- a condition that is true and not announced is announced once
+  (`opened_at`); `provider_blocked` only after its 10 minutes;
+- while it lasts: **one reminder per 24 h** (`last_sent_at`);
+- when an announced condition ends: **one "back to normal"** mail — except
+  `spend_80`, which closes silently;
+- a condition that comes back is not announced again sooner than 30 min
+  after its last mail (`REOPEN_QUIET_SECONDS`);
+- **mode `off`: nothing opens and nothing is reminded**; a condition that was
+  announced and really ended is still closed with its mail (and one that
+  still holds stays open, silently);
+- no recipients configured → nothing is evaluated.
+
+**Every mail is claimed first** by a conditional update of the row
+(`claimOpen` / `claimReminder` / `claimClose` — "… WHERE opened_at IS NULL",
+"… WHERE last_sent_at = <what I read>", "… WHERE opened_at = <what I read>");
+whoever changed the row sends, so two runs at once send one mail. A mail the
+mailer refuses gives its claim back (the next run sends it) and the command
+exits 1. The mails are fixed Czech sentences with codes, numbers and times:
+what happened, since when, what to do, a button to `/admin/usage#ai-skeny`.
+
+Not built of architecture.md §7's list: "a project paused for refusals"
+(nothing pauses a project).
 
 ## Scanner API — the contract between the app and `scanner/`
 
@@ -737,7 +845,8 @@ network retry.
 - **Admin**: the open access requests of a project are rows in "Funkce
   Premium" (`ai_scan_admin_controller.js` → `ai_scan_access_request_resolve`);
   the admin's user page has the switch per owned project (`form=` anchors,
-  `return_user` — a uuid — brings the admin back).
+  `return_user` — a uuid — brings the admin back). The tab "AI skeny" is
+  § "Admin tab".
 
 ### Deviations from `docs/ai-scan/ux.md` (UI)
 
@@ -762,7 +871,7 @@ network retry.
   would cover the whole proposal) and its card has no `⋯` menu.
 - **History** has no `Šablony` / `Kalendáře` chips and "Nový sken" is a plain
   link (calendar scans do not exist yet); the read-only page has no "Využití
-  tohoto skenu" link and the admin box no "Využití →" (P4).
+  tohoto skenu" link and the admin box no "Využití →".
 - The read-only page lists a decision as open or settled from the proposal;
   it does not know what was changed in the editor afterwards.
 
@@ -810,6 +919,7 @@ and greps a whole run's log records.
 | Command | Does |
 |---|---|
 | `app:ai-scan:status [--mode=…] [--admin-only=0\|1] [--max-running=N] [--daily-ceiling-usd=…] [--project-ceiling-usd=…] [--daily-starts-user=N] [--daily-starts-project=N] [--reap]` | shows the state; with options writes the runtime row |
+| `app:ai-scan:watch` | no options. Evaluates the operating conditions and e-mails the admins what is due (§ "Operating e-mails"). One line per action (`opened <code>`, `reminded <code>`, `cleared <code>`), nothing when there is nothing to do; exit 0, or 1 when a mail could not be handed over (`failed <code> …`, the claim is given back). Cron, every 5 minutes; safe to run twice at once |
 | `app:ai-scan:purge` | reaper, expiry, orphan files, leftover usage rows — nightly host cron on the box (`ai-scan-purge`, 03:00 Europe/Prague) |
 | `app:ai-scan:fake-run <project-id> <user-email> [--scenario=happy\|stop\|fail\|refuse\|cancel\|hang\|all] [--beats=N] [--beat-interval=S] [--no-render]` | a fake scanner; **refuses in production** |
 
@@ -863,6 +973,12 @@ docker compose exec web bin/console app:ai-scan:status --mode=off
   Chrome through the wizard against the dev stack while
   `tests/e2e/ai-scan/lib/fake-scanner.cjs` plays the scanner over the real
   scanner API. Not part of CI.
+- P4: `tests/Controller/Admin/AdminAiScansTabTest` (who sees and writes the
+  tab, every form of the strip against the runtime row, `off` asking first
+  and interrupting scans, the page empty / with requests, projects and
+  scans), `tests/Services/AiScan/AiScanAlertsTest` (each condition opens
+  once, the reminder, the end, the quiet half hour, nothing while `off`, a
+  claim won once, the watch command — time is passed to `run($now)`).
 - **Fault injection** — real races between forked processes, outside DAMA's
   transaction (`tests/FaultInjection/`: `AiScanRaceTest` — claims, cancels,
   the reaper, starts, a replaced run's usage; `AiScanReviewRaceTest` — accept
@@ -886,6 +1002,12 @@ docker compose exec web bin/console app:ai-scan:status --mode=off
 - The peer check reads `REMOTE_ADDR`, not `Request::getClientIp()` — the latter
   honours `X-Forwarded-For` from trusted proxies and would let the public
   router's requests through.
+- The watch's claims are conditional updates on `ai_scan_alert`; under DAMA's
+  single connection two "processes" are two calls with what the first one
+  read (`AiScanAlertsTest::testAClaimIsWonOnce`).
+- An absolutely positioned child (`.visually-hidden`) of a horizontally
+  scrolling table widens the PAGE unless the scroller is positioned —
+  `.ai-wrap` is `position: relative` for that.
 - Advisory locks are per database session and re-entrant: under DAMA's single
   connection a test must hold them from a SECOND connection to see
   `renderer_busy`.

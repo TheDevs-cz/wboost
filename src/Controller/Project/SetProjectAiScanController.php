@@ -69,6 +69,11 @@ final class SetProjectAiScanController extends AbstractController
             return $this->redirect($this->generateUrl('admin_edit_user', ['id' => $returnUser]) . '#user-projects');
         }
 
+        // … and on the admin tab „AI skeny“ (ux.md §9.4) — a fixed word, never a URL.
+        if ($request->request->getString('return_to') === 'admin_ai_scans') {
+            return $this->redirect($this->generateUrl('admin_usage') . '#ai-skeny');
+        }
+
         return $this->redirect($this->generateUrl('edit_project', ['id' => $project->id->toString()]) . '#project-ai-scan');
     }
 }

@@ -6,8 +6,9 @@ what was tried before this was written: `reliability-report.md`.
 
 Every command below was run against the local stack while this was written (G2a). What is **not yet
 there** is said where it matters: the scanner runs on the box since 2026-11-13 (P4 — "Production" below is what was done and measured there), the admin tab
-("AI skeny") comes with P4, and the app sends **no operating e-mail to admins** yet — until then the
-console command is the only view (see "What is not built").
+("AI skeny" on `/admin/usage`) shows and changes the same things as the console command, and the app
+e-mails the admins about operating conditions (`app:ai-scan:watch`, every 5 minutes from cron — see
+`docs/architecture/ai-scan.md` § "Operating e-mails"). What is still missing: "What is not built".
 
 ## Where things are
 
@@ -291,12 +292,15 @@ missing rows older than 24 h, leftover candidate renders, open usage rows of sca
 in progress, due e-mails and the one reminder 3 days before a proposal expires. Safe to run at any time
 and twice.
 
-## What is not built (as of G2a)
+## What is not built
 
-- **Operating e-mails to admins** (provider blocked, circuit breaker, a ceiling at 80 % / 100 %, oldest
-  waiting > 15 min, scanner too old, a project paused for refusals — architecture §7): none is sent.
-  Until they exist somebody has to look at `status`; the scanner's `/health` feeds the box's
-  unhealthy-container alert only once the service is deployed. This is on the list for G2b (item 7).
-- **The admin tab** ("AI skeny", P4): `status --scans` / `--scan` stand in for it.
+- **An e-mail for "a project paused for refusals"** (architecture §7 lists it): nothing pauses a project,
+  so nothing is sent. The other operating e-mails exist — scanner not answering (3 min), scanner too
+  old, provider blocked (10 min), circuit breaker, spend at 80 % / at the ceiling, a scan waiting
+  > 15 min: once when it starts, one reminder a day, once when it ends, nothing while the mode is `off`.
+  They depend on the cron line `*/5 * * * * … bin/console app:ai-scan:watch`; without it nothing is sent.
+- **In the admin tab**: cancelling one scan and the per-scan history / usage rows — `status --cancel=<id>`
+  and `status --scan=<id>` stay the way to do that; the scans table has no paging (in progress + the last
+  50 ended).
 - **Reconciliation** of recorded spend against the provider's report: an operations task (weekly,
   ± 10 %), first done on the ten production scans of P4.

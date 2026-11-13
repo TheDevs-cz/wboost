@@ -40,7 +40,7 @@ use WBoost\Web\Value\AiScan\AiScanMode;
  *     bin/console app:ai-scan:status --cancel=<id>       # cancel a scan in progress, as its user would
  *
  * Ids, codes, numbers and e-mail addresses only — never a design's text.
- * (The admin screen for the same switches comes with the admin tab.)
+ * The same switches are on the admin tab „AI skeny“ of /admin/usage.
  */
 #[AsCommand('app:ai-scan:status', 'AI scan: show the operating state; change mode and limits with options')]
 final class AiScanStatusConsoleCommand extends Command
@@ -103,7 +103,7 @@ final class AiScanStatusConsoleCommand extends Command
             dailyStartsProject: self::intOption($input, 'daily-starts-project'),
         );
 
-        if ($change != new SetAiScanRuntime()) {
+        if (!$change->changesNothing()) {
             $this->bus->dispatch($change);
             $io->success('Runtime row updated — effective on the next request.');
         }

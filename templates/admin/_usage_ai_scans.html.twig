@@ -1,0 +1,313 @@
+{#
+    Admin › Statistiky › AI skeny (ux.md §9.4) — the web version of
+    `app:ai-scan:status`: the operating strip (mode, "Jen administrátoři",
+    the three numbers, facts, spend, rose notices), open access requests,
+    every project with its switch, and the scans.
+
+    Data: GetAiUsageOverview (`ai`). Writes are plain forms — never nested:
+      - the strip            → admin_ai_scan_runtime (SetAiScanRuntimeController)
+      - a project's switch   → project_ai_scan_set, `return_to=admin_ai_scans`
+      - a request            → ai_scan_admin_controller (JSON endpoint), one
+                               controller per row so its toast names the project
+    „Vypnuto“ opens a Bootstrap modal first: it interrupts scans in progress.
+    Styles: assets/styles/nocturne/admin.css (`ai-*`); tables become cards in
+    a narrow container (`data-l` is the cell's label there).
+#}
+{% import 'admin/_macros.html.twig' as adm %}
+
+{% macro usd(micro) -%}
+    {{- (micro / 1000000)|number_format(2, ',', ' ') }} $
+{%- endmacro %}
+
+{# 20000000 → "20", 7500000 → "7.50" — the value of an amount field. #}
+{% macro amount(micro) -%}
+    {%- set v = micro / 1000000 -%}
+    {{- v == v|round ? v|round : v|number_format(2, '.', '') -}}
+{%- endmacro %}
+
+{% macro dur(seconds) -%}
+    {%- if seconds < 90 -%}{{ seconds }} s
+    {%- elseif seconds < 5400 -%}{{ (seconds / 60)|round }} min
+    {%- else -%}{{ (seconds / 3600)|round(0, 'floor') }} h {{ ((seconds % 3600) / 60)|round(0, 'floor') }} min
+    {%- endif -%}
+{%- endmacro %}
+
+{% macro status(scan) -%}
+    {%- set labels = {checking: 'Kontrola', queued: 'Ve frontě', running: 'Běží', ready: 'Návrh připraven', accepted: 'Šablona vytvořena', discarded: 'Zahozen', cancelled: 'Zrušen', stopped: 'Zastaven', failed: 'Nezdařil se', refused: 'Odmítnut', expired: 'Vypršel'} -%}
+    {%- set tone = scan.inProgress ? 'pch' : (scan.status in ['ready', 'accepted'] ? 'mint' : (scan.status in ['failed', 'refused'] ? 'rose' : 'neutral')) -%}
+    <span class="pill {{ tone }}">{{ labels[scan.status] ?? scan.status }}</span>
+    {%- if scan.code %} <code class="ai-code">{{ scan.code }}</code>{% endif -%}
+{%- endmacro %}
+
+{% macro project_rows(projects) %}
+    {% import _self as m %}
+    {% for project in projects %}
+        <tr>
+            <th scope="row" class="ai-main" data-l="Projekt"><a href="{{ path('edit_project', {id: project.id}) }}#project-ai-scan">{{ project.name }}</a></th>
+            <td class="ai-l" data-l="Vlastník" title="{{ project.ownerEmail }}">{{ project.ownerName ?: project.ownerEmail }}</td>
+            <td data-l="AI sken">
+                <form method="post" action="{{ path('project_ai_scan_set', {projectId: project.id}) }}" class="ai-sw">
+                    <input type="hidden" name="_token" value="{{ csrf_token('project_ai_scan') }}">
+                    <input type="hidden" name="enabled" value="{{ project.enabled ? '0' : '1' }}">
+                    <input type="hidden" name="return_to" value="admin_ai_scans">
+                    <button type="submit" class="sw sm c-success{{ project.enabled ? ' on' }}" role="switch" aria-checked="{{ project.enabled ? 'true' : 'false' }}"
+                            aria-label="{{ project.enabled ? 'Vypnout' : 'Zapnout' }} AI sken pro projekt {{ project.name }}" title="{{ project.enabled ? 'Vypnout' : 'Zapnout' }}"></button>
+                </form>
+            </td>
+            <td data-l="Tento měsíc">{{ project.month }}</td>
+            <td data-l="Limit">{{ project.limit is null ? 'bez limitu' : project.limit }}</td>
+            <td data-l="Celkem">{{ project.total }}</td>
+            <td data-l="Náklady" title="Celkem {{ m.usd(project.costTotalMicroUsd) }}">{{ project.costMonthMicroUsd or project.costTotalMicroUsd ? m.usd(project.costMonthMicroUsd) : '—' }}</td>
+        </tr>
+    {% endfor %}
+{% endmacro %}
+
+{% macro project_table(projects, caption) %}
+    {% import _self as m %}
+    <div class="ai-wrap">
+        <table class="st-table ai-tbl">
+            <caption class="visually-hidden">{{ caption }}</caption>
+            <thead>
+                <tr>
+                    <th scope="col" class="ai-main">Projekt</th>
+                    <th scope="col" class="ai-l">Vlastník</th>
+                    <th scope="col">AI sken</th>
+                    <th scope="col">Tento měsíc</th>
+                    <th scope="col">Limit</th>
+                    <th scope="col">Celkem</th>
+                    <th scope="col">Náklady</th>
+                </tr>
+            </thead>
+            <tbody>{{ m.project_rows(projects) }}</tbody>
+        </table>
+    </div>
+{% endmacro %}
+
+{% import _self as m %}
+{% set rt = ai.runtime %}
+{% set mode = rt.mode.value %}
+{% set active_projects = ai.projects|filter(p => p.enabled or p.total > 0 or p.month > 0 or p.costTotalMicroUsd > 0) %}
+{% set other_projects = ai.projects|filter(p => not (p.enabled or p.total > 0 or p.month > 0 or p.costTotalMicroUsd > 0)) %}
+
+<p class="cap st-lead">
+    Provoz AI skenu, žádosti o přístup, projekty a jednotlivé skeny. Změna provozu platí od dalšího požadavku, bez nasazení.
+    Stejné údaje ukazuje příkaz <code>app:ai-scan:status</code>.
+</p>
+
+{# =========================================================== Provoz #}
+<div class="st-card ai-op" id="ai-provoz">
+    <div class="st-card-h">
+        <div><h2>Provoz</h2>
+            <span class="cap"><strong>Pozastaveno</strong> = žádná nová nahrání a žádné nové běhy; kontrola návrhů a vytváření šablon fungují dál.
+                <strong>Vypnuto</strong> = navíc přeruší běžící i čekající skeny (nezapočítají se).</span></div>
+    </div>
+
+    {% for notice in ai.notices %}
+        <p class="notice ai-notice" role="status" data-notice="{{ notice }}">{{ icon('alert', 's16') }}<span>
+            {%- if notice == 'scanner_absent' -%}
+                Skener neodpovídá{% if ai.scannerSeenSeconds is not null %} {{ m.dur(ai.scannerSeenSeconds) }}{% else %} — ještě se neozval{% endif %}
+            {%- elseif notice == 'scanner_too_old' -%}
+                Skener je příliš starý
+            {%- elseif notice == 'provider_blocked' -%}
+                Poskytovatel odmítá náš účet — ověřujeme každých 5 min
+            {%- elseif notice == 'spend_ceiling' -%}
+                Denní strop dosažen
+            {%- elseif notice == 'breaker_tripped' -%}
+                Pozastaveno po třech chybách za sebou{% if rt.failureClass %} (<code>{{ rt.failureClass }}</code>){% endif %} — po nápravě provoz znovu zapněte
+            {%- endif -%}
+        </span></p>
+    {% endfor %}
+
+    <div class="ai-op-row">
+        <form method="post" action="{{ path('admin_ai_scan_runtime') }}" class="ai-op-mode">
+            <input type="hidden" name="_token" value="{{ csrf_token('admin_ai_scan_runtime') }}">
+            <div class="seg" role="group" aria-label="Provozní režim">
+                <button type="submit" name="mode" value="on" class="{{ mode == 'on' ? 'on' }}" aria-pressed="{{ mode == 'on' ? 'true' : 'false' }}">Zapnuto</button>
+                <button type="submit" name="mode" value="paused" class="{{ mode == 'paused' ? 'on' }}" aria-pressed="{{ mode == 'paused' ? 'true' : 'false' }}">Pozastaveno</button>
+                {% if mode == 'off' %}
+                    <button type="button" class="on" aria-pressed="true">Vypnuto</button>
+                {% else %}
+                    <button type="button" aria-pressed="false" aria-haspopup="dialog" data-bs-toggle="modal" data-bs-target="#aiScanOffModal">Vypnuto</button>
+                {% endif %}
+            </div>
+        </form>
+
+        <form method="post" action="{{ path('admin_ai_scan_runtime') }}" class="ai-op-admin">
+            <input type="hidden" name="_token" value="{{ csrf_token('admin_ai_scan_runtime') }}">
+            <input type="hidden" name="admin_only" value="{{ rt.adminOnly ? '0' : '1' }}">
+            <button type="submit" id="aiAdminOnly" class="sw c-success{{ rt.adminOnly ? ' on' }}" role="switch" aria-checked="{{ rt.adminOnly ? 'true' : 'false' }}" aria-labelledby="aiAdminOnlyL"></button>
+            <span class="who"><b id="aiAdminOnlyL">Jen administrátoři</b>
+                <span class="cap">{{ rt.adminOnly ? 'Skeny spouštějí jen administrátoři.' : 'Skeny spouštějí i editoři projektů se zapnutým AI skenem.' }}</span></span>
+        </form>
+    </div>
+
+    <p class="ai-op-facts">
+        <span>Ve frontě <b>{{ ai.waiting }}</b></span>
+        {% if ai.oldestWaitingSeconds is not null %}<span>nejstarší čeká <b>{{ m.dur(ai.oldestWaitingSeconds) }}</b></span>{% endif %}
+        <span>běží <b>{{ ai.running }}</b></span>
+        <span>skener {% if ai.scannerSeenSeconds is null %}se ještě neozval{% else %}naposledy před <b>{{ m.dur(ai.scannerSeenSeconds) }}</b>{% if rt.scannerVersion %} (verze {{ rt.scannerVersion }}){% endif %}{% endif %}</span>
+        <span>poskytovatel {% if rt.providerState.value == 'ok' %}v pořádku{% else %}odmítá náš účet{% if rt.providerError %} (<code>{{ rt.providerError }}</code>){% endif %}{% endif %}</span>
+    </p>
+    <p class="ai-op-facts">
+        <span>Dnes utraceno <b>{{ m.usd(ai.spentTodayMicroUsd) }}</b> z {{ m.usd(rt.dailyCeilingMicroUsd) }}
+            {%- if ai.reservedMicroUsd > 0 %} (z toho {{ m.usd(ai.reservedMicroUsd) }} rezervováno {{ ai.running == 1 ? 'běžícím skenem' : 'běžícími skeny' }}){% endif %}</span>
+        <span>tento měsíc <b>{{ m.usd(ai.spentMonthMicroUsd) }}</b></span>
+    </p>
+
+    <form method="post" action="{{ path('admin_ai_scan_runtime') }}" class="ai-op-nums">
+        <input type="hidden" name="_token" value="{{ csrf_token('admin_ai_scan_runtime') }}">
+        <label class="ai-num"><span class="lbl">Denní strop</span>
+            <span class="ai-num-f"><input type="text" inputmode="decimal" name="daily_ceiling_usd" class="form-control" value="{{ m.amount(rt.dailyCeilingMicroUsd) }}" autocomplete="off" required><span aria-hidden="true">$</span></span></label>
+        <label class="ai-num"><span class="lbl">Strop projektu</span>
+            <span class="ai-num-f"><input type="text" inputmode="decimal" name="project_ceiling_usd" class="form-control" value="{{ m.amount(rt.projectDailyMicroUsd) }}" autocomplete="off" required><span aria-hidden="true">$</span></span></label>
+        <label class="ai-num"><span class="lbl">Souběžně</span>
+            <span class="ai-num-f"><input type="number" name="max_running" class="form-control" min="1" max="8" step="1" inputmode="numeric" value="{{ rt.maxRunning }}" required></span></label>
+        <button type="submit" class="btn btn-light">Uložit</button>
+        <span class="cap">Stropy platí na den (Europe/Prague) a počítají i rezervu běžících skenů.</span>
+    </form>
+</div>
+
+{# „Vypnuto“ interrupts scans in progress: ask first. Its own form, outside the others. #}
+{% if mode != 'off' %}
+    <div class="modal fade" id="aiScanOffModal" tabindex="-1" aria-hidden="true" aria-labelledby="aiScanOffModalH" role="alertdialog">
+        <div class="modal-dialog modal-dialog-centered">
+            <form class="modal-content" method="post" action="{{ path('admin_ai_scan_runtime') }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('admin_ai_scan_runtime') }}">
+                <input type="hidden" name="mode" value="off">
+                <input type="hidden" name="confirmed" value="1">
+                <div class="modal-header">
+                    <h4 class="modal-title" id="aiScanOffModalH">Vypnout AI sken?</h4>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zavřít"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Vypnutí hned přeruší běžící i čekající skeny{% if ai.inProgress > 0 %} — teď {{ ai.inProgress == 1 ? 'je to 1 sken' : (ai.inProgress < 5 ? 'jsou to ' ~ ai.inProgress ~ ' skeny' : 'je to ' ~ ai.inProgress ~ ' skenů') }}{% endif %}. Skončí jako přerušené a nezapočítají se.</p>
+                    <p class="cap mb-0">Hotové návrhy půjde dál zkontrolovat a dokončit. Chcete-li jen zastavit nové skeny a nechat běžící doběhnout, zvolte Pozastaveno.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-tertiary sm" data-bs-dismiss="modal">Zrušit</button>
+                    <button type="submit" class="btn btn-danger sm">Vypnout AI sken</button>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endif %}
+
+{# ================================================= Žádosti o přístup #}
+{% if ai.requests is not empty %}
+    <div class="st-card" id="ai-zadosti">
+        <div class="st-card-h">
+            <div><h2>Žádosti o přístup <span class="pd-n">{{ ai.requests|length }}</span></h2>
+                <span class="cap">Zapnout = zapne AI sken pro projekt a žadateli pošle e-mail. Zamítnout = žádost uzavře.</span></div>
+        </div>
+        <div class="as-reqs ai-reqs" aria-label="Žádosti o AI sken">
+            {% for request in ai.requests %}
+                <div class="as-req" data-ai-scan-request="{{ request.id }}"
+                     data-controller="ai-scan-admin" data-ai-scan-admin-project-value="{{ request.projectName }}">
+                    <span class="av req" aria-hidden="true">{{ initials(request.requesterName) }}</span>
+                    <span class="who">
+                        <b>{{ request.requesterName }} žádá o AI sken v projektu <a href="{{ path('edit_project', {id: request.projectId}) }}#project-ai-scan">{{ request.projectName }}</a>{% if request.createdAt %} · {{ request.createdAt|date('j. n. Y', 'Europe/Prague') }}{% endif %}</b>
+                        <span>{% if request.message %}„{{ request.message }}“{% else %}Bez zprávy{% endif %} · {{ request.requesterEmail }}</span>
+                    </span>
+                    <button type="button" class="btn xs btn-ghost"
+                            data-action="ai-scan-admin#resolve"
+                            data-url="{{ path('ai_scan_access_request_resolve', {id: request.id, action: 'dismiss'}) }}"
+                            data-decision="dismiss">Zamítnout<span class="sr"> žádost: {{ request.requesterName }}</span></button>
+                    <button type="button" class="btn xs btn-tertiary"
+                            data-action="ai-scan-admin#resolve"
+                            data-url="{{ path('ai_scan_access_request_resolve', {id: request.id, action: 'approve'}) }}"
+                            data-decision="approve">Zapnout<span class="sr"> AI sken na žádost: {{ request.requesterName }}</span></button>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+{% endif %}
+
+{# ============================================================ Projekty #}
+<div class="st-card" id="ai-projekty">
+    <div class="st-card-h">
+        <div><h2>Projekty <span class="pd-n">{{ active_projects|length }}</span></h2>
+            <span class="cap">Projekty se zapnutým AI skenem nebo s nějakým skenem. Tento měsíc a Celkem = započtené skeny; náklady jsou za tento měsíc.
+                Měsíční limit se nastavuje u projektu v části Funkce Premium.</span></div>
+    </div>
+    {% if active_projects is empty %}
+        <div class="empty">
+            <span class="ico-c">{{ icon('sparkle') }}</span>
+            <p>AI sken zatím nemá zapnutý žádný projekt. Zapněte ho níže, nebo u projektu v části Funkce Premium.</p>
+        </div>
+    {% else %}
+        {{ m.project_table(active_projects, 'Projekty s AI skenem') }}
+    {% endif %}
+    {% if other_projects is not empty %}
+        <details class="ai-more">
+            <summary>{{ icon('chev-right', 's14') }}Ostatní projekty <span class="pd-n">{{ other_projects|length }}</span></summary>
+            {{ m.project_table(other_projects, 'Projekty bez AI skenu') }}
+        </details>
+    {% endif %}
+</div>
+
+{# =============================================================== Skeny #}
+<div class="st-card" id="ai-skeny-tabulka">
+    <div class="st-card-h">
+        <div><h2>Skeny <span class="pd-n">{{ ai.scansTotal }}</span></h2>
+            <span class="cap">Nejdřív skeny, které běží nebo čekají, pod nimi posledních {{ constant('WBoost\\Web\\Query\\GetAiUsageOverview::ENDED_LIMIT') }} ukončených.
+                Doba = čas práce skeneru (u běžících čas v aktuálním stavu). Kredit říká, jestli se pokus započítal.</span></div>
+    </div>
+    {% if ai.scans is empty %}
+        <div class="empty">
+            <span class="ico-c">{{ icon('sparkle') }}</span>
+            <p>Zatím žádný sken. Jakmile někdo nahraje obrázek, objeví se tady i s náklady.</p>
+        </div>
+    {% else %}
+        <div class="ai-wrap">
+            <table class="st-table ai-tbl ai-scans">
+                <caption class="visually-hidden">Skeny</caption>
+                <thead>
+                    <tr>
+                        <th scope="col" class="ai-l">Kdy</th>
+                        <th scope="col" class="ai-main">Projekt</th>
+                        <th scope="col" class="ai-l">Uživatel</th>
+                        <th scope="col" class="ai-l">Modul</th>
+                        <th scope="col" class="ai-l">Stav</th>
+                        <th scope="col">Pokus</th>
+                        <th scope="col">Doba</th>
+                        <th scope="col">Tokeny</th>
+                        <th scope="col">Náklady</th>
+                        <th scope="col" class="ai-l">Kredit</th>
+                        <th scope="col" class="ai-l">Hodn.</th>
+                        <th scope="col" class="ai-l">Kanál</th>
+                        <th scope="col">Paměť / CPU</th>
+                        <th scope="col"><span class="visually-hidden">Odkazy</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for scan in ai.scans %}
+                        <tr data-scan="{{ scan.id }}" class="{{ scan.inProgress ? 'ai-live' }}">
+                            <td class="ai-l" data-l="Kdy">{{ scan.createdAt ? scan.createdAt|date('j. n. Y H:i', 'Europe/Prague') : '—' }}</td>
+                            <th scope="row" class="ai-main" data-l="Projekt">{{ scan.projectName }}</th>
+                            <td class="ai-l" data-l="Uživatel">{{ scan.user }}</td>
+                            <td class="ai-l" data-l="Modul">{{ scan.kind == 'calendar' ? 'Kalendáře' : 'Šablony' }}</td>
+                            <td class="ai-l" data-l="Stav">{{ m.status(scan) }}</td>
+                            <td data-l="Pokus">{{ scan.try }}{% if scan.restarted %} <span class="cap" title="Sken se přerušil a spustil znovu">↻</span>{% endif %}</td>
+                            <td data-l="Doba">{{ scan.seconds is null ? '—' : m.dur(scan.seconds) }}</td>
+                            <td data-l="Tokeny" title="vstup {{ scan.tokensIn|number_format(0, ',', ' ') }} · výstup {{ scan.tokensOut|number_format(0, ',', ' ') }} · mezipaměť {{ scan.tokensCache|number_format(0, ',', ' ') }}">{{ scan.tokens ? scan.tokens|number_format(0, ',', ' ') : '—' }}</td>
+                            <td data-l="Náklady">{{ scan.costMicroUsd ? m.usd(scan.costMicroUsd) : '—' }}</td>
+                            <td class="ai-l" data-l="Kredit">{{ {settle: 'započten', refund: 'vrácen', reserve: 'rezervován'}[scan.credit] ?? '—' }}</td>
+                            <td class="ai-l" data-l="Hodnocení">
+                                {%- if scan.rating is null -%}—
+                                {%- elseif scan.rating > 0 -%}<span class="pill mint">Dobrý</span>
+                                {%- else -%}<span class="pill rose"{% if scan.ratingNote %} title="{{ scan.ratingNote }}"{% endif %}>Špatný</span>{% if scan.ratingNote %}<span class="visually-hidden"> — {{ scan.ratingNote }}</span>{% endif %}
+                                {%- endif -%}
+                            </td>
+                            <td class="ai-l" data-l="Kanál">{{ scan.channel == 'mcp' ? 'MCP' : 'web' }}</td>
+                            <td data-l="Paměť / CPU">{% if scan.peakRssMb is not null %}{{ scan.peakRssMb }} MB{% if scan.cpuSeconds is not null %} / {{ scan.cpuSeconds }} s{% endif %}{% else %}—{% endif %}</td>
+                            <td class="ai-acts" data-l="Odkazy">
+                                {% if scan.kind == 'template' %}<a href="{{ path('ai_scan_page', {projectId: scan.projectId, scanId: scan.id}) }}">Otevřít sken</a>{% endif %}
+                                <a href="{{ path('project_dashboard', {id: scan.projectId}) }}">Otevřít projekt</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+</div>

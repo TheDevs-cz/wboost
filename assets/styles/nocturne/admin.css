@@ -497,3 +497,64 @@ a.acc-link > .i { color: var(--subtle); flex: none; }
     .mg-hero { flex-direction: column; padding: 18px 16px; }
     .mg-cap { flex-direction: column; }
 }
+
+/* ---- Statistiky › AI skeny (templates/admin/_usage_ai_scans.html.twig, ux.md §9.4) ----
+   The operating strip is a settings box; tables become cards in a narrow
+   container (each cell carries its label in data-l). */
+.ai-op { gap: 16px; }
+.ai-op .st-card-h strong { color: var(--text-2); font-weight: 600; }
+.ai-notice { margin: 0; align-items: center; }
+.ai-notice code, .ai-op-facts code, .ai-code { font-size: 11px; padding: 2px 6px; border-radius: 6px; background: var(--surface-3); color: var(--text-2); }
+.ai-op-row { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 28px; }
+.ai-op-mode { margin: 0; max-width: 100%; }
+.ai-op-mode .seg { background: var(--surface-2); max-width: 100%; }
+.ai-op-admin { margin: 0; display: flex; align-items: center; gap: 12px; min-width: 0; }
+.ai-op-admin .who { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ai-op-admin .who b { font-size: 14px; font-weight: 600; }
+.ai-op-facts { margin: 0; display: flex; flex-wrap: wrap; gap: 2px 0; font-size: 13px; line-height: 1.6; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ai-op-facts > span:not(:last-child)::after { content: "·"; margin: 0 8px; color: var(--subtle); }
+.ai-op-facts b { color: var(--text); font-weight: 600; }
+.ai-op-nums { margin: 0; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+.ai-num { display: flex; flex-direction: column; gap: 6px; margin: 0; }
+.ai-num .lbl { margin: 0; }
+.ai-num-f { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+.ai-num-f .form-control { width: 96px; font-variant-numeric: tabular-nums; }
+.ai-op-nums .cap { flex: 1 1 240px; align-self: center; }
+.ai-reqs { margin-top: 0; }
+.ai-reqs .who a { color: inherit; }
+/* (position: the visually hidden caption / header are absolutely positioned and must stay inside the scroller.) */
+.ai-wrap { position: relative; container-type: inline-size; overflow-x: auto; }
+.ai-tbl .ai-l, .ai-tbl .ai-main { text-align: left; }
+.ai-tbl .ai-main { font-weight: 600; color: var(--text); min-width: 160px; white-space: normal; }
+.ai-tbl .ai-main a { color: inherit; text-decoration: none; }
+.ai-tbl .ai-main a:hover { color: var(--lav-ink); }
+.ai-tbl tr.ai-live > * { background: color-mix(in oklab, var(--pch-deep) 45%, var(--surface)); }
+.ai-sw { margin: 0; display: inline-flex; vertical-align: middle; }
+.ai-acts a { margin-left: 14px; font-weight: 600; color: var(--lav-ink); text-decoration: none; }
+.ai-acts a:hover { text-decoration: underline; }
+.ai-more > summary { cursor: pointer; display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--muted); list-style: none; border-radius: 8px; }
+.ai-more > summary::-webkit-details-marker { display: none; }
+.ai-more > summary:hover { color: var(--text); }
+.ai-more > summary .i { transition: transform var(--dur-2) var(--ease); }
+.ai-more[open] > summary { margin-bottom: 12px; }
+.ai-more[open] > summary .i { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { .ai-more > summary .i { transition: none; } }
+@container (max-width: 760px) {
+    .ai-tbl, .ai-tbl tbody, .ai-tbl tbody tr > * { display: block; }
+    .ai-tbl thead { display: none; }
+    .ai-tbl tbody { display: flex; flex-direction: column; gap: 10px; }
+    .ai-tbl tbody tr { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 10px 16px; padding: 14px; border-radius: 16px; background: var(--surface-2); border: 1px solid var(--line-2); }
+    .ai-tbl tbody tr.ai-live { background: color-mix(in oklab, var(--pch-deep) 45%, var(--surface)); }
+    .st-table.ai-tbl tbody tr > * { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; padding: 0; border: 0; background: none; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+    .ai-tbl tbody tr > *::before { content: attr(data-l); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--subtle); }
+    .st-table.ai-tbl tbody tr > .ai-main, .st-table.ai-tbl tbody tr > .ai-acts { grid-column: 1 / -1; }
+    .ai-tbl tbody tr > .ai-main::before, .ai-tbl tbody tr > .ai-acts::before { content: none; }
+    .st-table.ai-tbl tbody tr > .ai-acts { flex-direction: row; flex-wrap: wrap; gap: 6px 18px; }
+    .ai-acts a { margin-left: 0; }
+}
+@media (max-width: 560px) {
+    .ai-op-mode, .ai-op-mode .seg { width: 100%; }
+    .ai-op-mode .seg button { flex: 1 1 0; padding: 0 8px; justify-content: center; }
+    .ai-num { flex: 1 1 120px; }
+    .ai-num-f .form-control { width: 100%; }
+}

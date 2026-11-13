@@ -10,7 +10,8 @@
     Prototype renderStats: underline tabs over the three existing report
     sections (Klienti = exports by client, Aktivita = user activity,
     Úložiště = storage inventory), KPI tiles with sparklines, chart cards and
-    month heatmaps. Data and queries are unchanged (GetUsageOverview,
+    month heatmaps. The fourth tab, AI skeny, is its own partial
+    (admin/_usage_ai_scans.html.twig, GetAiUsageOverview). Data and queries are unchanged (GetUsageOverview,
     GetUserActivity, GetStorageOverview); sparklines/levels are derived here.
     Tabs + ApexCharts theming: usage_stats_controller (charts render when their
     tab is first shown and re-theme on the light/dark switch).
@@ -53,6 +54,7 @@
         <button type="button" role="tab" id="st-tab-klienti" aria-controls="st-klienti" aria-selected="true" data-tab="klienti" data-action="usage-stats#select keydown->usage-stats#tabKey">{{ icon('users', 's16') }}Klienti</button>
         <button type="button" role="tab" id="st-tab-aktivita" aria-controls="st-aktivita" aria-selected="false" tabindex="-1" data-tab="aktivita" data-action="usage-stats#select keydown->usage-stats#tabKey">{{ icon('trend', 's16') }}Aktivita</button>
         <button type="button" role="tab" id="st-tab-uloziste" aria-controls="st-uloziste" aria-selected="false" tabindex="-1" data-tab="uloziste" data-action="usage-stats#select keydown->usage-stats#tabKey">{{ icon('database', 's16') }}Úložiště</button>
+        <button type="button" role="tab" id="st-tab-ai-skeny" aria-controls="st-ai-skeny" aria-selected="false" tabindex="-1" data-tab="ai-skeny" data-action="usage-stats#select keydown->usage-stats#tabKey">{{ icon('sparkle', 's16') }}AI skeny{% if ai.requests is not empty %}<span class="pd-n" title="Žádosti o přístup">{{ ai.requests|length }}</span>{% endif %}</button>
     </div>
 
     {# =================================================================== Klienti #}
@@ -471,6 +473,11 @@
                 </div>
             </div>
         {% endif %}
+    </section>
+
+    {# ================================================================== AI skeny #}
+    <section class="st-pane" id="st-ai-skeny" role="tabpanel" aria-labelledby="st-tab-ai-skeny" data-usage-stats-target="pane" data-tab="ai-skeny" hidden>
+        {{ include('admin/_usage_ai_scans.html.twig') }}
     </section>
 </div>
 

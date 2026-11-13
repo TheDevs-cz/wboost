@@ -3,7 +3,7 @@ import { Controller } from '@hotwired/stimulus';
 /*
  * Admin › Statistiky (templates/admin/usage.html.twig).
  *
- *  - underline tabs (Klienti / Aktivita / Úložiště): roving tabindex, arrow
+ *  - underline tabs (Klienti / Aktivita / Úložiště / AI skeny): roving tabindex, arrow
  *    keys, #hash + sessionStorage so a reload (or the "Načíst znovu" POST
  *    round-trip) lands on the same tab
  *  - ApexCharts (window.ApexCharts, classic vendor script) styled from the
@@ -12,7 +12,7 @@ import { Controller } from '@hotwired/stimulus';
  *    visible (Apex measures 0 px inside a hidden pane) and re-renders when the
  *    light/dark theme changes.
  */
-const TABS = ['klienti', 'aktivita', 'uloziste'];
+const TABS = ['klienti', 'aktivita', 'uloziste', 'ai-skeny'];
 const STORE = 'wb-stats-tab';
 
 const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();

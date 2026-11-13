@@ -23,4 +23,13 @@ readonly final class SetAiScanRuntime
         public null|int $dailyStartsProject = null,
     ) {
     }
+
+    /**
+     * Nothing to write. (Not `== new self()`: loosely compared, `false` and
+     * `0` equal the null of "leave as it is".)
+     */
+    public function changesNothing(): bool
+    {
+        return get_object_vars($this) === get_object_vars(new self());
+    }
 }
