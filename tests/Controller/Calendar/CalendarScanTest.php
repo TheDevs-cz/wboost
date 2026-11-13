@@ -552,7 +552,7 @@ final class CalendarScanTest extends WebTestCase
         self::assertSame(2, $answer['pictures']);
         self::assertSame(2, self::assetCount(self::DESIGNED));
         self::assertTrue($gallery->fileExists('fixtures/in-root.png'));
-        self::assertSame(1, (int) self::connection()->fetchOne('SELECT count(*) FROM file_upload WHERE id = :id AND deleted_at IS NULL', ['id' => TestDataFixture::FILE_IN_ROOT_ID]));
+        self::assertNotFalse(self::connection()->fetchOne('SELECT id FROM file_upload WHERE id = :id AND deleted_at IS NULL', ['id' => TestDataFixture::FILE_IN_ROOT_ID]));
     }
 
     public function testTheHistoryOpensForAProjectThatHasOnlyTheCalendarModule(): void
@@ -567,7 +567,7 @@ final class CalendarScanTest extends WebTestCase
         $crawler = $this->client->request('GET', $history);
         self::assertResponseIsSuccessful();
         self::assertStringContainsString($scanId, (string) $this->client->getResponse()->getContent());
-        self::assertSame(0, $crawler->filter(sprintf('a[href$="/project/%s/sablony/z-obrazku"]', self::PROJECT))->count(), 'no template scan without the module');
+        self::assertCount(0, $crawler->filter(sprintf('a[href$="/project/%s/sablony/z-obrazku"]', self::PROJECT)), 'no template scan without the module');
         self::assertGreaterThan(0, $crawler->filter(sprintf('a[href*="/project/%s/calendars"], a[href*="/calendar/"][href*="sken="]', self::PROJECT))->count());
 
         // Neither module: the modules page, like every other module page.
