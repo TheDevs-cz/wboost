@@ -147,7 +147,7 @@ Figures and the checks that are still open: `reliability-report.md` § "G2b".
 | `/internal/scanner/*` | internet: 403; another stack's container: 404; `web`'s other networks, right token: 404; scan network, wrong token: 404 |
 | Scanner cut from its network for 30 s mid-build (`docker network disconnect wboost_scan`) | beats and polls fail (`network`), the run goes on; `ready` on its first try, 88 s after the claim instead of ≈ 35 s; nothing restarted |
 | Scanner cut from its network for 150 s mid-build | after 60 s the app says `scanner_absent` (the entry card: `service_waiting`, no new uploads; the running scan's page keeps its stage); the scanner aborts its run itself at 105 s (`app_unreachable`); the lease ends at 120 s; on reconnect the scan is put back (`restarted`), claimed at once and `ready` 40 s later. Lost run: `lease_lost`, $0.02 |
-| Out of memory mid-build (limit lowered to 300 MiB for 20 s, `docker update`) | cgroup OOM kill, exit 137, restarted by the policy; while the limit stayed too low the scanner refused to start (exit 78, 7 quick restarts — it needs 3 GiB); 11 s after the limit was put back it was up, healthy 6 s later; the scan was put back when its lease ended (125 s after the claim) and `ready` 48 s after that. No open usage row, one settle. The box's `ContainerOOMKilled` / `HostOOMKill` alerts fire for such a kill |
+| Out of memory mid-build (limit lowered to 300 MiB for 20 s, `docker update`) | cgroup OOM kill, exit 137, restarted by the policy; while the limit stayed too low the scanner refused to start (exit 78, 7 quick restarts — it needs 3 GiB); 11 s after the limit was put back it was up, healthy 6 s later; the scan was put back when its lease ended (125 s after the claim) and `ready` 48 s after that. No open usage row, one settle. The box's `HostOOMKill` alert pages for such a kill and names the container (infra D89) |
 | `docker kill` while idle | started again by cron `scanner-revive` 57 s later (worst case: killed just after a tick), healthy after 6 s more |
 | Token rotation with a scan running (`SCANNER_TOKEN_PREVIOUS`, two deploys) | no failed scan: the scan was released when the scanner was re-created with the new token and `ready` 70 s later; after the second deploy `web` accepts the new token only and the scanner was not touched |
 
@@ -332,7 +332,8 @@ soak showed its anonymous memory creeping (187 → 215 MB over 100 scans). Nothi
 box's Prometheus already records every container (`container_memory_working_set_bytes`,
 `container_memory_rss`, 30 days kept) and its alerts already cover this one —
 `ContainerMemoryNearLimit` (75 % for 10 min), `ContainerMemoryCritical`, `ContainerMemoryLeakPredicted`
-(a 2-day trend that would reach the limit in 4 days) and `ContainerOOMKilled`. To look:
+(a 2-day trend that would reach the limit in 4 days) and `HostOOMKill`, which names the killed
+container. To look:
 
 ```bash
 docker stats --no-stream wboost-gotenberg-1

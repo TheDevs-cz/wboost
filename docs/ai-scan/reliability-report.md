@@ -569,7 +569,7 @@ discarded. Scanner `0.2.0+7e7e78bc8b4a`, definition `6-142dae97f82b`, mode
 | Provider key out of `.env` | the same deploy: `.env` 12 keys, none of them the provider key; `.env.scanner` (root, 0600) 1 line; the scanner holds `ANTHROPIC_API_KEY` and `SCANNER_TOKEN` and no other credential; `web`'s and the worker's provider key empty; provider `ok`, the scan above built with it | pass |
 | The app's dependencies failing, seen from the scanner (renderer, storage) | **not run on the box**: the scanner cannot reach Gotenberg, MinIO, Redis or the database at all, and the only way to make a render or a file read fail is to break those production services or to use `app:ai-scan:fake-run`, which refuses in production; there is no admin fault hook. Covered locally (items 1 and 11: `renderer_busy` / `renderer_unavailable` / `storage_unavailable`, the 60 s tolerance, fix 7) and by the two network cuts above, which are the scanner's view of "the app does not answer" | not run, by the rule of the box |
 | Host reboot mid-scan | **not run, by decision** (a shared box). What would happen is written in the runbook ("A host reboot") from the restart policies (`always` on all nine containers, Docker enabled at boot) and the lease recovery measured above | documented |
-| Gotenberg's memory | 12 days of the box's own Prometheus series, the container up since 2026-11-01 and the ten scans of the checks in: working set 694–727 MiB at the time of the tests (14 % of 5 GiB; ≈ 205 MiB anonymous, 160 MiB tmpfs, the rest page cache); daily minimum 450–675 MiB, daily maximum 649–1 151 MiB, daily minimum of the anonymous part 132–188 MiB with no trend. The existing alerts (`ContainerMemoryNearLimit`, `…Critical`, `…LeakPredicted`, `ContainerOOMKilled`) cover it; the runbook has the one command that prints the series ("Gotenberg's memory") | no creep visible; the week of real use is still to come |
+| Gotenberg's memory | 12 days of the box's own Prometheus series, the container up since 2026-11-01 and the ten scans of the checks in: working set 694–727 MiB at the time of the tests (14 % of 5 GiB; ≈ 205 MiB anonymous, 160 MiB tmpfs, the rest page cache); daily minimum 450–675 MiB, daily maximum 649–1 151 MiB, daily minimum of the anonymous part 132–188 MiB with no trend. The existing alerts (`ContainerMemoryNearLimit`, `…Critical`, `…LeakPredicted`, `HostOOMKill`) cover it; the runbook has the one command that prints the series ("Gotenberg's memory") | no creep visible; the week of real use is still to come |
 | The box | the 136 containers of other projects: same `StartedAt` and restart counts before and after; nothing unhealthy | pass |
 | Spend | **$0.75** for the four scans ($0.215, $0.161, $0.168, $0.204) | — |
 
@@ -584,7 +584,8 @@ Found on the way:
 - **A run killed before its first heartbeat records $0** although the engine had begun (the report's
   item 2 says "≤ 15 s of spend may be missing" — this is that case at its extreme).
 - The app's alert for a lost scanner (3 min) did not go out: every outage here was kept under it.
-  The box's own `ContainerOOMKilled` / `HostOOMKill` alerts did fire for the forced OOM.
+  The box's own `HostOOMKill` alert did page for the forced OOM (17:12; the per-container alert stayed
+  silent because the kill took PID 1 — the infra repo's D89 was written from it the same evening).
 
 **The release pipeline** (the gap "a commit can reach production before its own Tests run"):
 confirmed — in a `workflow_run` event `github.sha` is the head of `main` when the event fires, and
@@ -593,7 +594,19 @@ the shared ship workflow checked out and built that (run 43340365916 was started
 `TheDevs-cz/ci` (`_ship.yml` / `_build.yml` / `_deploy.yml`, default = the old behaviour for every
 other project) and in `release.yml`: the tested commit is what is built, shipping runs are
 serialised, a commit older than the shipped one is refused, the last shipped commit is read from the
-run's title. Evidence in the runbook's "What a push ships" and in the infra journal.
+run's title. Proved by real pushes the same evening:
+
+| Release run | `main` when it fired | Tests run that fired it | Result |
+|---|---|---|---|
+| 43460370562 | `dd2a0c47` (the workflow change itself, its Tests still waiting) | `18164616`, docs only | preflight: nothing to ship — before the fix `dd2a0c47` would have been built and shipped untested |
+| 43462340587 | `dd2a0c47` | `dd2a0c47` | built and shipped `dd2a0c47` (through the shared workflow's branch) |
+| 43464919181 | `6c67c5f4` | `405e30e8` (two commits behind `main`) | built `405e30e8` through `TheDevs-cz/ci@v1`; on the box `wboost-web-404` carries `org.opencontainers.image.revision = 405e30e8…` and its image is the local `:main` |
+
+The default path of the shared workflow (no `ref` — every other project) was run once in that
+repository before `v1` was moved: same tags as before (`sha-<event commit>`, the branch).
+The "older than shipped" refusal was checked against the real history (`dd2a0c47` after `405e30e8`:
+refused) but not by a live run. Re-running the two Release runs of 16:12 and 16:24 UTC is not possible
+(they point at the shared repository's test branch, deleted since) — re-run any later one instead.
 
 **Still open of G2b:** a real host reboot (by decision); Gotenberg / MinIO / Redis stopped or paused
 and a `db` restart (production services — not to be broken for a test); a slow migration during a
