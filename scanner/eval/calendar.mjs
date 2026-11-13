@@ -11,8 +11,9 @@
 //
 // `<input>` = a name in the prototype's inputs/ (`<name>.png|jpg` + `<name>.content.json` + optional
 // `<name>.truth.json`). The prototype directory is local, git-ignored material: nothing here imports it
-// unless CALENDAR_PROTO_DIR points at it. `--calendar` = a 7-day calendar of the project the scans are
-// made for (it is never changed: a scan only proposes). The scanner service must be running against the
+// unless CALENDAR_PROTO_DIR points at it. `--calendar` = the calendar of the project the scans are made
+// for — a 7-day one, or a 14-day one for two-week pages (it is never changed: a scan only proposes).
+// `--label <text>` keeps runs apart in the table (three runs of one input: --label r1, r2, r3). The scanner service must be running against the
 // same app (`node bin/scanner.mjs serve`), on the developer's plan — never on the API key.
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -25,7 +26,8 @@ const args = process.argv.slice(2);
 const opt = (name, fallback) => { const i = args.indexOf(`--${name}`); return i >= 0 ? args[i + 1] : fallback; };
 const flag = (name) => args.includes(`--${name}`);
 const outRoot = resolve(opt('out', join(HERE, 'runs', '_calendar')));
-const inputs = args.filter((a, i) => !a.startsWith('--') && !(i > 0 && ['--calendar', '--project', '--out'].includes(args[i - 1])));
+const inputs = args.filter((a, i) => !a.startsWith('--') && !(i > 0 && ['--calendar', '--project', '--out', '--label'].includes(args[i - 1])));
+const label = opt('label', null);
 const FEATURES = ['captions', 'weekNumbers', 'moon', 'timeChange', 'seasons', 'waste', 'events', 'shifts', 'specialPages', 'qr'];
 const mean = (a) => { const v = a.filter((x) => x !== null && x !== undefined && Number.isFinite(x)); return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null; };
 const f = (v, d = 2) => (v === null || v === undefined ? '–' : Number(v).toFixed(d));
@@ -33,10 +35,10 @@ const f = (v, d = 2) => (v === null || v === undefined ? '–' : Number(v).toFix
 function table() {
     const rows = existsSync(outRoot) ? readdirSync(outRoot).map((d) => join(outRoot, d, 'digest.json')).filter(existsSync).map((p) => JSON.parse(readFileSync(p, 'utf8'))) : [];
     // the latest run of every input
-    const latest = new Map(); for (const r of rows.sort((a, b) => String(a.at).localeCompare(String(b.at)))) latest.set(r.name, r);
+    const latest = new Map(); for (const r of rows.sort((a, b) => String(a.at).localeCompare(String(b.at)))) latest.set(r.label ? `${r.name} ${r.label}` : r.name, r);
     const all = [...latest.values()].sort((a, b) => a.name.localeCompare(b.name));
     const head = ['input', 'status', 'wall s', 'build s', 'turns', 'cands', 'cost $', 'box IoU', 'frame err mm', 'anchor err mm', 'type err pt', 'ΔE00', 'categorical', 'shown', 'face exact', 'family', 'masked edge F1', 'masked MAE', 'wrong'];
-    const line = (r) => { const L = r.score?.layout, I = r.score?.image; return [r.name, r.status + (r.unfinished ? ' (unfinished)' : '') + (r.code ? ` ${r.code}` : ''), f(r.wallS, 0), f(r.buildS, 0), r.turns ?? '–', r.candidates ?? '–', f(r.costUsd, 3), f(L?.boxIoU, 3), f(L?.boxEdgeErrMm), f(L?.anchorErrMm), f(L?.sizeErrPt), f(L?.colourDeltaE, 1), L ? `${Math.round(L.categoricalAcc * 100)} %` : '–', L ? `${Math.round(L.shownAcc * 100)} %` : '–', L ? `${Math.round(L.fontExactAcc * 100)} %` : '–', L ? `${Math.round(L.fontFamilyAcc * 100)} %` : '–', f(I?.maskedEdgeF1, 3), f(I?.maskedMae, 3), [...(L?.categoricalWrong ?? []), ...(L?.shownWrong ?? [])].join(' ')]; };
+    const line = (r) => { const L = r.score?.layout, I = r.score?.image; return [r.label ? `${r.name} ${r.label}` : r.name, r.status + (r.unfinished ? ' (unfinished)' : '') + (r.code ? ` ${r.code}` : ''), f(r.wallS, 0), f(r.buildS, 0), r.turns ?? '–', r.candidates ?? '–', f(r.costUsd, 3), f(L?.boxIoU, 3), f(L?.boxEdgeErrMm), f(L?.anchorErrMm), f(L?.sizeErrPt), f(L?.colourDeltaE, 1), L ? `${Math.round(L.categoricalAcc * 100)} %` : '–', L ? `${Math.round(L.shownAcc * 100)} %` : '–', L ? `${Math.round(L.fontExactAcc * 100)} %` : '–', L ? `${Math.round(L.fontFamilyAcc * 100)} %` : '–', f(I?.maskedEdgeF1, 3), f(I?.maskedMae, 3), [...(L?.categoricalWrong ?? []), ...(L?.shownWrong ?? [])].join(' ')]; };
     const out = [`| ${head.join(' | ')} |`, `|${head.map(() => '---').join('|')}|`, ...all.map((r) => `| ${line(r).join(' | ')} |`)];
     const truth = all.filter((r) => r.score?.layout);
     if (truth.length) {
@@ -72,7 +74,7 @@ for (const name of inputs) {
     writeFileSync(join(dir, 'show.json'), JSON.stringify(show, null, 1));
     writeFileSync(join(dir, 'timeline.json'), JSON.stringify(timeline, null, 1));
     const builder = show.usage.filter((u) => u.step === 'builder');
-    const d = { name, at: new Date().toISOString(), wallS, buildS: +(builder.reduce((a, u) => a + Number(u.duration_ms ?? 0), 0) / 1000).toFixed(1), turns: builder.reduce((a, u) => a + Number(u.turns ?? 0), 0), ...digest(show) };
+    const d = { name, ...(label ? { label } : {}), at: new Date().toISOString(), wallS, buildS: +(builder.reduce((a, u) => a + Number(u.duration_ms ?? 0), 0) / 1000).toFixed(1), turns: builder.reduce((a, u) => a + Number(u.turns ?? 0), 0), ...digest(show) };
     if (show.scan.has_proposal) {
         const p = appShow(id, 'proposal').scan;
         writeFileSync(join(dir, 'proposal.json'), JSON.stringify(p, null, 1));
@@ -82,11 +84,13 @@ for (const name of inputs) {
         d.report = { pageBox: report.pageBox, recognised: Object.fromEntries(report.recognised.map((r) => [r.element, r.state])), needsUpload: report.needsUpload.map((n) => n.slot), featuresOffered: report.featuresOffered.map((x) => x.key), fonts: report.fonts.map((x) => `${x.group}:${x.pattern}`), notExpressible: report.notExpressible.map((n) => n.code), notes: report.notes.map((n) => n.code), measures: report.measures };
         if (!flag('no-score')) {
             // the proposal as the prototype's candidate: the scanned calendar has every switch off, so what is on is what the scan offered
-            const candidate = { type: 'week', preset: doc.preset, features: Object.fromEntries(FEATURES.map((k) => [k, doc.featuresOn.includes(k)])), boxes: layout.boxes, order: layout.order, styles: layout.styles, needsUpload: report.needsUpload.map((n) => ({ what: n.slot === 'header' ? 'headerImage' : n.slot })) };
+            // a scan builds for the calendar's own type: 7 days, or 14 (`twoSided`, with the second frames)
+            const type = report.type === 'fortnight' ? 'fortnight' : 'week';
+            const candidate = { type, preset: doc.preset, features: Object.fromEntries(FEATURES.map((k) => [k, doc.featuresOn.includes(k)])), boxes: layout.boxes, order: layout.order, styles: layout.styles, needsUpload: report.needsUpload.map((n) => ({ what: n.slot === 'header' ? 'headerImage' : n.slot })) };
             try {
                 const [x, y, w, h] = report.pageBox;
                 const pagePng = await pagePicture(input.image, { x, y, w, h });
-                const scratch = await scratchCalendar(`p5 ${name}`, input.content, 'week');
+                const scratch = await scratchCalendar(`p5 ${name}`, input.content, type);
                 const built = await finish(dir, scratch.calendarId, scratch.page, candidate, pagePng);
                 if (!built.ok) d.scoreError = `${built.reason ?? 'refused'}: ${String(built.error).slice(0, 200)}`;
                 else { const s = await scoreDir(name, dir); d.score = { image: s.image, layout: s.layout?.summary ?? null }; writeFileSync(join(dir, 'score.json'), JSON.stringify(s, null, 1)); }

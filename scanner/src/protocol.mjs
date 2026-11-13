@@ -19,7 +19,8 @@
 
 export const PROTOCOL_VERSION = 1;
 // `mm` = the calendar adapter's millimetre instruments: a scanner without it is never handed a calendar build.
-export const INSTRUMENTS = Object.freeze(['ocr', 'crop', 'measure', 'font_rank', 'compare', 'mm']);
+// `mm14` = the same for 14-day pages (two week columns, second frames): without it, never a scan of a 14-day calendar.
+export const INSTRUMENTS = Object.freeze(['ocr', 'crop', 'measure', 'font_rank', 'compare', 'mm', 'mm14']);
 
 /** The timing of architecture §4.9 the scanner needs BEFORE it has a claim (a claim's definition overrides it). Seconds. */
 export const DEFAULT_TIMING = Object.freeze({
@@ -39,9 +40,12 @@ export function contextFromClaim(context = {}) {
 /** The definition a claim carries: files by name, `definition.json` decoded. */
 export function readDefinition(files) {
     const definition = JSON.parse(files['definition.json']);
-    const kind = (k) => {
-        const d = definition.kinds?.[k];
-        if (!d) throw new Error(`the definition has no kind "${k}"`);
+    // a kind may have variants (`kinds.calendar.variants.fortnight`): what a variant names replaces the kind's own
+    const kind = (k, variant = null) => {
+        const base = definition.kinds?.[k];
+        if (!base) throw new Error(`the definition has no kind "${k}"`);
+        if (variant && !base.variants?.[variant]) throw new Error(`the definition has no variant "${variant}" of kind "${k}"`);
+        const d = variant ? { ...base, ...base.variants[variant] } : base;
         const all = JSON.parse(files['tools.json']);
         return {
             system: d.system.map((f) => files[f]).join('\n\n'),

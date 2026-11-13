@@ -6,6 +6,11 @@
 // A candidate is a short list of the calendar model's commands (preset → switches → one layout
 // patch); the app runs them on the calendar's document in memory and draws one sample week page.
 // Nothing is saved, no picture is ever cut out of the source. No model call happens here.
+//
+// A 14-day calendar (`context.calendar.type === 'fortnight'`, the one preset `twoSided`) has a SECOND
+// frame for three elements — `cal2`, `month2`, `wk2`: the second week column, drawn mirrored. The
+// build then measures one row ladder per page half, mirrors every second frame the model does not
+// send from its first one, and gives the feedback per column.
 import sharp from 'sharp';
 import * as im from '../instruments/raster.mjs';
 import { lineInk } from '../instruments/textink.mjs';
@@ -19,6 +24,11 @@ export const MM_PER_PT = 25.4 / 72;
 export const ELEMENTS = ['photo', 'cap', 'cal', 'month', 'wk', 'head', 'logo', 'qr', 'bg'];
 export const FEATURES = ['captions', 'weekNumbers', 'moon', 'timeChange', 'seasons', 'waste', 'events', 'shifts', 'specialPages', 'qr'];
 const PRESETS = ['photoLeft', 'photoRight'];
+/** Elements with one frame per week column on a 14-day page: first frame → second frame. */
+export const SECOND_FRAMES = Object.freeze({ cal: 'cal2', month: 'month2', wk: 'wk2' });
+const FIRST_FRAME = Object.freeze(Object.fromEntries(Object.entries(SECOND_FRAMES).map(([a, b]) => [b, a])));
+/** The element a box key belongs to (`cal2` → `cal`). */
+export const elementOf = (key) => FIRST_FRAME[key] ?? key;
 /** The long edge the OCR reads a small page at (never above 3 ×). */
 const OCR_LONG_EDGE_PX = 2000;
 const r1 = (v) => Math.round(v * 10) / 10;
@@ -112,6 +122,20 @@ export function rowLadder(rules, { height, minPitchShare = 0.04 } = {}) {
     return { rules: best, pitch, x0: Math.round(im.median(best.map((r) => r.x0))), x1: Math.round(im.median(best.map((r) => r.x1))), thickness: im.median(best.map((r) => r.thickness)) };
 }
 
+/**
+ * The row ladders of a 14-day page: one per page half (the week columns stand left and right of the
+ * photo; two rules on the same row would otherwise hide each other — `detectRules` keeps the longest
+ * run of a row). → [left | null, right | null], x in px of the whole page.
+ */
+export function columnLadders(img) {
+    const { width: W, height: H } = img;
+    const half = Math.floor(W / 2);
+    return [{ x: 0, y: 0, w: half, h: H }, { x: half, y: 0, w: W - half, h: H }].map((box) => {
+        const rules = detectRules(im.crop(img, box), { minShare: 0.25 }).map((r) => ({ ...r, x0: r.x0 + box.x, x1: r.x1 + box.x }));
+        return rowLadder(rules, { height: H });
+    });
+}
+
 /** A crop (PNG) with rulers in page millimetres; optional grid across the crop. `scale` = output px per source px. */
 export async function withMmRulers(png, boxMm, pxPerMm, { grid = true } = {}) {
     const meta = await sharp(png).metadata();
@@ -158,7 +182,7 @@ export function pictureMask(layout, features, toPx, W, H) {
     for (const el of [...order].reverse()) {
         if (!shown(el)) continue;
         if (el === 'photo' || el === 'logo' || el === 'qr') fill(boxes[el], 1);
-        else if (opaque(el)) fill(boxes[el], 0);
+        else if (opaque(el)) { fill(boxes[el], 0); if (SECOND_FRAMES[el] && boxes[SECOND_FRAMES[el]]) fill(boxes[SECOND_FRAMES[el]], 0); }
     }
     return mask;
 }
@@ -176,6 +200,8 @@ export class CalendarBuild {
         this.settings = { availableScore: 0.8, prepassLines: 6, faceSheets: 12, ocrThreads: 3, ...settings };
         this.calendar = context.calendar ?? {};
         this.mm = { w: Number(this.calendar.page?.width) || 310, h: Number(this.calendar.page?.height) || 145 };
+        this.fortnight = this.calendar.type === 'fortnight';
+        this.presets = Array.isArray(this.calendar.presets) && this.calendar.presets.length ? this.calendar.presets : PRESETS;
         this.pageBoxSet = null;         // 'detected' | 'model' | null (the whole picture)
         this.#setPage({ x: 0, y: 0, w: source.width, h: source.height });
         this.prepassResult = null;
@@ -184,7 +210,7 @@ export class CalendarBuild {
         this.attempts = [];
         this.rankings = [];             // {text, box (page px), group, origin, line?, best, available, candidates}
         this.lines = [];
-        this.ladder = null;
+        this.ladders = [null, null];    // the row ladder per week column; a 7-day page has the first only
         this.sheetsUsed = 0;
         this.stats = { ocr: null, prepassMs: 0, faceSheets: 0 };
     }
@@ -222,7 +248,7 @@ export class CalendarBuild {
         this.ocrSource = mergeLines(ocr.lines).map((l) => ({ ...l, ink: lineInk(this.source, l.box) }));
         this.onNote(this.ocrSource.length ? 'texts_found' : 'no_texts', this.ocrSource.length ? { n: this.ocrSource.length } : null, this.ocrSource.length ? { textBoxes: this.ocrSource.map((l) => l.ink?.box ?? l.box) } : null);
         this.#measurePage();
-        this.onNote('rows_found', { n: this.ladder ? this.ladder.rules.length : 0 });
+        this.onNote('rows_found', { n: this.rowsFound() });
         if (this.context.fonts.length) {
             this.onNote('fonts');
             const toRank = pickLinesToRank(this.ocrSource.filter((l) => this.#onPage(l.box)), this.settings.prepassLines);
@@ -242,17 +268,33 @@ export class CalendarBuild {
     /** Everything measured on the page raster: recomputed when the page box moves. */
     #measurePage() {
         this.lines = this.ocrSource.filter((l) => this.#onPage(l.box)).map((l) => ({ ...l, pageBox: this.#local(l.box), pageInk: l.ink ? this.#local(l.ink.box) : null }));
-        this.ladder = rowLadder(detectRules(this.page), { height: this.H });
+        this.ladders = this.#laddersOf(this.page);
         this.palette = im.dominantColours(this.page, 8);
     }
 
-    #rulesMm(ladder) {
+    /** The row ladder of the page — of its first week column. */
+    get ladder() { return this.ladders[0]; }
+    set ladder(ladder) { this.ladders = [ladder, this.ladders[1]]; }
+
+    /** → [ladder of the first column, ladder of the second column | null] */
+    #laddersOf(raster) {
+        return this.fortnight ? columnLadders(raster) : [rowLadder(detectRules(raster), { height: this.H }), null];
+    }
+
+    /** How many day rows the reading found (both columns of a 14-day page). */
+    rowsFound() { return this.ladders.reduce((n, l) => n + (l ? l.rules.length : 0), 0); }
+
+    /** The mirror image of a box across the page's vertical centre line — where a second frame stands by default. */
+    mirror(b) { return { x: r1(this.mm.w - b.x - b.w), y: b.y, w: b.w, h: b.h }; }
+
+    #rulesMm(ladder, frame = 'cal') {
         if (!ladder) return null;
         const n = ladder.rules.length, pitch = ladder.pitch / this.sy;
         const row = ladder.rules[Math.floor(n / 2)];
         const colour = (() => { const y = Math.round(row.y), xs = []; for (let x = row.x0 + 4; x < row.x1 - 4; x += 3) { const i = (y * this.W + x) * 3; xs.push([this.page.data[i], this.page.data[i + 1], this.page.data[i + 2]]); } return xs.length ? im.hex([0, 1, 2].map((k) => im.median(xs.map((c) => c[k])))) : null; })();
         const out = { count: n, yMm: ladder.rules.map((r) => r1(r.y / this.sy)), pitchMm: r2(pitch), x0Mm: r1(ladder.x0 / this.sx), x1Mm: r1(ladder.x1 / this.sx), weightPt: r1(Math.max(0.25, ladder.thickness / this.sy / MM_PER_PT)), colour };
         // the Kalendárium frame these rules belong to: 7 equal rows, a rule UNDER each row, inset 5 mm from both frame edges
+        if (frame !== 'cal') out.frame = frame;
         if (n >= 6 && n <= 7) out.calBox = { x: r1(out.x0Mm - 5), y: r1(out.yMm[0] - pitch), w: r1(out.x1Mm - out.x0Mm + 10), h: r1(7 * pitch + 2), assumes: n === 7 ? 'a rule under each of the 7 rows' : 'rules under rows 1–6, none under the last row' };
         return out;
     }
@@ -268,10 +310,11 @@ export class CalendarBuild {
                 pageBox: this.pageBoxSet ?? 'whole picture', pxPerMm: [r2(this.sx), r2(this.sy)],
                 ...(this.ratioError() > 0.02 ? { ratioNote: `the source page is ${r2(this.W / this.H)} : 1, the calendar ${r2(this.mm.w / this.mm.h)} : 1 — the picture is stretched onto the page; if the picture shows a margin or two pages, call set_page_box first` } : {}),
             },
-            calendar: { type: c.type ?? 'week', year: c.year ?? null, samplePage: c.samplePage ?? null, features: c.features ?? {}, hasLayout: !!c.hasLayout, presets: c.presets ?? PRESETS },
+            calendar: { type: c.type ?? 'week', year: c.year ?? null, samplePage: c.samplePage ?? null, features: c.features ?? {}, hasLayout: !!c.hasLayout, presets: this.presets },
             fonts: this.context.fonts,
             brandColours: this.context.brandColours ?? [],
-            rules: this.#rulesMm(this.ladder),
+            rules: this.#rulesMm(this.ladders[0]),
+            ...(this.fortnight ? { rules2: this.#rulesMm(this.ladders[1], 'cal2') } : {}),
             palette: this.palette,
             ocrLines: this.lines.map((l) => ({
                 id: l.id, text: l.text, conf: l.conf, box: this.arrMm(l.pageBox),
@@ -283,6 +326,7 @@ export class CalendarBuild {
                 '"ink" is the measured tight box of the glyphs; sizeIfCapitalsPt = the type size if the line is capitals or digits (ink height ÷ 0.253 mm per pt) — lower-case lines read smaller than they are',
                 'the texts of the page are sample data (that week\'s days) or generated by the calendar — match where they are, their size, face and colour, never their wording',
                 ...(this.context.fonts.length ? ['font.sizePt is the size at which that face sets the line exactly as wide as the source; available=false: no project face draws these glyphs'] : ['the project has no font: leave every "family" null (the built-in face)']),
+                ...(this.fortnight ? ['the calendar is a 14-day one: `rules` is the row ladder of the LEFT week column (its calBox → boxes.cal), `rules2` of the RIGHT one (its calBox → boxes.cal2); a second frame you do not send (cal2, month2, wk2) is the mirror image of its first frame'] : []),
                 ...(this.pageBoxSet === 'detected' ? ['the picture has a margin: the page box was detected by the scanner — check it, and correct it with set_page_box if it is off'] : []),
             ],
         };
@@ -325,12 +369,14 @@ export class CalendarBuild {
         const worstCells = cells.filter((c) => c.mae > 0.012).sort((p, q) => q.mae - p.mae).slice(0, 6).map((c) => ({ box: this.arrMm(c.box), mae: c.mae }));
         const boxes = layout?.boxes ?? {};
         const elements = [];
-        const shown = (el) => boxes[el] && !boxes[el].hidden && !(el === 'cap' && features?.captions === false) && !(el === 'wk' && features?.weekNumbers === false);
-        for (const el of ['head', 'cal', 'month', 'wk', 'cap']) {
-            if (!shown(el)) continue;
+        // a second frame is shown with its element: the flag and the switch are those of the first frame
+        const shown = (key) => { const el = elementOf(key); return boxes[key] && boxes[el] && !boxes[el].hidden && !(el === 'cap' && features?.captions === false) && !(el === 'wk' && features?.weekNumbers === false); };
+        for (const key of this.fortnight ? ['head', 'cal', 'cal2', 'month', 'month2', 'wk', 'wk2', 'cap'] : ['head', 'cal', 'month', 'wk', 'cap']) {
+            if (!shown(key)) continue;
+            const el = elementOf(key);
             const pad = el === 'cal' || el === 'head' ? 0 : 1.5;
-            const box = this.toPx({ x: boxes[el].x - pad, y: boxes[el].y - pad, w: boxes[el].w + 2 * pad, h: boxes[el].h + 2 * pad });
-            const row = { element: el, mae: +im.mae(page, render, box, mask).toFixed(4) };
+            const box = this.toPx({ x: boxes[key].x - pad, y: boxes[key].y - pad, w: boxes[key].w + 2 * pad, h: boxes[key].h + 2 * pad });
+            const row = { element: key, mae: +im.mae(page, render, box, mask).toFixed(4) };
             if (el !== 'head' && row.mae > 0.004) {
                 const sh = im.bestShift(this.pageGray, renderGray, W, H, box, Math.min(24, Math.round(4 * this.sy)));
                 if (sh.errorAfter < sh.errorBefore * 0.7 && (sh.dx || sh.dy)) row.move = { dxMm: r1(sh.dx / this.sx), dyMm: r1(sh.dy / this.sy) };
@@ -346,15 +392,19 @@ export class CalendarBuild {
             }
             elements.push(row);
         }
-        const ladder = rowLadder(detectRules(raw), { height: H });
-        const source = this.#rulesMm(this.ladder), rendered = this.#rulesMm(ladder);
-        const rules = source && rendered ? {
-            source: { count: source.count, firstYMm: source.yMm[0], pitchMm: source.pitchMm, x0Mm: source.x0Mm, x1Mm: source.x1Mm, weightPt: source.weightPt, colour: source.colour },
-            render: { count: rendered.count, firstYMm: rendered.yMm[0], pitchMm: rendered.pitchMm, x0Mm: rendered.x0Mm, x1Mm: rendered.x1Mm, weightPt: rendered.weightPt, colour: rendered.colour },
-            delta: { firstYMm: r1(source.yMm[0] - rendered.yMm[0]), pitchMm: r2(source.pitchMm - rendered.pitchMm), x0Mm: r1(source.x0Mm - rendered.x0Mm), x1Mm: r1(source.x1Mm - rendered.x1Mm) },
-            hint: 'delta = source − render: cal.y += firstY delta; cal.h += 7 × pitch delta; cal.x += x0 delta; cal.w += x1 delta − x0 delta',
-        } : (source ? { source: { count: source.count }, render: null, hint: 'the render shows no row rules where the source has them (styles.lines.on?)' } : null);
-        return { mae: +im.mae(page, render, null, mask).toFixed(4), pictureShare: +maskShare(mask).toFixed(3), worstCells, elements, rules, mask, masked: render };
+        const renderLadders = this.#laddersOf(raw);
+        const compare = (sourceLadder, renderLadder, frame) => {
+            const source = this.#rulesMm(sourceLadder, frame), rendered = this.#rulesMm(renderLadder, frame);
+            return source && rendered ? {
+                source: { count: source.count, firstYMm: source.yMm[0], pitchMm: source.pitchMm, x0Mm: source.x0Mm, x1Mm: source.x1Mm, weightPt: source.weightPt, colour: source.colour },
+                render: { count: rendered.count, firstYMm: rendered.yMm[0], pitchMm: rendered.pitchMm, x0Mm: rendered.x0Mm, x1Mm: rendered.x1Mm, weightPt: rendered.weightPt, colour: rendered.colour },
+                delta: { firstYMm: r1(source.yMm[0] - rendered.yMm[0]), pitchMm: r2(source.pitchMm - rendered.pitchMm), x0Mm: r1(source.x0Mm - rendered.x0Mm), x1Mm: r1(source.x1Mm - rendered.x1Mm) },
+                hint: `delta = source − render: ${frame}.y += firstY delta; ${frame}.h += 7 × pitch delta; ${frame}.x += x0 delta; ${frame}.w += x1 delta − x0 delta`,
+            } : (source ? { source: { count: source.count }, render: null, hint: `the render shows no row rules where the source has them in ${frame} (styles.lines.on?)` } : null);
+        };
+        const rules = compare(this.ladders[0], renderLadders[0], 'cal');
+        const rules2 = this.fortnight ? compare(this.ladders[1], renderLadders[1], 'cal2') : undefined;
+        return { mae: +im.mae(page, render, null, mask).toFixed(4), pictureShare: +maskShare(mask).toFixed(3), worstCells, elements, rules, ...(this.fortnight ? { rules2 } : {}), mask, masked: render };
     }
 
     // ---------------------------------------------------------------- candidates
@@ -362,8 +412,9 @@ export class CalendarBuild {
     #candidateOf(a) {
         const base = a.patch === true ? this.working : null;
         if (a.patch === true && !base) throw new ToolUserError('there is no candidate to patch yet — send the complete candidate first (without "patch")');
-        const preset = a.preset ?? base?.preset;
-        if (!PRESETS.includes(preset)) throw new ToolUserError(`"preset" must be one of ${PRESETS.join(', ')} — where the photo is`);
+        // a 14-day calendar has the one preset: it need not be named
+        const preset = a.preset ?? base?.preset ?? (this.presets.length === 1 ? this.presets[0] : undefined);
+        if (!this.presets.includes(preset)) throw new ToolUserError(this.presets.length === 1 ? `"preset" must be ${this.presets[0]} — the only layout of this calendar` : `"preset" must be one of ${this.presets.join(', ')} — where the photo is`);
         const features = [...new Set([...(base?.features ?? []), ...(Array.isArray(a.features) ? a.features : [])])];
         for (const f of features) if (!FEATURES.includes(f)) throw new ToolUserError(`"${f}" is not a feature switch — switches: ${FEATURES.join(', ')}`);
         for (const key of ['boxes', 'styles']) if (a[key] !== undefined && a[key] !== null && !isObject(a[key])) throw new ToolUserError(`"${key}" must be an object`);
@@ -375,6 +426,26 @@ export class CalendarBuild {
             styles: mergeDeep(base?.styles ?? {}, a.styles ?? {}),
         };
     }
+
+    /**
+     * The boxes a 14-day candidate sends: the model's own, plus every second frame — the mirror image of
+     * its first frame (the first frame's missing sides taken from the default layout), with whatever the
+     * model said about the second frame itself laid over it. The element's `hidden` lives on the first frame.
+     */
+    #withSecondFrames(boxes) {
+        if (!this.fortnight) return boxes;
+        const defaults = this.calendar.defaultLayout?.layout?.boxes ?? {};
+        const out = { ...boxes };
+        for (const [first, second] of Object.entries(SECOND_FRAMES)) {
+            const own = isObject(boxes[second]) ? Object.fromEntries(Object.entries(boxes[second]).filter(([k]) => k !== 'hidden')) : {};
+            const full = { ...(isObject(defaults[first]) ? defaults[first] : {}), ...(isObject(boxes[first]) ? boxes[first] : {}) };
+            if (!isObject(boxes[first]) || boxes[first].hidden === true || !['x', 'y', 'w', 'h'].every((k) => typeof full[k] === 'number')) { if (Object.keys(own).length) out[second] = own; else delete out[second]; continue; }
+            out[second] = { ...this.mirror(full), ...own };
+        }
+        return out;
+    }
+
+    commandsOf(c) { return CalendarBuild.commandsOf({ ...c, boxes: this.#withSecondFrames(c.boxes) }); }
 
     static commandsOf(c) {
         const layout = { op: 'layout' };
@@ -392,7 +463,7 @@ export class CalendarBuild {
         if (this.caps.candidatesLeft() < 1) throw new ToolUserError(`the candidate budget is used (${this.caps.limits.candidates} of ${this.caps.limits.candidates} rendered) — return the final report now; the scanner keeps the best candidate`);
         if (this.caps.rejectionsLeft() < 1) throw new ToolUserError('the validation budget is used — return the final report now');
         const candidate = this.#candidateOf(a);
-        const commands = CalendarBuild.commandsOf(candidate);
+        const commands = this.commandsOf(candidate);
         this.onNote(this.candidates.length ? 'refine' : 'build');
         const res = await this.app.renderCommands(commands);
         const issues = (res.issues ?? []).map(({ severity, stage, code, message }) => ({ severity, stage, code, message }));
@@ -407,14 +478,14 @@ export class CalendarBuild {
         const raster = await im.loadRgb(res.image.data, this.W, this.H);
         const fb = this.feedback(raster, res.layout, res.features);
         this.candidates.push({ n, commands, candidate, layout: res.layout, features: res.features, preset: res.preset ?? candidate.preset, raster, mask: fb.mask, masked: fb.masked, mae: fb.mae, textFit: null, pictureShare: fb.pictureShare, issues, bytes: res.image.data, mimeType: res.image.mimeType,
-            feedback: { mae: fb.mae, pictureShare: fb.pictureShare, worstCells: fb.worstCells, elements: fb.elements, rules: fb.rules } });
+            feedback: { mae: fb.mae, pictureShare: fb.pictureShare, worstCells: fb.worstCells, elements: fb.elements, rules: fb.rules, ...(this.fortnight ? { rules2: fb.rules2 } : {}) } });
         this.attempts.push({ rendered: true, candidate: n });
         const boxes = Object.fromEntries(Object.entries(res.layout?.boxes ?? {}).map(([k, b]) => [k, b.hidden ? { hidden: true } : [b.x, b.y, b.w, b.h]]));
         return {
             json: {
                 candidate: n, rendered: true, mae: fb.mae, pictureShare: fb.pictureShare, history: this.candidates.map((c) => ({ candidate: c.n, mae: c.mae })),
                 notes: issues.filter((i) => i.severity !== 'error').map((i) => i.message),
-                boxes, rules: fb.rules, elements: fb.elements, worstCells: fb.worstCells,
+                boxes, rules: fb.rules, ...(this.fortnight ? { rules2: fb.rules2 } : {}), elements: fb.elements, worstCells: fb.worstCells,
                 hint: 'the photo, the logo and the QR code are the user\'s pictures — their boxes are left out of every number. Corrections: calendar_preview with "patch": true and only what changes.',
             },
             images: [res.image.data],
@@ -484,10 +555,10 @@ export class CalendarBuild {
                 self.#setPage({ x: a.x, y: a.y, w: a.w, h: a.h });
                 self.pageBoxSet = 'model';
                 self.#measurePage();
-                self.onNote('rows_found', { n: self.ladder ? self.ladder.rules.length : 0 });
+                self.onNote('rows_found', { n: self.rowsFound() });
                 self.#describe();
-                const { ocrLines, rules, page, palette } = self.prepassResult;
-                return { json: { ok: true, page, rules, palette, ocrLines, note: 'every mm coordinate now refers to this page box; the measurements above replace those of the first message' } };
+                const { ocrLines, rules, rules2, page, palette } = self.prepassResult;
+                return { json: { ok: true, page, rules, ...(self.fortnight ? { rules2 } : {}), palette, ocrLines, note: 'every mm coordinate now refers to this page box; the measurements above replace those of the first message' } };
             },
             async compare_region(a) {
                 const p = a.candidate ? self.candidates.find((x) => x.n === a.candidate) : self.candidates.at(-1);

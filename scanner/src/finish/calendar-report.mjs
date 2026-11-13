@@ -3,7 +3,7 @@
 // where the kept candidate backs it up; boxes and font facts are measured. When the model never
 // finished (a cap), the scanner writes the report alone: `unfinished: true`.
 import { keepBest } from './keepbest.mjs';
-import { ELEMENTS, FEATURES } from '../adapters/calendar.mjs';
+import { ELEMENTS, FEATURES, SECOND_FRAMES } from '../adapters/calendar.mjs';
 import { verifiedMatch, verificationThresholds } from '../instruments/fonts.mjs';
 import { normalise } from './text.mjs';
 
@@ -37,11 +37,17 @@ export function groupOf(ranking, build, layout) {
     if (FONT_GROUPS.includes(ranking.group)) return ranking.group;
     const b = ranking.sourceBox ? { x: ranking.sourceBox.x - build.pageBox.x, y: ranking.sourceBox.y - build.pageBox.y, w: ranking.sourceBox.w, h: ranking.sourceBox.h } : null;
     if (!b) return null;
-    const px = (el) => (layout?.boxes?.[el] && !layout.boxes[el].hidden ? build.toPx(layout.boxes[el]) : null);
-    for (const el of ['month', 'wk', 'cap']) if (centreIn(b, px(el))) return el;
-    if (centreIn(b, px('cal')) && /^\d{1,2}$/.test(String(ranking.text).trim())) return 'num';
-    if (centreIn(b, px('cal')) && WEEKDAYS.includes(normalise(String(ranking.text).split(/[\s/]/)[0]))) return 'day';
+    const frames = framesOf(build, layout, (el) => layout?.boxes?.[el] && !layout.boxes[el].hidden);
+    for (const el of ['month', 'wk', 'cap']) if (frames(el).some((f) => centreIn(b, f))) return el;
+    const inCal = frames('cal').some((f) => centreIn(b, f));
+    if (inCal && /^\d{1,2}$/.test(String(ranking.text).trim())) return 'num';
+    if (inCal && WEEKDAYS.includes(normalise(String(ranking.text).split(/[\s/]/)[0]))) return 'day';
     return null;
+}
+
+/** The frames of an element in page px — one, or two on a 14-day page (`cal` + `cal2`, …); none when it is not drawn. */
+function framesOf(build, layout, drawn) {
+    return (el) => (drawn(el) ? [el, SECOND_FRAMES[el]].filter((k) => k && layout?.boxes?.[k]).map((k) => build.toPx(layout.boxes[k])) : []);
 }
 
 const glyphCount = (t) => [...String(t).replace(/\s/g, '')].length;
@@ -53,23 +59,23 @@ const glyphCount = (t) => [...String(t).replace(/\s/g, '')].length;
  * → [{group, text, ink}] — the longest usable line of each style that has no ranking yet.
  */
 export function unrankedLines(build, layout, features, have) {
-    const px = (el) => (shown(layout, features, el) ? build.toPx(layout.boxes[el]) : null);
+    const frames = framesOf(build, layout, (el) => shown(layout, features, el));
     const local = (l) => (l.pageInk ?? l.pageBox);
-    const cal = px('cal');
+    const inCal = (b) => frames('cal').some((f) => centreIn(b, f));
     const out = new Map();
     const offer = (group, l) => { if (have.has(group) || !l.ink || l.ink.n < 30) return; const cur = out.get(group); if (!cur || glyphCount(l.text) > glyphCount(cur.text)) out.set(group, { group, text: l.text, ink: l.ink }); };
     const days = [];
     for (const l of build.lines) {
         const b = local(l);
         if (!b) continue;
-        for (const el of ['month', 'wk', 'cap']) if (centreIn(b, px(el)) && glyphCount(l.text) >= 3) offer(el, l);
-        if (!centreIn(b, cal)) continue;
+        for (const el of ['month', 'wk', 'cap']) if (frames(el).some((f) => centreIn(b, f)) && glyphCount(l.text) >= 3) offer(el, l);
+        if (!inCal(b)) continue;
         const first = normalise(String(l.text).split(/[\s/]/)[0]);
         if (WEEKDAYS.includes(first) && !/[\/]/.test(l.text)) { offer('day', l); days.push(b); } else if (/^\d{2}$/.test(String(l.text).trim())) offer('num', l);
     }
     for (const l of build.lines) {
         const b = local(l);
-        if (!b || !centreIn(b, cal) || glyphCount(l.text) < 3 || /\d/.test(l.text)) continue;
+        if (!b || !inCal(b) || glyphCount(l.text) < 3 || /\d/.test(l.text)) continue;
         if (days.some((d) => b.y >= d.y + d.h * 0.6 && b.y <= d.y + d.h * 2.2 && b.x < d.x + d.w && d.x < b.x + b.w && b.h < d.h * 1.05)) offer('name', l);
     }
     return [...out.values()];
@@ -160,7 +166,11 @@ export async function buildCalendarReport({ build, finish = null, unfinished = f
         .slice(0, 12).map((n) => ({ code: n.code, box: build.toSourcePx(build.toPx({ x: n.x, y: n.y, w: n.w, h: n.h })) }));
 
     const notes = [];
-    if (finish?.fortnight === true) notes.push({ code: 'fortnight_left_half' });
+    // the page and the calendar disagree: a two-week picture for a 7-day calendar (its left week was rebuilt),
+    // or a one-week picture for a 14-day calendar (the second week column is the mirror of the first)
+    const fortnight = build.calendar?.type === 'fortnight';
+    if (!fortnight && finish?.fortnight === true) notes.push({ code: 'fortnight_left_half' });
+    if (fortnight && finish?.fortnight === false) notes.push({ code: 'week_page_on_fortnight' });
     if (build.ratioError() > 0.02) notes.push({ code: 'ratio_adapted', w: Math.round(build.mm.w), h: Math.round(build.mm.w * build.H / build.W) });
     if (build.approximate) notes.push({ code: 'colours_estimated' });
     if (build.pageBoxSet) notes.push({ code: 'page_box_set' });
@@ -169,7 +179,7 @@ export async function buildCalendarReport({ build, finish = null, unfinished = f
 
     return {
         status: 'proposed', candidate: kept.n, unfinished: !!unfinished, stopReason: unfinished ? (typeof stopReason === 'string' ? stopReason.replace(/[^a-z0-9_]/gi, '_').slice(0, 40) : null) : null,
-        type: 'week',
+        type: fortnight ? 'fortnight' : 'week',
         pageBox: [build.pageBox.x, build.pageBox.y, build.pageBox.w, build.pageBox.h],
         photoBox: photo,
         preset: kept.preset,
@@ -177,8 +187,9 @@ export async function buildCalendarReport({ build, finish = null, unfinished = f
         measures: {
             keepBest: { by: kb.by, agrees: kb.agrees, modelPreferred: kb.modelPreferred, commonShare: kb.commonShare, scores: kb.scores.map((s) => ({ candidate: s.candidate, mae: s.mae, commonMae: s.commonMae })) },
             mae: kept.mae, pictureShare: kept.pictureShare, candidates: build.candidates.length, rejections: build.attempts.filter((a) => !a.rendered).length,
-            fontVerification: fontStats, pageBox: build.pageBoxSet ?? 'whole', rows: build.ladder ? build.ladder.rules.length : 0, texts: build.lines.length, faceSheets: build.stats.faceSheets,
+            fontVerification: fontStats, pageBox: build.pageBoxSet ?? 'whole', rows: build.rowsFound ? build.rowsFound() : (build.ladder ? build.ladder.rules.length : 0), texts: build.lines.length, faceSheets: build.stats.faceSheets,
             rules: kept.feedback.rules?.delta ?? null,
+            ...(fortnight ? { rules2: kept.feedback.rules2?.delta ?? null } : {}),
         },
     };
 }

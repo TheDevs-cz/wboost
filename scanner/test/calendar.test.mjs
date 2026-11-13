@@ -10,7 +10,7 @@ import { definitionFiles } from '../src/drivers/file-job.mjs';
 import { readDefinition, HttpScannerApi, INSTRUMENTS } from '../src/protocol.mjs';
 import { ocrPython } from '../src/instruments/ocr.mjs';
 import * as im from '../src/instruments/raster.mjs';
-import { CalendarBuild, detectRules, rowLadder, detectPageBox, pictureMask, mergeDeep, withMmRulers } from '../src/adapters/calendar.mjs';
+import { CalendarBuild, detectRules, rowLadder, columnLadders, detectPageBox, pictureMask, mergeDeep, withMmRulers } from '../src/adapters/calendar.mjs';
 import { buildCalendarReport, shown } from '../src/finish/calendar-report.mjs';
 import { Caps } from '../src/caps.mjs';
 import { scriptedEngine } from './support/fakes.mjs';
@@ -294,4 +294,155 @@ test('protocol: a calendar render sends `commands` and hands back view, page, pr
     assert.equal(r.rendered, true); assert.deepEqual(r.view, { x: 0, y: 0, w: 310, h: 145 }); assert.equal(r.preset, 'photoLeft'); assert.deepEqual(r.features, { moon: true }); assert.deepEqual(r.layout, { v: 1 });
     await api.render({ seq: 8, design: { canvas: {} } });
     assert.deepEqual(Object.keys(sentBody), ['run', 'seq', 'design'], 'a template render is unchanged');
+});
+
+// ---------------------------------------------------------------------------- 14-day calendars
+
+const DEFAULT14 = {
+    v: 1,
+    boxes: { photo: { x: 84, y: 27, w: 142, h: 112 }, cap: { x: 89, y: 139.5, w: 132, h: 4.5 }, logo: { x: 143, y: 15, w: 24, h: 24 }, head: { x: -5, y: -5, w: 320, h: 32 }, month: { x: 6, y: 12.5, w: 120, h: 14.5 }, month2: { x: 184, y: 12.5, w: 120, h: 14.5 }, cal: { x: -5, y: 27, w: 89, h: 112 }, cal2: { x: 226, y: 27, w: 89, h: 112 }, wk: { x: 6, y: 139, w: 72, h: 4.5 }, wk2: { x: 232, y: 139, w: 72, h: 4.5 }, qr: { x: 199.5, y: 113, w: 21, h: 21, hidden: true } },
+    order: ['qr', 'logo', 'cap', 'wk', 'month', 'head', 'cal', 'photo'],
+    styles: { ...DEFAULT.styles },
+};
+const CONTEXT14 = { fonts: [], brandColours: [], calendar: { supported: true, type: 'fortnight', year: 2027, page: PAGE, bleedMm: 5, features: {}, hasLayout: true, presets: ['twoSided'], samplePage: { key: 'w02' }, defaultLayout: { preset: 'twoSided', layout: DEFAULT14 } } };
+
+/** The stand-in model + renderer of a 14-day calendar: two columns of rules, the photo between. */
+function fakeFortnightApp() {
+    const app = {
+        renders: 0, last: null,
+        materialise(commands) {
+            let layout = structuredClone(DEFAULT14); const features = { captions: false, weekNumbers: false };
+            for (const c of commands) {
+                if (c.op === 'preset' && c.preset !== 'twoSided') return { error: `The preset "${c.preset}" does not fit a fortnight calendar` };
+                if (c.op === 'configure') for (const k of Object.keys(c.features)) features[k] = true;
+                if (c.op === 'layout') {
+                    for (const [k, b] of Object.entries(c.boxes ?? {})) { if (!(k in layout.boxes)) return { error: `"${k}" is not an element box of this calendar` }; if (/2$/.test(k) && 'hidden' in b) return { error: `boxes.${k}.hidden: a second frame has no flag` }; }
+                    layout = { ...layout, boxes: mergeDeep(layout.boxes, c.boxes ?? {}), styles: mergeDeep(layout.styles, c.styles ?? {}), order: c.order ?? layout.order };
+                }
+            }
+            return { layout, features, preset: 'twoSided' };
+        },
+        async draw(commands) {
+            const { layout, features } = app.materialise(commands);
+            const W = PAGE.width * PX, H = PAGE.height * PX;
+            const rect = (b, colour) => `<rect x="${b.x * PX}" y="${b.y * PX}" width="${b.w * PX}" height="${b.h * PX}" fill="${colour}"/>`;
+            let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"><rect width="100%" height="100%" fill="${layout.styles.bg.color}"/>${rect(layout.boxes.head, layout.styles.head.bg.color)}${rect(layout.boxes.photo, '#9aa0a6')}`;
+            for (const k of ['cal', 'cal2']) { const b = layout.boxes[k], pitch = (b.h - 2) / 7, x0 = Math.max(b.x, 0) + 5, x1 = Math.min(b.x + b.w, PAGE.width) - 5; for (let i = 1; i <= 7; i++) svg += `<rect x="${x0 * PX}" y="${Math.round((b.y + i * pitch) * PX)}" width="${(x1 - x0) * PX}" height="2" fill="${layout.styles.lines.color}"/>`; }
+            return { layout, features, png: await sharp(Buffer.from(svg + '</svg>')).png().toBuffer() };
+        },
+        async renderCommands(commands) {
+            const m = app.materialise(commands);
+            if (m.error) return { rendered: false, status: 'rejected', issues: [{ severity: 'error', stage: 'model', code: 'refused', message: m.error }], image: null };
+            app.renders++; app.last = commands;
+            const d = await app.draw(commands);
+            return { rendered: true, issues: [], image: { data: d.png, mimeType: 'image/png' }, view: { x: 0, y: 0, w: PAGE.width, h: PAGE.height }, page: { key: 'w02' }, preset: 'twoSided', layout: d.layout, features: d.features };
+        },
+        async faces() { throw new Error('no faces in this test'); },
+    };
+    return app;
+}
+// the "source": both columns 10 mm narrower and 4 mm lower than the default — mirror images of each other
+const TRUTH14 = [{ op: 'preset', preset: 'twoSided' }, { op: 'layout', boxes: { cal: { x: -5, y: 31, w: 79, h: 107 }, cal2: { x: 236, y: 31, w: 79, h: 107 }, photo: { x: 74, w: 162 } }, styles: { head: { bg: { color: '#1F3A5F' } }, lines: { color: '#40454C' } } }];
+async function build14(truth = TRUTH14) {
+    const app = fakeFortnightApp();
+    const raster = await im.loadRgb((await app.draw(truth)).png);
+    const b = new CalendarBuild({ source: raster, sourcePath: null, context: CONTEXT14, app, caps: new Caps() });
+    b.ocrSource = []; b.lines = []; b.ladders = columnLadders(b.page); // what the pre-pass measures, without the OCR
+    return { b, app, tools: b.tools(), raster };
+}
+
+test('14 days: the scanner announces mm14; the definition asks for it for the fortnight variant only, which has its own instructions and candidate tool', () => {
+    assert.ok(INSTRUMENTS.includes('mm14'));
+    const { definition, kind } = readDefinition(definitionFiles());
+    assert.deepEqual(definition.kinds.calendar.requiresInstruments, ['mm'], 'an image without mm14 keeps building 7-day calendars');
+    assert.deepEqual(definition.kinds.calendar.variants.fortnight.requiresInstruments, ['mm14']);
+    const week = kind('calendar'), fort = kind('calendar', 'fortnight');
+    assert.doesNotMatch(week.system, /prints two weeks on a page/); assert.match(fort.system, /prints two weeks on a page/);
+    assert.ok(fort.system.startsWith(week.system), 'the variant adds to the kind\'s instructions');
+    assert.deepEqual(fort.tools.map((t) => t.name), week.tools.map((t) => t.name));
+    const preview = (spec) => spec.tools.find((t) => t.name === 'calendar_preview');
+    assert.deepEqual(preview(week).input_schema.properties.preset.enum, ['photoLeft', 'photoRight']);
+    assert.deepEqual(preview(fort).input_schema.properties.preset.enum, ['twoSided']);
+    assert.match(preview(fort).description, /cal2/);
+    assert.equal(fort.task, week.task); assert.deepEqual(fort.finishSchema, week.finishSchema);
+    assert.throws(() => kind('calendar', 'monthly'), /no variant/);
+});
+
+test('14 days: one row ladder per week column, each with the frame it implies', async () => {
+    const { b, raster } = await build14();
+    const ladders = columnLadders(raster);
+    assert.deepEqual(ladders.map((l) => l.rules.length), [7, 7]);
+    assert.ok(ladders[0].x1 < raster.width / 2 && ladders[1].x0 > raster.width / 2);
+    // one ladder of the whole page would see one column only: the rules share their rows
+    assert.equal(rowLadder(detectRules(raster), { height: raster.height }).rules.length, 7);
+    await b.tools().set_page_box({ x: 0, y: 0, w: raster.width, h: raster.height }).then((r) => {
+        assert.equal(r.json.rules.count, 7); assert.equal(r.json.rules2.count, 7); assert.equal(r.json.rules2.frame, 'cal2');
+        const near = (a, e, tol = 0.6) => assert.ok(Math.abs(a - e) <= tol, `${a} ≈ ${e}`);
+        // the frames as the rules show them — clipped to the page (the bleed is not in the picture)
+        near(r.json.rules.calBox.x, 0); near(r.json.rules.calBox.y, 31); near(r.json.rules.calBox.w, 74); near(r.json.rules.calBox.h, 107);
+        near(r.json.rules2.calBox.x, 236); near(r.json.rules2.calBox.w, 74);
+    });
+    assert.equal(b.rowsFound(), 14);
+});
+
+test('14 days: second frames the model does not send are the mirror of the first; what it sends about one wins; the preset need not be named', async () => {
+    const { b, app, tools } = await build14();
+    const first = await tools.calendar_preview({ boxes: { cal: { y: 31, w: 79, h: 107 }, photo: { x: 74, w: 162 }, month: { x: 10 }, wk: { hidden: true } }, styles: { head: { bg: { color: '#1F3A5F' } }, lines: { color: '#40454C' } } });
+    assert.equal(first.json.rendered, true, JSON.stringify(first.json.issues));
+    assert.deepEqual(app.last[0], { op: 'preset', preset: 'twoSided' });
+    const sent = app.last.find((c) => c.op === 'layout').boxes;
+    assert.deepEqual(sent.cal2, { x: 236, y: 31, w: 79, h: 107 }, 'cal.x came from the default layout');
+    assert.deepEqual(sent.month2, { x: 180, y: 12.5, w: 120, h: 14.5 });
+    assert.equal(sent.wk2, undefined, 'a hidden element sends no second frame');
+    assert.equal(first.json.mae < 0.002, true, `the mirrored candidate matches the mirrored source (${first.json.mae})`);
+    assert.equal(first.json.rules.source.count, 7); assert.equal(first.json.rules2.source.count, 7);
+    assert.deepEqual(first.json.rules2.delta, { firstYMm: 0, pitchMm: 0, x0Mm: 0, x1Mm: 0 });
+    assert.ok(first.json.elements.some((e) => e.element === 'cal2') && first.json.elements.some((e) => e.element === 'month2'));
+    // a patch of the first frame moves the mirrored second frame with it; an explicit side of the second frame stays
+    await tools.calendar_preview({ patch: true, boxes: { cal: { w: 69 }, cal2: { y: 40 } } });
+    const patched = app.last.find((c) => c.op === 'layout').boxes;
+    assert.deepEqual(patched.cal2, { x: 246, y: 40, w: 69, h: 107 });
+    assert.equal(b.candidates[1].feedback.rules2.delta.x0Mm, -10, 'the feedback of the second column is its own');
+    await assert.rejects(() => tools.calendar_preview({ preset: 'photoLeft' }), /twoSided/);
+    assert.equal(b.candidates.length, 2);
+});
+
+test('14 days: the report says the calendar\'s type and when the picture shows one week only; a 7-day calendar keeps its own note', async () => {
+    const { b, tools } = await build14();
+    await tools.calendar_preview({ boxes: { cal: { y: 31, w: 79, h: 107 }, photo: { x: 74, w: 162 } } });
+    const base = { preferredCandidate: 1, recognised: [], needsUpload: [], featuresOffered: [], notExpressible: [] };
+    const two = await buildCalendarReport({ build: b, finish: { ...base, fortnight: true } });
+    assert.equal(two.type, 'fortnight'); assert.equal(two.preset, 'twoSided'); assert.deepEqual(two.notes, []);
+    assert.equal(two.measures.rows, 14); assert.deepEqual(two.measures.rules2, { firstYMm: 0, pitchMm: 0, x0Mm: 0, x1Mm: 0 });
+    const one = await buildCalendarReport({ build: b, finish: { ...base, fortnight: false } });
+    assert.deepEqual(one.notes, [{ code: 'week_page_on_fortnight' }]);
+    const alone = await buildCalendarReport({ build: b, finish: null, unfinished: true, stopReason: 'turns' });
+    assert.deepEqual(alone.notes, [], 'without the model\'s word nothing is claimed');
+    const week = await build();
+    week.b.ocrSource = [];
+    await week.tools.calendar_preview({ preset: 'photoLeft' });
+    const left = await buildCalendarReport({ build: week.b, finish: { ...base, fortnight: true } });
+    assert.equal(left.type, 'week'); assert.deepEqual(left.notes, [{ code: 'fortnight_left_half' }]);
+});
+
+test('build (14 days): the fortnight variant\'s instructions and tool reach the engine; the finish carries type fortnight', { skip }, async () => {
+    const app = fakeFortnightApp();
+    const working = await sharp((await app.draw(TRUTH14)).png).webp({ lossless: true }).toBuffer();
+    const sent = { finish: null, renders: [] };
+    const api = { source: async () => working, putArtifact: async () => {}, beat: async () => ({ cancel: false, mode: 'on' }), render: async (body) => { sent.renders.push(body); return app.renderCommands(body.commands); }, faces: async () => { throw new Error('no fonts'); }, finish: async (p) => { sent.finish = p; return { ok: true }; }, release: async () => ({ ok: true }) };
+    const job = { id: 'scan-f', kind: 'calendar', lane: 'build', run: 1, definition: { version: 't', files: definitionFiles() }, context: { fonts: [], palette: [], calendar: CONTEXT14.calendar } };
+    let options = null;
+    const engine = scriptedEngine(async (ctx) => {
+        options = ctx.options;
+        await ctx.tool('calendar_preview', { boxes: { cal: { y: 31, w: 79, h: 107 }, photo: { x: 74, w: 162 } }, styles: { lines: { color: '#40454C' } } });
+        return { status: 'done', preferredCandidate: 1, fortnight: true, recognised: [], needsUpload: [], featuresOffered: [], notExpressible: [] };
+    });
+    const out = await runBuild({ job, api, engine, scratchDir: mkdtempSync(join(tmpdir(), 'scan-cal14-')) });
+    assert.equal(out.outcome, 'proposed');
+    assert.match(options.system, /prints two weeks on a page/);
+    assert.match(options.tools.find((t) => t.name === 'calendar_preview').description, /cal2/);
+    assert.match(options.content[1].text, /"rules2":\{"count":7/);
+    assert.equal(sent.finish.report.type, 'fortnight'); assert.equal(sent.finish.report.preset, 'twoSided');
+    assert.equal(out.stats.prepass.rows, 14);
+    assert.ok(sent.renders[0].commands.find((c) => c.op === 'layout').boxes.cal2, 'the second frame travels in the commands');
 });

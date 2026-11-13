@@ -127,7 +127,8 @@ heartbeat, engine and keep-best as a template scan; what differs:
 | Candidate | `calendar_preview`: `preset` + `features` (ON only) + one patch of `boxes` / `order` / `styles` → the calendar model's commands → the app runs them on the calendar's document **in memory** and draws the sample week (`render {commands}`); `"patch": true` merges over the previous candidate. A patch the model refuses counts as a validation rejection |
 | Feedback | numbers in mm: masked `mae` (the photo, logo and QR boxes are the user's pictures), the rule ladder of source vs render with its `delta` and the arithmetic to apply, per element `mae` / `move`, for month and week label `inkHeightRatio` (the wording differs from the source's, so widths are never compared) |
 | Report | `src/finish/calendar-report.mjs`: closed lists only — `recognised`, `needsUpload`, `featuresOffered`, `fonts` (pattern from the rankings), `notExpressible` (code + source-px box), `notes`; `pageBox` / `photoBox` in source px; an element the kept layout hides is `absent` whatever the model said |
-| Instruments | the scanner announces `mm`; the definition asks for it for `kinds.calendar` only — an image without it is never handed a calendar build and keeps serving templates |
+| Instruments | the scanner announces `mm`; the definition asks for it for `kinds.calendar` only — an image without it is never handed a calendar build and keeps serving templates. `mm14` is the same one level down: `kinds.calendar.variants.fortnight` asks for it, and an image without it is never handed the scan of a 14-day calendar |
+| 14-day calendars | `context.calendar.type = "fortnight"` → the kind's `fortnight` variant (`readDefinition().kind('calendar', 'fortnight')`: `system.calendar.fortnight.md` appended, the tool `calendar_preview.fortnight`). The one preset `twoSided`; Kalendárium, month and week label have a second frame (`cal2`, `month2`, `wk2`) drawn mirrored. The pre-pass measures **one row ladder per page half** (`columnLadders`: `rules` → `cal`, `rules2` → `cal2`); a second frame the model does not send is the mirror image of its first frame (`#withSecondFrames`: x′ = width − x − w), what it does send about one is laid over that; the feedback lists the frames separately and gives `rules2` its own delta. Report: `type: "fortnight"`; notes `week_page_on_fortnight` (the model saw one week column) / `fortnight_left_half` (a two-week page for a 7-day calendar) |
 | Never | no picture is cut out of the source; a feature is only switched on; no font is required |
 
 Tools the model gets: `scan_source`, `scan_crop`, `scan_measure`, `font_rank`, `compare_region` (their
@@ -225,7 +226,7 @@ measure parity with the prototypes' engine.
 ## Tests
 
 ```bash
-npm test                # 250 tests, ≈ 95 s — no model, no app
+npm test                # 255 tests, ≈ 90 s — no model, no app
 npm run test:slow       # the app-outage rules at their real times (≈ 85 s)
 ```
 
@@ -240,7 +241,7 @@ npm run test:slow       # the app-outage rules at their real times (≈ 85 s)
 | `hostile.test.mjs` | decompression bombs, 36 Mpx, CMYK, 16-bit, animated, truncated, HEIC, SVG, empty, > 10 MB — each a named outcome within a memory and time bound; a HEIC that claims a huge canvas never reaches the converter; a PDF with a gigapixel picture ends bounded; the converters' address-space limit (Linux); the timeout / an abort leave nothing of the child's process group running |
 | `childenv.test.mjs` | the environments read from the processes themselves: the normalise child, the converters, the OCR sidecar (no app token, no provider credential), a run's worker (token over IPC, not in its environment) |
 | `contract.test.mjs` | the contract fixture replayed from the scanner's side (`test/contract/README.md` — the app's CI replays it from its side) |
-| `calendar.test.mjs` | the calendar adapter: row ladder, page-box detection, picture mask, tools in mm, `calendar_preview` (commands, patch, caps, a refused patch), the report's closed lists, a whole calendar build against a stand-in calendar model, the `commands` render of the client |
+| `calendar.test.mjs` | the calendar adapter: row ladder, page-box detection, picture mask, tools in mm, `calendar_preview` (commands, patch, caps, a refused patch), the report's closed lists, a whole calendar build against a stand-in calendar model, the `commands` render of the client; **14 days**: the variant of the definition, a ladder per week column, mirrored second frames and what overrides them, the per-column feedback, the report's type and mismatch notes, a whole build |
 | `run`, `tools`, `finish`, `intake`, `instruments`, `engine`, `caps`, `classify` | step A: the build and intake of one job, caps, the image rule, the report, the instruments |
 
 ## Evaluation and measurements (`eval/`)

@@ -530,7 +530,7 @@ Degraded copies and the 14-day layout:
 | `s03-jpeg70` (JPEG q70) | frames 0.07 mm, type 0.25 pt, categorical 100 %, F1 0.912 (clean s03: 1.000) |
 | `s10-shot` (screenshot with a margin) | the scanner's page-box detection set the box (`page_box_set`, [18, 22, 1594, 746] of 1639 × 799) without a model call; frames 0.13 mm (clean 0.06), anchors 0.79 mm, F1 0.953 (clean 0.999) |
 | `s06-small` (1000 × 468) | **refused by the upload rule** (`unsupported_image`: short side < 600 px) — never reaches the scanner |
-| `s12` (14-day truth) | built as a 7-day page of the left column, note `fortnight_left_half`; categorical "type" is wrong by construction (the calendar is a 7-day one — 14-day calendars are F7) |
+| `s12` (14-day truth) | built as a 7-day page of the left column, note `fortnight_left_half`; categorical "type" is wrong by construction (the calendar is a 7-day one — 14-day calendars are F7) — **since built: §11.1** (a 14-day calendar's scan targets the two-sided layout: frames 0.07 mm, F1 0.996) |
 
 Real pages (masked edge F1; the hand-built ceiling on Chotěbuz is 0.626, and differences below ≈ 0.05 on
 real pages mean nothing — prototype finding):
@@ -780,6 +780,10 @@ plain photo is called `design` with high confidence (it would pass for a templat
 recorded). The pre-check cannot be relied on to keep non-designs out of TEMPLATE scans; it does keep them
 out of calendar scans, because there the verdict has to be `calendar_page`.
 
+**Since tightened — §11.2:** charts, screenshots, documents and plain photographs sent as templates are
+stopped (44 of 44 new negative verdicts, the chart and the photo of this table included), with no good
+input stopped (68 of 68).
+
 ### 10.4 Run-to-run spread, templates — a fixed subset five times
 
 `node eval/run.mjs --only argumenty,vite-ze-2-strana,pripomenuti-photo,B1-koncert,A1-kandidat --runs 5 --label gaps`
@@ -963,7 +967,96 @@ tracked text can be verified.
 
 ## 11. 14-day calendars and the template pre-check (2026-11-13, evening)
 
-<!-- 11.1 -->
+### 11.1 14-day calendars: the scan targets the two-sided layout
+
+Until now a scan could only build a 7-day layout: a two-week page was rebuilt as its left week (§9.1 `s12`:
+box IoU 0.747, masked edge F1 0.786, "type" wrong by construction; Bruzovice 0.386). The scan of a
+14-day calendar (`type: fortnight`) now targets `twoSided` — eleven boxes, the second frames `cal2` /
+`month2` / `wk2` (`src/adapters/calendar.mjs`: one row ladder per page half, second frames the model does
+not send mirrored from the first, feedback per column; `system.calendar.fortnight.md`;
+`docs/architecture/ai-scan.md` § "14-day calendars").
+
+Measured exactly as §9: through the real job core (`node eval/calendar.mjs --calendar <a new 14-day
+calendar with every feature off and no layout> --label r1|r2|r3`), Opus 5.5 at effort `high` on the plan,
+the stored proposal scored with the prototype's scorer. Inputs: **four synthetic 14-day pages rendered
+from the module itself** — `s12` (the default two-sided layout, teal header) and three new ones: `s13`
+(navy header, day numbers at the INNER edges, narrower columns, an inset rounded photo, dashed rules, week
+as „Týden N“, a logo in the middle), `s14` (no visible header band, wide columns, a narrow photo,
+mixed-case Arial Narrow month, NO rules, no week number, a caption on a filled box), `s15` (a tall
+gradient header with a centred 22 pt month per column, short low rows, dotted rules, week as „T3“, moon
+phases, a centred caption) — and **the real page, Bruzovice**, at its original size (977 × 457) and
+upscaled 2 ×. **Three runs each: 18 scans, 18 `ready`, 0 unfinished, 0 failed, no patch refused by the
+calendar model, no mismatch note; $5.58 computed.**
+
+| input | runs | whole scan s | build s | turns | cands | cost $ | frame err mm (max edge) | anchor mm | type pt | ΔE00 | categorical | shown | face exact / family | masked edge F1 (min–max) | wrong |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| s12 | 3 | 62 | 55 | 10.7 | 2.0 | 0.219 | 0.07 (0.2) | 0.21 | 0.31 | 1.9 | 100 % | 100 % | 19 % / 100 % | 0.996 (0.989–1.000) | |
+| s13 | 3 | 74 | 68 | 11.7 | 2.0 | 0.284 | 0.06 (0.3) | 0.11 | 0.33 | 2.0 | 100 % | 100 % | 33 % / 100 % | 0.998 (0.996–0.999) | |
+| s14 | 3 | 73 | 63 | 12.7 | 2.0 | 0.264 | 0.81 (22.0) — see below | 0.00 | 0.31 | 2.3 | 91 % | 100 % | 100 % / 100 % | 0.993 (0.987–0.999) | `photoOverHeader` × 3 — see below |
+| s15 | 3 | 89 | 79 | 15.3 | 2.7 | 0.353 | 0.04 (0.2) | 8.81 — see below | 0.31 | 4.0 | 92 % | 100 % | 100 % / 100 % | 0.976 (0.975–0.977) | `monthAlign` × 3 |
+| bruzovice (977 × 457) | 3 | 91 | 83 | 10.7 | 2.7 | 0.349 | – | – | – | – | – | – | – | 0.765 (0.762–0.768) | |
+| bruzovice-2x | 3 | 107 | 97 | 11.3 | 3.0 | 0.392 | – | – | – | – | – | – | – | 0.653 (0.458–0.764) | |
+
+Against the 7-day figures (§9.1, synthetic clean set, one run each) — **does it reach the 7-day level?**
+
+| | 7-day (s01–s11) | 14-day (s12–s15 × 3 runs) | |
+|---|---|---|---|
+| type of the layout | – | `twoSided` in 18 of 18; both week columns in every proposal | was "wrong by construction" |
+| frames (photo, header, both Kalendárium frames, filled caption) | 0.04 mm (max edge 0.3) | **0.06 mm (max 0.3)** on s12, s13, s15; s14: 0.81 mm | **yes** where the page draws the frame. s14's error is on edges NOTHING on the page draws: the top 3 mm of its photo lie under a white header band on a white page, a Kalendárium frame without rules has no visible inner edge (the proposals end it at the photo, 3.4–3.8 mm further in), and in one run the invisible header band itself was made shorter (22 mm) — the render is the same picture (F1 0.987–0.999) |
+| anchors (month, week label, unfilled caption) | 0.12 mm | 0.11–0.21 mm on s12–s14; s15 see → | **yes**, with one systematic difference: s15's month line is centred in a box above each column; all three runs set it `align: start` in a box that begins where the text begins — the line is drawn in the same place (F1 0.976) but the anchor and `monthAlign` count as wrong, and a longer month name would start at the same left edge instead of staying centred |
+| type sizes | 0.21 pt | 0.31 pt | slightly worse (inside the 7-day run-to-run spread of §10.5) |
+| colours ΔE00 | 2.0 | 2.5 | the same class |
+| categorical | 99 % | **96 %** (46 of 48 keys per page-set and run; 100 % on s12 and s13) | **not quite**: two misses, the same in every run — s15 `monthAlign` (above), and s14 `photoOverHeader`, which is the scorer's: the proposal's stacking order IS the truth's, the scorer has no value for a proposal whose photo ends at the header instead of running under it |
+| shown (month, week label, caption, logo, moon, events) | 100 % | 100 % | yes |
+| face exact / family | 88 % / 97 % | **63 % / 100 %** | **no, on pages set in Montserrat**: s14 and s15 (Arial faces) 100 %; s12 19 % and s13 33 % — the neighbouring weight of Montserrat is chosen for most text styles (Medium for Regular, Bold for SemiBold, Black for ExtraBold), and the report says so itself: those rows are `undetermined`, not `measured_match`. The same weakness as the 7-day pages in Montserrat (§10.5), more of it — the 14-day type is smaller (7.5–9 pt) |
+| masked edge F1 | 0.991 | **0.991** (0.975–1.000) | **yes** |
+| cost | $0.27 | **$0.28** ($0.21–0.40) | yes |
+| whole scan | 59 s | **75 s** (57–101 s) | 16 s slower: a wider page to measure, more turns (12.6 against 11.8) |
+
+**Plainly:** the geometry, the categorical choices, the picture and the cost of a 14-day scan are at the
+7-day level; the exact face (weight) on Montserrat pages is not, and one layout idea — a month line centred
+over its column — comes out as a left-aligned line in the same place.
+
+**Bruzovice** (the client's real 14-day page; no ground truth): the proposal has both week columns, the
+framed photo between them, the header band, the logo's place over the header and both month lines and
+week labels, in every run; the scanner's own measurement of the kept candidate puts both row ladders
+within 0.3 mm of the source's (`rules` / `rules2` deltas: x0 ≤ 0.3 mm, x1 ≤ 0.3 mm, pitch 0.00 mm, first
+rule ≤ 0.3 mm — in all six runs); `needsUpload`: logo, header (the header is a picture);
+`notExpressible`: `ornament` in three of the six runs (the photo's frame). Masked edge F1 **0.765** at the original size (0.762–0.768) and **0.653** at
+2 × (0.738 and 0.764 in two runs, 0.458 in one whose event texts and name-day lines landed elsewhere),
+against 0.386 when only the left week could be built. These numbers are **lower than the layout
+deserves, and are not comparable with the 7-day real pages**: the module's 14-day pages pair the weeks
+9 + 10, 11 + 12, … of 2026, the client's page shows weeks 10 + 11 — no scratch calendar can show the same
+fourteen days, so every day number, name and week label in the comparison render is a different text
+than in the source. What can be said: the picture score doubled, the measured frames are right, and the
+original 977 × 457 px export is enough (it scores at least as well as the 2 × copy — §9.5's finding for
+7-day pages holds).
+
+**The row ladder** was found in both columns on s12 and Bruzovice (14 rules); on s13 (dashed), s15
+(dotted) and s14 (none) the pre-pass found no ladder — as on the 7-day pages with dashed or dotted rules —
+and the model measured the rows itself; the frames of s13 and s15 are as exact as those of s12.
+
+**When the page and the calendar disagree** (one run each, real builds): the two-week page `s13`
+scanned for the 7-day evaluation calendar → `photoRight`, the left week column and the photo, note
+`fortnight_left_half` (75 s, $0.33); the 7-day page `s03` (photo left, days right) scanned for the 14-day
+calendar → `twoSided`, the day column built as the FIRST week on the left (113 mm wide, as in the
+picture), mirrored on the right — which is where the picture has it —, the photo between them 66 mm
+wide, `photo` and `cap` reported `approximate`, note `week_page_on_fortnight` (90 s, $0.34). None of the
+18 runs above, where the page fits the calendar, carries either note. The review shows its alert for
+these two notes only.
+
+**7-day calendars on the same definition (9) and code** — three of §9's pages once more, to see that
+nothing moved: `s03` frames 0.09 mm, type 0.33 pt, categorical 100 %, F1 1.000 ($0.42, 77 s, 17 turns);
+`s08` 0.04 mm, 0.36 pt, 93 % (the same `photoOverHeader` miss as in §9.1), F1 1.000 ($0.28, 66 s); `s10`
+0.06 mm, 0.14 pt, 100 %, F1 1.000 ($0.30, 66 s). Inside the spread §10.5 measured.
+
+
+**Not measured:** a 14-day page whose columns are NOT mirror images of each other (numbers on the same
+side in both — the layout cannot express it; the instructions say to report `cal` as approximate), a
+photographed 14-day print, a 14-day page with a margin (`s10-shot`'s case; the page-box detection is
+shared with 7-day pages), a project without fonts on a 14-day calendar, and 14-day shift calendars
+(`bukovec`, a content feature).
+
 
 ### 11.2 Template pre-check: charts, screenshots, documents and plain photographs are stopped
 

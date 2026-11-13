@@ -200,7 +200,8 @@ export async function runBuild({ job, api, engine, scratchDir, signal = null, pr
     const { definition, files, kind } = readDefinition(job.definition.files);
     if (!['template', 'calendar'].includes(job.kind)) throw new Error(`no adapter for kind "${job.kind}"`);
     const calendar = job.kind === 'calendar';
-    const spec = kind(job.kind);
+    // a 14-day calendar builds on the kind's `fortnight` variant: its own instructions and candidate tool
+    const spec = kind(job.kind, calendar && job.context?.calendar?.type === 'fortnight' ? 'fortnight' : null);
     const prices = pricesOf(definition);
     const caps = new Caps(limitsFromDefinition(definition));
     const dir = join(scratchDir, `build-${job.run}`);
@@ -237,7 +238,7 @@ export async function runBuild({ job, api, engine, scratchDir, signal = null, pr
         const context = contextFromClaim(job.context);
         // a template needs a face for every text; a calendar draws with its built-in face when the project has none
         if (!calendar && !context.fonts.length) return { ...(await failed('build', usagePayload(null))), detail: 'no_fonts', stats };
-        // a calendar that cannot take a scanned layout (14 days per page, or gone): nothing to build on
+        // a calendar that cannot take a scanned layout (it is gone): nothing to build on
         if (calendar && context.calendar?.supported !== true) return { ...(await failed('build', usagePayload(null))), detail: 'calendar_unsupported', stats };
         let seq = 0;
         // a renderer that stays away for the whole tolerance window is counted: a run that ends without a
@@ -269,7 +270,7 @@ export async function runBuild({ job, api, engine, scratchDir, signal = null, pr
         probeResources?.mark('build:prepass');
         changed();
         const prepass = await build.prepass();
-        stats.prepass = { ms: build.stats.prepassMs, ocr: build.stats.ocr, lines: prepass.ocrLines.length, ranked: prepass.ocrLines.filter((l) => l.font).length, faceSheets: build.stats.faceSheets, ...(calendar ? { rows: prepass.rules?.count ?? 0, pageBox: build.pageBoxSet ?? 'whole' } : { background: prepass.background.kind }) };
+        stats.prepass = { ms: build.stats.prepassMs, ocr: build.stats.ocr, lines: prepass.ocrLines.length, ranked: prepass.ocrLines.filter((l) => l.font).length, faceSheets: build.stats.faceSheets, ...(calendar ? { rows: build.rowsFound(), pageBox: build.pageBoxSet ?? 'whole' } : { background: prepass.background.kind }) };
         writeFileSync(join(dir, 'prepass.json'), JSON.stringify(prepass, null, 2));
         stage('prepass', t0);
         if (controller.signal.aborted) throw Object.assign(new Error(abortReason), { code: 'aborted' });

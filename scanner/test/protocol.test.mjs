@@ -31,7 +31,7 @@ test('every call carries the bearer token and the protocol header; per-scan call
     assert.equal(f.cells.length, 1);
     assert.deepEqual(await api.finish({ outcome: 'proposed', candidate: 1, report: {}, usage: {} }), { ok: true, applied: true, late: false, status: 'ready', code: null });
     for (const c of app.state.calls) { assert.equal(c.protocol, String(PROTOCOL_VERSION)); if (c.scan) { assert.equal(c.lease, scan.lease, c.op); assert.equal(c.run, 1, c.op); } else assert.equal(c.lease, null); }
-    assert.deepEqual(app.calls('claim')[0].body, { lane: 'build', scannerVersion: '0.2.0+test', instruments: ['ocr', 'crop', 'measure', 'font_rank', 'compare', 'mm'], capacity: 1 });
+    assert.deepEqual(app.calls('claim')[0].body, { lane: 'build', scannerVersion: '0.2.0+test', instruments: ['ocr', 'crop', 'measure', 'font_rank', 'compare', 'mm', 'mm14'], capacity: 1 });
     assert.equal(app.state.calls.some((c) => c.crossed), false);
 });
 
