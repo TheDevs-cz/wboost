@@ -363,17 +363,22 @@ function mmStyle(box, page) {
     return `left:${pc((x0 / page.width) * 100)}%;top:${pc((y0 / page.height) * 100)}%;width:${pc((Math.max(0, x1 - x0) / page.width) * 100)}%;height:${pc((Math.max(0, y1 - y0) / page.height) * 100)}%`;
 }
 
-/** The boxes of the proposed layout that are on the page: `[key, box]` in stack-neutral order. */
+/**
+ * The boxes of the proposed layout that are on the page: `[key, box]` in stack-neutral order. On a
+ * 14-day layout Kalendárium, Měsíc and Číslo týdne have a second frame (`cal2`, `month2`, `wk2`): it
+ * follows its first frame under the SAME element key — one element, two outlines.
+ */
 export function layerBoxes(scan) {
     const p = scan.proposal;
     const d = design(scan);
     const boxes = (p.layout && p.layout.boxes) || {};
+    const drawn = (box) => box && (box.w > 0) && (box.h > 0);
     return Object.keys(LAYER_TAGS).filter((key) => {
         const box = boxes[key];
-        if (!box || box.hidden || !(box.w > 0) || !(box.h > 0)) return false;
+        if (!box || box.hidden || !drawn(box)) return false;
         const feature = LAYER_FEATURE[key];
         return !feature || Boolean(d.features[feature]) || scan.ticked.has(feature);
-    }).map((key) => [key, boxes[key]]);
+    }).flatMap((key) => [[key, boxes[key]], ...(drawn(boxes[`${key}2`]) ? [[key, boxes[`${key}2`]]] : [])]);
 }
 
 function layerOverlays(scan) {
@@ -382,7 +387,7 @@ function layerOverlays(scan) {
 }
 
 function layerLegend(scan) {
-    const rows = layerBoxes(scan).map(([key]) => `<span><span class="as-ltag">${LAYER_TAGS[key]}</span>${CAL.elements[key]}</span>`).join('');
+    const rows = [...new Set(layerBoxes(scan).map(([key]) => key))].map((key) => `<span><span class="as-ltag">${LAYER_TAGS[key]}</span>${CAL.elements[key]}</span>`).join('');
     return rows ? `<div class="as-legend" aria-label="Vrstvy návrhu">${rows}</div>` : '';
 }
 
@@ -497,8 +502,8 @@ function cantCard(scan) {
 
 function infoCard(scan) {
     const p = scan.proposal;
-    // a two-week page reduced to one week is said at the top of the review (`fortnightAlert`), not here
-    const rows = (p.notes || []).filter((note) => note.code !== 'fortnight_left_half').map((note) => (CAL.notes[note.code] ? `<li><span>${esc(CAL.notes[note.code](note))}</span></li>` : ''));
+    // a page that does not fit the calendar's type is said at the top of the review (`mismatchAlert`), not here
+    const rows = (p.notes || []).filter((note) => !CAL.mismatch[note.code]).map((note) => (CAL.notes[note.code] ? `<li><span>${esc(CAL.notes[note.code](note))}</span></li>` : ''));
     if (p.approximate && !(p.notes || []).some((n) => n.code === 'colours_estimated')) rows.push(`<li><span>${CAL.notes.colours_estimated()}</span></li>`);
     if (p.source && p.source.width && Math.min(p.source.width, p.source.height) < LOW_RESOLUTION_SHORT_SIDE) rows.push(`<li><span>${CAL.lowResolution}</span></li>`);
     if (p.unfinished) rows.push('<li><span>Sken jsme museli ukončit dřív — návrh je nedokončený. Zkontrolujte ho pečlivěji.</span></li>');
@@ -534,12 +539,16 @@ function foot(scan, primary, { back = '', apply = false } = {}) {
 }
 
 /**
- * The page showed TWO weeks and the calendar is a 7-day one: the proposal holds the left week only.
- * Said above everything else — half of the picture has no counterpart in the proposal.
+ * The page and the calendar disagree — a two-week picture for a 7-day calendar (the proposal holds the
+ * left week only) or a one-week picture for a 14-day calendar (the second column is a mirror). Said
+ * above everything else: half of the picture, or of the proposal, has no counterpart. A page that fits
+ * its calendar — 7 days on a 7-day one, 14 on a 14-day one — shows nothing here.
  */
-function fortnightAlert(scan) {
-    if (!(scan.proposal.notes || []).some((note) => note.code === 'fortnight_left_half')) return '';
-    return `<div class="alert c-warning" role="status" data-region="fortnight" data-cal-scan-fortnight>${ic('alert', '')}<div><div class="alert-t">${CAL.fortnight.title}</div><div class="alert-d">${CAL.fortnight.text}</div></div></div>`;
+function mismatchAlert(scan) {
+    const note = (scan.proposal.notes || []).find((n) => CAL.mismatch[n.code]);
+    if (!note) return '';
+    const copy = CAL.mismatch[note.code];
+    return `<div class="alert c-warning" role="status" data-region="fortnight" data-cal-scan-fortnight="${note.code}">${ic('alert', '')}<div><div class="alert-t">${copy.title}</div><div class="alert-d">${copy.text}</div></div></div>`;
 }
 
 function reviewView(scan) {
@@ -550,7 +559,7 @@ function reviewView(scan) {
     const primary = hasPictures
         ? `<button type="button" class="btn sm btn-primary" data-act="toPictures" data-cal-action="scan-pictures" data-k="topictures">Pokračovat na obrázky${ic('arrow-right')}</button>`
         : applyButton(scan);
-    return `${fortnightAlert(scan)}<div class="as-cgrid" data-region="review" data-deep>
+    return `${mismatchAlert(scan)}<div class="as-cgrid" data-region="review" data-deep>
 <div class="as-main" data-region="viewer-${scan.compare}-${scan.layers ? 'l' : 'p'}"><div class="as-viewbar">${seg}<label class="as-switch"><input type="checkbox" class="sr" role="switch" data-chg="toggleLayers" data-k="layers"${scan.layers ? ' checked' : ''}><span class="sw sm" aria-hidden="true"></span><span>Ukázat vrstvy</span></label></div>${compare(scan)}${scan.layers ? layerLegend(scan) : ''}<p class="as-cap">${week ? `Náhled ukazuje týden ${week}. ` : ''}${p.photoBox ? 'Fotka je z vašeho obrázku — do kalendáře se nevloží.' : ''}</p></div>
 <div class="as-main" data-region="side" data-deep><div class="as-card as-sumcard" data-region="sum"><h3 class="as-sum"><b>Návrh rozvržení je připravený.</b></h3><p class="cap" style="margin:0">Tohle je návrh — kalendář se zatím nezměnil.</p></div>${recognised(scan)}${fontsCard(scan)}${cantCard(scan)}${infoCard(scan)}${feedback(scan)}</div></div>
 ${foot(scan, primary, { apply: !hasPictures })}`;

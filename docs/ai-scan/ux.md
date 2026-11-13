@@ -622,7 +622,7 @@ no stage rows.
 |---|---|---|---|---|---|
 | F3a | Photo of a print (pre-check) | `Tohle vypadá jako fotka tisku` | `Fotka z ruky zkreslí rozměry i barvy, výsledek bude jen přibližný. Nejlépe funguje export nebo snímek obrazovky.` | `Nahrát jiný obrázek` (primary) · `Zkusit přesto` (tertiary; under it `Spotřebuje 1 sken · v projektu zbývá {n} z {limit}. Jde to jen jednou.`; disabled with the S2 hints when a limit or the queue stands in the way; offered once per upload — the scan then goes straight to the queue) | no |
 | F3b | Blurry / too small | `Obrázek je příliš rozmazaný` | `Texty v něm nepřečteme. Nahrajte ostřejší nebo větší verzi.` | `Nahrát jiný obrázek` | no |
-| F3c | Not the expected thing | K: `Tohle nevypadá jako stránka kalendáře` · Š: `V obrázku jsme nenašli grafiku` | K: `Potřebujeme jednu týdenní stránku s fotografií a dny v řádcích.` Š: `Obrázek je prázdný nebo je to jen fotografie bez textů a tvarů.` | `Nahrát jiný obrázek` | no |
+| F3c | Not the expected thing | K: `Tohle nevypadá jako stránka kalendáře` · Š: `V obrázku jsme nenašli grafiku` | K: `Potřebujeme jednu stránku stolního kalendáře s fotografií a dny v řádcích.` Š: `Obrázek je prázdný, nebo je to jen fotografie bez textů a tvarů, snímek obrazovky, stránka dokumentu či graf.` | `Nahrát jiný obrázek` | no |
 | F3d | Several designs | `V obrázku je víc grafik` | `Z jednoho obrázku umíme udělat jednu šablonu. Ořízněte ho na jednu grafiku.` | `Nahrát jiný obrázek` | no |
 | F3e | File cannot be processed | `Tento obrázek neumíme zpracovat` | `Soubor je poškozený nebo v neobvyklém formátu. Uložte ho znovu jako PNG nebo JPG.` | `Nahrát jiný obrázek` | no |
 | F4 | Provider refused the content | `Tento obrázek AI odmítla zpracovat` | `Služba ho vyhodnotila jako obsah, se kterým nepracuje. Pokud si myslíte, že jde o omyl, napište nám.` | `Nahrát jiný obrázek` · `Napsat nám` | no |
@@ -827,7 +827,14 @@ Phone: viewer in `Posuvník`, caption, checklist, decisions, switches, action bl
   kód`. Unticked = only positions, fonts and colours are applied.
 - **K rozhodnutí**: font items as in S4; `Projekt nemá žádné písmo` · `Kalendář se vykreslí
   náhradním písmem a v tisku může vypadat jinak.` · `Nahrát písma` · `Nechat`.
-- **Pro informaci**: `Obrázek vypadá jako čtrnáctidenní kalendář — převzali jsme levou polovinu.` ·
+- **Nad návrhem — jen když stránka a kalendář nesouhlasí** (an alert, built 2026-11-13; a page
+  that fits its calendar shows nothing): a two-week picture for a 7-day calendar — `Na obrázku jsou
+  dva týdny, tento kalendář je týdenní` · `Návrh proto převzal jen levý týden a fotografii — pravý
+  sloupec dnů v něm není. Celou stránku převezmete, když ji naskenujete u čtrnáctidenního
+  kalendáře.`; a one-week picture for a 14-day calendar — `Na obrázku je jeden týden, tento kalendář
+  je čtrnáctidenní` · `Návrh proto postavil podle obrázku první týden a druhý sloupec dnů doplnil
+  zrcadlově — zkontrolujte ho v náhledu. Stránku tak, jak je, převezmete u týdenního kalendáře.`
+- **Pro informaci**:
   `Stránka má jiný poměr stran než váš kalendář ({š} × {v} mm) — rozvržení jsme přizpůsobili.` ·
   palette line · `Barvy jsou jen odhad` (photo of a print).
 - **Tohle kalendář neumí** (closed list): `Ozdobný pruh / rámeček / ornament` · `Text v hlavičce`

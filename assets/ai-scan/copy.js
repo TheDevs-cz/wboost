@@ -88,7 +88,7 @@ export function failure(status, code) {
         switch (code) {
             case 'photo_of_print': return { ...STOP, title: 'Tohle vypadá jako fotka tisku', text: 'Fotka z ruky zkreslí rozměry i barvy, výsledek bude jen přibližný. Nejlépe funguje export nebo snímek obrazovky.', upload: true, anyway: true };
             case 'blurry_or_small': return { ...STOP, title: 'Obrázek je příliš rozmazaný', text: 'Texty v něm nepřečteme. Nahrajte ostřejší nebo větší verzi.', upload: true };
-            case 'not_expected_kind': return { ...STOP, title: 'V obrázku jsme nenašli grafiku', text: 'Obrázek je prázdný nebo je to jen fotografie bez textů a tvarů.', upload: true };
+            case 'not_expected_kind': return { ...STOP, title: 'V obrázku jsme nenašli grafiku', text: 'Obrázek je prázdný, nebo je to jen fotografie bez textů a tvarů, snímek obrazovky, stránka dokumentu či graf.', upload: true };
             case 'several_designs': return { ...STOP, title: 'V obrázku je víc grafik', text: 'Z jednoho obrázku umíme udělat jednu šablonu. Ořízněte ho na jednu grafiku.', upload: true };
             default: return { ...STOP, title: 'Tento obrázek neumíme zpracovat', text: 'Soubor je poškozený nebo v neobvyklém formátu. Uložte ho znovu jako PNG nebo JPG.', upload: true };
         }
@@ -143,8 +143,8 @@ export const CAL = {
         title: 'Naskenovat design',
         text: 'Nahrajte obrázek stránky svého kalendáře. AI rozpozná, kde je fotografie, kalendárium, hlavička a logo, a navrhne stejné rozvržení.',
     },
-    drop: { bold: 'Přetáhněte sem obrázek stránky kalendáře', phone: 'Klepněte a vyberte obrázek', cap: 'JPG, PNG, WebP, HEIC nebo PDF (první stránka) · nejvýše 10 MB · jedna týdenní stránka' },
-    tipsOk: ['Export stránky z grafického programu', 'Jedna celá týdenní stránka, rovně a bez ořezu', 'Běžný týden — ne titulní strana ani měsíční přehled'],
+    drop: { bold: 'Přetáhněte sem obrázek stránky kalendáře', phone: 'Klepněte a vyberte obrázek', cap: 'JPG, PNG, WebP, HEIC nebo PDF (první stránka) · nejvýše 10 MB · jedna stránka kalendáře' },
+    tipsOk: ['Export stránky z grafického programu', 'Jedna celá stránka s dny v řádcích, rovně a bez ořezu', 'Běžný týden — ne titulní strana ani měsíční přehled'],
     tipsNo: ['Fotka kalendáře na stole — zkreslí barvy i rozměry', 'Více stránek v jednom obrázku', 'Ozdobné pruhy a rámečky — rozvržení má pevnou sadu prvků'],
     takeOver: 'Převezmeme rozmístění fotografie, kalendária, hlavičky, měsíce a loga a také barvy. Písma vybereme z projektu. Fotky, texty a dny doplní kalendář sám.',
     hasLayout: 'Kalendář už rozvržení má. Sken ho nezmění, dokud návrh nepoužijete.',
@@ -167,8 +167,8 @@ export const CAL = {
     usable: 'Průvodce můžete dál používat — panel zavřete křížkem, sken poběží dál.',
     /** S5 — the two cards that read differently for a calendar page. */
     failure: {
-        not_expected_kind: { title: 'Tohle nevypadá jako stránka kalendáře', text: 'Potřebujeme jednu týdenní stránku s fotografií a dny v řádcích.' },
-        several_designs: { title: 'V obrázku je víc stránek', text: 'Z jednoho obrázku převezmeme jedno rozvržení. Ořízněte ho na jednu týdenní stránku.' },
+        not_expected_kind: { title: 'Tohle nevypadá jako stránka kalendáře', text: 'Potřebujeme jednu stránku stolního kalendáře s fotografií a dny v řádcích.' },
+        several_designs: { title: 'V obrázku je víc stránek', text: 'Z jednoho obrázku převezmeme jedno rozvržení. Ořízněte ho na jednu stránku kalendáře.' },
     },
     /** C4 — the rows of „Co jsme rozpoznali“. */
     elements: { photo: 'Fotografie', cap: 'Popisek fotky', cal: 'Kalendárium', month: 'Měsíc', wk: 'Číslo týdne', head: 'Hlavička', logo: 'Logo', qr: 'QR kód', bg: 'Pozadí' },
@@ -181,15 +181,26 @@ export const CAL = {
         days_in_grid: 'Dny v mřížce', rotated_text: 'Svislý nebo otočený text', month_colours: 'Jiné barvy pro každý měsíc', multilingual_names: 'Vícejazyčné názvy',
     },
     notes: {
-        fortnight_left_half: () => 'Obrázek vypadá jako čtrnáctidenní kalendář — převzali jsme levou polovinu.',
+        fortnight_left_half: () => 'Na obrázku jsou dva týdny, kalendář je týdenní — převzali jsme levý týden.',
+        week_page_on_fortnight: () => 'Na obrázku je jeden týden, kalendář je čtrnáctidenní — druhý týden jsme doplnili zrcadlově.',
         ratio_adapted: (n) => (n.w && n.h ? `Stránka má jiný poměr stran než váš kalendář (${n.w} × ${n.h} mm) — rozvržení jsme přizpůsobili.` : 'Stránka má jiný poměr stran než váš kalendář — rozvržení jsme přizpůsobili.'),
         colours_estimated: () => 'Barvy jsou jen odhad.',
         page_box_set: () => 'Obrázek měl okraje — stránku jsme v něm našli a ořízli.',
     },
-    /** C4 — a 14-day page scanned for a 7-day calendar: only the left week was taken. */
-    fortnight: {
-        title: 'Stránka má dva týdny, kalendář jeden',
-        text: 'Na obrázku jsou vedle sebe dva týdny. Tento kalendář je týdenní, proto návrh převzal jen levý týden a fotografii — pravý sloupec dnů v něm není. Rozvržení čtrnáctidenního kalendáře zatím skenovat neumíme.',
+    /**
+     * C4 — the page and the calendar disagree, by the report's note: a two-week picture scanned for a
+     * 7-day calendar (only the left week was taken), or a one-week picture scanned for a 14-day
+     * calendar (the second week column mirrors the first). A page that fits its calendar has neither.
+     */
+    mismatch: {
+        fortnight_left_half: {
+            title: 'Na obrázku jsou dva týdny, tento kalendář je týdenní',
+            text: 'Návrh proto převzal jen levý týden a fotografii — pravý sloupec dnů v něm není. Celou stránku převezmete, když ji naskenujete u čtrnáctidenního kalendáře.',
+        },
+        week_page_on_fortnight: {
+            title: 'Na obrázku je jeden týden, tento kalendář je čtrnáctidenní',
+            text: 'Návrh proto postavil podle obrázku první týden a druhý sloupec dnů doplnil zrcadlově — zkontrolujte ho v náhledu. Stránku tak, jak je, převezmete u týdenního kalendáře.',
+        },
     },
     slots: { logo: 'Logo', header: 'Obrázek v hlavičce', background: 'Obrázek na pozadí' },
     /** Style groups of the report's `fonts[]` → the genitive of `Písmo {…}`. */

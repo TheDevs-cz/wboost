@@ -70,7 +70,7 @@ with a message saying exactly that.
 
 ## `get_context(skillVersion?)`
 
-`skillVersion`: the version your wboost skill states (`"0.5.1"`); omit it when
+`skillVersion`: the version your wboost skill states (`"0.5.2"`); omit it when
 you have no wboost skill. Changes nothing. Returns:
 
 ```jsonc
@@ -94,7 +94,7 @@ you have no wboost skill. Changes nothing. Returns:
     }]
   }],
   "skill": {                                        // the version check — see SKILL.md
-    "latestVersion": "0.5.1", "installedVersion",   // null when no skillVersion was sent
+    "latestVersion": "0.5.2", "installedVersion",   // null when no skillVersion was sent
     "status",                                       // "current" | "outdated" | "unknown"
     "message", "whatsNew",                          // null when current; tell the user once
     "updateClaudeCode", "updateClaudeAi"            // the update routes; null when current
@@ -640,9 +640,14 @@ Places left empty show a grey stand-in in the new template
 
 ### Calendar scans (`kind: "calendar"`)
 
-A picture of **one page of a weekly desk calendar** becomes the proposed
-**layout** of an existing 7-day calendar — nothing of the calendar changes
-until `apply`. The scan takes over where the photo, the day rows
+A picture of **one page of a desk calendar** becomes the proposed
+**layout** of an existing calendar — nothing of the calendar changes
+until `apply`. The layout is built for the calendar's own type
+(`list_calendars` → `type`): a 7-day calendar (`week`) gets a page with one
+week column, a 14-day one (`fortnight`) the two-sided page — a week column on
+each side of the photo (`preset: "twoSided"`, with the second frames `cal2`,
+`month2`, `wk2` in `layout.boxes`). So scan a two-week page for a 14-day
+calendar and a one-week page for a 7-day one. The scan takes over where the photo, the day rows
 (Kalendárium), the header, the month, the week number, the caption and the
 logo sit, their colours, and fonts chosen among the project's (a project
 without fonts is fine: the built-in face is used). It never reads the page's
@@ -690,7 +695,14 @@ Rules:
   kind `image`) after `apply` and set it with `set_calendar_layout`
   (`styles: {"logo": {"asset": id}}`, `{"head": {"bg": {"asset": id, "imageOn": true}}}`,
   `{"bg": {"asset": id, "imageOn": true}}`).
-- 14-day calendars cannot be scanned (`wrong_state` at `start`).
+- When the page and the calendar disagree, `notes[]` says so and only one
+  week of the picture is used: `fortnight_left_half` (a two-week page for a
+  7-day calendar — the left week was rebuilt, the right one is not in the
+  layout) and `week_page_on_fortnight` (a one-week page for a 14-day
+  calendar — the second week column mirrors the first). Tell the user, and
+  offer to scan for a calendar of the other type instead of applying.
+- A calendar whose type was changed after the scan cannot take the proposal
+  (`wrong_state` at `apply`) — scan again.
 - Look at the result with `render_calendar_page` after `apply`.
 
 ## `preview_design(variantId, design)`

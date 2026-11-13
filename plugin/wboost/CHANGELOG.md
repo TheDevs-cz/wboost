@@ -5,6 +5,17 @@ every deploy. When the server is newer than your skill, Claude tells you once
 per session how to update (see the README). Versions follow `x.y.z`: a new or
 changed tool or parameter is at least a minor bump.
 
+## 0.5.2 — 2026-11-13
+
+**AI scan — 14-day calendars** (`scan_design`; no new tool or parameter).
+- `kind: "calendar"` takes a 14-day calendar (`type: "fortnight"`) too: the
+  proposal is its two-sided layout — a week column on each side of the photo
+  (the skill said 14-day calendars cannot be scanned).
+- Scan a two-week page for a 14-day calendar and a one-week page for a 7-day
+  one. When they disagree the result's `notes` say so
+  (`fortnight_left_half`, `week_page_on_fortnight`) and only one week of the
+  picture is used.
+
 ## 0.5.1 — 2026-11-13
 
 **AI scan — corrected limits** (`scan_design`; no new tool or parameter).

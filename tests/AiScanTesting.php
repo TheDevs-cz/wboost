@@ -209,7 +209,8 @@ trait AiScanTesting
      */
     public static function instruments(): array
     {
-        return [...self::getContainer()->get(AiScanDefinition::class)->requiredInstruments(), 'mm'];
+        // `mm` = calendar scans, `mm14` = those of 14-day calendars (the fortnight variant)
+        return [...self::getContainer()->get(AiScanDefinition::class)->requiredInstruments(), 'mm', 'mm14'];
     }
 
     /**

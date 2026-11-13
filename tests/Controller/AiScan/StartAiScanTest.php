@@ -175,7 +175,7 @@ final class StartAiScanTest extends WebTestCase
         self::assertSame(TestDataFixture::CALENDAR_1_ID, self::row($scanId)['calendar_id']);
     }
 
-    public function testACalendarScanNeedsNoProjectFontAndNoFourteenDayCalendarCanBeScanned(): void
+    public function testACalendarScanNeedsNoProjectFontAndAFourteenDayCalendarCanBeScannedToo(): void
     {
         // PROJECT_2 has no font: a template scan is refused there, a calendar scan is not.
         self::entitle(TestDataFixture::PROJECT_2_ID);
@@ -183,7 +183,11 @@ final class StartAiScanTest extends WebTestCase
         self::assertSame('checking', self::row($scanId)['status']);
 
         self::connection()->executeStatement("UPDATE calendar SET type = 'fortnight', layout = NULL, layout_preset = NULL WHERE id = :id", ['id' => TestDataFixture::CALENDAR_1_ID]);
-        $this->assertRefused('wrong_state', fn () => self::start(kind: AiScanKind::Calendar, calendarId: TestDataFixture::CALENDAR_1_ID));
+        $fortnight = self::start(kind: AiScanKind::Calendar, calendarId: TestDataFixture::CALENDAR_1_ID)->toString();
+        self::assertSame('checking', self::row($fortnight)['status']);
+
+        // …but not a calendar of another project.
+        $this->assertRefused('wrong_state', fn () => self::start(kind: AiScanKind::Calendar, calendarId: TestDataFixture::CALENDAR_3_ID));
     }
 
     public function testTheMonthlyLimitCountsDeliveredScansAndRefundsGiveItBack(): void

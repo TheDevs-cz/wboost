@@ -133,4 +133,30 @@ export default async function (t, load) {
         assert.equal(store.getState().layoutOrigin, null);
         assert.equal(store.getState().doc.design.preset, 'photoLeft');
     });
+    t.test('14 days: the one layout card over a scanned two-sided layout puts the default back and clears the marker; undo returns the scan', async () => {
+        const moved = (layout) => { const l = scanned(layout); return { ...l, boxes: { ...l.boxes, cal: { ...l.boxes.cal, w: 79 }, cal2: { ...l.boxes.cal2, x: 236, w: 79 } } }; };
+        const { store, env } = await makeStore({ type: 'fortnight', styles: moved });
+        const d = store.getState().doc.design;
+        assert.equal(d.preset, 'twoSided');
+        assert.equal(store.getState().layoutOrigin, 'scan');
+        assert.equal(d.layout.boxes.cal2.x, 236);
+
+        store.choosePreset('twoSided');
+        let s = store.getState();
+        assert.equal(s.layoutOrigin, null);
+        const fresh = normalizeLayout(defaultLayout('twoSided', d.page, bleedOf(d.print), env), d.type, d.page, env);
+        assert.deepEqual(s.doc.design.layout.boxes.cal2, fresh.boxes.cal2);
+        assert.equal(s.doc.design.layout.styles.head.bg.color === '#1F3A5F', false);
+        // the preset key did not change: the payload itself has to clear the marker
+        assert.equal(buildPayload(s).payload.layoutOrigin, null);
+
+        assert.equal(store.undo(), true);
+        s = store.getState();
+        assert.equal(s.layoutOrigin, 'scan');
+        assert.equal(s.doc.design.layout.boxes.cal2.x, 236);
+        // a preset of the other type is still ignored
+        store.choosePreset('photoLeft');
+        assert.equal(store.getState().doc.design.preset, 'twoSided');
+        assert.equal(store.getState().layoutOrigin, 'scan');
+    });
 }

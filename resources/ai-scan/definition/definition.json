@@ -1,5 +1,5 @@
 {
-    "version": "8",
+    "version": "9",
     "protocolVersion": 1,
     "requiresInstruments": [
         "ocr",
@@ -177,7 +177,28 @@
                 "calendar_preview",
                 "set_page_box"
             ],
-            "finish": "finish.calendar.schema.json"
+            "finish": "finish.calendar.schema.json",
+            "variants": {
+                "fortnight": {
+                    "requiresInstruments": [
+                        "mm14"
+                    ],
+                    "system": [
+                        "system.common.md",
+                        "system.calendar.md",
+                        "system.calendar.fortnight.md"
+                    ],
+                    "tools": [
+                        "scan_source.calendar",
+                        "scan_crop.calendar",
+                        "scan_measure.calendar",
+                        "font_rank.calendar",
+                        "compare_region.calendar",
+                        "calendar_preview.fortnight",
+                        "set_page_box"
+                    ]
+                }
+            }
         }
     }
 }

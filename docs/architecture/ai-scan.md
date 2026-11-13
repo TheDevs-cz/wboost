@@ -1147,10 +1147,12 @@ network retry.
 
 ## Calendar scans (P5)
 
-A picture of **one page of a weekly desk calendar** becomes the proposed
-**layout** of an existing 7-day calendar (`ai_scan.calendar_id`, given at the
-upload; 14-day calendars and another project's calendar are `wrong_state`; a
-project without fonts is fine). The job, the states, credits, storage and
+A picture of **one page of a desk calendar** becomes the proposed
+**layout** of an existing calendar (`ai_scan.calendar_id`, given at the
+upload; another project's calendar is `wrong_state`; a project without fonts
+is fine). **The scan targets the calendar's own type** (since 2026-11-13,
+§ "14-day calendars" below): a 7-day calendar gets one of the 7-day layouts,
+a 14-day one (`type: fortnight`) the two-sided layout with its second frames. The job, the states, credits, storage and
 notifications are the shared core; what differs is below. The rule of
 `calendars.md` holds throughout: **the calendar's JavaScript generates, the
 server stores and guards** — a candidate is built by the calendar's own model
@@ -1163,7 +1165,10 @@ in node, the browser draws the proposal with the calendar's own renderer.
   features (the switches as they are), hasLayout, presets, samplePage {key,
   from, to, title}, defaultLayout {preset: "photoLeft", layout}}` — the whole
   default layout, i.e. every box and every style key the patch path takes.
-  `supported: false` (calendar gone, 14 days) → the build fails.
+  `supported: false` (the calendar is gone) → the build fails. For a 14-day
+  calendar: `type: "fortnight"`, `presets: ["twoSided"]`, `defaultLayout
+  {preset: "twoSided", layout}` (with `cal2` / `month2` / `wk2`), and a
+  sample page of two weeks.
 - **Render** — `{run, seq, commands}`: a list of ≤ 8 commands of
   `resources/calendar/model.mjs`, a closed subset checked by
   `CalendarCandidate`: `{op: "preset", preset}` (always a RESET to that
@@ -1226,6 +1231,46 @@ in node, the browser draws the proposal with the calendar's own renderer.
 - `numberSide: "middle"` is accepted on the model's patch path since P5 (the
   editor always offered it); nothing under `assets/calendar/` changed for
   scans — `CalendarExportFingerprintTest` pins the renderer fingerprint.
+
+### 14-day calendars (`type: fortnight`)
+
+Built 2026-11-13; measurements `scanner/eval/RESULTS.md` §11.
+
+- **Who is handed the build.** `kinds.calendar.variants.fortnight` of
+  `definition.json` names its own instrument (`requiresInstruments: ["mm14"]`),
+  its instructions (`system.calendar.md` + `system.calendar.fortnight.md`)
+  and its candidate tool (`calendar_preview.fortnight` of `tools.json`).
+  `ScannerApi::claim()` asks `AiScanDefinition::canBuildVariant('calendar',
+  'fortnight', $instruments)`; a scanner that does not announce `mm14` gets a
+  claim query with `AND NOT EXISTS (… calendar.type = 'fortnight')` — it
+  keeps building templates and 7-day calendars, and the 14-day scan waits
+  `queued` for an image that can build it (the queue timeout applies). The
+  same mechanism as `mm` for the kind, one level down. **Release order:** the
+  app with the definition first (an older image is simply never handed such a
+  scan), then the image, then the pin.
+- **Candidate.** `CalendarCandidate` no longer looks at the type: the default
+  preset is the type's first (`CalendarType::presets()[0]`), a preset of the
+  other type is the model's own refusal (`preset_type_mismatch`, an answer
+  with `candidate: null`). The sample page is `w02`, or `w03` in a year whose
+  14-day pages are the odd weeks; with `events` on, a third sample event
+  lands in the second week column.
+- **The scanner** sends every second frame explicitly: one the model does not
+  name is the mirror image of its first frame (`scanner/README.md`).
+- **Report.** `type` = `week` | `fortnight` (the calendar's). Notes when the
+  page and the calendar disagree: `fortnight_left_half` (a two-week picture
+  for a 7-day calendar — the left week was rebuilt) and
+  `week_page_on_fortnight` (a one-week picture for a 14-day calendar — the
+  second column mirrors the first). A page that fits its calendar has
+  neither.
+- **Proposal / accept / restore.** `CalendarScanProposal::preset()` knows
+  `twoSided`; an element the report calls `absent` keeps the calendar's
+  current box **and its second frame** (`month2`, `wk2`). Accept refuses
+  (`wrong_state`) a proposal whose preset does not fit the calendar's type
+  NOW (the type was changed after the scan). The snapshot and restore are
+  type-agnostic. Tests: `CalendarFortnightScanTest`.
+- **Browser.** The step-2 card is offered on 14-day calendars; the review's
+  alert is `mismatchAlert` (`CAL.mismatch[code]`) and appears only for the two
+  notes above — `calendars.md` § "Calendar scan — UI".
 
 ### The proposal, computed against the calendar as it is
 
@@ -1343,7 +1388,8 @@ scanned layout in step 3 keeps the marker.
 - `GET calendar_card` adds `scan`: `running | queued | ready | failed | null`
   (designers only) — the pill of ux.md C5.
 - E-mails and MCP link to `/calendar/{id}?sken={scanId}` (`AiScanUrls::scan`).
-- MCP `scan_design`: `start` with `kind: "calendar"` + `calendarId`; `result`
+- MCP `scan_design`: `start` with `kind: "calendar"` + `calendarId` (a 7-day
+  or a 14-day calendar; the docblock says which page fits which); `result`
   (layout, recognised, featuresOffered, pictures, …); `apply` with
   `features[]`; `restore` with `confirm` — `layout_changed` without it.
   Applying and restoring need `calendar_edit` (`designer_only`). Held pictures
@@ -1506,7 +1552,14 @@ docker compose exec web bin/console app:ai-scan:status --mode=off
   fingerprint is what it was), `CalendarRenderDocumentGotenbergTest`
   (`--group gotenberg`: `renderDocument` = `render` for the stored document),
   `tests/FaultInjection/CalendarScanRaceTest`; browser:
-  `tests/e2e/calendar/scan.e2e.cjs`.
+  `tests/e2e/calendar/scan.e2e.cjs`. **14-day calendars:**
+  `tests/Controller/Calendar/CalendarFortnightScanTest` (a scanner without
+  `mm14` is not handed the build but still builds a 7-day one; the claim's
+  context; a candidate with second frames, a preset of the other type as an
+  answer; accept, restore; an absent element keeps both frames; a proposal
+  for 14 days refused on a calendar that became a 7-day one), the node suite
+  `scan-marker` (the layout card over a scanned two-sided layout), and the
+  three "14 days" checks of the e2e script.
 - **Fault injection** — real races between forked processes, outside DAMA's
   transaction (`tests/FaultInjection/`: `AiScanRaceTest` — claims, cancels,
   the reaper, starts, a replaced run's usage; `AiScanReviewRaceTest` — accept

@@ -88,6 +88,26 @@ final class AiScanDefinition
         return $buildable;
     }
 
+    /**
+     * Can a scanner offering these instruments build this VARIANT of a kind
+     * (`kinds.<kind>.variants.<variant>.requiresInstruments` — the 14-day
+     * layout of a calendar scan)? The same rule as {@see buildableKinds()},
+     * one level down: an image older than the variant keeps building the
+     * kind's other scans and is never handed one it would fail on.
+     *
+     * @param list<string> $instruments
+     */
+    public function canBuildVariant(string $kind, string $variant, array $instruments): bool
+    {
+        $kinds = $this->definition()['kinds'] ?? null;
+        $spec = is_array($kinds) && is_array($kinds[$kind] ?? null) ? $kinds[$kind] : [];
+        $variants = is_array($spec['variants'] ?? null) ? $spec['variants'] : [];
+        $required = is_array($variants[$variant] ?? null) ? ($variants[$variant]['requiresInstruments'] ?? []) : [];
+        $required = is_array($required) ? array_filter($required, is_string(...)) : [];
+
+        return array_diff($required, $instruments) === [];
+    }
+
     /** What one running run reserves against the spend ceilings. */
     public function engineBudgetMicroUsd(): int
     {

@@ -32,7 +32,6 @@ use WBoost\Web\Value\AiScan\AiScanRefused;
 use WBoost\Web\Value\AiScan\AiScanStatus;
 use WBoost\Web\Value\Calendar\CalendarActor;
 use WBoost\Web\Value\Calendar\CalendarSavePayload;
-use WBoost\Web\Value\Calendar\CalendarType;
 
 /**
  * Rule 14 for calendars. Under the scan's row lock and the calendar's row
@@ -102,7 +101,9 @@ readonly final class AcceptCalendarScanHandler
             throw new AiScanRefused(AiScanRefusal::WrongState);
         }
 
-        if ($calendar->type !== CalendarType::Week) {
+        // The proposal was built for the type the calendar had: a calendar
+        // switched between 7 and 14 days since cannot take it.
+        if (!in_array(CalendarScanProposal::preset($scan), $calendar->type->presets(), true)) {
             throw new AiScanRefused(AiScanRefusal::WrongState);
         }
 

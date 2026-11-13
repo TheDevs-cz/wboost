@@ -706,14 +706,15 @@ Waste rhythms follow ISO week parity (so they shift across a 53-week year).
 ### Calendar scan — UI (P5)
 
 „Naskenovat design“ in step 2 (ux.md §6; backend: § "Scanned layouts" below
-and `ai-scan.md` § "Calendar scans"). Weekly calendars, designers only.
+and `ai-scan.md` § "Calendar scans"). 7-day and 14-day calendars (the scan
+targets the calendar's own type), designers only.
 
 | File | Role |
 |---|---|
 | `ui/scan.js` | `createScan(ctx)` → ONE `CalendarScan` per workspace (`ctx.scan`; null for a client or without `env.scan`). Owns the entry facts, the current scan and its proposal; polls `status` while a scan is on its way **in any step** (2 s with the panel on screen, 10 s otherwise); `mount(root)` draws the action card or the panel into step 2's `.cal-scan`. Apply / restore, pictures, cancel / discard / retry |
 | `ui/scan/views.js` | markup strings of the card and of the panel's screens (`upload`, `chosen`, `wait`, `fail`, `gone`, `review`, `pictures`), the comparison slider, the outlines of `Ukázat vrstvy` (`layerBoxes`), the numbered places and their crops (`sourceBox`), the rating block, the privacy, access-request and „Naskenovat znovu“ dialogs |
 | `ui/scan/preview.js` | the live render of the proposal (`previewDocument` / `previewMarkup`: the calendar's own renderer on a document that exists only for the preview), `cropPicture` (the one canvas), `elementFact` — the phrase beside a recognised element, derived from the layout |
-| `ui/step2.js` | mounts `ctx.scan` under the cards; the third radio `[data-preset="scan"]` |
+| `ui/step2.js` | mounts `ctx.scan` under the cards — of a 7-day and of a 14-day calendar; the radio `[data-preset="scan"]` „Naskenovaný design“ (the third card for 7 days; for 14 days the static card „Dvoustranné rozvržení“ becomes a radio group of two once the layout came from a scan — the layout card then puts the default two-sided layout back, one undo returns the scan) |
 | `ui/topbar.js` | the peach dot on step 2 (`[data-cal-scan-dot]`), tertiary `Pokračovat` |
 | `assets/ai-scan/copy.js` `CAL` | every Czech sentence of the calendar scan |
 
@@ -855,19 +856,22 @@ Deviations from `docs/ai-scan/ux.md` §6:
   is picked per place).
 - „Naskenovat znovu“ → „Stejný obrázek znovu“ puts the picture back on the
   chosen-file screen instead of starting at once (as in the template wizard).
-- **14-day pages.** The module HAS a 14-day format (`type: fortnight`, the
-  one layout `twoSided` with the second frames `cal2` / `month2` / `wk2`),
-  but a scan can only build a 7-day layout: the card is not offered on a
-  14-day calendar, and a two-week PAGE scanned for a 7-day calendar is rebuilt
-  as its left week + photo. The review says so in an alert above everything
-  (`fortnightAlert`, note `fortnight_left_half`: „Stránka má dva týdny,
-  kalendář jeden“) instead of a line in „Pro informaci“. Making the scan
-  target `twoSided` needs the scanner (instructions for eleven boxes, a row
-  ladder per week column, feedback per column, measurement on `s12` and the
-  real 14-day page) AND the app (`CalendarCandidate` / `CalendarScanProposal`
-  / accept for `fortnight`, the card in step 2) released together — an app
-  that hands a 14-day calendar to a scanner that only knows the 7-day
-  presets gets refused candidates. Not built.
+- **14-day pages** (built 2026-11-13). A scan targets the calendar's own
+  type: on a 14-day calendar (`type: fortnight`) the proposal is the
+  `twoSided` layout with the second frames `cal2` / `month2` / `wk2`
+  (`ai-scan.md` § "14-day calendars": the capability `mm14`, the candidate,
+  accept / restore). In the review `Ukázat vrstvy` outlines both frames of
+  Kalendárium, Měsíc and Číslo týdne under one letter (`layerBoxes`), and
+  the facts of „Co jsme rozpoznali“ speak of two columns (`elementFact`:
+  „dva sloupce, čísla u okrajů stránky“ | „… u fotografie“, „nad oběma
+  sloupci“, „u obou sloupců“). **The alert above the review appears only
+  when the page and the calendar disagree** (`mismatchAlert`,
+  `CAL.mismatch[code]`, `[data-cal-scan-fortnight="<code>"]`) instead of a
+  line in „Pro informaci“: note `fortnight_left_half` — „Na obrázku jsou dva
+  týdny, tento kalendář je týdenní“ (the left week + photo were rebuilt) —
+  and `week_page_on_fortnight` — „Na obrázku je jeden týden, tento kalendář
+  je čtrnáctidenní“ (the second column mirrors the first). Both name the
+  other calendar type as the way to take the page over whole.
 - The service-waiting / limit / locked cards carry the template card's copy
   (ux.md T1); the calendar card has no separate wording.
 - The sidebar's AI-scan badge still counts template scans only (Šablony
@@ -1607,8 +1611,8 @@ Deliberately not built (handoff §2), with the room left for them:
 
 - **Layout import from a PDF or image in step 3** — the Nahrát layout menu has
   the two rule-based items only. (The AI design scan of step 2 exists since
-  2026-11-13 — § "Scanned layouts"; PDF input and 14-day calendars are not
-  part of it.)
+  2026-11-13 — § "Scanned layouts"; a PDF's first page and 14-day calendars
+  are part of it since the same day.)
 - **Excel import** for Odpady and Akce a spolky (rule-based, postponed).
 - **CMYK print file — what is left** (the variant exists since 2026-11-12,
   "CMYK variant"): no overprint is set (K 100 text KNOCKS OUT what lies under

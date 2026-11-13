@@ -135,6 +135,16 @@ const calendarCommands = () => [
     } },
 ];
 
+/** The same for a 14-day calendar: the one layout `twoSided`, both week columns narrower and lower, the photo wider. */
+const fortnightCommands = () => [
+    { op: 'preset', preset: 'twoSided' },
+    { op: 'layout', boxes: { cal: { x: -5, y: 31, w: 79, h: 107 }, cal2: { x: 236, y: 31, w: 79, h: 107 }, photo: { x: 74, y: 31, w: 162, h: 107 } }, styles: {
+        head: { bg: { color: '#1F3A5F' } },
+        month: { color: '#FFFFFF' },
+        num: { color: '#1F3A5F' },
+    } },
+];
+
 /** The calendar report; `rendered` is the app's answer to `render` (`width`, `height`, `layout`). */
 function calendarReport(candidate, rendered, overrides = {}) {
     const w = rendered.width || 1600;
@@ -169,7 +179,9 @@ async function buildCalendar(job, options, log) {
         for (const step of steps.slice(0, Math.max(1, options.beats))) { await run.beat(step); await sleep(options.beatMs); }
         if (options.scenario === 'hang') { log(`${job.id} build → hanging (no more heartbeats)`); return 'hang'; }
         if (options.scenario === 'provider') { await run.post('finish', { outcome: 'failed', error: 'provider_unavailable', usage: usage(3) }); log(`${job.id} build → failed provider`); return 'failed'; }
-        const rendered = await run.post('render', { seq: ++run.seq, commands: calendarCommands() });
+        // a scan builds for the calendar's own type: the claim says which
+        const fortnight = Boolean(job.context && job.context.calendar && job.context.calendar.type === 'fortnight');
+        const rendered = await run.post('render', { seq: ++run.seq, commands: fortnight ? fortnightCommands() : calendarCommands() });
         if (options.scenario === 'fail' || rendered.candidate === null || rendered.candidate === undefined) {
             if (rendered.candidate === null) log(`render rejected: ${JSON.stringify(rendered.issues).slice(0, 400)}`);
             await run.post('finish', { outcome: 'failed', error: 'build', usage: usage(4) });
@@ -180,7 +192,7 @@ async function buildCalendar(job, options, log) {
         await run.beat({ stage: 'refine', round: 1, note: null });
         await sleep(options.beatMs);
         await run.beat({ stage: 'finish', round: 1 });
-        await run.post('finish', { outcome: 'proposed', candidate: rendered.candidate, report: calendarReport(rendered.candidate, rendered, options.calendar || {}), usage: usage(6) });
+        await run.post('finish', { outcome: 'proposed', candidate: rendered.candidate, report: calendarReport(rendered.candidate, rendered, { ...(fortnight ? { type: 'fortnight', needsUpload: [], notes: [] } : {}), ...(options.calendar || {}) }), usage: usage(6) });
         log(`${job.id} build → proposed (calendar candidate ${rendered.candidate})`);
         return 'ready';
     } catch (error) {
@@ -190,8 +202,8 @@ async function buildCalendar(job, options, log) {
 }
 
 async function claim(lane) {
-    // `mm` = the calendar instrument: without it the app hands out no calendar build
-    const answer = await call('POST', 'claim', { body: { lane, scannerVersion: VERSION, instruments: ['ocr', 'crop', 'measure', 'font_rank', 'compare', 'mm'], capacity: 1 } });
+    // `mm` = the calendar instrument: without it the app hands out no calendar build; `mm14` = 14-day calendars
+    const answer = await call('POST', 'claim', { body: { lane, scannerVersion: VERSION, instruments: ['ocr', 'crop', 'measure', 'font_rank', 'compare', 'mm', 'mm14'], capacity: 1 } });
     return answer.json && answer.json.job ? answer.json.job : null;
 }
 

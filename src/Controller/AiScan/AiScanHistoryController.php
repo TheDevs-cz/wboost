@@ -12,13 +12,11 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
-use WBoost\Web\Entity\Calendar;
 use WBoost\Web\Entity\Project;
 use WBoost\Web\Entity\User;
 use WBoost\Web\Repository\CalendarRepository;
 use WBoost\Web\Services\AiScan\AiScanAccess;
 use WBoost\Web\Services\AiScan\AiScanLists;
-use WBoost\Web\Value\Calendar\CalendarType;
 use WBoost\Web\Value\ProjectModule;
 
 /**
@@ -39,7 +37,7 @@ use WBoost\Web\Value\ProjectModule;
  * not used here; with neither module the request goes to „Objevte další
  * moduly“ like any other module page. The template gets `has_templates` /
  * `has_calendars` (which module the page hangs under, where „Nový sken“
- * leads) and `scan_calendar` — the project's only 7-day calendar, when there
+ * leads) and `scan_calendar` — the project's only calendar, when there
  * is exactly one, so „Nový sken“ can open its scan panel directly.
  *
  * The route name is a contract: e-mails and MCP answers link to
@@ -79,10 +77,8 @@ final class AiScanHistoryController extends AbstractController
             return $this->redirectToRoute('project_modules', ['projectId' => $project->id->toString()]);
         }
 
-        // „Nový sken“ for calendars: a scan belongs to one 7-day calendar.
-        $weekly = $hasCalendars
-            ? array_values(array_filter($this->calendars->forProject($project->id), static fn (Calendar $calendar): bool => $calendar->type === CalendarType::Week))
-            : [];
+        // „Nový sken“ for calendars: a scan belongs to one calendar (7 or 14 days).
+        $scannable = $hasCalendars ? $this->calendars->forProject($project->id) : [];
 
         $filter = $request->query->getString('filter', 'all');
         $filter = isset(self::FILTERS[$filter]) ? $filter : 'all';
@@ -99,7 +95,7 @@ final class AiScanHistoryController extends AbstractController
             'can_start' => $this->access->canStart($user, $project),
             'has_templates' => $hasTemplates,
             'has_calendars' => $hasCalendars,
-            'scan_calendar' => count($weekly) === 1 ? $weekly[0]->id->toString() : null,
+            'scan_calendar' => count($scannable) === 1 ? $scannable[0]->id->toString() : null,
         ]);
         $response->headers->set('Cache-Control', 'no-store, private');
 

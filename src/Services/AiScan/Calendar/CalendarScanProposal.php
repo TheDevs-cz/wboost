@@ -55,7 +55,10 @@ final readonly class CalendarScanProposal
 
     public const array NOT_EXPRESSIBLE = ['ornament', 'header_text', 'second_photo', 'more_logos', 'days_in_grid', 'rotated_text', 'month_colours', 'multilingual_names'];
 
-    public const array NOTES = ['fortnight_left_half', 'ratio_adapted', 'colours_estimated', 'page_box_set'];
+    /** Elements with a frame per week column on a 14-day layout: first frame → second frame. */
+    private const array SECOND_FRAMES = ['month' => 'month2', 'wk' => 'wk2'];
+
+    public const array NOTES = ['fortnight_left_half', 'week_page_on_fortnight', 'ratio_adapted', 'colours_estimated', 'page_box_set'];
 
     /**
      * What `finish` stores as the proposal.
@@ -109,7 +112,7 @@ final readonly class CalendarScanProposal
     {
         $preset = self::document($scan)['preset'] ?? null;
 
-        return is_string($preset) && in_array($preset, ['photoLeft', 'photoRight'], true) ? $preset : 'photoLeft';
+        return is_string($preset) && in_array($preset, CalendarDesignRules::PRESETS, true) ? $preset : 'photoLeft';
     }
 
     /**
@@ -337,6 +340,14 @@ final readonly class CalendarScanProposal
 
             $to->{$element} = unserialize(serialize($from->{$element}));
             $kept = true;
+
+            // Měsíc and Číslo týdne of a 14-day layout have a frame per week
+            // column: the second one is kept with the first.
+            $second = $part === 'boxes' ? (self::SECOND_FRAMES[$element] ?? null) : null;
+
+            if ($second !== null && isset($from->{$second})) {
+                $to->{$second} = unserialize(serialize($from->{$second}));
+            }
         }
 
         return $kept;

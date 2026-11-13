@@ -1,5 +1,5 @@
 {
-    "skillVersion": "0.5.1",
+    "skillVersion": "0.5.2",
     "generatedBy": "docker compose exec -e WBOOST_WRITE_SKILL_MANIFEST=1 web vendor/bin/phpunit tests/Mcp/SkillManifestTest.php",
     "note": "Generated from the MCP tools this build registers. Do not edit by hand — tests/Mcp/SkillManifestTest.php compares it with the server.",
     "tools": [

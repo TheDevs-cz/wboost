@@ -10,7 +10,6 @@ use WBoost\Web\Exceptions\CalendarModelUnavailable;
 use WBoost\Web\Exceptions\TemplateRenderUnavailable;
 use WBoost\Web\Services\Calendar\CalendarDocument;
 use WBoost\Web\Services\Calendar\CalendarModelBridge;
-use WBoost\Web\Value\Calendar\CalendarType;
 
 /**
  * One candidate of a calendar scan (docs/architecture/ai-scan.md § "Calendar
@@ -36,6 +35,8 @@ final readonly class CalendarCandidate
     /** The week page a candidate shows: the second ISO week never holds a public holiday. */
     public const string SAMPLE_PAGE = 'w02';
 
+    private const string SAMPLE_PAGE_ODD = 'w03';
+
     private const int MAX_COMMANDS = 8;
 
     public function __construct(
@@ -56,10 +57,6 @@ final readonly class CalendarCandidate
      */
     public function render(Calendar $calendar, mixed $commands): array
     {
-        if ($calendar->type !== CalendarType::Week) {
-            return self::blocked('unsupported_type', 'Only 7-day ("week") calendars can take a scanned layout.');
-        }
-
         $commands = self::commands($commands, $calendar);
 
         if (is_string($commands)) {
@@ -75,7 +72,7 @@ final readonly class CalendarCandidate
         $layout = $model->design->layout ?? null;
 
         if (!$layout instanceof \stdClass) {
-            return self::blocked('no_layout', 'The commands left the calendar without a layout — start with {"op": "preset", "preset": "photoLeft" | "photoRight"}.');
+            return self::blocked('no_layout', sprintf('The commands left the calendar without a layout — start with {"op": "preset", "preset": "%s"}.', implode('" | "', $calendar->type->presets())));
         }
 
         $page = self::samplePage($model->pages ?? []);
@@ -86,7 +83,7 @@ final readonly class CalendarCandidate
 
         $document = $this->document->calendar($calendar);
         $features = $model->design->features ?? null;
-        $preset = is_string($model->design->preset ?? null) ? $model->design->preset : 'photoLeft';
+        $preset = is_string($model->design->preset ?? null) ? $model->design->preset : self::defaultPreset($calendar);
         $document['layout'] = $layout;
         $document['preset'] = $preset;
         $document['features'] = $features instanceof \stdClass ? $features : (object) $calendar->features;
@@ -155,10 +152,14 @@ final readonly class CalendarCandidate
      */
     public function context(Calendar $calendar): array
     {
+        // The default a candidate starts from: `photoLeft` for a 7-day calendar
+        // (photoRight is its mirror), `twoSided` — the one layout — for a 14-day one.
+        $preset = self::defaultPreset($calendar);
+
         try {
-            $model = $this->model->run($calendar, [['op' => 'preset', 'preset' => 'photoLeft', 'reset' => true]], pages: true);
+            $model = $this->model->run($calendar, [['op' => 'preset', 'preset' => $preset, 'reset' => true]], pages: true);
         } catch (CalendarModelRefused) {
-            // A 14-day calendar: there is nothing a scan could build on.
+            // Nothing a scan could build on.
             return ['type' => $calendar->type->value, 'supported' => false];
         }
 
@@ -167,7 +168,7 @@ final readonly class CalendarCandidate
         $print = $design->print ?? null;
 
         return [
-            'supported' => $calendar->type === CalendarType::Week,
+            'supported' => true,
             'type' => $calendar->type->value,
             'year' => $calendar->year,
             'page' => $design->page ?? new \stdClass(),
@@ -176,7 +177,7 @@ final readonly class CalendarCandidate
             'hasLayout' => $calendar->layout !== null,
             'presets' => $calendar->type->presets(),
             'samplePage' => $page === null ? null : ['key' => $page['key'], 'from' => $page['from'] ?? null, 'to' => $page['to'] ?? null, 'title' => $page['title']],
-            'defaultLayout' => ['preset' => 'photoLeft', 'layout' => $design->layout ?? null],
+            'defaultLayout' => ['preset' => $preset, 'layout' => $design->layout ?? null],
         ];
     }
 
@@ -187,6 +188,7 @@ final readonly class CalendarCandidate
     private static function samplePage(array $pages): null|array
     {
         $first = null;
+        $next = null;
 
         foreach ($pages as $page) {
             if ($page['kind'] !== 'week') {
@@ -197,10 +199,22 @@ final readonly class CalendarCandidate
                 return $page;
             }
 
+            // A 14-day calendar has a page for every second week: in a year
+            // whose pages are the odd weeks, the third week is the first page
+            // that holds no public holiday.
+            if ($page['key'] === self::SAMPLE_PAGE_ODD) {
+                $next = $page;
+            }
+
             $first ??= $page;
         }
 
-        return $first;
+        return $next ?? $first;
+    }
+
+    private static function defaultPreset(Calendar $calendar): string
+    {
+        return $calendar->type->presets()[0];
     }
 
     /**
@@ -241,6 +255,11 @@ final readonly class CalendarCandidate
         $all = $events instanceof \stdClass ? get_object_vars($events) : [];
         $all['scanSampleEvent1'] = (object) ['date' => $monday->modify('+2 days')->format('Y-m-d'), 'name' => 'Ukázková akce', 'club' => null, 'icon' => null];
         $all['scanSampleEvent2'] = (object) ['date' => $monday->modify('+5 days')->format('Y-m-d'), 'name' => 'Ukázková akce s delším názvem', 'club' => null, 'icon' => null];
+
+        // A 14-day page: one in the second week column as well.
+        if ($monday->modify('+9 days')->format('Y-m-d') <= $to) {
+            $all['scanSampleEvent3'] = (object) ['date' => $monday->modify('+9 days')->format('Y-m-d'), 'name' => 'Ukázková akce', 'club' => null, 'icon' => null];
+        }
         $content->events = (object) $all;
 
         return $content;
@@ -313,7 +332,7 @@ final readonly class CalendarCandidate
 
         if (!$hasPreset) {
             // The candidate always starts from a preset's default.
-            array_unshift($commands, ['op' => 'preset', 'preset' => $calendar->layoutPreset ?? 'photoLeft', 'reset' => true]);
+            array_unshift($commands, ['op' => 'preset', 'preset' => $calendar->layoutPreset ?? self::defaultPreset($calendar), 'reset' => true]);
         }
 
         return $commands;

@@ -38,6 +38,7 @@ use WBoost\Web\Value\AiScan\AiScanStopReason;
 use WBoost\Web\Value\AiScan\AiUsageFigures;
 use WBoost\Web\Value\AiScan\ProviderState;
 use WBoost\Web\Value\AiScan\ScannerApiCode;
+use WBoost\Web\Value\Calendar\CalendarType;
 
 /**
  * The scanner API (`/internal/scanner/*`) — everything behind the nine
@@ -171,8 +172,11 @@ final readonly class ScannerApi
         // older than a kind keeps serving the others and never sees that
         // kind's scans (they wait for a scanner that can build them).
         $kinds = $this->definition->buildableKinds($instruments);
+        // … and, of calendar scans, a 14-day calendar's only when it knows the
+        // two-column layout (the variant's own instrument).
+        $fortnight = $this->definition->canBuildVariant(AiScanKind::Calendar->value, CalendarType::Fortnight->value, $instruments);
 
-        $claimed = $this->connection->transactional(function () use ($lane, $runtime, $now, $capacity, $hash, $scannerVersion, $kinds): null|array {
+        $claimed = $this->connection->transactional(function () use ($lane, $runtime, $now, $capacity, $hash, $scannerVersion, $kinds, $fortnight): null|array {
             if ($lane === AiScanLane::Intake) {
                 $id = $this->connection->fetchOne(
                     "SELECT id FROM ai_scan WHERE status = 'checking' AND lease_expires_at IS NULL
@@ -204,8 +208,9 @@ final readonly class ScannerApi
 
             /** @var list<array{id: string, project_id: string}> $queued */
             $queued = $this->connection->fetchAllAssociative(
-                "SELECT id, project_id FROM ai_scan WHERE status = 'queued' AND lease_expires_at IS NULL AND kind IN (:kinds)
-                  ORDER BY waiting_since, id LIMIT 20 FOR UPDATE SKIP LOCKED",
+                "SELECT id, project_id FROM ai_scan WHERE status = 'queued' AND lease_expires_at IS NULL AND kind IN (:kinds)"
+                . ($fortnight ? '' : " AND NOT EXISTS (SELECT 1 FROM calendar WHERE calendar.id = ai_scan.calendar_id AND calendar.type = 'fortnight')")
+                . ' ORDER BY waiting_since, id LIMIT 20 FOR UPDATE OF ai_scan SKIP LOCKED',
                 ['kinds' => $kinds],
                 ['kinds' => \Doctrine\DBAL\ArrayParameterType::STRING],
             );

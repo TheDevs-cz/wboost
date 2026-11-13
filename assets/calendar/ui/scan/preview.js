@@ -139,6 +139,11 @@ export function elementFact(element, layout, page) {
             return `${side(box, page)}${bleed ? ', do okraje' : ''}`;
         }
         case 'cal': {
+            // 14 days: two week columns, the second drawn mirrored — numbers at the outer page edges or beside the photo
+            if (boxes.cal2) {
+                const number = { start: 'čísla u okrajů stránky', middle: 'čísla uprostřed', end: 'čísla u fotografie' }[styles.cal && styles.cal.numberSide] || '';
+                return ['dva sloupce', number].filter(Boolean).join(', ');
+            }
             const number = { start: 'čísla vlevo', middle: 'čísla uprostřed', end: 'čísla vpravo' }[styles.cal && styles.cal.numberSide] || '';
             return [box ? side(box, page) : '', number].filter(Boolean).join(', ');
         }
@@ -147,11 +152,12 @@ export function elementFact(element, layout, page) {
             return fill ? `pruh — ${fill}` : 'pruh';
         }
         case 'month':
-            return [box ? corner(box, page) : '', styles.month && styles.month.upper ? 'velká písmena' : ''].filter(Boolean).join(', ');
+            return [box ? (boxes.month2 ? 'nad oběma sloupci' : corner(box, page)) : '', styles.month && styles.month.upper ? 'velká písmena' : ''].filter(Boolean).join(', ');
         case 'bg':
             return fillFact(styles.bg);
-        case 'cap':
         case 'wk':
+            return box ? (boxes.wk2 ? 'u obou sloupců' : corner(box, page)) : '';
+        case 'cap':
         case 'logo':
         case 'qr':
             return box ? corner(box, page) : '';

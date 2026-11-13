@@ -25,7 +25,6 @@ use WBoost\Web\Services\AiScan\AiScanUpload;
 use WBoost\Web\Value\AiScan\AiScanKind;
 use WBoost\Web\Value\AiScan\AiScanRefusal;
 use WBoost\Web\Value\AiScan\AiScanRefused;
-use WBoost\Web\Value\Calendar\CalendarType;
 
 /**
  * Rule 1 (— → `checking`): the upload becomes a scan.
@@ -109,8 +108,9 @@ readonly final class RequestAiScanHandler
                 throw new AiScanRefused(AiScanRefusal::WrongState);
             }
 
-            // A scan proposes a layout for ONE 7-day calendar of this project.
-            if (!$calendar->project->id->equals($project->id) || $calendar->type !== CalendarType::Week) {
+            // A scan proposes a layout for ONE calendar of this project — a
+            // 7-day or a 14-day one (the build targets the calendar's type).
+            if (!$calendar->project->id->equals($project->id)) {
                 throw new AiScanRefused(AiScanRefusal::WrongState);
             }
         }

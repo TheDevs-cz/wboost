@@ -479,6 +479,56 @@
     }
   },
   {
+    "id": "calendar_preview.fortnight",
+    "name": "calendar_preview",
+    "kinds": [
+      "calendar"
+    ],
+    "description": "Builds a candidate layout on the calendar's own model and renders the sample page (two weeks) with the app's real renderer. Nothing is saved. A complete candidate = `features` (switches to turn ON, never off) + ONE patch of `boxes` (mm), `order` and `styles` over the DEFAULT of the one preset `twoSided` (see defaultLayout in the pre-pass). The second frames `cal2`, `month2`, `wk2` you do not send are placed as the mirror image of `cal`, `month`, `wk`; send one only where the source's right column is not that mirror. With `\"patch\": true` the given boxes / styles / features are merged over your previous candidate, so a correction sends only what changes. Read `rendered` first: false means the model refused the patch — `issues` says which key or value (an unknown key lists its siblings); fix it and call again (such refusals are limited). When it rendered: the candidate number, the picture, `notes` (values the model clamped or grew), the materialised `boxes` (all eleven), and measured feedback against the source — `mae` (0 = identical; the photo, logo and QR boxes excluded), `rules` (the row ladder of the LEFT column, source and render and their `delta` in mm, with the arithmetic to apply to `cal`), `rules2` (the same for the RIGHT column and `cal2`), per frame `mae`, `move` (mm) and for the month lines / week labels `inkHeightRatio`, and `worstCells`. At most 3 candidates are rendered in a scan; the scanner keeps the best-measured one.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "preset": {
+          "type": "string",
+          "enum": [
+            "twoSided"
+          ],
+          "description": "Optional — a 14-day calendar has this one layout."
+        },
+        "features": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Switches the page shows, to turn on: captions, weekNumbers, moon, events, qr, waste, seasons, timeChange, shifts."
+        },
+        "boxes": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "{\"<box>\": {x?, y?, w?, h?, hidden?}} in page mm; boxes: photo cap logo head month month2 cal cal2 wk wk2 qr; hidden only on logo month wk qr (it hides both frames)."
+        },
+        "order": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "All eight element keys exactly once, top layer first (an element with two frames is listed once)."
+        },
+        "styles": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "A patch of the style tree — only keys that exist in defaultLayout.styles."
+        },
+        "patch": {
+          "type": "boolean",
+          "description": "true = merge over the previous candidate instead of starting from the preset default."
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
     "id": "set_page_box",
     "name": "set_page_box",
     "kinds": [

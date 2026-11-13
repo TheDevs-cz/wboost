@@ -159,7 +159,7 @@ class CalendarScan {
             const url = new URL(window.location.href);
             url.searchParams.delete('sken');
             window.history.replaceState({}, '', url.pathname + url.search + url.hash);
-            this.open = Boolean(scan) || this.weekly();
+            this.open = Boolean(scan) || this.scannable();
             if (this.store.getState().doc.design.step !== 2) this.store.setStep(2);
         }
         await this.enter(true);
@@ -189,8 +189,8 @@ class CalendarScan {
         this.render();
     }
 
-    /** Scans are for 7-day calendars only. */
-    weekly() { return this.store.getState().doc.design.type === 'week'; }
+    /** A scan targets the calendar's own type: a 7-day layout or the 14-day one (two week columns). */
+    scannable() { return ['week', 'fortnight'].includes(this.store.getState().doc.design.type); }
 
     /** A scan of this calendar is on its way (the peach dot of step 2). */
     unfinished() { return Boolean(this.scan && IN_PROGRESS.includes(this.scan.status)); }
@@ -253,7 +253,7 @@ class CalendarScan {
     render() {
         const root = this.root;
         if (!root) return;
-        if (!this.weekly() || this.entry === false) { root.replaceChildren(); root.hidden = true; return; }
+        if (!this.scannable() || this.entry === false) { root.replaceChildren(); root.hidden = true; return; }
         root.hidden = false;
         const active = document.activeElement;
         const key = active && root.contains(active) && active.dataset.k ? active.dataset.k : null;

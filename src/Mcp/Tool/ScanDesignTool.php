@@ -130,10 +130,16 @@ readonly final class ScanDesignTool
      * usually takes 1–3 minutes (up to about 12) and produces a PROPOSAL;
      * nothing exists among the templates until you call "apply".
      *
-     * With kind "calendar" it turns a picture of ONE PAGE of a weekly desk
-     * calendar into the LAYOUT of an existing 7-day calendar (calendarId):
-     * where the photo, the day rows, the header, the month and the logo sit,
-     * colours, fonts chosen from the project. The calendar does not change
+     * With kind "calendar" it turns a picture of ONE PAGE of a desk calendar
+     * into the LAYOUT of an existing calendar (calendarId): where the photo,
+     * the day rows, the header, the month and the logo sit, colours, fonts
+     * chosen from the project. The layout is built for the calendar's own
+     * type: a 7-day calendar ("week") gets a page with one week column, a
+     * 14-day one ("fortnight") the two-sided page with a week column on each
+     * side of the photo — so scan a two-week page for a 14-day calendar and a
+     * one-week page for a 7-day one; when they disagree the result says so
+     * (notes "fortnight_left_half" / "week_page_on_fortnight") and only one
+     * week of the picture is used. The calendar does not change
      * until "apply"; "apply" saves the layout at once and keeps the previous
      * one, which "restore" puts back.
      *
@@ -158,7 +164,7 @@ readonly final class ScanDesignTool
      * picture's own pixels, e.g. A4 {"unit": "mm", "width": 210, "height":
      * 297}; it must have the picture's aspect ratio or it is ignored). kind is
      * "template" (default) or "calendar"; a calendar scan also needs
-     * calendarId — a 7-day calendar of that project (list_calendars) — takes
+     * calendarId — a calendar of that project, 7-day or 14-day (list_calendars) — takes
      * no format, and does not need a project font. Returns scanId,
      * status, creditsLeft, queuePosition, estimatedStartSeconds,
      * estimatedFinishSeconds, pollAfterSeconds.
@@ -173,8 +179,8 @@ readonly final class ScanDesignTool
      * upload_font), unsupported_image (not a JPG/PNG/WebP/HEIC/PDF, over 10 MB,
      * a side over 8000 px, over 36 megapixels, or the shorter side under
      * 600 px — 300 px for kind "calendar"), source_unscannable (this picture already failed twice),
-     * wrong_state (kind "calendar" without a calendarId of a 7-day calendar
-     * of the project).
+     * wrong_state (kind "calendar" without a calendarId of a calendar of the
+     * project).
      *
      * "status" — scanId. Returns status (checking | queued | running | ready |
      * accepted | discarded | cancelled | stopped | failed | refused | expired),
@@ -269,7 +275,7 @@ readonly final class ScanDesignTool
      * @param null|string $projectId UUID of the project (get_context) — for "start" and "list".
      * @param null|string $scanId UUID of the scan — for every action except "start" and "list".
      * @param null|string $kind "template" (default) or "calendar" — for "start".
-     * @param null|string $calendarId "start" with kind "calendar": UUID of the 7-day calendar the layout is proposed for.
+     * @param null|string $calendarId "start" with kind "calendar": UUID of the calendar (7-day or 14-day) the layout is proposed for.
      * @param null|string $imageId "start": a gallery picture of the project to scan.
      * @param null|string $imageBase64 "start": the picture's bytes, base64 (under about 3 MB). Use imageId for anything larger.
      * @param null|string $requestId "start": idempotency key (1–64 characters); repeat it to get the same scan back.
@@ -342,7 +348,7 @@ readonly final class ScanDesignTool
         }
 
         if ($scanKind === AiScanKind::Calendar && ($calendarId === null || !Uuid::isValid($calendarId))) {
-            throw self::refused(AiScanRefusal::WrongState, 'a calendar scan needs calendarId — the UUID of a 7-day calendar of the project (list_calendars).');
+            throw self::refused(AiScanRefusal::WrongState, 'a calendar scan needs calendarId — the UUID of a calendar of the project (list_calendars).');
         }
 
         if (!$this->access->isEntitled($user, $project)) {

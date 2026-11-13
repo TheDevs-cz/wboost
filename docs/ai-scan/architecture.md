@@ -104,7 +104,7 @@ round before P6 — its inputs and the designer are owed by the owner, §11).
 | Native PDF parsing, PSD, IDML | §4.3; F1, F4. The first build takes pictures only. Page 1 of a PDF **as a picture** is allowed if it stays cheap (O4): added in the scanner's intake, without a page picker — or left to F1 |
 | DSL extensions, calendar vocabulary | §4.8; F2, F3 |
 | Deterministic text-fit pass; Sonnet tier | F6 (Sonnet is re-examined with P2's measurements) |
-| 14-day calendars; entry in calendar step 3 | F7 |
+| ~~14-day calendars~~ (built 2026-11-13 — `docs/architecture/ai-scan.md` § "14-day calendars"); entry in calendar step 3 | F7 |
 | Credit packs, billing, price of "Premium", usage chart and CSV, limit-increase requests | cut from v1; O14 |
 
 ### 1.4 Orchestrator decisions: status
@@ -1260,7 +1260,8 @@ the last part of P4, before admins use it.
 
 F1 native PDF · F2 DSL (letter-spacing → rotation → overlay → mixed styles) · F3 calendar
 vocabulary · F4 PSD / IDML · F5 one-click open font family; credit packs and billing · F6 text-fit
-pass and other cost levers · F7 14-day calendars, step-3 entry.
+pass and other cost levers · F7 14-day calendars (**built 2026-11-13**: the scan of a 14-day
+calendar targets the two-sided layout; measured in `scanner/eval/RESULTS.md` §11), step-3 entry.
 
 **State of F1 and F2 after 2026-11-13** (what was built, what is left and what each would take):
 

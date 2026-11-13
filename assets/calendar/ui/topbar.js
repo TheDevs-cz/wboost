@@ -110,8 +110,8 @@ export function mountTopBar(root, ctx) {
         if (!designer) return;
         const scan = ctx.scan;
         const dot = steps.querySelector('[data-cal-scan-dot]');
-        const unfinished = Boolean(scan && scan.weekly() && scan.unfinished());
-        const waiting = Boolean(scan && scan.weekly() && scan.attention());
+        const unfinished = Boolean(scan && scan.scannable() && scan.unfinished());
+        const waiting = Boolean(scan && scan.scannable() && scan.attention());
         dot.hidden = !(unfinished || waiting);
         dot.setAttribute('aria-label', unfinished ? 'sken běží' : 'návrh rozvržení čeká na kontrolu');
         const quiet = Boolean(scan && design().step === 2 && scan.primaryShown());

@@ -8,10 +8,10 @@
    „Vrátit původní rozvržení“. #}
 {# The page belongs to Šablony and to Kalendáře: a project that has only
    Kalendáře gets it under that module (`has_templates`, `has_calendars` and
-   `scan_calendar` — the project's ONLY 7-day calendar, else null — come from
+   `scan_calendar` — the project's ONLY calendar, else null — come from
    AiScanHistoryController). #}
 {% set active_menu_item = has_templates ? 'templates' : 'calendars' %}
-{# Where a calendar scan starts: the scan panel of the one 7-day calendar, else the calendar list. #}
+{# Where a calendar scan starts: the scan panel of the one calendar, else the calendar list. #}
 {% set calendar_scan_url = scan_calendar ? path('calendar_workspace', {'calendarId': scan_calendar, 'sken': 1}) : path('calendars', {'projectId': project.id}) %}
 {% set new_scan_url = has_templates ? path('ai_scan_new', {'projectId': project.id}) : calendar_scan_url %}
 {% set nil_uuid = '00000000-0000-0000-0000-000000000000' %}
@@ -42,7 +42,7 @@
             <button type="button" class="btn btn-primary" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="menu">{{ icon('plus') }}Nový sken</button>
             <div class="dropdown-menu dropdown-menu-end">
                 <a href="{{ path('ai_scan_new', {'projectId': project.id}) }}" class="dropdown-item">{{ icon('image', 's16') }}Šablona z obrázku</a>
-                {# With one 7-day calendar the item opens its scan panel; otherwise the user picks a calendar first. #}
+                {# With one calendar the item opens its scan panel; otherwise the user picks a calendar first. #}
                 <a href="{{ calendar_scan_url }}" class="dropdown-item">{{ icon('calendar', 's16') }}Naskenovat design kalendáře{{ scan_calendar ? '' : '…' }}</a>
             </div>
         </div>

@@ -3,9 +3,10 @@
 // 7 days: two cards with a live preview of the first week. The active card shows the current
 // layout; the other card shows what a click gives — the default layout while nothing exists yet,
 // the current layout mirrored once one does. 14 days: no choice — the single two-sided layout is
-// applied on entering the step and shown on one card with Pokračovat.
+// applied on entering the step and shown on one card with Pokračovat (two radios — the layout and
+// „Naskenovaný design“ — once its layout came from a scan).
 //
-// AI scan (ux.md §6, `ui/scan.js`): under the cards of a 7-day calendar sits the action card
+// AI scan (ux.md §6, `ui/scan.js`): under the cards — of a 7-day and of a 14-day calendar — sits the action card
 // „Naskenovat design“ — or its panel — drawn by `ctx.scan` into `.cal-scan`. When the calendar's
 // layout came from a scan (`store.getState().layoutOrigin === 'scan'`) a third REAL radio
 // `[data-preset="scan"]` „Naskenovaný design“ is shown selected with the current layout; the two
@@ -34,7 +35,7 @@ const TWO_SIDED = { preset: 'twoSided', title: 'Dvoustranné rozvržení', text:
 export function mountStep2(root, ctx) {
     const { store, env } = ctx;
     const design = () => store.getState().doc.design;
-    const scanned = () => store.getState().layoutOrigin === 'scan' && Boolean(design().layout) && design().type === 'week';
+    const scanned = () => store.getState().layoutOrigin === 'scan' && Boolean(design().layout);
 
     /** The document a card previews. */
     function previewDoc(preset) {
@@ -96,11 +97,13 @@ export function mountStep2(root, ctx) {
             return button;
         };
 
-        const list = fortnight
+        // 14 days: the one layout on a static card — until the layout came from a scan: then it is a
+        // choice between the scanned design and the default two-sided layout, as for 7 days
+        const list = fortnight && !scanned()
             ? h('div', { class: 'cal-lays one' }, card(TWO_SIDED, false))
-            : h('div', { class: 'cal-lays', role: 'radiogroup', 'aria-label': 'Rozvržení stránky' }, ...[...CARDS, ...(scanned() ? [SCANNED] : [])].map((spec) => card(spec, true)));
-        // „Naskenovat design“: the action card or the panel, weekly calendars only
-        const scanSlot = !fortnight && ctx.scan ? h('div', { class: 'cal-scan' }) : null;
+            : h('div', { class: 'cal-lays', role: 'radiogroup', 'aria-label': 'Rozvržení stránky' }, ...[...(fortnight ? [TWO_SIDED] : CARDS), ...(scanned() ? [SCANNED] : [])].map((spec) => card(spec, true)));
+        // „Naskenovat design“: the action card or the panel
+        const scanSlot = ctx.scan ? h('div', { class: 'cal-scan' }) : null;
         root.replaceChildren(h('div', { class: 'cal-s2' }, h('div', { class: 'cal-s2c' }, list, scanSlot)));
         if (scanSlot) scanMount = ctx.scan.mount(scanSlot);
         sync();
