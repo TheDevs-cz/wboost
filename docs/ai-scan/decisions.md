@@ -22,6 +22,7 @@ orchestrator decided on his behalf, so later sessions do not re-open it.
 | 12 | Admins may scan customers' designs before the legal wording is confirmed — those designs reach the team anyway. The legal gate applies to customer self-service access. | "the designs of customers were reaching us anyways" |
 | 13 | The live "Požádat o přístup" card is the gate for non-entitled users from the moment the wizard ships (not a "Brzy" teaser until launch). | "yes požádat o přístup is okay good gate" |
 | 14 | Whatever the feature needs on the host server may be installed; preferably as infrastructure-as-code in `~/www/lily.srv`. | "if anything needs to be installed on the host server - you can" |
+| 15 | The `ANTHROPIC_API_KEY` already present in the WBoost secret store (Infisical `wboost` / `prod`) is the intended production key for the scanner. | "yes i confirm api key" (2026-11-13) |
 
 ## Decisions taken by the orchestrator under #11 (architecture.md §11 numbering)
 
