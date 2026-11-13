@@ -172,7 +172,9 @@ ended with, whoever watched (ux.md S3) — the status document's `stages`.
 `ai_scan.text_boxes` (JSONB) — `{width, height, boxes: [[x, y, w, h], …]}`:
 where the current run found lines of text, in the pixels of the working copy
 (`ScannerApi::textBoxes()`: whole numbers, inside the picture, at most 300; no
-text). Sent in a heartbeat as `textBoxes`, cleared by every claim and retry,
+text). Sent in a heartbeat as `textBoxes` — by the real scanner since
+2026-11-13: the ink boxes of the OCR lines, with the first beats after the
+reading until one is acknowledged, for templates and calendars —, cleared by every claim and retry,
 and shown only while the scan is in progress (the status document's
 `textBoxes`) — "Tyto texty jsme našli".
 

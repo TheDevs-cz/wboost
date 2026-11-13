@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readdirSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 import { runBuild, runIntake, withRendererRetry, usagePayload, wireUsage, releaseOnce } from '../src/run.mjs';
 import { definitionFiles } from '../src/drivers/file-job.mjs';
@@ -18,12 +19,12 @@ const DESIGN = { canvas: { width: 800, height: 600 }, elements: [
 const FINISH = { status: 'done', preferredCandidate: 1, headline: '', placeholders: [{ id: 'logo', name: 'Logo', role: 'logo', fillable: true }], fonts: [], approximations: [], omitted: [], lowConfidenceTexts: [] };
 
 /** A JobApi over the fake app; `over` tunes the definition (timing in particular). */
-async function fixture({ timing = {}, caps = {}, beat = null, app = fakeApp() } = {}) {
+async function fixture({ timing = {}, caps = {}, beat = null, app = fakeApp(), picture = null } = {}) {
     const files = definitionFiles();
     const def = JSON.parse(files['definition.json']);
     Object.assign(def.timing, timing); Object.assign(def.caps, caps);
     files['definition.json'] = JSON.stringify(def);
-    const working = await sharp(await drawDesign(DESIGN)).webp({ lossless: true }).toBuffer();
+    const working = await sharp(picture ?? await drawDesign(DESIGN)).webp({ lossless: true }).toBuffer();
     const sent = { beats: [], finish: null, release: null };
     const api = {
         source: async () => working, putArtifact: async () => {},
@@ -123,7 +124,28 @@ test('build: the heartbeat keeps beating while the engine is blocked, and carrie
     const during = f.sent.beats.filter((b) => b.stage === 'build' || b.stage === 'refine');
     assert.ok(during.length >= 8, `beats during the blocked turn: ${during.length}`);
     assert.ok(f.sent.beats.some((b) => b.usage.outputTokens > 0 && b.usage.turns >= 1), 'usage travels with the beat');
-    assert.deepEqual([...new Set(f.sent.beats.map((b) => b.seq))].length, f.sent.beats.length, 'every beat has its own seq');
+    assert.deepEqual([...new Set(f.sent.beats.map((b) => b.seq))].length, f.sent.beats.length, 'every beat has its own seq');});
+
+test('build: the lines the reading found travel in a beat as textBoxes — boxes of the working copy, no text — until one is acknowledged', { skip }, async () => {
+    // a picture with a real line of text (the OCR self-test picture); what the model does afterwards does not matter here
+    const f = await fixture({ timing: { heartbeatSeconds: 0.05 }, picture: join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'instruments', 'ocr', 'selftest.png') });
+    const engine = scriptedEngine(async () => { await new Promise((ok) => setTimeout(ok, 400)); return FINISH; });
+    await runBuild({ job: f.job, api: f.api, engine, scratchDir: f.scratchDir });
+    const withBoxes = f.sent.beats.filter((b) => b.textBoxes);
+    assert.ok(withBoxes.length >= 1, `a beat carries textBoxes: ${JSON.stringify(f.sent.beats.map((b) => [b.stage, b.note]))}`);
+    const tb = withBoxes[0].textBoxes;
+    assert.ok(tb.width > 0 && tb.height > 0 && tb.boxes.length >= 1 && tb.boxes.length <= 300);
+    assert.ok(tb.boxes.every((b) => b.length === 4 && b.every(Number.isInteger) && b[0] >= 0 && b[1] >= 0 && b[0] + b[2] <= tb.width && b[1] + b[3] <= tb.height), JSON.stringify(tb.boxes.slice(0, 3)));
+    assert.equal(JSON.stringify(withBoxes[0]).includes('Letni'), false, 'boxes only — never the text');
+    assert.ok(withBoxes.length < f.sent.beats.length, 'not with every beat: only until one was acknowledged');
+});
+
+test('textBoxesOf: clipped to the picture, whole numbers, at most 300, null when there is none', async () => {
+    const { textBoxesOf } = await import('../src/run.mjs');
+    const source = { width: 100, height: 50 };
+    assert.deepEqual(textBoxesOf([{ x: 10.4, y: 5.6, w: 20.2, h: 8 }, { x: 90, y: 40, w: 30, h: 30 }, { x: 200, y: 1, w: 5, h: 5 }, null], source), { width: 100, height: 50, boxes: [[10, 6, 20, 8], [90, 40, 10, 10]] });
+    assert.equal(textBoxesOf([], source), null);
+    assert.equal(textBoxesOf(Array.from({ length: 400 }, (_, i) => ({ x: i % 90, y: 1, w: 5, h: 5 })), source).boxes.length, 300);
 });
 
 test('build: cancel from a beat aborts the engine; nothing is finished', { skip }, async () => {

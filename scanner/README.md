@@ -78,7 +78,7 @@ child process of one run (src/worker.mjs)
 
 | Rule (architecture §4.9) | Where |
 |---|---|
-| Heartbeat every 15 s on a timer of the **main** process, one attempt ≤ 10 s, never queued behind a hung one; carries stage / note / round and the cumulative usage | `src/timers.mjs` `Heartbeat`, `src/lanes.mjs` |
+| Heartbeat every 15 s on a timer of the **main** process, one attempt ≤ 10 s, never queued behind a hung one; carries stage / note / round and the cumulative usage — and `textBoxes` (where the reading found lines of text, in working-copy px; boxes only, ≤ 300), sent until one beat carrying them was acknowledged: the waiting screen outlines them | `src/timers.mjs` `Heartbeat`, `src/lanes.mjs`, `src/run.mjs` `textBoxesOf` |
 | Self-abort 105 s after the **send time** of the last acknowledged beat; 409 / 410 / `cancel` / mode `off` end the run at once | `Heartbeat` |
 | One app-call attempt ≤ 30 s; a failing call is retried until 60 s (R) have passed since its first attempt; 409 / 410 never | `src/protocol.mjs` `HttpScannerApi.call` |
 | `render` is idempotent by `(run, seq)`: every retry carries the same seq; a busy or absent renderer is retried inside R | `src/run.mjs` `withRendererRetry` |
@@ -214,7 +214,7 @@ measure parity with the prototypes' engine.
 ## Tests
 
 ```bash
-npm test                # 236 tests, ≈ 85 s — no model, no app
+npm test                # 239 tests, ≈ 85 s — no model, no app
 npm run test:slow       # the app-outage rules at their real times (≈ 85 s)
 ```
 

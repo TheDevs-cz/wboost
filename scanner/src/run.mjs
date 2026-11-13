@@ -21,6 +21,23 @@ import { outcomeForClass } from './engine/classify.mjs';
 import { addUsage, emptyUsage, priceUsage, LIST_PRICES } from './engine/pricing.mjs';
 import { loadRgb } from './instruments/raster.mjs';
 
+/**
+ * The lines of text the reading found, as the app takes them in a heartbeat (`textBoxes`): whole numbers in the
+ * pixels of the working copy, inside the picture, at most 300 boxes, no text. → {width, height, boxes} | null
+ */
+export function textBoxesOf(boxes, source) {
+    const W = source.width, H = source.height;
+    const out = [];
+    for (const b of boxes ?? []) {
+        if (!b) continue;
+        const x = Math.max(0, Math.round(b.x)), y = Math.max(0, Math.round(b.y));
+        const w = Math.min(W - x, Math.round(b.w)), h = Math.min(H - y, Math.round(b.h));
+        if (w >= 1 && h >= 1 && x < W && y < H) out.push([x, y, w, h]);
+        if (out.length >= 300) break;
+    }
+    return out.length ? { width: W, height: H, boxes: out } : null;
+}
+
 const pricesOf = (definition) => (definition.prices?.models && Object.keys(definition.prices.models).length ? definition.prices : LIST_PRICES);
 
 /**
@@ -164,9 +181,9 @@ export async function runBuild({ job, api, engine, scratchDir, signal = null, pr
     const abort = (reason) => { if (!abortReason) { abortReason = reason; controller.abort(); } };
     if (signal?.aborted) abort(reasonOf(signal)); else signal?.addEventListener('abort', () => abort(reasonOf(signal)), { once: true });
     const started = Date.now();
-    const state = { stage: 'read', note: null, noteParams: null, round: 0 };
+    const state = { stage: 'read', note: null, noteParams: null, round: 0, textBoxes: null };
     let liveUsage = null;
-    const snapshot = () => ({ stage: state.stage, note: state.note, noteParams: state.noteParams, round: state.round, usage: usagePayload(liveUsage, { turns: caps.turns, durationMs: Date.now() - started }), turns: caps.turns, resources: beatResources(probeResources) });
+    const snapshot = () => ({ stage: state.stage, note: state.note, noteParams: state.noteParams, round: state.round, textBoxes: state.textBoxes, usage: usagePayload(liveUsage, { turns: caps.turns, durationMs: Date.now() - started }), turns: caps.turns, resources: beatResources(probeResources) });
     const changed = () => { try { host.onState?.(snapshot()); } catch { /* an observer never breaks the run */ } };
     const hb = host.ownsHeartbeat ? new Heartbeat({ api, timing: definition.timing, state: snapshot, onAbort: abort }).start() : { stop() {}, summary: () => null };
     const runTimer = setTimeout(() => abort('run_time'), caps.limits.runMs); runTimer.unref?.();
@@ -209,7 +226,9 @@ export async function runBuild({ job, api, engine, scratchDir, signal = null, pr
         };
         build = new (calendar ? CalendarBuild : TemplateBuild)({ source, sourcePath, context, app, caps, signal: controller.signal, approximate: !!job.approximate,
             settings: { availableScore: definition.fonts?.availableScore ?? 0.85, undeterminedScore: definition.fonts?.undeterminedScore ?? 0.35, verifiedScore: definition.fonts?.verifiedScore ?? 0.88, verifiedScoreLong: definition.fonts?.verifiedScoreLong ?? 0.85, verifiedLongGlyphs: definition.fonts?.verifiedLongGlyphs ?? 12, verifiedScoreLonger: definition.fonts?.verifiedScoreLonger ?? 0.78, verifiedLongerGlyphs: definition.fonts?.verifiedLongerGlyphs ?? 20, verifiedSmallInkPx: definition.fonts?.verifiedSmallInkPx ?? 22, verifyRenders: definition.fonts?.verifyRenders ?? 6, verifySupersample: definition.fonts?.verifySupersample ?? 3, prepassLines: definition.fonts?.prePassLines ?? 6, faceSheets: definition.caps?.faceSheets ?? 12, snapDeltaE: definition.paletteSnapDeltaE ?? 2, ocrThreads: Number(process.env.SCANNER_OCR_THREADS ?? 3) },
-            onNote: (note, params = null) => {
+            onNote: (note, params = null, extra = null) => {
+                // `texts_found` comes with the boxes of the lines the reading found — the waiting screen outlines them
+                if (extra?.textBoxes) state.textBoxes = textBoxesOf(extra.textBoxes, source);
                 if (['read', 'analyse', 'build', 'refine', 'finish'].includes(note)) { state.stage = note; if (note === 'refine') state.round = Math.min(definition.caps?.correctionRounds ?? 2, Math.max(1, build.candidates.length)); }
                 else { state.note = note; state.noteParams = params; if (note === 'texts_found' || note === 'no_texts' || note === 'rows_found') state.stage = 'analyse'; }
                 changed();

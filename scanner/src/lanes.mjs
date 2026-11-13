@@ -82,6 +82,8 @@ export class JobRunner {
                     if (m?.type === 'state' && m.state) {
                         const s = m.state;
                         Object.assign(this.state, { stage: s.stage ?? this.state.stage, note: s.note ?? null, noteParams: s.noteParams ?? null, round: s.round ?? this.state.round, resources: s.resources ?? this.state.resources });
+                        // (the same object until the run reports other boxes: the heartbeat sends it until acknowledged)
+                        if (s.textBoxes && JSON.stringify(s.textBoxes) !== JSON.stringify(this.state.textBoxes ?? null)) this.state.textBoxes = s.textBoxes;
                         if (s.usage) this.state.usage = { ...this.state.usage, ...s.usage };
                     } else if (m?.type === 'result') {
                         this.result = m.result;
@@ -99,7 +101,7 @@ export class JobRunner {
             if (lane === 'build') {
                 this.heartbeat = new Heartbeat({
                     api: this.api, timing, onAbort: (reason, detail) => this.abort(reason, detail),
-                    state: () => ({ stage: this.state.stage, note: this.state.note, noteParams: this.state.noteParams, round: this.state.round, usage: this.#usage(), resources: this.state.resources }),
+                    state: () => ({ stage: this.state.stage, note: this.state.note, noteParams: this.state.noteParams, round: this.state.round, usage: this.#usage(), resources: this.state.resources, textBoxes: this.state.textBoxes ?? null }),
                     onBeat: (b) => { if (!b.ok) this.o.log('warn', 'beat not acknowledged', { ...this.ids, seq: b.seq, code: b.code, status: b.status }); },
                 }).start();
             }

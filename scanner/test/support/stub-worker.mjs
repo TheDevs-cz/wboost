@@ -26,7 +26,7 @@ process.on('message', async (m) => {
         await sleep(150);
         appendFileSync(b.spawn, JSON.stringify({ scan: m.job.id, worker: process.pid, inGroup: inGroup.pid, ownGroup: ownGroup.pid, shell: shell.pid }) + '\n');
     }
-    await send({ type: 'state', state: { stage: 'build', note: 'measuring', noteParams: null, round: 0, usage: usage(1), turns: 1 } });
+    await send({ type: 'state', state: { stage: 'build', note: 'measuring', noteParams: null, round: 0, usage: usage(1), turns: 1, textBoxes: { width: 800, height: 600, boxes: [[40, 40, 300, 30]] } } });
     if (b.crash) process.exit(7);
     if (b.blockMs) { const end = Date.now() + b.blockMs; while (Date.now() < end) { /* the event loop is blocked: no IPC, no timer */ } }
     if (b.waitMs) await Promise.race([sleep(b.waitMs), b.ignoreAbort ? new Promise(() => {}) : new Promise((ok) => { onAbort = ok; if (abortReason) ok(); })]);

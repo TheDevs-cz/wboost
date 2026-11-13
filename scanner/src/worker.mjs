@@ -6,7 +6,7 @@
 //                   {type: 'probe', model, settings, scratchDir, engine}
 //                   {type: 'abort', reason}            shutdown | cancelled | mode_off | ended | lease_lost | gone | app_unreachable
 //   worker → main   {type: 'ready'}
-//                   {type: 'state', state: {stage, note, noteParams, round, usage, turns, resources}}
+//                   {type: 'state', state: {stage, note, noteParams, round, usage, turns, resources, textBoxes?}}
 //                   {type: 'result', result}           then the worker exits
 //
 // The worker sends `finish` itself (it holds the report); it never sends a beat or a release.
@@ -61,7 +61,7 @@ async function run(m) {
     // the latest state only: a burst of usage events becomes one message
     let pending = null, timer = null;
     const flush = () => { timer = null; if (pending) { const state = pending; pending = null; send({ type: 'state', state }); } };
-    const onState = (s) => { pending = { stage: s.stage ?? null, note: s.note ?? null, noteParams: s.noteParams ?? null, round: s.round ?? null, usage: wireUsage(s.usage), turns: s.turns ?? 0, resources: s.resources ?? null }; if (!timer) timer = setTimeout(flush, 200); };
+    const onState = (s) => { pending = { stage: s.stage ?? null, note: s.note ?? null, noteParams: s.noteParams ?? null, round: s.round ?? null, usage: wireUsage(s.usage), turns: s.turns ?? 0, resources: s.resources ?? null, textBoxes: s.textBoxes ?? null }; if (!timer) timer = setTimeout(flush, 200); };
     const host = { ownsHeartbeat: false, ownsRelease: false, onState };
     const probeResources = new ResourceProbe({ intervalMs: 1000 }).start();
     try {

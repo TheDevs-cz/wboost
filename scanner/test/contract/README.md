@@ -3,7 +3,7 @@
 `scanner-api.v1.json` holds 57 exchanges recorded on 2026-11-12 between the scanner's client
 (`scanner/src/protocol.mjs`) and the **real** local app's `/internal/scanner/*` endpoints, walked
 without a model on a synthetic picture: tick, claim (nothing / intake / build), source, artifact,
-beat (live, older seq, after cancel, after finish), faces, render (candidate, same seq, rejected
+beat (live — with `textBoxes`, the lines the reading found —, older seq, after cancel, after finish), faces, render (candidate, same seq, rejected
 design, past the cap), finish (every intake and build outcome, a repeat, a late one), release (intake,
 build, after cancel), and the answers that end a run or refuse the caller (409 `stale_run` /
 `lease_lost`, 410 `gone`, `protocol_too_old`, 404).

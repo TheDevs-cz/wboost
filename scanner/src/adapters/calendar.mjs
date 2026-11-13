@@ -220,7 +220,7 @@ export class CalendarBuild {
         const ocr = await runOcr(this.sourcePath, { threads: this.settings.ocrThreads, scale: +ocrScale.toFixed(3), signal: this.signal, onSpawn: this.settings.onOcrSpawn });
         this.stats.ocr = { scale: +ocrScale.toFixed(3), seconds: ocr.seconds, loadSeconds: ocr.loadSeconds, peakRssMb: ocr.peakRssMb, cpuSeconds: ocr.cpuSeconds, wallMs: ocr.wallMs, raw: ocr.lines.length };
         this.ocrSource = mergeLines(ocr.lines).map((l) => ({ ...l, ink: lineInk(this.source, l.box) }));
-        this.onNote(this.ocrSource.length ? 'texts_found' : 'no_texts', this.ocrSource.length ? { n: this.ocrSource.length } : null);
+        this.onNote(this.ocrSource.length ? 'texts_found' : 'no_texts', this.ocrSource.length ? { n: this.ocrSource.length } : null, this.ocrSource.length ? { textBoxes: this.ocrSource.map((l) => l.ink?.box ?? l.box) } : null);
         this.#measurePage();
         this.onNote('rows_found', { n: this.ladder ? this.ladder.rules.length : 0 });
         if (this.context.fonts.length) {

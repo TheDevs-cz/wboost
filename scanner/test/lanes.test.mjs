@@ -34,6 +34,10 @@ test('a build that ends by itself: finish by the child, heartbeats by the main p
     const s = await f.runner.run();
     assert.deepEqual([s.outcome, s.finish.status, s.closing.call, s.exit.code], ['proposed', 'ready', null, 0]);
     assert.ok(f.scan.beats.length >= 2, `beats: ${f.scan.beats.length}`);
+    // the boxes of the found lines come from the run's process and leave with the main process's beats — until one is acknowledged
+    const boxed = f.scan.beats.filter((b) => b.textBoxes);
+    assert.ok(boxed.length >= 1 && boxed.length < f.scan.beats.length, `beats with textBoxes: ${boxed.length} of ${f.scan.beats.length}`);
+    assert.deepEqual(boxed[0].textBoxes, { width: 800, height: 600, boxes: [[40, 40, 300, 30]] });
     assert.equal(f.scan.release, null);
     assert.deepEqual(readdirSync(f.scratchRoot), [], 'the run\'s scratch directory is removed');
     assert.equal(s.killed.survivors, 0);

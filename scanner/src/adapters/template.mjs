@@ -69,7 +69,7 @@ export class TemplateBuild {
             const k = lineInk(this.source, l.box);
             return { ...l, ink: k };
         });
-        this.onNote(lines.length ? 'texts_found' : 'no_texts', lines.length ? { n: lines.length } : null);
+        this.onNote(lines.length ? 'texts_found' : 'no_texts', lines.length ? { n: lines.length } : null, lines.length ? { textBoxes: lines.map((l) => l.ink?.box ?? l.box) } : null);
         const occupied = (() => {
             const boxes = lines.map((l) => im.grow(l.ink?.box ?? l.box, 6));
             return (x, y) => boxes.some((b) => x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h);

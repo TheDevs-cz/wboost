@@ -81,7 +81,7 @@ const design = (shift = 0) => ({ canvas: { width: 1080, height: 1350 }, elements
     { kind: 'text', id: 'nadpis', text: 'Letní kemp 2027', font: face, size: 64, color: '#ffffff', x: 120, y: 160, width: 800 },
 ] });
 await call('scan 1: source (the working copy, as bytes)', () => b1.api.source());
-await call('scan 1: beat', () => b1.api.beat({ seq: 1, stage: 'analyse', note: 'texts_found', noteParams: { n: 2 }, round: 0, usage: USAGE(1), resources: { peakRssMb: 640, cpuSeconds: 3.2 } }));
+await call('scan 1: beat', () => b1.api.beat({ seq: 1, stage: 'analyse', note: 'texts_found', noteParams: { n: 2 }, round: 0, textBoxes: { width: 1080, height: 1350, boxes: [[80, 600, 520, 36], [80, 670, 380, 36]] }, usage: USAGE(1), resources: { peakRssMb: 640, cpuSeconds: 3.2 } }));
 await call('scan 1: beat with an older seq (changes nothing)', () => b1.api.beat({ seq: 1, stage: 'build', note: null, noteParams: null, usage: USAGE(1) }));
 await call('scan 1: faces', () => b1.api.faces({ seq: 1, lines: ['Letní kemp 2027'], faces: [face], size: 64 }));
 await call('scan 1: faces without lines (invalid request)', () => b1.api.faces({ seq: 2, lines: [] }));

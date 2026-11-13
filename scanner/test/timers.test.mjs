@@ -50,6 +50,26 @@ test('heartbeat: beats leave every 15 s for 200 s while nothing else happens, ea
     assert.equal(sent.length, 13, 'a stopped heartbeat is silent');
 });
 
+test('heartbeat: the found-text boxes travel with the beats until one that carried them is acknowledged, and again when they change', async (t) => {
+    clock(); t.after(() => mock.timers.reset());
+    const sent = [];
+    let boxes = null, down = true;
+    const hb = new Heartbeat({ api: { beat: async (b) => { sent.push(b); if (down) throw Object.assign(new Error('away'), { code: 'network' }); return { ok: true, cancel: false, mode: 'on' }; } }, state: () => ({ ...state(), textBoxes: boxes }), onAbort: () => {} }).start();
+    await advance(16);
+    assert.equal('textBoxes' in sent[0], false, 'nothing to send before the reading');
+    boxes = { width: 1080, height: 1350, boxes: [[80, 600, 520, 36]] };
+    await advance(30);                       // two beats while the app does not answer: both carry the boxes
+    down = false;
+    await advance(30);                       // acknowledged once, then no more
+    const carried = sent.map((b) => !!b.textBoxes);
+    assert.deepEqual(carried.slice(1), [true, true, true, false], JSON.stringify(carried));
+    assert.deepEqual(sent[1].textBoxes, boxes);
+    boxes = { width: 1080, height: 1350, boxes: [[80, 600, 520, 36], [80, 670, 380, 36]] };   // a restart of the reading found other lines
+    await advance(15);
+    assert.deepEqual(sent.at(-1).textBoxes, boxes);
+    hb.stop();
+});
+
 test('heartbeat: without any acknowledgement the run is aborted 105 s after the claim — not before, not later', async (t) => {
     clock(); t.after(() => mock.timers.reset());
     const aborts = []; const t0 = Date.now();

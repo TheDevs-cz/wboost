@@ -7,7 +7,7 @@
 // A JobApi is everything one claimed job may do:
 //   source()                               → Buffer            original (intake lane) or working copy (build lane)
 //   putArtifact(which, bytes)              → void              which: working | preview
-//   beat({stage, note, noteParams, round, usage, resources}) → {cancel, mode}
+//   beat({stage, note, noteParams, round, usage, resources, textBoxes?}) → {cancel, mode}      textBoxes = {width, height, boxes: [[x, y, w, h]]}
 //   render({seq, design | commands})       → {rendered, candidate, issues, image: {data, mimeType} | null, code?,
 //                                             view?, page?, preset?, layout?, features?}   (the last five: calendar candidates)
 //   faces({seq, lines, faces, size})       → {image: {data, mimeType} | raster, cells: [{face, line, x, y, width, height, fontSize}], sheets?}

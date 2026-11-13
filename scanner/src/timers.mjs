@@ -19,7 +19,7 @@ const cut = (promise, ms, code) => {
  * - self-abort A: when 105 s have passed since the SEND time of the last acknowledged beat, the run is
  *   aborted (`app_unreachable`) — the engine must stop spending before the app gives up the lease (120 s).
  *
- * `state()` → {stage, note, noteParams, round, usage, resources}; `onAbort(reason, detail)` is called once.
+ * `state()` → {stage, note, noteParams, round, usage, resources, textBoxes?}; `onAbort(reason, detail)` is called once.
  */
 export class Heartbeat {
     constructor({ api, timing = {}, state, onAbort, now = () => Date.now(), onBeat = null }) {
@@ -55,12 +55,15 @@ export class Heartbeat {
         if (this.stopped && !final) return null;
         const sentAt = this.now();
         const s = this.state?.() ?? {};
-        const body = { seq: ++this.seq, stage: s.stage ?? undefined, note: s.note ?? null, noteParams: s.noteParams ?? null, ...(Number.isInteger(s.round) ? { round: s.round } : {}), usage: s.usage ?? {}, ...(s.resources ? { resources: s.resources } : {}) };
+        const body = { seq: ++this.seq, stage: s.stage ?? undefined, note: s.note ?? null, noteParams: s.noteParams ?? null, ...(Number.isInteger(s.round) ? { round: s.round } : {}), usage: s.usage ?? {}, ...(s.resources ? { resources: s.resources } : {}),
+            // where the reading found lines of text (the waiting screen outlines them): sent until one beat carrying them was acknowledged
+            ...(s.textBoxes && s.textBoxes !== this.ackedTextBoxes ? { textBoxes: s.textBoxes } : {}) };
         this.inFlight++;
         try {
             // the client cuts the attempt itself; the outer cut covers a client that would not
             const r = await cut(this.api.beat(body), this.timing.heartbeatAttemptSeconds * 1000 + 250, 'beat_timeout');
             this.acked++;
+            if (body.textBoxes) this.ackedTextBoxes = body.textBoxes;
             this.lastAnswer = { at: this.now(), cancel: !!r?.cancel, mode: r?.mode ?? null, status: r?.status ?? null };
             if (sentAt > this.lastAckedSend) { this.lastAckedSend = sentAt; this.#armSelfAbort(); }
             this.onBeat?.({ seq: body.seq, ok: true, answer: r });
