@@ -512,3 +512,42 @@ migrations — and Scanner green).
 | The fault-injection group | locally 5 × in a row (16 tests each, all green, 3–5 min) **and** in CI |
 | Everything in items 2, 3, 10, 11, 12 | locally only — CI has no scanner, no engine binary and no Gotenberg |
 
+
+## G2b — on the box (2026-11-13, phase P4): the first part
+
+The scanner was put onto the production box on 2026-11-13 (infra repo `~/www/lily.srv`: commit
+`b30b33c`, decision D87, journal entry of that day). What was checked there, with the operating mode
+`on · admins only`, on five scans of a **synthetic test picture** (1080 × 1350, no customer material)
+in the owner's own project, started through the public web by a temporary admin and discarded
+afterwards. Scanner `0.2.0+4eb593e4ed25`, definition `5-bf02f6ce3237`, x86-64, production API key.
+
+| Check | Observed | |
+|---|---|---|
+| Limits applied (`docker inspect`) | memory 4 GiB, reservation 512 MiB, 3 CPUs, 512 pids, read-only root, no capabilities, `no-new-privileges`, stop timeout 45 s, restart `always`; PID 1 `tini`; network `wboost_scan` only | pass |
+| Heartbeat | `app:ai-scan:status`: `Scanner seen N s ago (version 0.2.0+4eb593e4ed25)`, N ≤ 8; container healthy 17 s after start | pass |
+| Network boundary | the scanner resolves `web` only — not `db`, `redis`, `minio`, `gotenberg` nor their container names; a direct connect to the database's address times out; the provider is reachable | pass |
+| `/internal/scanner/*` from outside | internet: 403 (edge rule; 404 before); another stack's container on the box: 404; `web` on its other network with the right token: 404; scan network with a wrong token: 404 | pass |
+| One undisturbed scan — x86 figures | `ready` 36 s after upload (intake 4 s, build 32 s); **$0.169** recorded = the engine's figure (Haiku pre-check $0.0004, Opus build $0.168, 6 turns, 2 candidates); scanner cgroup **peak 561 MiB**; 13.9 s CPU, 5 throttled periods (1.5 s) under 3 CPUs; credit reserved and settled once | pass — an easy picture; a hard design peaked at 1.8 GiB locally |
+| Scanner process killed while idle (host `kill -9`) | restarted by the policy; healthy and seen by the app after 7 s | pass |
+| Scanner process killed mid-build | container back after 1 s; the scan stayed `running` until its lease lapsed, then `build_lease_lost → queued (restarted)` 121 s after the kill, claimed 1 s later, `ready` 34 s after that. Killed run: usage row closed `lease_lost` with $0.017 (its last heartbeat); second run $0.112; open usage rows 0; one settle | pass |
+| `docker compose restart scanner` mid-build (= a tag bump) | shutdown 2.6 s (`run aborted`, one release); the scan re-claimed 3 s later, restart not consumed, `ready` 36 s later | pass |
+| App deploy with the scanner idle, and with a scan running | blue-green `web` replaced under the scanner (23 s); the scanner container was not touched (`StartedAt` unchanged); the running scan finished `ready` on its first try, no `restarted` | pass |
+| The box | the 132 containers of other projects kept their start times and restart counts; load 3.3 on 16 cores; nothing unhealthy | pass |
+| Spend | $0.64 for the five scans; Gotenberg 500 → 681 MiB of 5 GiB | — |
+
+Found on the way:
+
+- **`docker kill` is not a crash.** Docker treats it as a manual stop and does not apply the restart
+  policy — the scanner stayed down for three minutes during the first try (mode was `off`). A crash is
+  simulated with a `kill -9` of the container's process from the host; the runbook says so.
+- **`app:ai-scan:status` said `Private bucket reachable` before the bucket existed** — a HEAD of an
+  object in a missing bucket is an ordinary 404. `AiScanStorage::reachable()` now lists the prefix,
+  which fails on a missing bucket (checked locally against a bucket that does not exist).
+- `app:ai-scan:fake-run` refuses in production by design, so "mid-run" was tested with real scans of
+  the synthetic picture.
+
+**Still open of G2b** (infra backlog): an OOM forced by a lowered memory limit, a reboot mid-scan,
+Gotenberg / MinIO / Redis stopped and paused, a `db` restart, the scanner cut from the network for
+30 / 60 / 120 s and 10 min, a slow migration during a deploy mid-scan, a calendar PDF export during a
+scan, the hostile uploads through the real upload, a hard design's figures on x86, Gotenberg watched
+for a week, and the ten admin scans with billed cost compared to recorded usage.

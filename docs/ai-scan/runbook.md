@@ -5,7 +5,7 @@ and spend, §7 failures); the app as built: `docs/architecture/ai-scan.md`; the 
 what was tried before this was written: `reliability-report.md`.
 
 Every command below was run against the local stack while this was written (G2a). What is **not yet
-there** is said where it matters: the scanner is not on the box until phase P4, the admin tab
+there** is said where it matters: the scanner runs on the box since 2026-11-13 (P4 — "Production" below is what was done and measured there), the admin tab
 ("AI skeny") comes with P4, and the app sends **no operating e-mail to admins** yet — until then the
 console command is the only view (see "What is not built").
 
@@ -15,13 +15,111 @@ console command is the only view (see "What is not built").
 |---|---|
 | The box | `ssh root@lily.srv.thedevs.cz`, then `cd /srv/wboost` |
 | App | compose service `web` (blue-green deploys on every push to `main`); long jobs: `messenger-consumer` |
-| Scanner (from P4) | compose service `scanner`, image `ghcr.io/thedevs-cz/wboost-scanner:sha-<commit>` — pinned, never deployed by an app push |
+| Scanner | compose service `scanner` (container `wboost-scanner-1`), image `ghcr.io/thedevs-cz/wboost-scanner:sha-<commit>` — pinned in `~/www/lily.srv/apps/wboost/compose.yaml`, never moved by an app push; network `wboost_scan` only |
+| Infra definition | `~/www/lily.srv/apps/wboost/` (`compose.yaml`, `deploy.sh`, `cron.d/wboost`), decision **D87** in its `docs/decisions.md`, what was done in its `docs/journal.md` |
 | Console | `docker compose exec web bin/console app:ai-scan:status …` — written `status …` below |
-| Scan files | private bucket `wboost-private` (MinIO), `ai-scan/{project}/{scan}/{secret}/…` |
+| Scan files | private bucket `wboost-private` (the stack's MinIO, no anonymous policy — `deploy.sh` asserts it on every deploy), `ai-scan/{project}/{scan}/{secret}/…` |
+| Logs | scanner: `docker compose logs scanner` (JSON lines; also in Loki, label `app="wboost-scanner"`); app: `docker compose logs web`, Sentry; cron (`ai-scan-purge`, `ai-scan-watch`): `/var/log/lily/wboost-cron.log` (Loki `app="cron"`) |
+| Secrets | Infisical project `wboost`, env `prod`: `SCANNER_TOKEN` (web + scanner), `ANTHROPIC_API_KEY` (the scanner alone — `web` and the worker get it blanked), `SCANNER_TOKEN_PREVIOUS` (only during a rotation). Rendered to `/srv/wboost/.env` by every deploy |
 | Rows | `ai_scan` (the scans), `ai_usage_event` (what each run spent), `ai_credit_ledger` (credits), `ai_scan_runtime` (the one row of switches) |
 
 Locally the same commands are `docker compose exec web bin/console app:ai-scan:status …` in the
 repository; a scanner is started by hand (`scanner/README.md` "Run it").
+
+## Production (the box) — what runs, and the five things you do there
+
+The scanner is one container of the `wboost` stack: 4 GiB memory limit, 3 CPUs (the box's exception to
+its no-CPU-limit rule, infra D87), read-only root, a 768 MB `/tmp`, no capabilities, concurrency 1. It
+sits on the network `wboost_scan` (`10.200.107.0/24`) with `web` and nothing else: it cannot resolve or
+reach the database, Redis, MinIO or Gotenberg. `web` answers `/internal/scanner/*` only to a peer
+address inside that subnet (`SCAN_NETWORK_CIDR`) that sends `SCANNER_TOKEN`; the public router refuses
+`/internal/` itself (403) before the app is asked.
+
+All commands: on the box (`root@lily.srv.thedevs.cz`), in `/srv/wboost`.
+
+**1. Look.**
+
+```bash
+docker compose ps scanner                               # Up … (healthy)
+docker compose exec web bin/console app:ai-scan:status  # mode, scanner seen N s ago, provider, spend
+docker compose logs --tail 100 scanner                  # ids, codes, durations — never a design's text
+docker stats --no-stream wboost-scanner-1               # ≈ 85 MiB idle; 0.5–1.8 GiB during a scan
+```
+
+The admin tab `/admin/usage` → "AI skeny" shows the same and changes the mode and the limits.
+
+**2. Stop and start the scanner.**
+
+```bash
+docker compose stop scanner     # SIGTERM: the running scan is released back to the queue, exit in ≈ 3 s (limit 30 s)
+docker compose up -d scanner    # start again; `restart scanner` = both
+```
+
+A stopped scanner makes the app say `scanner_absent` after 60 s: uploads are refused, waiting scans
+wait (and fail refunded after 60 minutes). **Never `docker kill` it**: Docker treats a kill as a manual
+stop and does not start the container again — it stays down until `docker compose up -d scanner`
+(found on 2026-11-13). A real crash, an OOM kill or a reboot does restart it (`restart: always`).
+
+**3. Switch the mode** — no deploy, effective on the next request (also in the admin tab):
+
+```bash
+docker compose exec web bin/console app:ai-scan:status --mode=off      # everything stops, scans in progress fail refunded
+docker compose exec web bin/console app:ai-scan:status --mode=paused   # nothing new starts, a running scan finishes
+docker compose exec web bin/console app:ai-scan:status --mode=on
+docker compose exec web bin/console app:ai-scan:status --admin-only=1  # 1 = only admins may start scans (the state until the customer launch)
+```
+
+**4. Ship a scanner** (a new image of `scanner/`). The Scanner workflow pushes
+`ghcr.io/thedevs-cz/wboost-scanner:sha-<full commit>`; nothing deploys it. In `~/www/lily.srv`:
+change the sha in `apps/wboost/compose.yaml` (`scanner.image`), add a journal line, push (the box
+receives the file within a minute, nothing restarts), then either wait for the next app deploy or
+
+```bash
+cd /srv/wboost && flock /run/lily-deploy-runner.lock ./deploy.sh main
+```
+
+`deploy.sh` brings the scanner up **last**, after the new `web` is live, and touches it only when its
+definition changed — an ordinary app deploy leaves a running scan alone. A re-create mid-scan is
+clean (the scan is released and claimed again by the new container, its one restart is not used).
+The app accepts the scanner's protocol N and N − 1, so "app first, scanner second" is always safe;
+when the app needs a newer scanner it says so (`Scanner … · TOO OLD`, the admin tab, an e-mail).
+Roll back a scanner the same way with the previous sha.
+
+**5. Rotate the scanner's token / replace the provider key.** Values live in Infisical only
+(project `wboost`, `prod`); never print them (`infisical secrets set … >/dev/null`, pattern in
+`~/www/lily.srv/docs/secrets.md`).
+
+- Token: copy the current value to `SCANNER_TOKEN_PREVIOUS`, write a new `SCANNER_TOKEN`
+  (≥ 24 characters), `./deploy.sh main` (web accepts both, the scanner is re-created with the new
+  one), check `status`, delete `SCANNER_TOKEN_PREVIOUS`, deploy again at leisure.
+- Provider key: replace `ANTHROPIC_API_KEY`, `./deploy.sh main` (only the scanner's definition
+  changes, so only it is re-created). Without a key the scanner stays up and healthy and reports the
+  provider as blocked — nothing crash-loops. Production uses an API key only, never a subscription
+  credential, and no login state is mounted into the container.
+
+### Roll back P4
+
+1. `status --mode=off` — instant; the feature is inert, scans in progress fail refunded, `ready`
+   proposals stay usable.
+2. `docker compose stop scanner` — the spending process is gone.
+3. For good: in `~/www/lily.srv` take out the `scanner` service, the `scan` network and web's AI-scan
+   variables (D87 "Rollback"), push, `./deploy.sh main`, then delete the stopped scanner container
+   with compose — a reverted compose file alone leaves a running container running. The bucket
+   `wboost-private` stays until somebody deletes it by hand.
+
+### Measured on the box (G2b, 2026-11-13)
+
+Five scans of a synthetic test picture in an internal project, by a temporary admin, all discarded.
+Figures and the checks that are still open: `reliability-report.md` § "G2b".
+
+| | |
+|---|---|
+| One scan, undisturbed | `ready` 36 s after upload; $0.17 (Haiku pre-check + Opus build, 6 turns); scanner peak 561 MiB; 14 s CPU, 5 throttled periods under 3 CPUs |
+| Scanner process killed while idle | container back and seen by the app in 7 s |
+| Scanner process killed mid-build | container back in 1 s; the scan stays `running` until its lease ends (120 s), is put back (`restarted`), claimed and `ready` 34 s later; the killed run's usage row is closed `lease_lost` with its last figures |
+| `docker compose restart scanner` mid-build | shutdown 2.6 s; released, claimed again 3 s later, restart not used; `ready` |
+| App deploy (blue-green `web`) with a scan running | the scanner container is not touched; the scan finishes on its first try |
+| `/internal/scanner/*` | internet: 403; another stack's container: 404; `web`'s other networks, right token: 404; scan network, wrong token: 404 |
 
 ## The one command
 
@@ -161,6 +259,8 @@ docker compose up -d scanner                   # start / recreate
 - A scanner that died mid-scan left a lease: 120 s after its last heartbeat the reaper puts the scan
   back (`restarted`); a second death fails it `interrupted`, refunded — a poisonous picture cannot
   loop, and the same picture failing twice in a project is refused for 30 days (`source_unscannable`).
+- The container is `Exited` and does not come back: somebody used `docker kill` (see "Production" 2) —
+  `docker compose up -d scanner`.
 - `Refused at start`: the log says why — a concurrency the memory limit cannot hold (3 GiB for 1),
   a missing `SCANNER_APP_URL` / `SCANNER_TOKEN`.
 - `app.lastError: not_scanner` in the health document: `web` does not see the scanner's address in
@@ -186,7 +286,7 @@ want to wait: `docker compose exec web bin/console app:ai-scan:purge`).
 
 ## Nightly
 
-`app:ai-scan:purge` (cron, with P4): reaper, expiry (30 days after a scan ended), files of expired /
+`app:ai-scan:purge` (host cron `ai-scan-purge`, 03:00 Europe/Prague, in `~/www/lily.srv/apps/wboost/cron.d/wboost`): reaper, expiry (30 days after a scan ended), files of expired /
 missing rows older than 24 h, leftover candidate renders, open usage rows of scans that are no longer
 in progress, due e-mails and the one reminder 3 days before a proposal expires. Safe to run at any time
 and twice.

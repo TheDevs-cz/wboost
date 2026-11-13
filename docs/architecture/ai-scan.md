@@ -178,8 +178,11 @@ whose row is missing or expired; deleting a project deletes
 `ai-scan/{projectId}/` (`DeleteProjectHandler`). See `storage-inventory.md`.
 
 The bucket itself: created by `.docker/setup-minio.sh` locally (and by
-`app:ai-scan:fake-run` when missing); in production it comes with the scanner
-deployment — `app:ai-scan:status` says whether it is reachable.
+`app:ai-scan:fake-run` when missing); in production the box's `deploy.sh`
+asserts "exists, no anonymous policy" on every deploy (infra repo
+`~/www/lily.srv/apps/wboost/deploy.sh`, decision D87). `app:ai-scan:status`
+says whether it is reachable — by LISTING the prefix: a HEAD of an object in a
+bucket that does not exist is an ordinary 404 and proves nothing.
 
 ## Upload
 
@@ -807,7 +810,7 @@ and greps a whole run's log records.
 | Command | Does |
 |---|---|
 | `app:ai-scan:status [--mode=…] [--admin-only=0\|1] [--max-running=N] [--daily-ceiling-usd=…] [--project-ceiling-usd=…] [--daily-starts-user=N] [--daily-starts-project=N] [--reap]` | shows the state; with options writes the runtime row |
-| `app:ai-scan:purge` | reaper, expiry, orphan files, leftover usage rows — nightly cron (to be added to the box's cron with the scanner deployment) |
+| `app:ai-scan:purge` | reaper, expiry, orphan files, leftover usage rows — nightly host cron on the box (`ai-scan-purge`, 03:00 Europe/Prague) |
 | `app:ai-scan:fake-run <project-id> <user-email> [--scenario=happy\|stop\|fail\|refuse\|cancel\|hang\|all] [--beats=N] [--beat-interval=S] [--no-render]` | a fake scanner; **refuses in production** |
 
 Local use: `.env.dev` sets a dev token and the local `scan` network

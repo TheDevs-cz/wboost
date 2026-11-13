@@ -175,7 +175,13 @@ final readonly class AiScanStorage
     public function reachable(): bool
     {
         try {
-            $this->filesystem->fileExists(self::ROOT . '/.probe');
+            // A listing, not `fileExists()`: on S3 a HEAD of an object in a
+            // bucket that does not exist is a plain 404 — "no such file" —
+            // and said "reachable" on a box that had no bucket (P4). A
+            // listing of a missing bucket throws.
+            foreach ($this->filesystem->listContents(self::ROOT, false) as $ignored) {
+                break;
+            }
 
             return true;
         } catch (\Throwable) {
