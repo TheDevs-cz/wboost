@@ -9,11 +9,28 @@
 # Trigger: only after the `Tests` workflow succeeds on main (keeps the
 # tests-must-pass gate the old SSH pipeline had).
 #
+# WHAT IS SHIPPED: exactly the commit whose Tests run succeeded
+# (`github.event.workflow_run.head_sha`, passed as `ref`). In a `workflow_run`
+# event `github.sha` is main's HEAD when the event fired — until 2026-11-13 that
+# is what was built, so a commit pushed while the previous one was being tested
+# reached production before its own Tests finished (twice; once they then failed).
+# Three things keep it exact:
+#   - `ref` — the build checks out the tested commit; the image is tagged
+#     sha-<it> and `main`, built with APP_VERSION=<it>;
+#   - `concurrency` — shipping runs never overlap, so the `main` tag the box
+#     pulls is this run's build; a waiting run is replaced by a newer one, whose
+#     preflight diffs against the last commit that really shipped;
+#   - the preflight refuses a commit OLDER than the one already shipped (a
+#     re-run of an old Release run must not roll production back).
+# `run-name` carries the shipped commit, because a run's own head_sha is main's
+# HEAD at trigger time — the preflight reads the last shipped commit from there.
+#
 # Secret (set on this repo): DEPLOY_WEBHOOK_SECRET (the per-app HMAC key). Passed
 # EXPLICITLY because the reusable workflow lives under a different owner
 # (secrets: inherit can't cross owners).
 
 name: Release
+run-name: Release ${{ github.event.workflow_run.head_sha }}
 
 on:
     workflow_run:
@@ -28,6 +45,12 @@ permissions:
     packages: write
     actions: read     # the preflight looks up the last run that actually shipped
 
+# Only runs that may ship share the group: a run for a FAILED Tests run does
+# nothing and must not replace a waiting run that would have shipped.
+concurrency:
+    group: release-${{ github.event.workflow_run.conclusion == 'success' && 'ship' || github.run_id }}
+    cancel-in-progress: false
+
 jobs:
     # A landing-only change must not rebuild and roll the PHP app (D61). This
     # preflight FAILS OPEN: on any doubt about what changed, ship. Never skip a
@@ -37,6 +60,10 @@ jobs:
     # job SUCCEEDED, not HEAD~1: a push of several commits ending with a docs-only
     # commit used to look "docs only" and silently skipped the code commits
     # before it (2026-11-05: two pushes never deployed).
+    #
+    # The one refusal that is not "landing only": the tested commit is a strict
+    # ancestor of the last shipped one (an old run re-run, or runs out of order) —
+    # shipping it would put older code over newer.
     changed:
         runs-on: ubuntu-latest
         if: ${{ github.event.workflow_run.conclusion == 'success' }}
@@ -57,9 +84,20 @@ jobs:
                   base=""
                   for id in $(gh api "repos/$REPO/actions/workflows/release.yml/runs?branch=main&status=success&per_page=30" --jq '.workflow_runs[].id' 2>/dev/null); do
                     c=$(gh api "repos/$REPO/actions/runs/$id/jobs" --jq '[.jobs[] | select(.name | startswith("ship-production")) | .conclusion] | if length > 0 and all(. == "success") then "success" else "no" end' 2>/dev/null || echo no)
-                    if [ "$c" = "success" ]; then base=$(gh api "repos/$REPO/actions/runs/$id" --jq .head_sha 2>/dev/null); break; fi
+                    if [ "$c" = "success" ]; then
+                      # The shipped commit is in the run's title ("Release <sha>"); runs
+                      # from before that built their own head_sha (main's HEAD then).
+                      base=$(gh api "repos/$REPO/actions/runs/$id" --jq '(.display_title | capture("^Release (?<s>[0-9a-f]{40})$").s) // .head_sha' 2>/dev/null)
+                      break
+                    fi
                   done
                   [ -n "$base" ] || ship "no previously shipped run found"
+                  head=$(git rev-parse HEAD)
+                  echo "tested commit: $head; last shipped: $base"
+                  if [ "$head" != "$base" ] && git merge-base --is-ancestor "$head" "$base" 2>/dev/null; then
+                    echo "::warning::$head is older than the shipped $base — not shipping"
+                    echo "app=false" >> "$GITHUB_OUTPUT"; exit 0
+                  fi
                   git merge-base --is-ancestor "$base" HEAD 2>/dev/null || ship "last shipped $base is not an ancestor"
                   files=$(git diff --name-only "$base" HEAD 2>/dev/null) || ship "diff failed"
                   [ -n "$files" ] || ship "empty diff"
@@ -72,12 +110,13 @@ jobs:
     ship-production:
         needs: changed
         if: ${{ needs.changed.outputs.app == 'true' }}
-        uses: TheDevs-cz/ci/.github/workflows/_ship.yml@v1
+        uses: TheDevs-cz/ci/.github/workflows/_ship.yml@ref-input
         secrets:
             DEPLOY_WEBHOOK_SECRET: ${{ secrets.DEPLOY_WEBHOOK_SECRET }}
         with:
             app: wboost
             image: ghcr.io/thedevs-cz/wboost
             deploy_host: lily.srv.thedevs.cz
+            ref: ${{ github.event.workflow_run.head_sha }}
             build_args: APP_VERSION=${{ github.event.workflow_run.head_sha }}
             await_deploy: false
