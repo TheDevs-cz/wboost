@@ -345,6 +345,8 @@ final class AiScanPermissionsTest extends WebTestCase
 
         // The P3 routes are walked role by role in AiScanReviewPermissionsTest.
         self::assertSame([
+            // ROLE_ADMIN + CSRF — AdminAiScansTabTest.
+            'admin_ai_scan_runtime' => 'POST /admin/ai-scan/runtime',
             'ai_scan_accept' => 'POST /ai-scan/{id}/accept',
             'ai_scan_access_request' => 'POST /project/{projectId}/ai-scan/access-request',
             'ai_scan_access_request_resolve' => 'POST /admin/ai-scan/access-request/{id}/{action}',
