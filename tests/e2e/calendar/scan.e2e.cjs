@@ -362,7 +362,8 @@ module.exports = {
                 // the outline of the photo sits on the right half, as the proposal has it
                 const photo = await page.$eval('[data-box="photo"]', (el) => { const f = el.parentElement.getBoundingClientRect(); const b = el.getBoundingClientRect(); return (b.left + b.width / 2 - f.left) / f.width; });
                 assert.ok(photo > 0.5, `photo outline centre at ${photo}`);
-                await page.hover('.as-rec li[data-hl="photo"]');
+                // (the row may be redrawn once while the page's size is being read: hover again then)
+                await page.hover('.as-rec li[data-hl="photo"]').catch(() => page.hover('.as-rec li[data-hl="photo"]'));
                 await page.waitForFunction(() => document.querySelector('.as-box[data-box="photo"]').classList.contains('hl'), { timeout: 3000 }).catch(() => null);
                 assert.equal(await page.$eval('.as-box[data-box="photo"]', (el) => el.classList.contains('hl')), true, `hover: ${await page.evaluate(() => { const li = document.querySelector('.as-rec li[data-hl="photo"]'); const r = li.getBoundingClientRect(); const at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return `${Math.round(r.top)} ${at && at.tagName}.${at && at.className} hover=${li.matches(':hover')}`; })}`);
                 await shot('scan-06b-layers');
@@ -554,8 +555,14 @@ module.exports = {
                 const before = (await state()).design.layout;
                 await h.gotoStep(page, 2);
                 await page.waitForSelector('[data-cal-scan-card] [data-cal-action="scan-open"]');
+                // …and the scanner says the page showed two weeks: the review states plainly what was taken
+                options.calendar = { notes: [{ code: 'fortnight_left_half' }] };
                 await startScan(await picture('stranka-2.png'));
                 await waitPanel('review', 60000);
+                options.calendar = null;
+                assert.match(await text('[data-cal-scan-fortnight]'), /Stránka má dva týdny, kalendář jeden.*návrh převzal jen levý týden a fotografii — pravý sloupec dnů v něm není\. Rozvržení čtrnáctidenního kalendáře zatím skenovat neumíme\./);
+                assert.doesNotMatch(await text('[data-cal-scan-panel]'), /převzali jsme levou polovinu/);
+                await shot('scan-10a-fortnight');
                 assert.match(await text('[data-cal-scan-panel]'), /Číslo týdne.*zůstane jako dosud/);
                 await page.click('[data-cal-action="scan-pictures"]');
                 await waitPanel('pictures');

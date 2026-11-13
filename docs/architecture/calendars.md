@@ -836,6 +836,19 @@ Deviations from `docs/ai-scan/ux.md` §6:
   is picked per place).
 - „Naskenovat znovu“ → „Stejný obrázek znovu“ puts the picture back on the
   chosen-file screen instead of starting at once (as in the template wizard).
+- **14-day pages.** The module HAS a 14-day format (`type: fortnight`, the
+  one layout `twoSided` with the second frames `cal2` / `month2` / `wk2`),
+  but a scan can only build a 7-day layout: the card is not offered on a
+  14-day calendar, and a two-week PAGE scanned for a 7-day calendar is rebuilt
+  as its left week + photo. The review says so in an alert above everything
+  (`fortnightAlert`, note `fortnight_left_half`: „Stránka má dva týdny,
+  kalendář jeden“) instead of a line in „Pro informaci“. Making the scan
+  target `twoSided` needs the scanner (instructions for eleven boxes, a row
+  ladder per week column, feedback per column, measurement on `s12` and the
+  real 14-day page) AND the app (`CalendarCandidate` / `CalendarScanProposal`
+  / accept for `fortnight`, the card in step 2) released together — an app
+  that hands a 14-day calendar to a scanner that only knows the 7-day
+  presets gets refused candidates. Not built.
 - The service-waiting / limit / locked cards carry the template card's copy
   (ux.md T1); the calendar card has no separate wording.
 - The sidebar's AI-scan badge still counts template scans only (Šablony

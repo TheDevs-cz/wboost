@@ -487,7 +487,8 @@ function cantCard(scan) {
 
 function infoCard(scan) {
     const p = scan.proposal;
-    const rows = (p.notes || []).map((note) => (CAL.notes[note.code] ? `<li><span>${esc(CAL.notes[note.code](note))}</span></li>` : ''));
+    // a two-week page reduced to one week is said at the top of the review (`fortnightAlert`), not here
+    const rows = (p.notes || []).filter((note) => note.code !== 'fortnight_left_half').map((note) => (CAL.notes[note.code] ? `<li><span>${esc(CAL.notes[note.code](note))}</span></li>` : ''));
     if (p.approximate && !(p.notes || []).some((n) => n.code === 'colours_estimated')) rows.push(`<li><span>${CAL.notes.colours_estimated()}</span></li>`);
     if (p.source && p.source.width && Math.min(p.source.width, p.source.height) < LOW_RESOLUTION_SHORT_SIDE) rows.push(`<li><span>${CAL.lowResolution}</span></li>`);
     if (p.unfinished) rows.push('<li><span>Sken jsme museli ukončit dřív — návrh je nedokončený. Zkontrolujte ho pečlivěji.</span></li>');
@@ -522,6 +523,15 @@ function foot(scan, primary, { back = '', apply = false } = {}) {
     return `<div class="as-foot" data-region="foot"><div class="as-foot-l">${ic('info')}<span>Kalendář se nezmění, dokud rozvržení nepoužijete.${until ? ` Návrh uchováme do ${until}.` : ''}</span></div><div class="as-foot-r">${back}<button type="button" class="btn sm ghost danger" data-act="discard" data-cal-action="scan-discard" data-k="discard"${scan.busy === 'discard' ? ' disabled' : ''}>Zahodit</button><button type="button" class="btn sm btn-tertiary" data-act="rescan" data-cal-action="scan-rescan" data-k="rescan">${ic('refresh')}Naskenovat znovu</button><span class="as-sp"></span>${primary}</div>${sub}</div>`;
 }
 
+/**
+ * The page showed TWO weeks and the calendar is a 7-day one: the proposal holds the left week only.
+ * Said above everything else — half of the picture has no counterpart in the proposal.
+ */
+function fortnightAlert(scan) {
+    if (!(scan.proposal.notes || []).some((note) => note.code === 'fortnight_left_half')) return '';
+    return `<div class="alert c-warning" role="status" data-region="fortnight" data-cal-scan-fortnight>${ic('alert', '')}<div><div class="alert-t">${CAL.fortnight.title}</div><div class="alert-d">${CAL.fortnight.text}</div></div></div>`;
+}
+
 function reviewView(scan) {
     const p = scan.proposal;
     const week = sampleWeekLabel(scan.store.getState().doc, p);
@@ -530,7 +540,7 @@ function reviewView(scan) {
     const primary = hasPictures
         ? `<button type="button" class="btn sm btn-primary" data-act="toPictures" data-cal-action="scan-pictures" data-k="topictures">Pokračovat na obrázky${ic('arrow-right')}</button>`
         : applyButton(scan);
-    return `<div class="as-cgrid" data-region="review" data-deep>
+    return `${fortnightAlert(scan)}<div class="as-cgrid" data-region="review" data-deep>
 <div class="as-main" data-region="viewer-${scan.compare}-${scan.layers ? 'l' : 'p'}"><div class="as-viewbar">${seg}<label class="as-switch"><input type="checkbox" class="sr" role="switch" data-chg="toggleLayers" data-k="layers"${scan.layers ? ' checked' : ''}><span class="sw sm" aria-hidden="true"></span><span>Ukázat vrstvy</span></label></div>${compare(scan)}${scan.layers ? layerLegend(scan) : ''}<p class="as-cap">${week ? `Náhled ukazuje týden ${week}. ` : ''}${p.photoBox ? 'Fotka je z vašeho obrázku — do kalendáře se nevloží.' : ''}</p></div>
 <div class="as-main" data-region="side" data-deep><div class="as-card as-sumcard" data-region="sum"><h3 class="as-sum"><b>Návrh rozvržení je připravený.</b></h3><p class="cap" style="margin:0">Tohle je návrh — kalendář se zatím nezměnil.</p></div>${recognised(scan)}${fontsCard(scan)}${cantCard(scan)}${infoCard(scan)}${feedback(scan)}</div></div>
 ${foot(scan, primary, { apply: !hasPictures })}`;

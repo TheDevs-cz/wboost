@@ -186,6 +186,11 @@ export const CAL = {
         colours_estimated: () => 'Barvy jsou jen odhad.',
         page_box_set: () => 'Obrázek měl okraje — stránku jsme v něm našli a ořízli.',
     },
+    /** C4 — a 14-day page scanned for a 7-day calendar: only the left week was taken. */
+    fortnight: {
+        title: 'Stránka má dva týdny, kalendář jeden',
+        text: 'Na obrázku jsou vedle sebe dva týdny. Tento kalendář je týdenní, proto návrh převzal jen levý týden a fotografii — pravý sloupec dnů v něm není. Rozvržení čtrnáctidenního kalendáře zatím skenovat neumíme.',
+    },
     slots: { logo: 'Logo', header: 'Obrázek v hlavičce', background: 'Obrázek na pozadí' },
     /** Style groups of the report's `fonts[]` → the genitive of `Písmo {…}`. */
     fontGroups: { num: 'čísel dnů', numSat: 'čísel sobot', numSun: 'čísel nedělí', numHol: 'čísel svátků', day: 'názvů dnů', name: 'jmenin', hol: 'svátků', ev: 'akcí', month: 'měsíce', wk: 'čísla týdne', cap: 'popisku fotky', time: 'časů', shift: 'směn' },
