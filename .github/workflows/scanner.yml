@@ -10,9 +10,17 @@ name: Scanner
 #          ghcr.io/thedevs-cz/wboost-scanner — tags sha-<commit>, main, latest (the shared build workflow
 #          of TheDevs-cz/ci, the one the app's Release uses)
 #   smoke  the pushed image runs its self-test with no network and a read-only root file system
+#   weekly Mondays (and on demand): the same commit is built again WITHOUT the layer cache, so the system
+#          packages the decoders come from (libheif, poppler, python, their libraries) are today's, and
+#          pushed as `weekly-YYYYMMDD` — never as sha-<commit>, main or latest: a tag production pins keeps
+#          its content. When its packages differ from the image of `main`, ONE issue labelled
+#          `scanner-image` is opened (or refreshed) that names the tag to pin and what changed.
 #
 # Nothing is deployed from here: the box pins the image tag in apps/wboost/compose.yaml (lily.srv).
 on:
+    schedule:
+        - cron: '30 5 * * 1'   # Mondays 05:30 UTC
+    workflow_dispatch:
     push:
         paths:
             - 'scanner/**'
@@ -59,6 +67,7 @@ jobs:
 
     image:
         needs: test
+        # (a scheduled or manual run never comes here: the shared build moves sha-<commit>, main and latest)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         permissions:
             contents: read
@@ -88,3 +97,122 @@ jobs:
                       ghcr.io/thedevs-cz/wboost-scanner:sha-${{ github.sha }} node bin/scanner.mjs selftest
             - name: Image size
               run: docker image inspect ghcr.io/thedevs-cz/wboost-scanner:sha-${{ github.sha }} --format '{{.Size}} bytes'
+
+    # The weekly rebuild. The Dockerfile pins the base image by digest and python / node packages by lock files,
+    # but `apt-get install` takes what Debian serves on the day of the build — and a build that only runs when
+    # scanner/ changes never picks up a fixed libheif or poppler. This job rebuilds the tested commit of main with
+    # no cache, proves the result with the self-test, and says so in an issue when the packages moved.
+    # It deploys nothing and moves no tag that exists: production changes only when somebody bumps the pin.
+    weekly:
+        needs: test
+        if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+        permissions:
+            contents: read
+            packages: write
+            issues: write
+        env:
+            IMAGE: ghcr.io/thedevs-cz/wboost-scanner
+        steps:
+            - uses: actions/checkout@v6
+            - name: The tag of this rebuild
+              id: tag
+              run: echo "tag=weekly-$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
+            - uses: docker/login-action@v4
+              with:
+                  registry: ghcr.io
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
+            - uses: docker/setup-buildx-action@v4
+            - name: Build without the layer cache and push the dated tag only
+              id: build
+              uses: docker/build-push-action@v7
+              with:
+                  context: scanner
+                  platforms: linux/amd64
+                  build-args: SCANNER_BUILD=${{ github.sha }}
+                  no-cache: true
+                  pull: true
+                  push: true
+                  tags: ${{ env.IMAGE }}:${{ steps.tag.outputs.tag }}
+            - name: Self-test of the rebuilt image (no network, read-only root, not root)
+              run: |
+                  docker run --rm --network none --read-only --tmpfs /tmp:rw,exec,size=256m \
+                      "${IMAGE}:${{ steps.tag.outputs.tag }}" node bin/scanner.mjs selftest
+            - name: Which system packages moved — against the image of main and the previous weekly rebuild
+              id: diff
+              shell: bash
+              env:
+                  TAG: ${{ steps.tag.outputs.tag }}
+              run: |
+                  set -euo pipefail
+                  export LC_ALL=C   # sort and join must agree on the order
+                  packages() { docker run --rm --network none --entrypoint dpkg-query "$1" -W -f '${Package} ${Version}\n' | sort -k1,1; }
+                  # "name old → new" for every package whose version differs (added / removed ones included)
+                  moved() { join -a 1 -a 2 -e '(absent)' -o 0,1.2,2.2 "$1" "$2" | awk '$2 != $3 { printf "%s %s → %s\n", $1, $2, $3 }'; }
+                  packages "${IMAGE}:${TAG}" > weekly.txt
+                  : > since-main.txt; : > since-previous.txt; previous=""
+                  if docker pull -q "${IMAGE}:main" >/dev/null 2>&1; then
+                      packages "${IMAGE}:main" > main.txt
+                      moved main.txt weekly.txt > since-main.txt
+                  else
+                      echo "::warning::${IMAGE}:main could not be pulled — nothing to compare with"
+                  fi
+                  for days in $(seq 1 42); do
+                      candidate="weekly-$(date -u -d "-${days} days" +%Y%m%d)"
+                      if docker manifest inspect "${IMAGE}:${candidate}" >/dev/null 2>&1; then previous="${candidate}"; break; fi
+                  done
+                  if [ -n "${previous}" ]; then
+                      docker pull -q "${IMAGE}:${previous}" >/dev/null
+                      packages "${IMAGE}:${previous}" > previous.txt
+                      moved previous.txt weekly.txt > since-previous.txt
+                  fi
+                  echo "previous=${previous}" >> "$GITHUB_OUTPUT"
+                  echo "moved=$(wc -l < since-main.txt | tr -d ' ')" >> "$GITHUB_OUTPUT"
+                  {
+                      echo "### ${IMAGE}:${TAG}"
+                      echo "- packages that differ from \`main\`: $(wc -l < since-main.txt | tr -d ' ')"
+                      echo "- packages that differ from the previous weekly rebuild (${previous:-none found}): $(wc -l < since-previous.txt | tr -d ' ')"
+                  } >> "$GITHUB_STEP_SUMMARY"
+            - name: Open or refresh the issue that asks for the pin bump
+              if: steps.diff.outputs.moved != '0'
+              shell: bash
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  REPO: ${{ github.repository }}
+                  TAG: ${{ steps.tag.outputs.tag }}
+                  DIGEST: ${{ steps.build.outputs.digest }}
+                  PREVIOUS: ${{ steps.diff.outputs.previous }}
+              run: |
+                  set -euo pipefail
+                  {
+                      echo "The weekly rebuild of the scanner image has newer system packages than the image of \`main\` — the libraries the scanner decodes uploads with (libheif, poppler, python and what they link) come from these."
+                      echo
+                      echo "- rebuilt image: \`${IMAGE}:${TAG}\` (\`${DIGEST}\`), commit \`${GITHUB_SHA}\`, self-test passed"
+                      echo "- nothing was deployed and no existing tag was moved: \`sha-<commit>\`, \`main\` and \`latest\` are what they were"
+                      echo
+                      echo "**To take the updates:** pin \`${IMAGE}:${TAG}\` in \`apps/wboost/compose.yaml\` (lily.srv) and deploy, then close this issue. If production already pins this or a later weekly tag, close it."
+                      echo
+                      echo "### Packages that differ from \`${IMAGE}:main\` ($(wc -l < since-main.txt | tr -d ' '))"
+                      echo '```'
+                      head -n 150 since-main.txt
+                      echo '```'
+                      if [ -n "${PREVIOUS}" ]; then
+                          echo
+                          echo "### New since the previous weekly rebuild \`${PREVIOUS}\` ($(wc -l < since-previous.txt | tr -d ' '))"
+                          if [ -s since-previous.txt ]; then echo '```'; head -n 150 since-previous.txt; echo '```'; else echo "Nothing — a deployment pinned to \`${PREVIOUS}\` is up to date."; fi
+                      fi
+                      echo
+                      echo "_Updated by .github/workflows/scanner.yml (job \`weekly\`) on $(date -u +%Y-%m-%d)._"
+                  } > body.md
+                  gh label create scanner-image --repo "${REPO}" --color 0e8a16 \
+                    --description "The scanner image has system package updates to pin" 2>/dev/null || true
+                  number=$(gh issue list --repo "${REPO}" --label scanner-image --state open --json number --jq '.[0].number // empty')
+                  if [ -n "${number}" ]; then
+                      gh issue edit "${number}" --repo "${REPO}" --title "Scanner image: system package updates in ${TAG}" --body-file body.md
+                      echo "Refreshed issue #${number}."
+                  else
+                      gh issue create --repo "${REPO}" --label scanner-image \
+                        --title "Scanner image: system package updates in ${TAG}" --body-file body.md
+                  fi
