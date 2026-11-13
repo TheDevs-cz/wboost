@@ -235,6 +235,14 @@ and shown only while the scan is in progress (the status document's
   gone — is still refused (409 / 410) and changes no state, but its `usage`
   is recorded on that run's own row (`ScannerApi::recordReplacedRun()`):
   spend that happened is never dropped, and the ceilings count it.
+- **Spend history is never deleted — not with the project either.** Deleting
+  a project cascades its `ai_scan` rows, but `ai_usage_event` and
+  `ai_credit_ledger` are FK-less on purpose and no code deletes their rows:
+  the money was spent. The sums (`AiScanSpend`: today, the month, both
+  ceilings) are plain sums over `ai_usage_event` and keep counting a deleted
+  project's rows; the usage row carries its own snapshot (`project_name`,
+  `owner_email`, `user_email`), so it stays readable. How the admin tab shows
+  such rows: § "Admin tab" ("Smazaný projekt"). Never clean these rows up.
 - **Circuit breaker**: three scans in a row ending in the same failure class
   set the mode to `paused` (`AiScanRuntimeState::scanEnded()`).
 
@@ -424,14 +432,22 @@ of `app:ai-scan:status`. `GetAiUsageOverview::overview()` reads everything
   odmítnutí`; "Skeny" on each row opens the scans table narrowed to it.
 - **Skeny** — every scan in progress (oldest first, tinted; on page 1 only),
   then the ended ones, **50 a page** (`?ai_page=<n>`, 1-based; "Novější" /
-  "Starší"; out of range = the nearest page): when, project (a link that
-  narrows the table to it), user, module, state + code, try (↻ = restarted),
-  duration, tokens, cost, credit of the current try (`rezervován` /
-  `započten` / `vrácen`), rating, channel, memory / CPU (`resources.peakRssMb`
-  / `cpuSeconds` of the last heartbeat) and the row menu `⋯`: "Otevřít sken"
-  (`ai_scan_page`; a calendar scan opens `calendar_workspace?sken=`),
-  "Otevřít projekt", "Zobrazit hodnocení" (rated scans only — a dialog with
-  👍 / 👎, who rated and the note) and "Využití skenu".
+  "Starší"; out of range = the nearest page). **Eight columns, so the table
+  fits a 1440 px window without sideways scrolling** — related figures share
+  a cell on two lines (`.ai-sub` is the second line; the header repeats the
+  pair): when / user (the e-mail is cut with an ellipsis, whole in `title`),
+  project (a link that narrows the table to it) / module · channel, state /
+  code, duration / try (↻ = restarted), cost / tokens (the split in
+  `title`), credit of the current try (`rezervován` / `započten` /
+  `vrácen`) / rating (rated scans only), memory / CPU (`resources.peakRssMb` / `cpuSeconds` of
+  the last heartbeat) and the row menu `⋯`: "Otevřít sken" (`ai_scan_page`;
+  a calendar scan opens `calendar_workspace?sken=`), "Otevřít projekt",
+  "Zobrazit hodnocení" (rated scans only — a dialog with 👍 / 👎, who rated
+  and the note) and "Využití skenu". Adding a column means re-measuring at
+  1440 px (the table's `scrollWidth` ≤ its `.ai-wrap`'s `clientWidth`).
+  **State names are by kind where the kind matters**: an accepted scan is
+  "Šablona vytvořena", an accepted *calendar* scan "Rozvržení použito" (the
+  wording of the user's history page); the other states read the same.
 
 **Filters by link — a URL contract** (other pages link here; always with
 `#ai-skeny`, which opens the tab):
@@ -439,8 +455,16 @@ of `app:ai-scan:status`. `GetAiUsageOverview::overview()` reads everything
 | URL | Shows |
 |---|---|
 | `/admin/usage?ai_scan=<scan uuid>#ai-skeny` | that scan's row and, under it, every `ai_usage_event` row of the scan (run · step, model, when, duration, turns, input / output / cache tokens, cost, outcome + code) with their sum. The usage is shown even when the scan row is gone. Wins over `ai_project` |
-| `/admin/usage?ai_project=<project uuid>#ai-skeny` | only that project's scans; paging keeps the filter (`&ai_page=`) |
+| `/admin/usage?ai_project=<project uuid>#ai-skeny` | only that project's scans; paging keeps the filter (`&ai_page=`). The id of a **deleted** project that left usage or ledger rows: no scans (they went with it) and, in their place, its newest 200 usage rows (each linking to `?ai_scan=`) with their sum |
 | `/admin/usage?ai_page=<n>#ai-skeny` | page n of the ended scans |
+  **A deleted project that left spend behind** (usage or ledger rows whose
+  `project_id` no project has — § "Credits and spend") is one more row of the
+  first table per project id, after the living ones (`ProjectRow.deleted`):
+  "Smazaný projekt" with the name its newest usage row remembers and the
+  first 8 characters of the id, the remembered owner e-mail, its counted
+  scans and cost — no link to the project, no switch, no limit; its only
+  link is "Využití" (`?ai_project=<its id>`). The spend of today / the month
+  in "Provoz" counts it as before.
 
 A value that is not a uuid (or an array, or an unknown project) is ignored —
 never a 500. "Zrušit filtr" goes to `/admin/usage#ai-skeny`. Linked from: the
@@ -450,8 +474,9 @@ project, and the wizard page's "Využití tohoto skenu" (admins only).
 `AiScanUrls::adminProject()` builds the absolute project link.
 
 **The row menu is a `popover` element**, not a Bootstrap dropdown: `.ai-wrap`
-scrolls sideways (and is a size container), so anything positioned inside it
-is clipped. The menus are rendered after the table, opened by the row's
+is a size container and scrolls sideways when a table does not fit (between
+the card layout at 760 px and the scans table's ~860 px), so anything positioned inside it is
+clipped. The menus are rendered after the table, opened by the row's
 button (`popovertarget`), and `ai_scan_admin_table_controller.js` only places
 the open menu at its button, keeps it there while the page scrolls, and puts
 the focus back on the button when a rating dialog closes. The menu column is
@@ -471,7 +496,8 @@ that makes no sense is a flash notice and a redirect, never an exception.
 The answer is always a redirect to `/admin/usage#ai-skeny`.
 
 Tables become cards in a narrow container (`.ai-wrap` is a size container;
-each cell carries its label in `data-l`). The tab list lives in
+each cell carries its label in `data-l` — a two-line cell names both, e.g.
+`Náklady · tokeny`). The tab list lives in
 `usage_stats_controller.js` (`TABS`).
 
 Everything of ux.md §9.4 is built. One addition: the menu's fourth item,
