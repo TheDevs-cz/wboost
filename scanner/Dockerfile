@@ -31,8 +31,9 @@ RUN python3 -m venv /opt/ocr \
     && /opt/ocr/bin/pip check
 COPY src/instruments/ocr /tmp/ocr
 # RapidOCR downloads its detector / classifier / recogniser on first use: do it here, and prove the result
-RUN /opt/ocr/bin/python /tmp/ocr/ocr.py /tmp/ocr/selftest.png --threads 2 | grep -q '"Letni"' \
-    && /opt/ocr/bin/pip uninstall -y pip setuptools >/dev/null 2>&1 || true
+# (two RUN lines on purpose: `proof && uninstall || true` would let a failed proof pass)
+RUN /opt/ocr/bin/python /tmp/ocr/ocr.py /tmp/ocr/selftest.png --threads 2 | grep -q '"Letni"'
+RUN /opt/ocr/bin/pip uninstall -y pip setuptools >/dev/null 2>&1 || true
 
 # ---- the image -----------------------------------------------------------------------------------------
 FROM ${BASE}
@@ -42,7 +43,10 @@ FROM ${BASE}
 RUN apt-get update && apt-get install -y --no-install-recommends \
         python3 libheif-examples poppler-utils tini ca-certificates \
     && rm -rf /var/lib/apt/lists/* /usr/share/doc /usr/share/man \
-    && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /opt/yarn-* /usr/local/bin/yarn /usr/local/bin/yarnpkg
+    && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /opt/yarn-* /usr/local/bin/yarn /usr/local/bin/yarnpkg \
+    # the converters run under an address-space limit set with util-linux's prlimit (part of the base image):
+    # a base without it must not build (the self-test asks again)
+    && prlimit --version
 
 WORKDIR /scanner
 COPY --from=ocr /opt/ocr /opt/ocr
