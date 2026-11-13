@@ -245,9 +245,33 @@ final class AiScanListSurfacesTest extends WebTestCase
         $client = self::createClient();
         TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
 
+        // The production state of a project without AI scan: the page says the
+        // feature is off and offers the request — it does not invite an upload.
         $crawler = $client->request('GET', self::HISTORY);
         self::assertResponseIsSuccessful();
-        self::assertStringContainsString('Zatím tu není žádný sken', $crawler->filter('.empty')->text());
+        $empty = $crawler->filter('.empty');
+        self::assertSame('locked', $empty->attr('data-ai-scan-history-locked'));
+        self::assertStringContainsString('AI sken v tomto projektu není zapnutý', $empty->text());
+        self::assertStringNotContainsString('Nahrajte obrázek', $empty->text());
         self::assertStringNotContainsString('Nový sken', $crawler->filter('#view')->text());
+        self::assertSame('ai-scan-entry', $empty->attr('data-controller'));
+        self::assertSame('/project/' . self::PROJECT . '/ai-scan/access-request', $empty->attr('data-ai-scan-entry-url-value'));
+        self::assertSame('Požádat o přístup', trim($empty->filter('button[data-action="ai-scan-entry#request"]')->text()));
+
+        // The request is sent: the same page says so, with nothing to press.
+        $client->request('POST', '/project/' . self::PROJECT . '/ai-scan/access-request', ['_token' => 'csrf-token', 'origin' => 'templates'], server: ['HTTP_ORIGIN' => 'http://localhost']);
+        self::assertResponseStatusCodeSame(201);
+        $sent = $client->request('GET', self::HISTORY)->filter('.empty');
+        self::assertSame('request_sent', $sent->attr('data-ai-scan-history-locked'));
+        self::assertStringContainsString('Žádost o přístup odeslána', $sent->text());
+        self::assertCount(0, $sent->filter('button'));
+
+        // Switched on: the invitation.
+        self::entitle(self::PROJECT);
+        self::switchOn();
+        $open = $client->request('GET', self::HISTORY);
+        self::assertStringContainsString('Zatím tu není žádný sken', $open->filter('.empty')->text());
+        self::assertStringContainsString('Nový sken', $open->filter('.empty')->text());
+        self::assertNull($open->filter('.empty')->attr('data-ai-scan-history-locked'));
     }
 }

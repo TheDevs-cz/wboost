@@ -79,6 +79,12 @@ final class AiScanPageController extends AbstractController
         // Nobody without the entitlement starts here; the card in "Nová
         // šablona" is where access is asked for.
         if ($scan === null && in_array($entry['state'], ['locked', 'request_sent'], true)) {
+            // Somebody followed a link (a bookmark, a colleague's message): say why
+            // the page did not open and where access is asked for.
+            $this->addFlash('info', $entry['state'] === 'request_sent'
+                ? 'AI sken v tomto projektu zatím není zapnutý. Vaši žádost o přístup už máme — dáme vám vědět.'
+                : 'AI sken v tomto projektu není zapnutý. O přístup požádáte tlačítkem „Požádat o přístup“ na kartě „Šablona z obrázku“ v nabídce „Nová šablona“.');
+
             return $this->redirectToRoute('templates', ['projectId' => $project->id->toString()]);
         }
 

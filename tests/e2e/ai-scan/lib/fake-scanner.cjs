@@ -84,8 +84,9 @@ function design(job) {
             { kind: 'shape', id: 'pruh', shape: 'rectangle', fill: '#c8102e', x: 0, y: 1000, width: 900, height: 200 },
             { kind: 'image', id: 'foto', asset: standIn, x: 100, y: 400, width: 400, height: 300, input: { name: 'Fotografie' } },
             { kind: 'image', id: 'logo', asset: standIn, x: 700, y: 60, width: 140, height: 60, input: { name: 'Logo' } },
-            { kind: 'text', id: 'headline', text: 'Den otevřených dveří', font: face, size: 64, color: '#c8102e', x: 80, y: 120, width: 600 },
-            { kind: 'text', id: 'sub', text: 'Sobota 14. června', font: face, size: 36, x: 80, y: 240, width: 600 },
+            // As the real scanner writes a text: twice — `text` and the input's `sampleValue`.
+            { kind: 'text', id: 'headline', text: 'Den otevřených\ndveří', font: face, size: 64, color: '#c8102e', x: 80, y: 120, width: 600, input: { name: 'Nadpis', maxLength: 40, sampleValue: 'Den otevřených\ndveří' } },
+            { kind: 'text', id: 'sub', text: 'Sobota 14. června', font: face, size: 36, x: 80, y: 240, width: 600, input: { name: 'Datum', maxLength: 30, sampleValue: 'Sobota 14. června' } },
         ],
     };
 }

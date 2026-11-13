@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { Caps } from '../src/caps.mjs';
 import { TemplateBuild } from '../src/adapters/template.mjs';
 import { keepBest } from '../src/finish/keepbest.mjs';
-import { buildTemplateReport, sourceLinesOf } from '../src/finish/report.mjs';
+import { buildTemplateReport, sourceLinesOf, coveredShare, omittedIsCovered } from '../src/finish/report.mjs';
 import { similarity, family } from '../src/finish/text.mjs';
 import { lineInk } from '../src/instruments/textink.mjs';
 import { fakeApp, sourceOf } from './support/fakes.mjs';
@@ -181,6 +181,27 @@ test('report: a large unexplained difference is listed by the scanner as left ou
     const report = await buildTemplateReport({ build, finish: null, unfinished: true });
     assert.equal(report.omitted.length, 1, 'neighbouring cells are one thing');
     assert.deepEqual([report.omitted[0].code, report.omitted[0].by], ['other', 'scanner']); assert.ok(report.omitted[0].diff >= 0.08 && report.omitted[0].box[2] >= 75);
+});
+
+test('report: a left-out thing that lies on built layers is not offered — an effect on a headline, a text that differs', async () => {
+    const { build, tools } = await newBuild();
+    // the headline is built, but thinner than the source's: its cells differ a lot — a difference OF the text
+    const thin = structuredClone(DESIGN); thin.elements[3].font = 'Sans (Regular)'; thin.elements[3].size = 30;
+    await tools.design_preview({ design: thin });
+    const report = await buildTemplateReport({ build, finish: {
+        status: 'done', preferredCandidate: 1, headline: 'nadpis', placeholders: [], fonts: [], approximations: [{ element: 'nadpis', kind: 'shadow' }], lowConfidenceTexts: [],
+        // the model names the headline's shadow a second time, as a left-out "effect" over the texts (production, 2026-11-13);
+        // and one real thing: a picture in the empty corner
+        omitted: [{ kind: 'effect', x: 30, y: 40, w: 420, h: 210 }, { kind: 'picture', x: 60, y: 300, w: 120, h: 80 }],
+    } });
+    assert.deepEqual(report.omitted.map((o) => [o.code, o.by, o.box]), [['picture', 'model', [60, 300, 120, 80]]], 'only what has no layer under it');
+    assert.equal(report.measures.omittedOnLayers, 1);
+    // without a model: the cells of the differing headline are not "something we left out" either
+    const alone = await buildTemplateReport({ build, finish: null, unfinished: true });
+    assert.deepEqual(alone.omitted, []);
+    assert.equal(coveredShare([0, 0, 100, 100], [[0, 0, 50, 100], [40, 0, 10, 100]]), 0.5);
+    assert.equal(omittedIsCovered({ code: 'shape', by: 'model', box: [30, 30, 40, 40] }, report.boxes), false, 'a thing left out ON a card is still left out');
+    assert.equal(omittedIsCovered({ code: 'other', by: 'scanner', box: [30, 30, 40, 40] }, report.boxes), true, 'a difference nobody named, on a shape, is the shape\'s');
 });
 
 test('text helpers', () => {

@@ -24,6 +24,7 @@ use WBoost\Web\Repository\ProjectRepository;
 use WBoost\Web\Services\AiScan\Calendar\CalendarCandidate;
 use WBoost\Web\Services\AiScan\Calendar\CalendarScanProposal;
 use WBoost\Web\Services\AiScan\Template\FontFacesRendererInterface;
+use WBoost\Web\Services\AiScan\Template\OmittedOnLayers;
 use WBoost\Web\Services\AiScan\Template\ScanRenderLimiter;
 use WBoost\Web\Services\AiScan\Template\TemplateProposal;
 use WBoost\Web\Value\AiScan\AiScanErrorCode;
@@ -803,6 +804,11 @@ final readonly class ScannerApi
         }
 
         /** @var array<string, mixed> $report */
+        if ($kind === AiScanKind::Template) {
+            // A "left-out thing" lying on layers the scan built is never stored, so never offered.
+            $report = OmittedOnLayers::without($report, is_array($body['boxes'] ?? null) ? $body['boxes'] : []);
+        }
+
         return $this->transitions->finishProposed(
             $id,
             $held['run'],
@@ -1192,9 +1198,10 @@ final readonly class ScannerApi
 
     /**
      * Facts the intake read while normalising — the pixel size of a HEIC
-     * the web process could not read, the working copy's size.
+     * the web process could not read, the working copy's size, the size of
+     * a PDF's first page.
      *
-     * @return array<string, int>
+     * @return array<string, int|list<float|int>>
      */
     private static function sourceFacts(mixed $raw): array
     {
@@ -1203,6 +1210,16 @@ final readonly class ScannerApi
         foreach (['width', 'height', 'workingWidth', 'workingHeight', 'workingBytes'] as $key) {
             if (is_array($raw) && is_int($raw[$key] ?? null) && $raw[$key] > 0 && $raw[$key] < 1_000_000_000) {
                 $facts[$key] = $raw[$key];
+            }
+        }
+
+        // A PDF's first page: its size in points and in millimetres — what
+        // the template's format is made of (ScanProposal::pdfPageFormat()).
+        foreach (['pagePt', 'pageMm'] as $key) {
+            $pair = is_array($raw) && is_array($raw[$key] ?? null) && array_is_list($raw[$key]) && count($raw[$key]) === 2 ? $raw[$key] : null;
+
+            if ($pair !== null && array_filter($pair, static fn (mixed $side): bool => (is_int($side) || is_float($side)) && $side > 0 && $side < 100_000) === $pair) {
+                $facts[$key] = $pair;
             }
         }
 

@@ -91,7 +91,11 @@ function targetOptions(app) {
 function formatField(app) {
     const picked = app.picked;
     if (!picked.width) {
-        return `<div class="field"><span class="field-l">Formát šablony <small>podle obrázku</small></span><span class="hint">Rozměr převezmeme z obrázku. Další rozměry přidáte později v editoru.</span></div>`;
+        // A PDF says how large its page is; the browser does not read it, the scan does — and
+        // the template takes the PAGE's size, not the size of the picture we make of it.
+        return picked.type === 'pdf'
+            ? `<div class="field"><span class="field-l">Formát šablony <small>podle stránky PDF</small></span><span class="hint">Rozměr převezmeme z první stránky PDF — tiskový formát v milimetrech, jinak v pixelech. Další rozměry přidáte později v editoru.</span></div>`
+            : `<div class="field"><span class="field-l">Formát šablony <small>podle obrázku</small></span><span class="hint">Rozměr převezmeme z obrázku. Další rozměry přidáte později v editoru.</span></div>`;
     }
     const all = formats(app);
     const mode = app.format.mode;

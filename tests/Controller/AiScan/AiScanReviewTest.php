@@ -26,9 +26,9 @@ use WBoost\Web\Value\FileSource;
  *
  * @phpstan-type Element array{type: string, name: null|string, text: string, input: bool, font: string, size: float|int, colour: string, shape: string, fill: string}
  * @phpstan-type Picture array{fileId: string, uploaded: bool, width: null|int, height: null|int, tooSmall: bool}
- * @phpstan-type Place array{id: string, name: null|string, kind: string, fit: string, kindLocked: bool, added: bool, box: mixed, decidedEmpty: bool, picture: null|Picture}
+ * @phpstan-type Place array{id: string, name: null|string, kind: string, fit: string, kindLocked: bool, added: bool, box: mixed, width: int, height: int, decidedEmpty: bool, picture: null|Picture}
  * @phpstan-type Decision array{key: string, type: string, decided: bool, pattern: string, face: string, sizeChangePercent: int, texts: list<string>, box: mixed}
- * @phpstan-type Proposal array{readOnly: bool, name: string, revision: int, toDecide: int, counts: array{texts: int, shapes: int, places: int, background: bool}, source: array<string, int>, preview: array{which: string, seq: int, stale: bool}, fonts: list<string>, decisions: list<Decision>, information: list<array<string, mixed>>, placeholders: list<Place>, pictures: array<string, mixed>, elements: list<array<string, mixed>>, changes: list<array{key: string, id: string, op: null|string, shape: null|string, with: list<string>, name: null|string}>}
+ * @phpstan-type Proposal array{readOnly: bool, name: string, revision: int, toDecide: int, counts: array{texts: int, shapes: int, places: int, background: bool}, source: array<string, int>, preview: array{which: string, seq: int, stale: bool}, format: array<string, float|int|string>, fonts: list<string>, decisions: list<Decision>, information: list<array<string, mixed>>, placeholders: list<Place>, pictures: array<string, mixed>, elements: list<array<string, mixed>>, changes: list<array{key: string, id: string, op: null|string, shape: null|string, with: list<string>, name: null|string}>}
  * @phpstan-type Answer array{ok: bool, code: string, field: string, previewStale: bool, assigned: int, fileIds: list<string>, proposal: Proposal, created: bool, elements: int, unfilledPictures: int, templateId: string, variantId: string, editorUrl: string, scan: array{status: string}, fonts: int, pictures: int, seen: bool}
  */
 final class AiScanReviewTest extends WebTestCase
@@ -348,6 +348,118 @@ final class AiScanReviewTest extends WebTestCase
 
         // The uploaded picture stays in the gallery.
         self::assertNull(self::connection()->fetchOne('SELECT deleted_at FROM file_upload WHERE id = :id', ['id' => $picture['fileIds'][0]]));
+    }
+
+    /**
+     * A text corrected in the review is the template's text EVERYWHERE: the
+     * canvas object, its sample ("Vzorový text" — what the fill page
+     * pre-fills and an export without a value renders) and the input row.
+     * On production the sample kept the scanner's reading (2026-11-13).
+     */
+    public function testACorrectedTextIsWhatTheTemplateFillsAndExports(): void
+    {
+        $long = "Opravený nadpis\nna dva řádky";
+        $edited = $this->fix(['type' => 'set_text', 'id' => 'headline', 'text' => $long]);
+        self::assertSame($long, self::element($edited['proposal'], 'headline')['text'], 'the line break survives');
+        $this->fix(['type' => 'confirm_text', 'id' => 'sub', 'text' => 'Drobné písmo']);
+        $this->fix(['type' => 'set_name', 'name' => 'Opravené texty']);
+
+        $accepted = $this->post('accept');
+        self::assertResponseIsSuccessful();
+        $variant = self::connection()->fetchAssociative('SELECT canvas, inputs FROM template_variant WHERE id = :id', ['id' => $accepted['variantId']]);
+        self::assertIsArray($variant);
+
+        $expected = ['Titulek' => $long, 'Text' => 'Drobné písmo'];
+        $texts = [];
+
+        foreach (self::decoded(self::decoded($variant['canvas'])['objects'] ?? null) as $object) {
+            $name = is_array($object) && is_string($object['name'] ?? null) ? $object['name'] : '';
+
+            if (is_array($object) && is_string($object['inputId'] ?? null) && is_string($object['text'] ?? null) && isset($expected[$name])) {
+                $texts[$name] = [$object['text'], $object['sampleValue'] ?? null, $object['maxLength'] ?? null];
+            }
+        }
+
+        self::assertSame([$long, $long], array_slice($texts['Titulek'] ?? [], 0, 2), 'object text and sample');
+        self::assertGreaterThanOrEqual(mb_strlen($long), $texts['Titulek'][2] ?? 0, 'the cap grew with the correction (16 in the proposal) — a longer sample is cut at render');
+        self::assertSame(['Drobné písmo', 'Drobné písmo', 20], $texts['Text'] ?? null);
+
+        $samples = [];
+
+        foreach (self::decoded($variant['inputs']) as $input) {
+            if (is_array($input) && is_string($input['name'] ?? null)) {
+                $samples[$input['name']] = $input['sampleValue'] ?? null;
+            }
+        }
+
+        self::assertSame($expected, array_intersect_key($samples, $expected), 'the input rows — what the fill page pre-fills and the API reports');
+        $stored = json_encode($variant, JSON_THROW_ON_ERROR);
+        self::assertStringNotContainsString('Headline', $stored, 'the old reading is nowhere in the template');
+        self::assertStringNotContainsString('Small print', $stored);
+    }
+
+    /**
+     * "1 prvek jsme vynechali" over the headline and the text lines
+     * (production, 2026-11-13): a left-out entry that lies on layers the scan
+     * built is not stored, a stored one is not offered, and no place for a
+     * picture can be put there.
+     */
+    public function testALeftOutThingOnBuiltLayersIsNotOffered(): void
+    {
+        // The headline's and the small print's boxes are 80,120 600×90 and 80,240 300×40.
+        $onTexts = ['code' => 'effect', 'box' => [70, 110, 620, 190], 'diff' => 0.11, 'by' => 'model'];
+        $real = ['code' => 'picture', 'box' => [600, 800, 200, 100], 'diff' => 0.2, 'by' => 'model'];
+        $this->scanId = self::ready($this->client, reportOverrides: ['omitted' => [$onTexts, $real]]);
+
+        self::assertEquals([$real], self::decoded(self::text($this->scanId, 'report'))['omitted'], 'never stored');
+        $proposal = $this->proposal();
+        self::assertSame(['omitted:0'], array_values(array_filter(array_column($proposal['decisions'], 'key'), static fn (string $key): bool => str_starts_with($key, 'omitted:'))));
+        self::assertSame([600, 800, 200, 100], array_values(array_filter($proposal['decisions'], static fn (array $decision): bool => $decision['key'] === 'omitted:0'))[0]['box']);
+
+        // A proposal stored before the rule: the entry is in the report.
+        self::connection()->executeStatement(
+            'UPDATE ai_scan SET report = jsonb_set(report, \'{omitted}\', CAST(:omitted AS JSONB)) WHERE id = :id',
+            ['omitted' => json_encode([$real, $onTexts], JSON_THROW_ON_ERROR), 'id' => $this->scanId],
+        );
+        $stored = $this->proposal();
+        self::assertSame(['font:headline', 'confirm:sub', 'omitted:0'], array_column($stored['decisions'], 'key'), 'not offered');
+        self::assertSame($proposal['toDecide'], $stored['toDecide']);
+        self::assertSame('invalid_fix', $this->fix(['type' => 'add_placeholder', 'omitted' => 1])['code'], 'no picture place on top of the texts');
+        self::assertSame($proposal['counts']['places'] + 1, $this->fix(['type' => 'add_placeholder', 'omitted' => 0])['proposal']['counts']['places'], 'the real one still gets its place');
+    }
+
+    /**
+     * A PDF's working copy is its first page rasterised large, for reading;
+     * the template takes the PAGE's size (production, 2026-11-13: a
+     * 1080 × 1350 page became a 3276 × 4096 px template).
+     */
+    public function testATemplateFromAPdfHasThePagesSizeNotTheRastersSize(): void
+    {
+        // The fixture's working copy is 900 × 1200 px; its page is 450 × 600 pt.
+        $this->scanId = self::ready($this->client, sourceMeta: ['pagePt' => [450, 600], 'pageMm' => [158.8, 211.7], 'width' => 900, 'height' => 1200]);
+        self::assertEquals(['pagePt' => [450, 600], 'pageMm' => [158.8, 211.7]], array_intersect_key(self::decoded(self::text($this->scanId, 'source_meta')), ['pagePt' => 1, 'pageMm' => 1]), 'the page size is kept from the intake');
+
+        $proposal = $this->proposal();
+        self::assertEquals(['unit' => 'px', 'width' => 450, 'height' => 600, 'pxWidth' => 450, 'pxHeight' => 600], $proposal['format']);
+        $foto = array_values(array_filter($proposal['placeholders'], static fn (array $place): bool => $place['id'] === 'foto'))[0];
+        self::assertSame([200, 150], [$foto['width'], $foto['height']], 'a place is that large IN THE TEMPLATE');
+
+        $accepted = $this->post('accept');
+        self::assertResponseIsSuccessful();
+        $variant = self::connection()->fetchAssociative('SELECT dimension_unit, dimension_unit_width, dimension_unit_height, canvas FROM template_variant WHERE id = :id', ['id' => $accepted['variantId']]);
+        self::assertIsArray($variant);
+        self::assertEquals(['px', 450, 600], [$variant['dimension_unit'], $variant['dimension_unit_width'], $variant['dimension_unit_height']]);
+
+        // … and the design came along: the headline was 72 px at 80, 120.
+        foreach (self::decoded(self::decoded($variant['canvas'])['objects'] ?? null) as $object) {
+            if (is_array($object) && ($object['name'] ?? null) === 'Titulek') {
+                self::assertEquals([36, 40, 60], [$object['fontSize'], $object['left'], $object['top']]);
+
+                return;
+            }
+        }
+
+        self::fail('The headline is not in the template.');
     }
 
     public function testStaleReferencesCreateNothing(): void

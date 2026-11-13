@@ -236,11 +236,22 @@ final readonly class ScanProposal
     }
 
     /**
-     * The size the template is created at: the format chosen before the scan
-     * (`options.targetUnit` px | mm | cm with `targetWidth` / `targetHeight`
-     * — "2×", a custom width, a print size) when it has the picture's ratio
-     * and fits the limit; otherwise the proposal's own canvas, in pixels. A
-     * print size comes without bleed: a picture cannot tell it.
+     * The size the template is created at, in this order:
+     *
+     * 1. the format chosen before the scan (`options.targetUnit` px | mm | cm
+     *    with `targetWidth` / `targetHeight` — "2×", a custom width, a print
+     *    size);
+     * 2. for a PDF, **the page's own size** ({@see pdfPageFormat()}): the
+     *    working copy of a PDF is its first page rasterised at up to 300 dpi
+     *    FOR READING — a 1080 × 1350 page arrives as 3276 × 4096 px, and a
+     *    template of that size is nobody's format (found on production,
+     *    2026-11-13);
+     * 3. the proposal's own canvas, in pixels.
+     *
+     * 1 and 2 count only with the picture's ratio (± 2 %) and inside the
+     * template limit; the document is scaled to the result
+     * ({@see ApplyFixes::scaled()}). A print size comes without bleed: a
+     * picture cannot tell it.
      *
      * @param array{canvas: array<string, mixed>, ...} $document
      */
@@ -250,22 +261,111 @@ final readonly class ScanProposal
         $height = (int) round(ApplyFixes::number($document['canvas']['height'] ?? null) ?? 0.0);
         $own = new TemplateDimension(DimensionUnit::Px, (float) $width, (float) $height);
 
+        if ($width < 1 || $height < 1) {
+            return $own;
+        }
+
         $unit = DimensionUnit::tryFrom(is_string($scan->options['targetUnit'] ?? null) ? $scan->options['targetUnit'] : '');
         $targetWidth = is_numeric($scan->options['targetWidth'] ?? null) ? (float) $scan->options['targetWidth'] : 0.0;
         $targetHeight = is_numeric($scan->options['targetHeight'] ?? null) ? (float) $scan->options['targetHeight'] : 0.0;
+        $chosen = $unit === null || $targetWidth <= 0.0 || $targetHeight <= 0.0 ? null : new TemplateDimension($unit, $targetWidth, $targetHeight);
 
-        if ($unit === null || $targetWidth <= 0.0 || $targetHeight <= 0.0 || $width < 1 || $height < 1) {
-            return $own;
+        foreach ([$chosen, self::pdfPageFormat($scan->sourceMeta)] as $target) {
+            if ($target === null) {
+                continue;
+            }
+
+            $ratio = ($target->width() / max(1, $target->height())) / ($width / $height);
+
+            if (abs($ratio - 1.0) <= 0.02 && max($target->width(), $target->height()) <= AiScanLimits::TEMPLATE_MAX_LONG_EDGE && min($target->width(), $target->height()) >= 1) {
+                return $target;
+            }
         }
 
-        $target = new TemplateDimension($unit, $targetWidth, $targetHeight);
-        $ratio = ($target->width() / max(1, $target->height())) / ($width / $height);
+        return $own;
+    }
 
-        if (abs($ratio - 1.0) > 0.02 || max($target->width(), $target->height()) > AiScanLimits::TEMPLATE_MAX_LONG_EDGE || min($target->width(), $target->height()) < 1) {
-            return $own;
+    /** The A formats the wizard offers for pictures (`A_FORMATS` of assets/ai-scan/file-checks.js), in mm. */
+    private const array PRINT_FORMATS = [[297, 420], [210, 297], [148, 210], [105, 148]];
+
+    /**
+     * The format of a PDF's first page, from what the scanner's intake read
+     * (`source_meta.pagePt` — points, 1/72 in; an older scanner image sends
+     * only `pageMm`, to 0.1 mm). A PDF says how large the page is, not what
+     * it was drawn in, so the unit is decided here:
+     *
+     * 1. an A format (A3–A6, ± 1 mm) → that print format in mm — what the
+     *    wizard pre-selects for a picture of that ratio;
+     * 2. whole points on both sides → pixels, 1 pt = 1 px (how Figma,
+     *    Illustrator and Affinity write a screen design: 1080 × 1350 pt);
+     * 3. whole millimetres on both sides → that size in mm (a flyer
+     *    100 × 200 mm, a card 90 × 50 mm);
+     * 4. whole CSS pixels on both sides (1 px = 0.75 pt — how Canva writes a
+     *    screen design: 810 × 1012.5 pt) → those pixels (1080 × 1350);
+     * 5. otherwise pixels, 1 pt = 1 px, rounded.
+     *
+     * Null for anything that is not a PDF, and for a pixel size with a side
+     * under 50 px (then the working copy's size is the better guess).
+     *
+     * @param array<string, mixed> $sourceMeta
+     */
+    public static function pdfPageFormat(array $sourceMeta): null|TemplateDimension
+    {
+        $points = self::pair($sourceMeta['pagePt'] ?? null);
+        $tolerance = 0.02;
+
+        if ($points === null) {
+            $mm = self::pair($sourceMeta['pageMm'] ?? null);
+
+            if ($mm === null) {
+                return null;
+            }
+
+            $points = [$mm[0] * 72 / 25.4, $mm[1] * 72 / 25.4];
+            $tolerance = 0.15; // 0.05 mm of rounding
         }
 
-        return $target;
+        $mm = [$points[0] * 25.4 / 72, $points[1] * 25.4 / 72];
+
+        foreach (self::PRINT_FORMATS as [$short, $long]) {
+            foreach ([[$short, $long], [$long, $short]] as [$formatWidth, $formatHeight]) {
+                if (abs($mm[0] - $formatWidth) <= 1.0 && abs($mm[1] - $formatHeight) <= 1.0) {
+                    return new TemplateDimension(DimensionUnit::Mm, (float) $formatWidth, (float) $formatHeight);
+                }
+            }
+        }
+
+        $whole = static fn (float $a, float $b, float $within): bool => abs($a - round($a)) <= $within && abs($b - round($b)) <= $within;
+        $pixels = static fn (float $a, float $b): null|TemplateDimension => min(round($a), round($b)) < 50.0 ? null : new TemplateDimension(DimensionUnit::Px, round($a), round($b));
+
+        if ($whole($points[0], $points[1], $tolerance)) {
+            return $pixels($points[0], $points[1]);
+        }
+
+        if ($whole($mm[0], $mm[1], 0.05) && min($mm) >= 10.0) {
+            return new TemplateDimension(DimensionUnit::Mm, round($mm[0]), round($mm[1]));
+        }
+
+        if ($whole($points[0] * 4 / 3, $points[1] * 4 / 3, $tolerance * 4 / 3)) {
+            return $pixels($points[0] * 4 / 3, $points[1] * 4 / 3);
+        }
+
+        return $pixels($points[0], $points[1]);
+    }
+
+    /**
+     * @return null|array{float, float}
+     */
+    private static function pair(mixed $raw): null|array
+    {
+        if (!is_array($raw) || !array_is_list($raw) || count($raw) !== 2) {
+            return null;
+        }
+
+        $a = ApplyFixes::number($raw[0]);
+        $b = ApplyFixes::number($raw[1]);
+
+        return $a === null || $b === null || $a <= 0.0 || $b <= 0.0 ? null : [$a, $b];
     }
 
     /**
@@ -573,6 +673,11 @@ final readonly class ScanProposal
                 $index = $fix['omitted'] ?? null;
 
                 if (!is_int($index) || !isset(ApplyFixes::rows($report['omitted'] ?? null)[$index])) {
+                    throw self::invalid('omitted');
+                }
+
+                // No place for a picture on top of layers the scan built.
+                if ($type === 'add_placeholder' && OmittedOnLayers::isCovered(ApplyFixes::rows($report['omitted'] ?? null)[$index], ApplyFixes::measured($scan->proposal ?? []))) {
                     throw self::invalid('omitted');
                 }
 

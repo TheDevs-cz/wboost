@@ -520,6 +520,11 @@ final readonly class ApplyFixes
                 }
 
                 $input = is_array($element['input'] ?? null) ? $element['input'] : [];
+
+                if (is_string($text)) {
+                    $input = self::inputForText($input, $text);
+                }
+
                 $fillable = $items['input:' . $id]['input'] ?? null;
 
                 if (is_bool($fillable)) {
@@ -545,6 +550,36 @@ final readonly class ApplyFixes
         }
 
         return $elements;
+    }
+
+    /**
+     * A corrected text reaches every place the text lives. The scanner
+     * writes each text twice — the element's `text` and its input's
+     * `sampleValue` ("Vzorový text") — and the SAMPLE is what a saved
+     * template renders, pre-fills on the fill page and exports
+     * ({@see \WBoost\Web\Services\SocialNetwork\ResolveTextOverrides}). A
+     * correction that changed only `text` left the old words in all three
+     * (found on production, 2026-11-13). The cap follows too: a sample
+     * longer than `maxLength` is silently cut at render time, so it grows
+     * with the scanner's own rule (about 1.5 × the text).
+     *
+     * @param array<array-key, mixed> $input
+     * @return array<array-key, mixed>
+     */
+    private static function inputForText(array $input, string $text): array
+    {
+        if (array_key_exists('sampleValue', $input) && $input['sampleValue'] !== null) {
+            $input['sampleValue'] = $text;
+        }
+
+        $length = mb_strlen($text);
+        $maxLength = $input['maxLength'] ?? null;
+
+        if (is_int($maxLength) && $maxLength < $length) {
+            $input['maxLength'] = (int) ceil($length * 1.5);
+        }
+
+        return $input;
     }
 
     /**

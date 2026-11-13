@@ -316,7 +316,11 @@ accepts a file that starts with `%PDF-` (`application/pdf`, stored as
 `original.pdf`); the scanner's intake rasterises page 1 with poppler's
 `pdftoppm` inside its decoding child process — the page at 300 dpi (an A4
 becomes 2480 × 3508 px), the long edge never above the working copy's 4096 px
-nor below 1600 px — and from there the scan is an ordinary one. No page
+nor below 1600 px — and from there the scan is an ordinary one. **That
+raster is for reading only: the template takes the page's own size.** The
+intake reports it with `passed` — `sourceMeta.pagePt` `[w, h]` in points
+(scanner images before 2026-11-14 send only `pageMm`, to 0.1 mm; both are
+kept in `ai_scan.source_meta`) — and § "Accept" turns it into the format. No page
 picker; the page's own text and font names are not read (follow-up F1,
 `docs/ai-scan/architecture.md`). A PDF that is encrypted, broken or empty is
 `stopped unusable_input` (refunded). Order of a roll-out: the scanner image
@@ -652,7 +656,10 @@ What is stored of what the scanner sends is closed, on purpose — no free text
 of a picture reaches a column the screens read:
 
 - `stage` / `note` are the codes of §5.6; `noteParams` only the note's named
-  integers; `preCheck` a flat map of codes, numbers and booleans.
+  integers; `preCheck` a flat map of codes, numbers and booleans; of
+  `sourceMeta` only the whole numbers `width`, `height`, `workingWidth`,
+  `workingHeight`, `workingBytes` and the two pairs of a PDF's first page,
+  `pagePt` and `pageMm` (`ScannerApi::sourceFacts()`).
 - `report` is checked by `AiScanReportValidator` against the finish contract
   (§4.7, the report `scanner/src/finish/report.mjs` builds): `status`,
   `candidate`, `headline`, `unfinished` and the lists `placeholders`, `fonts`,
@@ -686,6 +693,20 @@ in-process.
 - **Stand-in.** A scan never takes a picture out of the source; places are
   filled later. In candidate renders the reserved asset id
   `AiScanStandIn::ASSET_ID` resolves to one bundled neutral picture — an extra
+- **A "left-out thing" that lies on built layers is dropped** before the
+  template report is stored (`Template/OmittedOnLayers::without()`): an
+  `omitted` entry whose box lies for at least half on layers the scan built
+  — texts by their ink, pictures; shapes too for an `effect` or an entry the
+  scanner added itself (`by: scanner`) — is a difference OF those layers, and
+  the review would offer a place for a picture on top of the texts. The
+  scanner applies the same rule (`omittedIsCovered` in
+  `scanner/src/finish/report.mjs`, `measures.omittedOnLayers`); the app's
+  copy also covers scanner images before it and proposals stored before it
+  (§ "The proposal document"). Why: production, 2026-11-13 — the model named
+  a headline's shadow both an approximation and an omitted `effect`; on the
+  119 recorded scans all 34 entries the scanner had added itself lay on built
+  layers (`scanner/eval/RESULTS.md` §12).
+
   entry in the compilation context that only this path passes
   (`DesignPreflight::review(…, $extraAssets)`), stored once in the public
   bucket at `ai-scan/stand-in-v1.png`. After accept (P3) empty places
@@ -755,13 +776,13 @@ same objects in `fixes[]`.
 |---|---|---|
 | `choose_font` | `group`, `face` (a face string of the project) | every text of the report's font group switches and is re-fitted: `size = source line width ÷ advance at 1 px` (`FitTextToWidth`), from the scanner's `sourceLineWidths`; without a usable measurement the rendered width is kept. "Nahrát správné písmo" = the project's ordinary font upload, then this fix |
 | `keep_font` | `group` | "Nechat" — decided, nothing changes |
-| `set_text` | `id`, `text` (≤ 2000) | any text |
+| `set_text` | `id`, `text` (≤ 2000, line breaks kept) | any text — **everywhere the text lives**: the element's `text` AND its input's `sampleValue` (the scanner writes both; the sample is what a saved template renders, pre-fills on the fill page and exports), and `maxLength` grows to 1.5 × the new text when it was shorter (`ApplyFixes::inputForText()`) |
 | `confirm_text` | `id`, `text?` | a doubtful text is right (optionally corrected) |
 | `set_input` | `id`, `input: bool` | `vyplňuje uživatel` / `pevný text` (the DSL's `input.locked`) |
 | `rename` | `id`, `name` (≤ 40, plain) | a layer's name |
 | `undo_shrink` | — | shrunk texts get the scanner's `fittedSize` back |
 | `revert_palette` | — | colours snapped to the palette go back to the measured ones |
-| `add_placeholder` / `keep_omitted` | `omitted` (index into `report.omitted`) | a left-out thing becomes a place `misto-{n+1}` over its box / stays out |
+| `add_placeholder` / `keep_omitted` | `omitted` (index into `report.omitted`) | a left-out thing becomes a place `misto-{n+1}` over its box / stays out. `add_placeholder` on an entry that lies on built layers (`OmittedOnLayers`) is `invalid_fix` |
 | `remove_placeholder` | `id`, `colour?` | the place goes; a removed BACKGROUND becomes a colour (a design always has a background) |
 | `merge_placeholders` | `ids` (≥ 2, no background) | one place over their common box; the lowest in the stack keeps its id |
 | `placeholder_to_shape` | `id`, `shape` `rectangle` \| `circle` \| `star`, `colour?` | see "Deviations" for the colour |
@@ -782,8 +803,10 @@ numbers, ids, boxes and the design's own texts — no prose:
 
 - `readOnly`, `name`, `nameChosen`, `unfinished`, `expiresAt`, `revision`,
   `preview {which: "candidate"|"proposal", seq, stale}` (the picture is
-  `GET /ai-scan/{id}/image/proposal?v={seq}`), `canvas`, `source` (the size
-  the boxes are measured in), `rating`;
+  `GET /ai-scan/{id}/image/proposal?v={seq}`), `canvas`, `format {unit,
+  width, height, pxWidth, pxHeight}` — the size the template WILL have
+  (`ScanProposal::dimension()`, § "Accept") —, `source` (the size the boxes
+  are measured in), `rating`;
 - `counts {texts, shapes, places, background}` — `background` is true for a
   colour / gradient background only (a background photo is a place), and
   `toDecide` — the counter of the summary line and the tab;
@@ -792,7 +815,9 @@ numbers, ids, boxes and the design's own texts — no prose:
   `font`, `size`, `colour`, `doubtful` / `shape`, `fill`;
 - `placeholders[]` in card order: `id`, `number`, `name`, `role`,
   `background`, `added`, `kind`, `kindLocked`, `fit`, `box` (source px),
-  `canvasBox`, `width`, `height`, `decidedEmpty`, `picture` (`fileId`, `url`,
+  `canvasBox`, `width`, `height` (pixels **in the template** — the canvas
+  box scaled to `format`; what `tooSmall` compares a picture with),
+  `decidedEmpty`, `picture` (`fileId`, `url`,
   `name`, `width`, `height`, `uploaded`, `tooSmall`, `fitApplied`, `missing`);
   `pictures {total, filled, unfilled, greyBackground}` — `unfilled` is the
   tail of the create button;
@@ -801,7 +826,12 @@ numbers, ids, boxes and the design's own texts — no prose:
   `sizeChangePercent`, `texts`, `boxes`) \| `doubtful_text` (`id`, `reason`,
   `text`, `box`) \| `omitted` (`omitted`, `code`, `box`, `placeId`) \|
   `missing_font` / `missing_picture` (F15), `decided`, `decision`, `fixes[]`
-  (the fix types it accepts). The left-out rows count as ONE thing to decide;
+  (the fix types it accepts). The left-out rows count as ONE thing to decide,
+  and so do open font rows that ask the same thing (same `pattern` and
+  `face` — a project with one face gets "we used the nearest: X" for every
+  group; the review shows them as one card, § "UI"). A left-out row that lies
+  on built layers and has no decision is not listed (a proposal stored
+  before the rule);
 - `information[]`: `font_match` (the measured-match pattern), `shrunk` and
   `palette` (with `undo` — the fix type — `undoKey` and `undone`),
   `simplification` (`simplification` = the code, `box`), `pictures_not_taken`,
@@ -863,10 +893,26 @@ nothing behind); then `AddTemplate` (uncategorised), `AddTemplateVariant`,
 `EditTemplateVariantCanvasEditor`, `StoreTemplateVariantPreviewImage`, and
 `AiScanTransitions::accept()`.
 
-The template's size: the proposal's canvas in px, or — when the upload sent
-`options {targetUnit: px|mm|cm, targetWidth, targetHeight}` with the picture's
-ratio (± 2 %) and a long edge ≤ 5000 px — that format, the document scaled to
-it (`ApplyFixes::scaled()`); a print size comes without bleed.
+The template's size (`ScanProposal::dimension()`), in this order — the first
+that has the picture's ratio (± 2 %) and a long edge ≤ 5000 px; the document
+is scaled to it (`ApplyFixes::scaled()`), a print size comes without bleed:
+
+1. the format the upload sent — `options {targetUnit: px|mm|cm, targetWidth,
+   targetHeight}`;
+2. **for a PDF, its page** (`ScanProposal::pdfPageFormat()` from
+   `source_meta.pagePt`, else `pageMm`) — the browser cannot read a PDF's
+   size, so S2 offers no format for one and says „Rozměr převezmeme z první
+   stránky PDF“. A PDF says how large the page is, not what it was drawn in:
+   an A format (A3–A6, ± 1 mm) → that print format in mm; whole points →
+   pixels 1 : 1 (Figma, Illustrator: 1080 × 1350 pt); whole millimetres → mm
+   (a flyer 100 × 200); whole CSS pixels at 0.75 pt (Canva: 810 × 1012.5 pt)
+   → those pixels; otherwise points as pixels, rounded. Known limit: a Canva
+   page whose points are whole too (1080 × 1080 px = 810 × 810 pt) comes out
+   as 810 px — the size is changed in the editor;
+3. the proposal's canvas in px (the working copy's size).
+
+Before 2026-11-14 step 2 did not exist and a 1080 × 1350 page became a
+3276 × 4096 px template.
 
 ## Unfilled pictures — the export rule (P3, O11)
 
@@ -1000,7 +1046,7 @@ done, one moving element per view (the sweep), nothing moves under
 
 | Route | Path | Who |
 |---|---|---|
-| `ai_scan_new` | `/project/{projectId}/sablony/z-obrazku` | `canSeeProjectScans` (403 otherwise) AND entitled — an editor without the entitlement is redirected to the template list, where the card says what to do |
+| `ai_scan_new` | `/project/{projectId}/sablony/z-obrazku` | `canSeeProjectScans` (403 otherwise) AND entitled — an editor without the entitlement is redirected to the template list with an `info` flash that says AI scan is off here and names „Požádat o přístup“ on the card (or that the request is already sent) |
 | `ai_scan_page` | `/project/{projectId}/sablony/z-obrazku/{scanId}` | `AiScanVoter::USE`; the scan must belong to the project and be a template scan (404) |
 
 The template hands the browser one JSON value (`data-ai-scan-page-boot-value`:
@@ -1087,8 +1133,27 @@ network retry.
 
 ### Lists, shell, export, admin
 
+**Texts are textareas** (`textField()` in `page/review.js`): a text of the
+design may have line breaks, and an `<input>` drops them — it showed „Jarní
+slavnostive městě“ and would have saved it so. One row per line; in „Vrstvy“
+Enter is a new line and the change is sent on blur; in „Přečetli jsme to
+správně?“ Enter confirms and Shift+Enter is the new line.
+
+**One font question, one card.** Open font decisions with the same `pattern`
+and `face` are drawn as one card (`fontQuestion()`): „Vybrat jiné písmo“,
+„Nahrát správné písmo“ and „Nechat u všech“ send the fix to every group, one
+after the other; „Rozhodnout jednotlivě (n)“ unfolds the groups with their
+own buttons. A decided group leaves the card and gets its own „Vrátit“ row.
+
+**A cancelled scan** opened later (`goneView()`): while the picture is kept
+and a scan may start, „Stejný obrázek znovu“ puts the stored original back
+on S2 („Než začneme“ — format, consent, what it costs; nothing starts by
+itself), next to „Nahrát jiný obrázek“.
+
 - **Card in "Nová šablona"** (`templates/ai_scan/_entry_card.html.twig`,
-  `ai_scan_entry()` = `AiScanLists::entry()`): the states of ux.md T1.
+  `ai_scan_entry()` = `AiScanLists::entry()`): the states of ux.md T1. Its
+  sentence says „(obrázek nebo PDF)“ — the accepted types are listed once, on
+  the upload zone (`JPG, PNG, WebP, HEIC nebo PDF (první stránka)`).
   `locked` opens the request dialog (a native `<dialog>`; the Bootstrap modal
   closes first) and posts `ai_scan_access_request`.
 - **Strip above the template list** (`ai_scan_strip_controller.js`): cards
@@ -1101,7 +1166,12 @@ network retry.
   a project that never accepted a scan.
 - **"Historie skenů"** (`ai_scan_history`,
   `/project/{projectId}/sablony/historie-skenu`): server-rendered rows, filter
-  chips as links, the row menu from the row's `actions[]`.
+  chips as links, the row menu from the row's `actions[]`. Empty, in a
+  project without AI scan (`entry.state` `locked` / `request_sent`), it shows
+  the locked state — „AI sken v tomto projektu není zapnutý“ with „Požádat o
+  přístup“ (the `ai-scan-entry` controller, `origin` = the module the page
+  hangs under) or „Žádost o přístup odeslána …“ — never an invitation to
+  upload; empty while nothing can start for another reason it invites nobody.
 - **Shell** — `docs/architecture/app-shell.md` § "AI scan signals".
 - **Export dialog**: forms whose variants may have unfilled pictures
   (`ai_scan_unfilled()` > 0 — an upper bound) carry

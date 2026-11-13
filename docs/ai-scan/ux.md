@@ -210,7 +210,7 @@ Component: `.gal-drop` with a peach sparkle. One file; the whole page accepts a 
                                  ✦
 │                Přetáhněte sem obrázek grafiky                      │
                  nebo vyberte soubor z počítače
-│     JPG, PNG, WebP nebo HEIC · nejvýše 10 MB · jeden obrázek       │
+│     JPG, PNG, WebP, HEIC nebo PDF · nejvýše 10 MB · jeden obrázek │
 └─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┘
 S ČÍM TO JDE NEJLÉPE
 ✓ Export z grafického programu nebo snímek obrazovky   ✗ Fotka vytištěného plakátu z mobilu
@@ -223,7 +223,7 @@ Phone: the zone says `Klepněte a vyberte obrázek`; tips in one column.
 | Slot | Šablony | Kalendáře |
 |---|---|---|
 | Bold line | `Přetáhněte sem obrázek grafiky` | `Přetáhněte sem obrázek stránky kalendáře` |
-| Caption | `JPG, PNG, WebP nebo HEIC · nejvýše 10 MB · jeden obrázek = jedna šablona` | `… · jedna týdenní stránka` |
+| Caption | `JPG, PNG, WebP, HEIC nebo PDF (první stránka) · nejvýše 10 MB · jeden obrázek = jedna šablona` | `… · jedna týdenní stránka` |
 | ✓ | as drawn | `Export stránky z grafického programu` · `Jedna celá týdenní stránka, rovně a bez ořezu` · `Běžný týden — ne titulní strana ani měsíční přehled` |
 | ✗ | as drawn | `Fotka kalendáře na stole — zkreslí barvy i rozměry` · `Více stránek v jednom obrázku` · `Ozdobné pruhy a rámečky — rozvržení má pevnou sadu prvků` |
 
@@ -236,8 +236,8 @@ scanner in the checking step, which then stops the scan with F3e if it is out of
 
 | Case | Message |
 |---|---|
-| Not accepted | `Tento soubor neumíme. Nahrajte obrázek JPG, PNG, WebP nebo HEIC.` |
-| PDF / PSD / AI / IDML | `PDF a zdrojové soubory zatím neumíme. Uložte stránku jako obrázek (PNG nebo JPG) a nahrajte ji.` |
+| Not accepted | `Tento soubor neumíme. Nahrajte obrázek JPG, PNG, WebP nebo HEIC, případně PDF.` |
+| PSD / AI / IDML / SVG | `Zdrojové soubory (PSD, AI, InDesign, SVG) zatím neumíme. Uložte stránku jako obrázek (PNG nebo JPG) nebo jako PDF a nahrajte ji.` |
 | More than one | `Nahrajte jen jeden obrázek.` |
 | > 10 MB | `Obrázek je větší než 10 MB. Zmenšete ho nebo ho uložte jako JPG.` |
 | Short side < 600 px (Kalendáře: < 300 px) | `Obrázek je příliš malý ({w} × {h} px). Kratší strana musí mít aspoň 600 px, lépe 1000 px a víc.` (Kalendáře: `…aspoň 300 px, lépe 600 px a víc.`) |
@@ -652,7 +652,7 @@ label instead of a second stepper design, as the last line of `.head-main` under
 
 ### T1 — Card in "Nová šablona"
 
-The fourth card (`.tp-type.prem`). Copy: `Nahrajte hotovou grafiku (JPG nebo PNG) a AI z ní
+The fourth card (`.tp-type.prem`). Copy: `Nahrajte hotovou grafiku (obrázek nebo PDF) a AI z ní
 poskládá upravitelnou šablonu — texty, tvary, barvy a místa pro obrázky.` (departs from the
 brief's "obrázky i barvy" on purpose: pictures are not taken over).
 

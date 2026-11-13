@@ -35,6 +35,10 @@ use WBoost\Web\Value\AiScan\AiScanKind;
  * line breaks), in nested lists or maps to a small depth. Anything else is an
  * inconsistent report.
  *
+ * One rule about CONTENT is applied right after this check, by
+ * {@see Template\OmittedOnLayers}: a "left-out thing" whose box lies mostly
+ * on layers the scan built is dropped from the report before it is stored.
+ *
  * (`resources/ai-scan/definition/finish.template.schema.json` is the part
  * the MODEL writes; the scanner turns it into this report.)
  */

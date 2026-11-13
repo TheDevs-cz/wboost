@@ -62,13 +62,37 @@
          data-controller="ai-scan-history"
          data-ai-scan-history-page-url-value="{{ path('ai_scan_page', {'projectId': project.id, 'scanId': nil_uuid}) }}"
          data-ai-scan-history-action-url-value="{{ path('ai_scan_action', {'id': nil_uuid, 'action': 'discard'}) }}">
-        {% if total == 0 %}
+        {# A project without AI scan (ux.md T1 `locked` / `request_sent`): the page never invites an upload
+           it would refuse — it says the feature is off and where access is asked for. #}
+        {% set locked = entry.state in ['locked', 'request_sent'] %}
+        {% if total == 0 and locked %}
+            <div class="empty" data-ai-scan-history-locked="{{ entry.state }}"
+                 {% if entry.state == 'locked' %}
+                 data-controller="ai-scan-entry"
+                 data-ai-scan-entry-url-value="{{ path('ai_scan_access_request', {'projectId': project.id}) }}"
+                 data-ai-scan-entry-project-value="{{ project.name }}"
+                 data-ai-scan-entry-origin-value="{{ has_templates ? 'templates' : 'calendars' }}"
+                 {% endif %}>
+                <span class="ico-c">{{ icon('lock') }}</span>
+                <h2>AI sken v tomto projektu není zapnutý</h2>
+                <p>AI sken je placená funkce, kterou zapínáme pro každý projekt zvlášť. Z obrázku hotové grafiky nebo stránky kalendáře vytvoří upravitelný návrh.</p>
+                {% if entry.state == 'request_sent' %}
+                    <p class="cap">{{ icon('check-circle', 's14') }} Žádost o přístup odeslána {{ entry.requestSentAt|date('j. n. Y', 'Europe/Prague') }}. Dáme vám vědět.</p>
+                {% else %}
+                    <p class="cap" data-ai-scan-entry-target="sentLine" hidden>{{ icon('check-circle', 's14') }} <span data-ai-scan-entry-target="sentText"></span></p>
+                    <button type="button" class="btn btn-primary sm" data-ai-scan-entry-target="button" data-action="ai-scan-entry#request" aria-haspopup="dialog">{{ icon('lock', 's16') }}Požádat o přístup</button>
+                {% endif %}
+            </div>
+        {% elseif total == 0 %}
             <div class="empty">
                 <span class="ico-c">{{ icon('sparkle') }}</span>
                 <h2>Zatím tu není žádný sken</h2>
-                <p>Nahrajte obrázek hotové grafiky nebo stránky kalendáře a AI z něj vytvoří upravitelný návrh.</p>
                 {% if can_start %}
+                    <p>Nahrajte obrázek hotové grafiky nebo stránky kalendáře a AI z něj vytvoří upravitelný návrh.</p>
                     <a href="{{ new_scan_url }}" class="btn btn-primary sm">{{ icon('plus', 's16') }}Nový sken</a>
+                {% else %}
+                    {# limit reached / the service is paused: nothing can start now — no invitation #}
+                    <p>Nový sken teď v tomto projektu spustit nejde.</p>
                 {% endif %}
             </div>
         {% else %}

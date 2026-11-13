@@ -1150,6 +1150,34 @@ stop „V obrázku jsme nenašli grafiku“ (its text now names screenshots, doc
 | sdk | A1-kandidat | 2 | proposed | 2 / 2 | 8 | 49 | 41 | 0.212 | 0.958 | 1.00 | 0.81 | 0.00 | 0.96 | 0.20 | 1.00 / 0.75 | no |
 | sdk | A1-kandidat | 3 | proposed | 2 / 2 | 10 | 57 | 49 | 0.215 | 0.955 | 1.00 | 0.69 | 0.00 | 0.97 | 0.20 | 1.00 / 0.75 | no |
 | sdk | A2-cestovatelska | 1 | proposed | 2 / 2 | 6 | 68 | 44 | 0.209 | 0.971 | 0.89 | 0.63 | 0.00 | 0.80 | 0.00 | 1.00 / 0.29 | no |
+## 12. "Left-out things" that lie on built layers (2026-11-14)
+
+Found on production (2026-11-13): both poster scans of the acceptance check showed „1 prvek jsme vynechali“ with a
+box over the headline and the text lines; „Přidat místo pro obrázek“ put a 540 × 405 picture place on the texts.
+
+**Cause.** Two sources, both visible in the recorded scans (`eval/runs/**/report.json`, 119 template reports):
+
+- the model lists an effect of something it BUILT as omitted — `B1-koncert`: `approximations: [{nadpis, shadow}, …]`
+  and also `omitted: [{kind: effect, 70, 600, 480 × 385}]`, the headline's box (9 of 10 runs);
+- the scanner's own net ("cells with a large difference nobody listed") fires on cells where a built text
+  differs — another face, another line break: all 34 entries it ever added lie on built layers.
+
+**Rule** (`omittedIsCovered` in `src/finish/report.mjs`, mirrored by the app's `OmittedOnLayers`): an entry whose
+box lies ≥ 50 % on built layers is not reported — texts by their ink, pictures; shapes too for an `effect` and for
+the scanner's own entries. The scanner's net also skips a loud cell that a built text's ink (+18 px) reaches into.
+The instruction for `omitted[]` now says it is for things with NO layer, and that an effect of a built element
+belongs to `approximations[]`.
+
+| Recorded reports (119) | before | after |
+|---|---|---|
+| reports with a left-out entry | 50 | 15 |
+| entries named by the model | 35 | 14 (all `shape`: a thing really left out — A1, A3, A5) |
+| entries added by the scanner | 34 | 1 (`vite-ze-2-strana`, 34 % on a text; the live net would skip its cells) |
+| poster-like inputs — B1-koncert (10 runs) / B3-letak-a4 (6) / B5-otevreno (5) / A2-cestovatelska (3) / B2-sleva (5) | 9 / 9 / 11 / 9 / 5 entries | 0 / 0 / 0 / 0 / 0 |
+
+"After" is the new rule applied to the recorded reports (the rule is a function of the report's `omitted` and
+`boxes`), not a new set of model runs; the changed instruction is not measured here.
+
 | sdk | A2-cestovatelska | 2 | proposed | 2 / 2 | 7 | 49 | 39 | 0.216 | 0.971 | 0.89 | 0.61 | 0.00 | 0.79 | 0.00 | 1.00 / 0.29 | no |
 | sdk | A2-cestovatelska | 3 | proposed | 2 / 2 | 8 | 54 | 46 | 0.201 | 0.975 | 0.89 | 0.66 | 0.00 | 0.79 | 0.22 | 1.00 / 0.29 | no |
 | sdk | A3-terapie-a4 | 1 | proposed | 3 / 3 | 11 | 154 | 117 | 0.417 | 0.997 | 1.00 | 0.68 | 0.00 | 0.96 | 0.40 | 1.00 / 0.63 | no |

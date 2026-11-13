@@ -215,8 +215,10 @@ trait AiScanTesting
 
     /**
      * The intake's part: claim, store the two artifacts, finish `passed`.
+     *
+     * @param array<string, mixed> $sourceMeta what the intake read while normalising (a PDF: `pagePt`, `pageMm`)
      */
-    public static function passIntake(KernelBrowser $client, string $scanId): void
+    public static function passIntake(KernelBrowser $client, string $scanId, array $sourceMeta = []): void
     {
         $intake = self::claim($client, 'intake');
 
@@ -224,19 +226,20 @@ trait AiScanTesting
             throw new \LogicException('The intake claimed another scan.');
         }
 
-        self::passIntakeArtifacts($client, $scanId, $intake);
+        self::passIntakeArtifacts($client, $scanId, $intake, $sourceMeta);
     }
 
     /**
      * @param array{id: string, run: int, lease: string, job: array<string, mixed>} $intake
+     * @param array<string, mixed> $sourceMeta
      */
-    public static function passIntakeArtifacts(KernelBrowser $client, string $scanId, array $intake): void
+    public static function passIntakeArtifacts(KernelBrowser $client, string $scanId, array $intake, array $sourceMeta = []): void
     {
         foreach (['working', 'preview'] as $which) {
             self::scanner($client, 'PUT', sprintf('%s/artifact/%s?run=%d', $scanId, $which, $intake['run']), 'WEBP-BYTES-' . $which, $intake['lease']);
         }
 
-        $done = self::scanner($client, 'POST', $scanId . '/finish', ['run' => $intake['run'], 'outcome' => 'passed', 'usage' => self::usage(1)], $intake['lease']);
+        $done = self::scanner($client, 'POST', $scanId . '/finish', ['run' => $intake['run'], 'outcome' => 'passed', 'usage' => self::usage(1)] + ($sourceMeta === [] ? [] : ['sourceMeta' => $sourceMeta]), $intake['lease']);
 
         if (($done['json']['status'] ?? null) !== 'queued') {
             throw new \LogicException('The intake did not pass: ' . $done['raw']);
@@ -246,14 +249,15 @@ trait AiScanTesting
     /**
      * Upload → intake passed → build claimed.
      *
+     * @param array<string, mixed> $sourceMeta
      * @return array{id: string, run: int, lease: string, job: array<string, mixed>}
      *
      * @phpstan-impure
      */
-    public static function running(KernelBrowser $client, string $projectId = TestDataFixture::PROJECT_1_ID, string $email = TestDataFixture::USER_1_EMAIL): array
+    public static function running(KernelBrowser $client, string $projectId = TestDataFixture::PROJECT_1_ID, string $email = TestDataFixture::USER_1_EMAIL, array $sourceMeta = []): array
     {
         $scanId = self::start($projectId, $email)->toString();
-        self::passIntake($client, $scanId);
+        self::passIntake($client, $scanId, $sourceMeta);
 
         return self::claim($client, 'build');
     }
@@ -335,8 +339,9 @@ trait AiScanTesting
                 ['kind' => 'shape', 'id' => 'pruh', 'shape' => 'rectangle', 'fill' => '#c8102e', 'x' => 0, 'y' => 1000, 'width' => 900, 'height' => 200],
                 ['kind' => 'image', 'id' => 'foto', 'asset' => AiScanStandIn::ASSET_ID, 'x' => 100, 'y' => 400, 'width' => 400, 'height' => 300, 'input' => ['name' => 'Fotografie']],
                 ['kind' => 'image', 'id' => 'logo', 'asset' => AiScanStandIn::ASSET_ID, 'x' => 700, 'y' => 60, 'width' => 140, 'height' => 60, 'input' => ['name' => 'Logo']],
-                ['kind' => 'text', 'id' => 'headline', 'text' => 'Headline', 'font' => self::FACE, 'size' => 72, 'color' => '#c8102e', 'x' => 80, 'y' => 120, 'width' => 600],
-                ['kind' => 'text', 'id' => 'sub', 'text' => 'Small print', 'font' => self::FACE, 'size' => 36, 'x' => 80, 'y' => 240, 'width' => 600],
+                // As the scanner writes a text: twice — `text` and the input's sample.
+                ['kind' => 'text', 'id' => 'headline', 'text' => 'Headline', 'font' => self::FACE, 'size' => 72, 'color' => '#c8102e', 'x' => 80, 'y' => 120, 'width' => 600, 'input' => ['name' => 'Titulek', 'maxLength' => 16, 'sampleValue' => 'Headline']],
+                ['kind' => 'text', 'id' => 'sub', 'text' => 'Small print', 'font' => self::FACE, 'size' => 36, 'x' => 80, 'y' => 240, 'width' => 600, 'input' => ['name' => 'Text', 'maxLength' => 20, 'sampleValue' => 'Small print']],
             ],
         ];
     }
@@ -398,6 +403,9 @@ trait AiScanTesting
      * Upload → intake → build → one candidate → `ready`, with the rich
      * proposal (or the plain one of {@see design()} / {@see report()}).
      *
+     * @param array<string, mixed> $reportOverrides keys of the report to replace
+     * @param array<string, mixed> $sourceMeta what the intake sends with `passed` (a PDF's page size)
+     *
      * @phpstan-impure
      */
     public static function ready(
@@ -405,8 +413,10 @@ trait AiScanTesting
         string $projectId = TestDataFixture::PROJECT_1_ID,
         string $email = TestDataFixture::USER_1_EMAIL,
         bool $rich = true,
+        array $reportOverrides = [],
+        array $sourceMeta = [],
     ): string {
-        $build = self::running($client, $projectId, $email);
+        $build = self::running($client, $projectId, $email, $sourceMeta);
         $scanId = $build['id'];
 
         $render = self::scanner($client, 'POST', $scanId . '/render', ['run' => $build['run'], 'seq' => 1, 'design' => $rich ? self::richDesign() : self::design()], $build['lease']);
@@ -417,7 +427,7 @@ trait AiScanTesting
 
         $finish = self::scanner($client, 'POST', $scanId . '/finish', [
             'run' => $build['run'], 'outcome' => 'proposed', 'candidate' => 1,
-            'report' => $rich ? self::richReport(1) : self::report(1),
+            'report' => $reportOverrides + ($rich ? self::richReport(1) : self::report(1)),
             'boxes' => $rich ? self::richBoxes() : [],
             'usage' => self::usage(2),
         ], $build['lease']);

@@ -93,6 +93,8 @@ final class AiScanHistoryController extends AbstractController
             'filters' => self::FILTERS,
             'rows' => array_map(static fn (array $row): array => $row + ['when' => self::when($row['createdAt'] ?? null, $now)], $rows),
             'can_start' => $this->access->canStart($user, $project),
+            // `locked` / `request_sent`: the page says so and offers „Požádat o přístup“ instead of inviting an upload.
+            'entry' => $this->lists->entry($project, $user),
             'has_templates' => $hasTemplates,
             'has_calendars' => $hasCalendars,
             'scan_calendar' => count($scannable) === 1 ? $scannable[0]->id->toString() : null,

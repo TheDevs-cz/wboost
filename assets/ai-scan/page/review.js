@@ -12,6 +12,13 @@ import { uploadFonts, usePicture } from './upload.js';
 const TAG = { text: 'T', place: 'O', shape: 'Tv', background: 'P' };
 const fontRole = (role) => FONT_ROLES[role] || FONT_ROLES.other;
 const q = (text) => `„${esc(text)}“`;
+/**
+ * A text of the design as a field. A textarea, never an <input>: a headline set on two lines is
+ * "Jarní slavnosti\nve městě", and an input drops the break — it showed "Jarní slavnostive městě"
+ * and saved it that way. One row per line; Enter is a new line (Shift+Enter where Enter confirms).
+ * The newline right after the tag is the one HTML swallows.
+ */
+const textField = (text, attrs) => `<textarea class="as-inl txt" rows="${Math.min(8, String(text).split('\n').length)}" maxlength="2000" spellcheck="false" ${attrs}>\n${esc(text)}</textarea>`;
 
 // ---- viewer -------------------------------------------------------------------------------------
 
@@ -96,9 +103,44 @@ function fontDecision(app, d) {
     return item(hl, 'T', crops(app, union(d.boxes.slice(0, 1))), title, text, `${fontSelect(app, d.group, d.key, d.face)}${fontUpload(d.group, d.key)}<button type="button" class="btn xs btn-ghost" data-act="keepFont" data-group="${esc(d.group)}" data-k="fk${esc(d.key)}">Nechat</button>`);
 }
 
+/**
+ * The same font question asked of several groups of texts — „V projektu jsme stejné písmo nenašli.
+ * Použili jsme nejbližší: X“ for headlines, subheadlines, texts, … (a project with one face gets
+ * it for every group) — is ONE card: its answer goes to every group. Each group can still be
+ * answered on its own under „Rozhodnout jednotlivě“. The server counts it as one thing to decide.
+ */
+function fontQuestion(app, list) {
+    const first = list[0];
+    const id = `${first.pattern}|${first.face}`;
+    const groups = list.map((d) => d.group).join('|');
+    const texts = list.reduce((n, d) => n + d.texts.length, 0);
+    const roles = [...new Set(list.map((d) => fontRole(d.role)))];
+    const where = roles.length > 1 ? `${roles.slice(0, -1).join(', ')} a ${roles[roles.length - 1]}` : roles[0];
+    const title = first.pattern === 'undetermined' ? `Písmo ${where} se nepodařilo určit` : `Písmo ${where} jsme nahradili`;
+    const concerns = `Týká se ${texts} ${pl(texts, 'textu', 'textů', 'textů')} v ${list.length} ${pl(list.length, 'skupině', 'skupinách', 'skupinách')}.`;
+    const text = first.pattern === 'undetermined'
+        ? `<p>Textu je málo nebo je písmo příliš ozdobné, takže ho s písmy projektu nejde porovnat. Všude jsme použili <b>${esc(first.face)}</b>. ${concerns}</p>`
+        : `<p>V projektu jsme stejné písmo nenašli. Všude jsme použili nejbližší: <b>${esc(first.face)}</b>. Tvary písmen se od obrázku liší. ${concerns}</p>`;
+    const open = !!(app.fontSplit && app.fontSplit[id]);
+    const each = `<details class="as-details as-fontsplit"${open ? ' open' : ''}><summary data-act="toggleFontSplit" data-id="${esc(id)}" data-k="fs${esc(id)}">${ic('chev-right')}Rozhodnout jednotlivě (${list.length})</summary><div class="as-fontsplit-b">${list.map((d) => fontDecision(app, d)).join('')}</div></details>`;
+    return `<article class="as-it as-it-group" data-hl="${esc(first.texts[0] || first.key)}">${crops(app, union(first.boxes.slice(0, 1)))}<h3 class="as-it-t"><span class="as-ltag" aria-hidden="true">T</span><span>${title}</span></h3>${text}<div class="as-it-acts">${fontSelect(app, groups, `q${id}`, first.face)}${fontUpload(groups, `q${id}`)}<button type="button" class="btn xs btn-ghost" data-act="keepFont" data-group="${esc(groups)}" data-k="fkq${esc(id)}">Nechat u všech</button></div>${each}</article>`;
+}
+
+/** Font decisions in the report's order; open ones that ask the same thing share a card. */
+function fontDecisions(app, list) {
+    const parts = [];
+    const asked = new Map();
+    for (const d of list) {
+        if (d.decided) { parts.push([d]); continue; }
+        const id = `${d.pattern}|${d.face}`;
+        if (asked.has(id)) asked.get(id).push(d); else { const group = [d]; asked.set(id, group); parts.push(group); }
+    }
+    return parts.map((group) => (group.length === 1 ? fontDecision(app, group[0]) : fontQuestion(app, group)));
+}
+
 function doubtfulDecision(app, d) {
     if (d.decided) return decided(d.id, `Text potvrzen: ${q(d.text)}`, d.key, d.key);
-    return item(d.id, 'T', cropOne(app, d.box), 'Přečetli jsme to správně?', `<p>Tímto textem si nejsme jistí.</p><label class="inp sm"><input type="text" value="${esc(d.text)}" maxlength="2000" aria-label="Přepis textu" data-k="dt${esc(d.id)}" data-enter="confirmText" data-id="${esc(d.id)}"></label>`, `<button type="button" class="btn xs btn-tertiary" data-act="confirmText" data-id="${esc(d.id)}" data-k="dc${esc(d.id)}">${ic('check', 's14')}Potvrdit</button>`);
+    return item(d.id, 'T', cropOne(app, d.box), 'Přečetli jsme to správně?', `<p>Tímto textem si nejsme jistí.</p>${textField(d.text, `aria-label="Přepis textu" data-k="dt${esc(d.id)}" data-enter="confirmText" data-id="${esc(d.id)}"`)}`, `<button type="button" class="btn xs btn-tertiary" data-act="confirmText" data-id="${esc(d.id)}" data-k="dc${esc(d.id)}">${ic('check', 's14')}Potvrdit</button>`);
 }
 
 function omittedDecision(app, rows) {
@@ -167,7 +209,7 @@ function decisionsTab(app) {
     const p = app.proposal;
     const parts = [];
     for (const d of p.decisions.filter((x) => x.type === 'missing_font' || x.type === 'missing_picture')) parts.push(staleDecision(app, d));
-    for (const d of p.decisions.filter((x) => x.type === 'font')) parts.push(fontDecision(app, d));
+    parts.push(...fontDecisions(app, p.decisions.filter((x) => x.type === 'font')));
     for (const d of p.decisions.filter((x) => x.type === 'doubtful_text')) parts.push(doubtfulDecision(app, d));
     const omitted = p.decisions.filter((x) => x.type === 'omitted');
     if (omitted.length) parts.push(omittedDecision(app, omitted));
@@ -198,7 +240,7 @@ function layersTab(app, readOnly = false) {
         let sub;
         if (el.type === 'text') {
             const note = fontNote(p, el.id);
-            sub = `${el.doubtful && p.decisions.some((d) => d.type === 'doubtful_text' && d.id === el.id && !d.decided) ? '<span class="as-dot" role="img" aria-label="Nejistý přepis — je i v K rozhodnutí"></span>' : ''}<input class="as-inl txt" value="${esc(el.text)}" maxlength="2000" aria-label="Text vrstvy ${esc(el.name || fallback)}" data-chg="setText" data-id="${esc(el.id)}" data-k="lt${esc(el.id)}"${dis}><label class="as-switch"><input type="checkbox" class="sr" role="switch" data-chg="setInput" data-id="${esc(el.id)}" data-k="lsw${esc(el.id)}"${el.input ? ' checked' : ''}${dis}><span class="sw sm" aria-hidden="true"></span><span>${el.input ? 'vyplňuje uživatel' : 'pevný text'}</span></label>${el.font ? `<span class="as-layfont">${ic('font', 's14')}${esc(el.font)}${note ? ` — ${note}` : ''}</span>` : ''}`;
+            sub = `${el.doubtful && p.decisions.some((d) => d.type === 'doubtful_text' && d.id === el.id && !d.decided) ? '<span class="as-dot" role="img" aria-label="Nejistý přepis — je i v K rozhodnutí"></span>' : ''}${textField(el.text, `aria-label="Text vrstvy ${esc(el.name || fallback)}" data-chg="setText" data-id="${esc(el.id)}" data-k="lt${esc(el.id)}"${dis}`)}<label class="as-switch"><input type="checkbox" class="sr" role="switch" data-chg="setInput" data-id="${esc(el.id)}" data-k="lsw${esc(el.id)}"${el.input ? ' checked' : ''}${dis}><span class="sw sm" aria-hidden="true"></span><span>${el.input ? 'vyplňuje uživatel' : 'pevný text'}</span></label>${el.font ? `<span class="as-layfont">${ic('font', 's14')}${esc(el.font)}${note ? ` — ${note}` : ''}</span>` : ''}`;
         } else if (el.type === 'place') {
             const ph = p.placeholders.find((x) => x.id === el.id);
             sub = `místo pro obrázek${ph ? ` · ${ph.width} × ${ph.height} px` : ''}`;
@@ -214,6 +256,10 @@ function layersTab(app, readOnly = false) {
 
 // ---- screen ------------------------------------------------------------------------------------
 
+/** The size the template will have — the chosen format, a PDF's page, else the picture's. */
+const nf = (n) => String(Math.round(n * 10) / 10).replace('.', ',');
+const formatLine = (p) => (p.format && p.format.width > 0 ? ` Bude mít ${nf(p.format.width)} × ${nf(p.format.height)} ${esc(p.format.unit)}.` : '');
+
 export function reviewView(app) {
     const p = app.proposal;
     const scan = app.scan;
@@ -226,7 +272,7 @@ export function reviewView(app) {
     return `${head(app, 3, 'Kontrola')}
 ${p.unfinished ? `<div class="alert c-warning" role="status" data-region="unfinished">${ic('clock', '')}<div><div class="alert-t">Sken jsme nestihli doladit</div><div class="alert-d">Zastavili jsme ho po dosažení časového limitu a nechali nejlepší verzi. Sken se započítal.</div></div></div>` : ''}${offLine(app)}
 <div class="as-grid as-review" data-region="review" data-deep><div class="as-main" data-region="main" data-deep>${viewer(app)}</div>
-<aside class="as-side" data-region="side" data-deep><section class="as-card as-sumcard" data-region="sum"><h2 class="as-sum" tabindex="-1" data-focus>${summaryLine(p.counts)} <b>${toDecideLine(p.toDecide)}</b></h2><p class="cap" style="margin:0">Tohle je návrh — šablona zatím neexistuje.${scan.mine ? '' : ` Sken spustil(a) ${esc(scan.requestedBy || 'někdo jiný')}.`}</p></section>
+<aside class="as-side" data-region="side" data-deep><section class="as-card as-sumcard" data-region="sum"><h2 class="as-sum" tabindex="-1" data-focus>${summaryLine(p.counts)} <b>${toDecideLine(p.toDecide)}</b></h2><p class="cap" style="margin:0">Tohle je návrh — šablona zatím neexistuje.${formatLine(p)}${scan.mine ? '' : ` Sken spustil(a) ${esc(scan.requestedBy || 'někdo jiný')}.`}</p></section>
 <section class="as-card as-panel-card" aria-label="Zpráva ze skenu" data-region="panel" data-deep><div class="tabs-u" role="tablist" aria-label="Zpráva ze skenu" data-region="tabs"><button type="button" role="tab" id="asTabDec" aria-selected="${app.tab === 'decisions'}" aria-controls="asTabP" data-act="tab" data-v="decisions" data-k="tabdec">K rozhodnutí <span class="pd-n">${p.toDecide}</span></button><button type="button" role="tab" id="asTabLay" aria-selected="${app.tab === 'layers'}" aria-controls="asTabP" data-act="tab" data-v="layers" data-k="tablay">Vrstvy <span class="pd-n">${layerCount}</span></button></div>
 <div class="as-panel-body" id="asTabP" role="tabpanel" aria-labelledby="${app.tab === 'decisions' ? 'asTabDec' : 'asTabLay'}" tabindex="-1" data-region="body-${app.tab}" data-scroll="panel-${app.tab}">${app.tab === 'decisions' ? decisionsTab(app) : layersTab(app)}</div></section></aside></div>
 <input type="file" class="sr" id="asReviewFont" tabindex="-1" aria-hidden="true" accept=".ttf,.otf,.woff" data-chg="reviewFontFile" data-region="fontfile">
@@ -402,7 +448,8 @@ export const actions = {
     toggleInfo: (app, el) => { window.setTimeout(() => { app.infoOpen = el.parentElement.open; }, 0); },
     undo: (app, el) => app.fix({ type: 'undo', key: el.dataset.key }),
     infoUndo: (app, el) => app.fix({ type: el.dataset.fix }),
-    keepFont: (app, el) => app.fix({ type: 'keep_font', group: el.dataset.group }),
+    keepFont: async (app, el) => { for (const group of String(el.dataset.group).split('|').filter(Boolean)) await app.fix({ type: 'keep_font', group }); },
+    toggleFontSplit: (app, el) => { window.setTimeout(() => { (app.fontSplit ||= {})[el.dataset.id] = el.parentElement.open; }, 0); },
     fontMenu: (app, el) => {
         app.menu = app.menu === el.dataset.id ? null : el.dataset.id;
         app.render();
@@ -480,6 +527,8 @@ export const actions = {
         if (answer.ok || answer.code === 'wrong_state') { app.notifyShell(); app.leave(app.entry.canStart ? app.urls.new : app.urls.templates, 'Návrh zahozen'); return; }
         toast('Návrh se nepodařilo zahodit. Zkuste to znovu.', { error: true });
     },
+    /** A cancelled scan's kept picture → back to „Než začneme“ (S2); the user starts it there. */
+    rescanSame: (app) => rescanWith(app, 'format'),
     rescan: (app) => {
         const can = app.entry.canStart;
         const dialog = openDialog(`${dialogHead('Naskenovat znovu')}<p>Nový sken může dopadnout jinak, ne nutně lépe.</p>

@@ -10,6 +10,10 @@ import { api, esc, ic, openDialog, dateCz } from '../ai-scan/kit.js';
  * returns). The request really posts (`ai_scan_access_request`): stored and
  * e-mailed to the administrators. Once sent, the card flips to "Žádost
  * odeslána" without a reload.
+ *
+ * The same controller sits on the locked state of "Historie skenů"
+ * (templates/ai_scan/history.html.twig) — no modal to close there
+ * (`modal` unset), `origin` says which module the page hangs under.
  */
 const BEFORE_AFTER = `<figure class="as-ba as-ba-wf">
 <svg viewBox="0 0 96 120" role="img" aria-label="Původní obrázek"><rect class="wf-card" x="1" y="1" width="94" height="118" rx="6"/><rect class="wf-ph" x="8" y="8" width="80" height="104" rx="4"/><circle class="wf-b" cx="28" cy="30" r="8"/><path class="wf-b" d="M12 104l26-30 18 18 12-12 16 24z"/><rect class="wf-b" x="14" y="52" width="52" height="7" rx="3.5"/></svg>
@@ -22,7 +26,7 @@ const PREM = `<span class="tp-prem">${ic('sparkle', 's14')}Premium</span>`;
 export default class extends Controller {
     static targets = ['button', 'sentLine', 'sentText'];
 
-    static values = { url: String, project: String, modal: String };
+    static values = { url: String, project: String, modal: String, origin: { type: String, default: 'templates' } };
 
     request() {
         const modalEl = this.modalValue ? document.querySelector(this.modalValue) : null;
@@ -56,7 +60,7 @@ ${BEFORE_AFTER}
         send.addEventListener('click', async () => {
             send.disabled = true;
             error.hidden = true;
-            const answer = await api.post(this.urlValue, { origin: 'templates', message: dialog.querySelector('[data-message]').value.trim() || null });
+            const answer = await api.post(this.urlValue, { origin: this.originValue === 'calendars' ? 'calendars' : 'templates', message: dialog.querySelector('[data-message]').value.trim() || null });
             if (!answer.ok) {
                 send.disabled = false;
                 error.textContent = this.problem(answer);

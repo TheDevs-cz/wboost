@@ -23,6 +23,38 @@ const arr = (b) => (b ? [Math.round(b.x), Math.round(b.y), Math.round(b.w), Math
 const median = (v) => (v.length ? [...v].sort((a, b) => a - b)[v.length >> 1] : null);
 const list = (v) => (Array.isArray(v) ? v : []);
 
+/**
+ * A left-out thing is offered to the reviewer as "add a place for a picture here". That makes sense only where
+ * the design has NOTHING: a box that mostly lies on layers the scan built is a difference OF those layers — a
+ * headline in the nearest available face, a shadow that was not drawn — and a place put there lands on top of
+ * the texts (production, 2026-11-13: the model named a headline's shadow both an approximation and an omitted
+ * "effect"; on the recorded scans every one of the 34 boxes the scanner added itself lay on built layers).
+ * The app applies the same rule to a stored report (`AiScanOmittedCoverage`): keep the two in step.
+ */
+export const OMITTED_COVERED_SHARE = 0.5;
+/** The share of `box` [x, y, w, h] that lies inside any of `others` — sampled, exact to a pixel or two. */
+export function coveredShare(box, others) {
+    const [x0, y0, w, h] = box;
+    if (!(w > 0 && h > 0) || !others.length) return 0;
+    const nx = Math.min(64, Math.max(1, Math.round(w))), ny = Math.min(64, Math.max(1, Math.round(h)));
+    let inside = 0;
+    for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+        const x = x0 + (i + 0.5) * w / nx, y = y0 + (j + 0.5) * h / ny;
+        if (others.some((o) => x >= o[0] && x < o[0] + o[2] && y >= o[1] && y < o[1] + o[3])) inside++;
+    }
+    return inside / (nx * ny);
+}
+/**
+ * The layers a left-out thing is measured against, from the report's `boxes`: texts by their INK (the wrap box
+ * of a short line reaches across the canvas), pictures by their box; shapes only for what cannot sit on top of
+ * a shape as a thing of its own — an effect, or a difference nobody named. An icon left out on a card stays.
+ */
+export function builtLayers(boxes, { code, by }) {
+    const kinds = by === 'scanner' || code === 'effect' ? ['text', 'image', 'shape'] : ['text', 'image'];
+    return boxes.filter((b) => kinds.includes(b.kind)).map((b) => (b.kind === 'text' ? (b.ink ?? b.sourceInk ?? b.box) : b.box)).filter(Array.isArray);
+}
+export const omittedIsCovered = (o, boxes) => coveredShare(o.box, builtLayers(boxes, o)) >= OMITTED_COVERED_SHARE;
+
 /** OCR lines that are the source of one text element: by wording first, by place second. */
 export function sourceLinesOf(element, ocrLines) {
     const eb = elementBox(element);
@@ -239,18 +271,6 @@ export async function buildTemplateReport({ build, finish = null, unfinished = f
         ...approximations.filter((a) => SIMPLIFICATION_OF[a.kind]).map((a) => ({ code: SIMPLIFICATION_OF[a.kind], element: a.element, box: a.box, n: 1 })),
         ...placeholders.filter((p) => p.role === 'pattern').map((p) => ({ code: 'pattern_as_place', element: p.id, box: p.box, n: 1 })),
     ];
-    const clampBox = (o) => im.clipBox(build.source, { x: +o.x || 0, y: +o.y || 0, w: Math.max(1, +o.w || 1), h: Math.max(1, +o.h || 1) });
-    const omitted = list(finish?.omitted).map((o) => { const b = clampBox(o); return { code: OMITTED_KINDS.includes(o.kind) ? o.kind : 'other', box: arr(b), diff: +im.mae(build.source, kept.masked, b).toFixed(4), by: 'model' }; });
-    // what nobody listed: neighbouring cells with a large measured difference, merged into one box each
-    const explained = [...omitted.map((o) => ({ x: o.box[0], y: o.box[1], w: o.box[2], h: o.box[3] })), ...approximations.map((a) => ({ x: a.box[0], y: a.box[1], w: a.box[2], h: a.box[3] }))];
-    const loud = kept.feedback.worstCells.map((c) => ({ x: c.box[0], y: c.box[1], w: c.box[2], h: c.box[3], mae: c.mae })).filter((b) => b.mae >= 0.08 && !explained.some((e) => im.intersects(e, b)));
-    const merged = [];
-    for (const b of loud) {
-        const host = merged.find((m) => im.intersects(im.grow(m, 2), b));
-        if (host) Object.assign(host, im.union([host, b]), { mae: Math.max(host.mae, b.mae) }); else merged.push({ ...b });
-    }
-    for (const m of merged.slice(0, 4)) omitted.push({ code: 'other', box: arr(m), diff: m.mae, by: 'scanner' });
-
     // ---- shrunk texts and the per-element boxes the review reads
     const shrunk = [...textFits.entries()].filter(([, f]) => f.ratio < 0.93).map(([id]) => ({ id }));
     const fb = new Map(kept.feedback.elements.map((r) => [r.id, r]));
@@ -268,6 +288,26 @@ export async function buildTemplateReport({ build, finish = null, unfinished = f
         };
     });
 
+    // ---- left-out things: what the model named, then what nobody listed — and of both only what is NOT on
+    //      layers the scan built (omittedIsCovered above)
+    const clampBox = (o) => im.clipBox(build.source, { x: +o.x || 0, y: +o.y || 0, w: Math.max(1, +o.w || 1), h: Math.max(1, +o.h || 1) });
+    const named = list(finish?.omitted).map((o) => { const b = clampBox(o); return { code: OMITTED_KINDS.includes(o.kind) ? o.kind : 'other', box: arr(b), diff: +im.mae(build.source, kept.masked, b).toFixed(4), by: 'model' }; });
+    const omitted = named.filter((o) => !omittedIsCovered(o, boxes));
+    // what nobody listed: neighbouring cells with a large measured difference, merged into one box each. A cell a
+    // built text reaches into differs because of that text (another face, another break) — it is not a thing left out
+    const explained = [...named.map((o) => ({ x: o.box[0], y: o.box[1], w: o.box[2], h: o.box[3] })), ...approximations.map((a) => ({ x: a.box[0], y: a.box[1], w: a.box[2], h: a.box[3] }))];
+    const textInks = builtLayers(boxes.filter((b) => b.kind === 'text'), { by: 'scanner' }).map(([x, y, w, h]) => im.grow({ x, y, w, h }, 18));
+    const loud = kept.feedback.worstCells.map((c) => ({ x: c.box[0], y: c.box[1], w: c.box[2], h: c.box[3], mae: c.mae }))
+        .filter((b) => b.mae >= 0.08 && !explained.some((e) => im.intersects(e, b)) && !textInks.some((t) => im.intersects(t, b)));
+    const merged = [];
+    for (const b of loud) {
+        const host = merged.find((m) => im.intersects(im.grow(m, 2), b));
+        if (host) Object.assign(host, im.union([host, b]), { mae: Math.max(host.mae, b.mae) }); else merged.push({ ...b });
+    }
+    const unlisted = merged.map((m) => ({ code: 'other', box: arr(m), diff: m.mae, by: 'scanner' })).filter((o) => !omittedIsCovered(o, boxes));
+    omitted.push(...unlisted.slice(0, 4));
+    const omittedOnLayers = named.length - omitted.filter((o) => o.by === 'model').length;
+
     const headline = headlineId;
     return {
         status: 'proposed', unfinished, stopReason, candidate: kept.n, headline,
@@ -275,7 +315,7 @@ export async function buildTemplateReport({ build, finish = null, unfinished = f
         notes: [...(texts.length === 0 ? [{ code: 'no_texts' }] : [])],
         counts: { texts: texts.length, shapes: elements.filter((e) => e.kind === 'shape').length, places: placeholders.length, background: elements.some((e) => e.kind === 'background') },
         boxes,
-        measures: { mae: kept.mae, textFit: kept.textFit, placeholderShare: kept.placeholderShare, keepBest: kb, unlistedPlaceholders, warnings: kept.issues.filter((i) => i.severity !== 'error').length, fontVerification: { ...stats, renders: build.stats.verifyRenders ?? 0, ms: build.stats.verifyMs ?? 0, ...thresholds } },
+        measures: { mae: kept.mae, textFit: kept.textFit, placeholderShare: kept.placeholderShare, keepBest: kb, unlistedPlaceholders, omittedOnLayers, warnings: kept.issues.filter((i) => i.severity !== 'error').length, fontVerification: { ...stats, renders: build.stats.verifyRenders ?? 0, ms: build.stats.verifyMs ?? 0, ...thresholds } },
         originalColours: build.prepassResult?.palette ?? [],
     };
 }

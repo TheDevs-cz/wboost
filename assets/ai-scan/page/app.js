@@ -302,7 +302,8 @@ export class ScanApp {
     }
 
     onKey(event) {
-        if (event.key === 'Enter' && event.target.dataset && event.target.dataset.enter) {
+        // In a textarea Shift+Enter is a new line; Enter alone confirms, as in an input.
+        if (event.key === 'Enter' && event.target.dataset && event.target.dataset.enter && !(event.shiftKey && event.target.tagName === 'TEXTAREA')) {
             event.preventDefault();
             const fn = this.actions[event.target.dataset.enter];
             if (fn) fn(this, event.target, event);
@@ -400,7 +401,7 @@ function fixError(answer) {
     if (answer.code === 'network') return 'Změnu se nepodařilo uložit. Zkontrolujte připojení a zkuste to znovu.';
     if (answer.code === 'invalid_fix' && answer.field === 'name') return 'Název musí mít 3 až 30 znaků.';
     if (answer.code === 'invalid_fix' && answer.field === 'size') return 'Obrázek je větší než 10 MB. Zmenšete ho nebo ho uložte jako JPG.';
-    if (answer.code === 'invalid_fix' && answer.field === 'type') return 'Tento soubor neumíme. Nahrajte obrázek JPG, PNG, WebP nebo HEIC.';
+    if (answer.code === 'invalid_fix' && answer.field === 'type') return 'Tento soubor neumíme. Nahrajte obrázky JPG, PNG, WebP, SVG nebo HEIC.';
     if (answer.code === 'invalid_fix') return 'Tuhle změnu nejde použít — návrh by po ní nešel vykreslit.';
     if (answer.code === 'renderer_busy') return 'Náhled se teď nepodařilo obnovit. Zkuste to za chvíli.';
     return 'Změnu se nepodařilo uložit. Zkuste to znovu.';

@@ -260,14 +260,17 @@ ${f.anyway && scan.canContinue ? `<p class="cap" style="margin:0">${ic('sparkle'
 export function goneView(app) {
     const scan = app.scan;
     const copy = {
-        cancelled: ['Sken zrušen', scan.hasPicture ? `Obrázek u nás zůstane do ${dateCz(scan.expiresAt) || 'konce 30denní lhůty'}. Nahrajte ho znovu, nebo zkuste jiný.` : 'Nahrajte obrázek znovu, nebo zkuste jiný.'],
+        cancelled: ['Sken zrušen', scan.hasPicture ? `Obrázek u nás zůstane do ${dateCz(scan.expiresAt) || 'konce 30denní lhůty'}. Můžete ho naskenovat znovu, nebo nahrát jiný.` : 'Nahrajte obrázek znovu, nebo zkuste jiný.'],
         discarded: ['Sken byl zahozen', 'Návrh i obrázek jsme smazali.'],
         expired: ['Sken vypršel', 'Po 30 dnech jsme obrázek i nepřijatý návrh smazali.'],
     }[scan.status] || ['Sken už není k dispozici', ''];
+    // The sentence says the picture is kept — so the page offers it: „Stejný obrázek znovu“ puts
+    // the stored original back on „Než začneme“ (format, consent, what it costs), nothing starts yet.
+    const again = scan.status === 'cancelled' && scan.hasPicture && app.entry.canStart;
     return `<div class="as-backrow" data-region="backrow"><a href="${esc(app.urls.templates)}" class="back">${ic('arrow-left')}Šablony</a>${historyLink(app)}</div>
 <header class="head as-head" data-region="head"><div class="head-main"><span class="lbl">Projekt · ${esc(app.project.name)}</span><h1>Šablona z obrázku</h1></div></header>
 <section class="as-card as-status" data-region="gone" style="max-width:560px"><div class="as-status-t"><span class="as-result-ico neutral">${ic('info', '')}</span>${pill(scan.status)}</div><h2 tabindex="-1" data-focus>${copy[0]}</h2><p class="as-status-p">${esc(copy[1])}</p>
-<div class="as-row">${app.entry.canStart ? `<a href="${esc(app.urls.new)}" class="btn sm btn-primary">${ic('upload')}Nahrát obrázek</a>` : ''}<a href="${esc(app.urls.templates)}" class="btn sm btn-tertiary">Zpět na šablony</a>${scan.status === 'cancelled' ? `<button type="button" class="btn sm ghost danger" data-act="discardScan" data-k="discard">${ic('trash')}Zahodit</button>` : ''}</div></section>`;
+<div class="as-row">${again ? `<button type="button" class="btn sm btn-primary" data-act="rescanSame" data-k="again"${app.busy === 'rescan' ? ' disabled' : ''}>${ic('refresh')}${app.busy === 'rescan' ? 'Načítám obrázek…' : 'Stejný obrázek znovu'}</button>` : ''}${app.entry.canStart ? `<a href="${esc(app.urls.new)}" class="btn sm ${again ? 'btn-tertiary' : 'btn-primary'}">${ic('upload')}${again ? 'Nahrát jiný obrázek' : 'Nahrát obrázek'}</a>` : ''}<a href="${esc(app.urls.templates)}" class="btn sm btn-tertiary">Zpět na šablony</a>${scan.status === 'cancelled' ? `<button type="button" class="btn sm ghost danger" data-act="discardScan" data-k="discard">${ic('trash')}Zahodit</button>` : ''}</div></section>`;
 }
 
 // ---- actions ----------------------------------------------------------------------------------------

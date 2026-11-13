@@ -45,6 +45,11 @@ final class AiScanPageTest extends WebTestCase
         $client->request('GET', self::NEW);
         self::assertResponseRedirects('/project/' . self::PROJECT . '/templates');
         self::assertSame(0, self::rowCount('ai_scan'));
+
+        // … and the list says why the page did not open and where access is asked for.
+        $flash = $client->followRedirect()->filter('.alert')->text();
+        self::assertStringContainsString('AI sken v tomto projektu není zapnutý', $flash);
+        self::assertStringContainsString('Požádat o přístup', $flash);
     }
 
     public function testAReadOnlyMemberIsRefused(): void

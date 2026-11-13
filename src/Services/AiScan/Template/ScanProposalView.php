@@ -49,6 +49,12 @@ final readonly class ScanProposalView
         $scale = ApplyFixes::sourceScale($scan->proposal);
         $document = $this->proposal->replay($scan, $state);
         $placeIds = $document['places'];
+        // The template's own size — a place is that many pixels IN THE TEMPLATE
+        // (a PDF's working copy is larger than its page, a print format larger
+        // than the picture).
+        $format = ScanProposal::dimension($scan, $document);
+        $documentWidth = ApplyFixes::number($document['canvas']['width'] ?? null) ?? 0.0;
+        $toTemplate = $documentWidth > 0.0 ? $format->width() / $documentWidth : 1.0;
         $byId = [];
 
         foreach ($document['elements'] as $element) {
@@ -157,8 +163,8 @@ final readonly class ScanProposalView
             $kind = !$background && in_array($chosen['kind'] ?? null, [ApplyFixes::KIND_FIXED, ApplyFixes::KIND_INPUT], true) ? $chosen['kind'] : ApplyFixes::defaultKind($role, $background);
             $fit = in_array($chosen['fit'] ?? null, [ApplyFixes::FIT_CONTAIN, ApplyFixes::FIT_COVER], true) ? $chosen['fit'] : ApplyFixes::defaultFit($role);
             $box = $background ? null : ApplyFixes::elementBox($element, $measured, $scale);
-            $canvasWidth = $box[2] ?? (ApplyFixes::number($document['canvas']['width'] ?? null) ?? 0.0);
-            $canvasHeight = $box[3] ?? (ApplyFixes::number($document['canvas']['height'] ?? null) ?? 0.0);
+            $canvasWidth = ($box[2] ?? (ApplyFixes::number($document['canvas']['width'] ?? null) ?? 0.0)) * $toTemplate;
+            $canvasHeight = ($box[3] ?? (ApplyFixes::number($document['canvas']['height'] ?? null) ?? 0.0)) * $toTemplate;
             $fileId = is_string($chosen['fileId'] ?? null) ? $chosen['fileId'] : null;
             $file = $fileId === null ? null : $this->proposal->galleryFile($scan, $fileId);
             $picture = null;
@@ -215,6 +221,7 @@ final readonly class ScanProposalView
         $decisions = [];
         $toDecide = 0;
         $information = [];
+        $openFontQuestions = [];
 
         foreach (ApplyFixes::rows($report['fonts'] ?? null) as $group) {
             $key = is_string($group['group'] ?? null) ? $group['group'] : '';
@@ -247,7 +254,16 @@ final readonly class ScanProposalView
             }
 
             $item = $items['font:' . $key] ?? null;
-            $toDecide += $item === null ? 1 : 0;
+
+            // The same question asked of several groups ("we used the nearest
+            // face: X" — a project with one face answers it six times) is ONE
+            // thing to decide: the review shows it as one card whose answer
+            // goes to every group, with the groups one by one underneath.
+            if ($item === null) {
+                $question = $pattern . '|' . (is_string($entry['face']) ? $entry['face'] : '');
+                $toDecide += isset($openFontQuestions[$question]) ? 0 : 1;
+                $openFontQuestions[$question] = true;
+            }
             $decisions[] = [
                 'key' => 'font:' . $key,
                 'type' => 'font',
@@ -280,6 +296,12 @@ final readonly class ScanProposalView
 
         foreach (ApplyFixes::rows($report['omitted'] ?? null) as $index => $omitted) {
             $item = $items['omitted:' . $index] ?? null;
+
+            // A proposal made before the rule: an entry on built layers is not offered (OmittedOnLayers).
+            if ($item === null && OmittedOnLayers::isCovered($omitted, $measured)) {
+                continue;
+            }
+
             $omittedOpen = $omittedOpen || $item === null;
             $decisions[] = [
                 'key' => 'omitted:' . $index,
@@ -389,6 +411,8 @@ final readonly class ScanProposalView
                 'stale' => $state['fixes']['preview']['stale'] && $state['fixes']['preview']['rev'] !== $state['fixes']['rev'],
             ],
             'canvas' => ['width' => $document['canvas']['width'] ?? null, 'height' => $document['canvas']['height'] ?? null],
+            // The size the template will have (ScanProposal::dimension()): the chosen format, a PDF's page, else the canvas.
+            'format' => ['unit' => $format->unit->value, 'width' => $format->unitWidth, 'height' => $format->unitHeight, 'pxWidth' => $format->width(), 'pxHeight' => $format->height()],
             'source' => $source === null ? null : ['width' => (int) round($source[0]), 'height' => (int) round($source[1])],
             'counts' => $counts,
             'toDecide' => $toDecide,

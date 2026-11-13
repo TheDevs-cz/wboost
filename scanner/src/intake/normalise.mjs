@@ -77,7 +77,7 @@ export const PDF_PAGE = Object.freeze({ dpi: 300, minLongEdgePx: 1600 });
  * an A4 becomes 2480 × 3508 px, the size a designer would give that template), but the long edge never above
  * the working copy's bound (a poster) and never below `minLongEdgePx` (a business card or a page authored in
  * "pixels" would come out too small to read its small print).
- * → {png, pages, pageMm: [w, h]} | {error: 'pdf_unsupported' | 'pdf_unreadable' | 'pdf_encrypted' | 'pdf_empty'}
+ * → {png, pages, pageMm: [w, h], pagePt: [w, h] — the page in points, what the app makes the template's format of} | {error: 'pdf_unsupported' | 'pdf_unreadable' | 'pdf_encrypted' | 'pdf_empty'}
  */
 async function pdfFirstPage(buf, { longEdgePx, dpi = PDF_PAGE.dpi, minLongEdgePx = PDF_PAGE.minLongEdgePx, timeoutMs = 15_000, addressSpaceBytes = TOOL_ADDRESS_SPACE_BYTES }) {
     const dir = await mkdtemp(join(tmpdir(), 'scan-pdf-'));
@@ -100,7 +100,7 @@ async function pdfFirstPage(buf, { longEdgePx, dpi = PDF_PAGE.dpi, minLongEdgePx
             return { error: e?.code === 'ENOENT' ? 'pdf_unsupported' : 'pdf_unreadable' };
         }
         const mm = (pt) => +(pt * 25.4 / 72).toFixed(1);
-        return { png: await readFile(`${out}.png`), pages, pageMm: [mm(wPt), mm(hPt)], dpi: Math.round(long / Math.max(wPt, hPt) * 72) };
+        return { png: await readFile(`${out}.png`), pages, pageMm: [mm(wPt), mm(hPt)], pagePt: [+wPt.toFixed(2), +hPt.toFixed(2)], dpi: Math.round(long / Math.max(wPt, hPt) * 72) };
     } catch { return { error: 'pdf_unreadable' }; } finally { await rm(dir, { recursive: true, force: true }); }
 }
 
@@ -185,7 +185,7 @@ export async function normalise(input, { limits = UPLOAD_LIMITS, working = WORKI
             workingWidth: info.width, workingHeight: info.height, workingFormat: format, scale: +(info.width / width).toFixed(5),
             space: meta.space ?? null, depth: meta.depth ?? null, hasAlpha: !!meta.hasAlpha, orientation: meta.orientation ?? 1,
             frames: pdf ? pdf.pages : (meta.pages ?? 1), density: pdf ? pdf.dpi : (meta.density ?? null),
-            ...(pdf ? { pageMm: pdf.pageMm } : {}),
+            ...(pdf ? { pageMm: pdf.pageMm, pagePt: pdf.pagePt } : {}),
             facts: [
                 ...(meta.space && meta.space !== 'srgb' && meta.space !== 'rgb' ? [`converted_from_${meta.space}`] : []),
                 ...(meta.depth && meta.depth !== 'uchar' ? ['reduced_to_8_bit'] : []),

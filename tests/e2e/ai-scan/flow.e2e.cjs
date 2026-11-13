@@ -180,14 +180,24 @@ module.exports = {
         await check('Vrstvy: any text is correctable, a switch makes it fixed, undo of the shrink', async () => {
             await h.press(page, 'tablay');
             await page.waitForSelector('.as-layers');
-            await h.fill(page, '[data-k="ltheadline"]', 'Den otevřených dveří 2026');
+            // a headline set on two lines is shown on two lines — a field that drops the break
+            // ("Den otevřenýchdveří") would also save the text without it
+            const field = await page.$eval('[data-k="ltheadline"]', (el) => ({ tag: el.tagName, value: el.value, rows: el.rows, lines: Math.round(el.clientHeight / parseFloat(getComputedStyle(el).lineHeight)) }));
+            assert.deepEqual([field.tag, field.value, field.rows], ['TEXTAREA', 'Den otevřených\ndveří', 2]);
+            assert.ok(field.lines >= 2, `both lines are visible (${field.lines})`);
+            // Enter is a new line there; the correction keeps the break
+            await h.fill(page, '[data-k="ltheadline"]', 'Den otevřených\ndveří 2026');
             await page.keyboard.press('Tab');
             await h.settled(page);
             await page.$eval('[data-k="lswheadline"]', (el) => el.click());
             await h.settled(page);
             const headline = (await proposal()).elements.find((e) => e.id === 'headline');
-            assert.equal(headline.text, 'Den otevřených dveří 2026');
+            assert.equal(headline.text, 'Den otevřených\ndveří 2026');
             assert.equal(headline.input, false);
+            // back to a field the user fills — the fill page is asked about it after the template exists
+            await page.$eval('[data-k="lswheadline"]', (el) => el.click());
+            await h.settled(page);
+            assert.equal((await proposal()).elements.find((e) => e.id === 'headline').input, true);
             await h.press(page, 'tabdec');
             await page.$eval('.as-info summary', (el) => el.click());
             await page.click('[data-k="doshrink"]');
@@ -266,6 +276,18 @@ module.exports = {
             await h.waitToast(page, 'vytvořena ze skenu — \\d+ prvk');
             assert.equal(templates(), templatesBefore + 1, 'exactly one template');
             assert.equal(h.psql(`SELECT status FROM ai_scan WHERE id = '${scanId}'`), 'accepted');
+        });
+
+        await check('the fill page pre-fills the CORRECTED texts — the break kept, nothing of the first reading', async () => {
+            const variantId = /template-variant\/([0-9a-f-]{36})\/editor/.exec(page.url())[1];
+            await page.goto(`${h.config.base}/template-variant/${variantId}/export`, { waitUntil: 'networkidle2' });
+            // the fill component arrives after the page (a deferred Live component)
+            await page.waitForFunction(() => [...document.querySelectorAll('textarea')].some((n) => n.value !== ''), { timeout: 60000 });
+            const values = await page.$$eval('textarea', (nodes) => nodes.map((n) => n.value));
+            assert.ok(values.includes('Den otevřených\ndveří 2026'), `the corrected headline, on two lines: ${JSON.stringify(values)}`);
+            assert.ok(values.includes('Sobota 14. června 2026'), `the confirmed date: ${JSON.stringify(values)}`);
+            assert.ok(!values.some((v) => v === 'Sobota 14. června' || v === 'Den otevřených\ndveří' || v === 'Den otevřených dveří'), 'no field holds what the scanner first read');
+            await h.shot(page, 'flow-fill-page');
         });
 
         await check('after creating: the scan page is read-only, the list card says „Ze skenu“', async () => {

@@ -114,6 +114,8 @@ test('a PDF is taken as a picture of its first page: 300 dpi, inside the working
     assert.equal(a4.meta.format, 'pdf');
     assert.ok(Math.abs(a4.meta.workingWidth - 2480) <= 2 && Math.abs(a4.meta.workingHeight - 3508) <= 2, `${a4.meta.workingWidth} × ${a4.meta.workingHeight}`);
     assert.deepEqual(a4.meta.pageMm, [210, 297]);
+    // the page's own size travels in points — the app makes the template's format of it, not of the raster
+    assert.deepEqual(a4.meta.pagePt, [595.28, 841.89]);
     assert.deepEqual(a4.meta.facts, ['pdf_first_page']);
     assert.equal(a4.meta.density, 300);
     // the picture is the page: white paper, the rectangle where the page has it
@@ -131,6 +133,10 @@ test('a PDF is taken as a picture of its first page: 300 dpi, inside the working
     const turned = await normalise(makePdf(595.276, 841.89, 1, { rotate: 90 }));
     assert.ok(turned.meta.workingWidth > turned.meta.workingHeight, `${turned.meta.workingWidth} × ${turned.meta.workingHeight}`);
     assert.deepEqual(turned.meta.pageMm, [297, 210]);
+    assert.deepEqual(turned.meta.pagePt, [841.89, 595.28]);
+    // a page authored in pixels (1080 × 1350) is rasterised larger for reading; its size is still the page's
+    const post = await normalise(makePdf(1080, 1350));
+    assert.deepEqual([post.meta.workingHeight, post.meta.pagePt], [4096, [1080, 1350]]);
 });
 
 test('a PDF that cannot be read is a named outcome, never a crash', async () => {

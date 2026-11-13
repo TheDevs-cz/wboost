@@ -72,6 +72,19 @@ module.exports = {
             await h.sleep(3500); // the fake run notices the cancel at its next heartbeat
         });
 
+        await check('a cancelled scan opened later: the kept picture is offered — „Stejný obrázek znovu“ leads to S2', async () => {
+            const cancelled = h.psql(`SELECT id FROM ai_scan WHERE project_id = '${h.config.projectId}' AND status = 'cancelled' ORDER BY created_at DESC LIMIT 1`);
+            await page.goto(h.urls.scan(cancelled), { waitUntil: 'networkidle2' });
+            await h.waitView(page, 'gone');
+            assert.match(await card(), /Sken zrušen .*Obrázek u nás zůstane do .+\. Můžete ho naskenovat znovu, nebo nahrát jiný\./);
+            assert.match(await h.text(page, '.as-status .as-row'), /Stejný obrázek znovu.*Nahrát jiný obrázek.*Zpět na šablony.*Zahodit/);
+            assert.equal(await page.$$eval('.as-status .btn-primary', (n) => n.length), 1, 'one primary');
+            await h.press(page, 'again');
+            await h.waitView(page, 'chosen');
+            assert.match(await h.text(page, '.as-file-b'), /bezi\.png/);
+            assert.ok(await h.exists(page, '[data-k="start"]'), 'nothing started: the user starts it on S2');
+        });
+
         await check('pre-check stop is not a failure: neutral card, „Zkusit přesto“ once, straight to the queue', async () => {
             scanner.options.scenario = 'stop';
             const file = await h.poster(browser, 'fotka-tisku.png');

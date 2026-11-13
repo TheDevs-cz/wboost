@@ -547,5 +547,13 @@ a.as-tp-pill:hover { color: var(--text); }
 .as-page [tabindex="-1"]:focus { outline: 0; }
 /* ==== /page ==== */
 .as-layer .sub .as-inl.txt { flex: 1 1 100%; }
+/* one font question asked of several groups: one card, the groups one by one underneath */
+.as-fontsplit > summary { min-height: 32px; }
+.as-fontsplit-b { display: flex; flex-direction: column; gap: 8px; padding-top: 6px; }
+.as-fontsplit-b > .as-it { background: var(--surface); padding: 12px; border-radius: 12px; }
+/* a text of the design is a textarea — one row per line, so a break stays a break */
+textarea.as-inl { display: block; height: auto; min-height: 32px; padding: 6px 8px; line-height: 18px; resize: none; overflow: hidden auto; field-sizing: content; max-height: 164px; white-space: pre-wrap; }
+.as-it > textarea.as-inl { margin: 0; }
+@media (hover: none) { textarea.as-inl { height: auto; min-height: 40px; padding: 10px 8px; } }
 /* the "doubtful transcription" dot sits in front of its text, not on a row of its own */
 .as-layer .sub .as-dot + .as-inl.txt { flex: 1 1 calc(100% - 16px); }
