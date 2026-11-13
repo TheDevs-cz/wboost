@@ -5,7 +5,7 @@ import { UPLOAD_ERRORS, startHint } from '../copy.js';
 import { inspectFiles, printFormats, ratioLabel, GOOD_SHORT_SIDE, TEMPLATE_MAX_LONG_EDGE } from '../file-checks.js';
 import { head } from './parts.js';
 
-const ACCEPT = 'image/jpeg,image/png,image/webp,image/heic,image/heif';
+const ACCEPT = 'image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf';
 const TIPS_OK = ['Export z grafického programu nebo snímek obrazovky', 'Celá grafika bez ořezu, kratší strana aspoň 1000 px', 'Rovné texty, ploché barvy, jasné tvary'];
 const TIPS_NO = ['Fotka vytištěného plakátu z mobilu', 'Koláž z více grafik v jednom obrázku', 'Stíny, obrysy a otočené texty — ty zjednodušíme'];
 const tips = () => `<div><h3 style="margin:0 0 10px">S čím to jde nejlépe</h3><ul class="as-tips">${TIPS_OK.map((t, i) => `<li class="ok">${ic('check')}<span><span class="sr">Vhodné: </span>${t}</span></li><li class="no">${ic('x')}<span><span class="sr">Nevhodné: </span>${TIPS_NO[i]}</span></li>`).join('')}</ul></div>`;
@@ -19,7 +19,7 @@ export function uploadView(app) {
     return `${head(app, 1, 'Nahrání', { lead: true })}${serviceLine(app)}
 <section class="as-card" data-region="upload">
 <input type="file" class="sr" id="asFile" tabindex="-1" aria-hidden="true" accept="${ACCEPT}" data-chg="fileInput">
-<button type="button" class="gal-drop as-drop" data-act="pick" data-k="drop" data-focus aria-describedby="asDropCap${error ? ' asDropErr' : ''}">${ic('sparkle', '')}<b><span class="dt-only">Přetáhněte sem obrázek grafiky</span><span class="ph-only">Klepněte a vyberte obrázek</span></b><span class="dt-only">nebo <u>vyberte soubor</u> z počítače</span><span class="cap" id="asDropCap">JPG, PNG, WebP nebo HEIC · nejvýše 10 MB · jeden obrázek = jedna šablona</span></button>
+<button type="button" class="gal-drop as-drop" data-act="pick" data-k="drop" data-focus aria-describedby="asDropCap${error ? ' asDropErr' : ''}">${ic('sparkle', '')}<b><span class="dt-only">Přetáhněte sem obrázek grafiky</span><span class="ph-only">Klepněte a vyberte obrázek</span></b><span class="dt-only">nebo <u>vyberte soubor</u> z počítače</span><span class="cap" id="asDropCap">JPG, PNG, WebP, HEIC nebo PDF (první stránka) · nejvýše 10 MB · jeden obrázek = jedna šablona</span></button>
 ${error ? `<p class="hint err" id="asDropErr" role="alert" style="margin:0;display:flex;gap:6px">${ic('alert', 's14')}<span>${esc(errorText(error))}${error.code === 'network' && app.picked ? ' <button type="button" class="as-link" data-act="start">Zkusit znovu</button>' : ''}</span></p>` : ''}
 ${tips()}</section>`;
 }
@@ -51,6 +51,7 @@ function checks(picked) {
     const warn = (text) => `<li class="warn">${ic('alert')}<span><span class="sr">Varování: </span>${text}</span></li>`;
     const rows = [ok('Formát a velikost jsou v pořádku')];
     if (picked.type === 'heic') rows.push(warn('Fotka z telefonu (HEIC). Pokud jde o fotku tisku, výsledek bude jen přibližný.'));
+    if (picked.type === 'pdf') rows.push(ok('PDF — naskenujeme jeho první stránku jako obrázek'));
     if (picked.width) rows.push(picked.warnings.includes('small') ? warn('Malý obrázek — drobné texty nemusíme přečíst') : ok('Dostatečné rozlišení'));
     if (picked.sharpnessChecked) rows.push(picked.warnings.includes('blurry') ? warn('Obrázek je rozmazaný — výsledek bude jen přibližný') : ok('Obrázek je ostrý'));
     return `<ul class="as-checks" aria-label="Kontrola souboru v prohlížeči">${rows.join('')}</ul>`;

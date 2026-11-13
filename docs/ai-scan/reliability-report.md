@@ -608,9 +608,26 @@ The "older than shipped" refusal was checked against the real history (`dd2a0c47
 refused) but not by a live run. Re-running the two Release runs of 16:12 and 16:24 UTC is not possible
 (they point at the shared repository's test branch, deleted since) — re-run any later one instead.
 
+**A hard design on x86** (2026-11-13 evening, after the scanner bump to `sha-fcf402c9`, definition
+`8-0c3435ed1918`; infra journal of that hour). Two scans of SYNTHETIC inputs in the owner's project
+`Mikeš`, started through the public web by a temporary admin (deleted afterwards), both discarded:
+
+| Scan | Outcome | whole scan | recorded cost | scanner cgroup |
+|---|---|---|---|---|
+| the dense A4 flyer of the hard set (`B3-letak-a4`, 1240 × 1754 px — authored for the evaluation; 40 texts, 3 places, 9 shapes in the proposal) | `ready`, 2 candidates, 6 verification renders | **110 s** (intake 4 s, build 103 s) | **$0.482** (pre-check $0.0005, build $0.481) | `memory.peak` **699 MiB** of 4 GiB — 616 MiB of it is the self-test at the container's start, so the scan added ≈ 80 MiB to the high-water mark; **29.0 s CPU**, 11 throttled periods (0.2 s) under 3 CPUs; no OOM kill |
+| a calendar page (a render of the app's test set, 1600 × 748 px) | `ready`, 2 candidates | 54 s (build 48 s) | $0.224 | peak unchanged; 15.7 s CPU |
+
+Read against the local figures: the same flyer took 112 s and $0.546 through the local app on the plan
+(`scanner/eval/RESULTS.md` §10.7) and peaked at 876 MB in the image under Rosetta (§0.5) — the box is
+neither slower nor hungrier. The largest canvas of the sets (A3, 2480 × 3508 px, 1.8 GiB under Rosetta)
+is client material and was not run on production; the 4 GiB limit therefore still rests on the emulated
+figure for that size. No provider retry occurred. `Mikeš` had used its 10 scans of the month: its limit
+was raised to 12 for these two and put back to 10 (the infra journal says so; the project stands at 12 of
+10 until December or until the owner raises the limit).
+
 **Still open of G2b:** a real host reboot (by decision); Gotenberg / MinIO / Redis stopped or paused
 and a `db` restart (production services — not to be broken for a test); a slow migration during a
 deploy mid-scan; a calendar PDF export during a scan; the hostile uploads through the real upload;
-a hard design's figures on x86; Gotenberg read again after a week of real use; billed cost against
-recorded usage after the first ten admin scans (ten scans exist, all of them checks, $1.54 recorded — the
-provider's own report was not read).
+the LARGEST canvas (A3 at 300 dpi) on x86 — a hard design of ordinary size is measured above; Gotenberg
+read again after a week of real use; billed cost against recorded usage after the first admin scans
+(twelve scans exist, all of them checks, $2.24 recorded — the provider's own report was not read).

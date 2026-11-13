@@ -237,11 +237,28 @@ bucket that does not exist is an ordinary 404 and proves nothing.
 ## Upload
 
 `AiScanUpload::inspect()` reads the HEADER only — magic bytes for the type
-(JPEG, PNG, WebP, HEIC; SVG and everything else refused), the byte size
+(JPEG, PNG, WebP, HEIC, **PDF**; SVG and everything else refused), the byte size
 (≤ 10 000 000), and the pixel size the header declares (each side ≤ 8000,
-≤ 36 Mpx, short side ≥ 600 — **≥ 300 for kind `calendar`**; HEIC is accepted
-on bytes alone). Nothing is decoded in the web process: normalising is the
-scanner's intake.
+≤ 36 Mpx, short side ≥ 600 — **≥ 300 for kind `calendar`**; HEIC and PDF are
+accepted on bytes alone). Nothing is decoded in the web process: normalising is
+the scanner's intake.
+
+**A PDF is a picture of its first page** (owner decision O4, 2026-11-13). `web`
+accepts a file that starts with `%PDF-` (`application/pdf`, stored as
+`original.pdf`); the scanner's intake rasterises page 1 with poppler's
+`pdftoppm` inside its decoding child process — the page at 300 dpi (an A4
+becomes 2480 × 3508 px), the long edge never above the working copy's 4096 px
+nor below 1600 px — and from there the scan is an ordinary one. No page
+picker; the page's own text and font names are not read (follow-up F1,
+`docs/ai-scan/architecture.md`). A PDF that is encrypted, broken or empty is
+`stopped unusable_input` (refunded). Order of a roll-out: the scanner image
+first (an image without poppler stops every PDF as `unusable_input`), then
+the app. Mirrors: `sniffType()` in `assets/ai-scan/file-checks.js` (`pdf`; the
+browser shows no preview and reads no size, as for HEIC), the `ACCEPT` lists
+and captions of `assets/ai-scan/page/upload.js` and
+`assets/calendar/ui/scan/views.js`, `COPY` (`type`, `source`), the MCP tool's
+docblock and refusal text; the skill's `references/tools.md` still lists the
+four picture types — to be corrected with the next skill release.
 
 The calendar minimum (`AiScanLimits::UPLOAD_MIN_SHORT_SIDE_CALENDAR`) has
 three mirrors that must move together: `kinds.calendar.upload.minShortSidePx`
@@ -537,7 +554,7 @@ its `fonts` may be empty.
 
 `context` is in build claims only; an intake claim has `leaseSeconds: 150` and
 the original's `contentType` / `bytes`. `source.width` / `height` are what the
-upload's header declared (null for HEIC).
+upload's header declared (null for HEIC and PDF).
 
 `usage` is **cumulative for this `(scan, run, lane)`**:
 `{provider, model, inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens, cacheWrite5mTokens?, cacheWrite1hTokens?, engineCostMicroUsd, turns, durationMs}`
@@ -590,6 +607,11 @@ in-process.
   (`FileUpload::moveToTrash()`).
 - **Font faces.** `FontFacesRenderer` renders lines of text in a project's
   faces as one picture with the cell geometry; the scanner measures and ranks.
+  The scanner's verification render asks for a line at THREE times its fitted
+  size (≤ 400 px, the endpoint's bound) and compares it with the source at
+  sub-pixel positions; the verdict thresholds are `fonts.*` of
+  `definition.json` (version 8: 0.88 / 0.85 from 12 glyphs / 0.78 from 20,
+  `verifiedSmallInkPx` 22) — `scanner/eval/RESULTS.md` §10.1.
 - **At most two scan renders at once**: `ScanRenderLimiter` holds one of two
   Postgres advisory locks per render; a third caller gets `renderer_busy` at
   once, and a request that dies loses its database session and with it the
@@ -844,7 +866,7 @@ and `options` (the format the scan was started with: `targetUnit`,
 
 **No page asks for a picture that does not exist.** `picture` says which copy
 of the upload there is: `working` (and the small `preview`) once the pre-check
-passed, `original` before that unless it is a HEIC, `null` when the files are
+passed, `original` before that unless it is a HEIC or a PDF, `null` when the files are
 gone. The wizard shows `image/{picture}`, the strip and the history
 `image/preview` or `image/original` accordingly, a `ready` scan
 `image/proposal` (which falls back to the kept candidate). There is no

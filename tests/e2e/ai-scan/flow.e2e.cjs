@@ -19,17 +19,18 @@ module.exports = {
         const poster = await h.poster(browser);
         const proposal = () => h.scan(page, (app) => app.proposal);
 
-        await check('S1 refuses a PDF, a tiny picture and two files — nothing is sent', async () => {
+        await check('S1 refuses a source file, a tiny picture and two files — nothing is sent', async () => {
             // this walk starts as somebody who never scanned (another script may have run before)
             h.psql(`UPDATE "user" SET ai_scan_consent_version = NULL, ai_scan_consent_at = NULL WHERE email = ${h.quote(h.config.email)}`);
             await page.goto(h.urls.scanNew(), { waitUntil: 'networkidle2' });
             await h.waitView(page, 'upload');
             assert.match(await h.text(page, '.as-step'), /Krok 1 ze 4 · Nahrání/);
-            const pdf = path.join(h.config.tmp, 'letak.pdf');
-            fs.writeFileSync(pdf, '%PDF-1.7 fake');
-            await h.choose(page, pdf);
+            // (a PDF is accepted since 2026-11-13: its first page is scanned as a picture — a Photoshop file is still a source file)
+            const psd = path.join(h.config.tmp, 'letak.psd');
+            fs.writeFileSync(psd, '8BPS fake');
+            await h.choose(page, psd);
             await page.waitForSelector('#asDropErr');
-            assert.match(await h.text(page, '#asDropErr'), /PDF a zdrojové soubory zatím neumíme/);
+            assert.match(await h.text(page, '#asDropErr'), /Zdrojové soubory \(PSD, AI, InDesign, SVG\) zatím neumíme/);
             const tiny = await h.picture(browser, 'mala.png', 400, 300);
             await h.choose(page, tiny);
             await page.waitForFunction(() => /příliš malý \(400 × 300 px\)/.test((document.querySelector('#asDropErr') || {}).textContent || ''));

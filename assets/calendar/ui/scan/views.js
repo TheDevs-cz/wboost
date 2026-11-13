@@ -9,7 +9,7 @@ import { ratioLabel } from '../../../ai-scan/file-checks.js';
 import { boxStyle, cropStyle, pixelsStyle } from '../../../ai-scan/page/parts.js';
 import { elementFact, sampleWeekLabel } from './preview.js';
 
-const ACCEPT = 'image/jpeg,image/png,image/webp,image/heic,image/heif';
+const ACCEPT = 'image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf';
 const PICTURE_ACCEPT = 'image/jpeg,image/png,image/webp,image/svg+xml';
 const PREM = `<span class="tp-prem">${ic('sparkle', 's14')}Premium</span>`;
 const IN_PROGRESS = ['checking', 'queued', 'running'];
@@ -108,6 +108,7 @@ function checks(scan) {
     const warn = (text) => `<li class="warn">${ic('alert')}<span><span class="sr">Varování: </span>${text}</span></li>`;
     const rows = [ok('Formát a velikost jsou v pořádku')];
     if (picked.type === 'heic') rows.push(warn('Fotka z telefonu (HEIC). Pokud jde o fotku tisku, výsledek bude jen přibližný.'));
+    if (picked.type === 'pdf') rows.push(ok('PDF — naskenujeme jeho první stránku jako obrázek'));
     if (picked.width) rows.push(picked.warnings.includes('small') ? warn(CAL.lowResolutionCheck) : ok('Dostatečné rozlišení'));
     if (picked.sharpnessChecked) rows.push(picked.warnings.includes('blurry') ? warn('Obrázek je rozmazaný — výsledek bude jen přibližný') : ok('Obrázek je ostrý'));
     if (picked.width) {

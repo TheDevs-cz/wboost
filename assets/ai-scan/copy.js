@@ -49,8 +49,8 @@ export function noteText(note, params) {
 
 /** S1 — refusals of a file. */
 export const UPLOAD_ERRORS = {
-    type: () => 'Tento soubor neumíme. Nahrajte obrázek JPG, PNG, WebP nebo HEIC.',
-    source: () => 'PDF a zdrojové soubory zatím neumíme. Uložte stránku jako obrázek (PNG nebo JPG) a nahrajte ji.',
+    type: () => 'Tento soubor neumíme. Nahrajte obrázek JPG, PNG, WebP nebo HEIC, případně PDF.',
+    source: () => 'Zdrojové soubory (PSD, AI, InDesign, SVG) zatím neumíme. Uložte stránku jako obrázek (PNG nebo JPG) nebo jako PDF a nahrajte ji.',
     many: () => 'Nahrajte jen jeden obrázek.',
     bytes: () => 'Obrázek je větší než 10 MB. Zmenšete ho nebo ho uložte jako JPG.',
     small: (w, h) => `Obrázek je příliš malý (${w} × ${h} px). Kratší strana musí mít aspoň 600 px, lépe 1000 px a víc.`,
@@ -143,7 +143,7 @@ export const CAL = {
         title: 'Naskenovat design',
         text: 'Nahrajte obrázek stránky svého kalendáře. AI rozpozná, kde je fotografie, kalendárium, hlavička a logo, a navrhne stejné rozvržení.',
     },
-    drop: { bold: 'Přetáhněte sem obrázek stránky kalendáře', phone: 'Klepněte a vyberte obrázek', cap: 'JPG, PNG, WebP nebo HEIC · nejvýše 10 MB · jedna týdenní stránka' },
+    drop: { bold: 'Přetáhněte sem obrázek stránky kalendáře', phone: 'Klepněte a vyberte obrázek', cap: 'JPG, PNG, WebP, HEIC nebo PDF (první stránka) · nejvýše 10 MB · jedna týdenní stránka' },
     tipsOk: ['Export stránky z grafického programu', 'Jedna celá týdenní stránka, rovně a bez ořezu', 'Běžný týden — ne titulní strana ani měsíční přehled'],
     tipsNo: ['Fotka kalendáře na stole — zkreslí barvy i rozměry', 'Více stránek v jednom obrázku', 'Ozdobné pruhy a rámečky — rozvržení má pevnou sadu prvků'],
     takeOver: 'Převezmeme rozmístění fotografie, kalendária, hlavičky, měsíce a loga a také barvy. Písma vybereme z projektu. Fotky, texty a dny doplní kalendář sám.',

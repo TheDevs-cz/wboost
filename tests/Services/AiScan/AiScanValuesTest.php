@@ -162,7 +162,10 @@ final class AiScanValuesTest extends TestCase
         self::assertSame('heic', AiScanUpload::sniff("\x00\x00\x00\x18ftypheic\x00\x00")['ext'] ?? null);
         self::assertSame('heic', AiScanUpload::sniff("\x00\x00\x00\x18ftypmif1\x00\x00")['ext'] ?? null);
 
-        foreach (['<svg xmlns="http://www.w3.org/2000/svg"/>', '<?xml version="1.0"?><svg/>', '%PDF-1.7', 'GIF89a', "RIFF\x00\x00\x00\x00WAVE", "\x00\x00\x00\x18ftypisom", '', 'II*' . "\x00"] as $other) {
+        // a PDF: its first page is scanned as a picture (O4)
+        self::assertSame('pdf', AiScanUpload::sniff("%PDF-1.7\n")['ext'] ?? null);
+
+        foreach (['<svg xmlns="http://www.w3.org/2000/svg"/>', '<?xml version="1.0"?><svg/>', '%PDF 1.7', '8BPS', 'GIF89a', "RIFF\x00\x00\x00\x00WAVE", "\x00\x00\x00\x18ftypisom", '', 'II*' . "\x00"] as $other) {
             self::assertNull(AiScanUpload::sniff($other));
         }
     }

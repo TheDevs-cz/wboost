@@ -12,10 +12,13 @@ use WBoost\Web\Value\AiScan\AiScanRefused;
 /**
  * What the web process checks about an uploaded picture — **from the header
  * only; nothing is decoded here** (architecture.md §6): the type by its magic
- * bytes, the byte size, and the pixel size as the header declares it. HEIC is
- * accepted on bytes alone (its size sits in boxes this reader does not walk);
- * the scanner's intake checks it while normalising. SVG and everything else
- * is refused.
+ * bytes, the byte size, and the pixel size as the header declares it (the
+ * shortest side allowed depends on the kind: a calendar page may be smaller).
+ * HEIC is
+ * accepted on bytes alone (its size sits in boxes this reader does not walk),
+ * and so is a PDF (its first page is rasterised by the scanner's intake);
+ * the intake checks both while normalising. SVG and everything else is
+ * refused.
  *
  * Decoding, EXIF rotation, CMYK, 16-bit and animation are the scanner's, in
  * its own child process with a pixel limit.
@@ -56,7 +59,7 @@ final class AiScanUpload
         $width = null;
         $height = null;
 
-        if ($type['ext'] !== 'heic') {
+        if ($type['ext'] !== 'heic' && $type['ext'] !== 'pdf') {
             // Reads the format's header fields; no pixel is decoded.
             $size = @getimagesizefromstring($header);
 
@@ -115,6 +118,13 @@ final class AiScanUpload
         // ISO base media: `ftyp` box with a HEIF brand.
         if (substr($header, 4, 4) === 'ftyp' && in_array(substr($header, 8, 4), ['heic', 'heix', 'hevc', 'hevx', 'heim', 'heis', 'mif1', 'msf1'], true)) {
             return ['contentType' => 'image/heic', 'ext' => 'heic'];
+        }
+
+        // A PDF is scanned as a picture of its FIRST page (owner decision O4):
+        // accepted on its signature and byte size alone, like HEIC — the
+        // scanner's intake rasterises the page and stops a file it cannot read.
+        if (str_starts_with($header, '%PDF-')) {
+            return ['contentType' => 'application/pdf', 'ext' => 'pdf'];
         }
 
         return null;

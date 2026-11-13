@@ -14,7 +14,7 @@ export const GOOD_SHORT_SIDE = 1000;
 /** The longer side of a template made from a scan (ux.md §2.2). */
 export const TEMPLATE_MAX_LONG_EDGE = 5000;
 
-const SOURCE_EXTENSIONS = /\.(pdf|psd|psb|ai|eps|idml|indd|svg|sketch|fig|xd|afdesign|afphoto)$/i;
+const SOURCE_EXTENSIONS = /\.(psd|psb|ai|eps|idml|indd|svg|sketch|fig|xd|afdesign|afphoto)$/i;
 
 const ascii = (bytes, from, to) => String.fromCharCode(...bytes.subarray(from, to));
 const u16be = (b, i) => (b[i] << 8) | b[i + 1];
@@ -22,13 +22,14 @@ const u32be = (b, i) => ((b[i] << 24) | (b[i + 1] << 16) | (b[i + 2] << 8) | b[i
 const u16le = (b, i) => b[i] | (b[i + 1] << 8);
 const u24le = (b, i) => b[i] | (b[i + 1] << 8) | (b[i + 2] << 16);
 
-/** `jpeg` | `png` | `webp` | `heic` | `source` (PDF / PSD / …) | null — by magic bytes, like the server. */
+/** `jpeg` | `png` | `webp` | `heic` | `pdf` (its first page is scanned as a picture) | `source` (PSD / AI / …) | null — by magic bytes, like the server. */
 export function sniffType(bytes, name = '') {
     if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'jpeg';
     if (bytes.length >= 8 && u32be(bytes, 0) === 0x89504e47) return 'png';
     if (bytes.length >= 12 && ascii(bytes, 0, 4) === 'RIFF' && ascii(bytes, 8, 12) === 'WEBP') return 'webp';
     if (bytes.length >= 12 && ascii(bytes, 4, 8) === 'ftyp' && /^(heic|heix|hevc|hevx|heim|heis|mif1|msf1|heif)/.test(ascii(bytes, 8, 12))) return 'heic';
-    if (bytes.length >= 4 && (ascii(bytes, 0, 4) === '%PDF' || ascii(bytes, 0, 4) === '8BPS' || ascii(bytes, 0, 4) === '%!PS')) return 'source';
+    if (bytes.length >= 5 && ascii(bytes, 0, 5) === '%PDF-') return 'pdf';
+    if (bytes.length >= 4 && (ascii(bytes, 0, 4) === '8BPS' || ascii(bytes, 0, 4) === '%!PS')) return 'source';
     if (SOURCE_EXTENSIONS.test(name)) return 'source';
     return null;
 }
@@ -122,8 +123,8 @@ export function isBlurry(bitmap) {
 /**
  * Inspects a FileList / array of files the user chose or dropped.
  * → `{ error: 'many' | 'source' | 'type' | 'bytes' | 'small' | 'large', width?, height? }`
- * or `{ file, type, width, height (null for HEIC / unreadable), previewUrl (null when the browser
- *      cannot decode it), warnings: ['small' | 'blurry' | 'heic'] }`.
+ * or `{ file, type, width, height (null for HEIC / PDF / unreadable), previewUrl (null when the browser
+ *      cannot decode it — always for a PDF), warnings: ['small' | 'blurry' | 'heic'] }`.
  * `minShortSide` / `goodShortSide`: below the first the file is refused, below the second it gets
  * the warning `small` (defaults: a template scan's).
  */
