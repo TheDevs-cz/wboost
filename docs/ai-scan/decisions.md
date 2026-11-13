@@ -21,6 +21,7 @@ orchestrator decided on his behalf, so later sessions do not re-open it.
 | 11 | **Approval to implement and deliver to production.** | "you can deliver it all on production directly" |
 | 12 | Admins may scan customers' designs before the legal wording is confirmed — those designs reach the team anyway. The legal gate applies to customer self-service access. | "the designs of customers were reaching us anyways" |
 | 13 | The live "Požádat o přístup" card is the gate for non-entitled users from the moment the wizard ships (not a "Brzy" teaser until launch). | "yes požádat o přístup is okay good gate" |
+| 14 | Whatever the feature needs on the host server may be installed; preferably as infrastructure-as-code in `~/www/lily.srv`. | "if anything needs to be installed on the host server - you can" |
 
 ## Decisions taken by the orchestrator under #11 (architecture.md §11 numbering)
 
