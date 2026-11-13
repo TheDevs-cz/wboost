@@ -21,6 +21,7 @@ use WBoost\Web\Entity\User;
 use WBoost\Web\Message\AiScan\AcceptCalendarScan;
 use WBoost\Web\Message\AiScan\RestoreCalendarScan;
 use WBoost\Web\Repository\AiScanRepository;
+use WBoost\Web\Repository\FileUploadRepository;
 use WBoost\Web\Services\AiScan\AiScans;
 use WBoost\Web\Services\AiScan\Calendar\CalendarScanPictures;
 use WBoost\Web\Services\AiScan\Calendar\CalendarScanProposalView;
@@ -42,7 +43,7 @@ use WBoost\Web\Value\AiScan\AiScanRefused;
  * |---|---|
  * | `accept` (`features[]`) | „Použít rozvržení“ — {@see AcceptCalendarScan} |
  * | `restore` (`confirm`) | „Vrátit původní rozvržení“ — {@see RestoreCalendarScan}; `layout_changed` (409) without `confirm` after later edits |
- * | `picture` (`slot`, `picture` \| `remove=1`) | holds / drops a picture for a place of the proposal |
+ * | `picture` (`slot`, `picture` \| `fileId` \| `remove=1`) | holds a picture for a place of the proposal — a file from disk or a picture of the project's gallery (its bytes are copied) — or drops it |
  *
  * A scan that is not this calendar's is a 404 through any of them. The
  * CSRF check is the scan endpoints' stateless one (`_token=csrf-token`).
@@ -60,6 +61,7 @@ final class CalendarScanController extends AbstractController
         readonly private CalendarDocument $document,
         readonly private CalendarScanProposalView $proposalView,
         readonly private CalendarScanPictures $pictures,
+        readonly private FileUploadRepository $files,
         readonly private ReleaseSessionLock $releaseSessionLock,
     ) {
     }
@@ -125,6 +127,9 @@ final class CalendarScanController extends AbstractController
                 $this->pictures->remove($scan, $slot);
             } elseif ($file instanceof UploadedFile) {
                 $this->pictures->hold($scan, $slot, $file);
+            } elseif ($request->request->getString('fileId') !== '') {
+                $fileId = $request->request->getString('fileId');
+                $this->pictures->holdGalleryFile($scan, $slot, Uuid::isValid($fileId) ? $this->files->find(Uuid::fromString($fileId)) : null);
             } else {
                 return new JsonResponse(['ok' => false, 'code' => 'invalid_fix', 'field' => 'picture'], Response::HTTP_UNPROCESSABLE_ENTITY);
             }

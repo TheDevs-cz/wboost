@@ -2851,6 +2851,1395 @@
     "contentType": "text/html",
     "body": null
    }
+  },
+  {
+   "step": "scan 7 (calendar): claim intake → a job",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/claim",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1"
+    },
+    "body": {
+     "lane": "intake",
+     "scannerVersion": "0.2.0+contract",
+     "instruments": [
+      "ocr",
+      "crop",
+      "measure",
+      "font_rank",
+      "compare",
+      "mm"
+     ],
+     "capacity": 1
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "mode": "on",
+     "job": {
+      "id": "<scan:7>",
+      "kind": "calendar",
+      "lane": "intake",
+      "run": 1,
+      "try": 1,
+      "approximate": false,
+      "leaseToken": "<lease:<scan:7>:intake:1>",
+      "leaseSeconds": 150,
+      "options": {},
+      "source": {
+       "sha256": "<sha256 of the upload>",
+       "contentType": "image/png",
+       "bytes": 40670,
+       "width": 1080,
+       "height": 1350
+      },
+      "definition": {
+       "version": "6-f4a2d403bfed",
+       "files": {
+        "definition.json": "<4801 characters>",
+        "finish.calendar.schema.json": "<2965 characters>",
+        "finish.template.schema.json": "<4355 characters>",
+        "precheck.md": "<1037 characters>",
+        "precheck.schema.json": "<471 characters>",
+        "system.calendar.md": "<10968 characters>",
+        "system.common.md": "<1937 characters>",
+        "system.template.md": "<15654 characters>",
+        "task.calendar.md": "<356 characters>",
+        "task.template.md": "<306 characters>",
+        "tools.json": "<20111 characters>"
+       }
+      }
+     }
+    }
+   }
+  },
+  {
+   "step": "scan 7 (calendar): source (the original, as bytes)",
+   "request": {
+    "method": "GET",
+    "path": "/internal/scanner/<scan:7>/source?run=1",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:7>:intake:1>"
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "image/png",
+    "body": "<40670 bytes>"
+   }
+  },
+  {
+   "step": "scan 7 (calendar): finish intake `passed`",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/<scan:7>/finish",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:7>:intake:1>"
+    },
+    "body": {
+     "run": 1,
+     "outcome": "passed",
+     "preCheck": {
+      "verdict": "design",
+      "confidence": "high",
+      "approximate": false,
+      "ms": 2000
+     },
+     "sourceMeta": {
+      "format": "png",
+      "bytes": 40670,
+      "width": 1080,
+      "height": 1350,
+      "workingWidth": 1080,
+      "workingHeight": 1350,
+      "workingFormat": "webp",
+      "scale": 1,
+      "space": "srgb",
+      "depth": "uchar",
+      "hasAlpha": true,
+      "orientation": 1,
+      "frames": 1,
+      "density": 72,
+      "facts": [
+       "alpha_flattened"
+      ],
+      "workingBytes": 3068
+     },
+     "usage": {
+      "provider": "anthropic",
+      "model": null,
+      "inputTokens": 0,
+      "outputTokens": 0,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "engineCostMicroUsd": 0,
+      "turns": 0,
+      "durationMs": 0
+     }
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "applied": true,
+     "status": "queued",
+     "code": null
+    }
+   }
+  },
+  {
+   "step": "scan 7 (calendar): claim build → a job with the calendar context",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/claim",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1"
+    },
+    "body": {
+     "lane": "build",
+     "scannerVersion": "0.2.0+contract",
+     "instruments": [
+      "ocr",
+      "crop",
+      "measure",
+      "font_rank",
+      "compare",
+      "mm"
+     ],
+     "capacity": 1
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "mode": "on",
+     "job": {
+      "id": "<scan:7>",
+      "kind": "calendar",
+      "lane": "build",
+      "run": 1,
+      "try": 1,
+      "approximate": false,
+      "leaseToken": "<lease:<scan:7>:build:1>",
+      "leaseSeconds": 120,
+      "options": {},
+      "source": {
+       "sha256": "<sha256 of the upload>",
+       "contentType": "image/webp",
+       "bytes": null,
+       "width": 1080,
+       "height": 1350
+      },
+      "definition": {
+       "version": "6-f4a2d403bfed",
+       "files": {
+        "definition.json": "<4801 characters>",
+        "finish.calendar.schema.json": "<2965 characters>",
+        "finish.template.schema.json": "<4355 characters>",
+        "precheck.md": "<1037 characters>",
+        "precheck.schema.json": "<471 characters>",
+        "system.calendar.md": "<10968 characters>",
+        "system.common.md": "<1937 characters>",
+        "system.template.md": "<15654 characters>",
+        "task.calendar.md": "<356 characters>",
+        "task.template.md": "<306 characters>",
+        "tools.json": "<20111 characters>"
+       }
+      },
+      "context": {
+       "fonts": [
+        {
+         "family": "Arial (Arial Italique)",
+         "font": "Arial",
+         "face": "Arial Italique",
+         "weight": 400,
+         "italic": false
+        },
+        {
+         "family": "Arial (Arial)",
+         "font": "Arial",
+         "face": "Arial",
+         "weight": 400,
+         "italic": false
+        },
+        "<13 more faces of the same shape>"
+       ],
+       "palette": [],
+       "standInAssetId": "00000000-0000-4000-8000-0000000a15ca",
+       "templateMaxLongEdgePx": 5000,
+       "calendar": {
+        "supported": true,
+        "type": "week",
+        "year": 2027,
+        "page": {
+         "width": 310,
+         "height": 145,
+         "bandHeight": 12.5,
+         "holes": {
+          "size": 4.3,
+          "radius": 0.6,
+          "pitch": 8,
+          "top": 4,
+          "margin": 4.5
+         }
+        },
+        "bleedMm": 5,
+        "features": {
+         "captions": false,
+         "weekNumbers": false,
+         "moon": false,
+         "timeChange": false,
+         "seasons": false,
+         "waste": false,
+         "events": false,
+         "shifts": false,
+         "specialPages": false,
+         "qr": false
+        },
+        "hasLayout": false,
+        "presets": [
+         "photoLeft",
+         "photoRight"
+        ],
+        "samplePage": {
+         "key": "w02",
+         "from": "2027-01-11",
+         "to": "2027-01-17",
+         "title": "2. týden"
+        },
+        "defaultLayout": {
+         "preset": "photoLeft",
+         "layout": {
+          "v": 1,
+          "boxes": {
+           "photo": {
+            "x": -5,
+            "y": 27,
+            "w": 202,
+            "h": 123
+           },
+           "cap": {
+            "x": 5,
+            "y": 135,
+            "w": 93,
+            "h": 5.5
+           },
+           "logo": {
+            "x": 168.5,
+            "y": 31,
+            "w": 23.5,
+            "h": 23.5
+           },
+           "head": {
+            "x": -5,
+            "y": -5,
+            "w": 320,
+            "h": 32
+           },
+           "month": {
+            "x": 203,
+            "y": 12.5,
+            "w": 101,
+            "h": 14.5
+           },
+           "cal": {
+            "x": 197,
+            "y": 27,
+            "w": 118,
+            "h": 112
+           },
+           "wk": {
+            "x": 203,
+            "y": 139,
+            "w": 101,
+            "h": 4.5
+           },
+           "qr": {
+            "x": 170.5,
+            "y": 116.5,
+            "w": 21,
+            "h": 21
+           }
+          },
+          "order": [
+           "qr",
+           "logo",
+           "cap",
+           "wk",
+           "month",
+           "head",
+           "cal",
+           "photo"
+          ],
+          "styles": {
+           "photo": {
+            "source": "client",
+            "radius": 0,
+            "border": {
+             "on": false,
+             "width": 0.7,
+             "color": "#FFFFFF"
+            },
+            "shadow": {
+             "on": false,
+             "blur": 3,
+             "opacity": 35,
+             "dx": 1.5,
+             "dy": 2,
+             "color": "#000000"
+            }
+           },
+           "cap": {
+            "family": "Arial (Arial Italique)",
+            "weight": 400,
+            "size": 9,
+            "color": "#6E6977",
+            "align": "start",
+            "valign": "middle",
+            "pad": 3,
+            "bg": {
+             "colorOn": true,
+             "color": "#D2CED8",
+             "colorOpacity": 100,
+             "gradient": {
+              "on": false,
+              "type": "linear",
+              "angle": 90,
+              "stops": [
+               {
+                "color": "#FFFFFF",
+                "opacity": 100,
+                "pos": 0
+               },
+               {
+                "color": "#FFFFFF",
+                "opacity": 100,
+                "pos": 100
+               }
+              ]
+             },
+             "imageOn": false,
+             "asset": null,
+             "fit": "cover",
+             "imageOpacity": 100
+            }
+           },
+           "logo": {
+            "asset": null,
+            "fit": "contain"
+           },
+           "head": {
+            "bg": {
+             "colorOn": true,
+             "color": "#CBC7D1",
+             "colorOpacity": 100,
+             "gradient": {
+              "on": false,
+              "type": "linear",
+              "angle": 90,
+              "stops": [
+               {
+                "color": "#CBC7D1",
+                "opacity": 100,
+                "pos": 0
+               },
+               {
+                "color": "#F6F5F8",
+                "opacity": 100,
+                "pos": 100
+               }
+              ]
+             },
+             "imageOn": false,
+             "asset": null,
+             "fit": "cover",
+             "imageOpacity": 100
+            },
+            "text": {
+             "family": "Arial (Arial Gras Italique)",
+             "weight": 800,
+             "size": 15,
+             "color": "#2B2830"
+            }
+           },
+           "month": {
+            "family": "Arial (Arial Gras Italique)",
+            "weight": 800,
+            "size": 15,
+            "color": "#2B2830",
+            "align": "end",
+            "upper": true,
+            "pad": 3,
+            "bg": {
+             "colorOn": false,
+             "color": "#FFFFFF",
+             "colorOpacity": 100,
+             "gradient": {
+              "on": false,
+              "type": "linear",
+              "angle": 90,
+              "stops": [
+               {
+                "color": "#FFFFFF",
+                "opacity": 100,
+                "pos": 0
+               },
+               {
+                "color": "#CBC7D1",
+                "opacity": 100,
+                "pos": 100
+               }
+              ]
+             },
+             "imageOn": false,
+             "asset": null,
+             "fit": "cover",
+             "imageOpacity": 100
+            }
+           },
+           "wk": {
+            "family": "Arial (Arial Italique)",
+            "weight": 400,
+            "size": 9.5,
+            "color": "#6E6977",
+            "align": "end",
+            "form": "a"
+           },
+           "qr": {
+            "perPage": false,
+            "asset": null
+           },
+           "bg": {
+            "colorOn": true,
+            "color": "#F6F5F8",
+            "colorOpacity": 100,
+            "gradient": {
+             "on": false,
+             "type": "linear",
+             "angle": 90,
+             "stops": [
+              {
+               "color": "#F6F5F8",
+               "opacity": 100,
+               "pos": 0
+              },
+              {
+               "color": "#CBC7D1",
+               "opacity": 100,
+               "pos": 100
+              }
+             ]
+            },
+            "imageOn": false,
+            "asset": null,
+            "fit": "cover",
+            "imageOpacity": 100
+           },
+           "cal": {
+            "bg": {
+             "color": null,
+             "opacity": 100
+            },
+            "satColor": "#2F78B7",
+            "sunColor": "#BE3A2E",
+            "numberSide": "end",
+            "numAlign": null,
+            "dayFormat": "full",
+            "dayPosition": "side",
+            "dayAlign": null,
+            "iconSize": 6,
+            "iconGrid": "4",
+            "iconCellW": null,
+            "iconCells": {},
+            "placeLabels": false,
+            "emptyIconSlot": true
+           },
+           "lines": {
+            "on": true,
+            "width": 1,
+            "style": "solid",
+            "color": "#D7D3DC"
+           },
+           "num": {
+            "family": "Arial (Arial Gras Italique)",
+            "weight": 800,
+            "size": 28,
+            "color": "#2B2830"
+           },
+           "numSat": {
+            "family": "Arial (Arial Gras Italique)",
+            "weight": 800,
+            "size": 28,
+            "color": "#2F78B7"
+           },
+           "numSun": {
+            "family": "Arial (Arial Gras Italique)",
+            "weight": 800,
+            "size": 28,
+            "color": "#BE3A2E"
+           },
+           "numHol": {
+            "family": "Arial (Arial Gras Italique)",
+            "weight": 800,
+            "size": 28,
+            "color": "#BE3A2E"
+           },
+           "day": {
+            "family": "Arial (Arial Gras Italique)",
+            "weight": 600,
+            "size": 11,
+            "color": "#6E6977"
+           },
+           "name": {
+            "family": "Arial (Arial Italique)",
+            "weight": 400,
+            "size": 9.5,
+            "color": "#2B2830"
+           },
+           "hol": {
+            "family": "Arial (Arial Italique)",
+            "weight": 400,
+            "size": 8,
+            "color": "#BE3A2E",
+            "wrapWidth": null
+           },
+           "ev": {
+            "family": "Arial (Arial Gras Italique)",
+            "weight": 600,
+            "size": 8,
+            "color": "#2E5A8C",
+            "align": null,
+            "valign": "middle",
+            "box": null
+           },
+           "time": {
+            "family": "Arial (Arial Italique)",
+            "weight": 400,
+            "size": 8,
+            "color": "#6E6977",
+            "position": "text",
+            "align": null,
+            "valign": "bottom"
+           },
+           "shift": {
+            "family": "Arial (Arial Gras Italique)",
+            "weight": 600,
+            "size": 8,
+            "color": "#6E6977",
+            "bgMode": "alt",
+            "bg": null
+           },
+           "placeText": {
+            "family": "Arial (Arial Gras Italique)",
+            "weight": 600,
+            "size": 7.5,
+            "color": "#6E6977"
+           },
+           "moon": {
+            "color": "#2B2830",
+            "size": 5,
+            "valign": "middle",
+            "phases": [
+             true,
+             true,
+             true,
+             true
+            ],
+            "icons": [
+             null,
+             null,
+             null,
+             null
+            ]
+           },
+           "icons": {
+            "order": [
+             "waste",
+             "moon"
+            ],
+            "ev": {
+             "name": "Akce",
+             "asset": null,
+             "perEvent": false
+            },
+            "time": {
+             "asset": null,
+             "color": "#2B2830"
+            },
+            "season": {
+             "mode": "four",
+             "asset": null,
+             "assets": [
+              null,
+              null,
+              null,
+              null
+             ],
+             "color": "#2B2830"
+            }
+           },
+           "waste": {
+            "kinds": {}
+           },
+           "offsets": {}
+          }
+         }
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  {
+   "step": "scan 7 (calendar): beat",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/<scan:7>/beat",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:7>:build:1>"
+    },
+    "body": {
+     "run": 1,
+     "seq": 1,
+     "stage": "read",
+     "note": "rows_found",
+     "noteParams": {
+      "n": 7
+     },
+     "round": 0,
+     "usage": {
+      "provider": "anthropic",
+      "model": "claude-opus-5-5",
+      "inputTokens": 1000,
+      "outputTokens": 100,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "engineCostMicroUsd": 6000,
+      "turns": 1,
+      "durationMs": 1000
+     }
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "cancel": false,
+     "mode": "on",
+     "leaseExpiresAt": "<ISO 8601 date>"
+    }
+   }
+  },
+  {
+   "step": "scan 7 (calendar): render → candidate 1 (model commands)",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/<scan:7>/render",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:7>:build:1>"
+    },
+    "body": {
+     "run": 1,
+     "seq": 2,
+     "commands": [
+      {
+       "op": "preset",
+       "preset": "photoRight"
+      },
+      {
+       "op": "configure",
+       "features": {
+        "qr": true
+       }
+      },
+      {
+       "op": "layout",
+       "boxes": {
+        "logo": {
+         "x": 262,
+         "y": 8,
+         "w": 36,
+         "h": 14
+        }
+       },
+       "styles": {
+        "head": {
+         "bg": {
+          "color": "#1F3A5F"
+         }
+        },
+        "cal": {
+         "numberSide": "start"
+        }
+       }
+      }
+     ]
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "view": {
+      "x": 0,
+      "y": 0,
+      "w": 310,
+      "h": 145
+     },
+     "page": {
+      "key": "w02",
+      "from": "2027-01-11",
+      "to": "2027-01-17"
+     },
+     "preset": "photoRight",
+     "layout": {
+      "v": 1,
+      "boxes": {
+       "photo": {
+        "x": 113,
+        "y": 27,
+        "w": 202,
+        "h": 123
+       },
+       "cap": {
+        "x": 212,
+        "y": 135,
+        "w": 93,
+        "h": 5.5
+       },
+       "logo": {
+        "x": 262,
+        "y": 8,
+        "w": 36,
+        "h": 14
+       },
+       "head": {
+        "x": -5,
+        "y": -5,
+        "w": 320,
+        "h": 32
+       },
+       "month": {
+        "x": 6,
+        "y": 12.5,
+        "w": 101,
+        "h": 14.5
+       },
+       "cal": {
+        "x": -5,
+        "y": 27,
+        "w": 118,
+        "h": 112
+       },
+       "wk": {
+        "x": 6,
+        "y": 139,
+        "w": 101,
+        "h": 4.5
+       },
+       "qr": {
+        "x": 118.5,
+        "y": 116.5,
+        "w": 21,
+        "h": 21
+       }
+      },
+      "order": [
+       "qr",
+       "logo",
+       "cap",
+       "wk",
+       "month",
+       "head",
+       "cal",
+       "photo"
+      ],
+      "styles": {
+       "photo": {
+        "source": "client",
+        "radius": 0,
+        "border": {
+         "on": false,
+         "width": 0.7,
+         "color": "#FFFFFF"
+        },
+        "shadow": {
+         "on": false,
+         "blur": 3,
+         "opacity": 35,
+         "dx": 1.5,
+         "dy": 2,
+         "color": "#000000"
+        }
+       },
+       "cap": {
+        "family": "Arial (Arial Italique)",
+        "weight": 400,
+        "size": 9,
+        "color": "#6E6977",
+        "align": "end",
+        "valign": "middle",
+        "pad": 3,
+        "bg": {
+         "colorOn": true,
+         "color": "#D2CED8",
+         "colorOpacity": 100,
+         "gradient": {
+          "on": false,
+          "type": "linear",
+          "angle": 90,
+          "stops": [
+           {
+            "color": "#FFFFFF",
+            "opacity": 100,
+            "pos": 0
+           },
+           {
+            "color": "#FFFFFF",
+            "opacity": 100,
+            "pos": 100
+           }
+          ]
+         },
+         "imageOn": false,
+         "asset": null,
+         "fit": "cover",
+         "imageOpacity": 100
+        }
+       },
+       "logo": {
+        "asset": null,
+        "fit": "contain"
+       },
+       "head": {
+        "bg": {
+         "colorOn": true,
+         "color": "#1F3A5F",
+         "colorOpacity": 100,
+         "gradient": {
+          "on": false,
+          "type": "linear",
+          "angle": 90,
+          "stops": [
+           {
+            "color": "#CBC7D1",
+            "opacity": 100,
+            "pos": 0
+           },
+           {
+            "color": "#F6F5F8",
+            "opacity": 100,
+            "pos": 100
+           }
+          ]
+         },
+         "imageOn": false,
+         "asset": null,
+         "fit": "cover",
+         "imageOpacity": 100
+        },
+        "text": {
+         "family": "Arial (Arial Gras Italique)",
+         "weight": 800,
+         "size": 15,
+         "color": "#2B2830"
+        }
+       },
+       "month": {
+        "family": "Arial (Arial Gras Italique)",
+        "weight": 800,
+        "size": 15,
+        "color": "#2B2830",
+        "align": "start",
+        "upper": true,
+        "pad": 3,
+        "bg": {
+         "colorOn": false,
+         "color": "#FFFFFF",
+         "colorOpacity": 100,
+         "gradient": {
+          "on": false,
+          "type": "linear",
+          "angle": 90,
+          "stops": [
+           {
+            "color": "#FFFFFF",
+            "opacity": 100,
+            "pos": 0
+           },
+           {
+            "color": "#CBC7D1",
+            "opacity": 100,
+            "pos": 100
+           }
+          ]
+         },
+         "imageOn": false,
+         "asset": null,
+         "fit": "cover",
+         "imageOpacity": 100
+        }
+       },
+       "wk": {
+        "family": "Arial (Arial Italique)",
+        "weight": 400,
+        "size": 9.5,
+        "color": "#6E6977",
+        "align": "start",
+        "form": "a"
+       },
+       "qr": {
+        "perPage": false,
+        "asset": null
+       },
+       "bg": {
+        "colorOn": true,
+        "color": "#F6F5F8",
+        "colorOpacity": 100,
+        "gradient": {
+         "on": false,
+         "type": "linear",
+         "angle": 90,
+         "stops": [
+          {
+           "color": "#F6F5F8",
+           "opacity": 100,
+           "pos": 0
+          },
+          {
+           "color": "#CBC7D1",
+           "opacity": 100,
+           "pos": 100
+          }
+         ]
+        },
+        "imageOn": false,
+        "asset": null,
+        "fit": "cover",
+        "imageOpacity": 100
+       },
+       "cal": {
+        "bg": {
+         "color": null,
+         "opacity": 100
+        },
+        "satColor": "#2F78B7",
+        "sunColor": "#BE3A2E",
+        "numberSide": "start",
+        "numAlign": null,
+        "dayFormat": "full",
+        "dayPosition": "side",
+        "dayAlign": null,
+        "iconSize": 6,
+        "iconGrid": "4",
+        "iconCellW": null,
+        "iconCells": {},
+        "placeLabels": false,
+        "emptyIconSlot": true
+       },
+       "lines": {
+        "on": true,
+        "width": 1,
+        "style": "solid",
+        "color": "#D7D3DC"
+       },
+       "num": {
+        "family": "Arial (Arial Gras Italique)",
+        "weight": 800,
+        "size": 28,
+        "color": "#2B2830"
+       },
+       "numSat": {
+        "family": "Arial (Arial Gras Italique)",
+        "weight": 800,
+        "size": 28,
+        "color": "#2F78B7"
+       },
+       "numSun": {
+        "family": "Arial (Arial Gras Italique)",
+        "weight": 800,
+        "size": 28,
+        "color": "#BE3A2E"
+       },
+       "numHol": {
+        "family": "Arial (Arial Gras Italique)",
+        "weight": 800,
+        "size": 28,
+        "color": "#BE3A2E"
+       },
+       "day": {
+        "family": "Arial (Arial Gras Italique)",
+        "weight": 600,
+        "size": 11,
+        "color": "#6E6977"
+       },
+       "name": {
+        "family": "Arial (Arial Italique)",
+        "weight": 400,
+        "size": 9.5,
+        "color": "#2B2830"
+       },
+       "hol": {
+        "family": "Arial (Arial Italique)",
+        "weight": 400,
+        "size": 8,
+        "color": "#BE3A2E",
+        "wrapWidth": null
+       },
+       "ev": {
+        "family": "Arial (Arial Gras Italique)",
+        "weight": 600,
+        "size": 8,
+        "color": "#2E5A8C",
+        "align": null,
+        "valign": "middle",
+        "box": null
+       },
+       "time": {
+        "family": "Arial (Arial Italique)",
+        "weight": 400,
+        "size": 8,
+        "color": "#6E6977",
+        "position": "text",
+        "align": null,
+        "valign": "bottom"
+       },
+       "shift": {
+        "family": "Arial (Arial Gras Italique)",
+        "weight": 600,
+        "size": 8,
+        "color": "#6E6977",
+        "bgMode": "alt",
+        "bg": null
+       },
+       "placeText": {
+        "family": "Arial (Arial Gras Italique)",
+        "weight": 600,
+        "size": 7.5,
+        "color": "#6E6977"
+       },
+       "moon": {
+        "color": "#2B2830",
+        "size": 5,
+        "valign": "middle",
+        "phases": [
+         true,
+         true,
+         true,
+         true
+        ],
+        "icons": [
+         null,
+         null,
+         null,
+         null
+        ]
+       },
+       "icons": {
+        "order": [
+         "waste",
+         "moon"
+        ],
+        "ev": {
+         "name": "Akce",
+         "asset": null,
+         "perEvent": false
+        },
+        "time": {
+         "asset": null,
+         "color": "#2B2830"
+        },
+        "season": {
+         "mode": "four",
+         "asset": null,
+         "assets": [
+          null,
+          null,
+          null,
+          null
+         ],
+         "color": "#2B2830"
+        }
+       },
+       "waste": {
+        "kinds": {}
+       },
+       "offsets": {}
+      }
+     },
+     "features": {
+      "captions": false,
+      "weekNumbers": false,
+      "moon": false,
+      "timeChange": false,
+      "seasons": false,
+      "waste": false,
+      "events": false,
+      "shifts": false,
+      "specialPages": false,
+      "qr": true
+     },
+     "ok": true,
+     "candidate": 1,
+     "issues": [],
+     "width": 1600,
+     "height": 748,
+     "image": {
+      "contentType": "image/webp",
+      "base64": "<23950 bytes of image/webp>"
+     }
+    }
+   }
+  },
+  {
+   "step": "scan 7 (calendar): render with a command the calendar model refuses (a switch OFF)",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/<scan:7>/render",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:7>:build:1>"
+    },
+    "body": {
+     "run": 1,
+     "seq": 3,
+     "commands": [
+      {
+       "op": "preset",
+       "preset": "photoLeft"
+      },
+      {
+       "op": "configure",
+       "features": {
+        "moon": false
+       }
+      }
+     ]
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "candidate": null,
+     "issues": [
+      {
+       "severity": "error",
+       "stage": "model",
+       "code": "invalid_command",
+       "path": "",
+       "message": "commands[1].features: a scan switches features ON only — every value must be true."
+      }
+     ]
+    }
+   }
+  },
+  {
+   "step": "scan 7 (calendar): render with a layout key the model does not know",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/<scan:7>/render",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:7>:build:1>"
+    },
+    "body": {
+     "run": 1,
+     "seq": 4,
+     "commands": [
+      {
+       "op": "preset",
+       "preset": "photoLeft"
+      },
+      {
+       "op": "layout",
+       "styles": {
+        "cal": {
+         "noSuchKey": 1
+        }
+       }
+      }
+     ]
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "candidate": null,
+     "issues": [
+      {
+       "severity": "error",
+       "stage": "model",
+       "code": "unknown_style_key",
+       "path": "",
+       "message": "styles.cal.noSuchKey is not a style key. Keys of styles.cal: bg, satColor, sunColor, numberSide, numAlign, dayFormat, dayPosition, dayAlign, iconSize, iconGrid, iconCellW, iconCells, placeLabels, emptyIconSlot. (get_calendar layout.styles shows the whole tree.)"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "step": "scan 7 (calendar): finish build `proposed` (the calendar report)",
+   "request": {
+    "method": "POST",
+    "path": "/internal/scanner/<scan:7>/finish",
+    "headers": {
+     "Authorization": "Bearer <SCANNER_TOKEN>",
+     "X-Scanner-Protocol": "1",
+     "X-Scan-Lease": "<lease:<scan:7>:build:1>"
+    },
+    "body": {
+     "run": 1,
+     "outcome": "proposed",
+     "candidate": 1,
+     "report": {
+      "status": "proposed",
+      "candidate": 1,
+      "unfinished": false,
+      "type": "week",
+      "pageBox": [
+       0,
+       0,
+       1600,
+       748
+      ],
+      "photoBox": [
+       0,
+       142,
+       1008,
+       606
+      ],
+      "recognised": [
+       {
+        "element": "photo",
+        "state": "found"
+       },
+       {
+        "element": "cap",
+        "state": "approximate"
+       },
+       {
+        "element": "cal",
+        "state": "found"
+       },
+       {
+        "element": "month",
+        "state": "found"
+       },
+       {
+        "element": "wk",
+        "state": "absent"
+       },
+       {
+        "element": "head",
+        "state": "found"
+       },
+       {
+        "element": "logo",
+        "state": "found"
+       },
+       {
+        "element": "qr",
+        "state": "absent"
+       },
+       {
+        "element": "bg",
+        "state": "found"
+       }
+      ],
+      "needsUpload": [
+       {
+        "slot": "logo"
+       }
+      ],
+      "featuresOffered": [
+       {
+        "key": "qr"
+       }
+      ],
+      "fonts": [
+       {
+        "group": "num",
+        "pattern": "nearest_available",
+        "face": null,
+        "closeness": 0.61
+       }
+      ],
+      "notExpressible": [
+       {
+        "code": "ornament",
+        "box": [
+         0,
+         643,
+         480,
+         60
+        ]
+       }
+      ],
+      "notes": [
+       {
+        "code": "ratio_adapted",
+        "w": 297,
+        "h": 150
+       }
+      ],
+      "measures": {
+       "mae": 0.031
+      }
+     },
+     "usage": {
+      "provider": "anthropic",
+      "model": "claude-opus-5-5",
+      "inputTokens": 3000,
+      "outputTokens": 300,
+      "cacheReadTokens": 0,
+      "cacheWriteTokens": 0,
+      "engineCostMicroUsd": 18000,
+      "turns": 3,
+      "durationMs": 3000
+     }
+    }
+   },
+   "response": {
+    "status": 200,
+    "contentType": "application/json",
+    "body": {
+     "ok": true,
+     "applied": true,
+     "status": "ready",
+     "code": null
+    }
+   }
   }
- ]
+ ],
+ "calendar": {
+  "recordedAt": "2026-11-13",
+  "commit": "b554f46ce7652ce494e46cffc606932646efaec1",
+  "note": "the exchanges of <scan:7> (a calendar scan) were recorded separately and appended"
+ }
 }

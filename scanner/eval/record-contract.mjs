@@ -5,8 +5,14 @@
 // secret (tokens, lease tokens and ids are placeholders; pictures are byte counts; the definition is file names).
 //
 //   WBOOST_LOGIN_FILE=… node eval/record-contract.mjs [--project <id>] [--out test/contract/scanner-api.v1.json]
+//   WBOOST_LOGIN_FILE=… node eval/record-contract.mjs --append-calendar <calendarId> [--project <id>]
 // Needs the local app with mode `on` and NO scanner service running.
-import { writeFileSync, mkdtempSync } from 'node:fs';
+//
+// `--append-calendar <id of a 7-day calendar of the project>` walks ONLY a calendar scan (claim with the
+// calendar context, a render from model commands, a command the model refuses, the calendar report) and
+// APPENDS its exchanges to the existing fixture as the next `<scan:N>` — the recorded template flows stay
+// byte for byte what they were.
+import { writeFileSync, mkdtempSync, readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
@@ -23,6 +29,10 @@ const arg = (name, fallback) => { const i = process.argv.indexOf(`--${name}`); r
 const appUrl = process.env.WBOOST_APP_URL ?? 'http://localhost:8099', token = process.env.SCANNER_TOKEN ?? 'dev-scanner-token-not-a-secret-0000';
 const project = arg('project', process.env.PROJECT ?? '01a1cf47-d5e5-71a3-a917-efe29965cc15');
 const out = resolve(arg('out', join(HERE, '..', 'test', 'contract', `scanner-api.v${PROTOCOL_VERSION}.json`)));
+const appendCalendar = arg('append-calendar', null);
+const existing = appendCalendar ? JSON.parse(readFileSync(out, 'utf8')) : null;
+// scans of an appended recording are numbered after the ones the fixture already holds
+const scanBase = existing ? Math.max(0, ...[...JSON.stringify(existing).matchAll(/<scan:(\d+)>/g)].map((m) => Number(m[1]))) : 0;
 const USAGE = (n) => ({ provider: 'anthropic', model: 'claude-opus-5-5', inputTokens: 1000 * n, outputTokens: 100 * n, cacheReadTokens: 0, cacheWriteTokens: 0, engineCostMicroUsd: 6000 * n, turns: n, durationMs: 1000 * n });
 const ZERO = { provider: 'anthropic', model: null, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, engineCostMicroUsd: 0, turns: 0, durationMs: 0 };
 
@@ -31,7 +41,7 @@ const raw = [];
 let step = 'start';
 const scanner = new HttpScannerApi({ baseUrl: appUrl, token, scannerVersion: '0.2.0+contract', record: (e) => raw.push({ step, ...e }) });
 const ids = new Map(), leases = new Map(); // real value → placeholder
-const scanName = (id) => { if (!ids.has(id)) ids.set(id, `<scan:${ids.size + 1}>`); return ids.get(id); };
+const scanName = (id) => { if (!ids.has(id)) ids.set(id, `<scan:${scanBase + ids.size + 1}>`); return ids.get(id); };
 const mark = (name) => { step = name; };
 const call = async (name, fn) => { mark(name); try { return await fn(); } catch (e) { if (e instanceof ScannerApiError) return { error: e }; throw e; } };
 
@@ -40,7 +50,7 @@ const picture = join(dir, 'synthetic.png');
 writeFileSync(picture, await sharp(Buffer.from(SYNTHETIC_SVG)).png().toBuffer());
 const user = await new AppUser({ baseUrl: appUrl }).login();
 const claimOwn = async (name, lane, scanId) => { for (let i = 0; i < 30; i++) { const c = await call(name, () => scanner.claim(lane, 1)); if (c.job) { if (c.job.id !== scanId) throw new Error('claimed a scan that is not ours: stop the scanner service first'); leases.set(c.job.leaseToken, `<lease:${scanName(scanId)}:${lane}:${c.job.run}>`); return c; } raw.pop(); await new Promise((ok) => setTimeout(ok, 500)); } throw new Error(`no ${lane} job`); };
-const startScan = async () => { const s = await user.start(project, picture); if (!s.ok) throw new Error(`upload refused: ${s.code}`); scanName(s.scan.id); return s.scan.id; };
+const startScan = async (options = {}) => { const s = await user.start(project, picture, options); if (!s.ok) throw new Error(`upload refused: ${s.code}`); scanName(s.scan.id); return s.scan.id; };
 const intakeOf = async (scanId, tag) => {
     const c = await claimOwn(`${tag}: claim intake → a job`, 'intake', scanId);
     mark(`${tag}: source (the original, as bytes)`);
@@ -49,6 +59,7 @@ const intakeOf = async (scanId, tag) => {
     return { c, n };
 };
 
+if (!appendCalendar) {
 await call('tick (every 30 s and at start)', () => scanner.tick());
 await call('claim with nothing to do', () => scanner.claim('intake', 1));
 
@@ -138,6 +149,36 @@ await call('tick again: the app recorded the old scanner; the next accepted call
 const stranger = new HttpScannerApi({ baseUrl: appUrl, token: 'not-the-scanner-token-0123456789', scannerVersion: 'x', record: (e) => raw.push({ step, wrongToken: true, ...e }) });
 mark('a wrong bearer token: 404 with an empty body'); try { await stranger.attempt('POST', 'tick', { body: { scannerVersion: 'x' } }); } catch { /* recorded */ }
 for (const id of [s1, s2, s4, s5, s6]) { const st = (await user.status(id)).scan?.status; if (['ready', 'failed', 'stopped', 'refused', 'cancelled'].includes(st)) await user.act(id, 'discard'); }
+} else {
+    // ---- a calendar scan: the build claim carries the calendar, a render takes model COMMANDS, the report is the calendar's
+    await scanner.tick(); raw.pop(); // the app starts nothing while it has not heard from a scanner (the tick itself is in the fixture already)
+    const sc = await startScan({ kind: 'calendar', calendarId: appendCalendar });
+    const tag = `scan ${scanBase + 1} (calendar)`;
+    const ic = await intakeOf(sc, tag);
+    const working = await readFile(ic.n.files.working);
+    await ic.c.api.putArtifact('working', working); await ic.c.api.putArtifact('preview', await readFile(ic.n.files.preview)); raw.splice(-2);
+    await call(`${tag}: finish intake \`passed\``, () => ic.c.api.finish({ outcome: 'passed', preCheck: { verdict: 'design', confidence: 'high', approximate: false, ms: 2000 }, sourceMeta: { ...ic.n.meta, workingBytes: working.length }, usage: ZERO }));
+    const bc = await claimOwn(`${tag}: claim build → a job with the calendar context`, 'build', sc);
+    const commands = [
+        { op: 'preset', preset: 'photoRight' },
+        { op: 'configure', features: { qr: true } },
+        { op: 'layout', boxes: { logo: { x: 262, y: 8, w: 36, h: 14 } }, styles: { head: { bg: { color: '#1F3A5F' } }, cal: { numberSide: 'start' } } },
+    ];
+    await call(`${tag}: beat`, () => bc.api.beat({ seq: 1, stage: 'read', note: 'rows_found', noteParams: { n: 7 }, round: 0, usage: USAGE(1) }));
+    const rendered = await call(`${tag}: render → candidate 1 (model commands)`, () => bc.api.render({ seq: 2, commands }));
+    await call(`${tag}: render with a command the calendar model refuses (a switch OFF)`, () => bc.api.render({ seq: 3, commands: [{ op: 'preset', preset: 'photoLeft' }, { op: 'configure', features: { moon: false } }] }));
+    await call(`${tag}: render with a layout key the model does not know`, () => bc.api.render({ seq: 4, commands: [{ op: 'preset', preset: 'photoLeft' }, { op: 'layout', styles: { cal: { noSuchKey: 1 } } }] }));
+    const width = rendered.width ?? 1600, height = rendered.height ?? 748;
+    const calendarReport = {
+        status: 'proposed', candidate: 1, unfinished: false, type: 'week', pageBox: [0, 0, width, height], photoBox: [0, Math.round(height * 0.19), Math.round(width * 0.63), Math.round(height * 0.81)],
+        recognised: [{ element: 'photo', state: 'found' }, { element: 'cap', state: 'approximate' }, { element: 'cal', state: 'found' }, { element: 'month', state: 'found' }, { element: 'wk', state: 'absent' }, { element: 'head', state: 'found' }, { element: 'logo', state: 'found' }, { element: 'qr', state: 'absent' }, { element: 'bg', state: 'found' }],
+        needsUpload: [{ slot: 'logo' }], featuresOffered: [{ key: 'qr' }],
+        fonts: [{ group: 'num', pattern: 'nearest_available', face: null, closeness: 0.61 }], notExpressible: [{ code: 'ornament', box: [0, Math.round(height * 0.86), Math.round(width * 0.3), Math.round(height * 0.08)] }],
+        notes: [{ code: 'ratio_adapted', w: 297, h: 150 }], measures: { mae: 0.031 },
+    };
+    await call(`${tag}: finish build \`proposed\` (the calendar report)`, () => bc.api.finish({ outcome: 'proposed', candidate: 1, report: calendarReport, usage: USAGE(3) }));
+    const st = (await user.status(sc)).scan?.status; if (st === 'ready') await user.act(sc, 'discard');
+}
 
 // ---- sanitise
 const swap = (s) => { let t = String(s); for (const [real, name] of [...ids, ...leases]) t = t.split(real).join(name); return t; };
@@ -162,12 +203,16 @@ const entries = raw.map((e) => ({
     response: e.status === null ? { error: e.error } : { status: e.status, contentType: (e.contentType ?? '').split(';')[0], ...(e.responseBytes !== null && e.responseBytes !== undefined ? { body: `<${e.responseBytes} bytes>` } : { body: clean(e.response) }) },
 }));
 let commit = null; try { commit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: HERE, encoding: 'utf8' }).trim(); } catch { /* not a checkout */ }
-const fixture = {
+const fixture = existing ? {
+    ...existing,
+    calendar: { recordedAt: new Date().toISOString().slice(0, 10), commit, note: `the exchanges of <scan:${scanBase + 1}> (a calendar scan) were recorded separately and appended` },
+    entries: [...existing.entries, ...entries],
+} : {
     what: 'Recorded exchanges between the scanner\'s client (scanner/src/protocol.mjs) and the app\'s /internal/scanner/* endpoints.',
     protocolVersion: PROTOCOL_VERSION, recordedAt: new Date().toISOString().slice(0, 10), recordedAgainst: { app: 'local dev stack', commit }, scannerVersion: '0.2.0',
     placeholders: 'Scan ids are <scan:N>, lease tokens <lease:<scan>:<lane>:<run>>, the bearer token <SCANNER_TOKEN>; pictures are byte counts; definition files are character counts; the picture uploaded is synthetic.',
     entries,
 };
 writeFileSync(out, JSON.stringify(fixture, null, 1) + '\n');
-console.log(`${entries.length} exchanges → ${out}`);
+console.log(`${entries.length} exchanges ${existing ? `appended (${fixture.entries.length} in all)` : ''} → ${out}`);
 for (const e of entries) console.log(`  ${String(e.response.status ?? e.response.error).padEnd(4)} ${e.request.method.padEnd(4)} ${e.request.path.replace('/internal/scanner/', '').padEnd(46)} ${e.step}`);

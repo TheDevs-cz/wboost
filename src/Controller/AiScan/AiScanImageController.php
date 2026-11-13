@@ -63,6 +63,10 @@ final class AiScanImageController extends AbstractController
                 'Cache-Control' => 'private, max-age=300',
                 'X-Content-Type-Options' => 'nosniff',
                 'Content-Disposition' => 'inline',
+                // A held picture may be an SVG: as an <img> it runs nothing,
+                // and opened as a document it is sandboxed — no script, no
+                // origin of ours.
+                'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox",
             ]);
         }
 

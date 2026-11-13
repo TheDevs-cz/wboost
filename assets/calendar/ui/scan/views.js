@@ -3,17 +3,19 @@
 // value that did not come from this code goes through `esc()`. Classes are the template wizard's
 // (`as-*`, assets/styles/nocturne/ai-scan.css) plus the calendar's own in calendar.css.
 
-import { api, bytesCz, creditLine, dateCz, dialogHead, duration, esc, ic, minutesRange, openDialog, scansAhead, zz } from '../../../ai-scan/kit.js';
+import { api, bytesCz, creditLine, dateCz, dialogHead, duration, esc, ic, minutesRange, openDialog, pl, scansAhead, zz } from '../../../ai-scan/kit.js';
 import { CAL, UPLOAD_ERRORS, failure, noteText, picturesLater, pill, startHint } from '../../../ai-scan/copy.js';
 import { ratioLabel } from '../../../ai-scan/file-checks.js';
-import { cropStyle, pixelsStyle } from '../../../ai-scan/page/parts.js';
+import { boxStyle, cropStyle, pixelsStyle } from '../../../ai-scan/page/parts.js';
 import { elementFact, sampleWeekLabel } from './preview.js';
 
 const ACCEPT = 'image/jpeg,image/png,image/webp,image/heic,image/heif';
-const PICTURE_ACCEPT = 'image/jpeg,image/png,image/webp';
+const PICTURE_ACCEPT = 'image/jpeg,image/png,image/webp,image/svg+xml';
 const PREM = `<span class="tp-prem">${ic('sparkle', 's14')}Premium</span>`;
 const IN_PROGRESS = ['checking', 'queued', 'running'];
 const LONG_AFTER_SECONDS = 180;
+/** Under this short side (px) the review says the result may be less precise (file-checks: calendars are taken from 300 px). */
+export const LOW_RESOLUTION_SHORT_SIDE = 600;
 const STAGES = CAL.stages;
 const stageIndex = (id) => STAGES.findIndex((s) => s.id === id);
 const design = (scan) => scan.store.getState().doc.design;
@@ -77,12 +79,12 @@ ${body}</section>`;
 
 const tips = () => `<div><h3 style="margin:0 0 10px">S čím to jde nejlépe</h3><ul class="as-tips">${CAL.tipsOk.map((t, i) => `<li class="ok">${ic('check')}<span><span class="sr">Vhodné: </span>${t}</span></li><li class="no">${ic('x')}<span><span class="sr">Nevhodné: </span>${CAL.tipsNo[i]}</span></li>`).join('')}</ul></div>`;
 const fileInput = () => `<input type="file" class="sr" id="calScanFile" tabindex="-1" aria-hidden="true" accept="${ACCEPT}" data-chg="fileInput">`;
-const errorText = (error) => (error ? UPLOAD_ERRORS[error.code](error.width, error.height) : '');
+const errorText = (error) => (error ? (error.code === 'small' ? CAL.uploadSmall : UPLOAD_ERRORS[error.code])(error.width, error.height) : '');
 
 function uploadView(scan) {
     const error = scan.uploadError;
     return `<div class="as-cgrid" data-region="upload" data-deep><div class="as-main" data-region="zone">${fileInput()}
-<button type="button" class="gal-drop as-drop" data-act="pick" data-k="drop" aria-describedby="calScanCap${error ? ' calScanErr' : ''}">${ic('sparkle', '')}<b><span class="dt-only">${CAL.drop.bold}</span><span class="ph-only">${CAL.drop.phone}</span></b><span class="dt-only">nebo <u>vyberte soubor</u> z počítače</span><span class="cap" id="calScanCap">${CAL.drop.cap}</span></button>
+<button type="button" class="gal-drop as-drop" data-act="pick" data-k="drop" data-dropzone="page" aria-describedby="calScanCap${error ? ' calScanErr' : ''}">${ic('sparkle', '')}<b><span class="dt-only">${CAL.drop.bold}</span><span class="ph-only">${CAL.drop.phone}</span></b><span class="dt-only">nebo <u>vyberte soubor</u> z počítače</span><span class="cap" id="calScanCap">${CAL.drop.cap}</span></button>
 ${error ? `<p class="hint err" id="calScanErr" role="alert" style="margin:0;display:flex;gap:6px">${ic('alert', 's14')}<span>${esc(errorText(error))}</span></p>` : ''}</div>
 <div class="as-card" data-region="tips">${tips()}</div></div>`;
 }
@@ -106,7 +108,7 @@ function checks(scan) {
     const warn = (text) => `<li class="warn">${ic('alert')}<span><span class="sr">Varování: </span>${text}</span></li>`;
     const rows = [ok('Formát a velikost jsou v pořádku')];
     if (picked.type === 'heic') rows.push(warn('Fotka z telefonu (HEIC). Pokud jde o fotku tisku, výsledek bude jen přibližný.'));
-    if (picked.width) rows.push(picked.warnings.includes('small') ? warn('Malý obrázek — drobné texty nemusíme přečíst') : ok('Dostatečné rozlišení'));
+    if (picked.width) rows.push(picked.warnings.includes('small') ? warn(CAL.lowResolutionCheck) : ok('Dostatečné rozlišení'));
     if (picked.sharpnessChecked) rows.push(picked.warnings.includes('blurry') ? warn('Obrázek je rozmazaný — výsledek bude jen přibližný') : ok('Obrázek je ostrý'));
     if (picked.width) {
         const page = design(scan).page;
@@ -151,7 +153,7 @@ function chosenView(scan) {
         : `<div class="as-file-th none">${ic('image', '')}<span class="cap">Náhled uvidíte po nahrání</span></div>`;
     const has = design(scan).layout ? `<p class="as-ph-note">${ic('info', 's14')}<span>${CAL.hasLayout}</span></p>` : '';
     return `<div class="as-cgrid" data-region="chosen" data-deep>
-<div class="as-main" data-region="file"><div class="as-card">${fileInput()}${thumb}<div class="as-file-b"><b>${esc(picked.file.name)}</b><span class="cap">${facts}</span>${checks(scan)}
+<div class="as-main" data-region="file"><div class="as-card" data-dropzone="page">${fileInput()}${thumb}<div class="as-file-b"><b>${esc(picked.file.name)}</b><span class="cap">${facts}</span>${checks(scan)}
 <div><button type="button" class="btn xs btn-tertiary" data-act="pick" data-k="other">${ic('refresh', 's14')}Vybrat jiný obrázek</button></div></div>
 <p class="cap" style="margin:0">Zatím jsme nic neodeslali — tohle jsme zjistili ve vašem prohlížeči.</p></div></div>
 <div class="as-card" data-region="start"><h3>Co převezmeme</h3><p style="margin:0;font-size:13px;line-height:1.55;color:var(--text-2)">${CAL.takeOver}</p>${has}${consentBlock(scan)}${startBlock(scan)}</div></div>`;
@@ -174,16 +176,27 @@ export function announcement(row) {
     return fail(row).title;
 }
 
+/**
+ * What is known about one finished stage → `{ took: seconds | null, note: [code, params] | null }`.
+ * The status document's `stages` (the server's stage log: `{ seconds, note, noteParams }`) when it
+ * carries one, else what this browser observed (`run.stages`: `{ start, end, note: [code, params] }`).
+ */
+function stageSeen(scan, id) {
+    const logged = scan.scan && scan.scan.stages && scan.scan.stages[id];
+    if (logged) return { took: typeof logged.seconds === 'number' ? logged.seconds : null, note: logged.note ? [logged.note, logged.noteParams || null] : null };
+    const seen = (scan.run && scan.run.stages && scan.run.stages[id]) || {};
+    return { took: seen.start && seen.end ? (seen.end - seen.start) / 1000 : null, note: seen.note || null };
+}
+
 function stageList(scan, { now = -1, failed = false } = {}) {
-    const run = scan.run || { stages: {} };
     const row = scan.scan;
     return `<ol class="as-stages" aria-label="Průběh skenu">${STAGES.map((s, i) => {
         const state = failed && i === now ? 'fail' : i < now ? 'done' : i === now ? 'now' : 'todo';
         const sr = { done: 'hotovo', now: 'právě běží', todo: 'čeká', fail: 'nepodařilo se' }[state];
         const icon = state === 'done' ? ic('check') : state === 'now' ? '<span class="as-spin"></span>' : state === 'fail' ? ic('x-circle') : '';
-        const seen = run.stages[s.id] || {};
+        const seen = stageSeen(scan, s.id);
         const note = state === 'now' && !failed ? noteText(row.note, row.noteParams) : state === 'done' && seen.note ? noteText(seen.note[0], seen.note[1]) : null;
-        const took = state === 'done' && seen.start && seen.end ? duration((seen.end - seen.start) / 1000) : '';
+        const took = state === 'done' && seen.took !== null ? duration(seen.took) : '';
         const round = state === 'now' && s.id === 'refine' && row.round >= 1 ? ` <span class="pill pch">kolo ${Math.min(2, row.round)} ze 2</span>` : '';
         return `<li class="${state}"><span class="ic">${icon}</span><span>${s.label}${round}<span class="sr"> — ${sr}</span></span><span class="dur">${took}</span>${note ? `<span class="note">${esc(note)}</span>` : ''}</li>`;
     }).join('')}</ol>`;
@@ -275,7 +288,7 @@ function fail(row) {
 function failView(scan) {
     const row = scan.scan;
     const f = fail(row);
-    const run = scan.run || { stages: {} };
+    const run = scan.run || {};
     const tryTail = (row.try || 1) >= 2 ? ` · ${row.try}. pokus` : '';
     const state = scan.entry ? scan.entry.state : 'service_waiting';
     const blocker = scan.actionRefusal
@@ -285,8 +298,8 @@ function failView(scan) {
 
     let stages = '';
     if (f.stop) {
-        const check = run.stages.check || {};
-        stages = `<ol class="as-stages" aria-label="Průběh skenu"><li class="stop"><span class="ic">${ic('info')}</span><span>Kontrola obrázku — zastaveno</span><span class="dur">${check.start && check.end ? duration((check.end - check.start) / 1000) : ''}</span></li></ol>`;
+        const check = stageSeen(scan, 'check');
+        stages = `<ol class="as-stages" aria-label="Průběh skenu"><li class="stop"><span class="ic">${ic('info')}</span><span>Kontrola obrázku — zastaveno</span><span class="dur">${check.took !== null ? duration(check.took) : ''}</span></li></ol>`;
     } else if (!f.noStages) {
         const at = stageIndex(row.stage || run.last || '');
         if (at >= 0) stages = stageList(scan, { now: at, failed: true });
@@ -325,6 +338,58 @@ function goneView(scan) {
 
 // ---- C4 — review ----------------------------------------------------------------------------------
 
+// The elements a calendar layout has, as outlines over the proposal (`Ukázat vrstvy`): box key →
+// letter tag. Boxes are page millimetres; an element that is hidden or whose switch is off has none.
+const LAYER_TAGS = { photo: 'F', head: 'H', cal: 'K', month: 'M', wk: 'T', cap: 'P', logo: 'L', qr: 'Q' };
+const LAYER_FEATURE = { cap: 'captions', wk: 'weekNumbers', qr: 'qr' };
+const pc = (v) => Math.round(v * 100) / 100;
+
+/** `{ x, y, w, h }` in page mm → the percent style of a box over the page, cut at the page edge. */
+function mmStyle(box, page) {
+    const x0 = Math.max(0, box.x);
+    const y0 = Math.max(0, box.y);
+    const x1 = Math.min(page.width, box.x + box.w);
+    const y1 = Math.min(page.height, box.y + box.h);
+    return `left:${pc((x0 / page.width) * 100)}%;top:${pc((y0 / page.height) * 100)}%;width:${pc((Math.max(0, x1 - x0) / page.width) * 100)}%;height:${pc((Math.max(0, y1 - y0) / page.height) * 100)}%`;
+}
+
+/** The boxes of the proposed layout that are on the page: `[key, box]` in stack-neutral order. */
+export function layerBoxes(scan) {
+    const p = scan.proposal;
+    const d = design(scan);
+    const boxes = (p.layout && p.layout.boxes) || {};
+    return Object.keys(LAYER_TAGS).filter((key) => {
+        const box = boxes[key];
+        if (!box || box.hidden || !(box.w > 0) || !(box.h > 0)) return false;
+        const feature = LAYER_FEATURE[key];
+        return !feature || Boolean(d.features[feature]) || scan.ticked.has(feature);
+    }).map((key) => [key, boxes[key]]);
+}
+
+function layerOverlays(scan) {
+    const page = design(scan).page;
+    return layerBoxes(scan).map(([key, box]) => `<span class="as-box${scan.layers ? '' : ' ghost'}" data-box="${key}" style="${mmStyle(box, page)}"><span class="as-ltag">${LAYER_TAGS[key]}</span></span>`).join('');
+}
+
+function layerLegend(scan) {
+    const rows = layerBoxes(scan).map(([key]) => `<span><span class="as-ltag">${LAYER_TAGS[key]}</span>${CAL.elements[key]}</span>`).join('');
+    return rows ? `<div class="as-legend" aria-label="Vrstvy návrhu">${rows}</div>` : '';
+}
+
+/** A box of the layout (page mm) in the pixels of the uploaded picture, or null. */
+export function sourceBox(scan, box) {
+    const p = scan.proposal;
+    const source = p.source && p.source.width && p.source.height ? p.source : null;
+    if (!source || !box) return null;
+    const page = design(scan).page;
+    const [px, py, pw, ph] = p.pageBox || [0, 0, source.width, source.height];
+    const x0 = Math.max(0, px + (Math.max(0, box.x) / page.width) * pw);
+    const y0 = Math.max(0, py + (Math.max(0, box.y) / page.height) * ph);
+    const x1 = Math.min(source.width, px + (Math.min(page.width, box.x + box.w) / page.width) * pw);
+    const y1 = Math.min(source.height, py + (Math.min(page.height, box.y + box.h) / page.height) * ph);
+    return x1 - x0 >= 2 && y1 - y0 >= 2 ? [x0, y0, x1 - x0, y1 - y0] : null;
+}
+
 /** `Vedle sebe | Posuvník` around the original and the live proposal (`[data-proposal]` is filled by scan.js). */
 function compare(scan) {
     const p = scan.proposal;
@@ -335,7 +400,7 @@ function compare(scan) {
     const original = box
         ? `<span class="cal-scan-orig" role="img" aria-label="Vaše stránka" style="${pixelsStyle(scan.image('working'), box, source)}"></span>`
         : `<img class="cal-scan-orig" src="${esc(scan.image('working'))}" alt="Vaše stránka">`;
-    const proposal = '<span class="cal-scan-prop" data-proposal role="img" aria-label="Návrh rozvržení"></span>';
+    const proposal = `<span class="cal-scan-prop" data-proposal role="img" aria-label="Návrh rozvržení"></span>${layerOverlays(scan)}`;
     if (scan.compare === 'slider') {
         return `<div class="as-compare as-cal-cmp"><div class="as-frame" style="${ratio}">${proposal}<div class="as-cmp-top" style="--pos:${scan.pos}%">${original}</div><span class="as-cmp-lab l">Vaše stránka</span><span class="as-cmp-lab r">Návrh rozvržení</span><button type="button" class="as-handle" style="--pos:${scan.pos}%" role="slider" aria-label="Posuvník porovnání" aria-orientation="horizontal" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(scan.pos)}" data-k="handle"><span class="knob">${ic('swap-horizontal')}</span></button></div></div>`;
     }
@@ -390,7 +455,7 @@ function recognised(scan) {
     const rows = p.recognised.map((item) => {
         const [cls, icon, sr] = CAL.states[item.state] || CAL.states.found;
         const fact = item.state === 'absent' ? (item.kept ? CAL.kept : CAL.absent) : `${item.state === 'approximate' ? 'přibližně' : ''}${item.state === 'approximate' && elementFact(item.element, p.layout, page) ? ' — ' : ''}${elementFact(item.element, p.layout, page)}`;
-        return `<li class="${cls}">${ic(icon)}<b>${CAL.elements[item.element] || esc(item.element)}<span class="sr"> — ${sr}</span></b><span class="f">${esc(fact)}</span></li>`;
+        return `<li class="${cls}"${LAYER_TAGS[item.element] ? ` data-hl="${esc(item.element)}"` : ''}>${ic(icon)}<b>${CAL.elements[item.element] || esc(item.element)}<span class="sr"> — ${sr}</span></b><span class="f">${esc(fact)}</span></li>`;
     }).join('');
     return rows ? `<div class="as-card" data-region="rec"><h3>Co jsme rozpoznali</h3><ul class="as-rec">${rows}</ul><p class="cap" style="margin:0">Co jsme nenašli, zůstane v kalendáři nastavené jako dosud. Sken nic nevypíná.</p></div>` : '';
 }
@@ -424,9 +489,17 @@ function infoCard(scan) {
     const p = scan.proposal;
     const rows = (p.notes || []).map((note) => (CAL.notes[note.code] ? `<li><span>${esc(CAL.notes[note.code](note))}</span></li>` : ''));
     if (p.approximate && !(p.notes || []).some((n) => n.code === 'colours_estimated')) rows.push(`<li><span>${CAL.notes.colours_estimated()}</span></li>`);
+    if (p.source && p.source.width && Math.min(p.source.width, p.source.height) < LOW_RESOLUTION_SHORT_SIDE) rows.push(`<li><span>${CAL.lowResolution}</span></li>`);
     if (p.unfinished) rows.push('<li><span>Sken jsme museli ukončit dřív — návrh je nedokončený. Zkontrolujte ho pečlivěji.</span></li>');
     const list = rows.filter(Boolean).join('');
     return list ? `<div class="as-card" data-region="info"><h3>Pro informaci</h3><div class="as-info" style="border-top:0;padding-top:0"><ul>${list}</ul></div></div>` : '';
+}
+
+/** „Jak se sken povedl?“ (ux.md S4 — Feedback), the template wizard's block. */
+function feedback(scan) {
+    const rated = scan.proposal.rating !== null && scan.proposal.rating !== undefined;
+    const done = scan.feedback === 'sent' || (rated && scan.feedback !== 'down');
+    return `<div class="as-card" data-region="fb"><div class="as-fb" style="border-top:0;padding-top:0"><span>Jak se sken povedl?</span>${done ? `<span class="as-muted" role="status">${ic('check-circle', 's14')} Díky za hodnocení</span>` : `<span class="as-fb-b"><button type="button" class="btn xs btn-tertiary" aria-pressed="false" data-act="rate" data-v="1" data-k="fbu">${ic('thumb-up', 's14')}Dobře</button><button type="button" class="btn xs btn-tertiary" aria-pressed="${scan.feedback === 'down'}" data-act="rate" data-v="-1" data-k="fbd">${ic('thumb-down', 's14')}Špatně</button></span>`}${scan.feedback === 'down' ? `<div class="as-fb-form"><label class="inp sm"><input type="text" maxlength="500" placeholder="Co se nepovedlo? (nepovinné)" aria-label="Co se nepovedlo? (nepovinné)" data-k="fbt" data-enter="sendFeedback"></label><button type="button" class="btn xs btn-tertiary" data-act="sendFeedback" data-k="fbs">Odeslat</button></div>` : ''}</div></div>`;
 }
 
 /** How many places for a picture stay empty when the layout is applied now. */
@@ -458,30 +531,60 @@ function reviewView(scan) {
         ? `<button type="button" class="btn sm btn-primary" data-act="toPictures" data-cal-action="scan-pictures" data-k="topictures">Pokračovat na obrázky${ic('arrow-right')}</button>`
         : applyButton(scan);
     return `<div class="as-cgrid" data-region="review" data-deep>
-<div class="as-main" data-region="viewer-${scan.compare}"><div class="as-viewbar">${seg}</div>${compare(scan)}<p class="as-cap">${week ? `Náhled ukazuje týden ${week}. ` : ''}${p.photoBox ? 'Fotka je z vašeho obrázku — do kalendáře se nevloží.' : ''}</p></div>
-<div class="as-main" data-region="side" data-deep><div class="as-card as-sumcard" data-region="sum"><h3 class="as-sum"><b>Návrh rozvržení je připravený.</b></h3><p class="cap" style="margin:0">Tohle je návrh — kalendář se zatím nezměnil.</p></div>${recognised(scan)}${fontsCard(scan)}${cantCard(scan)}${infoCard(scan)}</div></div>
+<div class="as-main" data-region="viewer-${scan.compare}-${scan.layers ? 'l' : 'p'}"><div class="as-viewbar">${seg}<label class="as-switch"><input type="checkbox" class="sr" role="switch" data-chg="toggleLayers" data-k="layers"${scan.layers ? ' checked' : ''}><span class="sw sm" aria-hidden="true"></span><span>Ukázat vrstvy</span></label></div>${compare(scan)}${scan.layers ? layerLegend(scan) : ''}<p class="as-cap">${week ? `Náhled ukazuje týden ${week}. ` : ''}${p.photoBox ? 'Fotka je z vašeho obrázku — do kalendáře se nevloží.' : ''}</p></div>
+<div class="as-main" data-region="side" data-deep><div class="as-card as-sumcard" data-region="sum"><h3 class="as-sum"><b>Návrh rozvržení je připravený.</b></h3><p class="cap" style="margin:0">Tohle je návrh — kalendář se zatím nezměnil.</p></div>${recognised(scan)}${fontsCard(scan)}${cantCard(scan)}${infoCard(scan)}${feedback(scan)}</div></div>
 ${foot(scan, primary, { apply: !hasPictures })}`;
 }
 
 // ---- C4b — pictures ---------------------------------------------------------------------------
 
-function pictureCard(scan, item) {
+/** Where a place for a picture sits in the layout: its box in page mm (null = the whole page). */
+function slotBox(scan, slot) {
+    const boxes = (scan.proposal.layout && scan.proposal.layout.boxes) || {};
+    const box = slot === 'logo' ? boxes.logo : slot === 'header' ? boxes.head : null;
+    return box && box.w > 0 && box.h > 0 ? box : null;
+}
+
+function pictureCard(scan, item, number) {
+    const p = scan.proposal;
     const busy = scan.busy === `picture:${item.slot}`;
     const name = CAL.slots[item.slot] || esc(item.slot);
-    const pick = (label, icon = 'upload') => `<button type="button" class="btn xs btn-tertiary" data-act="picturePick" data-slot="${esc(item.slot)}" data-k="pic${esc(item.slot)}"${busy ? ' disabled' : ''}>${ic(icon, 's14')}${label}</button>`;
-    let thumb;
+    const slot = esc(item.slot);
+    const dis = busy ? ' disabled' : '';
+    const gallery = (label, cls = 'btn-tertiary') => (scan.hasGallery() ? `<button type="button" class="btn xs ${cls}" data-act="pictureGallery" data-slot="${slot}" data-k="picg${slot}"${dis}>${ic('image', 's14')}${label}</button>` : '');
+    const upload = (label, cls = 'btn-tertiary') => `<button type="button" class="btn xs ${cls}" data-act="picturePick" data-slot="${slot}" data-k="pic${slot}"${dis}>${ic('upload', 's14')}${label}</button>`;
     let body;
     if (item.picture) {
-        thumb = `<span class="crop" style="background-image:url('${esc(item.picture.url)}');background-size:contain;background-position:center"></span>`;
-        body = `<span class="cap">${esc(item.picture.name)}${item.picture.width ? ` · ${item.picture.width} × ${item.picture.height} px` : ''}</span><div class="as-row">${pick('Změnit', 'refresh')}<button type="button" class="btn xs btn-ghost" data-act="pictureDrop" data-slot="${esc(item.slot)}" data-k="picdrop${esc(item.slot)}"${busy ? ' disabled' : ''}>Odebrat</button></div>`;
+        const pic = item.picture;
+        body = `<p class="as-ph-note ok">${ic('check-circle', 's14')}<span class="as-ph-pick" aria-hidden="true"><img src="${esc(pic.url)}" alt="" loading="lazy"></span><span>${esc(pic.name)}${pic.width ? ` · ${pic.width} × ${pic.height} px` : ''}</span></p><div class="as-row">${gallery('Změnit')}${upload(scan.hasGallery() ? 'Nahrát jiný' : 'Změnit', scan.hasGallery() ? 'btn-ghost' : 'btn-tertiary')}<button type="button" class="btn xs btn-ghost" data-act="pictureDrop" data-slot="${slot}" data-k="picdrop${slot}"${dis}>Odebrat obrázek</button></div>`;
     } else if (item.current) {
-        thumb = `<span class="crop cal-scan-nopic">${ic('check', '')}</span>`;
-        body = `<p class="as-ph-note ok">${ic('check-circle', 's14')}<span>Zůstane obrázek, který kalendář už má.</span></p><div class="as-row">${pick('Nahrát jiný')}</div>`;
+        body = `<p class="as-ph-note ok">${ic('check-circle', 's14')}<span>Zůstane obrázek, který kalendář už má.</span></p><div class="as-row">${gallery('Vybrat z galerie')}${upload('Nahrát jiný')}</div>`;
     } else {
-        thumb = `<span class="crop cal-scan-nopic">${ic('image', '')}</span>`;
-        body = `<p class="as-ph-note">${ic('info', 's14')}<span>Můžete ho doplnit i později v kroku Úpravy prvků.</span></p><div class="as-row">${pick('Nahrát')}</div>`;
+        body = `<p class="as-ph-note">${ic('info', 's14')}<span>Můžete ho doplnit i později v kroku Úpravy prvků.</span></p><div class="as-row">${gallery('Vybrat z galerie')}${upload('Nahrát')}</div>`;
     }
-    return `<div class="as-ph" data-region="pic-${esc(item.slot)}" data-slot="${esc(item.slot)}"><div class="as-ph-crop">${thumb}</div><div class="as-ph-b"><div class="as-ph-h"><b>${name}</b>${busy ? '<span class="as-spin" style="width:12px;height:12px"></span>' : ''}</div>${body}</div></div>`;
+    const source = p.source && p.source.width && p.source.height ? p.source : null;
+    const px = sourceBox(scan, slotBox(scan, item.slot));
+    let crop;
+    if (source && px) crop = `<span class="crop" role="img" aria-label="Výřez vaší stránky v tomto místě" style="${cropStyle(scan.image('working'), px, source, { pad: 0.12, minRatio: 0.7, maxRatio: 2.2 })}"></span>`;
+    else if (source) crop = `<span class="crop whole" role="img" aria-label="Vaše stránka — obrázek přes celou stránku" style="aspect-ratio:${pc(source.width / source.height)};background-image:url('${esc(scan.image('working'))}');background-size:cover"></span>`;
+    else crop = `<span class="crop cal-scan-nopic">${ic('image', '')}</span>`;
+    return `<article class="as-ph" data-region="pic-${slot}" data-slot="${slot}" data-hl="pic-${slot}" data-dropzone="slot" aria-label="Místo ${number}: ${name}"><div class="as-ph-crop">${crop}<b class="as-num">${number}</b>${item.picture ? `<span class="chk" role="img" aria-label="Doplněno">${ic('check', 's12')}</span>` : ''}</div><div class="as-ph-b"><div class="as-ph-h"><b>${name}</b>${busy ? '<span class="as-spin" style="width:12px;height:12px"></span>' : ''}</div>${body}</div></article>`;
+}
+
+/** The numbers over the proposal: where each picture goes; an empty place shows the page's own pixels. */
+function numberedPlaces(scan) {
+    const p = scan.proposal;
+    const page = design(scan).page;
+    const source = p.source && p.source.width && p.source.height ? p.source : null;
+    return p.pictures.map((item, i) => {
+        const box = slotBox(scan, item.slot);
+        const n = i + 1;
+        if (!box) return `<b class="as-num" style="left:2%;top:${pc(100 - 14 - 12 * (p.pictures.length - n))}%">${n}</b>`;
+        const px = !item.picture && !item.current && source ? sourceBox(scan, box) : null;
+        const left = Math.max((Math.max(0, box.x) / page.width) * 100, 1.5);
+        const top = Math.max((Math.max(0, box.y) / page.height) * 100, 3);
+        return `<span class="as-numbox${item.picture || item.current ? ' done' : ' as-place'}" data-box="pic-${esc(item.slot)}" style="${mmStyle(box, page)}${px ? `;${pixelsStyle(scan.image('working'), px, source)}` : ''}"></span><b class="as-num" style="left:${pc(left)}%;top:${pc(top)}%">${n}</b>`;
+    }).join('');
 }
 
 function picturesView(scan) {
@@ -489,11 +592,36 @@ function picturesView(scan) {
     const page = design(scan).page;
     const done = p.pictures.filter((item) => item.picture || item.current).length;
     const back = `<button type="button" class="btn sm btn-tertiary" data-act="toReview" data-k="toreview">${ic('arrow-left')}Zpět na kontrolu</button>`;
+    const formats = 'JPG, PNG, WebP nebo SVG, nejvýše 10 MB';
+    const multi = p.pictures.length > 1
+        ? `<button type="button" class="gal-drop gal-drop-compact as-drop as-multi" data-act="picturesPick" data-k="bulk" data-dropzone="pictures"${scan.busy ? ' disabled' : ''}>${ic('upload', '')}<b><span class="dt-only">Přetáhněte sem víc obrázků najednou</span><span class="ph-only">Klepněte a vyberte víc obrázků</span></b><span class="cap">Přiřadíme je prázdným místům popořadě · ${formats}</span></button>` : '';
     return `<div class="as-cgrid" data-region="pictures" data-deep>
-<div class="as-main" data-region="prop"><span class="lbl">Návrh rozvržení</span><div class="as-frame" style="aspect-ratio:${page.width} / ${page.height}"><span class="cal-scan-prop" data-proposal role="img" aria-label="Návrh rozvržení"></span></div><p class="as-cap">Fotografii týdne nevybíráte — je to obsah každé stránky.</p></div>
-<div class="as-main" data-region="list" data-deep><input type="file" class="sr" id="calScanPic" tabindex="-1" aria-hidden="true" accept="${PICTURE_ACCEPT}" data-chg="pictureInput"><div class="as-row" data-region="count"><h3 style="margin:0;font-size:15px">Fotky a loga</h3><span class="as-sp"></span><span class="as-ph-count">${done} ${zz(p.pictures.length)} ${p.pictures.length}</span></div><div class="as-ph-list" data-region="cards" data-deep>${p.pictures.map((item) => pictureCard(scan, item)).join('')}</div><p class="cap" style="margin:0" data-region="note">Vybraný obrázek zůstane u skenu. Obrázkem kalendáře se stane, až rozvržení použijete. JPG, PNG nebo WebP, nejvýše 10 MB.</p></div></div>
+<div class="as-main" data-region="prop"><span class="lbl">Návrh rozvržení</span><div class="as-frame" style="aspect-ratio:${page.width} / ${page.height}"><span class="cal-scan-prop" data-proposal role="img" aria-label="Návrh rozvržení s očíslovanými místy pro obrázky"></span>${numberedPlaces(scan)}</div><p class="as-cap">Čísla ukazují, kam který obrázek patří. V prázdných místech je vidět původní obrázek. Fotografii týdne nevybíráte — je to obsah každé stránky.</p></div>
+<div class="as-main" data-region="list" data-deep><input type="file" class="sr" id="calScanPic" tabindex="-1" aria-hidden="true" accept="${PICTURE_ACCEPT}" data-chg="pictureInput"><input type="file" class="sr" id="calScanPics" tabindex="-1" aria-hidden="true" multiple accept="${PICTURE_ACCEPT}" data-chg="picturesInput"><div class="as-row" data-region="count"><h3 style="margin:0;font-size:15px">Fotky a loga</h3><span class="as-sp"></span><span class="as-ph-count" aria-label="Doplněno ${done} ${zz(p.pictures.length)} ${p.pictures.length}">${done} ${zz(p.pictures.length)} ${p.pictures.length}</span></div>${multi ? `<div data-region="multi">${multi}</div>` : ''}<div class="as-ph-list" data-region="cards" data-deep>${p.pictures.map((item, i) => pictureCard(scan, item, i + 1)).join('')}</div><p class="cap" style="margin:0" data-region="note">Vybraný obrázek zůstane u skenu — z galerie si bereme jeho kopii. Obrázkem kalendáře se stane, až rozvržení použijete. ${formats}. Obrázek můžete na místo také přetáhnout.</p></div></div>
 ${foot(scan, applyButton(scan), { back, apply: true })}`;
 }
+
+/** „Naskenovat znovu“ (ux.md S4): the same picture again, or a better one. → 'same' | 'new' | null */
+export function rescanDialog(scan) {
+    const can = Boolean(scan.entry && scan.entry.canStart);
+    return new Promise((resolve) => {
+        let chosen = null;
+        const dialog = openDialog(`${dialogHead('Naskenovat znovu')}<p>Nový sken může dopadnout jinak, ne nutně lépe.</p>
+<div class="as-opts"><button type="button" class="btn sm btn-tertiary" data-mode="same"${can ? ' data-autofocus' : ' disabled'}>Stejný obrázek znovu</button><button type="button" class="btn sm btn-tertiary" data-mode="new"${can ? '' : ' disabled'}>Nahrát lepší obrázek</button></div>
+<p class="as-credit" style="justify-content:flex-start">${ic('sparkle', 's14')}<span>${esc(can ? creditLine(scan.entry.credits, 'Spotřebuje další sken').replace('tento měsíc ', '') : 'Nové skeny teď v tomto projektu spustit nejdou.')}</span></p>
+<p class="cap">Tento návrh zůstane uložený, dokud ho nezahodíte nebo nevyprší. Kalendář se nezmění.</p>
+<div class="dlg-f"><button type="button" class="btn sm btn-ghost" data-close>Zrušit</button></div>`, { onClose: () => resolve(chosen) });
+        dialog.addEventListener('click', (event) => {
+            const button = event.target.closest('[data-mode]');
+            if (!button || button.disabled) return;
+            chosen = button.dataset.mode;
+            dialog.close();
+        });
+    });
+}
+
+/** `2 obrázky přiřazeny` */
+export const assignedText = (n) => `${n} ${pl(n, 'obrázek přiřazen', 'obrázky přiřazeny', 'obrázků přiřazeno')}`;
 
 // ---- dialogs ----------------------------------------------------------------------------------
 

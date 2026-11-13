@@ -155,6 +155,9 @@
             "requiresInstruments": [
                 "mm"
             ],
+            "upload": {
+                "minShortSidePx": 300
+            },
             "system": [
                 "system.common.md",
                 "system.calendar.md"

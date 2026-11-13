@@ -92,6 +92,63 @@ jobs:
           -   run: vendor/bin/phpunit --group fault-injection
 
 
+  # The calendar renders that really go through Gotenberg (headless Chromium):
+  # an UNSAVED calendar document drawn as its stored twin, and a candidate of
+  # an AI scan drawn from model commands without the calendar changing
+  # (tests/Services/Calendar/CalendarRenderDocumentGotenbergTest.php). The
+  # page sent to Gotenberg is self-contained (scripts, fonts and pictures as
+  # data: URLs), so a service container is all it needs — unlike the template
+  # renders of the `gotenberg` group, which Chromium fetches from a running
+  # app and which therefore stay local-only.
+  calendar-render:
+      runs-on: ubuntu-latest
+      container: ghcr.io/thedevs-cz/php:8.5-wboost
+      timeout-minutes: 15
+      env:
+          GOTENBERG_DSN: http://gotenberg:3000
+
+      services:
+          postgres:
+              image: postgres:16
+              env:
+                  POSTGRES_PASSWORD: postgres
+              options: --health-cmd pg_isready --health-interval 3s --health-timeout 3s --health-retries 5
+              ports:
+                  - 5432:5432
+          gotenberg:
+              image: gotenberg/gotenberg:8
+
+      steps:
+          -   uses: actions/checkout@v6
+
+          -   uses: actions/cache@v5
+              with:
+                  path: vendor
+                  key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+                  restore-keys: |
+                      ${{ runner.os }}-composer-
+
+          -   uses: actions/cache@v5
+              id: importmap-cache
+              with:
+                  path: assets/vendor
+                  key: ${{ runner.os }}-importmap-${{ hashFiles('importmap.php') }}
+
+          -   run: composer install --no-scripts --no-progress
+
+          -   if: steps.importmap-cache.outputs.cache-hit != 'true'
+              run: bin/console importmap:install
+
+          -   run: bin/console asset-map:compile
+
+          # Without Gotenberg the tests would fail on a connection error that says little.
+          -   name: Gotenberg answers
+              run: |
+                  php -r 'for ($i = 0; $i < 60; $i++) { if (@file_get_contents("http://gotenberg:3000/health") !== false) { exit(0); } sleep(1); } fwrite(STDERR, "Gotenberg did not answer on http://gotenberg:3000/health within 60 s\n"); exit(1);'
+
+          -   run: vendor/bin/phpunit --group gotenberg --filter CalendarRenderDocumentGotenbergTest
+
+
   # A released skill is immutable: once `wboost-plugin-v<version>` is tagged
   # (plugin-release.yml), any change under plugin/wboost or the marketplace
   # manifest needs a version bump — otherwise users with that version would

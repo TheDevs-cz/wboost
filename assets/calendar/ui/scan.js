@@ -15,6 +15,11 @@
 // start, status, proposal, image, action, seen, accept, restore, picture; the stateless CSRF of the
 // scan endpoints (kit.js `api`). Accept / restore answer the saved calendar → `store.load()`.
 //
+// Pictures for the proposal's places come from the disk (a file input, or a file dropped on a card /
+// on the multi-drop zone) or from the project's gallery — the `Project:ImageGallery` modal
+// `#calScanGalleryModal` of workspace.html.twig, which answers with the window event
+// `asset-selected`; the server copies the gallery file's bytes to the scan.
+//
 // DOM hooks (e2e contract): [data-cal-scan-card], [data-cal-scan-panel][data-view="upload|chosen|
 // wait|review|pictures|fail|gone"], [data-cal-action="scan-open|scan-start|scan-apply|scan-restore|
 // scan-discard|scan-rescan|scan-pictures|scan-close"], file inputs #calScanFile / #calScanPic (always
@@ -24,7 +29,7 @@
 
 import { api, announce, urlFor } from '../../ai-scan/kit.js';
 import { CAL, startHint } from '../../ai-scan/copy.js';
-import { inspectFiles } from '../../ai-scan/file-checks.js';
+import { MIN_SHORT_SIDE_CALENDAR, inspectFiles } from '../../ai-scan/file-checks.js';
 import { morph } from '../../ai-scan/page/app.js';
 import { observe, needsRender } from '../../ai-scan/page/wait.js';
 import * as views from './scan/views.js';
@@ -74,6 +79,9 @@ class CalendarScan {
         this.photo = null; // { key, url, width, height } — the photo region of the original
         this.drawn = null; // signature of the proposal preview on screen
         this.pendingSlot = null;
+        this.gallerySlot = null; // the place the gallery modal was opened for
+        this.layers = false; // „Ukázat vrstvy“
+        this.feedback = null; // null | 'down' (the note field is open) | 'sent'
         this.busy = null;
         this.actionRefusal = null;
         this.timer = null;
@@ -82,7 +90,45 @@ class CalendarScan {
 
         this.onClick = (event) => this.dispatch(event, 'act');
         this.onChange = (event) => this.dispatch(event, 'chg');
-        this.onKey = (event) => views.sliderKey(this, event);
+        this.onKey = (event) => {
+            views.sliderKey(this, event);
+            const el = event.key === 'Enter' && event.target.closest ? event.target.closest('[data-enter]') : null;
+            if (el && this.root && this.root.contains(el) && ACTIONS[el.dataset.enter]) { event.preventDefault(); ACTIONS[el.dataset.enter](this, el, event); }
+        };
+        // hover / focus of a row or a picture card highlights its box over the proposal
+        this.onHover = (event) => {
+            const el = event.target.closest ? event.target.closest('[data-hl]') : null;
+            if (!el || !this.root || !this.root.contains(el)) return;
+            const on = event.type === 'mouseover' || event.type === 'focusin';
+            this.root.querySelectorAll(`[data-box="${CSS.escape(el.dataset.hl)}"]`).forEach((box) => box.classList.toggle('hl', on));
+        };
+        // files dragged from the desktop: the upload zone, a picture card, the multi-drop zone
+        const zoneOf = (event) => (event.target.closest ? event.target.closest('[data-dropzone]') : null);
+        const hasFiles = (event) => Boolean(event.dataTransfer) && [...(event.dataTransfer.types || [])].includes('Files');
+        this.onDragOver = (event) => {
+            const zone = zoneOf(event);
+            if (!zone || !hasFiles(event) || zone.disabled) return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'copy';
+            zone.classList.add('over');
+        };
+        this.onDragLeave = (event) => {
+            const zone = zoneOf(event);
+            if (zone && !zone.contains(event.relatedTarget)) zone.classList.remove('over');
+        };
+        this.onDrop = (event) => {
+            const zone = zoneOf(event);
+            if (!zone || !hasFiles(event)) return;
+            event.preventDefault();
+            zone.classList.remove('over');
+            if (zone.disabled) return;
+            const files = [...event.dataTransfer.files];
+            if (zone.dataset.dropzone === 'page') this.take(files);
+            else if (zone.dataset.dropzone === 'slot' && files.length === 1) this.holdPicture(zone.dataset.slot, files[0]);
+            else this.holdMany(files, zone.dataset.dropzone === 'slot' ? zone.dataset.slot : null);
+        };
+        this.onAsset = (event) => this.galleryPicked(event.detail || {});
+        window.addEventListener('asset-selected', this.onAsset);
         this.unsubscribe = this.store.subscribe((event) => {
             // „Použít rozvržení“ is disabled while the calendar has unsaved changes
             if (event.type === 'status' && this.root && ['review', 'pictures'].includes(this.view())) this.render();
@@ -123,6 +169,7 @@ class CalendarScan {
         this.destroyed = true;
         window.clearTimeout(this.timer);
         window.clearInterval(this.ticker);
+        window.removeEventListener('asset-selected', this.onAsset);
         this.unsubscribe();
         this.unmount();
         this.dropPhoto();
@@ -164,6 +211,10 @@ class CalendarScan {
         root.addEventListener('click', this.onClick);
         root.addEventListener('change', this.onChange);
         root.addEventListener('keydown', this.onKey);
+        for (const type of ['mouseover', 'mouseout', 'focusin', 'focusout']) root.addEventListener(type, this.onHover);
+        root.addEventListener('dragover', this.onDragOver);
+        root.addEventListener('dragleave', this.onDragLeave);
+        root.addEventListener('drop', this.onDrop);
         this.unbindSlider = views.bindSlider(this, root);
         this.drawn = null;
         this.render();
@@ -178,6 +229,10 @@ class CalendarScan {
         root.removeEventListener('click', this.onClick);
         root.removeEventListener('change', this.onChange);
         root.removeEventListener('keydown', this.onKey);
+        for (const type of ['mouseover', 'mouseout', 'focusin', 'focusout']) root.removeEventListener(type, this.onHover);
+        root.removeEventListener('dragover', this.onDragOver);
+        root.removeEventListener('dragleave', this.onDragLeave);
+        root.removeEventListener('drop', this.onDrop);
         if (this.unbindSlider) this.unbindSlider();
         root.replaceChildren();
         this.root = null;
@@ -228,6 +283,25 @@ class CalendarScan {
             this.drawn = signature;
         }
         this.loadPhoto();
+        this.measureSource();
+    }
+
+    /**
+     * The pixel size of the uploaded page, when the proposal does not carry it (a scan whose intake
+     * reported none): read from the working copy itself, so crops and outlines can be placed.
+     */
+    async measureSource() {
+        const p = this.proposal;
+        if (!p || (p.source && p.source.width && p.source.height) || this.measuring === p) return;
+        this.measuring = p;
+        try {
+            const img = new Image();
+            img.src = this.image('working');
+            await img.decode();
+            if (this.proposal !== p || !img.naturalWidth) return;
+            p.source = { width: img.naturalWidth, height: img.naturalHeight };
+            this.render();
+        } catch (e) { /* the pictures stay without crops */ }
     }
 
     /** The photo region of the original, cut in the browser for the preview only. */
@@ -402,7 +476,8 @@ class CalendarScan {
     // ---- S1 / S2 ----------------------------------------------------------------------------
 
     async take(files) {
-        const result = await inspectFiles(files);
+        // a calendar page may be smaller than a design; under 600 px the checks say so
+        const result = await inspectFiles(files, { minShortSide: MIN_SHORT_SIDE_CALENDAR, goodShortSide: views.LOW_RESOLUTION_SHORT_SIDE });
         if (!result || this.scan) return;
         if (this.picked && this.picked.previewUrl) URL.revokeObjectURL(this.picked.previewUrl);
         if (result.error) {
@@ -468,10 +543,57 @@ class CalendarScan {
         this.uploadError = null;
         this.actionRefusal = null;
         this.step = 'review';
+        this.feedback = null;
         this.dropPhoto();
         document.documentElement.dataset.asScan = '';
         this.changed();
         this.focusHeading();
+    }
+
+    /**
+     * „Naskenovat znovu“: the same picture again (the stored original goes back to the chosen-file
+     * screen — a new scan, with the credit line in front of the user) or the upload zone for a
+     * better one. The proposal on screen stays in the history either way.
+     */
+    async rescan() {
+        const mode = await views.rescanDialog(this);
+        if (!mode || !this.scan) return;
+        if (mode === 'new') { this.another(); return; }
+        let file = null;
+        try {
+            const response = await fetch(this.image('original'), { credentials: 'same-origin' });
+            if (response.ok) { const blob = await response.blob(); file = new File([blob], this.scan.fileName || 'stranka-kalendare', { type: blob.type }); }
+        } catch (e) { file = null; }
+        if (!file) { this.ctx.toast('Původní obrázek se nepodařilo načíst. Nahrajte ho znovu.', true); return; }
+        this.another();
+        await this.refreshEntry();
+        await this.take([file]);
+    }
+
+    // ---- „Jak se sken povedl?“ -------------------------------------------------------------------
+
+    async rate(rating) {
+        if (rating === -1) {
+            this.feedback = 'down';
+            this.render();
+            const input = this.root ? this.root.querySelector('[data-k="fbt"]') : null;
+            if (input) input.focus();
+        }
+        const answer = await api.post(urlFor(this.urls.rating, this.scan.id), { rating });
+        if (!answer.ok || !this.proposal) return;
+        this.proposal.rating = rating;
+        if (rating === 1) { this.feedback = 'sent'; this.ctx.toast('Díky za hodnocení'); }
+        this.render();
+    }
+
+    async sendFeedback() {
+        const input = this.root ? this.root.querySelector('[data-k="fbt"]') : null;
+        const note = input ? input.value.trim() : '';
+        await api.post(urlFor(this.urls.rating, this.scan.id), note ? { rating: -1, note } : { rating: -1 });
+        if (this.proposal) this.proposal.rating = -1;
+        this.feedback = 'sent';
+        this.render();
+        this.ctx.toast('Díky za hodnocení');
     }
 
     async act(name, action) {
@@ -554,21 +676,78 @@ class CalendarScan {
 
     // ---- pictures (C4b) ---------------------------------------------------------------------
 
-    async holdPicture(slot, file) {
-        if (!file) return;
+    /** A picture for one place: a `File` from the disk, or `{ fileId }` of a gallery picture. → ok? */
+    async holdPicture(slot, source) {
+        if (!source || !slot || this.busy || !this.proposal) return false;
         this.busy = `picture:${slot}`;
         this.render();
-        const answer = await api.upload(urlFor(this.urls.picture, this.scan.id), { slot, picture: file });
+        const answer = await api.upload(urlFor(this.urls.picture, this.scan.id), source instanceof File ? { slot, picture: source } : { slot, fileId: source.fileId });
         this.busy = null;
         if (answer.ok && answer.proposal) {
-            this.proposal = answer.proposal;
+            this.replaceProposal(answer.proposal);
         } else if (answer.code === 'wrong_state') {
             await this.resync();
-            return;
+            return false;
         } else {
-            this.ctx.toast(pictureError(answer), true);
+            this.ctx.toast(pictureError(answer, source instanceof File), true);
         }
         this.render();
+        return Boolean(answer.ok);
+    }
+
+    /**
+     * Several files at once (the multi-drop zone, or several files dropped on a card): they go to
+     * the places without a picture in order — `first` (a card's slot) before the others.
+     */
+    async holdMany(files, first = null) {
+        const list = [...(files || [])];
+        if (!list.length || !this.proposal || this.busy) return;
+        const empty = this.proposal.pictures.filter((item) => !item.picture).sort((a, b) => Number(Boolean(a.current)) - Number(Boolean(b.current))).map((item) => item.slot);
+        const slots = first ? [first, ...empty.filter((slot) => slot !== first)] : empty;
+        let assigned = 0;
+        for (const file of list) {
+            const slot = slots[assigned];
+            if (!slot) break;
+            // eslint-disable-next-line no-await-in-loop -- one picture at a time, in the order given
+            if (!(await this.holdPicture(slot, file))) break;
+            assigned += 1;
+        }
+        const left = list.length - assigned;
+        if (assigned > 0) this.ctx.toast(`${views.assignedText(assigned)}${left > 0 ? ` · ${left} jsme nepoužili` : ''}`);
+        else if (!slots.length) this.ctx.toast('Žádné prázdné místo — obrázky jsme nepřiřadili', true);
+    }
+
+    // ---- the gallery as a source ------------------------------------------------------------
+
+    galleryModal() {
+        const el = document.getElementById('calScanGalleryModal');
+        return el && window.bootstrap ? { el, modal: window.bootstrap.Modal.getOrCreateInstance(el) } : null;
+    }
+
+    hasGallery() { return Boolean(document.getElementById('calScanGalleryModal')); }
+
+    pickFromGallery(slot) {
+        const host = this.galleryModal();
+        if (!host) { this.ctx.toast('Galerii se nepodařilo otevřít. Načtěte stránku znovu.', true); return; }
+        this.gallerySlot = slot;
+        host.modal.show();
+    }
+
+    /** `asset-selected` of the gallery modal: the picked picture goes to the place it was opened for. */
+    galleryPicked(detail) {
+        const slot = this.gallerySlot;
+        if (!slot || !detail.id) return;
+        this.gallerySlot = null;
+        const host = this.galleryModal();
+        if (host) host.modal.hide();
+        this.holdPicture(slot, { fileId: detail.id });
+    }
+
+    /** A fresh proposal document from the server; what the browser measured about the page stays. */
+    replaceProposal(next) {
+        const before = this.proposal;
+        if (before && before.source && before.source.width && !(next.source && next.source.width)) next.source = before.source;
+        this.proposal = next;
     }
 
     async dropPicture(slot) {
@@ -576,7 +755,7 @@ class CalendarScan {
         this.render();
         const answer = await api.upload(urlFor(this.urls.picture, this.scan.id), { slot, remove: '1' });
         this.busy = null;
-        if (answer.ok && answer.proposal) this.proposal = answer.proposal;
+        if (answer.ok && answer.proposal) this.replaceProposal(answer.proposal);
         else if (answer.code === 'wrong_state') { await this.resync(); return; }
         else this.ctx.toast('Obrázek se nepodařilo odebrat. Zkuste to znovu.', true);
         this.render();
@@ -650,9 +829,10 @@ class CalendarScan {
     }
 }
 
-function pictureError(answer) {
+function pictureError(answer, fromDisk = true) {
     if (answer.code === 'invalid_fix' && answer.field === 'size') return 'Obrázek je větší než 10 MB. Zmenšete ho nebo ho uložte jako JPG.';
-    if (answer.code === 'invalid_fix' && answer.field === 'type') return 'Tento soubor neumíme. Nahrajte obrázek JPG, PNG nebo WebP.';
+    if (answer.code === 'invalid_fix' && answer.field === 'type') return fromDisk ? 'Tento soubor neumíme. Nahrajte obrázek JPG, PNG, WebP nebo SVG.' : 'Tento obrázek z galerie tady použít nejde. Vyberte JPG, PNG, WebP nebo SVG.';
+    if (answer.code === 'invalid_fix' && answer.field === 'picture') return 'Obrázek už v galerii není. Vyberte jiný.';
     if (answer.code === 'network') return 'Obrázek se nepodařilo nahrát. Zkontrolujte připojení a zkuste to znovu.';
     return 'Obrázek se nepodařilo nahrát. Zkuste to znovu.';
 }
@@ -674,7 +854,13 @@ const ACTIONS = {
     continueAnyway: (scan) => scan.again('continue', 'continue'),
     other: (scan) => scan.another(),
     discard: (scan) => scan.discard(),
-    rescan: (scan) => scan.another(),
+    rescan: (scan) => scan.rescan(),
+    toggleLayers: (scan, el) => { scan.layers = el.checked; scan.drawn = null; scan.render(); },
+    rate: (scan, el) => scan.rate(Number(el.dataset.v)),
+    sendFeedback: (scan) => scan.sendFeedback(),
+    pictureGallery: (scan, el) => scan.pickFromGallery(el.dataset.slot),
+    picturesPick: (scan) => click(scan, '#calScanPics'),
+    picturesInput: (scan, el) => scan.holdMany(el.files),
     compareMode: (scan, el) => { scan.compare = el.dataset.v; scan.drawn = null; scan.render(); },
     feature: (scan, el) => { if (el.checked) scan.ticked.add(el.dataset.key); else scan.ticked.delete(el.dataset.key); scan.render(); },
     toPictures: (scan) => { scan.step = 'pictures'; scan.drawn = null; scan.changed(); scan.focusHeading(); },

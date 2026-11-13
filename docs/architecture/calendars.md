@@ -711,7 +711,7 @@ and `ai-scan.md` § "Calendar scans"). Weekly calendars, designers only.
 | File | Role |
 |---|---|
 | `ui/scan.js` | `createScan(ctx)` → ONE `CalendarScan` per workspace (`ctx.scan`; null for a client or without `env.scan`). Owns the entry facts, the current scan and its proposal; polls `status` while a scan is on its way **in any step** (2 s with the panel on screen, 10 s otherwise); `mount(root)` draws the action card or the panel into step 2's `.cal-scan`. Apply / restore, pictures, cancel / discard / retry |
-| `ui/scan/views.js` | markup strings of the card and of the panel's screens (`upload`, `chosen`, `wait`, `fail`, `gone`, `review`, `pictures`), the comparison slider, the privacy and access-request dialogs |
+| `ui/scan/views.js` | markup strings of the card and of the panel's screens (`upload`, `chosen`, `wait`, `fail`, `gone`, `review`, `pictures`), the comparison slider, the outlines of `Ukázat vrstvy` (`layerBoxes`), the numbered places and their crops (`sourceBox`), the rating block, the privacy, access-request and „Naskenovat znovu“ dialogs |
 | `ui/scan/preview.js` | the live render of the proposal (`previewDocument` / `previewMarkup`: the calendar's own renderer on a document that exists only for the preview), `cropPicture` (the one canvas), `elementFact` — the phrase beside a recognised element, derived from the layout |
 | `ui/step2.js` | mounts `ctx.scan` under the cards; the third radio `[data-preset="scan"]` |
 | `ui/topbar.js` | the peach dot on step 2 (`[data-cal-scan-dot]`), tertiary `Pokračovat` |
@@ -730,6 +730,38 @@ and `ai-scan.md` § "Calendar scans"). Weekly calendars, designers only.
   as the page's photo. Nothing of it enters the store or a save. The SVG is
   put into `[data-proposal]` after each render (outside the patched markup)
   and redrawn only when its signature changes.
+- **Boxes over the pictures** are percent boxes computed from the proposed
+  layout's millimetres (`mmStyle`, cut at the page edge): the outlines of
+  `Ukázat vrstvy` (`.as-box`, letter tags F fotografie · H hlavička ·
+  K kalendárium · M měsíc · T číslo týdne · P popisek · L logo · Q QR kód;
+  an element that is hidden or whose switch is off — and not ticked — has
+  none) with the legend under the viewer, and the numbered places of the
+  pictures step (`.as-numbox` + `.as-num`; an empty place shows the uploaded
+  page's own pixels dimmed, `sourceBox()` = layout mm → pixels of the working
+  copy through `pageBox`). Hover or focus of a row of „Co jsme rozpoznali“
+  or of a picture card (`data-hl`) lights the box with the same `data-box`.
+- **Pictures for the places** (`holdPicture(slot, File | {fileId})`): a file
+  input, a file dropped on a card (`data-dropzone="slot"`), several files on
+  the multi-drop zone or on a card (`holdMany` — the places without a
+  picture in order; shown when the proposal has more than one place), or the
+  project's gallery: the `Project:ImageGallery` modal `#calScanGalleryModal`
+  of `workspace.html.twig` — rendered only for whoever may START a scan
+  (`ai_scan_start`), outside the workspace's root — answers with the window
+  event `asset-selected`, and the server copies the gallery file's bytes to
+  the scan (`fileId`). JPG, PNG, WebP or SVG. The upload zone and the
+  chosen-file card take a dropped page the same way (`data-dropzone="page"`).
+- **Upload checks**: `inspectFiles(files, {minShortSide: 300, goodShortSide:
+  600})` — a calendar page is taken from a 300 px short side (the template
+  wizard: 600); under 600 px the chosen-file checks say „Malý obrázek —
+  rozvržení může vyjít méně přesně“ and the review's „Pro informaci“ carries
+  the low-resolution line (from `proposal.source`, nothing stored).
+- **„Naskenovat znovu“** asks (`rescanDialog`): `Stejný obrázek znovu` puts
+  the stored original back on the chosen-file screen (the browser fetches
+  `image/original`; a new scan, with the credit line in front of the user),
+  `Nahrát lepší obrázek` opens the upload zone. The proposal stays in the
+  history either way; a link `?sken=…` brings it back.
+- **Rating** „Jak se sken povedl?“ → `POST ai_scan_feedback` (`rating`,
+  after 👎 an optional `note`); `proposal.rating` says whether it was given.
 - **The marker** `layoutOrigin` (`'scan'` | null) is `store.getState().layoutOrigin`
   — beside the document, never in `doc.design` (the export fingerprint and
   `normalizeDocument` do not know it). Initial value `env.layoutOrigin`; every
@@ -762,17 +794,31 @@ and `ai-scan.md` § "Calendar scans"). Weekly calendars, designers only.
   (`templates/ai_scan/history.html.twig`): chips `Šablony` / `Kalendáře`,
   calendar rows open their calendar, `Vrátit původní rozvržení`
   (`assets/ai-scan/lists.js` `restoreCalendarLayout`, asks on `layout_changed`).
+- **Who**: an editor of a project with AI sken switched on is the ordinary
+  user of all of this (decision 16) — the card's state is then `enabled`;
+  an administrator on a project without the switch sees `admin_preview` and
+  the line saying so; an editor of a project without it sees `locked` →
+  „Požádat o přístup“ → `request_sent`.
 - **DOM hooks**: `[data-cal-scan-card][data-state]`,
   `[data-cal-scan-panel][data-view]`, `[data-cal-action="scan-open|scan-close|
   scan-start|scan-pictures|scan-apply|scan-restore|scan-discard|scan-rescan"]`,
   `[data-preset="scan"]`, `[data-cal-scan-dot]`, `[data-proposal]`,
-  `#calScanFile`, `#calScanPic` (always in the panel's markup), `[data-slot]`
-  on a picture card. Test hooks: `window.__calendarScan` (`view()`, `scan()`,
+  `#calScanFile`, `#calScanPic`, `#calScanPics` (always in the panel's markup), `[data-slot]`
+  on a picture card, `[data-dropzone="page|slot|pictures"]`, `[data-box]` /
+  `[data-hl]`, `[data-k="layers|fbu|fbd|picg{slot}|pic{slot}|picdrop{slot}"]`,
+  `#calScanGalleryModal`. Test hooks: `window.__calendarScan` (`view()`, `scan()`,
   `proposal()`, `entry()`), `window.__calendar.state().layoutOrigin`.
 - **e2e**: `tests/e2e/calendar/scan.e2e.cjs` with the fake scanner
   (`tests/e2e/ai-scan/lib/fake-scanner.cjs`, calendar branch; it takes only
-  the e2e project's scans). The script works as its own administrator, so it
-  runs under "admins only" and changes no operating setting.
+  the e2e project's scans — stop a real local scanner first, it would take
+  them too). The script works as the PLAIN e2e user, an editor of a project
+  with AI sken switched on (the customer of decision 16); its fixture
+  switches the entitlement of the e2e project on and switches a local
+  „admins only“ off. It walks the card states (locked → request sent, limit;
+  service-waiting from a rewritten `entry` answer — the service is not
+  paused), the whole flow, layers, rating, numbered places, drop, gallery,
+  rescan, an applied scan opened from its link, the history row's restore
+  and the history of a project with only the Kalendáře module.
 
 Deviations from `docs/ai-scan/ux.md` §6:
 
@@ -780,17 +826,18 @@ Deviations from `docs/ai-scan/ux.md` §6:
   dnů: nejbližší dostupné — …“, changed in step 3); „Nahrát správné písmo“ /
   „Vybrat jiné písmo“ / „Nechat“ are not built. Without a project font the
   item links to the Fonty page (new tab).
-- No `Ukázat vrstvy` switch and no numbered places over the proposal in the
-  pictures step; no 👍 / 👎 rating in the panel.
 - The header of the summary card says `Návrh rozvržení je připravený.` — there
   is nothing to count as "to decide".
 - The stage names of a calendar scan are the calendar's own (`CAL.stages`);
   S3's „Tyto řádky jsme našli“ overlay is not drawn (as for templates).
-- A picture for a place is JPG / PNG / WebP from disk only (no gallery, no
-  SVG); it has no fit choice — the layout's own (`logo.fit`, the fill's
-  `fit`) applies.
-- „Naskenovat znovu“ returns to the upload zone (the proposal stays in the
-  history until it is discarded or expires); it does not reuse the picture.
+- A picture for a place has no fit choice — the layout's own (`logo.fit`,
+  the fill's `fit`) applies and is changed in step 3; there is no
+  „Vybrat víc z galerie“ (a proposal has at most three places — the gallery
+  is picked per place).
+- „Naskenovat znovu“ → „Stejný obrázek znovu“ puts the picture back on the
+  chosen-file screen instead of starting at once (as in the template wizard).
+- The service-waiting / limit / locked cards carry the template card's copy
+  (ux.md T1); the calendar card has no separate wording.
 - The sidebar's AI-scan badge still counts template scans only (Šablony
   item); the Kalendáře item carries none.
 - After „Vrátit původní“ from the scan's history row the page reloads; the

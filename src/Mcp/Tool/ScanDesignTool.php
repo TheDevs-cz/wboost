@@ -171,7 +171,7 @@ readonly final class ScanDesignTool
      * by the AI today), no_fonts (the project has no font; upload one with
      * upload_font), unsupported_image (not a JPG/PNG/WebP/HEIC, over 10 MB,
      * a side over 8000 px, over 36 megapixels, or the shorter side under
-     * 600 px), source_unscannable (this picture already failed twice),
+     * 600 px — 300 px for kind "calendar"), source_unscannable (this picture already failed twice),
      * wrong_state (kind "calendar" without a calendarId of a 7-day calendar
      * of the project).
      *
@@ -899,7 +899,7 @@ readonly final class ScanDesignTool
             AiScanRefusal::TemporarilyUnavailable => 'AI scan is temporarily unavailable (paused, or the scanner is away); try later.',
             AiScanRefusal::ProjectPaused => 'the AI refused three pictures of this project today; scans can be started again tomorrow.',
             AiScanRefusal::NoFonts => 'the project has no font, and texts cannot be created without one; upload a font (upload_font) first.',
-            AiScanRefusal::UnsupportedImage => 'the picture must be a JPG, PNG, WebP or HEIC of at most 10 MB, each side at most 8000 px, at most 36 megapixels, the shorter side at least 600 px.',
+            AiScanRefusal::UnsupportedImage => 'the picture must be a JPG, PNG, WebP or HEIC of at most 10 MB, each side at most 8000 px, at most 36 megapixels, the shorter side at least 600 px (300 px for a calendar page).',
             AiScanRefusal::SourceUnscannable => 'this picture already failed twice; use another one.',
             AiScanRefusal::NoRetriesLeft => 'both retries of this upload are used up.',
             AiScanRefusal::WrongState => 'the scan is not in a state this action applies to; read "status".',

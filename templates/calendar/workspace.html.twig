@@ -26,5 +26,19 @@
         <div class="cal-ws" data-controller="calendar-workspace" data-calendar-workspace-mode-value="{{ mode }}">
             <script type="application/json" data-calendar-workspace-target="bootstrap">{{ bootstrap_json|raw }}</script>
         </div>
+
+        {# „Naskenovat design“ (assets/calendar/ui/scan.js): the gallery as a source of the
+           pictures for a scanned layout's places. Only for whoever may start a scan here — nobody
+           else pays for the gallery component —, OUTSIDE the workspace's root and outside any
+           form; a pick dispatches `asset-selected` on window. #}
+        {% if mode == 'designer' and is_granted('ai_scan_start', project) %}
+            <div class="modal fade" id="calScanGalleryModal" tabindex="-1" aria-hidden="true" aria-label="Galerie projektu">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <twig:Project:ImageGallery :project="project" />
+                    </div>
+                </div>
+            </div>
+        {% endif %}
     {% endif %}
 {% endblock %}

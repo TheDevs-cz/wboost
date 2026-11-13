@@ -12,11 +12,13 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
-use WBoost\Web\Attribute\RequiresProjectModule;
+use WBoost\Web\Entity\Calendar;
 use WBoost\Web\Entity\Project;
 use WBoost\Web\Entity\User;
+use WBoost\Web\Repository\CalendarRepository;
 use WBoost\Web\Services\AiScan\AiScanAccess;
 use WBoost\Web\Services\AiScan\AiScanLists;
+use WBoost\Web\Value\Calendar\CalendarType;
 use WBoost\Web\Value\ProjectModule;
 
 /**
@@ -31,10 +33,18 @@ use WBoost\Web\Value\ProjectModule;
  * Who: whoever may see the project's scans — an admin or a project editor
  * ({@see AiScanAccess::canSeeProjectScans()}); a read-only member gets 403.
  *
+ * Modules: the page belongs to BOTH Šablony and Kalendáře — a project with
+ * either of them gets it (a project with only Kalendáře scans calendar
+ * pages and must reach its history), so the one-module guard attribute is
+ * not used here; with neither module the request goes to „Objevte další
+ * moduly“ like any other module page. The template gets `has_templates` /
+ * `has_calendars` (which module the page hangs under, where „Nový sken“
+ * leads) and `scan_calendar` — the project's only 7-day calendar, when there
+ * is exactly one, so „Nový sken“ can open its scan panel directly.
+ *
  * The route name is a contract: e-mails and MCP answers link to
  * `ai_scan_history` ({@see \WBoost\Web\Services\AiScan\AiScanUrls}).
  */
-#[RequiresProjectModule(ProjectModule::Templates)]
 final class AiScanHistoryController extends AbstractController
 {
     private const array FILTERS = ['all' => 'Vše', 'templates' => 'Šablony', 'calendars' => 'Kalendáře', 'waiting' => 'Čekají na kontrolu', 'done' => 'Hotové', 'failed' => 'Nepodařené'];
@@ -43,6 +53,7 @@ final class AiScanHistoryController extends AbstractController
         readonly private AiScanLists $lists,
         readonly private AiScanAccess $access,
         readonly private ClockInterface $clock,
+        readonly private CalendarRepository $calendars,
     ) {
     }
 
@@ -59,6 +70,20 @@ final class AiScanHistoryController extends AbstractController
             throw $this->createAccessDeniedException();
         }
 
+        $hasTemplates = $project->hasModule(ProjectModule::Templates);
+        $hasCalendars = $project->hasModule(ProjectModule::Calendars);
+
+        if (!$hasTemplates && !$hasCalendars) {
+            $this->addFlash('info', 'AI sken patří k modulům Šablony a Kalendáře — žádný z nich není v tomto projektu zapnutý.');
+
+            return $this->redirectToRoute('project_modules', ['projectId' => $project->id->toString()]);
+        }
+
+        // „Nový sken“ for calendars: a scan belongs to one 7-day calendar.
+        $weekly = $hasCalendars
+            ? array_values(array_filter($this->calendars->forProject($project->id), static fn (Calendar $calendar): bool => $calendar->type === CalendarType::Week))
+            : [];
+
         $filter = $request->query->getString('filter', 'all');
         $filter = isset(self::FILTERS[$filter]) ? $filter : 'all';
         $all = $this->lists->history($project, $user);
@@ -72,6 +97,9 @@ final class AiScanHistoryController extends AbstractController
             'filters' => self::FILTERS,
             'rows' => array_map(static fn (array $row): array => $row + ['when' => self::when($row['createdAt'] ?? null, $now)], $rows),
             'can_start' => $this->access->canStart($user, $project),
+            'has_templates' => $hasTemplates,
+            'has_calendars' => $hasCalendars,
+            'scan_calendar' => count($weekly) === 1 ? $weekly[0]->id->toString() : null,
         ]);
         $response->headers->set('Cache-Control', 'no-store, private');
 

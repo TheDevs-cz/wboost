@@ -1,12 +1,15 @@
 // AI sken — what the browser can say about a chosen file before anything is sent (ux.md S1, S2).
 // The limits mirror Services/AiScan/AiScanUpload (header only): JPEG, PNG, WebP, HEIC;
 // ≤ 10 000 000 bytes (DECIMAL — the gallery's limit); each side ≤ 8000 px; ≤ 36 Mpx; short side
-// ≥ 600 px. The server checks again; a HEIC's pixels are checked by the scanner.
+// ≥ 600 px — 300 px for a calendar page (the caller says so: `inspectFiles(files, { minShortSide })`).
+// The server checks again; a HEIC's pixels are checked by the scanner.
 
 export const MAX_BYTES = 10 * 1000 * 1000;
 export const MAX_SIDE = 8000;
 export const MAX_PIXELS = 36 * 1000 * 1000;
 export const MIN_SHORT_SIDE = 600;
+/** Calendar scans (AiScanLimits::UPLOAD_MIN_SHORT_SIDE_CALENDAR): a page is 2.14 : 1 and only its layout is read. */
+export const MIN_SHORT_SIDE_CALENDAR = 300;
 export const GOOD_SHORT_SIDE = 1000;
 /** The longer side of a template made from a scan (ux.md §2.2). */
 export const TEMPLATE_MAX_LONG_EDGE = 5000;
@@ -121,8 +124,10 @@ export function isBlurry(bitmap) {
  * → `{ error: 'many' | 'source' | 'type' | 'bytes' | 'small' | 'large', width?, height? }`
  * or `{ file, type, width, height (null for HEIC / unreadable), previewUrl (null when the browser
  *      cannot decode it), warnings: ['small' | 'blurry' | 'heic'] }`.
+ * `minShortSide` / `goodShortSide`: below the first the file is refused, below the second it gets
+ * the warning `small` (defaults: a template scan's).
  */
-export async function inspectFiles(files) {
+export async function inspectFiles(files, { minShortSide = MIN_SHORT_SIDE, goodShortSide = GOOD_SHORT_SIDE } = {}) {
     const list = [...(files || [])];
     if (list.length === 0) return null;
     if (list.length > 1) return { error: 'many' };
@@ -140,13 +145,13 @@ export async function inspectFiles(files) {
 
     if (size) {
         const { width, height } = size;
-        if (Math.min(width, height) < MIN_SHORT_SIDE) return { error: 'small', width, height };
+        if (Math.min(width, height) < minShortSide) return { error: 'small', width, height };
         if (Math.max(width, height) > MAX_SIDE || width * height > MAX_PIXELS) return { error: 'large', width, height };
     }
 
     const warnings = [];
     if (type === 'heic') warnings.push('heic');
-    if (size && Math.min(size.width, size.height) < GOOD_SHORT_SIDE) warnings.push('small');
+    if (size && Math.min(size.width, size.height) < goodShortSide) warnings.push('small');
     let blurChecked = false;
     if (bitmap) {
         try { if (isBlurry(bitmap)) warnings.push('blurry'); blurChecked = true; } catch (e) { blurChecked = false; }

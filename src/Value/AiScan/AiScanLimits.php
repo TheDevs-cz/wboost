@@ -40,6 +40,13 @@ final class AiScanLimits
     public const int UPLOAD_MAX_SIDE = 8000;
     public const int UPLOAD_MAX_PIXELS = 36_000_000;
     public const int UPLOAD_MIN_SHORT_SIDE = 600;
+    /**
+     * A calendar page is 2.14 : 1 and is scanned for its LAYOUT, not its
+     * texts: the scanner finds every line of the real pages down to a 300 px
+     * short side (scanner/eval/RESULTS.md §9.5). Mirrors: `kinds.calendar.upload`
+     * of the definition, `assets/ai-scan/file-checks.js`.
+     */
+    public const int UPLOAD_MIN_SHORT_SIDE_CALENDAR = 300;
     /** A template made from a scan: long edge. */
     public const int TEMPLATE_MAX_LONG_EDGE = 5000;
     /** What the scanner may PUT as one artifact (the working copy is ≤ 4096 px). */

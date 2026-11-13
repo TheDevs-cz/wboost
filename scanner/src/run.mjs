@@ -102,7 +102,7 @@ export async function runIntake({ job, api, engine, scratchDir, signal = null, p
         const original = join(dir, 'original.bin');
         writeFileSync(original, await api.source());
         if (signal?.aborted) return await given();
-        const n = await normaliseInChild(original, dir, { format: definition.workingCopy?.format ?? 'webp', limits: definition.upload, working: { longEdgePx: definition.workingCopy?.longEdgePx ?? 4096, previewLongEdgePx: definition.workingCopy?.previewLongEdgePx ?? 1600 }, timeoutMs: (timing.normaliseSeconds ?? 20) * 1000, signal });
+        const n = await normaliseInChild(original, dir, { format: definition.workingCopy?.format ?? 'webp', limits: { ...definition.upload, ...(definition.kinds?.[job.kind]?.upload ?? {}) }, working: { longEdgePx: definition.workingCopy?.longEdgePx ?? 4096, previewLongEdgePx: definition.workingCopy?.previewLongEdgePx ?? 1600 }, timeoutMs: (timing.normaliseSeconds ?? 20) * 1000, signal });
         timings.normaliseMs = Date.now() - t0;
         if (signal?.aborted) return await given();
         if (!n.ok) return await finish({ outcome: 'stopped', reason: n.stop, preCheck: { detail: n.detail ?? null }, usage }, { timings, normalise: n });

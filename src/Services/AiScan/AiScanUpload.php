@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Services\AiScan;
 
+use WBoost\Web\Value\AiScan\AiScanKind;
 use WBoost\Web\Value\AiScan\AiScanLimits;
 use WBoost\Web\Value\AiScan\AiScanRefusal;
 use WBoost\Web\Value\AiScan\AiScanRefused;
@@ -28,7 +29,7 @@ final class AiScanUpload
      * @return array{contentType: string, ext: string, bytes: int, width: null|int, height: null|int, sha256: string}
      * @throws AiScanRefused `unsupported_image`, with `reason`: type | bytes | side | pixels | small | unreadable
      */
-    public static function inspect(string $path): array
+    public static function inspect(string $path, AiScanKind $kind = AiScanKind::Template): array
     {
         $bytes = @filesize($path);
 
@@ -73,7 +74,7 @@ final class AiScanUpload
                 throw self::refused('pixels');
             }
 
-            if (min($width, $height) < AiScanLimits::UPLOAD_MIN_SHORT_SIDE) {
+            if (min($width, $height) < ($kind === AiScanKind::Calendar ? AiScanLimits::UPLOAD_MIN_SHORT_SIDE_CALENDAR : AiScanLimits::UPLOAD_MIN_SHORT_SIDE)) {
                 throw self::refused('small');
             }
         }

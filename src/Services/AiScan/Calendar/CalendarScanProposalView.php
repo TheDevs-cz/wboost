@@ -127,6 +127,7 @@ final readonly class CalendarScanProposalView
             'notExpressible' => self::coded($report['notExpressible'] ?? null, CalendarScanProposal::NOT_EXPRESSIBLE, true),
             'notes' => self::coded($report['notes'] ?? null, CalendarScanProposal::NOTES, false),
             'approximate' => $scan->approximate,
+            'rating' => $scan->rating,
             'applied' => $applied,
         ];
     }

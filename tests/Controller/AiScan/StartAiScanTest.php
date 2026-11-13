@@ -122,11 +122,23 @@ final class StartAiScanTest extends WebTestCase
         $this->upload([], self::pngHeader(8000, 600));
         self::assertResponseStatusCodeSame(201);
 
+        // A calendar page may be smaller (short side ≥ 300 px): a real 977 × 457 px page passes,
+        // the same file as a template scan does not, and 299 px is refused for a calendar too.
+        $calendar = ['kind' => 'calendar', 'calendarId' => TestDataFixture::CALENDAR_1_ID];
+        $answer = $this->upload([], self::pngHeader(977, 457));
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('small', $answer['reason'] ?? null);
+        $answer = $this->upload($calendar, self::pngHeader(640, 299));
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('small', $answer['reason'] ?? null);
+        $this->upload($calendar, self::pngHeader(977, 457));
+        self::assertResponseStatusCodeSame(201);
+
         // No file at all.
         $this->client->request('POST', sprintf('/project/%s/ai-scan', self::PROJECT), ['_token' => 'csrf-token'], server: ['HTTP_ORIGIN' => 'http://localhost']);
         self::assertResponseStatusCodeSame(422);
 
-        self::assertSame(1, self::rowCount('ai_scan'));
+        self::assertSame(2, self::rowCount('ai_scan'));
     }
 
     public function testAFileOverTenMegabytesIsRefused(): void

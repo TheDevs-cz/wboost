@@ -267,3 +267,11 @@ img.cal-scan-orig { object-fit: fill; }
 .cal-scan-pill { align-self: flex-start; margin-left: 6px; gap: 5px; text-decoration: none; }
 a.cal-scan-pill:hover { filter: brightness(1.08); }
 .cal-scan .as-ph-crop > .crop { display: block; width: 72px; height: 72px; border-radius: 10px; background-color: var(--surface-2); background-repeat: no-repeat; box-shadow: inset 0 0 0 1px var(--line-2); }
+/* A file dragged over a place for a picture or over the chosen-file card. */
+.cal-scan .as-ph.over, .cal-scan .as-card.over { outline: 2px dashed var(--lav); outline-offset: 2px; }
+.cal-scan .as-ph-crop > .crop.whole { height: auto; background-position: center; }
+.cal-scan .as-legend { margin-top: -4px; }
+/* „Ukázat vrstvy“ over a calendar page: the letter tags sit INSIDE their box (a header at the page's
+   top edge would push its tag out of the frame); the header's in the middle, clear of the month. */
+.cal-scan .as-box .as-ltag { left: 2px; top: 2px; }
+.cal-scan .as-box[data-box="head"] .as-ltag { left: 50%; transform: translateX(-50%); }

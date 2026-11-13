@@ -499,7 +499,7 @@ final class CalendarScanTest extends WebTestCase
 
         // A slot the scan did not find, a file that is no picture, removing one.
         self::assertSame('slot', $this->hold($scanId, self::DESIGNED, 'background', self::png(10, 10))['field']);
-        self::assertSame('type', $this->hold($scanId, self::DESIGNED, 'logo', '<svg xmlns="http://www.w3.org/2000/svg"/>', 'logo.svg')['field']);
+        self::assertSame('type', $this->hold($scanId, self::DESIGNED, 'logo', '<html><body>no picture</body></html>', 'logo.png')['field']);
         $removed = $this->post(self::DESIGNED, $scanId, 'picture', ['slot' => 'header', 'remove' => '1']);
         self::assertNull(self::dig($removed, 'proposal', 'pictures', 1, 'picture'));
 
@@ -513,6 +513,67 @@ final class CalendarScanTest extends WebTestCase
 
         // Nothing can be applied any more.
         self::assertSame('wrong_state', $this->post(self::DESIGNED, $scanId, 'accept')['code']);
+    }
+
+    public function testAPictureOfTheGalleryAndAnSvgLogoAreHeldAndBecomeAssetsAtAccept(): void
+    {
+        $scanId = self::calendarReady($this->client, self::DESIGNED);
+        TestingLogin::logInAsUser($this->client, TestDataFixture::USER_1_EMAIL);
+
+        // The gallery file's bytes: the fixture rows name paths nothing was written to.
+        /** @var \League\Flysystem\FilesystemOperator $gallery */
+        $gallery = self::getContainer()->get('oneup_flysystem.minio_filesystem');
+        $gallery->write('fixtures/in-root.png', self::png(800, 120));
+        $gallery->write('fixtures/in-trash.png', self::png(10, 10));
+
+        // Another project's file, a trashed one, an id that is none: as if they did not exist.
+        foreach ([TestDataFixture::FILE_TRASHED_ID, '00000000-0000-0000-0000-00000000dead', 'nonsense'] as $fileId) {
+            $refused = $this->post(self::DESIGNED, $scanId, 'picture', ['slot' => 'header', 'fileId' => $fileId]);
+            self::assertSame(['invalid_fix', 'picture'], [$refused['code'] ?? null, $refused['field'] ?? null], $fileId);
+        }
+
+        $picked = $this->post(self::DESIGNED, $scanId, 'picture', ['slot' => 'header', 'fileId' => TestDataFixture::FILE_IN_ROOT_ID]);
+        self::assertTrue($picked['ok'], (string) json_encode($picked));
+        self::assertSame('in-root.png', self::dig($picked, 'proposal', 'pictures', 1, 'picture', 'name'));
+        self::assertSame(800, self::dig($picked, 'proposal', 'pictures', 1, 'picture', 'width'));
+        self::assertNull(self::dig($picked, 'proposal', 'rating'));
+
+        // An SVG logo is held as it is and served sandboxed.
+        $svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 20" width="40" height="20"><rect width="40" height="20" fill="#C8102E"/></svg>';
+        self::assertTrue($this->hold($scanId, self::DESIGNED, 'logo', $svg, 'logo.svg')['ok']);
+        $this->client->request('GET', sprintf('/ai-scan/%s/image/picture?slot=logo', $scanId));
+        self::assertResponseIsSuccessful();
+        self::assertSame('image/svg+xml', $this->client->getResponse()->headers->get('Content-Type'));
+        self::assertStringContainsString('sandbox', (string) $this->client->getResponse()->headers->get('Content-Security-Policy'));
+
+        // The gallery keeps its file; the calendar gets two assets at accept.
+        $answer = $this->post(self::DESIGNED, $scanId, 'accept');
+        self::assertTrue($answer['ok'], (string) json_encode($answer));
+        self::assertSame(2, $answer['pictures']);
+        self::assertSame(2, self::assetCount(self::DESIGNED));
+        self::assertTrue($gallery->fileExists('fixtures/in-root.png'));
+        self::assertSame(1, (int) self::connection()->fetchOne('SELECT count(*) FROM file_upload WHERE id = :id AND deleted_at IS NULL', ['id' => TestDataFixture::FILE_IN_ROOT_ID]));
+    }
+
+    public function testTheHistoryOpensForAProjectThatHasOnlyTheCalendarModule(): void
+    {
+        $scanId = self::calendarReady($this->client, self::DESIGNED);
+        TestingLogin::logInAsUser($this->client, TestDataFixture::USER_1_EMAIL);
+        $history = sprintf('/project/%s/sablony/historie-skenu', self::PROJECT);
+        $modules = static fn (string $json): int => (int) self::connection()->executeStatement('UPDATE project SET modules = :modules WHERE id = :id', ['modules' => $json, 'id' => self::PROJECT]);
+
+        // Only Kalendáře: the page opens, hangs under Kalendáře and starts nothing in Šablony.
+        $modules('["calendars"]');
+        $crawler = $this->client->request('GET', $history);
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString($scanId, (string) $this->client->getResponse()->getContent());
+        self::assertSame(0, $crawler->filter(sprintf('a[href$="/project/%s/sablony/z-obrazku"]', self::PROJECT))->count(), 'no template scan without the module');
+        self::assertGreaterThan(0, $crawler->filter(sprintf('a[href*="/project/%s/calendars"], a[href*="/calendar/"][href*="sken="]', self::PROJECT))->count());
+
+        // Neither module: the modules page, like every other module page.
+        $modules('["manuals"]');
+        $this->client->request('GET', $history);
+        self::assertResponseRedirects(sprintf('/project/%s/modules', self::PROJECT));
     }
 
     // ---- the marker ---------------------------------------------------------------

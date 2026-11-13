@@ -19,6 +19,8 @@ export const MM_PER_PT = 25.4 / 72;
 export const ELEMENTS = ['photo', 'cap', 'cal', 'month', 'wk', 'head', 'logo', 'qr', 'bg'];
 export const FEATURES = ['captions', 'weekNumbers', 'moon', 'timeChange', 'seasons', 'waste', 'events', 'shifts', 'specialPages', 'qr'];
 const PRESETS = ['photoLeft', 'photoRight'];
+/** The long edge the OCR reads a small page at (never above 3 ×). */
+const OCR_LONG_EDGE_PX = 2000;
 const r1 = (v) => Math.round(v * 10) / 10;
 const r2 = (v) => Math.round(v * 100) / 100;
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -211,8 +213,12 @@ export class CalendarBuild {
         this.onNote('read');
         const detected = detectPageBox(this.source, this.mm.w / this.mm.h);
         if (detected) { this.#setPage(detected); this.pageBoxSet = 'detected'; }
-        const ocr = await runOcr(this.sourcePath, { threads: this.settings.ocrThreads, signal: this.signal, onSpawn: this.settings.onOcrSpawn });
-        this.stats.ocr = { seconds: ocr.seconds, loadSeconds: ocr.loadSeconds, peakRssMb: ocr.peakRssMb, cpuSeconds: ocr.cpuSeconds, wallMs: ocr.wallMs, raw: ocr.lines.length };
+        // A small page (a 977 × 457 px export is common) is enlarged for the OCR only: at a 2000 px long
+        // edge the recogniser reads more of the 7–9 pt lines (eval/RESULTS.md §9.5). Boxes come back in
+        // source px; nothing else sees the enlarged copy.
+        const ocrScale = Math.min(3, Math.max(1, OCR_LONG_EDGE_PX / Math.max(this.source.width, this.source.height)));
+        const ocr = await runOcr(this.sourcePath, { threads: this.settings.ocrThreads, scale: +ocrScale.toFixed(3), signal: this.signal, onSpawn: this.settings.onOcrSpawn });
+        this.stats.ocr = { scale: +ocrScale.toFixed(3), seconds: ocr.seconds, loadSeconds: ocr.loadSeconds, peakRssMb: ocr.peakRssMb, cpuSeconds: ocr.cpuSeconds, wallMs: ocr.wallMs, raw: ocr.lines.length };
         this.ocrSource = mergeLines(ocr.lines).map((l) => ({ ...l, ink: lineInk(this.source, l.box) }));
         this.onNote(this.ocrSource.length ? 'texts_found' : 'no_texts', this.ocrSource.length ? { n: this.ocrSource.length } : null);
         this.#measurePage();

@@ -5,11 +5,16 @@ declare(strict_types=1);
 namespace WBoost\Web\Services\AiScan\Calendar;
 
 use Doctrine\DBAL\Connection;
+use League\Flysystem\FilesystemException;
+use League\Flysystem\FilesystemReader;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use WBoost\Web\Entity\AiScan;
+use WBoost\Web\Entity\FileUpload;
 use WBoost\Web\Services\AiScan\AiScanStorage;
 use WBoost\Web\Services\Calendar\CalendarDocument;
 use WBoost\Web\Services\Image\ImageDecodeLimits;
+use WBoost\Web\Services\Image\NormalizeImageFormat;
 use WBoost\Web\Value\AiScan\AiScanRefusal;
 use WBoost\Web\Value\AiScan\AiScanRefused;
 
@@ -24,17 +29,29 @@ use WBoost\Web\Value\AiScan\AiScanRefused;
  * proposal that is then thrown away: discarding or expiring the scan deletes
  * the directory and with it every held picture.
  *
- * Raster pictures only (JPEG, PNG, WebP), judged by their bytes: a held
- * picture is served from the application's own origin for the preview, where
- * an SVG could run script.
+ * Two sources: a file from the user's disk ({@see self::hold()}) and a
+ * picture of the project's gallery ({@see self::holdGalleryFile()}) — the
+ * gallery file's BYTES are copied, so the proposal does not depend on what
+ * happens to the gallery file later (Koš, purge) and nothing in the gallery
+ * changes.
+ *
+ * JPEG, PNG, WebP — judged by their bytes — and SVG (logos in a gallery
+ * usually are one, and a calendar takes an SVG logo). A held picture is
+ * served from the application's own origin for the preview, so the image
+ * route answers it with a sandboxing `Content-Security-Policy`: opened as a
+ * document, an SVG runs no script there.
  */
 final readonly class CalendarScanPictures
 {
     private const array TYPES = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
 
+    private const string SVG = 'image/svg+xml';
+
     public function __construct(
         private Connection $connection,
         private AiScanStorage $storage,
+        #[Autowire(service: 'oneup_flysystem.minio_filesystem')]
+        private FilesystemReader $gallery,
     ) {
     }
 
@@ -67,31 +84,76 @@ final readonly class CalendarScanPictures
     }
 
     /**
+     * A file from the user's disk.
+     *
      * @throws AiScanRefused `invalid_fix` (`field`: `slot` | `size` | `type`), `wrong_state`
      */
     public function hold(AiScan $scan, string $slot, UploadedFile $file): void
     {
-        if (!in_array($slot, CalendarScanProposal::slots($scan), true)) {
-            throw new AiScanRefused(AiScanRefusal::InvalidFix, ['field' => 'slot']);
-        }
-
         if (!$file->isValid() || $file->getSize() > CalendarDocument::MAX_FILE_SIZE || $file->getSize() < 1) {
+            $this->assertSlot($scan, $slot);
+
             throw new AiScanRefused(AiScanRefusal::InvalidFix, ['field' => 'size']);
         }
 
-        $bytes = $file->getContent();
-        $type = (new \finfo(FILEINFO_MIME_TYPE))->buffer($bytes);
-        $extension = is_string($type) ? (self::TYPES[$type] ?? null) : null;
+        $this->holdBytes($scan, $slot, $file->getContent(), $file->getClientOriginalName());
+    }
 
-        if ($extension === null) {
-            throw new AiScanRefused(AiScanRefusal::InvalidFix, ['field' => 'type']);
+    /**
+     * A picture of the project's gallery: its bytes are copied to the scan.
+     * A file of another project, a trashed one or one that is no gallery
+     * picture is `invalid_fix` (`field: picture`) — as if it did not exist.
+     *
+     * @throws AiScanRefused `invalid_fix` (`field`: `slot` | `picture` | `size` | `type`), `wrong_state`
+     */
+    public function holdGalleryFile(AiScan $scan, string $slot, null|FileUpload $file): void
+    {
+        $this->assertSlot($scan, $slot);
+
+        if ($file === null || $file->isTrashed() || !$file->source->isGalleryPicture() || !$file->project->id->equals($scan->project->id)) {
+            throw new AiScanRefused(AiScanRefusal::InvalidFix, ['field' => 'picture']);
         }
 
-        // The size the header announces — nothing is decoded here.
-        $size = ImageDecodeLimits::pixelSize($bytes);
+        try {
+            if ($this->gallery->fileSize($file->path) > CalendarDocument::MAX_FILE_SIZE) {
+                throw new AiScanRefused(AiScanRefusal::InvalidFix, ['field' => 'size']);
+            }
 
-        if ($size === null || ImageDecodeLimits::exceeds($size[0], $size[1])) {
-            throw new AiScanRefused(AiScanRefusal::InvalidFix, ['field' => $size === null ? 'type' : 'size']);
+            $bytes = $this->gallery->read($file->path);
+        } catch (FilesystemException) {
+            throw new AiScanRefused(AiScanRefusal::InvalidFix, ['field' => 'picture']);
+        }
+
+        $this->holdBytes($scan, $slot, $bytes, $file->originalName ?? basename($file->path));
+    }
+
+    /**
+     * @throws AiScanRefused `invalid_fix` (`field`: `slot` | `size` | `type`), `wrong_state`
+     */
+    private function holdBytes(AiScan $scan, string $slot, string $bytes, string $originalName): void
+    {
+        $this->assertSlot($scan, $slot);
+
+        if ($bytes === '' || strlen($bytes) > CalendarDocument::MAX_FILE_SIZE) {
+            throw new AiScanRefused(AiScanRefusal::InvalidFix, ['field' => 'size']);
+        }
+
+        $type = (new \finfo(FILEINFO_MIME_TYPE))->buffer($bytes);
+        $extension = is_string($type) ? (self::TYPES[$type] ?? null) : null;
+        $size = null;
+
+        if ($extension === null && NormalizeImageFormat::looksLikeSvg($bytes)) {
+            // No pixel size: an SVG scales. Its bytes are never decoded here.
+            [$type, $extension] = [self::SVG, 'svg'];
+        } elseif ($extension === null) {
+            throw new AiScanRefused(AiScanRefusal::InvalidFix, ['field' => 'type']);
+        } else {
+            // The size the header announces — nothing is decoded here.
+            $size = ImageDecodeLimits::pixelSize($bytes);
+
+            if ($size === null || ImageDecodeLimits::exceeds($size[0], $size[1])) {
+                throw new AiScanRefused(AiScanRefusal::InvalidFix, ['field' => $size === null ? 'type' : 'size']);
+            }
         }
 
         $name = sprintf('picture-%s.%s', $slot, $extension);
@@ -99,11 +161,11 @@ final readonly class CalendarScanPictures
 
         $info = [
             'file' => $name,
-            'name' => mb_substr(basename($file->getClientOriginalName()), 0, 120),
+            'name' => mb_substr(basename($originalName), 0, 120),
             'contentType' => $type,
             'bytes' => strlen($bytes),
-            'width' => $size[0],
-            'height' => $size[1],
+            'width' => $size[0] ?? null,
+            'height' => $size[1] ?? null,
         ];
 
         $stored = $this->connection->executeStatement(
@@ -117,6 +179,16 @@ final readonly class CalendarScanPictures
 
         if ($stored !== 1) {
             throw new AiScanRefused(AiScanRefusal::WrongState);
+        }
+    }
+
+    /**
+     * @throws AiScanRefused `invalid_fix` (`field: slot`)
+     */
+    private function assertSlot(AiScan $scan, string $slot): void
+    {
+        if (!in_array($slot, CalendarScanProposal::slots($scan), true)) {
+            throw new AiScanRefused(AiScanRefusal::InvalidFix, ['field' => 'slot']);
         }
     }
 

@@ -8,6 +8,14 @@ design, past the cap), finish (every intake and build outcome, a repeat, a late 
 build, after cancel), and the answers that end a run or refuse the caller (409 `stale_run` /
 `lease_lost`, 410 `gone`, `protocol_too_old`, 404).
 
+Nine more exchanges were appended on 2026-11-13 (`record-contract.mjs --append-calendar <calendarId>`,
+which walks only this and leaves the template flows byte for byte): **a calendar scan** — the intake
+claim of kind `calendar`, the build claim whose `context.calendar` carries the calendar, a beat, a
+render from model `commands` (the answer adds `view`, `page`, `preset`, `layout`, `features`), a
+command list the calendar model refuses (a switch OFF) and one with an unknown layout key (both
+`candidate: null` with issues), and the finish with the calendar report. The app's replay draws that
+candidate with its fake picture, so it needs no Gotenberg.
+
 It holds no secret and no picture: scan ids are `<scan:N>`, lease tokens
 `<lease:<scan>:<lane>:<run>>`, the bearer token `<SCANNER_TOKEN>`, pictures are byte counts, the
 definition is file names with character counts.

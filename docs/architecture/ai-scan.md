@@ -201,8 +201,22 @@ bucket that does not exist is an ordinary 404 and proves nothing.
 `AiScanUpload::inspect()` reads the HEADER only — magic bytes for the type
 (JPEG, PNG, WebP, HEIC; SVG and everything else refused), the byte size
 (≤ 10 000 000), and the pixel size the header declares (each side ≤ 8000,
-≤ 36 Mpx, short side ≥ 600; HEIC is accepted on bytes alone). Nothing is
-decoded in the web process: normalising is the scanner's intake.
+≤ 36 Mpx, short side ≥ 600 — **≥ 300 for kind `calendar`**; HEIC is accepted
+on bytes alone). Nothing is decoded in the web process: normalising is the
+scanner's intake.
+
+The calendar minimum (`AiScanLimits::UPLOAD_MIN_SHORT_SIDE_CALENDAR`) has
+three mirrors that must move together: `kinds.calendar.upload.minShortSidePx`
+of `definition.json` (the scanner's intake merges a kind's `upload` over the
+shared one), `MIN_SHORT_SIDE_CALENDAR` in `assets/ai-scan/file-checks.js`
+(`inspectFiles(files, {minShortSide})`), and the sentences that name the
+number (`CAL.uploadSmall`, the MCP tool's docblock and refusal text; the
+skill's `references/tools.md` still names 600 px for every kind — stricter
+than the server, to be corrected with the next skill release, a wording
+change alone is not worth a version). Why 300: `scanner/eval/RESULTS.md` §9.5 —
+real calendar pages are often 977 × 457 px exports, every line is still
+found at a 300 px short side, and what suffers is the exact face and a few
+tenths of a point, which the review says under 600 px instead of refusing.
 
 ## Permissions
 
@@ -224,7 +238,7 @@ decoded in the web process: normalising is the scanner's intake.
 | `GET /project/{projectId}/ai-scans`, `/ai-scan/entry` | `AiScanAccess::canSeeProjectScans()` — an admin or a project editor; a read-only member gets 403 |
 | `GET /project/{projectId}/sablony/z-obrazku` (`ai_scan_new`, the wizard's page) | `canSeeProjectScans()` (403), then the entitlement — without it a redirect to the template list |
 | `GET /project/{projectId}/sablony/z-obrazku/{scanId}` (`ai_scan_page`) | USE; 404 for a scan of another project |
-| `GET /project/{projectId}/sablony/historie-skenu` (`ai_scan_history`) | `canSeeProjectScans()` |
+| `GET /project/{projectId}/sablony/historie-skenu` (`ai_scan_history`) | `canSeeProjectScans()`; the project needs the module Šablony OR Kalendáře (neither → „Objevte další moduly“) |
 | `POST /project/{projectId}/ai-scan/access-request` | `ProjectVoter::EDIT` (the handler refuses whoever can already start scans there) |
 | `GET /admin/ai-scan/access-requests`, `POST /admin/ai-scan/access-request/{id}/{approve\|dismiss}` | `ROLE_ADMIN` |
 | `POST /project/{projectId}/ai-scan/entitlement` | `ROLE_ADMIN` + session CSRF token `project_ai_scan` |
@@ -886,9 +900,16 @@ network retry.
   of another ratio is fitted whole and the card says so.
 - A full-page background place shows no dimmed original in the viewer (it
   would cover the whole proposal) and its card has no `⋯` menu.
-- **History** has no `Šablony` / `Kalendáře` chips and "Nový sken" is a plain
-  link (calendar scans do not exist yet); the read-only page has no "Využití
-  tohoto skenu" link and the admin box no "Využití →".
+- **History**: the page hangs under Šablony when the project has that
+  module, else under Kalendáře (back link, sidebar item) — a project with
+  only Kalendáře reaches it too. "Nový sken" is the menu `Šablona z obrázku` ·
+  `Naskenovat design kalendáře…` when the project has both modules, a plain
+  link with one of them. A calendar scan starts inside a calendar: the
+  calendar item opens the scan panel of the project's ONLY 7-day calendar
+  (`/calendar/{id}?sken=1`), or — with none or several — the calendar list
+  (then the label ends with `…`).
+- The read-only page has no "Využití tohoto skenu" link and the admin box no
+  "Využití →".
 - The read-only page lists a decision as open or settled from the proposal;
   it does not know what was changed in the editor afterwards.
 
@@ -941,9 +962,17 @@ in node, the browser draws the proposal with the calendar's own renderer.
 - Tools of a kind may be per-kind variants: an entry of `tools.json` with an
   `id` (`scan_crop.calendar`) named in `kinds.calendar.tools`; the scanner
   resolves by `id`, then by name. Template entries are unchanged.
-- The contract fixture (`scanner-api.v1.json`) was re-recorded with `mm` in
-  the claim; it holds template flows only (a calendar render would need
-  Gotenberg in the default group).
+- **Small pages**: the calendar pre-pass runs the OCR at a 2000 px long edge
+  when the working copy is smaller (≤ 3 ×; boxes come back in source px) —
+  `RESULTS.md` §9.5.
+- The contract fixture (`scanner-api.v1.json`) holds a calendar scan too
+  (appended with `record-contract.mjs --append-calendar`): the claim with
+  `context.calendar`, a render from commands, two refused command lists, the
+  calendar report. `ScannerContractFixtureTest` replays it with the suite's
+  fake candidate picture; the REAL render through Gotenberg is
+  `CalendarRenderDocumentGotenbergTest`, which CI runs in its own job
+  (`calendar-render` of `.github/workflows/test.yml` — the page sent to
+  Gotenberg is self-contained, so a service container is enough).
 - `numberSide: "middle"` is accepted on the model's patch path since P5 (the
   editor always offered it); nothing under `assets/calendar/` changed for
   scans — `CalendarExportFingerprintTest` pins the renderer fingerprint.
@@ -977,18 +1006,24 @@ off and never touches content.
 `features[{key}]`, `pictures[{slot, picture {url, name, width, height} | null,
 current}]`, `fonts[{group, pattern, face, closeness}]`, `projectFaces`,
 `notExpressible[{code, box}]`, `notes[{code, w?, h?}]`, `approximate`,
-`applied` (null until accepted: `{restoreUntil, restorable, restored, changed,
+`rating` (null | 1 | -1 — „Jak se sken povedl?“), `applied` (null until accepted: `{restoreUntil, restorable, restored, changed,
 features}`).
 
 ### Pictures are held, not uploaded
 
-`POST /calendar/{calendarId}/scan/{scanId}/picture` (`slot` + `picture`, or
-`slot` + `remove=1`) keeps a picture **with the scan** — `picture-{slot}.{ext}`
+`POST /calendar/{calendarId}/scan/{scanId}/picture` (`slot` + `picture` — a
+file —, `slot` + `fileId` — a picture of the project's gallery —, or `slot` +
+`remove=1`) keeps a picture **with the scan** — `picture-{slot}.{ext}`
 in its private directory, named in `ai_scan.pictures.slots` by a conditional
-update (`… AND status = 'ready'`). JPEG / PNG / WebP by their bytes, ≤ 10 000 000
-bytes, ≤ 60 Mpx by the header; no SVG (the preview serves held pictures from
-the app's own origin: `GET /ai-scan/{id}/image/picture?slot=`). They become
-calendar assets only at accept. Calendar assets can never be deleted, so a
+update (`… AND status = 'ready'`). JPEG / PNG / WebP by their bytes (≤ 60 Mpx
+by the header) or an SVG, ≤ 10 000 000 bytes. A gallery pick COPIES the file's
+bytes (`CalendarScanPictures::holdGalleryFile`): the proposal does not depend
+on what happens to the gallery file afterwards, and the gallery is not
+changed; a file of another project, a trashed one or a non-gallery upload is
+`invalid_fix` (`field: picture`). Held pictures are served from the app's own
+origin for the preview (`GET /ai-scan/{id}/image/picture?slot=`) — with
+`Content-Security-Policy: … sandbox`, so an SVG opened as a document runs no
+script and has no origin of ours. They become calendar assets only at accept. Calendar assets can never be deleted, so a
 discarded or expired proposal must leave none — and leaves none: the scan
 directory goes with the scan.
 

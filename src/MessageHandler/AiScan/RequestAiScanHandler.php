@@ -85,7 +85,7 @@ readonly final class RequestAiScanHandler
         // until the caller is known to be allowed to start at all: someone
         // without the permission learns `not_enabled` and nothing else.
         try {
-            $facts = AiScanUpload::inspect($message->filePath);
+            $facts = AiScanUpload::inspect($message->filePath, $message->kind);
         } catch (AiScanRefused $unsupported) {
             $this->scans->assertMayStart($user, $project, $message->kind, '');
 

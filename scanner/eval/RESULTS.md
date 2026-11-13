@@ -538,7 +538,7 @@ real pages mean nothing — prototype finding):
 | Page | This scanner | Prototype |
 |---|---|---|
 | Chotěbuz (2576 × 1208) | **0.651** (run 1: 108 s, $0.50, 3 candidates) · **0.646** (run 2: 90 s, $0.28) | hand-built 0.626 · C2 Opus 0.684 · C3 0.477 · C1 Opus 0.426 |
-| Markvartovice (977 × 457) | **refused by the upload rule** (short side 457 px < 600). Upscaled 2 × for the measurement only: **0.950** (68 s, $0.32) | C2 0.949 · C3 0.946 · C1 Opus 0.831 (on the original size) |
+| Markvartovice (977 × 457) | refused by the upload rule AT THE TIME (short side 457 px < 600; since relaxed for calendars — §9.5: **0.938** at the original size). Upscaled 2 × for the measurement only: **0.950** (68 s, $0.32) | C2 0.949 · C3 0.946 · C1 Opus 0.831 (on the original size) |
 | Bruzovice (14-day page, 977 × 457) | refused by the upload rule the same way. Upscaled 2 ×: the pre-check passed it, the build rebuilt the left week column + photo as a 7-day page and reported `fortnight_left_half`; F1 0.386 against the 14-day source is not a quality number (half the page has no counterpart) | — |
 
 Chotěbuz, what moved the number: the first scan of the page scored 0.467 with a layout already at the
@@ -618,6 +618,57 @@ So: usable as "confirmed" vs "not confirmed", not as "confirmed" vs "substitute"
   (unit-tested: the build runs and font tools answer "no font"), the `messages` engine, the linux/amd64
   image (same code path and dependencies as templates — no new binary), memory (the template figures of
   §5 apply: the instruments are the same), concurrency 2.
+
+### 9.5 Small pages — the calendar minimum (2026-11-13, after the owner accepted relaxing the rule)
+
+The upload rule for kind `calendar` is now **short side ≥ 300 px** (templates stay at 600 px):
+`AiScanLimits::UPLOAD_MIN_SHORT_SIDE_CALENDAR`, `kinds.calendar.upload.minShortSidePx` of the definition
+(the intake merges it over `upload`), `MIN_SHORT_SIDE_CALENDAR` in the browser. Evidence:
+
+**OCR alone** (the pre-pass sidecar on the two real 977 × 457 px pages, downscaled; "exact" = lines whose
+text equals the reading of the original at 2 ×; no model involved):
+
+| short side | Markvartovice: lines found / exact of 25 | Bruzovice (14-day): lines found / exact of 49 |
+|---|---|---|
+| 457 (original) | 25 / 23 · at a 2000 px long edge 26 / 24 | 46 / 37 · at 2000 px 49 / 43 |
+| 400 | 26 / 21 · 26 / 18 | 49 / 30 · 50 / 36 |
+| 350 | 25 / 19 · 25 / 17 | 50 / 25 · 50 / 28 |
+| 300 | 25 / 15 · 27 / 14 | 49 / 16 · 49 / 29 |
+| 250 | 19 / 9 · 23 / 7 | 48 / 14 · 48 / 15 |
+| 200 | 9 / 7 · 16 / 8 | 18 / 11 · 29 / 12 |
+
+Down to 300 px every line is still FOUND (which is what a layout scan needs: where the rows, the month
+and the caption are); the wording degrades from 400 px down, and below 300 px lines go missing. A calendar
+scan never takes wording from the picture, so 300 px is where the pre-pass stops being reliable for it.
+Enlarging the page for the OCR only helps the dense page (Bruzovice at the original size: 37 → 43 exact
+lines, at 300 px: 16 → 29) and costs nothing measurable (0.5–0.8 s either way), so the calendar pre-pass
+now runs the OCR at a 2000 px long edge whenever the working copy is smaller (never above 3 ×;
+`OCR_LONG_EDGE_PX` in `adapters/calendar.mjs`; boxes come back in source px). Templates are unchanged.
+
+**Whole scans at the original size** (real job core, `scanner serve`, Opus 5.5 `high`, the developer's
+plan; one run each; same calendar and scorer as 9.1):
+
+| input | size | status | wall s | turns | cost $ | masked edge F1 | against |
+|---|---|---|---|---|---|---|---|
+| markvartovice | 977 × 457 | ready | 82 | 18 | 0.417 | **0.938** | 0.950 upscaled 2 × (9.1); prototype C2 0.949 at the original size |
+| markvartovice-300 | 641 × 300 | ready | 80 | 16 | 0.353 | **0.942** | — |
+| bruzovice (14-day) | 977 × 457 | ready, `fortnight_left_half` | 145 | 10 | 0.317 | 0.525 | 0.386 upscaled 2 × — not a quality number either way (half the page has no counterpart) |
+| bruzovice-300 | 641 × 300 | ready, `fortnight_left_half` | 63 | 11 | 0.312 | 0.517 | — |
+| s06-small (truth known) | 1000 × 468, JPEG q85 | ready | 51 | 11 | 0.244 | 0.998 | clean s06 (1600 × 748): 0.999 |
+
+`s06-small` key by key against its truth: frames 0.04 mm (clean 0.03), anchors 0.43 mm (0.13), type
+0.36 pt (0.21), ΔE00 1.8 (1.1), categorical 100 %, shown 100 %, face family 100 %, **face exact 29 %**
+(clean 86 %). On the real small pages every font row is `undetermined` (one `nearest_available`).
+
+So: differences of ≤ 0.012 F1 between 300 px, 457 px and the 2 × upscale are inside what means nothing on
+real pages (9.1); boxes and colours hold; what a small page loses is the exact face and a few tenths of a
+point of type size. The review therefore carries a line under 600 px („Obrázek má nízké rozlišení — polohy
+a velikosti písma mohou být méně přesné…“) instead of a refusal, and the chosen-file checks warn before the
+scan is spent. Not measured: pages between 300 and 457 px other than these two, and photographs of small
+prints.
+
+Until the production scanner image carries this change it still stops a calendar page under 600 px with
+`blurry_or_small` (not counted): the app accepts it, the old intake does not.
 
 ## Tables (generated by `node eval/report.mjs`)
 

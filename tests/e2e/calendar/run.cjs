@@ -26,7 +26,11 @@ const h = require('./lib/harness.cjs');
         const script = require(path.join(__dirname, file));
         const page = await h.newPage(browser);
         const started = Date.now();
-        const record = (id, ok, note = '') => rows.push({ script: script.name || file, id, ok, note, ms: Date.now() - started });
+        const record = (id, ok, note = '') => {
+            rows.push({ script: script.name || file, id, ok, note, ms: Date.now() - started });
+            // E2E_LIVE=1: each result as it happens (the table is printed at the end only)
+            if (process.env.E2E_LIVE === '1') console.error(`  ${ok ? 'pass' : 'FAIL'}  ${id}  ${note}`);
+        };
         const check = async (id, fn) => {
             try {
                 await fn();

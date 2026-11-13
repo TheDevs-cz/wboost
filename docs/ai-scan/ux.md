@@ -110,7 +110,7 @@ called a pokus.
 
 | Quantity | Value |
 |---|---|
-| Upload | JPG, PNG, WebP, HEIC; ≤ 10 MB (10 000 000 bytes); each side ≤ 8000 px; ≤ 36 megapixels; shorter side ≥ 600 px. Pictures only in the first build; PDF comes later, as "first page only" |
+| Upload | JPG, PNG, WebP, HEIC; ≤ 10 MB (10 000 000 bytes); each side ≤ 8000 px; ≤ 36 megapixels; shorter side ≥ 600 px (a calendar page: ≥ 300 px — real pages are often 977 × 457 px exports; measured in `scanner/eval/RESULTS.md` §9.5). Pictures only in the first build; PDF comes later, as "first page only" |
 | Template size made from a scan | longer side ≤ 5000 px (A3 at 300 dpi) |
 | Usual duration | 1–3 min; pre-check 5–15 s |
 | Limit of one run | 6 min; the scanner may restart a run once by itself → up to ≈ 12 min of work plus waiting |
@@ -240,7 +240,7 @@ scanner in the checking step, which then stops the scan with F3e if it is out of
 | PDF / PSD / AI / IDML | `PDF a zdrojové soubory zatím neumíme. Uložte stránku jako obrázek (PNG nebo JPG) a nahrajte ji.` |
 | More than one | `Nahrajte jen jeden obrázek.` |
 | > 10 MB | `Obrázek je větší než 10 MB. Zmenšete ho nebo ho uložte jako JPG.` |
-| Short side < 600 px | `Obrázek je příliš malý ({w} × {h} px). Kratší strana musí mít aspoň 600 px, lépe 1000 px a víc.` |
+| Short side < 600 px (Kalendáře: < 300 px) | `Obrázek je příliš malý ({w} × {h} px). Kratší strana musí mít aspoň 600 px, lépe 1000 px a víc.` (Kalendáře: `…aspoň 300 px, lépe 600 px a víc.`) |
 | Side > 8000 px or > 36 Mpx | `Obrázek je příliš velký ({w} × {h} px). Zmenšete ho — nejvýše 8000 px na stranu a 36 megapixelů.` |
 | Network | `Nahrání se nepodařilo. Zkontrolujte připojení a zkuste to znovu.` + `Zkusit znovu` (the same request id, so a repeat never makes a second scan) |
 
@@ -264,7 +264,7 @@ Browser-side facts (nothing has left the browser):
 | Check | OK | Warning (peach, never blocks) |
 |---|---|---|
 | Type / size | `Formát a velikost jsou v pořádku` | — |
-| Resolution | `Dostatečné rozlišení` | `Malý obrázek — drobné texty nemusíme přečíst` (600–999 px) |
+| Resolution | `Dostatečné rozlišení` | `Malý obrázek — drobné texty nemusíme přečíst` (600–999 px; Kalendáře, 300–599 px: `Malý obrázek — rozvržení může vyjít méně přesně`, and the review's `Pro informaci` then says `Obrázek má nízké rozlišení — polohy a velikosti písma mohou být méně přesné. Zkontrolujte je v kroku Úpravy prvků.`) |
 | Sharpness | `Obrázek je ostrý` | `Obrázek je rozmazaný — výsledek bude jen přibližný` |
 | Ratio (Kalendáře) | `Poměr stran odpovídá vašemu kalendáři` | `Stránka má jiný poměr stran než váš kalendář ({š} × {v} mm) — rozvržení přizpůsobíme` |
 | HEIC | no preview, no pixel checks in browsers that cannot decode it: file name, size, `Náhled uvidíte po nahrání` | `Fotka z telefonu (HEIC). Pokud jde o fotku tisku, výsledek bude jen přibližný.` |

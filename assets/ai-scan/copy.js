@@ -148,6 +148,10 @@ export const CAL = {
     tipsNo: ['Fotka kalendáře na stole — zkreslí barvy i rozměry', 'Více stránek v jednom obrázku', 'Ozdobné pruhy a rámečky — rozvržení má pevnou sadu prvků'],
     takeOver: 'Převezmeme rozmístění fotografie, kalendária, hlavičky, měsíce a loga a také barvy. Písma vybereme z projektu. Fotky, texty a dny doplní kalendář sám.',
     hasLayout: 'Kalendář už rozvržení má. Sken ho nezmění, dokud návrh nepoužijete.',
+    /** S1 — a calendar page may be smaller than a design (short side ≥ 300 px). */
+    uploadSmall: (w, h) => `Obrázek je příliš malý (${w} × ${h} px). Kratší strana musí mít aspoň 300 px, lépe 600 px a víc.`,
+    lowResolutionCheck: 'Malý obrázek — rozvržení může vyjít méně přesně',
+    lowResolution: 'Obrázek má nízké rozlišení — polohy a velikosti písma mohou být méně přesné. Zkontrolujte je v kroku Úpravy prvků.',
     ratioOk: 'Poměr stran odpovídá vašemu kalendáři',
     ratioOther: (w, h) => `Stránka má jiný poměr stran než váš kalendář (${w} × ${h} mm) — rozvržení přizpůsobíme`,
     /** S3 — the stages as a calendar scan names them (the codes are the scanner's). */

@@ -14,6 +14,7 @@ use WBoost\Web\Message\AiScan\CancelAiScan;
 use WBoost\Web\Services\AiScan\AiScanDefinition;
 use WBoost\Web\Tests\AiScanTesting;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
+use WBoost\Web\Value\AiScan\AiScanKind;
 use WBoost\Web\Value\FontFace;
 
 /**
@@ -36,6 +37,13 @@ use WBoost\Web\Value\FontFace;
  * `kind`, `lane`, `run`, `try`, `approximate`, `leaseSeconds`) must be equal;
  * every other property must be there with the same JSON type — ids, tokens,
  * dates, sizes and pictures differ by nature.
+ *
+ * The recording also holds a CALENDAR scan (appended by
+ * `record-contract.mjs --append-calendar`): the build claim that carries the
+ * calendar, a render from model commands, two refused command lists and the
+ * calendar report. Its candidate is drawn by the suite's fake picture
+ * ({@see \WBoost\Web\Tests\Fakes\FakeCalendarCandidatePicture}), so the
+ * replay needs no Gotenberg.
  *
  * What the scanner cannot do is done here where the recording did it: an
  * upload before each scan's first intake claim, an intake the recording
@@ -198,8 +206,15 @@ final class ScannerContractFixtureTest extends WebTestCase
 
             if (!array_key_exists($number, $this->scans)) {
                 // The user uploads: the picture the recording used was 1080 × 1350.
+                // A calendar scan of the recording is a scan of a 7-day calendar
+                // without a layout, like the one it was recorded for.
                 $picture = self::picture(1080, 1350);
-                $this->scans[$number] = ['id' => self::start(picture: $picture)->toString(), 'intake' => null, 'stored' => false];
+                $calendar = ($job['kind'] ?? null) === AiScanKind::Calendar->value;
+                $this->scans[$number] = [
+                    'id' => self::start(picture: $picture, kind: $calendar ? AiScanKind::Calendar : AiScanKind::Template, calendarId: $calendar ? TestDataFixture::CALENDAR_1_ID : null)->toString(),
+                    'intake' => null,
+                    'stored' => false,
+                ];
                 @unlink($picture);
             }
 
