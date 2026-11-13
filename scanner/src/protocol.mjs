@@ -8,7 +8,8 @@
 //   source()                               → Buffer            original (intake lane) or working copy (build lane)
 //   putArtifact(which, bytes)              → void              which: working | preview
 //   beat({stage, note, noteParams, round, usage, resources}) → {cancel, mode}
-//   render({seq, design})                  → {rendered, candidate, issues, image: {data, mimeType} | null, code?}
+//   render({seq, design | commands})       → {rendered, candidate, issues, image: {data, mimeType} | null, code?,
+//                                             view?, page?, preset?, layout?, features?}   (the last five: calendar candidates)
 //   faces({seq, lines, faces, size})       → {image: {data, mimeType} | raster, cells: [{face, line, x, y, width, height, fontSize}], sheets?}
 //   finish(payload)                        → {ok, code?}
 //   release(payload)                       → {ok}
@@ -17,7 +18,8 @@
 //   tick(body)                             → {ok}
 
 export const PROTOCOL_VERSION = 1;
-export const INSTRUMENTS = Object.freeze(['ocr', 'crop', 'measure', 'font_rank', 'compare']);
+// `mm` = the calendar adapter's millimetre instruments: a scanner without it is never handed a calendar build.
+export const INSTRUMENTS = Object.freeze(['ocr', 'crop', 'measure', 'font_rank', 'compare', 'mm']);
 
 /** The timing of architecture §4.9 the scanner needs BEFORE it has a claim (a claim's definition overrides it). Seconds. */
 export const DEFAULT_TIMING = Object.freeze({
@@ -31,7 +33,7 @@ export const timingOf = (definitionTiming = {}) => ({ ...DEFAULT_TIMING, ...defi
 /** The faces a build may use, as DSL face strings — the claim context lists them as objects. */
 export function contextFromClaim(context = {}) {
     const fonts = (context.fonts ?? []).map((f) => (typeof f === 'string' ? f : `${f.font} (${f.face})`));
-    return { fonts: [...new Set(fonts)], brandColours: context.palette ?? context.brandColours ?? [], standInAssetId: context.standInAssetId, templateMaxLongEdgePx: context.templateMaxLongEdgePx ?? 5000 };
+    return { fonts: [...new Set(fonts)], brandColours: context.palette ?? context.brandColours ?? [], standInAssetId: context.standInAssetId, templateMaxLongEdgePx: context.templateMaxLongEdgePx ?? 5000, calendar: context.calendar ?? null };
 }
 
 /** The definition a claim carries: files by name, `definition.json` decoded. */
@@ -44,7 +46,8 @@ export function readDefinition(files) {
         return {
             system: d.system.map((f) => files[f]).join('\n\n'),
             task: files[d.task],
-            tools: d.tools.map((name) => all.find((t) => t.name === name)).filter(Boolean).map(({ name, description, input_schema }) => ({ name, description, input_schema })),
+            // a kind names its tools by `id` (a variant written for that kind, e.g. `scan_crop.calendar`) or by name
+            tools: d.tools.map((key) => all.find((t) => t.id === key) ?? all.find((t) => !t.id && t.name === key)).filter(Boolean).map(({ name, description, input_schema }) => ({ name, description, input_schema })),
             finishSchema: JSON.parse(files[d.finish]),
         };
     };
@@ -187,10 +190,10 @@ export class HttpScannerApi {
             /** One attempt, cut at 10 s. → {cancel, mode, status?, leaseExpiresAt}; 409 / 410 throw (runOver). */
             beat: async (b) => (await this.attempt('POST', `${id}/beat`, { lease, body: { ...base, ...b }, attemptMs: this.timing.heartbeatAttemptSeconds * 1000 })).json,
             /** Idempotent by (run, seq): a retry sends the SAME seq. A busy / absent renderer comes back as `code`. */
-            render: async ({ seq, design }, { startBy = null } = {}) => {
-                const { json } = await this.call('POST', `${id}/render`, { lease, body: { ...base, seq, design }, signal, startBy });
+            render: async ({ seq, design, commands }, { startBy = null } = {}) => {
+                const { json } = await this.call('POST', `${id}/render`, { lease, body: { ...base, seq, ...(commands ? { commands } : { design }) }, signal, startBy });
                 if (json.ok === false && !['renderer_busy', 'renderer_unavailable'].includes(json.code)) refused(json);
-                return { rendered: json.ok === true && Number.isInteger(json.candidate), candidate: json.candidate ?? null, issues: json.issues ?? [], width: json.width ?? null, height: json.height ?? null, image: image(json.image), code: json.ok === false ? json.code : null, status: json.ok === true && !Number.isInteger(json.candidate) ? 'rejected' : null };
+                return { view: json.view ?? null, page: json.page ?? null, preset: json.preset ?? null, layout: json.layout ?? null, features: json.features ?? null, rendered: json.ok === true && Number.isInteger(json.candidate), candidate: json.candidate ?? null, issues: json.issues ?? [], width: json.width ?? null, height: json.height ?? null, image: image(json.image), code: json.ok === false ? json.code : null, status: json.ok === true && !Number.isInteger(json.candidate) ? 'rejected' : null };
             },
             faces: async ({ seq, lines, faces = null, size = null }, { startBy = null } = {}) => {
                 const { json } = await this.call('POST', `${id}/faces`, { lease, body: { ...base, seq, lines, ...(faces ? { faces } : {}), ...(size ? { size: Math.round(size) } : {}) }, signal, startBy });

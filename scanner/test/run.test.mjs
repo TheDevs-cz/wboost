@@ -249,12 +249,13 @@ test('the definition: every file a kind names exists; tools and schemas are well
     assert.equal(definition.models.builder, 'claude-opus-5-5'); assert.equal(definition.models.preCheck, 'claude-haiku-5-5');
     assert.deepEqual([definition.caps.turns, definition.caps.engineBudgetMicroUsd, definition.caps.candidates, definition.caps.images, definition.timing.builderCapSeconds, definition.timing.runCapSeconds], [40, 1_500_000, 3, 18, 300, 360]);
     for (const m of Object.values(definition.models)) assert.ok(definition.prices.models[m], `a price for ${m}`);
-    assert.throws(() => kind('calendar'), /no kind "calendar"/);
+    assert.equal(kind('calendar').tools.length, 7);
+    assert.throws(() => kind('poster'), /no kind "poster"/);
 });
 
 test('protocol helpers: claim context → face strings; usage payload; the HTTP client speaks the app\'s shapes', async () => {
     assert.deepEqual(contextFromClaim({ fonts: [{ family: 'x', font: 'Arial', face: 'Arial Gras', weight: 700, italic: false }, 'Montserrat (Montserrat-Black)'], palette: ['#112233'], standInAssetId: 'sid' }),
-        { fonts: ['Arial (Arial Gras)', 'Montserrat (Montserrat-Black)'], brandColours: ['#112233'], standInAssetId: 'sid', templateMaxLongEdgePx: 5000 });
+        { fonts: ['Arial (Arial Gras)', 'Montserrat (Montserrat-Black)'], brandColours: ['#112233'], standInAssetId: 'sid', templateMaxLongEdgePx: 5000, calendar: null });
     const u = usagePayload({ byModel: { 'claude-opus-5-5': { input: 1, output: 2, cacheRead: 3, cacheWrite5m: 4, cacheWrite1h: 5 } }, costUsd: 0.25, engineCostUsd: 0.3, priceVersion: 'v' }, { turns: 7 });
     assert.deepEqual([u.model, u.inputTokens, u.outputTokens, u.cacheReadTokens, u.cacheWriteTokens, u.costMicroUsd, u.engineCostMicroUsd, u.turns], ['claude-opus-5-5', 1, 2, 3, 9, 250_000, 300_000, 7]);
     // the cache-write split reaches the app on every path: finish (the payload itself) and beat / release / closing beat (the wire usage)

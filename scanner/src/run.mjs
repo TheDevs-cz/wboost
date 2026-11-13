@@ -12,6 +12,8 @@ import { ToolServer } from './tools/server.mjs';
 import { prepareImage } from './tools/images.mjs';
 import { TemplateBuild, TEMPLATE_APP_TOOLS } from './adapters/template.mjs';
 import { buildTemplateReport } from './finish/report.mjs';
+import { CalendarBuild, CALENDAR_APP_TOOLS } from './adapters/calendar.mjs';
+import { buildCalendarReport } from './finish/calendar-report.mjs';
 import { normaliseInChild } from './intake/normalise.mjs';
 import { precheck } from './intake/precheck.mjs';
 import { userContent, probe } from './engine/index.mjs';
@@ -150,7 +152,8 @@ export async function runIntake({ job, api, engine, scratchDir, signal = null, p
 export async function runBuild({ job, api, engine, scratchDir, signal = null, probeResources = null, log = null, host = {} }) {
     host = { ...HOST, ...host };
     const { definition, files, kind } = readDefinition(job.definition.files);
-    if (job.kind !== 'template') throw new Error(`no adapter for kind "${job.kind}" yet`);
+    if (!['template', 'calendar'].includes(job.kind)) throw new Error(`no adapter for kind "${job.kind}"`);
+    const calendar = job.kind === 'calendar';
     const spec = kind(job.kind);
     const prices = pricesOf(definition);
     const caps = new Caps(limitsFromDefinition(definition));
@@ -186,7 +189,10 @@ export async function runBuild({ job, api, engine, scratchDir, signal = null, pr
         await sharp(working).png({ compressionLevel: 3 }).toFile(sourcePath);
         const source = await loadRgb(sourcePath);
         const context = contextFromClaim(job.context);
-        if (!context.fonts.length) return { ...(await failed('build', usagePayload(null))), detail: 'no_fonts', stats };
+        // a template needs a face for every text; a calendar draws with its built-in face when the project has none
+        if (!calendar && !context.fonts.length) return { ...(await failed('build', usagePayload(null))), detail: 'no_fonts', stats };
+        // a calendar that cannot take a scanned layout (14 days per page, or gone): nothing to build on
+        if (calendar && context.calendar?.supported !== true) return { ...(await failed('build', usagePayload(null))), detail: 'calendar_unsupported', stats };
         let seq = 0;
         // a renderer that stays away for the whole tolerance window is counted: a run that ends without a
         // candidate because of it is `renderer_unavailable`, not a failure of the scan (§7)
@@ -198,13 +204,14 @@ export async function runBuild({ job, api, engine, scratchDir, signal = null, pr
         // `render` is idempotent by (run, seq): every retry of one call carries the same seq
         const app = {
             render: (design) => { const s = ++seq; return counted(withRendererRetry((o) => api.render({ seq: s, design }, o), definition.timing, controller.signal)); },
+            renderCommands: (commands) => { const s = ++seq; return counted(withRendererRetry((o) => api.render({ seq: s, commands }, o), definition.timing, controller.signal)); },
             faces: (req) => { const s = ++seq; return counted(withRendererRetry((o) => api.faces({ seq: s, ...req }, o), definition.timing, controller.signal)); },
         };
-        build = new TemplateBuild({ source, sourcePath, context, app, caps, signal: controller.signal,
+        build = new (calendar ? CalendarBuild : TemplateBuild)({ source, sourcePath, context, app, caps, signal: controller.signal, approximate: !!job.approximate,
             settings: { availableScore: definition.fonts?.availableScore ?? 0.85, undeterminedScore: definition.fonts?.undeterminedScore ?? 0.35, verifiedScore: definition.fonts?.verifiedScore ?? 0.85, verifiedScoreLong: definition.fonts?.verifiedScoreLong ?? 0.8, verifiedLongGlyphs: definition.fonts?.verifiedLongGlyphs ?? 12, verifyRenders: definition.fonts?.verifyRenders ?? 6, prepassLines: definition.fonts?.prePassLines ?? 6, faceSheets: definition.caps?.faceSheets ?? 12, snapDeltaE: definition.paletteSnapDeltaE ?? 2, ocrThreads: Number(process.env.SCANNER_OCR_THREADS ?? 3) },
             onNote: (note, params = null) => {
                 if (['read', 'analyse', 'build', 'refine', 'finish'].includes(note)) { state.stage = note; if (note === 'refine') state.round = Math.min(definition.caps?.correctionRounds ?? 2, Math.max(1, build.candidates.length)); }
-                else { state.note = note; state.noteParams = params; if (note === 'texts_found' || note === 'no_texts') state.stage = 'analyse'; }
+                else { state.note = note; state.noteParams = params; if (note === 'texts_found' || note === 'no_texts' || note === 'rows_found') state.stage = 'analyse'; }
                 changed();
             } });
         stage('read', t0);
@@ -214,7 +221,7 @@ export async function runBuild({ job, api, engine, scratchDir, signal = null, pr
         probeResources?.mark('build:prepass');
         changed();
         const prepass = await build.prepass();
-        stats.prepass = { ms: build.stats.prepassMs, ocr: build.stats.ocr, lines: prepass.ocrLines.length, ranked: prepass.ocrLines.filter((l) => l.font).length, faceSheets: build.stats.faceSheets, background: prepass.background.kind };
+        stats.prepass = { ms: build.stats.prepassMs, ocr: build.stats.ocr, lines: prepass.ocrLines.length, ranked: prepass.ocrLines.filter((l) => l.font).length, faceSheets: build.stats.faceSheets, ...(calendar ? { rows: prepass.rules?.count ?? 0, pageBox: build.pageBoxSet ?? 'whole' } : { background: prepass.background.kind }) };
         writeFileSync(join(dir, 'prepass.json'), JSON.stringify(prepass, null, 2));
         stage('prepass', t0);
         if (controller.signal.aborted) throw Object.assign(new Error(abortReason), { code: 'aborted' });
@@ -227,10 +234,12 @@ export async function runBuild({ job, api, engine, scratchDir, signal = null, pr
         builderTimer = setTimeout(() => abort('builder_time'), caps.limits.builderMs); builderTimer.unref?.();
         const server = new ToolServer({ definitions: spec.tools, impl: build.tools(), caps, imageRule: definition.imageRule,
             timeouts: { localMs: (definition.timing?.localToolTimeoutSeconds ?? 30) * 1000, appMs: (definition.timing?.appToolTimeoutSeconds ?? 95) * 1000 },
-            appTools: TEMPLATE_APP_TOOLS, log: log ? (rec, args) => log({ ...rec, args }) : null });
+            appTools: calendar ? CALENDAR_APP_TOOLS : TEMPLATE_APP_TOOLS, log: log ? (rec, args) => log({ ...rec, args }) : null });
         caps.takeImages(1); // the source picture in the first message
         const sourceImage = await prepareImage(source, definition.imageRule);
-        const first = `${spec.task}\n\nPre-pass (measured by the scanner; boxes are [x, y, w, h] in canvas px${sourceImage.scale < 1 ? `; the attached picture is shown at scale ${sourceImage.scale.toFixed(4)} of the canvas` : ''}):\n${JSON.stringify(prepass)}`;
+        const first = calendar
+            ? `${spec.task}\n\nPre-pass (measured by the scanner; boxes are [x, y, w, h] in page mm):\n${JSON.stringify(prepass)}`
+            : `${spec.task}\n\nPre-pass (measured by the scanner; boxes are [x, y, w, h] in canvas px${sourceImage.scale < 1 ? `; the attached picture is shown at scale ${sourceImage.scale.toFixed(4)} of the canvas` : ''}):\n${JSON.stringify(prepass)}`;
         result = await engine.run({
             model: definition.models.builder, effort: definition.effort?.[job.kind] ?? 'high', system: spec.system,
             content: userContent([sourceImage, first]), tools: server.definitions, dispatch: (name, args) => server.dispatch(name, args),
@@ -280,7 +289,7 @@ export async function runBuild({ job, api, engine, scratchDir, signal = null, pr
         if (capHit && caps.providerLostDominates(definition.caps?.providerLostShare ?? 0.5)) return { ...(await failed('provider_unavailable', usage)), detail: capHit, stats };
         if (!build.candidates.length) return { ...(await failed(stats.rendererFailures ? 'renderer_unavailable' : capHit ? 'timeout' : 'build', usage)), detail: capHit ?? result.error ?? 'no_candidate', stats };
         const modelFinish = result.outcome === 'finished' && result.finish && typeof result.finish === 'object' ? result.finish : null;
-        const report = await buildTemplateReport({ build, finish: modelFinish, unfinished: !modelFinish, stopReason: modelFinish ? null : (capHit ?? result.outcome),
+        const report = calendar ? await buildCalendarReport({ build, finish: modelFinish, unfinished: !modelFinish, stopReason: modelFinish ? null : (capHit ?? result.outcome), rank: caps.runLeftMs() > 20_000 ? (lines) => build.rank(lines) : null, verify: caps.runLeftMs() > 30_000 ? (items) => build.verify(items) : null }) : await buildTemplateReport({ build, finish: modelFinish, unfinished: !modelFinish, stopReason: modelFinish ? null : (capHit ?? result.outcome),
             rank: caps.runLeftMs() > 20_000 ? (lines) => build.rank(lines) : null,
             // the verification render decides measured_match / nearest_available (≤ 6 renders; skipped when the run cap is near)
             verify: caps.runLeftMs() > 30_000 ? (items) => build.verify(items) : null });
@@ -288,7 +297,8 @@ export async function runBuild({ job, api, engine, scratchDir, signal = null, pr
         if (report.status !== 'proposed') return { ...(await failed('build', usage)), detail: report.error, stats };
         const kept = build.candidates.find((c) => c.n === report.candidate);
         const { boxes, ...rest } = report;
-        const payload = await finish({ outcome: 'proposed', candidate: report.candidate, report: rest, boxes, usage: usagePayload(result.usage, { turns: result.turns, durationMs: Date.now() - started }) });
+        const payload = await finish({ outcome: 'proposed', candidate: report.candidate, report: rest, ...(calendar ? {} : { boxes }), usage: usagePayload(result.usage, { turns: result.turns, durationMs: Date.now() - started }) });
+        if (calendar) return { ...payload, proposal: { preset: kept.preset, layout: kept.layout, features: kept.features, commands: kept.commands }, render: { data: kept.bytes, mimeType: kept.mimeType }, modelFinish, stats, candidates: build.candidates.map((c) => ({ n: c.n, mae: c.mae, pictureShare: c.pictureShare })), rankings: build.rankings.map(({ text, group, origin, best, available }) => ({ text, group, origin, best, available })) };
         return { ...payload, proposal: kept.design, render: { data: kept.bytes, mimeType: kept.mimeType }, modelFinish, stats, candidates: build.candidates.map((c) => ({ n: c.n, via: c.via, mae: c.mae, textFit: c.textFit, placeholderShare: c.placeholderShare })), rankings: build.rankings.map(({ text, box, group, origin, best, runnerUp, available }) => ({ text, box, group, origin, best, runnerUp, available })) };
     } catch (e) {
         clearTimeout(runTimer); clearTimeout(builderTimer);

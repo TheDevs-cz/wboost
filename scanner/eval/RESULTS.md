@@ -463,6 +463,162 @@ Nothing in the table has to move. Two values could be lowered once production ti
 | M ≥ 2 / E ≥ 2 (builder's verdicts) | 100 % / 100 % | ≥ 90 % / 100 % |
 | pre-check: good uploads stopped | 0 | 0 |
 
+## 9. Calendar scans (P5, 2026-11-13)
+
+The calendar adapter (`src/adapters/calendar.mjs`) on the same runner, measured **through the real job
+core**: every input was uploaded through the app's own endpoint as a calendar scan, claimed and built by
+`scanner serve` (Agent SDK engine, Opus 5.5 at effort `high`, the developer's plan — no API key), and the
+PROPOSAL the app stored was scored with the calendar prototype's scorer (`node eval/calendar.mjs`,
+`CALENDAR_PROTO_DIR` = the local prototype directory): key by key against the ground truth of the
+synthetic pages, and as a picture — the proposed layout applied to a scratch calendar holding the input's
+content, rendered, compared with the source outside the picture boxes (masked edge F1, the prototype's
+real-page number).
+
+Set-up that matters when reading the numbers:
+
+- The scanned calendar was a new 7-day calendar with **every feature switched off and no layout** — so
+  what a proposal switches on is what the scan saw (a scan can only switch on; with the default switches
+  of a new calendar — captions, week numbers, moon — a page WITHOUT one of them cannot be matched, by the
+  product rule, not by the scanner).
+- **One run per input**; run-to-run spread was not measured. Seven inputs were scanned twice (the font
+  verification was added between the runs); the second run changed nothing but the `fonts` rows by design.
+- Cost = the app's recorded figure (price table of `definition.json`, list prices), not a bill.
+- 27 calendar scans in all: 27 `ready`, 0 unfinished, 0 failed, $7.67 computed, ≤ 18 turns, build ≤ 101 s;
+  2 patches refused by the calendar model in total (both corrected in the next call); the scanner's kept
+  candidate was the model's preferred one in 26 of 26 multi-candidate reports.
+
+### 9.1 Results (run 1: 17 inputs)
+
+| input | status | wall s | build s | turns | cands | cost $ | box IoU | frame err mm | anchor err mm | type err pt | ΔE00 | categorical | shown | face exact | family | masked edge F1 | masked MAE | wrong |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| bruzovice-2x | ready | 78 | 68 | 9 | 3 | 0.358 | – | – | – | – | – | – | – | – | – | 0.386 | 0.047 |  |
+| chotebuz | ready | 108 | 100 | 15 | 3 | 0.498 | – | – | – | – | – | – | – | – | – | 0.651 | 0.037 |  |
+| markvartovice-2x | ready | 68 | 61 | 11 | 2 | 0.318 | – | – | – | – | – | – | – | – | – | 0.950 | 0.026 |  |
+| s01 | ready | 31 | 21 | 4 | 2 | 0.147 | 1.000 | 0.01 | 0.00 | 0.00 | 0.0 | 100 % | 100 % | 100 % | 100 % | 0.999 | 0.003 |  |
+| s02 | ready | 48 | 32 | 7 | 2 | 0.197 | 0.994 | 0.03 | 0.15 | 0.29 | 0.3 | 100 % | 100 % | 100 % | 100 % | 0.945 | 0.005 |  |
+| s03 | ready | 69 | 61 | 13 | 2 | 0.322 | 0.999 | 0.02 | 0.30 | 0.17 | 2.8 | 100 % | 100 % | 83 % | 100 % | 1.000 | 0.007 |  |
+| s03-jpeg70 | ready | 70 | 59 | 13 | 1 | 0.284 | 0.992 | 0.07 | 0.43 | 0.25 | 3.1 | 100 % | 100 % | 67 % | 100 % | 0.912 | 0.017 |  |
+| s04 | ready | 74 | 66 | 16 | 2 | 0.329 | 0.991 | 0.03 | 0.08 | 0.43 | 4.7 | 100 % | 100 % | 100 % | 100 % | 0.968 | 0.014 |  |
+| s05 | ready | 59 | 51 | 12 | 2 | 0.273 | 0.999 | 0.03 | 0.08 | 0.25 | 2.0 | 100 % | 100 % | 100 % | 100 % | 0.999 | 0.006 |  |
+| s06 | ready | 69 | 51 | 13 | 2 | 0.295 | 0.990 | 0.06 | 0.07 | 0.14 | 1.4 | 100 % | 100 % | 86 % | 100 % | 1.000 | 0.014 |  |
+| s07 | ready | 71 | 62 | 14 | 3 | 0.337 | 0.998 | 0.06 | 0.44 | 0.14 | 2.8 | 100 % | 100 % | 71 % | 100 % | 0.998 | 0.009 |  |
+| s08 | ready | 59 | 49 | 12 | 2 | 0.270 | 0.994 | 0.04 | 0.06 | 0.29 | 2.1 | 93 % | 100 % | 86 % | 86 % | 1.000 | 0.009 | photoOverHeader |
+| s09 | ready | 58 | 50 | 13 | 2 | 0.276 | 0.995 | 0.03 | 0.05 | 0.08 | 1.9 | 100 % | 100 % | 100 % | 100 % | 1.000 | 0.003 |  |
+| s10 | ready | 53 | 47 | 13 | 2 | 0.279 | 0.990 | 0.06 | 0.10 | 0.21 | 2.4 | 100 % | 100 % | 57 % | 100 % | 0.999 | 0.009 |  |
+| s10-shot | ready | 67 | 60 | 13 | 2 | 0.320 | 0.972 | 0.13 | 0.79 | 0.21 | 2.4 | 100 % | 100 % | 57 % | 100 % | 0.953 | 0.019 |  |
+| s11 | ready | 57 | 42 | 11 | 2 | 0.238 | 0.998 | 0.03 | 0.03 | 0.25 | 1.9 | 100 % | 100 % | 83 % | 83 % | 0.991 | 0.006 |  |
+| s12 | ready | 56 | 45 | 11 | 2 | 0.266 | 0.747 | 0.08 | 0.34 | 0.21 | 1.8 | 92 % | 100 % | 43 % | 100 % | 0.786 | 0.018 | type |
+| **mean of 14 with truth** | | 60 | 50 | 11.8 | 2.0 | 0.274 | 0.976 | 0.05 | 0.21 | 0.21 | 2.1 | 99 % | 100 % | 81 % | 98 % | 0.968 | 0.010 | |
+
+"frame" = photo, header, Kalendárium (+ a filled caption) clipped to the page; "anchor" = aligned edge +
+vertical centre of month / week label / unfilled caption; categorical = photo side, number side, weekday
+format / position, rules on, rule style, header fill kind, photo-over-header, month align / case, week
+form / align, caption align / fill.
+
+| Set | n | frame err mm | anchor mm | type pt | ΔE00 | categorical | shown | face exact / family | masked edge F1 | cost $ | whole scan s |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| synthetic, 7-day, clean (s01–s11) | 11 | 0.04 (max edge 0.3) | 0.12 | 0.21 | 2.0 | 99 % (one miss: s08 `photoOverHeader`) | 100 % | 88 % / 97 % | 0.991 | 0.27 | 59 |
+| the prototype agent's six (s03 s04 s06 s08 s10 s11), run 1 / run 2 | 6 | 0.04 / 0.05 | 0.11 / 0.15 | 0.25 / 0.22 | 2.5 / 2.4 | 99 % / 99 % | 100 % | 83 % / 83 % | 0.993 / 0.993 | 0.29 / 0.25 | 63 / 68 |
+| — prototype C2 Opus (agent, effort `medium`, no caps) on the same six | 6 | — | — | 0.31 | — | 100 % | — | — | 0.992 | 0.40 | 82 |
+| — prototype C1 Opus (single call) on all 12 | 12 | 0.08 | — | 0.52 | 3.0 | 100 % | — | 80 % / 95 % | 0.983 | 0.047 | 13 |
+| — prototype C1 + C3 code measurement (+ optimiser) | 12 | — | — | 0.18 (0.09) | 1.9 | 100 % | — | 89 % / 99 % | 0.994 (0.995) | 0.047 | 62 (108) |
+
+Degraded copies and the 14-day layout:
+
+| Input | What happened |
+|---|---|
+| `s03-jpeg70` (JPEG q70) | frames 0.07 mm, type 0.25 pt, categorical 100 %, F1 0.912 (clean s03: 1.000) |
+| `s10-shot` (screenshot with a margin) | the scanner's page-box detection set the box (`page_box_set`, [18, 22, 1594, 746] of 1639 × 799) without a model call; frames 0.13 mm (clean 0.06), anchors 0.79 mm, F1 0.953 (clean 0.999) |
+| `s06-small` (1000 × 468) | **refused by the upload rule** (`unsupported_image`: short side < 600 px) — never reaches the scanner |
+| `s12` (14-day truth) | built as a 7-day page of the left column, note `fortnight_left_half`; categorical "type" is wrong by construction (the calendar is a 7-day one — 14-day calendars are F7) |
+
+Real pages (masked edge F1; the hand-built ceiling on Chotěbuz is 0.626, and differences below ≈ 0.05 on
+real pages mean nothing — prototype finding):
+
+| Page | This scanner | Prototype |
+|---|---|---|
+| Chotěbuz (2576 × 1208) | **0.651** (run 1: 108 s, $0.50, 3 candidates) · **0.646** (run 2: 90 s, $0.28) | hand-built 0.626 · C2 Opus 0.684 · C3 0.477 · C1 Opus 0.426 |
+| Markvartovice (977 × 457) | **refused by the upload rule** (short side 457 px < 600). Upscaled 2 × for the measurement only: **0.950** (68 s, $0.32) | C2 0.949 · C3 0.946 · C1 Opus 0.831 (on the original size) |
+| Bruzovice (14-day page, 977 × 457) | refused by the upload rule the same way. Upscaled 2 ×: the pre-check passed it, the build rebuilt the left week column + photo as a 7-day page and reported `fortnight_left_half`; F1 0.386 against the 14-day source is not a quality number (half the page has no counterpart) | — |
+
+Chotěbuz, what moved the number: the first scan of the page scored 0.467 with a layout already at the
+hand-built boxes — its event texts sat 36 mm right of where the source has them, and nothing in the
+render showed it, because the scanned calendar has no events in the sample week. Since then a candidate
+render carries two **sample events** when the `events` switch is on and the week has none (in the
+in-memory document only — `CalendarCandidate::withSampleEvents`), and the instructions say how the event
+box is anchored. That is the whole difference between 0.467 and 0.65.
+
+### 9.2 Against the bars (architecture §4.10)
+
+§4.10 names what the calendar bars cover — categorical, frames, type size, M on real pages, cost and
+time, scans within the caps — but fixes no numbers for calendars; the reference is the prototype (E14,
+E15). Read against it:
+
+| Bar | Verdict | Measured |
+|---|---|---|
+| Categorical choices | **met** (prototype: 100 % on 12; here one wrong choice on 11 pages: s08, the stacking of photo and header) | 99.4 % |
+| Shown / hidden | **met** | 100 % |
+| Frames | **met** (better than every prototype approach) | 0.04 mm mean edge error, worst edge 0.3 mm |
+| Type size | **met** against the agent (0.21 pt vs 0.31) and the single call (0.52); **not** at the level of the code-measured fallback with its optimiser (0.09 pt) | 0.21 pt, 2.1 % |
+| Real pages at the hand-built level | **met on Chotěbuz** (0.65 vs 0.626 hand-built, twice) and Markvartovice (0.95 vs 0.95) — by the edge metric and by eye on Chotěbuz. **M / E ratings by a designer: not measurable here** (launch round) | see above |
+| Cost per scan | **met** against the prototype agent ($0.40): mean $0.27 synthetic, $0.30 over all 17, max $0.50; the engine budget is $1.50 | — |
+| Time | **met**: whole scan 31–108 s, mean 64 s (prototype agent 82 s); "Trvá to déle" (180 s) never reached; build ≤ 101 s of the 300 s cap | — |
+| ≥ 95 % of scans within the caps | **met**: 27 of 27 finished by the model, ≤ 18 of 40 turns, ≤ 3 candidates | — |
+| Font: an absent face reported as a substitute in 100 % | **not measurable here** — every face of the synthetic pages is in the project | — |
+| Font: a present face wrongly reported as a substitute (template bar ≤ 20 %) | **not met** — see 9.3 | 9 of 17 determined rows (53 %) with the verification render; 18 of 27 (67 %) without |
+| Run-to-run agreement | **not measured** (one run per input; the two runs of seven inputs differ by ≤ 0.07 mm frames, ≤ 0.15 pt type, ≤ 0.01 F1) | — |
+| Pre-check errors | 27 of 27 uploads of calendar pages passed; **nothing that is NOT a calendar page was tried** against `kind = calendar` | — |
+
+No bar that has a prototype reference is missed by the agent, so the fallback (single structured call +
+guarded measurement) is not called for. For the record, what it would need if type size had to go below
+≈ 0.1 pt: the C1 schema as tagged lists (≤ 75 properties), the id-render measurement of C3 on
+`renderDocument` (≈ 21 renders a scan against the cap of 3 — the render cap and `ScanRenderLimiter` would
+have to be lifted for it), its wording gate, and its own answer to event placement and photo-over-header,
+which the single call got wrong on the real page (0.43–0.49 on Chotěbuz).
+
+### 9.3 Fonts in the report
+
+The report names a face match per text style (`fonts[{group, pattern, face}]`) from measurements only:
+the run's rankings, a ranking at the finish for styles the run left out (a weekday name, the line under
+it, the month / week label / caption lines, a two-digit day number), then the verification render of the
+template scans (the source line set in the chosen face at its fitted size, compared word by word).
+
+On the six synthetic pages of run 2 (34 rows with a project face; truth known):
+
+| | chosen face = truth | chosen face ≠ truth |
+|---|---|---|
+| `measured_match` | 8 | **0** |
+| `nearest_available` | 9 | 3 |
+| `undetermined` | 12 | 2 |
+
+- The flag is never wrong in the direction that matters most ("this IS your face" when it is not): 0 of 8.
+- It is **too cautious**: 9 faces that are exactly right are called "nearest available". All nine are
+  small text — weekday names, name days, captions at 7–11 pt on a 1600 px page are 8–14 px tall, where the
+  true face scores 0.69–0.84 against the 0.85 threshold. Since this measurement a line under 16 px (or of
+  ≤ 3 glyphs) that does not verify is reported `undetermined` instead — not re-measured.
+- Day numbers (two digits) are never determined; a month line nearly always is (5 of 6 `measured_match`, all
+  right, 0.89–0.94; the sixth scored 0.84).
+- The face CHOSEN is right far more often than the flag says: 88 % exact / 97 % family on the clean set.
+
+So: usable as "confirmed" vs "not confirmed", not as "confirmed" vs "substitute". The template-side bar
+(≤ 20 % wrongly reported as substitutes) is not met for calendars on 1600 px pictures.
+
+### 9.4 What the scanner does not do, found while measuring
+
+- **Upload rule vs real pages**: two of the three real calendar pages at hand are 977 × 457 px and are
+  refused before the scanner sees them (short side ≥ 600 px). A calendar page is 2.14 : 1 — the rule was
+  written for designs. The owner's call; the scanner handled the 2 × upscales without trouble.
+- **Switches off**: a page without caption / week label / moon on a calendar that has them on keeps them
+  (product rule). The week label and the logo can be hidden by their box (`hidden`), the caption cannot.
+- **Event texts** are placed with a NEGATIVE `ev.box.x` when they start at the row end — verified by the
+  sample events; a colour per event kind, bold-title + regular-subtitle and multilingual lines are
+  reported as `notExpressible` / skipped (vocabulary, F3).
+- Not measured: photographs of printed calendars (`approximate`, `colours_estimated`), other page ratios
+  than 310 : 145 (`ratio_adapted` is unit-tested only), projects without fonts through the real model
+  (unit-tested: the build runs and font tools answer "no font"), the `messages` engine, the linux/amd64
+  image (same code path and dependencies as templates — no new binary), memory (the template figures of
+  §5 apply: the instruments are the same), concurrency 2.
+
 ## Tables (generated by `node eval/report.mjs`)
 
 ### Per run

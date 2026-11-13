@@ -1,0 +1,1 @@
+Scan this picture of one page of a weekly desk calendar and rebuild its LAYOUT on the WBoost calendar. The pre-pass measured by the scanner follows as JSON; the picture is attached. Measure, build one complete candidate, check it against the source, correct it at most twice, then return the final report as the JSON object described in your instructions.

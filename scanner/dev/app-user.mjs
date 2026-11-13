@@ -2,7 +2,7 @@
 // Development helper: the USER's side of a scan through the app's own web endpoints (there is no
 // wizard yet) — the same requests a browser would send, with a logged-in session.
 //
-//   node dev/app-user.mjs start <projectId> <picture> [--approximate]    POST /project/{id}/ai-scan
+//   node dev/app-user.mjs start <projectId> <picture> [--approximate] [--calendar <calendarId>]    POST /project/{id}/ai-scan
 //   node dev/app-user.mjs status <scanId>                                 GET  /ai-scan/{id}
 //   node dev/app-user.mjs cancel|retry|continue|discard <scanId>          POST /ai-scan/{id}/{action}
 //   node dev/app-user.mjs wait <scanId> [--until ready,failed,…] [--timeout 600] [--stage build]
@@ -37,10 +37,11 @@ export class AppUser {
         return this;
     }
     async #json(res) { const text = await res.text(); try { return { http: res.status, ...JSON.parse(text) }; } catch { return { http: res.status, ok: false, code: 'not_json', body: text.slice(0, 200) }; } }
-    async start(projectId, picture, { approximate = false, requestId = randomUUID(), kind = 'template' } = {}) {
+    async start(projectId, picture, { approximate = false, requestId = randomUUID(), kind = 'template', calendarId = null } = {}) {
         const form = new FormData();
         form.set('picture', new Blob([readFileSync(picture)]), basename(picture));
         form.set('kind', kind); form.set('requestId', requestId); form.set('consent', '1'); form.set('_token', TOKEN);
+        if (calendarId) form.set('calendarId', calendarId); // a calendar scan proposes a layout for ONE 7-day calendar
         if (approximate) form.set('options', JSON.stringify({ approximate: true }));
         return this.#json(await this.#fetch(`/project/${projectId}/ai-scan`, { method: 'POST', body: form }));
     }
@@ -79,7 +80,7 @@ async function main() {
     const pos = rest.filter((a, i) => !a.startsWith('--') && !(i > 0 && rest[i - 1].startsWith('--') && !['--approximate'].includes(rest[i - 1])));
     const user = await new AppUser().login();
     let out;
-    if (command === 'start') out = await user.start(pos[0], pos[1], { approximate: !!flags.approximate });
+    if (command === 'start') out = await user.start(pos[0], pos[1], { approximate: !!flags.approximate, ...(opt('calendar', null) ? { kind: 'calendar', calendarId: opt('calendar') } : {}) });
     else if (command === 'status') out = await user.status(pos[0]);
     else if (['cancel', 'retry', 'continue', 'discard'].includes(command)) out = await user.act(pos[0], command);
     else if (command === 'wait') out = await user.wait(pos[0], { until: opt('until', 'ready,failed,stopped,refused,cancelled').split(','), stage: opt('stage', null), timeoutS: Number(opt('timeout', 600)), onChange: (s) => console.error(`${new Date().toISOString().slice(11, 19)} ${s.status} ${s.stage ?? ''} ${s.note ?? ''} ${s.waiting ?? ''}`) });

@@ -2,8 +2,7 @@
   {
     "name": "scan_source",
     "kinds": [
-      "template",
-      "calendar"
+      "template"
     ],
     "description": "Returns the source picture again together with the pre-pass measured by the scanner: canvas size, OCR text lines with boxes / measured ink boxes / colours / font ranking, the background fit, the palette, the project's font faces and brand colours, and the stand-in asset id. The same pre-pass is already in your first message — call this only if you need the picture again (it counts against the picture budget).",
     "input_schema": {
@@ -16,8 +15,7 @@
   {
     "name": "scan_crop",
     "kinds": [
-      "template",
-      "calendar"
+      "template"
     ],
     "description": "Zooms into a region of the source picture. Returns the region enlarged with pixel rulers along the top and left edges labelled in canvas coordinates, so positions and sizes can be read off precisely. Use it for small things (icons, logos, small text, corner radii, thin lines) and whenever a coordinate matters. `zoom` (default: chosen so the crop is about 900 px) and `grid` (default true: ruler lines across the crop) are optional. Counts against the picture budget.",
     "input_schema": {
@@ -60,8 +58,7 @@
   {
     "name": "scan_measure",
     "kinds": [
-      "template",
-      "calendar"
+      "template"
     ],
     "description": "Measures a region of the source picture with code instead of by eye (numbers only, no picture). Returns the region's background colour (median of its border), the dominant colours with their share, mean colours at the four edges and the centre (a gradient shows as left≠right or top≠bottom), the tight box of everything that is not background (`ink`), and the horizontal bands of ink (for text: one band per line). Boxes are [x, y, w, h] in canvas px. Put the region around ONE thing with a little margin.",
     "input_schema": {
@@ -96,8 +93,7 @@
   {
     "name": "font_rank",
     "kinds": [
-      "template",
-      "calendar"
+      "template"
     ],
     "description": "Ranks the project's font faces for ONE line of text (numbers only). Give the line exactly as written in the picture and a region that contains that line only (a little margin is fine; no other text or graphics inside). The app renders the line in every project face, the scanner compares the glyph shapes with the source and fits the size. Returns `candidates` (best first: `face`, `score` 0…1, `size` = the size at which that face sets the line as wide as the source), the measured glyph `colour`, and `available` — false when no project face draws these glyphs, i.e. the typeface is a substitute. `group` is the name of the text style group this line stands for. The pre-pass already ranked a selection of lines; rank only styles it did not cover.",
     "input_schema": {
@@ -142,8 +138,7 @@
   {
     "name": "compare_region",
     "kinds": [
-      "template",
-      "calendar"
+      "template"
     ],
     "description": "Looks closely at one region of a rendered candidate against the source: returns the source crop, the candidate crop and a difference panel (white = identical, darker = more different) side by side at the same zoom, plus numbers: the region's mean difference, the shift {dx, dy} that would best align the candidate with the source, and the ink boxes of both. `candidate` defaults to the latest one. Counts against the picture budget — use it where the numbers of the preview leave a doubt.",
     "input_schema": {
@@ -256,6 +251,262 @@
         }
       },
       "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "id": "scan_source.calendar",
+    "name": "scan_source",
+    "kinds": [
+      "calendar"
+    ],
+    "description": "Returns the page picture again together with the pre-pass measured by the scanner (page box, row rules, OCR lines with boxes in page mm, palette, the project's font faces, the calendar's default layout). The same pre-pass is already in your first message — call this only if you need the picture again (it counts against the picture budget).",
+    "input_schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "id": "scan_crop.calendar",
+    "name": "scan_crop",
+    "kinds": [
+      "calendar"
+    ],
+    "description": "Shows the SOURCE page, whole or one region, with rulers and a grid labelled in page millimetres (origin = top-left trim corner) — the unit of every box you send, so what you read here goes straight into `boxes`. The grid step follows the zoom (10 / 5 / 2 / 1 / 0.5 mm); zoomed into a region of 20–40 mm, edges can be read to about ±0.3 mm. Use it for edges of the photo and the header, the ends of the row rules, one day row, the month line, the week label, the caption, the logo. Without arguments: the whole page. Counts against the picture budget.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number",
+          "description": "Left edge, page mm. Default 0."
+        },
+        "y": {
+          "type": "number",
+          "description": "Top edge, page mm. Default 0."
+        },
+        "w": {
+          "type": "number",
+          "description": "Width, mm. Default: to the right page edge."
+        },
+        "h": {
+          "type": "number",
+          "description": "Height, mm. Default: to the bottom page edge."
+        },
+        "zoom": {
+          "type": "number",
+          "description": "Optional magnification of the source pixels, 0.25–8 (default: the crop is about 1100 px)."
+        },
+        "grid": {
+          "type": "boolean",
+          "description": "Optional; false hides the grid lines across the crop."
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "id": "scan_measure.calendar",
+    "name": "scan_measure",
+    "kinds": [
+      "calendar"
+    ],
+    "description": "Measures a region of the source page with code instead of by eye (numbers only, no picture; all boxes in page mm). Returns the region's background colour, the dominant colours with their share, mean colours at the four edges and the centre (a gradient shows as left≠right or top≠bottom), the tight box of everything that is not background (`ink`), the horizontal bands of ink with their height in mm and `sizeIfCapitalsPt` (the type size if that band is a line of capitals or digits), and thin horizontal `rules` inside the region with their ends and weight in pt. Put the region around ONE thing with a little margin: a day number, a weekday name, the month line, a fill.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number",
+          "description": "Left edge, page mm."
+        },
+        "y": {
+          "type": "number",
+          "description": "Top edge, page mm."
+        },
+        "w": {
+          "type": "number",
+          "description": "Width, mm."
+        },
+        "h": {
+          "type": "number",
+          "description": "Height, mm."
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "w",
+        "h"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "id": "font_rank.calendar",
+    "name": "font_rank",
+    "kinds": [
+      "calendar"
+    ],
+    "description": "Ranks the project's font faces for ONE line of text of the source: the app renders the text in every face, the scanner compares glyph shapes with the source pixels. Give the text exactly as written in the picture, the region around that line in page mm, and `group` = the style key the line belongs to (num, day, name, month, wk, cap, ev) — the report takes the face match of that style from this call. Returns the faces ordered by `score` (1 = identical shapes) with `sizePt`, and `available` (false: no project face draws these glyphs — use the top face as the substitute). Works on lines of at least 3 glyphs; rank each text style once. Not available when the project has no font.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "The line exactly as written in the picture."
+        },
+        "x": {
+          "type": "number",
+          "description": "Left edge, page mm."
+        },
+        "y": {
+          "type": "number",
+          "description": "Top edge, page mm."
+        },
+        "w": {
+          "type": "number",
+          "description": "Width, mm."
+        },
+        "h": {
+          "type": "number",
+          "description": "Height, mm."
+        },
+        "group": {
+          "type": "string",
+          "description": "The style key this line belongs to: num, day, name, month, wk, cap or ev."
+        }
+      },
+      "required": [
+        "text",
+        "x",
+        "y",
+        "w",
+        "h"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "id": "compare_region.calendar",
+    "name": "compare_region",
+    "kinds": [
+      "calendar"
+    ],
+    "description": "Source page above a rendered candidate above their difference, same region and scale, both with the mm grid — so offsets, sizes and colours can be read directly. Returns `mae` of the region and `shift` in mm (how far the render's content must move to match the source). The user's pictures (photo, logo, QR) show the source in both panels. Use it on the regions the feedback of calendar_preview names, not on the whole page. `candidate` defaults to the latest. Counts against the picture budget.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number",
+          "description": "Left edge, page mm. Default 0."
+        },
+        "y": {
+          "type": "number",
+          "description": "Top edge, page mm. Default 0."
+        },
+        "w": {
+          "type": "number",
+          "description": "Width, mm. Default: to the right page edge."
+        },
+        "h": {
+          "type": "number",
+          "description": "Height, mm. Default: to the bottom page edge."
+        },
+        "candidate": {
+          "type": "integer",
+          "description": "Optional candidate number; default the latest."
+        },
+        "grid": {
+          "type": "boolean",
+          "description": "Optional; false hides the grid lines."
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "id": "calendar_preview",
+    "name": "calendar_preview",
+    "kinds": [
+      "calendar"
+    ],
+    "description": "Builds a candidate layout on the calendar's own model and renders the sample week page with the app's real renderer. Nothing is saved. A complete candidate = `preset` (photoLeft | photoRight — the candidate always starts from that preset's DEFAULT layout, see defaultLayout in the pre-pass) + `features` (switches to turn ON, never off) + ONE patch of `boxes` (mm), `order` and `styles` over that default. With `\"patch\": true` the given boxes / styles / features are merged over your previous candidate, so a correction sends only what changes. Read `rendered` first: false means the model refused the patch — `issues` says which key or value (an unknown key lists its siblings); fix it and call again (such refusals are limited). When it rendered: the candidate number, the picture, `notes` (values the model clamped or grew), the materialised `boxes`, and measured feedback against the source — `mae` (0 = identical; the photo, logo and QR boxes excluded), `rules` (the row ladder of source and render and their `delta` in mm, with the arithmetic to apply), per element `mae`, `move` (mm) and for month / week label `inkHeightRatio`, and `worstCells`. At most 3 candidates are rendered in a scan; the scanner keeps the best-measured one.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "preset": {
+          "type": "string",
+          "enum": [
+            "photoLeft",
+            "photoRight"
+          ],
+          "description": "Where the photo is. Required unless patch is true."
+        },
+        "features": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Switches the page shows, to turn on: captions, weekNumbers, moon, events, qr, waste, seasons, timeChange, shifts."
+        },
+        "boxes": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "{\"<element>\": {x?, y?, w?, h?, hidden?}} in page mm; elements: photo cap logo head month cal wk qr; hidden only on logo month wk qr."
+        },
+        "order": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "All eight element keys exactly once, top layer first."
+        },
+        "styles": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "A patch of the style tree — only keys that exist in defaultLayout.styles."
+        },
+        "patch": {
+          "type": "boolean",
+          "description": "true = merge over the previous candidate instead of starting from the preset default."
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "id": "set_page_box",
+    "name": "set_page_box",
+    "kinds": [
+      "calendar"
+    ],
+    "description": "Only when the source picture shows more than the page (a margin, a screenshot frame, a shadow): says where the page is, in PIXELS of the source picture (page.sourcePx in the pre-pass). Afterwards every mm coordinate refers to that page, and the answer carries the re-measured rules and OCR lines. The scanner already detects a plain margin (page.pageBox = \"detected\") — call this only to correct it. Must be called before the first calendar_preview.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "w": {
+          "type": "number"
+        },
+        "h": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "w",
+        "h"
+      ],
       "additionalProperties": false
     }
   }

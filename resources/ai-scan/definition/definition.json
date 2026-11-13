@@ -1,5 +1,5 @@
 {
-    "version": "5",
+    "version": "6",
     "protocolVersion": 1,
     "requiresInstruments": [
         "ocr",
@@ -150,6 +150,26 @@
                 "design_patch"
             ],
             "finish": "finish.template.schema.json"
+        },
+        "calendar": {
+            "requiresInstruments": [
+                "mm"
+            ],
+            "system": [
+                "system.common.md",
+                "system.calendar.md"
+            ],
+            "task": "task.calendar.md",
+            "tools": [
+                "scan_source.calendar",
+                "scan_crop.calendar",
+                "scan_measure.calendar",
+                "font_rank.calendar",
+                "compare_region.calendar",
+                "calendar_preview",
+                "set_page_box"
+            ],
+            "finish": "finish.calendar.schema.json"
         }
     }
 }

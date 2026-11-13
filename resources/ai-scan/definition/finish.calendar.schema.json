@@ -1,0 +1,150 @@
+{
+  "type": "object",
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": [
+        "done",
+        "failed"
+      ]
+    },
+    "preferredCandidate": {
+      "type": "integer"
+    },
+    "fortnight": {
+      "type": "boolean"
+    },
+    "recognised": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "element": {
+            "type": "string",
+            "enum": [
+              "photo",
+              "cap",
+              "cal",
+              "month",
+              "wk",
+              "head",
+              "logo",
+              "qr",
+              "bg"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "found",
+              "approximate",
+              "absent"
+            ]
+          }
+        },
+        "required": [
+          "element",
+          "state"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "needsUpload": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "slot": {
+            "type": "string",
+            "enum": [
+              "logo",
+              "header",
+              "background"
+            ]
+          }
+        },
+        "required": [
+          "slot"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "featuresOffered": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": [
+              "captions",
+              "weekNumbers",
+              "moon",
+              "events",
+              "qr",
+              "waste",
+              "seasons",
+              "timeChange",
+              "shifts"
+            ]
+          }
+        },
+        "required": [
+          "key"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "notExpressible": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "ornament",
+              "header_text",
+              "second_photo",
+              "more_logos",
+              "days_in_grid",
+              "rotated_text",
+              "month_colours",
+              "multilingual_names"
+            ]
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "w": {
+            "type": "number"
+          },
+          "h": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "code",
+          "x",
+          "y",
+          "w",
+          "h"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "status",
+    "preferredCandidate",
+    "fortnight",
+    "recognised",
+    "needsUpload",
+    "featuresOffered",
+    "notExpressible"
+  ],
+  "additionalProperties": false
+}

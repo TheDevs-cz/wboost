@@ -1,7 +1,8 @@
 # WBoost AI scan — the scanner
 
-The service that turns an uploaded picture into a **proposal**: a design document the app
-validated and rendered itself, plus a report whose facts are measured. Design and contracts:
+The service that turns an uploaded picture into a **proposal** — a template design, or the layout of
+a weekly desk calendar (kind `calendar`, "Calendar scans" below) — that the app validated and rendered
+itself, plus a report whose facts are measured. Design and contracts:
 `docs/ai-scan/architecture.md` (§4 architecture, §4.9 timing and limits, §7 failures, §8 resources);
 the wire contract with the app: `docs/architecture/ai-scan.md` § "Scanner API".
 Measurements of this code: [`eval/RESULTS.md`](eval/RESULTS.md).
@@ -105,7 +106,28 @@ healthy and says so (`protocol.accepted: false`, the lanes are `held`).
 | Pre-pass (mandatory, no model) | `src/adapters/template.mjs` `prepass()` | OCR lines (RapidOCR sidecar, pinned threads) → measured ink box, glyph colour and backdrop per line; background fit; palette; font ranking of the project's faces for one line per text style (the app renders, the scanner compares glyph shapes and fits the size) |
 | Model loop | `src/engine/` | Opus 5.5 at effort `high` gets the picture + the pre-pass as its first message and 7 tools: `scan_source`, `scan_crop`, `scan_measure`, `font_rank`, `compare_region`, `design_preview`, `design_patch` |
 | Caps | `src/caps.mjs`, `src/tools/server.mjs`, `src/run.mjs` | ≤ 40 turns, $1.50, builder 300 s, run 360 s, ≤ 3 rendered candidates, ≤ 3 validation rejections, ≤ 18 pictures (each ≤ 2576 px, ≤ 3 MB), tool timeouts 30 / 95 s |
+| Calendar scans | `src/adapters/calendar.mjs`, `src/finish/calendar-report.mjs` | the same runner with millimetre instruments — see "Calendar scans" |
 | Finish | `src/finish/`, `src/instruments/fonts.mjs` | keep-best by measurement; **font verification**: each text group's own source lines are rendered by the app in the face and at the size the kept design uses and compared with the source pixels word by word — that score decides `measured_match` / `nearest_available`; report fields written from measurements; when the model never finished, the scanner reports alone (`unfinished`) |
+
+## Calendar scans (kind `calendar`)
+
+One page of a weekly desk calendar → a **layout** of the WBoost calendar the scan was started for
+(boxes in mm, type in pt, colours, fills, rules, what is shown). Same lanes, caps, image rule,
+heartbeat, engine and keep-best as a template scan; what differs:
+
+| | |
+|---|---|
+| Unit | **page millimetres**, origin = the top-left trim corner — the unit the calendar's model takes. Every tool reads and answers mm through the **page box** (where the page is in the picture: the whole picture, a detected plain margin, or `set_page_box`) |
+| Pre-pass | OCR lines (boxes, ink height, `sizeIfCapitalsPt`), the **row ladder** (thin rules of one pitch → the Kalendárium frame they imply), palette, a font ranking when the project has fonts (a calendar scan runs without any) |
+| Candidate | `calendar_preview`: `preset` + `features` (ON only) + one patch of `boxes` / `order` / `styles` → the calendar model's commands → the app runs them on the calendar's document **in memory** and draws the sample week (`render {commands}`); `"patch": true` merges over the previous candidate. A patch the model refuses counts as a validation rejection |
+| Feedback | numbers in mm: masked `mae` (the photo, logo and QR boxes are the user's pictures), the rule ladder of source vs render with its `delta` and the arithmetic to apply, per element `mae` / `move`, for month and week label `inkHeightRatio` (the wording differs from the source's, so widths are never compared) |
+| Report | `src/finish/calendar-report.mjs`: closed lists only — `recognised`, `needsUpload`, `featuresOffered`, `fonts` (pattern from the rankings), `notExpressible` (code + source-px box), `notes`; `pageBox` / `photoBox` in source px; an element the kept layout hides is `absent` whatever the model said |
+| Instruments | the scanner announces `mm`; the definition asks for it for `kinds.calendar` only — an image without it is never handed a calendar build and keeps serving templates |
+| Never | no picture is cut out of the source; a feature is only switched on; no font is required |
+
+Tools the model gets: `scan_source`, `scan_crop`, `scan_measure`, `font_rank`, `compare_region` (their
+calendar variants in `tools.json`, `id` `<name>.calendar`), `calendar_preview`, `set_page_box`.
+Measurements: `eval/RESULTS.md` §9; `node eval/calendar.mjs` runs and scores them.
 
 ## Layout
 
@@ -126,9 +148,9 @@ src/drivers/               file-job.mjs + mcp-app.mjs — a job from a file thro
 src/engine/                sdk.mjs (Agent SDK, locked down) · messages.mjs (plain Messages loop) · classify.mjs · pricing.mjs
 src/intake/                normalise (+ child), precheck
 src/instruments/           raster, textink, background, fonts (ranking + verification), ocr (+ ocr/ocr.py)
-src/adapters/              template.mjs (pre-pass, tools, feedback), mask.mjs
+src/adapters/              template.mjs (pre-pass, tools, feedback), calendar.mjs (the same in page mm), mask.mjs
 src/tools/                 server.mjs (dispatch, timeouts, image budget), images.mjs (image rule)
-src/finish/                keepbest, report, text
+src/finish/                keepbest, report (templates), calendar-report, text
 src/caps.mjs, src/resources.mjs
 dev/app-user.mjs           the USER's side through the app's web endpoints: start, status, cancel, retry, continue, wait
 dev/scan.php               reads what the app stored of a scan (row, usage rows, ledger, proposal, pictures) — inside the dev container
@@ -189,7 +211,7 @@ measure parity with the prototypes' engine.
 ## Tests
 
 ```bash
-npm test                # 213 tests, ≈ 40 s — no model, no app
+npm test                # 230 tests, ≈ 45 s — no model, no app
 npm run test:slow       # the app-outage rules at their real times (≈ 85 s)
 ```
 
@@ -203,6 +225,7 @@ npm run test:slow       # the app-outage rules at their real times (≈ 85 s)
 | `engine-faults.test.mjs` | both engines against the fault proxy: pinned retries and delays, request timeout, stream-idle watchdog, what is never retried, refusal — and the fallback detection when the switch is taken away |
 | `hostile.test.mjs` | decompression bombs, 36 Mpx, CMYK, 16-bit, animated, truncated, HEIC, SVG, empty, > 10 MB — each a named outcome within a memory and time bound |
 | `contract.test.mjs` | the contract fixture replayed from the scanner's side (`test/contract/README.md` — the app's CI replays it from its side) |
+| `calendar.test.mjs` | the calendar adapter: row ladder, page-box detection, picture mask, tools in mm, `calendar_preview` (commands, patch, caps, a refused patch), the report's closed lists, a whole calendar build against a stand-in calendar model, the `commands` render of the client |
 | `run`, `tools`, `finish`, `intake`, `instruments`, `engine`, `caps`, `classify` | step A: the build and intake of one job, caps, the image rule, the report, the instruments |
 
 ## Evaluation and measurements (`eval/`)
@@ -213,6 +236,7 @@ node eval/report.mjs                                      # tables from eval/run
 node eval/precheck-eval.mjs                               # the pre-check alone
 node eval/engine-facts.mjs sdk|messages|cli               # fault injection against eval/fake-provider.mjs — no model
 node eval/e2e.mjs <input …>                               # real scans through the REAL app job core (the service must run)
+node eval/calendar.mjs --calendar <id> <input …>          # calendar scans through the real job core, scored with the prototype's scorer (CALENDAR_PROTO_DIR)
 node eval/font-verify.mjs                                 # the font verification on the recorded scans, both error rates
 node eval/record-contract.mjs                             # records test/contract/scanner-api.v1.json against the local app
 node eval/g2a.mjs soak|faults|queue|limits|kill|orphans|idle|audit   # the local reliability gate (G2a) — docs/ai-scan/reliability-report.md
