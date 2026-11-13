@@ -23,6 +23,15 @@ import { classifyProviderError } from './classify.mjs';
 
 export const SERVER_NAME = 'scan';
 
+/**
+ * The tools the harness announced that are not the scanner's: everything but `mcp__scan__*` and the harness's
+ * own `StructuredOutput` (how a finish schema is answered). The lock-down above leaves none; an SDK that
+ * brings a built-in tool back (Bash, Read, a web tool, a subagent) must fail the run, not widen it silently.
+ */
+export function foreignTools(announced) {
+    return (Array.isArray(announced) ? announced : []).map(String).filter((name) => !(name.startsWith(`mcp__${SERVER_NAME}__`) || name === 'StructuredOutput'));
+}
+
 function toolServer(tools, dispatch) {
     const server = createSdkMcpServer({ name: SERVER_NAME, version: '1.0.0', tools: [] });
     const low = server.instance.server;
@@ -32,9 +41,10 @@ function toolServer(tools, dispatch) {
     return server;
 }
 
-/** The environment the harness subprocess gets: the scanner's own, plus pinned request behaviour. */
+/** The environment the harness subprocess gets: the scanner's own WITHOUT the app token, plus pinned request behaviour. */
 export function engineEnv({ base = process.env, settings = {}, scratchDir }) {
     const env = { ...base };
+    delete env.SCANNER_TOKEN; // the engine talks to the provider only; the app is the scanner's business
     // the credential comes from the environment: an API key (production), or the plan's token for a machine
     // that has no login (CLAUDE_CODE_OAUTH_TOKEN — a container in development)
     const keyed = !!env.ANTHROPIC_API_KEY || !!env.CLAUDE_CODE_OAUTH_TOKEN;
@@ -79,7 +89,7 @@ export function engineEnv({ base = process.env, settings = {}, scratchDir }) {
 /**
  * Runs one model loop.
  * @param o {model, effort, system, content, tools, dispatch, finishSchema, maxTurns, maxBudgetUsd,
- *           signal, onEvent, settings, scratchDir, prices, env}
+ *           signal, onEvent, settings, scratchDir, prices, env, query (tests: a stand-in for the SDK's `query`)}
  *   content  user content blocks in Messages-API shape (text / image base64)
  * → {outcome, finish, text, usage, turns, apiMs, wallMs, error, facts}
  */
@@ -122,13 +132,16 @@ export async function runSdk(o) {
     };
     let streaming = null; // {id, model, usage} of the message being streamed
     try {
-        for await (const m of query({ prompt: input(), options })) {
+        for await (const m of (o.query ?? query)({ prompt: input(), options })) {
             const now = Date.now();
             facts.maxGapMs = Math.max(facts.maxGapMs, now - lastEventAt);
             lastEventAt = now;
             if (m.type === 'system' && m.subtype === 'init') {
                 facts.init = { model: m.model, tools: m.tools, mcp: m.mcp_servers, version: m.claude_code_version, apiKeySource: m.apiKeySource, permissionMode: m.permissionMode };
                 waitingSince = now;
+                // the lock-down is verified on every run: a tool that is not the scanner's ends it before the first request
+                const foreign = foreignTools(m.tools);
+                if (foreign.length) { facts.foreignTools = foreign.slice(0, 20); controller.abort(); break; }
             } else if (m.type === 'system' && m.subtype === 'api_retry') {
                 // time lost to the provider (§4.9): the request that failed — since the engine began to wait for it —
                 // and the wait before the next one. The next request leaves when the delay is over.
@@ -200,6 +213,7 @@ export async function runSdk(o) {
         const c = classifyProviderError({ sdkError, status, planLimit, message: facts.assistantErrors.at(-1)?.text ?? '', ...extra });
         return { ...base, outcome: c.class === 'refusal' ? 'refusal' : 'provider', error: { ...c, status, sdkError, message: base.text?.slice(0, 300) ?? null } };
     };
+    if (facts.foreignTools) return { ...base, outcome: 'error', error: { class: 'unknown', code: 'engine_tools', message: `the engine announced tools that are not the scanner's: ${facts.foreignTools.join(', ').slice(0, 200)}` } };
     if (o.signal?.aborted) return { ...base, outcome: 'aborted', error: null };
     if (facts.refusalFallback || facts.refusal || result?.stop_reason === 'refusal') return providerError({ stopReason: 'refusal' });
     if (controller.signal.aborted && !result) return { ...base, outcome: 'aborted', error: null };

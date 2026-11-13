@@ -2,10 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import Anthropic from '@anthropic-ai/sdk';
 import { runMessages, toToolResultContent } from '../src/engine/messages.mjs';
-import { engineEnv } from '../src/engine/sdk.mjs';
+import { engineEnv, runSdk, foreignTools } from '../src/engine/sdk.mjs';
 import { engine, userContent } from '../src/engine/index.mjs';
 import { UsageMeter, priceUsage, fromApiUsage, fromModelUsage, LIST_PRICES } from '../src/engine/pricing.mjs';
-import { mkdtempSync, existsSync } from 'node:fs';
+import { mkdtempSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -159,5 +159,38 @@ test('engine environment: request behaviour is pinned; the config directory is i
     assert.equal(plan.CLAUDE_CODE_DISABLE_AUTO_MEMORY, '1');
     const keyed = engineEnv({ base: { ANTHROPIC_API_KEY: 'sk-test' }, settings, scratchDir });
     assert.equal(keyed.ANTHROPIC_API_KEY, 'sk-test');
+    // the app's token is the scanner's business: the engine never gets it, with either credential
+    assert.equal(engineEnv({ base: { ANTHROPIC_API_KEY: 'sk-test', SCANNER_TOKEN: 'app-token' }, settings, scratchDir }).SCANNER_TOKEN, undefined);
+    assert.equal(engineEnv({ base: { PATH: '/bin', SCANNER_TOKEN: 'app-token' }, settings, scratchDir }).SCANNER_TOKEN, undefined);
     assert.ok(keyed.CLAUDE_CONFIG_DIR.startsWith(scratchDir) && existsSync(keyed.CLAUDE_CONFIG_DIR));
+});
+
+test('Agent SDK: a tool the harness announces that is not the scanner\'s ends the run before the first request', async () => {
+    assert.deepEqual(foreignTools(['mcp__scan__scan_crop', 'mcp__scan__design_preview', 'StructuredOutput']), []);
+    assert.deepEqual(foreignTools(['mcp__scan__scan_crop', 'Bash', 'Read', 'mcp__other__x', 'mcp__scanner__x', 'Task']), ['Bash', 'Read', 'mcp__other__x', 'mcp__scanner__x', 'Task']);
+    assert.deepEqual(foreignTools(undefined), []);
+    const scratchDir = mkdtempSync(join(tmpdir(), 'scan-tools-'));
+    const init = (tools) => ({ type: 'system', subtype: 'init', model: 'claude-opus-5-5', tools, mcp_servers: [{ name: 'scan', status: 'connected' }], claude_code_version: 'x', apiKeySource: 'none', permissionMode: 'dontAsk' });
+    const result = { type: 'result', subtype: 'success', is_error: false, result: 'ok', num_turns: 1, duration_api_ms: 1, total_cost_usd: 0, modelUsage: {} };
+    /** A stand-in for the SDK's `query`: what it was asked for, how far it was read, whether it was closed. */
+    const harness = (tools) => { const seen = { options: null, yielded: 0, closed: false }; return { seen, query: ({ options }) => { seen.options = options; return (async function* () { try { for (const m of [init(tools), result]) { seen.yielded++; yield m; } } finally { seen.closed = true; } })(); } }; };
+    const run = (h) => runSdk({ model: 'claude-opus-5-5', system: 's', content: [{ type: 'text', text: 'x' }], tools: [{ name: 'scan_crop', description: 'd', input_schema: { type: 'object' } }], dispatch: async () => ({ content: [] }), scratchDir, env: { PATH: '/bin' }, query: h.query });
+
+    // the lock-down as it is: the scan tools and the harness's own StructuredOutput — the run goes on
+    const ok = harness(['mcp__scan__scan_crop', 'StructuredOutput']);
+    const fine = await run(ok);
+    assert.equal(fine.outcome, 'finished'); assert.equal(fine.facts.foreignTools, undefined);
+    assert.deepEqual([ok.seen.options.tools, ok.seen.options.allowedTools, ok.seen.options.strictMcpConfig, ok.seen.options.permissionMode], [[], ['mcp__scan__scan_crop'], true, 'dontAsk']);
+
+    // an SDK that brings built-in tools back: stopped at the init message, named, nothing after it is read
+    const bad = harness(['mcp__scan__scan_crop', 'StructuredOutput', 'Bash', 'WebFetch']);
+    const stopped = await run(bad);
+    assert.deepEqual([stopped.outcome, stopped.error.code, stopped.finish], ['error', 'engine_tools', null]);
+    assert.deepEqual(stopped.facts.foreignTools, ['Bash', 'WebFetch']); assert.match(stopped.error.message, /Bash, WebFetch/);
+    assert.deepEqual([bad.seen.yielded, bad.seen.closed, bad.seen.options.abortController.signal.aborted], [1, true, true], 'the engine is aborted and the stream closed');
+    // it wins over an abort from outside that arrives in the same moment: the reason is not lost
+    const controller = new AbortController(); controller.abort();
+    const both = await runSdk({ model: 'm', system: 's', content: [], tools: [], dispatch: async () => ({}), scratchDir, env: {}, signal: controller.signal, query: harness(['Bash']).query });
+    assert.equal(both.error?.code, 'engine_tools');
+    rmSync(scratchDir, { recursive: true, force: true });
 });
