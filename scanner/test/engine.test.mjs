@@ -152,6 +152,8 @@ test('engine environment: request behaviour is pinned; the config directory is i
     const settings = { requestTimeoutSeconds: 120, retries: 4, streamIdleSeconds: 60 };
     const plan = engineEnv({ base: { PATH: '/bin', ANTHROPIC_AUTH_TOKEN: 'x', CLAUDE_CODE_EFFORT_LEVEL: 'max' }, settings, scratchDir });
     assert.deepEqual([plan.API_TIMEOUT_MS, plan.CLAUDE_CODE_MAX_RETRIES, plan.CLAUDE_BYTE_STREAM_IDLE_TIMEOUT_MS], ['120000', '4', '60000']);
+    // the harness keeps its own back-off: the definition's `sdkRetries` is the count whose waits add up to the plan's 60 s
+    assert.equal(engineEnv({ base: { PATH: '/bin' }, settings: { ...settings, sdkRetries: 7 }, scratchDir }).CLAUDE_CODE_MAX_RETRIES, '7');
     assert.equal(plan.CLAUDE_CONFIG_DIR, undefined, 'the plan login lives in the default config');
     assert.equal(plan.ANTHROPIC_API_KEY, undefined); assert.equal(plan.ANTHROPIC_AUTH_TOKEN, undefined); assert.equal(plan.CLAUDE_CODE_EFFORT_LEVEL, undefined);
     assert.equal(plan.CLAUDE_CODE_DISABLE_AUTO_MEMORY, '1');

@@ -41,7 +41,10 @@ export function engineEnv({ base = process.env, settings = {}, scratchDir }) {
     Object.assign(env, {
         // request behaviour pinned by the definition (the harness defaults are 10 retries / 600 s)
         API_TIMEOUT_MS: String((settings.requestTimeoutSeconds ?? 120) * 1000),
-        CLAUDE_CODE_MAX_RETRIES: String(settings.retries ?? 4),
+        // the harness keeps its own back-off (0.5 s doubling, capped near 32 s — it cannot be pinned): the number
+        // of retries is what decides how long a provider that is away is waited for. `sdkRetries` (definition) is
+        // chosen so that the waits add up to the plan's 60 s (§4.9); without it the Messages loop's count is used
+        CLAUDE_CODE_MAX_RETRIES: String(settings.sdkRetries ?? settings.retries ?? 4),
         // the event-level watchdog cannot be set below 5 minutes; the byte-level one can (clamped 10 s … 30 min)
         CLAUDE_BYTE_STREAM_IDLE_TIMEOUT_MS: String(Math.max(10, settings.streamIdleSeconds ?? 60) * 1000),
         CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1',

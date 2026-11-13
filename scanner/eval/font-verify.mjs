@@ -29,7 +29,8 @@ const project = arg('project', process.env.PROJECT ?? '01a1cf47-d5e5-71a3-a917-e
 const sets = JSON.parse(readFileSync(join(HERE, 'sets.json'), 'utf8'));
 const setOf = new Map(['easy', 'photo', 'hard'].flatMap((s) => sets[s].map((i) => [i.id, s])));
 const read = (p) => JSON.parse(readFileSync(p, 'utf8'));
-const RULE = { verifiedScore: 0.85, verifiedScoreLong: 0.8, verifiedLongGlyphs: 12 };
+const FONTS = read(join(HERE, '..', '..', 'resources', 'ai-scan', 'definition', 'definition.json')).fonts;
+const RULE = { verifiedScore: FONTS.verifiedScore, verifiedScoreLong: FONTS.verifiedScoreLong, verifiedLongGlyphs: FONTS.verifiedLongGlyphs };
 const outTmp = mkdtempSync(join(tmpdir(), 'scan-fontverify-'));
 
 const lease = await holdBuildLease({ projectId: project });
@@ -60,11 +61,11 @@ try {
                 for (const a of asks) items.push({ row, ...a });
             }
             if (!items.length) continue;
-            const { results } = await verifyFaces({ items: items.map(({ text, ink, face, size }) => ({ text, ink, face, size })), renderFaces, loadRaster: (d) => loadRgb(d), maxRenders: 12 });
+            const { results } = await verifyFaces({ items: items.map(({ text, ink, face, size }) => ({ text, ink, face, size })), renderFaces, loadRaster: (d) => loadRgb(d), maxRenders: 12, supersample: Number(arg('supersample', FONTS.verifySupersample ?? 3)) });
             items.forEach((it, i) => {
                 const r = results[i];
                 if (!r || r.wrapped) return;
-                const cur = { score: r.score, scale: r.scale, wrapped: false, words: r.words ?? null, glyphs: r.glyphs ?? null, size: r.size };
+                const cur = { score: r.score, scale: r.scale, wrapped: false, words: r.words ?? null, glyphs: r.glyphs ?? null, size: r.size, n: r.n ?? 1 };
                 const best = it.row.after;
                 if (!best || (verifiedMatch(cur, RULE) && !verifiedMatch(best, RULE)) || (verifiedMatch(cur, RULE) === verifiedMatch(best, RULE) && cur.score > best.score)) it.row.after = cur;
             });
@@ -87,7 +88,8 @@ console.log(`groups: ${present.length} with the true face in the project (easy +
 console.log(`before (ranking score ≥ 0.85): present reported as a substitute ${pct(present.filter((r) => !r.before.matched).length, present.length)} · absent reported as a match ${pct(absent.filter((r) => r.before.matched).length, absent.length)}`);
 const rule = (name, t) => console.log(`after, ${name}: present reported as a substitute ${pct(present.filter((r) => !after(r, t)).length, present.length)} [of the verified: ${pct(present.filter((r) => verified(r) && !after(r, t)).length, present.filter(verified).length)}] · absent reported as a match ${pct(absent.filter((r) => after(r, t)).length, absent.length)}`);
 for (const th of [0.7, 0.75, 0.8, 0.85, 0.9]) rule(`one threshold ${th.toFixed(2)}`, { verifiedScore: th, verifiedScoreLong: th });
-rule('0.85, and 0.80 from 12 glyphs (the definition)', { verifiedScore: 0.85, verifiedScoreLong: 0.8, verifiedLongGlyphs: 12 });
+rule('0.85, and 0.80 from 12 glyphs (the rule before the sub-pixel comparison)', { verifiedScore: 0.85, verifiedScoreLong: 0.8, verifiedLongGlyphs: 12 });
+rule(`${RULE.verifiedScore}, and ${RULE.verifiedScoreLong} from ${RULE.verifiedLongGlyphs} glyphs (the definition)`, RULE);
 const dist = (list) => { const v = list.filter(verified).map((r) => r.after.score).sort((a, b) => a - b); return v.length ? `n ${v.length}: min ${v[0]} · p10 ${v[Math.floor(v.length * 0.1)]} · median ${v[v.length >> 1]} · p90 ${v[Math.floor(v.length * 0.9)]} · max ${v.at(-1)}` : 'none'; };
 console.log(`verified score, present: ${dist(present)}`);
 console.log(`verified score, absent:  ${dist(absent)}`);

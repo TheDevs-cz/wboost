@@ -82,10 +82,26 @@ export function batchLines(lines, { maxLines = 8, minSize = 24, maxSize = RANK_M
 }
 
 /**
+ * Tracked-out type. A line that is clearly WIDER than the face sets it at the size at which the face is as
+ * tall as the source was set with extra space between its letters: the size is then the one read from the
+ * height, and the rest of the width is letter spacing — in the DSL's unit, thousandths of an em after every
+ * character. Reported only from 0.04 em (below that it is the fit's own noise) and for lines of ≥ 4 characters.
+ * → {spaced: {size, letterSpacing}} | {}
+ */
+export function spacedFit(line, r, fontSize, byH) {
+    const chars = [...String(line.text).trim()].length;
+    const size = fontSize * byH;
+    if (chars < 4 || !(size > 0)) return {};
+    const perChar = (line.ink.w - r.w * byH) / (chars - 1);
+    const letterSpacing = Math.round(perChar / size * 1000 / 5) * 5;
+    return letterSpacing >= 40 && letterSpacing <= 1000 ? { spaced: { size: Math.round(size * 2) / 2, letterSpacing } } : {};
+}
+
+/**
  * Ranks faces for each line. `lines`: [{text, ink}] with `ink` from lineInk().
  * `renderFaces({lines: [text], faces, size})` is the app's "faces" call: ONE picture of the lines in
  * each face → {raster | image: {data}, cells: [{face, line, x, y, width, height, fontSize}]}.
- * → {results: per line {candidates: [{face, score, size, aspectError, wrapped?}], best, runnerUp, available}, sheets}
+ * → {results: per line {candidates: [{face, score, size, sizeByHeight, aspectError, spaced?, wrapped?}], best, runnerUp, available}, sheets}
  */
 export async function rankFaces({ lines, faces, renderFaces, availableScore = 0.8, maxSheets = 8, signal = null, loadRaster = null }) {
     const usable = lines.map((l, i) => ({ ...l, index: i })).filter((l) => l.ink && l.ink.n >= 30 && String(l.text).trim());
@@ -124,7 +140,7 @@ export async function rankFaces({ lines, faces, renderFaces, availableScore = 0.
                 let sum = 0; for (let i = 0; i < a.length; i++) sum += a[i];
                 score = softIou({ w: line.ink.w, h: line.ink.h, a: line.ink.a, sum: line.ink.sum }, { w: toW, h: toH, a, sum });
             }
-            per[li].push({ face: c.face, score: +score.toFixed(3), size: Math.round(fontSize * k * 2) / 2, sizeByHeight: Math.round(fontSize * byH * 2) / 2, aspectError: +Math.abs(r.h * byW / line.ink.h - 1).toFixed(3), ...(wrapped ? { wrapped: true } : {}) });
+            per[li].push({ face: c.face, score: +score.toFixed(3), size: Math.round(fontSize * k * 2) / 2, sizeByHeight: Math.round(fontSize * byH * 2) / 2, aspectError: +Math.abs(r.h * byW / line.ink.h - 1).toFixed(3), ...(wrapped ? {} : spacedFit(line, r, fontSize, byH)), ...(wrapped ? { wrapped: true } : {}) });
         }
     }
     usable.forEach((line, i) => {
@@ -191,6 +207,91 @@ export function wordIou(a, b, { reach = 2 } = {}) {
     return { score: inter / (total - inter || 1), words: sa.length, mode: 'words' };
 }
 
+/** An n × coverage map box-averaged down to 1 ×; the 1 × grid starts `px`, `py` fine pixels before the map's origin. */
+export function downsample(m, n, px = 0, py = 0) {
+    if (n === 1) return m;
+    const w = Math.ceil((m.w + px) / n), h = Math.ceil((m.h + py) / n);
+    const acc = new Uint32Array(w * h);
+    for (let y = 0; y < m.h; y++) { const row = Math.floor((y + py) / n) * w, src = y * m.w; for (let x = 0; x < m.w; x++) acc[row + Math.floor((x + px) / n)] += m.a[src + x]; }
+    const a = new Uint8Array(w * h), d = n * n;
+    let sum = 0;
+    for (let i = 0; i < a.length; i++) { const v = Math.round(acc[i] / d); a[i] = v; sum += v; }
+    return { w, h, a, sum };
+}
+
+const cutColumns = (m, s) => {
+    const w = s.x1 - s.x0, out = new Uint8Array(w * m.h);
+    let sum = 0;
+    for (let y = 0; y < m.h; y++) for (let x = 0; x < w; x++) { const v = m.a[y * m.w + s.x0 + x]; out[y * w + x] = v; sum += v; }
+    return { w, h: m.h, a: out, sum };
+};
+
+/**
+ * wordIou with a render that is `n` × as large as the source line: every word of the render is laid over the
+ * same word of the source at every SUB-PIXEL position — the fine render is box-averaged down to the source's
+ * pixel grid at each of the n × n grid phases (the row phase is one for the line, the column phase is each
+ * word's own), then shifted by whole pixels as wordIou does.
+ *
+ * Why: a 1 × render sits on the pixel grid wherever its renderer put it; the source's glyphs sit wherever
+ * ITS renderer put them. A stem three pixels wide that lies half a pixel off its own copy overlaps it by
+ * 0.71 — as little as another face does. That is what kept the true face of thin type (Arial regular at
+ * 32–40 px) at 0.68–0.79 while a near twin reaches 0.76. At the right phase the true face reproduces the
+ * source's anti-aliasing; another face has no phase at which its strokes are the source's.
+ */
+export function wordIouFine(a, b, n, { reach = 2 } = {}) {
+    // the words: runs of ink split at gaps of a fifth of the line height. Two renderers do not leave the same gap
+    // between words, so one threshold may split one line differently from the other: wider gaps are tried until
+    // both lines fall into the same number of words (then the whole lines are compared)
+    let sa = [], sb = [], words = false;
+    for (const share of [0.2, 0.28, 0.4, 0.55]) {
+        const gap = Math.max(3, Math.round(share * Math.min(a.h, b.h / n)));
+        sa = inkSegments(a, gap); sb = inkSegments(b, gap * n);
+        words = sa.length >= 2 && sa.length === sb.length;
+        if (words || sa.length < 2 || sb.length < 2) break;
+    }
+    if (!words) { sa = [{ x0: 0, x1: a.w }]; sb = [{ x0: 0, x1: b.w }]; }
+    const wa = sa.map((s) => cutColumns(a, s)), wbFine = sb.map((s) => cutColumns(b, s));
+    let bestInter = 0, bestTotal = 1;
+    for (let py = 0; py < n; py++) {
+        let inter = 0, total = 0;
+        for (let i = 0; i < wa.length; i++) {
+            const A = wa[i];
+            let best = 0, bestSum = 0;
+            for (let px = 0; px < n; px++) {
+                const B = downsample(wbFine[i], n, px, py);
+                for (const anchor of A.h === B.h ? [0] : [0, A.h - B.h]) for (let dy = -1; dy <= 1; dy++) for (let dx = -reach; dx <= reach; dx++) {
+                    const oy = anchor + dy;
+                    let sum = 0;
+                    const y0 = Math.max(0, oy), y1 = Math.min(A.h, B.h + oy), x0 = Math.max(0, dx), x1 = Math.min(A.w, B.w + dx);
+                    for (let y = y0; y < y1; y++) { const ra = y * A.w, rb = (y - oy) * B.w - dx; for (let x = x0; x < x1; x++) { const va = A.a[ra + x], vb = B.a[rb + x]; sum += va < vb ? va : vb; } }
+                    if (sum > best) { best = sum; bestSum = B.sum; }
+                }
+            }
+            inter += best; total += A.sum + bestSum;
+        }
+        if (inter / (total - inter || 1) > bestInter / (bestTotal - bestInter || 1)) { bestInter = inter; bestTotal = total; }
+    }
+    return { score: bestInter / (bestTotal - bestInter || 1), words: wa.length, mode: words ? 'words' : 'line' };
+}
+
+/**
+ * One source line against one rendered cell that is `n` × as large: what is left between the rendered and the
+ * fitted size is taken out by one resampling factor (from the line width; from the height for < 4 glyphs),
+ * then the two are compared word by word at sub-pixel positions. → {score, words, mode, scale}
+ */
+export async function scoreRender(src, ren, { n = 1, glyphs: count = 4 } = {}) {
+    const k = count >= 4 ? src.w * n / ren.w : src.h * n / ren.h;
+    let r = ren;
+    if (Math.abs(k - 1) > (n > 1 ? 0.003 : 0.01)) {
+        const toW = Math.max(1, Math.round(r.w * k)), toH = Math.max(1, Math.round(r.h * k));
+        const a = await resizeCoverage(r.a, r.w, r.h, toW, toH);
+        let sum = 0; for (let i = 0; i < a.length; i++) sum += a[i];
+        r = { w: toW, h: toH, a, sum };
+    }
+    const v = wordIouFine({ w: src.w, h: src.h, a: src.a, sum: src.sum }, r, n);
+    return { ...v, scale: k };
+}
+
 /**
  * The verification render (the decision between `measured_match` and `nearest_available`).
  *
@@ -202,41 +303,45 @@ export function wordIou(a, b, { reach = 2 } = {}) {
  * the source glyphs almost exactly, another face cannot.
  *
  * `items`: [{text, ink, face, size}] — `ink` from lineInk() of the source line, `size` the fitted size of
- * that face for that line. Items whose sizes lie within ±3 % share one render (≤ 8 lines); the app renders
- * whole pixels between 8 and 400. A render that comes out more than 1 % narrower or wider than the source
- * line is resampled by that factor (a size above 400 px, a half-pixel size); one that is more than 3 % off
- * was fitted wrongly and is rendered once more at the corrected size while the budget lasts.
- * → {results: [{score, size, scale, words, glyphs, wrapped} | null], renders}
+ * that face for that line. The render is asked for at `supersample` × that size (3 ×; 2 × or 1 × where 3 ×
+ * would leave the app's 8 … 400 px or the sheet bound) and compared at sub-pixel positions (wordIouFine).
+ * Items whose rendered sizes lie within ±3 % share one render (≤ 8 lines). What is left between the rendered
+ * and the fitted size is one resampling factor (scoreRender); a render that is more than 3 % off was fitted
+ * wrongly and is rendered once more at the corrected size while the budget lasts.
+ * → {results: [{score, size, scale, words, glyphs, n, wrapped} | null], renders}
  */
-export async function verifyFaces({ items, renderFaces, loadRaster, signal = null, maxRenders = 6, minSize = 8, maxSize = 400 }) {
+export async function verifyFaces({ items, renderFaces, loadRaster, signal = null, maxRenders = 6, minSize = 8, maxSize = 400, supersample = 3 }) {
     const out = items.map(() => null);
     const clean = (t) => String(t).replace(/\s+/g, ' ').trim();
-    // the size a sheet is rendered at: the fitted size, inside the app's range, and no wider than the sheet bound
+    // the size a sheet is rendered at: the wanted size, inside the app's range, and no wider than the sheet bound
     const sizeFor = (wanted, chars) => Math.max(minSize, Math.min(maxSize, Math.round(wanted), Math.floor((SHEET_MAX_WIDTH - 24) / (chars * 0.7 + 1))));
+    // how many times the fitted size a line is rendered: the largest factor the app's range and the sheet width allow
+    const factorFor = (size, chars) => { for (let n = Math.max(1, Math.floor(supersample)); n > 1; n--) if (sizeFor(size * n, chars) >= size * n * 0.97) return n; return 1; };
     let renders = 0;
     const round = async (list) => {
         const again = [];
-        const usable = list.filter((it) => it.ink && it.ink.n >= 30 && clean(it.text) && it.face && it.size > 0).sort((a, b) => a.size - b.size);
+        const usable = list.filter((it) => it.ink && it.ink.n >= 30 && clean(it.text) && it.face && it.size > 0)
+            .map((it) => { const text = clean(it.text), n = factorFor(it.size, text.length); return { ...it, text, n, wanted: it.size * n }; })
+            .sort((a, b) => a.n - b.n || a.wanted - b.wanted);
         const batches = [];
         for (const it of usable) {
-            const text = clean(it.text);
             const b = batches.at(-1);
             // would this item still fit the sheet of the current batch? (rows = lines × faces, at the batch's size and longest line)
             const fits = (bb) => {
-                const lines = bb.lines.includes(text) ? bb.lines.length : bb.lines.length + 1, fcs = bb.faces.includes(it.face) ? bb.faces.length : bb.faces.length + 1;
-                const chars = Math.max(text.length, ...bb.lines.map((l) => l.length));
-                return lines <= 8 && fcs <= 6 && lines * fcs <= sheetRows(sizeFor(Math.max(it.size, bb.min * 1.03), chars), chars);
+                const lines = bb.lines.includes(it.text) ? bb.lines.length : bb.lines.length + 1, fcs = bb.faces.includes(it.face) ? bb.faces.length : bb.faces.length + 1;
+                const chars = Math.max(it.text.length, ...bb.lines.map((l) => l.length));
+                return lines <= 8 && fcs <= 6 && lines * fcs <= sheetRows(sizeFor(Math.max(it.wanted, bb.min * 1.03), chars), chars);
             };
-            if (b && it.size <= b.min * 1.03 && fits(b)) b.items.push({ ...it, text });
-            else batches.push({ min: it.size, items: [{ ...it, text }], lines: [], faces: [] });
+            if (b && b.n === it.n && it.wanted <= b.min * 1.03 && fits(b)) b.items.push(it);
+            else batches.push({ n: it.n, min: it.wanted, items: [it], lines: [], faces: [] });
             const cur = batches.at(-1);
-            if (!cur.lines.includes(text)) cur.lines.push(text);
+            if (!cur.lines.includes(it.text)) cur.lines.push(it.text);
             if (!cur.faces.includes(it.face)) cur.faces.push(it.face);
         }
         for (const batch of batches) {
             if (renders >= maxRenders) break;
             if (signal?.aborted) throw Object.assign(new Error('aborted'), { code: 'aborted' });
-            const wanted = batch.items[batch.items.length >> 1].size;
+            const wanted = batch.items[batch.items.length >> 1].wanted;
             const size = sizeFor(wanted, Math.max(...batch.lines.map((l) => l.length)));
             const sheet = await renderFaces({ lines: batch.lines, faces: batch.faces, size });
             renders += sheet.sheets ?? 1;
@@ -244,22 +349,15 @@ export async function verifyFaces({ items, renderFaces, loadRaster, signal = nul
             for (const it of batch.items) {
                 const cell = sheet.cells.find((c) => c.face === it.face && c.line === batch.lines.indexOf(it.text));
                 if (!cell) continue;
-                let r = cellInk(raster, { x: cell.x, y: cell.y, w: cell.width, h: cell.height });
+                const r = cellInk(raster, { x: cell.x, y: cell.y, w: cell.width, h: cell.height });
                 if (!r) continue;
                 const fontSize = cell.fontSize ?? size;
-                if (r.h > fontSize * 1.45) { out[it.index] = { score: 0, size: fontSize, scale: null, words: 0, wrapped: true }; continue; }
-                // what is left between the rendered and the fitted size: one factor for both axes, from the line width
-                const k = glyphs(it.text) >= 4 ? it.ink.w / r.w : it.ink.h / r.h;
+                if (r.h > fontSize * 1.45) { out[it.index] = { score: 0, size: fontSize / batch.n, scale: null, words: 0, wrapped: true }; continue; }
+                const v = await scoreRender(it.ink, r, { n: batch.n, glyphs: glyphs(it.text) });
                 // (a sheet that was set smaller on purpose — the width bound — is not a wrong fit)
-                if (Math.abs(k - 1) > 0.03 && !it.corrected && fontSize * k >= minSize && sizeFor(fontSize * k, it.text.length) > fontSize * 1.03) again.push({ ...it, size: fontSize * k, corrected: true });
-                if (Math.abs(k - 1) > 0.01) {
-                    const toW = Math.max(1, Math.round(r.w * k)), toH = Math.max(1, Math.round(r.h * k));
-                    const a = await resizeCoverage(r.a, r.w, r.h, toW, toH);
-                    let sum = 0; for (let i = 0; i < a.length; i++) sum += a[i];
-                    r = { w: toW, h: toH, a, sum };
-                }
-                const v = wordIou({ w: it.ink.w, h: it.ink.h, a: it.ink.a, sum: it.ink.sum }, r);
-                out[it.index] = { score: +v.score.toFixed(3), size: fontSize, scale: +k.toFixed(4), words: v.words, glyphs: glyphs(it.text) };
+                const fitted = fontSize * v.scale / batch.n;
+                if (Math.abs(v.scale - 1) > 0.03 && !it.corrected && fitted >= minSize && sizeFor(fitted * batch.n, it.text.length) > fontSize * 1.03) again.push({ ...it, size: fitted, corrected: true });
+                out[it.index] = { score: +v.score.toFixed(3), size: +(fontSize / batch.n).toFixed(2), scale: +v.scale.toFixed(4), words: v.words, glyphs: glyphs(it.text), n: batch.n };
             }
         }
         return again;
@@ -271,11 +369,12 @@ export async function verifyFaces({ items, renderFaces, loadRaster, signal = nul
 
 /**
  * Does a verification score say "this IS the face"? A longer line is stronger evidence: a near twin of
- * the true face overlaps a few bold glyphs almost as well as the face itself (measured: up to 0.82 on
- * 2–5 glyphs, never above 0.78 on 12 or more), the true face stays above 0.82 at any length once the words
- * are aligned one by one. Thresholds: definition.json `fonts` (eval/RESULTS.md §2).
+ * the true face overlaps a few bold glyphs almost as well as the face itself. Measured with the sub-pixel
+ * comparison on the 215 groups of the evaluation (eval/RESULTS.md §0.3): another face reaches 0.84 on a line
+ * of < 12 glyphs and 0.81 on a longer one; the true face's best line is never below 0.85. Hence 0.90 for a
+ * short line and 0.83 from 12 glyphs. Thresholds: definition.json `fonts`.
  */
-export function verifiedMatch(v, { verifiedScore = 0.85, verifiedScoreLong = 0.8, verifiedLongGlyphs = 12 } = {}) {
+export function verifiedMatch(v, { verifiedScore = 0.9, verifiedScoreLong = 0.83, verifiedLongGlyphs = 12 } = {}) {
     if (!v || v.wrapped) return false;
     return v.score >= ((v.glyphs ?? 0) >= verifiedLongGlyphs ? verifiedScoreLong : verifiedScore);
 }

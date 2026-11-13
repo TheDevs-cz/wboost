@@ -116,6 +116,18 @@ test('Agent SDK × proxy: 429 and 500 are retried by the harness (retry count pi
     assert.ok(retries.every((e) => e.of === 4), 'CLAUDE_CODE_MAX_RETRIES = the definition\'s 4');
 });
 
+test('Agent SDK × proxy: with `sdkRetries` 7 the harness waits five times before the provider is given up', async (t) => {
+    // the first five waits of the harness's own back-off (≈ 0.5, 1, 2, 4, 8 s): the whole sequence of seven is ≈ 68 s (eval/RESULTS.md §3)
+    const { r, events } = await sdk(t, [err(500, 'api_error'), err(500, 'api_error'), err(429, 'rate_limit_error'), err(500, 'api_error'), err(500, 'api_error'), call, FINAL], { settings: { requestTimeoutSeconds: 15, retries: 4, sdkRetries: 7, streamIdleSeconds: 10 } });
+    assert.equal(r.outcome, 'finished');
+    const retries = events.filter((e) => e.type === 'retry');
+    assert.equal(retries.length, 5);
+    assert.ok(retries.every((e) => e.of === 7), 'CLAUDE_CODE_MAX_RETRIES = the definition\'s sdkRetries');
+    const waits = retries.map((e) => e.delayMs);
+    assert.ok(waits.every((w, i) => i === 0 || w > waits[i - 1] * 1.3), `the waits grow: ${waits.join(', ')}`);
+    assert.ok(waits.reduce((a, b) => a + b, 0) > 12_000, `five waits: ${waits.join(', ')} ms`);
+});
+
 test('Agent SDK × proxy: billing and auth errors come back classified for the probe', async (t) => {
     const { r, fake } = await sdk(t, [err(402, 'billing_error')]);
     assert.deepEqual([r.outcome, r.error.class], ['provider', 'billing_auth']);

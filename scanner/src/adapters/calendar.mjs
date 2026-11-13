@@ -306,7 +306,7 @@ export class CalendarBuild {
 
     /** The verification render of the finish stage: [{text, ink, face, size}] → [{score, …} | null] (instruments/fonts.mjs verifyFaces). */
     async verify(items) {
-        const r = await verifyFaces({ items, signal: this.signal, maxRenders: this.settings.verifyRenders ?? 6, loadRaster: (data) => im.loadRgb(data), renderFaces: (req) => this.app.faces(req) });
+        const r = await verifyFaces({ items, signal: this.signal, maxRenders: this.settings.verifyRenders ?? 6, supersample: this.settings.verifySupersample ?? 3, loadRaster: (data) => im.loadRgb(data), renderFaces: (req) => this.app.faces(req) });
         this.stats.verifyRenders = (this.stats.verifyRenders ?? 0) + r.renders;
         return r.results;
     }

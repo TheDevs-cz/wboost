@@ -1,5 +1,5 @@
 {
-    "version": "6",
+    "version": "7",
     "protocolVersion": 1,
     "requiresInstruments": [
         "ocr",
@@ -27,6 +27,7 @@
             20,
             30
         ],
+        "sdkRetries": 7,
         "maxOutputTokens": 32000,
         "refusalFallback": null
     },
@@ -115,10 +116,11 @@
         "availableScore": 0.85,
         "prePassLines": 6,
         "undeterminedScore": 0.35,
-        "verifiedScore": 0.85,
-        "verifiedScoreLong": 0.8,
+        "verifiedScore": 0.9,
+        "verifiedScoreLong": 0.83,
         "verifiedLongGlyphs": 12,
-        "verifyRenders": 6
+        "verifyRenders": 6,
+        "verifySupersample": 3
     },
     "paletteSnapDeltaE": 2,
     "standInAssetId": "00000000-0000-4000-8000-0000000a15ca",

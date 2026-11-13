@@ -235,6 +235,51 @@ test('face sheets stay inside what one render and one raster can hold: ranking a
     const verify = [];
     await verifyFaces({ items: [{ text: 'Velmi dlouhý nadpis přes celou šířku plakátu A3', ink: ink(300), face: 'Face 1', size: 390 }, { text: 'Krátký', ink: ink(290), face: 'Face 2', size: 395 }, { text: 'Text', ink: ink(40), face: 'Face 1', size: 44 }], loadRaster, renderFaces: async (req) => { verify.push(req); return empty; } });
     for (const req of verify) { inside(req, req.faces.length); assert.ok(sheetWidth(Math.max(...req.lines.map((l) => l.length)), req.size) <= SHEET_MAX_WIDTH + req.size, `width at ${req.size} px`); }
-    assert.ok(verify.some((r) => r.size === 44), 'a small text is rendered at its fitted size');
+    assert.ok(verify.some((r) => r.size === 132), 'a small text is rendered at three times its fitted size (the sub-pixel comparison)');
     assert.ok(verify.find((r) => r.lines.includes('Velmi dlouhý nadpis přes celou šířku plakátu A3')).size < 390, 'a long line of very large type is set smaller: the rest is one resampling factor');
+});
+
+test('the sub-pixel comparison: the same glyphs half a pixel off the grid are the same face; other glyphs are not', async () => {
+    const { downsample, wordIou, wordIouFine, scoreRender, verifiedMatch } = await import('../src/instruments/fonts.mjs');
+    // "type" drawn at 3 ×: words of vertical stems (stem 9 fine px = 3 px at 1 ×) joined by a bar; `stem` and
+    // `pitch` in fine pixels make the face, `lead` blank fine columns in front put it off the pixel grid
+    const fine = ({ stem = 9, pitch = 21, lead = 0, words = [5, 7, 4], h = 96 } = {}) => {
+        const cols = [];
+        for (let i = 0; i < lead; i++) cols.push(0);
+        words.forEach((n, wi) => { if (wi) for (let i = 0; i < 30; i++) cols.push(0); for (let g = 0; g < n; g++) { for (let i = 0; i < stem; i++) cols.push(2); if (g < n - 1) for (let i = 0; i < pitch - stem; i++) cols.push(1); } });
+        const w = cols.length, a = new Uint8Array(w * h);
+        let sum = 0;
+        for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const v = cols[x] === 2 || (cols[x] === 1 && y >= h - 9) ? 255 : 0; a[y * w + x] = v; sum += v; }
+        return { w, h, a, sum };
+    };
+    const trim = (m) => { let x0 = 0; while (x0 < m.w && !Array.from({ length: m.h }, (_, y) => m.a[y * m.w + x0]).some(Boolean)) x0++; const w = m.w - x0, a = new Uint8Array(w * m.h); let sum = 0; for (let y = 0; y < m.h; y++) for (let x = 0; x < w; x++) { const v = m.a[y * m.w + x0 + x]; a[y * w + x] = v; sum += v; } return { w, h: m.h, a, sum }; };
+    assert.deepEqual([downsample(fine(), 3).h, downsample({ w: 3, h: 3, a: new Uint8Array(9).fill(255), sum: 9 * 255 }, 3).a[0]], [32, 255]);
+    // the source: the face as its renderer set it — every stem straddles two pixels (the grid starts 1 fine px early)
+    const source = trim(downsample(fine({ lead: 1 }), 3));
+    const render1 = downsample(fine(), 3), render3 = fine();
+    const whole = wordIou(source, render1).score, sub = wordIouFine(source, render3, 3).score;
+    assert.ok(whole < 0.85, `whole pixels: the true face overlaps itself by only ${whole.toFixed(3)}`);
+    assert.ok(sub > 0.97, `sub-pixel: ${sub.toFixed(3)}`);
+    assert.equal(wordIouFine(source, render3, 3).words, 3);
+    // another face — stems a pixel wider on a wider pitch — has no position at which it is the source
+    const other = wordIouFine(source, fine({ stem: 12, pitch: 24 }), 3).score;
+    assert.ok(other < 0.8, `another face: ${other.toFixed(3)}`);
+    // scoreRender takes the size that is left out by resampling: a render 4 % too large is still the face
+    const larger = fine({ stem: 9, pitch: 21 }), big = await sharp(Buffer.from(larger.a), { raw: { width: larger.w, height: larger.h, channels: 1 } }).resize(Math.round(larger.w * 1.04), Math.round(larger.h * 1.04), { fit: 'fill' }).raw().toBuffer({ resolveWithObject: true });
+    const scaled = await scoreRender(source, { w: big.info.width, h: big.info.height, a: new Uint8Array(big.data.buffer, big.data.byteOffset, big.info.width * big.info.height * big.info.channels).filter((_, i) => i % big.info.channels === 0), sum: 1 }, { n: 3, glyphs: 16 });
+    assert.ok(scaled.score > 0.9 && Math.abs(scaled.scale - 1 / 1.04) < 0.01, JSON.stringify(scaled));
+    // the rule: 0.90 for a short line, 0.83 from 12 glyphs
+    assert.deepEqual([verifiedMatch({ score: 0.84, glyphs: 30 }), verifiedMatch({ score: 0.82, glyphs: 30 }), verifiedMatch({ score: 0.89, glyphs: 6 }), verifiedMatch({ score: 0.91, glyphs: 6 }), verifiedMatch({ score: 0.99, glyphs: 30, wrapped: true })], [true, false, false, true, false]);
+});
+
+test('tracked-out type: a line wider than the face at the source\'s letter height reads as size + letter spacing', async () => {
+    const { spacedFit } = await import('../src/instruments/fonts.mjs');
+    // the face sets "KONCERT" 300 px wide and 40 px tall at 64 px; the source is 30 px tall and 330 px wide:
+    // at that height the face is 225 px wide — the other 105 px are six gaps of 17.5 px = 0.365 em of 48 px
+    const line = { text: 'KONCERT', ink: { w: 330, h: 30 } }, r = { w: 300, h: 40 };
+    assert.deepEqual(spacedFit(line, r, 64, 30 / 40), { spaced: { size: 48, letterSpacing: 365 } });
+    // as wide as the face sets it: nothing to report; narrower: nothing either (a condensed original is not tracking)
+    assert.deepEqual(spacedFit({ text: 'KONCERT', ink: { w: 226, h: 30 } }, r, 64, 0.75), {});
+    assert.deepEqual(spacedFit({ text: 'KONCERT', ink: { w: 200, h: 30 } }, r, 64, 0.75), {});
+    assert.deepEqual(spacedFit({ text: 'OK', ink: { w: 330, h: 30 } }, r, 64, 0.75), {}, 'too short to tell');
 });

@@ -1,7 +1,7 @@
 // `scanner selftest`: is everything a scan needs inside this image / on this machine — without the app,
 // without the provider, without the network (the image is checked with `--network none`)?
 //   sharp · the OCR sidecar with its models (a fixed picture → the expected line) · the engine binary of the
-//   Agent SDK for this platform · a HEIC decoder · a writable scratch root · not running as root
+//   Agent SDK for this platform · a HEIC decoder · a PDF rasteriser · a writable scratch root · not running as root
 import { execFile } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { mkdirSync, rmSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
@@ -55,6 +55,15 @@ export async function selftest({ scratch = process.env.SCANNER_SCRATCH_DIR || jo
         try {
             const r = await normaliseInChild(join(HERE, 'intake', 'selftest.heic'), dir);
             if (!r.ok) throw new Error(`a HEIC upload ends as ${r.stop} / ${r.detail}`);
+            return { format: r.meta.format, working: `${r.meta.workingWidth}x${r.meta.workingHeight}`, peakRssMb: r.resources?.peakRssMb ?? null };
+        } finally { rmSync(dir, { recursive: true, force: true }); }
+    });
+    await check('pdf', async () => {
+        // page 1 of a PDF through the intake's own child process: poppler's pdfinfo and pdftoppm must be there
+        const dir = join(scratch, 'selftest-pdf'); mkdirSync(dir, { recursive: true });
+        try {
+            const r = await normaliseInChild(join(HERE, 'intake', 'selftest.pdf'), dir);
+            if (!r.ok) throw new Error(`a PDF upload ends as ${r.stop} / ${r.detail}`);
             return { format: r.meta.format, working: `${r.meta.workingWidth}x${r.meta.workingHeight}`, peakRssMb: r.resources?.peakRssMb ?? null };
         } finally { rmSync(dir, { recursive: true, force: true }); }
     });

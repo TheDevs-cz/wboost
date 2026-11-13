@@ -94,7 +94,7 @@ export class TemplateBuild {
             ocrLines: lines.map((l) => ({
                 id: l.id, text: l.text, conf: l.conf, box: arr(l.box),
                 ...(l.ink ? { ink: arr(l.ink.box), colour: l.ink.colourHex, backdrop: l.ink.bgHex } : { ink: null }),
-                ...(l.font?.best ? { font: { face: l.font.best.face, size: l.font.best.size, score: l.font.best.score, available: l.font.available, next: l.font.candidates.slice(1, 3).map((c) => ({ face: c.face, score: c.score })) } } : {}),
+                ...(l.font?.best ? { font: { face: l.font.best.face, size: l.font.best.size, score: l.font.best.score, available: l.font.available, ...(l.font.best.spaced ? { spaced: l.font.best.spaced } : {}), next: l.font.candidates.slice(1, 3).map((c) => ({ face: c.face, score: c.score })) } } : {}),
             })),
             notes: [
                 'boxes are [x, y, w, h] in canvas px; "box" is what OCR reported, "ink" the measured tight box of the glyphs',
@@ -126,7 +126,7 @@ export class TemplateBuild {
      */
     async verify(items) {
         const started = Date.now();
-        const r = await verifyFaces({ items, signal: this.signal, maxRenders: this.settings.verifyRenders ?? 6, loadRaster: (data) => im.loadRgb(data), renderFaces: (req) => this.app.faces(req) });
+        const r = await verifyFaces({ items, signal: this.signal, maxRenders: this.settings.verifyRenders ?? 6, supersample: this.settings.verifySupersample ?? 3, loadRaster: (data) => im.loadRgb(data), renderFaces: (req) => this.app.faces(req) });
         this.stats.verifyRenders = (this.stats.verifyRenders ?? 0) + r.renders; this.stats.verifyMs = (this.stats.verifyMs ?? 0) + Date.now() - started;
         return r.results;
     }
@@ -280,7 +280,7 @@ export class TemplateBuild {
                 const r = results[0];
                 self.rankings.push({ text: line, box: k.box, ink: k, group: typeof a.group === 'string' ? a.group.slice(0, 40) : null, origin: 'tool', ...r });
                 return { json: { text: line, ink: arr(k.box), colour: k.colourHex, backdrop: k.bgHex, available: r.available, candidates: r.candidates.slice(0, 6),
-                    note: 'size = the size at which the face sets this line exactly as wide as the source; score compares glyph shapes (1 = identical). available=false: no project face draws these glyphs — use the top face as a substitute.' } };
+                    note: 'size = the size at which the face sets this line exactly as wide as the source; score compares glyph shapes (1 = identical). available=false: no project face draws these glyphs — use the top face as a substitute. spaced (only when the line is clearly wider than the face sets it at the source\'s letter height): the size and letterSpacing that give the same width with space between the letters — for tracked-out type.' } };
             },
             async design_preview(a) {
                 if (!a.design || typeof a.design !== 'object' || !Array.isArray(a.design.elements)) throw new ToolUserError('"design" must be an object with "canvas" and "elements"');

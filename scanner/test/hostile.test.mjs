@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, rmSync, readFileSync, existsSync } from 'node:fs';
 import { deflateSync, crc32 } from 'node:zlib';
+import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -28,6 +29,7 @@ function bombPng(w, h) {
 const MEMORY_BOUND_MB = 900;   // the intake child: 393 MB measured on the largest legal upload; the lane's share of the limit is 1 GiB
 const TIME_BOUND_MS = 20_000;  // §4.9: normalise ≤ 20 s, then the child is killed
 
+const POPPLER = (() => { try { execFileSync('pdfinfo', ['-v'], { stdio: 'ignore' }); return true; } catch { return false; } })();
 async function fixtures() {
     const png = await base(1000, 1000).png({ compressionLevel: 0 }).toBuffer();
     const jpeg = await noise(1600, 1200).jpeg().toBuffer();
@@ -45,7 +47,8 @@ async function fixtures() {
         ['truncated PNG (a third of the file)', png.subarray(0, Math.floor(png.length / 3)), { ok: false, stop: 'unusable_input', detail: 'undecodable' }],
         ['truncated JPEG (half of the file)', jpeg.subarray(0, Math.floor(jpeg.length / 2)), { ok: false, stop: 'unusable_input', detail: 'undecodable' }],
         ['a JPEG header and nothing else', jpeg.subarray(0, 300), { ok: false, stop: 'unusable_input', detail: 'undecodable' }],
-        ['not a picture', Buffer.from('%PDF-1.7 this is not a picture at all'), { ok: false, stop: 'unusable_input', detail: 'undecodable' }],
+        ['not a picture', Buffer.from('MZ this is not a picture at all'), { ok: false, stop: 'unusable_input', detail: 'undecodable' }],
+        ['a file that only claims to be a PDF', Buffer.from('%PDF-1.7 this is not a document at all'), { ok: false, stop: 'unusable_input', detail: POPPLER ? 'pdf_unreadable' : 'pdf_unsupported' }],
         ['an empty file', Buffer.alloc(0), { ok: false, stop: 'unusable_input', detail: 'empty' }],
         ['SVG', Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800"><rect width="800" height="800"/></svg>'), { ok: false, stop: 'unusable_input', detail: 'vector' }],
         ['more than 10 MB', Buffer.concat([await noise(3000, 3000).png({ compressionLevel: 0 }).toBuffer(), Buffer.alloc(0)]), { ok: false, stop: 'unusable_input', detail: 'too_many_bytes' }],

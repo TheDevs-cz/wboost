@@ -50,8 +50,8 @@ jobs:
                   python-version: '3.11'
                   cache: pip
                   cache-dependency-path: scanner/requirements.lock
-            # HEIC uploads are converted by libheif's tool, as in the image
-            - run: sudo apt-get update -qq && sudo apt-get install -y -qq libheif-examples
+            # HEIC uploads are converted by libheif's tool and page 1 of a PDF by poppler's, as in the image
+            - run: sudo apt-get update -qq && sudo apt-get install -y -qq libheif-examples poppler-utils
             - run: npm ci
             - run: python -m venv .venv && .venv/bin/pip install --no-deps -r requirements.lock
             - run: npm test

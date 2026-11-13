@@ -19,6 +19,7 @@ from the environment.
 cd scanner
 npm ci                                             # node ≥ 22; pulls the Agent SDK with its engine binary
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt   # the OCR sidecar
+# a PDF upload needs poppler's pdftoppm + pdfinfo on the PATH (brew install poppler / apt install poppler-utils)
 
 # against the local app (docker compose, web on :8099): mode on, and web must accept this machine's address
 #   docker compose exec web bin/console app:ai-scan:status --mode=on
@@ -33,7 +34,7 @@ rule for all development and testing); production sets the key. Nothing reads `.
 |---|---|
 | `scanner [serve]` | the service; runs until SIGTERM / SIGINT |
 | `scanner healthcheck` | exit 0 while the running service is healthy — the container healthcheck |
-| `scanner selftest` | sharp, the OCR sidecar with its models, the engine binary, a HEIC upload, scratch — needs no network |
+| `scanner selftest` | sharp, the OCR sidecar with its models, the engine binary, a HEIC upload, a PDF upload, scratch — needs no network |
 | `scanner version` | package version `+` commit |
 | `scanner scan-file <picture> --project <id> …` | one scan of a file through the app's MCP design tools (development, the evaluation) |
 
@@ -101,13 +102,13 @@ healthy and says so (`protocol.accepted: false`, the lanes are `held`).
 
 | Step | Code | Notes |
 |---|---|---|
-| Intake: normalise | `src/intake/normalise.mjs` (+ `normalise-child.mjs`) | a child process with a pixel limit decodes the upload: HEIC (system converter), CMYK, 16-bit, EXIF rotation, first frame, alpha on white → working copy (sRGB, 8 bit, long edge ≤ 4096 px) + preview. Limits: 10 MB, 8000 px a side, 36 Mpx, short side ≥ 600 px; child cut at 20 s |
+| Intake: normalise | `src/intake/normalise.mjs` (+ `normalise-child.mjs`) | a child process with a pixel limit decodes the upload: HEIC (system converter), CMYK, 16-bit, EXIF rotation, first frame, alpha on white → working copy (sRGB, 8 bit, long edge ≤ 4096 px) + preview. Limits: 10 MB, 8000 px a side, 36 Mpx, short side ≥ 600 px; child cut at 20 s. **A PDF** is taken as a picture of its **first page** (poppler's `pdftoppm`, run with an empty environment): the page at 300 dpi — an A4 becomes 2480 × 3508 px —, the long edge never above 4096 px nor below 1600 px; `meta.format = pdf`, `pageMm`, facts `pdf_first_page` (+ `first_frame_only` for more pages). Encrypted / broken / no rasteriser → `unusable_input` (`pdf_encrypted`, `pdf_unreadable`, `pdf_unsupported`). Its text and fonts are not read |
 | Intake: pre-check | `src/intake/precheck.mjs` | one Haiku call on the preview, own request settings (18 s, 1 retry, ≤ 38 s): design / calendar page / photo of a print / several designs / blurry or small / not a design → pass or a stop reason |
 | Pre-pass (mandatory, no model) | `src/adapters/template.mjs` `prepass()` | OCR lines (RapidOCR sidecar, pinned threads) → measured ink box, glyph colour and backdrop per line; background fit; palette; font ranking of the project's faces for one line per text style (the app renders, the scanner compares glyph shapes and fits the size) |
 | Model loop | `src/engine/` | Opus 5.5 at effort `high` gets the picture + the pre-pass as its first message and 7 tools: `scan_source`, `scan_crop`, `scan_measure`, `font_rank`, `compare_region`, `design_preview`, `design_patch` |
 | Caps | `src/caps.mjs`, `src/tools/server.mjs`, `src/run.mjs` | ≤ 40 turns, $1.50, builder 300 s, run 360 s, ≤ 3 rendered candidates, ≤ 3 validation rejections, ≤ 18 pictures (each ≤ 2576 px, ≤ 3 MB), tool timeouts 30 / 95 s |
 | Calendar scans | `src/adapters/calendar.mjs`, `src/finish/calendar-report.mjs` | the same runner with millimetre instruments — see "Calendar scans" |
-| Finish | `src/finish/`, `src/instruments/fonts.mjs` | keep-best by measurement; **font verification**: each text group's own source lines are rendered by the app in the face and at the size the kept design uses and compared with the source pixels word by word — that score decides `measured_match` / `nearest_available`; report fields written from measurements; when the model never finished, the scanner reports alone (`unfinished`) |
+| Finish | `src/finish/`, `src/instruments/fonts.mjs` | keep-best by measurement; **font verification**: each text group's own source lines are rendered by the app in the face the kept design uses at **three times** its size and compared with the source pixels word by word **at sub-pixel positions** (`wordIouFine`: the 3 × render box-averaged onto the source's pixel grid at every grid phase) — that score decides `measured_match` (≥ 0.90; ≥ 0.83 for a line of ≥ 12 glyphs) / `nearest_available`. A text with `letterSpacing` is not verified (the face sheet has no tracking); report fields written from measurements; when the model never finished, the scanner reports alone (`unfinished`) |
 
 ## Calendar scans (kind `calendar`)
 
@@ -169,7 +170,7 @@ docker run --rm --network none --read-only --tmpfs /tmp:rw,exec,size=256m wboost
 
 `node:24.22.3-bookworm-slim` pinned by digest · production `node_modules` with the one engine binary
 (linux-x64, glibc) · a virtualenv with the OCR stack pinned to the package (`requirements.lock`), the
-OCR models fetched at build time · `libheif-examples` for HEIC · `tini` · user `node` (uid 1000) ·
+OCR models fetched at build time · `libheif-examples` for HEIC · `poppler-utils` for page 1 of a PDF · `tini` · user `node` (uid 1000) ·
 no `npm`, no tests, no evaluation, no prompt, no credential. It writes under `/tmp` only (scratch,
 the engine's home and configuration — per run), so the root file system can be read-only.
 `HEALTHCHECK` = `node bin/scanner.mjs healthcheck`. Size and memory: `eval/RESULTS.md` §5.
@@ -199,7 +200,9 @@ with `outcome` ∈ `finished | aborted | max_turns | max_budget | refusal | prov
 - **`sdk`** (default): `@anthropic-ai/claude-agent-sdk`, locked down — `tools: []`, only the
   in-process `scan` MCP server (`strictMcpConfig`), `allowedTools` + `permissionMode: 'dontAsk'`,
   `settingSources: []`, own `systemPrompt`, `persistSession: false`, empty `cwd`, pinned request
-  environment, **no refusal fallback**. With a credential from the environment (a key, or the plan
+  environment, **no refusal fallback**. The harness keeps its own retry back-off (≈ 0.5 s doubling); the
+  definition's `engine.sdkRetries` (7) is the retry count whose waits add up to the plan's 60 s (measured
+  ≈ 68 s; a 529 is given up after 2 retries whatever is set). With a credential from the environment (a key, or the plan
   token) the engine's configuration directory and home are inside the run's scratch; with the plan
   login of a developer's machine they are not (an isolated directory hides the login).
 - **`messages`**: `@anthropic-ai/sdk` loop over the same tool list and dispatcher; retries and delays
@@ -238,6 +241,7 @@ node eval/engine-facts.mjs sdk|messages|cli               # fault injection agai
 node eval/e2e.mjs <input …>                               # real scans through the REAL app job core (the service must run)
 node eval/calendar.mjs --calendar <id> <input …>          # calendar scans through the real job core, scored with the prototype's scorer (CALENDAR_PROTO_DIR)
 node eval/font-verify.mjs                                 # the font verification on the recorded scans, both error rates
+node eval/font-pairs.mjs && node eval/font-metric.mjs     # the pairs the verification compares, dumped once (needs the app) and scored offline (1 × vs 3 ×)
 node eval/record-contract.mjs                             # records test/contract/scanner-api.v1.json against the local app
 node eval/g2a.mjs soak|faults|queue|limits|kill|orphans|idle|audit   # the local reliability gate (G2a) — docs/ai-scan/reliability-report.md
 eval/container-run.sh                                     # one scan in the linux/amd64 image; cgroup memory peak, wall time

@@ -5,7 +5,7 @@
 #
 # What is inside: node + the scanner (bin/, src/), the Agent SDK's engine binary for linux-x64 (glibc),
 # python with the pinned OCR stack (requirements.lock) and the OCR model files, libheif's converter for
-# HEIC uploads, tini. What is NOT: a prompt or a schema (the app sends the definition with every claim),
+# HEIC uploads, poppler's pdftoppm / pdfinfo for page 1 of a PDF upload, tini. What is NOT: a prompt or a schema (the app sends the definition with every claim),
 # a credential (ANTHROPIC_API_KEY and SCANNER_TOKEN come from the environment), tests, the evaluation.
 #
 # The base is pinned by digest (node 24.22.3, Debian bookworm); bump tag and digest together.
@@ -37,10 +37,10 @@ RUN /opt/ocr/bin/python /tmp/ocr/ocr.py /tmp/ocr/selftest.png --threads 2 | grep
 # ---- the image -----------------------------------------------------------------------------------------
 FROM ${BASE}
 # python for the OCR sidecar (its OpenCV is the headless build: no X or GL libraries), libheif's converter
-# for HEIC uploads, tini as init
+# for HEIC uploads, poppler-utils (pdftoppm, pdfinfo: page 1 of a PDF as a picture), tini as init
 # (zombies; `init: true` in compose does the same and is harmless next to it)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        python3 libheif-examples tini ca-certificates \
+        python3 libheif-examples poppler-utils tini ca-certificates \
     && rm -rf /var/lib/apt/lists/* /usr/share/doc /usr/share/man \
     && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /opt/yarn-* /usr/local/bin/yarn /usr/local/bin/yarnpkg
 

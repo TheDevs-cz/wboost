@@ -47,7 +47,8 @@ export function verificationLines(texts, srcOf, max = 2) {
     const count = (t) => [...String(t).replace(/\s/g, '')].length;
     const usable = [];
     for (const t of texts) {
-        if (!t || t.kind !== 'text' || !t.font || !(t.size > 0)) continue;
+        // a tracked-out text is not verified: the face sheet sets the line without letter spacing
+        if (!t || t.kind !== 'text' || !t.font || !(t.size > 0) || (t.letterSpacing ?? 0) !== 0) continue;
         const own = String(t.text ?? '').split('\n').map((l) => l.trim()).filter(Boolean);
         for (const s of srcOf(t.id)) {
             if (!s.line?.ink || s.line.ink.n < 30) continue;
@@ -156,7 +157,7 @@ export async function buildTemplateReport({ build, finish = null, unfinished = f
     // ---- the verification render: the group's own source lines, set in the face the kept design uses at the
     //      size the design gives them, compared with the source pixels (instruments/fonts.mjs verifyFaces)
     const verification = new Map(); // group → the best verified line {score, glyphs, size, scale}
-    const thresholds = { verifiedScore: build.settings.verifiedScore ?? 0.85, verifiedScoreLong: build.settings.verifiedScoreLong ?? 0.8, verifiedLongGlyphs: build.settings.verifiedLongGlyphs ?? 12 };
+    const thresholds = { verifiedScore: build.settings.verifiedScore ?? 0.9, verifiedScoreLong: build.settings.verifiedScoreLong ?? 0.83, verifiedLongGlyphs: build.settings.verifiedLongGlyphs ?? 12 };
     const stats = { groups: groups.length, asked: 0, verified: 0, failed: null };
     if (verify) {
         const asks = groups.flatMap((g) => verificationLines(g.texts.map((id) => byId.get(id)), (id) => perText.get(id)?.src ?? []).map((line) => ({ g, ...line })));
@@ -190,7 +191,8 @@ export async function buildTemplateReport({ build, finish = null, unfinished = f
                 if (own) {
                     chosen.push(own.score);
                     // the fitted size belongs to the ranked LINE: compare only when this text is that line
-                    if (String(t.text).split('\n').some((line) => similarity(line, r.text) >= 0.8) && own.size > 0 && !own.wrapped) {
+                    // (not for a tracked-out text: its size is read from the letter height, the width is the spacing's)
+                    if (String(t.text).split('\n').some((line) => similarity(line, r.text) >= 0.8) && own.size > 0 && !own.wrapped && (t.letterSpacing ?? 0) === 0) {
                         const ratio = +(t.size / own.size).toFixed(3);
                         ratios.push(ratio); textFits.set(id, { fitted: own.size, ratio });
                         // the size change that keeps the line as wide as the source: against the size at which this face is as TALL as the source

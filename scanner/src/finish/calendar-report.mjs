@@ -140,7 +140,7 @@ export async function buildCalendarReport({ build, finish = null, unfinished = f
                 fontStats.verified = verified.size;
             } catch (e) { fontStats.failed = e?.code ?? 'verify'; }
         }
-        const thresholds = { verifiedScore: build.settings.verifiedScore ?? 0.85, verifiedScoreLong: build.settings.verifiedScoreLong ?? 0.8, verifiedLongGlyphs: build.settings.verifiedLongGlyphs ?? 12 };
+        const thresholds = { verifiedScore: build.settings.verifiedScore ?? 0.9, verifiedScoreLong: build.settings.verifiedScoreLong ?? 0.83, verifiedLongGlyphs: build.settings.verifiedLongGlyphs ?? 12 };
         for (const { group, face, r, own } of rows) {
             if (!r || !own) { fonts.push({ group, pattern: 'undetermined', face, closeness: null }); continue; }
             const v = verified.get(group) ?? null;

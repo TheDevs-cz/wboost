@@ -45,7 +45,7 @@ const inputs = String(args.sets ?? 'easy').split(',').flatMap((s) => (sets[s] ??
 const jobs = [];
 for (let r = 1; r <= runs; r++) for (const it of inputs) jobs.push({ ...it, r });
 
-const canvasOf = (variantId) => execFileSync('docker', ['exec', postgres, 'psql', '-U', 'postgres', '-d', 'wboost', '-Atc', `select canvas from template_variant where id='${variantId}'`], { encoding: 'utf8', maxBuffer: 64 << 20 }).trim();
+const canvasOf = (variantId) => execFileSync('docker', ['exec', postgres, 'psql', '-U', 'postgres', '-d', process.env.SCANNER_DEV_DB ?? 'wboost', '-Atc', `select canvas from template_variant where id='${variantId}'`], { encoding: 'utf8', maxBuffer: 64 << 20 }).trim();
 
 async function one(job, slot) {
     const outDir = join(RUNS, label, job.id, `r${job.r}`);

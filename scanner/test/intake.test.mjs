@@ -89,6 +89,60 @@ test('truncated and non-image files are unusable, SVG is refused', async () => {
     assert.equal((await normalise(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800"><rect width="800" height="800"/></svg>'))).detail, 'vector');
 });
 
+/** A PDF written by hand: `pages` pages of w × h points, each a coloured rectangle on white. */
+export function makePdf(w, h, pages = 1, { rotate = 0 } = {}) {
+    const objs = [];
+    const kids = Array.from({ length: pages }, (_, i) => `${3 + 2 * i} 0 R`).join(' ');
+    objs.push('<< /Type /Catalog /Pages 2 0 R >>', `<< /Type /Pages /Kids [${kids}] /Count ${pages} >>`);
+    for (let i = 0; i < pages; i++) {
+        const content = `0.04 0.24 0.42 rg ${w * 0.1} ${h * 0.1} ${w * 0.8} ${h * 0.5} re f`;
+        objs.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${w} ${h}]${rotate ? ` /Rotate ${rotate}` : ''} /Contents ${4 + 2 * i} 0 R /Resources << >> >>`, `<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
+    }
+    let out = '%PDF-1.4\n';
+    const at = [];
+    objs.forEach((o, i) => { at.push(out.length); out += `${i + 1} 0 obj\n${o}\nendobj\n`; });
+    const xref = out.length;
+    out += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n${at.map((n) => `${String(n).padStart(10, '0')} 00000 n \n`).join('')}trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+    return Buffer.from(out, 'latin1');
+}
+const hasPoppler = (() => { try { execFileSync('pdftoppm', ['-v'], { stdio: 'ignore' }); return true; } catch { return false; } })();
+
+test('a PDF is taken as a picture of its first page: 300 dpi, inside the working copy, never tiny', { skip: !hasPoppler && 'needs poppler-utils (pdftoppm, pdfinfo)' }, async () => {
+    // A4: 595.276 × 841.89 pt → 2480 × 3508 px at 300 dpi
+    const a4 = await normalise(makePdf(595.276, 841.89));
+    assert.equal(a4.ok, true, JSON.stringify(a4));
+    assert.equal(a4.meta.format, 'pdf');
+    assert.ok(Math.abs(a4.meta.workingWidth - 2480) <= 2 && Math.abs(a4.meta.workingHeight - 3508) <= 2, `${a4.meta.workingWidth} × ${a4.meta.workingHeight}`);
+    assert.deepEqual(a4.meta.pageMm, [210, 297]);
+    assert.deepEqual(a4.meta.facts, ['pdf_first_page']);
+    assert.equal(a4.meta.density, 300);
+    // the picture is the page: white paper, the rectangle where the page has it
+    const { data, info: i } = await sharp(a4.workingPng).raw().toBuffer({ resolveWithObject: true });
+    const px = (x, y) => [...data.subarray((y * i.width + x) * i.channels, (y * i.width + x) * i.channels + 3)];
+    assert.deepEqual(px(10, 10), [255, 255, 255]);
+    assert.deepEqual(px(i.width >> 1, Math.round(i.height * 0.65)), [10, 61, 107]);
+    // a business card (85 × 55 mm) would be 1004 px at 300 dpi: brought to 1600; three pages → the first only
+    const card = await normalise(makePdf(240.94, 155.9, 3));
+    assert.deepEqual([card.meta.workingWidth, card.meta.frames], [1600, 3]);
+    assert.deepEqual(card.meta.facts, ['pdf_first_page', 'first_frame_only']);
+    // a poster (A0) stays inside the working copy; a page that is turned by /Rotate comes out upright
+    const a0 = await normalise(makePdf(2384, 3370));
+    assert.equal(a0.meta.workingHeight, 4096);
+    const turned = await normalise(makePdf(595.276, 841.89, 1, { rotate: 90 }));
+    assert.ok(turned.meta.workingWidth > turned.meta.workingHeight, `${turned.meta.workingWidth} × ${turned.meta.workingHeight}`);
+    assert.deepEqual(turned.meta.pageMm, [297, 210]);
+});
+
+test('a PDF that cannot be read is a named outcome, never a crash', async () => {
+    const whole = makePdf(595.276, 841.89);
+    const cut = await normalise(whole.subarray(0, 120));
+    assert.deepEqual([cut.ok, cut.stop], [false, 'unusable_input']);
+    assert.ok(['pdf_unreadable', 'pdf_empty', 'pdf_unsupported'].includes(cut.detail), cut.detail);
+    const junk = await normalise(Buffer.from('%PDF-1.7\nthis is not a document\n%%EOF\n'));
+    assert.deepEqual([junk.ok, junk.stop], [false, 'unusable_input']);
+    if (!hasPoppler) assert.equal((await normalise(whole)).detail, 'pdf_unsupported');
+});
+
 const sips = process.platform === 'darwin';
 test('HEIC is converted when the system can, and named when it cannot', { skip: !sips && 'needs a HEIC encoder to make the fixture (sips on macOS)' }, async () => {
     const dir = mkdtempSync(join(tmpdir(), 'scan-heic-'));

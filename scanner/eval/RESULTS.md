@@ -670,6 +670,127 @@ prints.
 Until the production scanner image carries this change it still stops a calendar page under 600 px with
 `blurry_or_small` (not counted): the app accepts it, the old intake does not.
 
+## 10. The open quality gaps, closed or measured (2026-11-13)
+
+What §0–§9 left open, each with what was done and what was measured. Model runs: the developer's Claude plan
+(no API key), Agent SDK engine, Opus 5.5 at effort `high`, macOS / arm64; the app = a copy of the repository
+in a container of its own (own database, private bucket and scanner token) so that other work on the shared
+dev stack could not disturb a run. Costs are computed from tokens at list prices; nothing was billed.
+
+### 10.1 Font verification, templates — the sub-pixel comparison
+
+**The cause of the remaining 18 %.** A verification render at the fitted size sits on the pixel grid where
+its renderer put it; the source's glyphs sit where theirs did. A stem three pixels wide that lies half a pixel
+off its own copy overlaps it by 0.71 — as little as a near twin does. All twelve wrong verdicts were thin type
+(Arial regular at 32–40 px).
+
+**The change** (`src/instruments/fonts.mjs` `verifyFaces`, `wordIouFine`, `scoreRender`): the app renders the
+line at **three times** the fitted size (two times or once where 3 × would leave the app's 8 … 400 px or the
+sheet bound); what is left between the rendered and the fitted size is taken out by one resampling factor;
+then every word of the render is box-averaged down to the source's pixel grid at each of the 3 × 3 grid
+phases (the row phase is one for the line, the column phase each word's own) and laid over the same word of
+the source. At the right phase the true face reproduces the source's anti-aliasing; another face has no such
+phase. Same number of `faces` calls as before (≤ 6 a scan), sheets three times as large in each direction.
+
+Measured on the same 66 recorded scans as §0.3 (3 runs of each of the 22 inputs; 223 groups, 217 verified;
+`node eval/font-verify.mjs`, 319 renders, no model):
+
+| | present font reported as a substitute (easy + photo, 68 groups) | absent font reported as a match (hard, 155 groups) |
+|---|---|---|
+| the ranking score ≥ 0.85 (P2 step A) | 44 % (30 / 68) | 0 % |
+| verification at the fitted size, whole pixels, 0.85 / 0.80 from 12 glyphs (step B, §0.3) | 18 % (12 / 68) | 0 % |
+| sub-pixel, the OLD thresholds 0.85 / 0.80 | 0 % | **2 % (3 / 155)** — not acceptable |
+| sub-pixel, one threshold 0.85 | 4 % (3 / 68) | 0 % |
+| **sub-pixel, 0.90 / 0.83 from 12 glyphs — `definition.json` version 7** | **4 % (3 / 68)** | **0 % (0 / 155)** |
+
+- **Target ≤ 10 %: met (4 %)**, with "measured match" still never wrong (0 of 155).
+- Verified score, true face present: median 0.93, p10 0.89, min 0.82 (was 0.91 / 0.73 / 0.68). Absent:
+  median 0.57, p90 0.81, max 0.84 — on lines of ≥ 12 glyphs max 0.81, shorter ones max 0.84. The sub-pixel
+  search lifts both distributions (a near twin also finds its best phase), which is why the thresholds moved:
+  0.90 for a short line (margin 0.06 above the best wrong face), 0.83 from 12 glyphs (0.02 above it).
+- The three remaining errors are ONE line in three runs: `argumenty`, Arial regular 32 px, 33 glyphs, 0.816 —
+  the source and the render do not split into the same words there, so the whole line is compared (no
+  per-word shift). The margin on long lines is thin on both sides (best wrong face 0.808, worst right face
+  0.816 / next 0.853): the rule holds on these sets; a set of other typefaces could move it.
+- Offline view of every pair (`node eval/font-pairs.mjs` once, then `node eval/font-metric.mjs`: 358 lines of
+  215 groups, each rendered at 1 × and at 3 ×): at 1 × no threshold gives less than 14 % wrong substitutes
+  without a wrong match; at 3 × any threshold between 0.81 and 0.85 on long lines gives 0 % / 0 %.
+- Through the scanner's own run (file driver, 25 scans of §10.4): every group of `vite-ze-2-strana` and
+  `pripomenuti-photo` `measured_match` in 5 of 5 runs; `argumenty` 2 of 3 groups in 5 of 5 (the line above);
+  the two hard inputs 0 matches in 10 runs.
+- Tried and dropped: cutting the line into as many words as the text has, at its widest gaps — two faces do
+  not put their widest gaps in the same places (`argumenty` fell to 0.67).
+
+### 10.2 The SDK engine's retry back-off against the plan
+
+Architecture §4.9 plans 60 s of waiting on a transient provider error (4 retries after 2, 8, 20, 30 s); the
+Agent SDK engine waited ≈ 9 s (§3). Its delays cannot be pinned, but the NUMBER of retries can, and its
+back-off doubles (≈ 0.5 s … capped near 32 s). `engine.sdkRetries: 7` in the definition (the scanner sets
+`CLAUDE_CODE_MAX_RETRIES` from it; the Messages loop keeps `retries` / `retryDelaysSeconds`):
+
+| Fake provider (`FACTS_SDK_RETRIES=7 node eval/engine-facts.mjs sdk 429_forever,500_forever,529_forever`) | retries, waits | given up after |
+|---|---|---|
+| 429 for ever | 7: 0.6, 1.1, 2.5, 4.5, 8.5, 17.3, 33.8 s | **68.5 s** (`transient / rate_limit`) |
+| 500 for ever | 7: 0.6, 1.1, 2.2, 4.1, 8.9, 17.8, 34.2 s | **69.2 s** (`transient / server_error`) |
+| 529 for ever | 2: 0.6, 1.2 s — whatever is set ("Repeated 529 Overloaded errors") | 2.3 s (`transient / overloaded`) |
+
+68 s against the planned 60 s: the plan is matched for 429 and 5xx (6 retries would give ≈ 34 s). **A 529 is
+still given up after ≈ 2 s** — the harness's own rule, not configurable; such a scan ends
+`failed provider_unavailable` and is refunded. The plan's table says so now. No real provider error occurred
+in any run of this round (0 retries in the 25 template runs; the calendar runs: §10.5), so **no real error body was
+captured**.
+
+### 10.3 Pre-check: what is not the expected kind, both kinds
+
+`node eval/precheck-eval.mjs --only other-kind --runs 2` — 11 pictures × 2 runs (Haiku 5.5, $0.0004 a call,
+median 3.1 s):
+
+| Sent as | Picture | Expected | Verdict (both runs) | |
+|---|---|---|---|---|
+| calendar | a plain photo | stop | `design` (high) → `not_expected_kind` | ✔ |
+| calendar | a blank page | stop | `not_a_design` → `not_expected_kind` | ✔ |
+| calendar | a page of running text | stop | `not_a_design` → `not_expected_kind` | ✔ |
+| calendar | an application window (side bar, table) | stop | `not_a_design` → `not_expected_kind` | ✔ |
+| calendar | a concert poster (B1) | stop | `design` → `not_expected_kind` | ✔ |
+| calendar | two calendar pages one above the other | stop | `several_designs` | ✔ |
+| calendar | a "photo" of a calendar page on a desk (synthetic) | stop, continuable | `photo_of_print` | ✔ |
+| calendar | a blurred 700 px page | stop | stopped by the size rule before the model | ✔ |
+| template | an application window | stop | `not_a_design` → `not_expected_kind` | ✔ |
+| template | a bar chart with axes | stop | `design` (medium) → **passed** | ✘ both runs |
+| template | a calendar page | pass — on purpose (`decide()`: a calendar page is also a design) | `calendar_page` → passed | ✔ |
+
+For `kind = calendar`: **16 of 16 stopped** (nothing that is not a calendar page passed). For templates: a
+drawn chart passes as a design (a build then makes shapes of it — wasted cost, not a wrong result), and a
+plain photo is called `design` with high confidence (it would pass for a template too — the miss §4 already
+recorded). The pre-check cannot be relied on to keep non-designs out of TEMPLATE scans; it does keep them
+out of calendar scans, because there the verdict has to be `calendar_page`.
+
+### 10.4 Run-to-run spread, templates — a fixed subset five times
+
+`node eval/run.mjs --only argumenty,vite-ze-2-strana,pripomenuti-photo,B1-koncert,A1-kandidat --runs 5 --label gaps`
+(file driver, scored like §1): **25 of 25 proposed**, 0 unfinished, ≤ 11 turns, ≤ 3 candidates, $5.98 computed.
+Mean (min–max) of the five runs; `node eval/spread.mjs --label gaps`:
+
+| input | runs | wall s | cost $ | turns | cands | text exact | text box IoU | close texts | size ±5 % | masked comp. | pictures R | texts | places | fonts matched |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| A1-kandidat | 5 | 67 (59–77) | 0.227 (0.193–0.252) | 8.8 (7.0–11.0) | 2.0 (2.0–2.0) | 1.00 (1.00–1.00) | 0.707 (0.676–0.747) | 0.20 (0.00–0.40) | 0.84 (0.60–1.00) | 0.942 (0.930–0.953) | 0.60 (0.50–0.75) | 6.8 (5.0–8.0) | 2.4 (2.0–3.0) | 0.00 (0.00–0.00) |
+| B1-koncert | 5 | 99 (93–112) | 0.328 (0.290–0.357) | 10.4 (9.0–11.0) | 2.8 (2.0–3.0) | 1.00 (1.00–1.00) | 0.546 (0.489–0.573) | 0.07 (0.00–0.17) | 0.30 (0.17–0.50) | 0.987 (0.985–0.988) | 0.60 (0.50–1.00) | 7.6 (6.0–8.0) | 2.0 (2.0–2.0) | 0.00 (0.00–0.00) |
+| argumenty | 5 | 77 (68–84) | 0.314 (0.273–0.353) | 8.2 (7.0–9.0) | 2.8 (2.0–3.0) | 1.00 (1.00–1.00) | 0.935 (0.924–0.942) | 0.87 (0.67–1.00) | 1.00 (1.00–1.00) | 0.979 (0.966–0.988) | 0.00 (0.00–0.00) | 12.0 (12.0–12.0) | 0.0 (0.0–0.0) | 0.67 (0.67–0.67) |
+| pripomenuti-photo | 5 | 47 (40–51) | 0.156 (0.137–0.181) | 6.2 (6.0–7.0) | 2.0 (2.0–2.0) | 1.00 (1.00–1.00) | 0.813 (0.768–0.833) | 0.75 (0.75–0.75) | 1.00 (1.00–1.00) | 0.988 (0.969–0.994) | 1.00 (1.00–1.00) | 4.0 (4.0–4.0) | 2.0 (2.0–2.0) | 1.00 (1.00–1.00) |
+| vite-ze-2-strana | 5 | 48 (45–51) | 0.170 (0.156–0.191) | 8.2 (8.0–9.0) | 3.0 (3.0–3.0) | 1.00 (1.00–1.00) | 0.964 (0.951–0.972) | 1.00 (1.00–1.00) | 1.00 (1.00–1.00) | 0.992 (0.988–0.994) | 1.00 (1.00–1.00) | 2.0 (2.0–2.0) | 1.0 (1.0–1.0) | 1.00 (1.00–1.00) |
+| **mean range over the inputs** | | 13.96 | 0.057 | 2.00 | 0.40 | 0.00 | 0.051 | 0.18 | 0.15 | 0.016 | 0.15 | 1.00 | 0.20 | 0.00 |
+| **mean standard deviation** | | 5.31 | 0.021 | 0.73 | 0.16 | 0.00 | 0.019 | 0.08 | 0.05 | 0.006 | 0.06 | 0.45 | 0.10 | 0.00 |
+
+- Words and "size within ± 5 %" on the easy and photo inputs: identical in all 15 runs. What moves between
+  runs of ONE input: the text box IoU by ≤ 0.09, the cost by ≤ $0.08, the whole scan by ≤ 19 s.
+- The hard inputs move more, and in structure, not only in numbers: A1 has 5 to 8 texts and 2 or 3 places
+  (the sticker is a picture place in some runs, shapes + texts in others — as §1 saw), B1's "closely matching"
+  share is 0–17 %. That is the same finding as in P2 with more repeats: **the same object changes layer type
+  between runs on hard inputs**; easy inputs are stable.
+- Against §1's three-run figures (mean range: IoU 0.06, close share 0.07, cost $0.06, wall 25 s): five runs
+  give IoU 0.05, close share 0.18 (A1 0.40, `argumenty` 0.33 — one or two of its twelve texts fall just under box IoU 0.7
+  in some runs —, B1 0.17, the other two 0), cost $0.06, wall 14 s.
+
 ## Tables (generated by `node eval/report.mjs`)
 
 ### Per run

@@ -18,12 +18,15 @@ const FINAL = { final: { status: 'done' } };
 const SCHEMA = { type: 'object', properties: { status: { type: 'string' } }, required: ['status'], additionalProperties: false };
 const call = { tools: [{ name: 'scan_measure', input: { x: 1 } }] };
 const err = (status, type, extra = {}) => ({ status, type, message: `fake ${type}`, ...extra });
-const settings = { requestTimeoutSeconds: 15, retries: 4, retryDelaysSeconds: [2, 8, 20, 30], streamIdleSeconds: 10 };
+// FACTS_SDK_RETRIES=7 measures the Agent SDK's own back-off with more retries (definition `engine.sdkRetries`)
+const settings = { requestTimeoutSeconds: 15, retries: 4, retryDelaysSeconds: [2, 8, 20, 30], streamIdleSeconds: 10, ...(process.env.FACTS_SDK_RETRIES ? { sdkRetries: Number(process.env.FACTS_SDK_RETRIES) } : {}) };
 
 const SCENARIOS = {
     ok: { plan: [call, FINAL] },
     '529_then_ok': { plan: [err(529, 'overloaded_error'), err(529, 'overloaded_error'), call, FINAL] },
     '529_forever': { plan: [err(529, 'overloaded_error')] },
+    '429_forever': { plan: [err(429, 'rate_limit_error')] },
+    '500_forever': { plan: [err(500, 'api_error')] },
     '429_no_retry_after_then_ok': { plan: [err(429, 'rate_limit_error'), call, FINAL] },
     '429_retry_after_3_then_ok': { plan: [err(429, 'rate_limit_error', { retryAfter: 3 }), call, FINAL] },
     '429_spend_limit': { plan: [err(429, 'rate_limit_error', { details: { error_code: 'enforced_spend_limit_reached' }, message: 'spend limit reached' })] },
