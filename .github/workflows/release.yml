@@ -66,7 +66,15 @@ jobs:
     # shipping it would put older code over newer.
     changed:
         runs-on: ubuntu-latest
-        if: ${{ github.event.workflow_run.conclusion == 'success' }}
+        # Only a Tests run of a PUSH to this repository's main may ship. The
+        # `branches: [main]` filter above matches the head branch NAME of the
+        # triggering run, so a pull request from a fork whose branch is called
+        # `main` would otherwise be built from its own commit and deployed.
+        if: >-
+            ${{ github.event.workflow_run.conclusion == 'success'
+            && github.event.workflow_run.event == 'push'
+            && github.event.workflow_run.head_branch == 'main'
+            && github.event.workflow_run.head_repository.full_name == github.repository }}
         outputs:
             app: ${{ steps.f.outputs.app }}
         steps:
@@ -81,6 +89,14 @@ jobs:
                   REPO: ${{ github.repository }}
               run: |
                   ship() { echo "app=true" >> "$GITHUB_OUTPUT"; echo "ship: $1"; exit 0; }
+                  head=$(git rev-parse HEAD)
+                  # Fail CLOSED here, unlike the rest: a commit that is not on this
+                  # repository's main is never shipped, whatever triggered the run.
+                  git fetch --quiet origin main || { echo "::error::cannot fetch main"; echo "app=false" >> "$GITHUB_OUTPUT"; exit 0; }
+                  if ! git merge-base --is-ancestor "$head" FETCH_HEAD; then
+                    echo "::error::$head is not on main — not shipping"
+                    echo "app=false" >> "$GITHUB_OUTPUT"; exit 0
+                  fi
                   base=""
                   for id in $(gh api "repos/$REPO/actions/workflows/release.yml/runs?branch=main&status=success&per_page=30" --jq '.workflow_runs[].id' 2>/dev/null); do
                     c=$(gh api "repos/$REPO/actions/runs/$id/jobs" --jq '[.jobs[] | select(.name | startswith("ship-production")) | .conclusion] | if length > 0 and all(. == "success") then "success" else "no" end' 2>/dev/null || echo no)
@@ -92,7 +108,6 @@ jobs:
                     fi
                   done
                   [ -n "$base" ] || ship "no previously shipped run found"
-                  head=$(git rev-parse HEAD)
                   echo "tested commit: $head; last shipped: $base"
                   if [ "$head" != "$base" ] && git merge-base --is-ancestor "$head" "$base" 2>/dev/null; then
                     echo "::warning::$head is older than the shipped $base — not shipping"
