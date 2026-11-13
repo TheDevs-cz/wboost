@@ -1020,7 +1020,10 @@ docker compose exec web bin/console app:ai-scan:status --mode=off
 - UI: after a JS / CSS edit the dev cache serves stale asset digests — one
   404 in the importmap stops EVERY controller (`rm -rf public/assets` +
   `cache:clear`). The page's controllers are `stimulusFetch: 'lazy'`; only
-  `ai_scan_shell_controller` (and `assets/shell/toast.js`) load on every page.
+  `ai_scan_shell_controller`, `ai_scan_export_guard_controller` (and
+  `assets/shell/toast.js`) load on every page. The export guard must stay
+  eager: the fill form comes with a deferred Live Component and is usable at
+  once, so a lazy guard would miss a quick submit (→ the 409 error page).
 - UI: never build a file input on the fly and click it — the pages keep
   their hidden inputs (`#asFile`, `#asPics`, `#asPlaceFile`, `#asFontFile`,
   `#asReviewFont`) in the markup, which is also what the e2e scripts fill.

@@ -16,6 +16,7 @@ const fake = require('./fake-scanner.cjs');
 const { posterPng } = require('./poster.cjs');
 
 const ROOT = path.resolve(__dirname, '../../../..');
+const FONT = path.join(ROOT, 'tests/Fixtures/fonts/Inter-ExtraBold-StaticSubset.ttf');
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function findChrome() {
@@ -88,7 +89,7 @@ function ensureFixture() {
     consoleCommand('app:ai-scan:status', '--mode=on', '--admin-only=0', '--max-running=1', '--daily-starts-user=500', '--daily-starts-project=500');
 }
 
-/** Removes what earlier runs left: the scans of both projects, their templates and access requests. */
+/** Removes what earlier runs left: the scans of both projects, their usage rows, templates and access requests. */
 function purge() {
     if (process.env.E2E_NO_FIXTURE === '1') return;
     const ids = `(${quote(config.projectId)}, ${quote(config.lockedProjectId)})`;
@@ -97,6 +98,8 @@ function purge() {
         UPDATE ai_scan SET result_template_id = NULL, result_variant_id = NULL WHERE project_id IN ${ids};
         DELETE FROM ai_scan WHERE project_id IN ${ids};
         DELETE FROM template WHERE project_id IN ${ids};
+        -- the fake model's usage would add up to the project's daily spend ceiling over a few runs
+        DELETE FROM ai_usage_event WHERE project_id IN ${ids};
         UPDATE "user" SET ai_scan_consent_version = NULL, ai_scan_consent_at = NULL WHERE email IN (${quote(config.email)}, ${quote(config.lockedEmail)});
     `);
 }
@@ -182,6 +185,11 @@ async function waitToast(page, pattern, timeout = 10000) {
 /** Clicks a control by its `data-k`. */
 const press = (page, k) => page.click(`[data-k="${k}"]`);
 
+/** „Nová šablona“ — the button of the toolbar; the top bar's copy (phones) is first in the DOM and hidden on a desktop. */
+async function openNew(page) {
+    await page.evaluate(() => [...document.querySelectorAll('[data-bs-target="#templateNewModal"]')].find((el) => el.getClientRects().length > 0).click());
+}
+
 /** Writes a fresh poster (new bytes every time) and returns its path. */
 async function poster(browser, name = 'plakat.png', options = {}) {
     const file = path.join(config.tmp, name);
@@ -206,11 +214,27 @@ async function choose(page, file) {
     await input.uploadFile(file);
 }
 
+/** A scan cannot start in a project without a font: S2 offers the upload inline (a font of this repository). */
+async function ensureFont(page) {
+    if (!(await exists(page, '.as-fonts.warn'))) return;
+    const input = await page.$('#asFontFile');
+    await input.uploadFile(FONT);
+    await page.waitForFunction(() => !document.querySelector('.as-fonts.warn') && /Písma projektu · \d+ řez/.test(document.querySelector('.as-fonts').textContent), { timeout: 20000 });
+}
+
+/** Replaces the text of an input the way a user does: select all of it, type. */
+async function fill(page, selector, value) {
+    await page.click(selector);
+    await page.$eval(selector, (el) => el.select());
+    await page.type(selector, value);
+}
+
 /** Upload → consent (when asked) → start; resolves on the waiting screen with the scan id. */
 async function start(page, file) {
     await page.goto(urls.scanNew(), { waitUntil: 'networkidle2' });
     await choose(page, file);
     await waitView(page, 'chosen');
+    await ensureFont(page);
     for (const k of ['consent0', 'consent1']) if (await exists(page, `[data-k="${k}"]`)) await press(page, k);
     await page.waitForFunction(() => !document.querySelector('[data-k="start"]').disabled, { timeout: 8000 });
     await press(page, 'start');
@@ -247,5 +271,5 @@ async function mails() {
 
 module.exports = {
     assert, config, sleep, psql, quote, consoleCommand, ensureFixture, purge, launch, newPage, login, urls,
-    scan, view, waitView, settled, text, exists, toasts, waitToast, press, poster, picture, choose, start, startScanner, shot, mails,
+    scan, view, waitView, settled, text, exists, toasts, waitToast, press, openNew, poster, picture, choose, ensureFont, fill, start, FONT, startScanner, shot, mails,
 };

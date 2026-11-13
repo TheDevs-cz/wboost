@@ -1,4 +1,3 @@
-/* stimulusFetch: 'lazy' */
 import { Controller } from '@hotwired/stimulus';
 import { askUnfilled, attachmentName, saveBlob, UNFILLED, CONFIRM_FIELD } from '../ai-scan/export-guard.js';
 
@@ -18,6 +17,11 @@ import { askUnfilled, attachmentName, saveBlob, UNFILLED, CONFIRM_FIELD } from '
  *  - a file (the count on the page is an upper bound — a background the export
  *    fills is not unfilled) → saved from the answer, no second render.
  *  - anything else → the native submit, so the user gets the page's own error.
+ *
+ * NOT `stimulusFetch: 'lazy'` on purpose: the fill form arrives with a deferred
+ * Live Component and its export button is usable at once — a lazy controller
+ * would still be on its way, and a submit in that gap goes out natively and
+ * ends on the 409 error page, which has no "Exportovat přesto".
  */
 export default class extends Controller {
     connect() {

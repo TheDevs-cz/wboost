@@ -179,6 +179,30 @@ final class AiScanListSurfacesTest extends WebTestCase
         }
     }
 
+    /**
+     * The wizard and the lists post JSON (`api.post` in assets/ai-scan/kit.js),
+     * not a form: the action must find the token there too.
+     */
+    public function testAScanActionTakesTheTokenFromAJsonBody(): void
+    {
+        $client = self::createClient();
+        self::entitle(self::PROJECT);
+        self::switchOn();
+        $waiting = self::start();
+        TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
+        $server = ['HTTP_ORIGIN' => 'http://localhost', 'CONTENT_TYPE' => 'application/json', 'HTTP_ACCEPT' => 'application/json'];
+
+        $client->request('POST', sprintf('/ai-scan/%s/cancel', $waiting), server: $server, content: '{"_token":"nope"}');
+        self::assertResponseStatusCodeSame(403);
+
+        $client->request('POST', sprintf('/ai-scan/%s/cancel', $waiting), server: $server, content: '{"_token":"csrf-token"}');
+        self::assertResponseIsSuccessful();
+        $answer = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertIsArray($answer);
+        self::assertIsArray($answer['scan'] ?? null);
+        self::assertSame('cancelled', $answer['scan']['status'] ?? null);
+    }
+
     public function testHistoryListsScansWithTheirPillsAndFilters(): void
     {
         $client = self::createClient();

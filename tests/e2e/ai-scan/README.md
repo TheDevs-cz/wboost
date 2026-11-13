@@ -48,10 +48,12 @@ the operating mode to `on` for everybody (`app:ai-scan:status --mode=on
 `ensureFixture()` registers two plain users (neither is an admin, each sees
 only its own project): the editor of "E2E AI sken" (AI scan on, no monthly
 limit) and the owner of "E2E AI sken — zamčeno" (AI scan off — the locked card
-and the access request). `purge()` deletes the scans, templates and access
-requests of those two projects before and after a run. The first script
-uploads a font of this repository through the page (a scan cannot start in a
-project without one) and leaves it there. The uploaded picture is drawn by the
+and the access request). `purge()` deletes the scans, their usage rows (the fake
+model's cost would add up to the project's daily spend ceiling), templates and
+access requests of those two projects before and after a run. Whichever script
+starts the first scan uploads a font of this repository through the page (a
+scan cannot start in a project without one) and leaves it there. Every script
+runs alone as well (`run.cjs states`). The uploaded picture is drawn by the
 browser at run time (`lib/poster.cjs`) — nothing binary is in the repository
 and nobody's material is used.
 
@@ -61,7 +63,7 @@ and nobody's material is used.
 | --- | --- |
 | `flow.e2e.cjs` | S1 refusals → S2 facts, inline font upload, consent by keyboard, privacy dialog → S3 stages / round / preview / live region → S4 opens by itself → font, text, left-out thing, layers, compare → leave and return → S4b multi upload, kind, single upload, remove + undo → create → editor + toast → read-only page, `Ze skenu` |
 | `states.e2e.cjs` | service not working, cancel while waiting / running, pre-check stop + „Zkusit přesto“, discard a proposal, refused, failed + leave / return, retry until the picture is refused, „Zahodit“, phone layout, reduced motion |
-| `around.e2e.cjs` | the locked card → request dialog (focus, Escape) → request sent + mail; no AI request on pages of a user without scans; the enabled card, the strip, history; export with an unfilled picture |
+| `around.e2e.cjs` | the locked card → request dialog (focus, Escape) → request sent + mail; no AI request on pages of a user without scans; the enabled card, the strip, the shell's ring → toast → count, no polling once nothing is in progress, history; export with an unfilled picture |
 
 ## Driving a scan by hand
 

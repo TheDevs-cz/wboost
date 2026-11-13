@@ -9,7 +9,8 @@ const assert = require('assert/strict');
 module.exports = {
     name: 'states',
     // a stopped / failed scan has no normalised copy: the page falls back from one picture to the other
-    allowed: [/\/image\/(working|original).*404|status of 404/],
+    // … and the retry of a picture that failed twice is refused with 409 `no_retries_left`
+    allowed: [/\/image\/(working|original).*404|status of 404/, /status of 409 .*\/retry$/],
     async run({ browser, page, h, scanner, check }) {
         const status = () => h.scan(page, (app) => app.scan && app.scan.status);
         const card = () => h.text(page, '.as-status');
@@ -21,6 +22,7 @@ module.exports = {
 
         await check('waiting on the service: no position, no estimate, the honest sentence', async () => {
             scanner.options.paused = true;
+            await h.sleep(1500); // a call of the fake scanner that is on its way would count as "seen"
             // The scanner has not called for a minute → the app says so (derived, never stored).
             h.psql("UPDATE ai_scan_runtime SET scanner_seen_at = now() - interval '5 minutes'");
             const file = await h.poster(browser, 'ceka.png');

@@ -5,10 +5,14 @@
  */
 const assert = require('assert/strict');
 
-const aiRequests = (page) => page.requests.filter((r) => /\/ai-scans?\b|\/ai-scan\//.test(r));
+// the wizard's JSON endpoints — not the stylesheet and modules under /assets/ that every page links
+const aiRequests = (page) => page.requests.filter((r) => !/ \/assets\//.test(r) && /\/ai-scans?\b|\/ai-scan\//.test(r));
 
 module.exports = {
     name: 'around',
+    // a scan under the pre-check has no normalised copy yet: its card falls back from one picture to the other
+    // … and the export's first answer IS a 409 `unfilled_pictures` (the question)
+    allowed: [/\/image\/(preview|working|original).*404|status of 404 .*\/image\//, /status of 409 .*\/template-variant\/[0-9a-f-]+\/download/],
     async run({ browser, page, h, scanner, check }) {
         const cfg = h.config;
 
@@ -20,7 +24,7 @@ module.exports = {
             assert.deepEqual(aiRequests(page), [], 'no status, list or badge request');
             assert.equal(await h.exists(page, '.as-strip'), false);
             assert.equal(await page.$$eval('[data-ai-scan-signal]:not([hidden])', (n) => n.length), 0, 'no badge');
-            await page.click('[data-bs-target="#templateNewModal"]');
+            await h.openNew(page);
             await page.waitForSelector('#templateNewModal.show .tp-type.prem');
             assert.equal(await page.$eval('.tp-type.prem', (el) => el.dataset.aiScanState), 'locked');
             assert.match(await h.text(page, '.tp-type.prem'), /Šablona z obrázku Premium .*texty, tvary, barvy a místa pro obrázky\. Požádat o přístup/);
@@ -31,7 +35,7 @@ module.exports = {
         });
 
         await check('„Požádat o přístup“: one dialog (never a modal over a modal), Escape, a real request, the card flips', async () => {
-            await page.click('[data-bs-target="#templateNewModal"]');
+            await h.openNew(page);
             await page.waitForSelector('#templateNewModal.show .tp-type.prem .tp-type-go');
             await h.sleep(400);
             await page.click('.tp-type.prem .tp-type-go');
@@ -43,7 +47,7 @@ module.exports = {
             await page.waitForFunction(() => !document.querySelector('dialog'));
             assert.equal(h.psql(`SELECT count(*) FROM ai_access_request WHERE project_id = '${cfg.lockedProjectId}'`), '0');
 
-            await page.click('[data-bs-target="#templateNewModal"]');
+            await h.openNew(page);
             await page.waitForSelector('#templateNewModal.show .tp-type.prem .tp-type-go');
             await h.sleep(400);
             await page.click('.tp-type.prem .tp-type-go');
@@ -55,7 +59,7 @@ module.exports = {
             await page.click('dialog[open] [data-done]');
             assert.equal(h.psql(`SELECT status || ':' || origin FROM ai_access_request WHERE project_id = '${cfg.lockedProjectId}'`), 'open:templates');
             await page.reload({ waitUntil: 'networkidle2' });
-            await page.click('[data-bs-target="#templateNewModal"]');
+            await h.openNew(page);
             await page.waitForSelector('#templateNewModal.show .tp-type.prem');
             assert.equal(await page.$eval('.tp-type.prem', (el) => el.dataset.aiScanState), 'request_sent');
             assert.match(await h.text(page, '.tp-type.prem'), /Odesláno \d+\. \d+\. \d{4}\. Dáme vám vědět\..*Žádost odeslána/);
@@ -74,7 +78,7 @@ module.exports = {
         await check('entitled editor: the enabled card leads to the upload; a scan in progress shows in the strip and the sidebar', async () => {
             await h.login(page, cfg.email);
             await page.goto(h.urls.templates(), { waitUntil: 'networkidle2' });
-            await page.click('[data-bs-target="#templateNewModal"]');
+            await h.openNew(page);
             await page.waitForSelector('#templateNewModal.show .tp-type.prem');
             assert.equal(await page.$eval('.tp-type.prem', (el) => el.dataset.aiScanState), 'enabled');
             assert.ok((await page.$eval('.tp-type.prem a.tp-type-go', (el) => el.getAttribute('href'))).endsWith('/sablony/z-obrazku'));
@@ -94,20 +98,26 @@ module.exports = {
             scanner.options.beatMs = 300;
             await h.waitToast(page, 'Návrh šablony „.+“ je připravený ke kontrole', 60000);
             assert.ok(page.requests.some((r) => /GET \/ai-scans\/mine/.test(r)), 'the shell polled');
-            assert.ok(page.requests.some((r) => /GET \/project\/.+\/ai-scans\?/.test(r)), 'the strip polled');
             assert.match(await page.$eval('.toast-n.as-toast', (el) => el.querySelector('a, button').textContent), /Zkontrolovat/);
             await page.waitForSelector('[data-ai-scan-nav] .count.as-pch');
             assert.equal(await h.exists(page, '[data-ai-scan-nav] .as-ring'), false);
             await page.waitForFunction((id) => /Připraveno ke kontrole/.test(document.querySelector(`.as-scan[data-scan="${id}"]`).textContent), { timeout: 15000 }, scanId);
-            // nothing is in progress any more → the polls stop
-            await h.sleep(1500);
-            page.requests.length = 0;
-            await h.sleep(11500);
-            assert.deepEqual(aiRequests(page), []);
-            // the toast's action opens the scan; seeing it clears the badge
+            assert.ok(page.requests.some((r) => /GET \/project\/.+\/ai-scans\?/.test(r)), 'the strip polled'); // its own 10 s timer
+            // the toast's action (it stays 10 s) opens the scan; seeing it clears the badge
             await Promise.all([page.waitForNavigation({ waitUntil: 'networkidle2' }), page.click('.toast-n.as-toast a')]);
             await h.waitView(page, 'review');
             await page.waitForFunction(() => !document.querySelector('[data-ai-scan-nav] .count.as-pch'), { timeout: 15000 });
+        });
+
+        await check('nothing in progress: the list shows the waiting proposal and no page polls', async () => {
+            await page.goto(h.urls.templates(), { waitUntil: 'networkidle2' });
+            await page.waitForSelector(`.as-strip .as-scan[data-scan="${scanId}"]`);
+            await h.sleep(1500);
+            page.requests.length = 0;
+            await h.sleep(11500); // longer than the 10 s poll
+            assert.deepEqual(aiRequests(page), []);
+            await page.goto(h.urls.scan(scanId), { waitUntil: 'networkidle2' });
+            await h.waitView(page, 'review');
         });
 
         await check('create with an empty „Součást šablony“ place: the label says so; the card gets „K doplnění: 1“', async () => {

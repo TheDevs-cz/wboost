@@ -9,16 +9,19 @@ const fs = require('fs');
 const path = require('path');
 const assert = require('assert/strict');
 
-const FONT = path.resolve(__dirname, '../../Fixtures/fonts/Inter-ExtraBold-StaticSubset.ttf');
-
 module.exports = {
     name: 'flow',
     async run({ browser, page, h, scanner, check }) {
         let scanId = null;
+        // another script may have left templates in the project: this walk counts its own
+        const templates = () => Number(h.psql(`SELECT count(*) FROM template WHERE project_id = '${h.config.projectId}'`));
+        const templatesBefore = templates();
         const poster = await h.poster(browser);
         const proposal = () => h.scan(page, (app) => app.proposal);
 
         await check('S1 refuses a PDF, a tiny picture and two files — nothing is sent', async () => {
+            // this walk starts as somebody who never scanned (another script may have run before)
+            h.psql(`UPDATE "user" SET ai_scan_consent_version = NULL, ai_scan_consent_at = NULL WHERE email = ${h.quote(h.config.email)}`);
             await page.goto(h.urls.scanNew(), { waitUntil: 'networkidle2' });
             await h.waitView(page, 'upload');
             assert.match(await h.text(page, '.as-step'), /Krok 1 ze 4 · Nahrání/);
@@ -29,10 +32,14 @@ module.exports = {
             assert.match(await h.text(page, '#asDropErr'), /PDF a zdrojové soubory zatím neumíme/);
             const tiny = await h.picture(browser, 'mala.png', 400, 300);
             await h.choose(page, tiny);
-            await page.waitForFunction(() => /příliš malý \(400 × 300 px\)/.test(document.querySelector('#asDropErr').textContent));
-            const input = await page.$('#asFile');
-            await input.uploadFile(poster, tiny);
-            await page.waitForFunction(() => /Nahrajte jen jeden obrázek/.test(document.querySelector('#asDropErr').textContent));
+            await page.waitForFunction(() => /příliš malý \(400 × 300 px\)/.test((document.querySelector('#asDropErr') || {}).textContent || ''));
+            // two files can only arrive by a drop (the input takes one)
+            await page.evaluate(() => {
+                const data = new DataTransfer();
+                for (const name of ['prvni.png', 'druhy.png']) data.items.add(new File([new Uint8Array(64)], name, { type: 'image/png' }));
+                window.dispatchEvent(new DragEvent('drop', { dataTransfer: data, bubbles: true, cancelable: true }));
+            });
+            await page.waitForFunction(() => /Nahrajte jen jeden obrázek/.test((document.querySelector('#asDropErr') || {}).textContent || ''));
             assert.equal(page.requests.filter((r) => /^POST .*\/ai-scan$/.test(r)).length, 0, 'no upload request');
         });
 
@@ -44,9 +51,7 @@ module.exports = {
             if (await h.exists(page, '.as-fonts.warn')) {
                 assert.equal(await page.$eval('[data-k="start"]', (el) => el.disabled), true);
                 assert.match(await h.text(page, '#asStartHint'), /Projekt zatím nemá žádné písmo/);
-                const input = await page.$('#asFontFile');
-                await input.uploadFile(FONT);
-                await page.waitForFunction(() => !document.querySelector('.as-fonts.warn') && /Písma projektu · \d+ řez/.test(document.querySelector('.as-fonts').textContent), { timeout: 15000 });
+                await h.ensureFont(page);
             }
             assert.match(await h.text(page, '.as-fonts'), /Písma projektu · \d+ (řez|řezy|řezů)/);
         });
@@ -77,7 +82,7 @@ module.exports = {
         });
 
         await check('S3: kontrola → sken with the real stages, a round pill, no lavender button', async () => {
-            scanner.options.beatMs = 700;
+            scanner.options.beatMs = 2500; // every stage outlasts the page's 2 s poll
             await page.focus('[data-k="start"]');
             await page.keyboard.press('Enter');
             await h.waitView(page, 'wait');
@@ -89,10 +94,11 @@ module.exports = {
             assert.match(await page.title(), /^Sken běží — plakat\.png/);
             const labels = await page.$$eval('.as-stages li > span:nth-child(2)', (n) => n.map((e) => e.firstChild.textContent));
             assert.deepEqual(labels, ['Kontrola obrázku', 'Čtení textů', 'Rozbor grafiky', 'Sestavení šablony', 'Porovnání a doladění', 'Dokončení']);
-            await page.waitForFunction(() => /Nalezeny 2 texty/.test(document.querySelector('.as-stages').textContent), { timeout: 20000 });
-            await page.waitForFunction(() => /kolo 1 ze 2/.test(document.querySelector('.as-stages').textContent), { timeout: 30000 });
+            const stages = (pattern, timeout) => page.waitForFunction((source) => new RegExp(source).test((document.querySelector('.as-stages') || {}).textContent || ''), { timeout }, pattern);
+            await stages('Nalezeny 2 texty', 30000);
+            await stages('kolo 1 ze 2', 60000);
             assert.ok(await h.exists(page, '.as-pics img[src*="/image/candidate"]'), 'the first rendered preview is shown');
-            assert.match(await page.$eval('#asLive', (el) => el.textContent), /Sken běží/);
+            await page.waitForFunction(() => /Sken běží/.test(document.querySelector('#asLive').textContent), { timeout: 5000 }); // announced a moment after the change
             assert.ok((await page.$$eval('.as-stages .done .dur', (n) => n.map((e) => e.textContent).filter(Boolean))).length >= 2, 'finished stages carry their duration');
         });
 
@@ -105,7 +111,7 @@ module.exports = {
             assert.match(await h.text(page, '.as-foot'), /Návrh se stane šablonou, až ho vytvoříte\. Uchováme ho do \d+\. \d+\. \d{4}/);
             assert.equal(await page.evaluate(() => document.activeElement.classList.contains('as-sum')), true, 'focus is on the review heading');
             assert.equal(await page.$$eval('.as-page .btn-primary', (n) => n.length), 1, 'one primary');
-            assert.equal(h.psql(`SELECT count(*) FROM template WHERE project_id = '${h.config.projectId}'`), '0');
+            assert.equal(templates(), templatesBefore, 'a proposal is not a template');
         });
 
         await check('font: nearest available → choose another face, Vrátit, Nechat', async () => {
@@ -127,9 +133,7 @@ module.exports = {
         });
 
         await check('doubtful text: corrected and confirmed with Enter', async () => {
-            const input = '[data-k="dtsub"]';
-            await page.click(input, { clickCount: 3 });
-            await page.type(input, 'Sobota 14. června 2026');
+            await h.fill(page, '[data-k="dtsub"]', 'Sobota 14. června 2026');
             await page.keyboard.press('Enter');
             await h.settled(page);
             assert.equal((await proposal()).elements.find((e) => e.id === 'sub').text, 'Sobota 14. června 2026');
@@ -148,8 +152,7 @@ module.exports = {
         await check('Vrstvy: any text is correctable, a switch makes it fixed, undo of the shrink', async () => {
             await h.press(page, 'tablay');
             await page.waitForSelector('.as-layers');
-            await page.click('[data-k="ltheadline"]', { clickCount: 3 });
-            await page.type('[data-k="ltheadline"]', 'Den otevřených dveří 2026');
+            await h.fill(page, '[data-k="ltheadline"]', 'Den otevřených dveří 2026');
             await page.keyboard.press('Tab');
             await h.settled(page);
             await page.$eval('[data-k="lswheadline"]', (el) => el.click());
@@ -229,10 +232,11 @@ module.exports = {
 
         await check('one create button → the editor, with the toast; two presses make one template', async () => {
             await h.shot(page, 'flow-pictures');
-            await Promise.all([page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 }), h.press(page, 'create')]);
+            // an impatient double click
+            await Promise.all([page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 }), page.$eval('[data-k="create"]', (el) => { el.click(); el.click(); })]);
             assert.match(page.url(), /\/template-variant\/[0-9a-f-]{36}\/editor$/);
             await h.waitToast(page, 'vytvořena ze skenu — \\d+ prvk');
-            assert.equal(h.psql(`SELECT count(*) FROM template WHERE project_id = '${h.config.projectId}'`), '1');
+            assert.equal(templates(), templatesBefore + 1, 'exactly one template');
             assert.equal(h.psql(`SELECT status FROM ai_scan WHERE id = '${scanId}'`), 'accepted');
         });
 

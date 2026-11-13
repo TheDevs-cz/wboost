@@ -61,9 +61,8 @@ final class AiScanActionController extends AbstractController
         $user = $this->getUser();
         assert($user instanceof User);
 
-        if (!$this->isCsrfTokenValid(StartAiScanController::CSRF_TOKEN_ID, $request->request->getString('_token'))) {
-            throw $this->createAccessDeniedException('Invalid CSRF token.');
-        }
+        // The wizard and the lists post JSON, a plain form posts the field: both carry the token.
+        $this->assertCsrf($request);
 
         if (in_array($action, ['retry', 'continue'], true) && !$this->access->isEntitled($user, $scan->project)) {
             return $this->refusal(AiScanRefusal::NotEnabled);
