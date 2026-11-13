@@ -54,12 +54,20 @@ function loadPuppeteer() {
     }
 }
 
+/**
+ * `docker compose exec` in the stack's service — or, for a run beside other work on the same
+ * machine (a real scanner on the shared stack would take the scans of `scan.e2e.cjs`), in an app
+ * container of its own: `E2E_WEB_CONTAINER`, with its own database `E2E_DB` on the stack's
+ * postgres. The setup is the one of tests/e2e/ai-scan/README.md.
+ */
 function compose(args, input) {
-    return execFileSync('docker', ['compose', 'exec', '-T', ...args], { cwd: ROOT, input, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+    const own = args[0] === 'web' && process.env.E2E_WEB_CONTAINER;
+    const command = own ? ['exec', '-i', process.env.E2E_WEB_CONTAINER, ...args.slice(1)] : ['compose', 'exec', '-T', ...args];
+    return execFileSync('docker', command, { cwd: ROOT, input, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
 }
 
 function psql(sql) {
-    return compose(['postgres', 'psql', '-U', 'postgres', '-d', 'wboost', '-v', 'ON_ERROR_STOP=1', '-At'], sql).trim();
+    return compose(['postgres', 'psql', '-U', 'postgres', '-d', process.env.E2E_DB || 'wboost', '-v', 'ON_ERROR_STOP=1', '-At'], sql).trim();
 }
 
 const quote = (text) => `'${String(text).replace(/'/g, "''")}'`;
@@ -289,6 +297,8 @@ async function shot(page, name) {
 module.exports = {
     assert,
     config,
+    compose,
+    psql,
     ensureFixture,
     purgeCalendars,
     launch,

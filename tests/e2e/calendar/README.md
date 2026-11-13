@@ -39,6 +39,7 @@ Google Chrome.
 | `USER_EMAIL` / `USER_PASS` | `e2e-calendar@test.cz` / `E2eCalendar123` | the dedicated e2e account |
 | `PROJECT_ID` | `0e2ecafe-0000-7000-8000-000000000001` | the dedicated e2e project |
 | `E2E_NO_FIXTURE` | – | `1` = do not create or clean the fixture (bring your own account + project) |
+| `E2E_WEB_CONTAINER`, `E2E_DB` | – | an app container and a database of the run's own instead of the stack's `web` / `wboost` — the fixture, the runner and `scan` honour them (`h.compose`, `h.psql`); with `BASE` and `SCANNER_TOKEN` this keeps `scan` away from a real scanner on the shared stack. Setup: `../ai-scan/README.md` § "Beside other work on the same machine" |
 | `SHOTS` | – | directory for screenshots |
 | `HEADFUL` | – | `1` = show the browser |
 

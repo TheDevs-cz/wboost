@@ -723,6 +723,22 @@ and `ai-scan.md` § "Calendar scans"). Weekly calendars, designers only.
   `as-cgrid`, `as-rec`, `as-cantl`, `as-stepdot`, `cal-scan*`) are in
   `calendar.css`. Events are delegated: `data-act` (click), `data-chg`
   (change). Everything not written in the code goes through `esc()`.
+- **The waiting and result screens consume the status document as the
+  template wizard does** (`ai-scan.md` § "The status / poll contract as
+  consumed"): the uploaded picture is `image/{picture}` (`working` |
+  `original` | null → the frame's own "no picture" text) — there is no
+  fallback chain and no `onerror` swap, so a 404 on a picture is a bug; the
+  running render is `image/candidate?n={previewCandidate}&v={previewSeq}`
+  (`previewSeq` only says "changed" — it is NOT a candidate number; after an
+  automatic restart the last render shown stays, `scan.lastPreview`); the
+  duration of every finished stage and the note it ended with come from
+  `stages`, the server's stage log (the browser keeps no durations; a live
+  note that belongs to an earlier stage stays with that row). `observe()` /
+  `needsRender()` are imported from `assets/ai-scan/page/wait.js`. Not taken
+  over: the outlines of the found texts (`textBoxes`). Between 641 and
+  1000 px (one column) the upload and the running render sit side by side
+  (`.as-cpics`) and a lone picture is at most 480 px wide (`.as-cpic-one`) —
+  a calendar page is a wide picture.
 - **The proposal is drawn live**, never from the candidate picture:
   `proposal.layout` on the sample week `proposal.page`, the ticked switches
   on, a held picture as a temporary asset entry (`scan-preview-{slot}`) and
@@ -810,13 +826,16 @@ and `ai-scan.md` § "Calendar scans"). Weekly calendars, designers only.
   `proposal()`, `entry()`), `window.__calendar.state().layoutOrigin`.
 - **e2e**: `tests/e2e/calendar/scan.e2e.cjs` with the fake scanner
   (`tests/e2e/ai-scan/lib/fake-scanner.cjs`, calendar branch; it takes only
-  the e2e project's scans — stop a real local scanner first, it would take
-  them too). The script works as the PLAIN e2e user, an editor of a project
+  the e2e project's scans — a real local scanner would take them too: run
+  the script against an app container of its own, `E2E_WEB_CONTAINER` /
+  `E2E_DB` / `BASE` / `SCANNER_TOKEN`, README there). Every 404 answer of the
+  run fails its last check. The script works as the PLAIN e2e user, an editor of a project
   with AI sken switched on (the customer of decision 16); its fixture
   switches the entitlement of the e2e project on and switches a local
   „admins only“ off. It walks the card states (locked → request sent, limit;
   service-waiting from a rewritten `entry` answer — the service is not
-  paused), the whole flow, layers, rating, numbered places, drop, gallery,
+  paused), the whole flow (the picture the status names, the render it names,
+  the server's stage durations), layers, rating, numbered places, drop, gallery,
   rescan, an applied scan opened from its link, the history row's restore
   and the history of a project with only the Kalendáře module.
 

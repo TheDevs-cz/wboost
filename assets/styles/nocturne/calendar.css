@@ -243,6 +243,12 @@
 .as-cgrid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(300px, 1fr); gap: 18px; align-items: start; min-width: 0; }
 .as-cgrid > * { min-width: 0; }
 @media (max-width: 1000px) { .as-cgrid { grid-template-columns: minmax(0, 1fr); } .as-cgrid.side-first > :last-child { order: -1; } }
+/* one column, tablet width: a calendar page is a wide picture — the upload and the running render sit
+   side by side, a lone picture (a stopped / failed scan) does not fill the panel's whole width */
+@media (min-width: 641px) and (max-width: 1000px) {
+    .as-cgrid .as-cpics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; }
+    .as-cgrid .as-cpic-one { width: 100%; max-width: 480px; }
+}
 .as-cal-cmp { --cmp-max: none; }
 .cal-scan-orig, .cal-scan-prop { display: block; width: 100%; height: 100%; background-repeat: no-repeat; }
 .as-frame > .cal-scan-prop, .as-frame > .cal-scan-orig { position: absolute; inset: 0; }

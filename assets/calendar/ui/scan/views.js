@@ -178,16 +178,16 @@ export function announcement(row) {
 }
 
 /**
- * What is known about one finished stage → `{ took: seconds | null, note: [code, params] | null }`.
- * The status document's `stages` (the server's stage log: `{ seconds, note, noteParams }`) when it
- * carries one, else what this browser observed (`run.stages`: `{ start, end, note: [code, params] }`).
+ * What the server's stage log says about one stage (`stages` of the status document:
+ * `{ seconds, note, noteParams }`) → `{ took: seconds | null, note: [code, params] | null }`. The
+ * browser keeps no durations of its own — a reload, another tab and somebody else show the same.
  */
 function stageSeen(scan, id) {
-    const logged = scan.scan && scan.scan.stages && scan.scan.stages[id];
-    if (logged) return { took: typeof logged.seconds === 'number' ? logged.seconds : null, note: logged.note ? [logged.note, logged.noteParams || null] : null };
-    const seen = (scan.run && scan.run.stages && scan.run.stages[id]) || {};
-    return { took: seen.start && seen.end ? (seen.end - seen.start) / 1000 : null, note: seen.note || null };
+    const logged = (scan.scan && scan.scan.stages && scan.scan.stages[id]) || {};
+    return { took: typeof logged.seconds === 'number' ? logged.seconds : null, note: logged.note ? [logged.note, logged.noteParams || null] : null };
 }
+/** The live note is about another stage (what the reading found): it stays with that row. */
+const notedElsewhere = (row, stageId) => Boolean(row.note) && Object.entries(row.stages || {}).some(([id, x]) => id !== stageId && x && x.note === row.note);
 
 function stageList(scan, { now = -1, failed = false } = {}) {
     const row = scan.scan;
@@ -196,7 +196,8 @@ function stageList(scan, { now = -1, failed = false } = {}) {
         const sr = { done: 'hotovo', now: 'právě běží', todo: 'čeká', fail: 'nepodařilo se' }[state];
         const icon = state === 'done' ? ic('check') : state === 'now' ? '<span class="as-spin"></span>' : state === 'fail' ? ic('x-circle') : '';
         const seen = stageSeen(scan, s.id);
-        const note = state === 'now' && !failed ? noteText(row.note, row.noteParams) : state === 'done' && seen.note ? noteText(seen.note[0], seen.note[1]) : null;
+        const live = state === 'now' && !failed && !notedElsewhere(row, s.id) ? noteText(row.note, row.noteParams) : null;
+        const note = live || (state === 'done' && seen.note ? noteText(seen.note[0], seen.note[1]) : null);
         const took = state === 'done' && seen.took !== null ? duration(seen.took) : '';
         const round = state === 'now' && s.id === 'refine' && row.round >= 1 ? ` <span class="pill pch">kolo ${Math.min(2, row.round)} ze 2</span>` : '';
         return `<li class="${state}"><span class="ic">${icon}</span><span>${s.label}${round}<span class="sr"> — ${sr}</span></span><span class="dur">${took}</span>${note ? `<span class="note">${esc(note)}</span>` : ''}</li>`;
@@ -216,7 +217,7 @@ function statusCard(scan) {
         const long = isLong(scan);
         const doneIn = minutesRange(row.estimatedFinishSeconds);
         head = `<div class="as-status-t"><h3 class="as-status-h">${stage.title}</h3></div><p class="as-time" style="margin:0">${elapsed}${long ? '' : doneIn ? ` · hotovo ${doneIn === 'během chvíle' ? doneIn : `asi za ${doneIn}`}` : ' · obvykle 1–3 min'}</p>${bar(now)}${long ? '<p class="as-long" style="margin:0">Trvá to déle než obvykle — nejdéle asi 12 minut. Klidně odejděte, dáme vědět.</p>' : ''}`;
-        const note = noteText(row.note, row.noteParams);
+        const note = notedElsewhere(row, stage.id) ? null : noteText(row.note, row.noteParams);
         body = `<p class="as-nowline as-phone"><span class="as-spin"></span><span><b>${stage.label}</b>${note ? `<br><span class="cap">${esc(note)}</span>` : ''}</span></p><details class="as-details as-prubeh"${scan.stagesOpen ?? window.innerWidth > 640 ? ' open' : ''} data-k="prubeh"><summary data-act="toggleStages">${ic('chev-right')}Průběh</summary>${stageList(scan, { now })}</details>`;
     } else {
         const position = row.queuePosition || 0;
@@ -246,33 +247,41 @@ function statusCard(scan) {
     return `<section class="as-card as-status" aria-label="Stav skenu">${head}${body}<div class="as-leave">${ic('check-circle')}<span>${CAL.leave}</span></div>${buttons}</section>`;
 }
 
-/** The uploaded picture: the scanner's copy once the pre-check passed, the original before. */
-function pictureSources(scan) {
-    const row = scan.scan;
-    const checked = ['queued', 'running', 'ready', 'accepted'].includes(row.status) || (row.status === 'failed' && row.code !== 'provider_unavailable');
-    return checked ? [scan.image('working'), scan.image('original')] : [scan.image('original'), scan.image('working')];
-}
-function fallbackImg(sources, alt) {
-    const [first, ...rest] = sources;
-    return `<img src="${esc(first)}" alt="${esc(alt)}" data-fallback="${esc(rest.join('|'))}" onerror="var f=(this.dataset.fallback||'').split('|').filter(Boolean);if(f.length){this.dataset.fallback=f.slice(1).join('|');this.src=f[0];}else{this.onerror=null;this.closest('.as-frame')&&this.closest('.as-frame').classList.add('none');}">`;
+/**
+ * The uploaded picture as this browser can show it. The status document says which copy exists
+ * (`picture`: `working` once the pre-check passed, `original` before that unless it is a HEIC or
+ * a PDF, null when there is none) — the panel never asks for a file that is not there.
+ */
+function picture(scan, alt) {
+    const which = scan.scan.picture;
+    return which ? `<img src="${esc(scan.image(which))}" alt="${esc(alt)}">` : '';
 }
 
 function waitView(scan) {
     const row = scan.scan;
-    const seq = row.previewSeq || 0;
     const running = row.status === 'running';
+    const original = picture(scan, 'Původní obrázek');
+    // The latest render of the running run (`previewCandidate`; `previewSeq` only says "changed").
+    // After an automatic restart the renders of the run that broke are gone from the server: the
+    // last one this panel showed stays (the address is unchanged — the browser's cache answers).
+    const key0 = `${row.id}:${row.try || 1}`;
+    if (running && row.previewCandidate) scan.lastPreview = { key: key0, url: scan.image('candidate', `?n=${row.previewCandidate}&v=${row.previewSeq || 0}`), seq: row.previewSeq || 0 };
+    else if (!(row.status === 'queued' && row.restarted) || !scan.lastPreview || scan.lastPreview.key !== key0) scan.lastPreview = null;
+    const seq = scan.lastPreview ? scan.lastPreview.seq : 0;
     let preview;
     let caption;
+    let key = `${seq}-${running ? 'r' : 'w'}`;
     if (seq > 0) {
-        preview = `<div class="as-frame${running ? ' busy' : ''}"><img class="fade-in" src="${esc(scan.image('candidate', `?n=${seq}`))}" alt="Průběžný náhled rozvržení"></div>`;
+        preview = `<div class="as-frame${running ? ' busy' : ''}"><img class="fade-in" src="${esc(scan.lastPreview.url)}" alt="Průběžný náhled rozvržení" onerror="this.onerror=null;this.closest('.as-frame').classList.add('none')"><span class="as-noimg">${ic('image', '')}Náhled se právě obnovuje</span></div>`;
         caption = !running ? 'Poslední náhled před přerušením' : row.round >= 1 ? `Náhled po ${row.round}. kole porovnání` : 'První náhled — ještě ho doladíme';
     } else {
-        preview = `<div class="as-frame${running ? ' pending' : ''} dim">${fallbackImg(pictureSources(scan), '')}</div>`;
+        preview = original ? `<div class="as-frame${running ? ' pending' : ''} dim">${picture(scan, '')}</div>` : '';
         caption = running ? 'První náhled uvidíte za pár vteřin.' : 'Náhled se začne tvořit, až sken přijde na řadu.';
+        key = `${key}-${row.picture || 'none'}`;
     }
-    return `<div class="as-cgrid side-first" data-region="wait" data-deep><div class="as-main" data-region="pics" data-deep>
-<figure class="as-pic" data-region="orig-${row.status === 'checking' ? 'c' : 'w'}"><figcaption><span class="lbl">Váš obrázek</span></figcaption><div class="as-frame">${fallbackImg(pictureSources(scan), 'Původní obrázek')}<span class="as-noimg">${ic('image', '')}Náhled uvidíte po kontrole obrázku</span></div></figure>
-<figure class="as-pic" data-region="prev-${seq}-${running ? 'r' : 'w'}"><figcaption><span class="lbl">Průběžný náhled</span><span class="cap">${caption}</span></figcaption>${preview}</figure></div>
+    return `<div class="as-cgrid side-first" data-region="wait" data-deep><div class="as-main as-cpics" data-region="pics" data-deep>
+<figure class="as-pic" data-region="orig-${row.picture || 'none'}"><figcaption><span class="lbl">Váš obrázek</span></figcaption><div class="as-frame${original ? '' : ' none'}">${original}<span class="as-noimg">${ic('image', '')}Náhled uvidíte po kontrole obrázku</span></div></figure>
+<figure class="as-pic" data-region="prev-${key}"><figcaption><span class="lbl">Průběžný náhled</span><span class="cap">${caption}</span></figcaption>${preview}</figure></div>
 <div data-region="status">${statusCard(scan)}</div></div>
 <p class="cap" style="margin:0" data-region="usable">${CAL.usable}</p>`;
 }
@@ -317,7 +326,7 @@ ${stages}${exhausted ? '<p style="margin:0;font-size:13px;font-weight:600">Tento
 ${f.anyway && row.canContinue && scan.entry ? `<p class="cap" style="margin:0">${ic('sparkle', 's14')} ${esc(creditLine(scan.entry.credits, 'Zkusit přesto spotřebuje 1 sken').replace('tento měsíc ', ''))}. Jde to jen jednou.</p>` : ''}${hint ? `<p class="hint" id="calScanFHint" style="margin:0">${ic('info', 's14')} ${esc(hint)}</p>` : ''}
 <div class="as-status-end"><button type="button" class="btn sm ghost danger" data-act="discard" data-cal-action="scan-discard" data-k="discard"${scan.busy === 'discard' ? ' disabled' : ''}>${ic('trash')}Zahodit</button><span class="cap">Jinak sken zmizí sám za 30 dní.</span></div></section>`;
 
-    return `<div class="as-cgrid side-first" data-region="fail" data-deep><div class="as-main" data-region="pic"><figure class="as-pic"><figcaption><span class="lbl">Váš obrázek</span></figcaption><div class="as-frame${row.hasPicture === false ? ' none' : ''}">${row.hasPicture === false ? '' : fallbackImg(pictureSources(scan), 'Původní obrázek')}<span class="as-noimg">${ic('image', '')}Obrázek už nemáme uložený</span></div></figure></div><div data-region="result">${cardHtml}</div></div>`;
+    return `<div class="as-cgrid side-first" data-region="fail" data-deep><div class="as-main" data-region="pic-${row.picture || 'none'}"><figure class="as-pic as-cpic-one"><figcaption><span class="lbl">Váš obrázek</span></figcaption><div class="as-frame${row.picture ? '' : ' none'}">${picture(scan, 'Původní obrázek')}<span class="as-noimg">${ic('image', '')}${row.hasPicture === false ? 'Obrázek už nemáme uložený' : 'Náhled tohoto obrázku prohlížeč neumí zobrazit'}</span></div></figure></div><div data-region="result">${cardHtml}</div></div>`;
 }
 
 // ---- a scan that is finished with ---------------------------------------------------------------

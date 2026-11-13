@@ -21,21 +21,24 @@
  * only", switches that off (`app:ai-scan:status --admin-only=0` — what production runs). The
  * service-waiting card is shown from a rewritten `entry` answer: the script does not pause the
  * service other work on this machine uses.
+ *
+ * NOTHING THE PAGES ASK FOR IS MISSING: every answer 404 of the run is collected and fails the last
+ * check — the panel shows the copy of the upload the status document names (`picture`) and the
+ * render it names (`previewCandidate`), so a 404 on a picture is a bug (ai-scan.md).
+ *
+ * Beside a real scanner on the shared stack (it would take this script's scans): an app container
+ * of its own — `BASE`, `E2E_WEB_CONTAINER`, `E2E_DB`, `SCANNER_TOKEN`, as in ../ai-scan/README.md.
  */
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { execFileSync } = require('child_process');
 const fake = require('../ai-scan/lib/fake-scanner.cjs');
 
-const ROOT = path.resolve(__dirname, '../../..');
 const GALLERY_FILE = 'e2e-scan-header.png';
 const quote = (text) => `'${String(text).replace(/'/g, "''")}'`;
 
-function compose(args, input) {
-    return execFileSync('docker', ['compose', 'exec', '-T', ...args], { cwd: ROOT, input, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
-}
-const psql = (sql) => compose(['postgres', 'psql', '-U', 'postgres', '-d', 'wboost', '-v', 'ON_ERROR_STOP=1', '-At'], sql).trim();
+// the stack's services — or an app container and a database of this run's own (lib/harness.cjs)
+const { compose, psql } = require('./lib/harness.cjs');
 
 /** The entitlement, and nothing left of earlier runs: the project's scans, their usage, requests, the consent. */
 function fixture(h) {
@@ -103,14 +106,17 @@ module.exports = {
         /**
          * SHOTS_MATRIX=1: besides the normal screenshot, the scan surface (the open dialog, else the
          * panel or the card) at 390 / 820 / 1440 px in both themes → `<name>--<width>--<theme>.png`,
-         * for looking at by eye. The state is not touched: only the viewport and the theme attribute.
+         * for looking at by eye (in a viewport tall enough to hold the whole page — the wizard's sticky
+         * bar would cover the top of a panel that has to scroll). The state is not touched: only the
+         * viewport and the theme attribute.
          */
         const shot = async (name) => {
             await h.shot(page, name);
             if (process.env.SHOTS_MATRIX !== '1' || !h.config.shots) return;
             const theme = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
             for (const width of [390, 820, 1440]) {
-                await page.setViewport({ width, height: 900 });
+                // a viewport taller than the page: nothing scrolls, so the sticky top bar covers nothing
+                await page.setViewport({ width, height: 3200 });
                 for (const t of ['dark', 'light']) {
                     await page.evaluate((value) => document.documentElement.setAttribute('data-theme', value), t);
                     await new Promise((resolve) => setTimeout(resolve, 350));
@@ -151,6 +157,26 @@ module.exports = {
             await page.waitForFunction(() => !document.querySelector('[data-cal-action="scan-start"]').disabled, { timeout: 10000 });
             await page.click('[data-cal-action="scan-start"]');
             await waitPanel('wait');
+        }
+
+        // every 404 the browser got, whoever asked (an <img>, a fetch, a stylesheet)
+        const missing = [];
+        page.on('response', (response) => {
+            if (response.status() === 404 && !/_wdt|favicon/.test(response.url())) missing.push(`${response.request().method()} ${response.url().replace(h.config.base, '')}`);
+        });
+
+        /**
+         * „Odebrat obrázek“ of a place, until the place is empty. The cards are redrawn when a picture
+         * or the page's size arrives; a click whose press and release meet such a redraw lands on
+         * nothing — so: click, look, and click again if the picture is still there.
+         */
+        async function removePicture(slot) {
+            const empty = () => page.$eval(`[data-slot="${slot}"]`, (el) => !el.textContent.includes('.png'));
+            for (let attempt = 0; attempt < 4 && !(await empty()); attempt += 1) {
+                await page.click(`[data-k="picdrop${slot}"]`).catch(() => null);
+                await page.waitForFunction((name) => !document.querySelector(`[data-slot="${name}"]`).textContent.includes('.png'), { timeout: 4000 }, slot).catch(() => null);
+            }
+            assert.equal(await empty(), true, `the place ${slot} is empty`);
         }
 
         let calendarId = null;
@@ -255,11 +281,12 @@ module.exports = {
             });
 
             await check('S1 a file that is no picture is refused in the browser', async () => {
-                const bad = path.join(tmp, 'stranka.pdf');
-                fs.writeFileSync(bad, '%PDF-1.4 not a picture');
+                // (a PDF is accepted since 2026-11-13: its first page is scanned — a Photoshop file is still a source file)
+                const bad = path.join(tmp, 'stranka.psd');
+                fs.writeFileSync(bad, '8BPS fake');
                 await (await page.$('#calScanFile')).uploadFile(bad);
                 await page.waitForSelector('#calScanErr', { timeout: 8000 });
-                assert.match(await text('#calScanErr'), /PDF a zdrojové soubory zatím neumíme/);
+                assert.match(await text('#calScanErr'), /Zdrojové soubory \(PSD, AI, InDesign, SVG\) zatím neumíme/);
                 assert.equal(await panelView(), 'upload');
             });
 
@@ -300,6 +327,12 @@ module.exports = {
                 await startScan(first);
                 assert.equal(await nextClass(), 'primary');
                 assert.equal(await dot(), true);
+                // the uploaded picture is the copy the status document names — nothing is guessed
+                const named = await page.evaluate(() => window.__calendarScan.scan().picture);
+                assert.ok(['original', 'working'].includes(named), `picture: ${named}`);
+                await page.waitForFunction(() => { const img = document.querySelector('[data-cal-scan-panel] [data-region^="orig-"] img'); return img && img.complete && img.naturalWidth > 0; }, { timeout: 10000 });
+                assert.match(await page.$eval('[data-cal-scan-panel] [data-region^="orig-"] img', (img) => img.getAttribute('src')), new RegExp(`/image/${named}$`));
+                assert.equal(await page.$('[data-cal-scan-panel] img[data-fallback]'), null, 'no fallback chain');
                 await shot('scan-04-wait');
                 // the panel closes, the card says what is going on
                 await page.click('[data-cal-action="scan-close"]');
@@ -310,9 +343,38 @@ module.exports = {
                 assert.equal(await dot(), true);
             });
 
-            await check('C3 the proposal is announced in any step; „Zkontrolovat“ opens step 2 with the review', async () => {
+            await check('C3 a running scan: the render the status names (`previewCandidate`) and the server\'s stage durations', async () => {
+                await h.gotoStep(page, 2);
+                await page.click('[data-cal-action="scan-open"]');
+                await waitPanel('wait');
+                // slow beats: the panel asks every 2 s and must see the stages and the render go by
+                options.beatMs = 2500;
                 options.paused = false;
+                // a finished stage shows the duration of the server's stage log, not this browser's clock
+                await page.waitForFunction(() => [...document.querySelectorAll('[data-cal-scan-panel] .as-stages li.done .dur')].some((el) => /\d/.test(el.textContent)), { timeout: 60000 });
+                const shown = await page.evaluate(() => {
+                    const stages = window.__calendarScan.scan().stages || {};
+                    const done = [...document.querySelectorAll('[data-cal-scan-panel] .as-stages li.done')].map((li) => li.querySelector('.dur').textContent.trim());
+                    return { logged: Object.values(stages).filter((x) => typeof x.seconds === 'number').length, done };
+                });
+                assert.ok(shown.logged >= 1, 'the status document carries a stage log');
+                assert.ok(shown.done.some((text) => /^(\d+ s|\d+ min \d+ s)$/.test(text)), `durations: ${shown.done.join(' | ')}`);
+                // the first render: the address carries the candidate the status document named
+                await page.waitForFunction(() => /\/image\/candidate\?n=\d+&v=\d+/.test((document.querySelector('[data-cal-scan-panel] [data-region^="prev-"] img') || { src: '' }).src), { timeout: 60000 });
+                options.beatMs = 8000; // …and the scan stays running while this check looks
+                const [src, candidate] = await page.evaluate(() => [document.querySelector('[data-cal-scan-panel] [data-region^="prev-"] img').getAttribute('src'), window.__calendarScan.scan().previewCandidate]);
+                assert.equal(Number(/n=(\d+)/.exec(src)[1]), candidate);
+                await page.waitForFunction(() => { const img = document.querySelector('[data-cal-scan-panel] [data-region^="prev-"] img'); return img && img.complete && img.naturalWidth > 0; }, { timeout: 10000 });
+                await h.shot(page, 'scan-04b-running');
+                await page.click('[data-cal-action="scan-close"]');
+                await page.waitForSelector('[data-cal-scan-card]');
+                await h.gotoStep(page, 1);
+            });
+
+            await check('C3 the proposal is announced in any step; „Zkontrolovat“ opens step 2 with the review', async () => {
+                options.paused = false; // (it is, since the check above)
                 await h.waitToast(page, 'Návrh rozvržení je připravený', 60000);
+                options.beatMs = 350;
                 assert.equal(await dot(), true); // now: a proposal waits
                 await page.click('.toast-n [data-cal-toast-action]');
                 await page.waitForSelector('.cal-ws[data-cal-shown-step="2"]', { timeout: 10000 });
@@ -435,23 +497,19 @@ module.exports = {
             });
 
             await check('C4b drag and drop: one file on a card fills that place, several on the zone fill the empty places in order', async () => {
-                await page.click('[data-k="picdropheader"]');
-                await page.waitForFunction(() => !document.querySelector('[data-slot="header"]').textContent.includes('.png'), { timeout: 10000 });
-                await page.click('[data-k="picdroplogo"]');
-                await page.waitForFunction(() => !document.querySelector('[data-slot="logo"]').textContent.includes('.png'), { timeout: 10000 });
+                await removePicture('header');
+                await removePicture('logo');
                 assert.equal(await dropFiles('[data-slot="header"] .as-ph-b', [strip]), true);
                 await page.waitForFunction((name) => document.querySelector('[data-slot="header"]').textContent.includes(name), { timeout: 15000 }, GALLERY_FILE);
                 assert.doesNotMatch(await text('[data-slot="logo"]'), /\.png/);
-                await page.click('[data-k="picdropheader"]');
-                await page.waitForFunction(() => !document.querySelector('[data-slot="header"]').textContent.includes('.png'), { timeout: 10000 });
+                await removePicture('header');
                 // two files on the multi-drop zone: logo first, header second (the order of the places)
                 await dropFiles('[data-cal-scan-panel] [data-dropzone="pictures"]', [logo, backdrop]);
                 await page.waitForFunction(() => /logo\.png/.test(document.querySelector('[data-slot="logo"]').textContent) && /pozadi\.png/.test(document.querySelector('[data-slot="header"]').textContent), { timeout: 20000 });
                 await h.waitToast(page, '2 obrázky přiřazeny');
                 await shot('scan-07c-dropped');
                 // back to what the next checks expect: the logo only
-                await page.click('[data-k="picdropheader"]');
-                await page.waitForFunction(() => !document.querySelector('[data-slot="header"]').textContent.includes('.png'), { timeout: 10000 });
+                await removePicture('header');
                 assert.match(await text('[data-cal-action="scan-apply"]'), /^Použít rozvržení · 1 obrázek doplníte později$/);
             });
 
@@ -698,6 +756,10 @@ module.exports = {
                 } finally {
                     project(h, `modules = '["manuals", "templates", "calendars"]'`);
                 }
+            });
+
+            await check('Nothing the pages asked for was missing (no 404)', async () => {
+                assert.deepEqual(missing, []);
             });
         } finally {
             // `layout_changed` IS a 409 — the answer the confirmation is built on, not an error of the page
