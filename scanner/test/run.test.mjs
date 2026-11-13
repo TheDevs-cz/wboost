@@ -5,9 +5,10 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
-import { runBuild, runIntake, withRendererRetry, usagePayload, wireUsage, releaseOnce } from '../src/run.mjs';
+import { runBuild, runIntake, withRendererRetry, usagePayload, wireUsage, releaseOnce, uploadLimitsOf } from '../src/run.mjs';
+import { UPLOAD_LIMITS } from '../src/intake/normalise.mjs';
 import { definitionFiles } from '../src/drivers/file-job.mjs';
-import { readDefinition, contextFromClaim, HttpScannerApi } from '../src/protocol.mjs';
+import { readDefinition, contextFromClaim, HttpScannerApi, ScannerApiError } from '../src/protocol.mjs';
 import { ocrPython } from '../src/instruments/ocr.mjs';
 import { fakeApp, drawDesign, scriptedEngine, usage } from './support/fakes.mjs';
 
@@ -301,4 +302,49 @@ test('protocol helpers: claim context → face strings; usage payload; the HTTP 
     // more than one model in a run (a harness that fell back before it was stopped): no single model prices the tokens
     const mixed = usagePayload({ byModel: { 'claude-opus-5-5': { input: 10, output: 5, cacheRead: 0, cacheWrite5m: 0, cacheWrite1h: 0 }, 'claude-opus-4-8': { input: 7, output: 1, cacheRead: 0, cacheWrite5m: 0, cacheWrite1h: 0 } }, costUsd: 0.0002, engineCostUsd: 0.5, priceVersion: 'v' });
     assert.deepEqual([mixed.model, mixed.inputTokens, mixed.outputTokens, mixed.engineCostMicroUsd], ['mixed', 17, 6, 200], 'the scanner\'s own sum — each model at its own price — is what the app books for a model its table does not know');
+});
+
+test('build: a finish the app did not answer is sent again as the SAME payload — never replaced by another outcome', { skip }, async () => {
+    const engine = () => scriptedEngine(async (ctx) => { await ctx.tool('design_preview', { design: DESIGN }); return FINISH; });
+    const outage = () => Object.assign(new ScannerApiError('network', null, { retryable: true }), { outage: true });
+    const withFinish = async (answer) => { const f = await fixture(); const sent = []; f.api.finish = async (p) => { sent.push(p); return answer(sent.length); }; return { f, sent }; };
+
+    // the app is away for the whole tolerance, then back: the proposal arrives, nothing says `failed`
+    const a = await withFinish((n) => { if (n === 1) throw outage(); return { ok: true, applied: true }; });
+    const back = await runBuild({ job: a.f.job, api: a.f.api, engine: engine(), scratchDir: a.f.scratchDir });
+    assert.equal(back.outcome, 'proposed'); assert.equal(back.finish.applied, true);
+    assert.deepEqual(a.sent.map((p) => p.outcome), ['proposed', 'proposed']); assert.deepEqual(a.sent[1], a.sent[0]);
+
+    // the app stays away (an outage, then a 503): the run ends without another word — the lease lapses
+    const b = await withFinish((n) => { throw n === 1 ? outage() : new ScannerApiError('http_503', 503, { retryable: true }); });
+    await assert.rejects(runBuild({ job: b.f.job, api: b.f.api, engine: engine(), scratchDir: b.f.scratchDir }), (e) => e.finishUndelivered === true && e.code === 'http_503');
+    assert.deepEqual(b.sent.map((p) => p.outcome), ['proposed', 'proposed'], 'no `failed` was sent in its place');
+    assert.deepEqual(readdirSync(b.f.scratchDir), [], 'the scratch directory is removed on this path too');
+
+    // an error that is not an answer at all (a bug below the client) is treated the same way
+    const c = await withFinish(() => { throw new Error('socket hang up'); });
+    await assert.rejects(runBuild({ job: c.f.job, api: c.f.api, engine: engine(), scratchDir: c.f.scratchDir }), (e) => e.finishUndelivered === true);
+    assert.deepEqual(c.sent.map((p) => p.outcome), ['proposed', 'proposed']);
+
+    // the app ANSWERED and refused the payload (4xx): the failure is reported instead, as before
+    const d = await withFinish((n) => { if (n === 1) throw new ScannerApiError('invalid_report', 422); return { ok: true, applied: true }; });
+    const refused = await runBuild({ job: d.f.job, api: d.f.api, engine: engine(), scratchDir: d.f.scratchDir });
+    assert.deepEqual([refused.outcome, refused.error], ['failed', 'build']);
+    assert.deepEqual(d.sent.map((p) => [p.outcome, p.error ?? null]), [['proposed', null], ['failed', 'build']]);
+});
+
+test('intake: the upload limits start from the built-in ones — a definition that leaves one out never switches a check off', async () => {
+    assert.deepEqual(uploadLimitsOf({}, 'template'), { ...UPLOAD_LIMITS });
+    assert.deepEqual(uploadLimitsOf({ upload: { minShortSidePx: 700 } }, 'template'), { ...UPLOAD_LIMITS, minShortSidePx: 700 });
+    assert.deepEqual(uploadLimitsOf({ upload: { maxBytes: 5_000_000, maxPixels: null }, kinds: { calendar: { upload: { minShortSidePx: 300, maxSidePx: 'x' } } } }, 'calendar'), { ...UPLOAD_LIMITS, maxBytes: 5_000_000, minShortSidePx: 300 });
+    // through the lane: a definition without `maxPixels` / `maxBytes` still refuses a picture over 36 Mpx
+    const files = definitionFiles();
+    const def = JSON.parse(files['definition.json']);
+    def.upload = { minShortSidePx: def.upload?.minShortSidePx ?? 600 };
+    for (const k of Object.values(def.kinds ?? {})) if (k.upload) { delete k.upload.maxPixels; delete k.upload.maxBytes; delete k.upload.maxSidePx; }
+    files['definition.json'] = JSON.stringify(def);
+    const big = await sharp({ create: { width: 7000, height: 5200, channels: 3, background: '#ffffff' } }).png().toBuffer(); // 36.4 Mpx, a few KB
+    const sent = {};
+    const out = await runIntake({ job: { id: 's', kind: 'template', lane: 'intake', run: 1, definition: { files } }, api: { source: async () => big, putArtifact: async () => {}, finish: async (p) => { sent.finish = p; } }, engine: { name: 'x', run: async () => { throw new Error('no model call'); } }, scratchDir: mkdtempSync(join(tmpdir(), 'scan-in-')) });
+    assert.deepEqual([out.outcome, out.reason, sent.finish.preCheck.detail], ['stopped', 'unusable_input', 'too_many_pixels']);
 });

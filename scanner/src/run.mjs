@@ -14,7 +14,7 @@ import { TemplateBuild, TEMPLATE_APP_TOOLS } from './adapters/template.mjs';
 import { buildTemplateReport } from './finish/report.mjs';
 import { CalendarBuild, CALENDAR_APP_TOOLS } from './adapters/calendar.mjs';
 import { buildCalendarReport } from './finish/calendar-report.mjs';
-import { normaliseInChild } from './intake/normalise.mjs';
+import { normaliseInChild, UPLOAD_LIMITS } from './intake/normalise.mjs';
 import { precheck } from './intake/precheck.mjs';
 import { userContent, probe } from './engine/index.mjs';
 import { outcomeForClass } from './engine/classify.mjs';
@@ -91,6 +91,35 @@ export async function releaseOnce(api, payload, timing = {}) {
     try { await timeoutAfter(api.release(payload), (timing.releaseAttemptSeconds ?? 20) * 1000, 'release_timeout'); return true; } catch { return false; }
 }
 
+/**
+ * The upload limits of one intake: the built-in ones, then the definition's, then the kind's. A definition that
+ * leaves a limit out — or carries something that is not a positive number — never switches that check off.
+ */
+export function uploadLimitsOf(definition, kind) {
+    const out = { ...UPLOAD_LIMITS };
+    for (const layer of [definition?.upload, definition?.kinds?.[kind]?.upload]) {
+        for (const [key, value] of Object.entries(layer ?? {})) if (Number.isFinite(value) && value > 0) out[key] = value;
+    }
+    return out;
+}
+
+/** The app ANSWERED the finish with a refusal of the payload (a 4xx that is not "retry"): another outcome may be sent. */
+const refusedByApp = (e) => Number.isInteger(e?.status) && e.status >= 400 && e.status < 500 && e.retryable !== true;
+
+/**
+ * Sends one finish. When the app did not answer for the whole tolerance (an outage, a failing connection, 5xx),
+ * the SAME payload is sent once more — never another outcome: the app may be back by then, and a scan that was
+ * paid for and succeeded must not be recorded as failed. A finish that stays undelivered is thrown with
+ * `finishUndelivered`: nothing else is said about this run, its lease lapses and the app's reaper takes the scan.
+ * A 4xx answer is thrown as it is (the caller may report a failure instead).
+ */
+export async function sendFinish(api, payload) {
+    try { return await api.finish(payload); } catch (first) {
+        if (refusedByApp(first)) throw first;
+        try { return await api.finish(payload); } catch (e) { throw refusedByApp(e) ? e : Object.assign(e, { finishUndelivered: true }); }
+    }
+}
+
 // ------------------------------------------------------------------------------------------ intake
 
 /**
@@ -112,14 +141,14 @@ export async function runIntake({ job, api, engine, scratchDir, signal = null, p
     const state = (stage) => host.onState?.({ stage, note: null, noteParams: null, round: null, usage, turns: 0 });
     // an abort from outside (shutdown; the scan was cancelled): nothing is finished, the lease goes back
     const given = async () => { const reason = reasonOf(signal); if (reason === 'shutdown' && host.ownsRelease) await releaseOnce(api, { usage, reason: 'shutdown' }, timing); return { outcome: reason === 'shutdown' ? 'released' : 'cancelled', reason, usage, timings }; };
-    const finish = async (payload, extra = {}) => ({ ...payload, ...extra, finish: await api.finish(payload) });
+    const finish = async (payload, extra = {}) => ({ ...payload, ...extra, finish: await sendFinish(api, payload) });
     try {
         probeResources?.mark('intake:normalise');
         state('check');
         const original = join(dir, 'original.bin');
         writeFileSync(original, await api.source());
         if (signal?.aborted) return await given();
-        const n = await normaliseInChild(original, dir, { format: definition.workingCopy?.format ?? 'webp', limits: { ...definition.upload, ...(definition.kinds?.[job.kind]?.upload ?? {}) }, working: { longEdgePx: definition.workingCopy?.longEdgePx ?? 4096, previewLongEdgePx: definition.workingCopy?.previewLongEdgePx ?? 1600 }, timeoutMs: (timing.normaliseSeconds ?? 20) * 1000, signal });
+        const n = await normaliseInChild(original, dir, { format: definition.workingCopy?.format ?? 'webp', limits: uploadLimitsOf(definition, job.kind), working: { longEdgePx: definition.workingCopy?.longEdgePx ?? 4096, previewLongEdgePx: definition.workingCopy?.previewLongEdgePx ?? 1600 }, timeoutMs: (timing.normaliseSeconds ?? 20) * 1000, signal });
         timings.normaliseMs = Date.now() - t0;
         if (signal?.aborted) return await given();
         if (!n.ok) return await finish({ outcome: 'stopped', reason: n.stop, preCheck: { detail: n.detail ?? null }, usage }, { timings, normalise: n });
@@ -193,7 +222,7 @@ export async function runBuild({ job, api, engine, scratchDir, signal = null, pr
     // the heartbeat goes on while the finish is sent: the lease protects the call (§4.9), not the run cap
     const finish = async (payload) => {
         clearTimeout(runTimer); clearTimeout(builderTimer); stats.caps = caps.snapshot(); stats.abortReason = abortReason;
-        try { return { ...payload, finish: await api.finish(payload) }; } finally { hb.stop(); stats.beats = hb.summary(); }
+        try { return { ...payload, finish: await sendFinish(api, payload) }; } finally { hb.stop(); stats.beats = hb.summary(); }
     };
     const failed = (error, usage) => finish({ outcome: 'failed', error, usage });
     let build = null, result = null;
@@ -325,8 +354,11 @@ export async function runBuild({ job, api, engine, scratchDir, signal = null, pr
         const usage = usagePayload(liveUsage, { turns: caps.turns, durationMs: Date.now() - started });
         if (abortReason === 'shutdown') { hb.stop(); if (host.ownsRelease) await releaseOnce(api, { usage, reason: 'shutdown' }, definition.timing); return { outcome: 'released', usage, stats }; }
         if ((abortReason && !CAP_REASONS.includes(abortReason)) || e?.runOver) { hb.stop(); return { outcome: 'cancelled', reason: abortReason ?? (e.code === 'gone' ? 'gone' : 'lease_lost'), usage, stats }; }
+        // a finish the app never answered: no other outcome is sent in its place (the app may come back between
+        // the two and record a paid, successful scan as failed) — the lease lapses
+        if (e?.finishUndelivered) throw e;
         const code = e?.code === 'renderer_unavailable' || e?.code === 'renderer_busy' ? 'renderer_unavailable' : abortReason ? 'timeout' : 'build';
-        try { return { outcome: 'failed', error: code, detail: stats.thrown, usage, stats, finish: await api.finish({ outcome: 'failed', error: code, usage }) }; } finally { hb.stop(); stats.beats = hb.summary(); }
+        try { return { outcome: 'failed', error: code, detail: stats.thrown, usage, stats, finish: await sendFinish(api, { outcome: 'failed', error: code, usage }) }; } finally { hb.stop(); stats.beats = hb.summary(); }
     } finally {
         hb.stop();
         if (process.env.SCANNER_KEEP_SCRATCH !== '1') rmSync(dir, { recursive: true, force: true });
