@@ -21,7 +21,7 @@ e-mails the admins about operating conditions (`app:ai-scan:watch`, every 5 minu
 | Console | `docker compose exec web bin/console app:ai-scan:status …` — written `status …` below |
 | Scan files | private bucket `wboost-private` (the stack's MinIO, no anonymous policy — `deploy.sh` asserts it on every deploy), `ai-scan/{project}/{scan}/{secret}/…` |
 | Logs | scanner: `docker compose logs scanner` (JSON lines; also in Loki, label `app="wboost-scanner"`); app: `docker compose logs web`, Sentry; cron (`ai-scan-purge`, `ai-scan-watch`): `/var/log/lily/wboost-cron.log` (Loki `app="cron"`) |
-| Secrets | Infisical project `wboost`, env `prod`: `SCANNER_TOKEN` (web + scanner), `ANTHROPIC_API_KEY` (the scanner alone — `web` and the worker get it blanked), `SCANNER_TOKEN_PREVIOUS` (only during a rotation). Rendered to `/srv/wboost/.env` by every deploy |
+| Secrets | Infisical project `wboost`, env `prod`: `SCANNER_TOKEN` (web + scanner), `ANTHROPIC_API_KEY` (the scanner alone), `SCANNER_TOKEN_PREVIOUS` (only during a rotation). Every deploy renders them to `/srv/wboost/.env` and then moves the provider key out of it into `/srv/wboost/.env.scanner` (root, 0600), the one file only the scanner reads — `.env`, which `web` and the worker load, does not hold it (since 2026-11-13) |
 | Rows | `ai_scan` (the scans), `ai_usage_event` (what each run spent), `ai_credit_ledger` (credits), `ai_scan_runtime` (the one row of switches) |
 
 Locally the same commands are `docker compose exec web bin/console app:ai-scan:status …` in the
@@ -57,9 +57,17 @@ docker compose up -d scanner    # start again; `restart scanner` = both
 ```
 
 A stopped scanner makes the app say `scanner_absent` after 60 s: uploads are refused, waiting scans
-wait (and fail refunded after 60 minutes). **Never `docker kill` it**: Docker treats a kill as a manual
-stop and does not start the container again — it stays down until `docker compose up -d scanner`
-(found on 2026-11-13). A real crash, an OOM kill or a reboot does restart it (`restart: always`).
+wait (and fail refunded after 60 minutes).
+
+**`docker kill` is not a restart.** Docker treats a kill as a manual stop and does not apply
+`restart: always` (found on 2026-11-13). It no longer matters: the host cron `scanner-revive` (every
+minute, `~/www/lily.srv/apps/wboost/scanner-revive.sh`) starts a scanner container that is `exited`
+with a non-zero code — measured: killed just after a tick, started again 57 s later, healthy 6 s after
+that; a scan it was running is recovered by its lease like any crash. It only ever runs `docker start`
+(nothing is re-created) and it **leaves a clean stop alone**: `docker compose stop scanner` exits 0 and
+stays stopped. To hold the scanner down whatever its exit code (a stop that had to be killed after the
+45 s grace exits 137): `touch /srv/wboost/.scanner-hold`, and remove the file afterwards. A real crash,
+an OOM kill or a boot restart it by the policy (below: "Measured on the box", "A host reboot").
 
 **3. Switch the mode** — no deploy, effective on the next request (also in the admin tab):
 
@@ -92,11 +100,27 @@ Roll back a scanner the same way with the previous sha.
 
 - Token: copy the current value to `SCANNER_TOKEN_PREVIOUS`, write a new `SCANNER_TOKEN`
   (≥ 24 characters), `./deploy.sh main` (web accepts both, the scanner is re-created with the new
-  one), check `status`, delete `SCANNER_TOKEN_PREVIOUS`, deploy again at leisure.
-- Provider key: replace `ANTHROPIC_API_KEY`, `./deploy.sh main` (only the scanner's definition
-  changes, so only it is re-created). Without a key the scanner stays up and healthy and reports the
+  one), check `status`, delete `SCANNER_TOKEN_PREVIOUS` (through the API — `infisical secrets delete`
+  answers 404, `~/www/lily.srv/docs/secrets.md`), deploy again at leisure (any app deploy does it).
+  **Done once, on 2026-11-13, with a scan running through the first deploy: no failed scan.** Why it
+  is safe: during the blue-green overlap both `web` generations accept the old token the scanner still
+  sends; the scanner is re-created last, when only the new `web` (old + new) is left; the scan it was
+  building is released and claimed again by the new container. The second deploy does not touch the
+  scanner. To check without printing anything, compare fingerprints:
+  `docker exec wboost-scanner-1 printenv SCANNER_TOKEN | tr -d '\n' | sha256sum | cut -c1-8` against
+  the same over each comma-separated part of `web`'s `SCANNER_TOKEN`.
+- Provider key: replace `ANTHROPIC_API_KEY` in Infisical, `./deploy.sh main` — the deploy writes it to
+  `.env.scanner` and re-creates the scanner alone (a bare `docker compose up -d scanner` does not
+  fetch anything from Infisical). Without a key the scanner stays up and healthy and reports the
   provider as blocked — nothing crash-loops. Production uses an API key only, never a subscription
   credential, and no login state is mounted into the container.
+
+**What a push ships.** Release (`.github/workflows/release.yml`) runs after a successful Tests run and
+builds exactly the commit that run tested (`workflow_run.head_sha`), not the head of `main`; the image
+carries it as the label `org.opencontainers.image.revision` (and the tag `sha-<commit>`). Shipping runs
+do not overlap, a docs-only / landing-only change since the last shipped commit is not shipped, and a
+commit older than the shipped one is refused. What runs:
+`docker inspect -f '{{index .Config.Labels "org.opencontainers.image.revision"}}' $(docker ps -qf name=wboost-web)`.
 
 ### Roll back P4
 
@@ -121,6 +145,11 @@ Figures and the checks that are still open: `reliability-report.md` § "G2b".
 | `docker compose restart scanner` mid-build | shutdown 2.6 s; released, claimed again 3 s later, restart not used; `ready` |
 | App deploy (blue-green `web`) with a scan running | the scanner container is not touched; the scan finishes on its first try |
 | `/internal/scanner/*` | internet: 403; another stack's container: 404; `web`'s other networks, right token: 404; scan network, wrong token: 404 |
+| Scanner cut from its network for 30 s mid-build (`docker network disconnect wboost_scan`) | beats and polls fail (`network`), the run goes on; `ready` on its first try, 88 s after the claim instead of ≈ 35 s; nothing restarted |
+| Scanner cut from its network for 150 s mid-build | after 60 s the app says `scanner_absent` (the entry card: `service_waiting`, no new uploads; the running scan's page keeps its stage); the scanner aborts its run itself at 105 s (`app_unreachable`); the lease ends at 120 s; on reconnect the scan is put back (`restarted`), claimed at once and `ready` 40 s later. Lost run: `lease_lost`, $0.02 |
+| Out of memory mid-build (limit lowered to 300 MiB for 20 s, `docker update`) | cgroup OOM kill, exit 137, restarted by the policy; while the limit stayed too low the scanner refused to start (exit 78, 7 quick restarts — it needs 3 GiB); 11 s after the limit was put back it was up, healthy 6 s later; the scan was put back when its lease ended (125 s after the claim) and `ready` 48 s after that. No open usage row, one settle. The box's `ContainerOOMKilled` / `HostOOMKill` alerts fire for such a kill |
+| `docker kill` while idle | started again by cron `scanner-revive` 57 s later (worst case: killed just after a tick), healthy after 6 s more |
+| Token rotation with a scan running (`SCANNER_TOKEN_PREVIOUS`, two deploys) | no failed scan: the scan was released when the scanner was re-created with the new token and `ready` 70 s later; after the second deploy `web` accepts the new token only and the scanner was not touched |
 
 ## The one command
 
@@ -223,8 +252,9 @@ or authentication answer (401, 403, 402, a credit-balance or spend-limit message
 probe failed too**. The scan that met it went back to `queued` without using its restart; nothing is
 claimed; uploads are refused.
 
-1. Fix the cause with the provider: the key (Infisical → `ANTHROPIC_API_KEY` of the scanner; then
-   `docker compose up -d scanner` to load it), the workspace's spend limit, the credit balance.
+1. Fix the cause with the provider: the key (Infisical → `ANTHROPIC_API_KEY`; then `./deploy.sh main`,
+   which writes it to `.env.scanner` and re-creates the scanner), the workspace's spend limit, the
+   credit balance.
 2. Do nothing else: the scanner probes every 5 minutes and reports `ok` with its next tick (30 s);
    the queue then moves by itself. To skip the wait: `docker compose restart scanner` (a starting
    scanner that hears `blocked` from the app probes at once).
@@ -260,13 +290,64 @@ docker compose up -d scanner                   # start / recreate
 - A scanner that died mid-scan left a lease: 120 s after its last heartbeat the reaper puts the scan
   back (`restarted`); a second death fails it `interrupted`, refunded — a poisonous picture cannot
   loop, and the same picture failing twice in a project is refused for 30 days (`source_unscannable`).
-- The container is `Exited` and does not come back: somebody used `docker kill` (see "Production" 2) —
-  `docker compose up -d scanner`.
+- The container is `Exited`: with code 0 somebody stopped it on purpose (`docker compose up -d scanner`
+  when that is over); with another code (137 = `docker kill`) cron `scanner-revive` starts it within a
+  minute — unless `/srv/wboost/.scanner-hold` exists (see "Production" 2). A line
+  `scanner-revive: started …` in `/var/log/lily/wboost-cron.log` says it did.
+- `Restarting` with exit 78 in a loop: it refuses its configuration — see `Refused at start` below.
 - `Refused at start`: the log says why — a concurrency the memory limit cannot hold (3 GiB for 1),
   a missing `SCANNER_APP_URL` / `SCANNER_TOKEN`.
 - `app.lastError: not_scanner` in the health document: `web` does not see the scanner's address in
   `SCAN_NETWORK_CIDR`, or the tokens differ (`SCANNER_TOKEN` of `web` may hold `current,previous`
   during a rotation).
+
+## A host reboot (not tested, by decision)
+
+The box is shared and is not rebooted for a test. What happens, from the pieces that were tested:
+
+- Every container of the stack has `restart: always` and Docker starts at boot, so all of them come
+  back without anybody acting; no start order is enforced by Docker after a boot. `web` and the worker
+  wait for the database themselves; the scanner needs only `web` and retries every call (a scanner
+  that starts before `web` answers stays `starting` / unhealthy until its first accepted poll, then
+  healthy — the same path as every blue-green deploy and as the network cut above).
+- A scan that was `running` or `checking` loses its scanner process exactly as in the kill and OOM
+  cases: the row keeps its lease, 120 s after the last heartbeat the reaper (any status read by its user, or the
+  scanner's own claim poll and 30 s tick — so in practice the moment a scanner is back) puts it back — `restarted`, claimed again, at most
+  once; a second loss fails it `interrupted`, refunded. The lost run's usage row is closed `lease_lost`
+  with its last heartbeat's figures. If the box is down longer than the lease, that happens on the
+  first request after the boot.
+- `queued` scans simply wait; one that waited 60 minutes in all fails `queue_timeout`, refunded.
+- While the scanner is not seen for 60 s the app says `scanner_absent` (uploads refused); the e-mail
+  "scanner not answering" goes out after 3 minutes and "back" when it returns — if the mailer is up.
+- Uploaded pictures and proposals are in MinIO and Postgres, both on volumes; the scanner keeps
+  nothing (its `/tmp` is a tmpfs).
+
+After an unplanned reboot: `status` (scanner seen, no scan stuck in `running` with a lease in the
+past — `status --reap` if nobody has read it yet), `docker compose ps`.
+
+## Gotenberg's memory
+
+The renders of a scan go to the stack's one Gotenberg (5 GiB limit), shared with exports. The local
+soak showed its anonymous memory creeping (187 → 215 MB over 100 scans). Nothing new watches it: the
+box's Prometheus already records every container (`container_memory_working_set_bytes`,
+`container_memory_rss`, 30 days kept) and its alerts already cover this one —
+`ContainerMemoryNearLimit` (75 % for 10 min), `ContainerMemoryCritical`, `ContainerMemoryLeakPredicted`
+(a 2-day trend that would reach the limit in 4 days) and `ContainerOOMKilled`. To look:
+
+```bash
+docker stats --no-stream wboost-gotenberg-1
+# daily maximum of the last 14 days, MiB (swap max_over_time for min_over_time, working_set for rss):
+docker exec prometheus wget -qO- "http://127.0.0.1:9090/api/v1/query_range?query=max_over_time(container_memory_working_set_bytes%7Bname%3D%22wboost-gotenberg-1%22%7D%5B1d%5D)%2F1048576&start=$(( $(date +%s) - 14*86400 ))&end=$(date +%s)&step=86400" \
+  | python3 -c 'import sys,json,time; [print(time.strftime("%m-%d", time.localtime(t)), round(float(v))) for r in json.load(sys.stdin)["data"]["result"] for t, v in r["values"]]'
+```
+
+Figures on 2026-11-13, the container 12 days up (since the boot of 2026-11-01) and ten
+scans of the checks in: 694–727 MiB working set now (14 % of the limit), of that ≈ 205 MiB anonymous, 160 MiB tmpfs,
+the rest page cache. Per day over those 12 days: working set minimum 450–675 MiB, maximum 649–1 151 MiB
+(23 % of the limit at most), anonymous minimum 132–188 MiB — it returns to the same floor every day; no
+trend. Read the same series again after a week of real use; a rising daily **minimum** of the
+anonymous figure is the sign of a leak, and the remedy is a restart of Gotenberg in a quiet minute
+(`docker compose restart gotenberg` — exports fail for the few seconds it takes).
 
 ## Rollback, per phase
 

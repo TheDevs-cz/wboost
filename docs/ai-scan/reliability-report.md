@@ -546,8 +546,58 @@ Found on the way:
 - `app:ai-scan:fake-run` refuses in production by design, so "mid-run" was tested with real scans of
   the synthetic picture.
 
-**Still open of G2b** (infra backlog): an OOM forced by a lowered memory limit, a reboot mid-scan,
-Gotenberg / MinIO / Redis stopped and paused, a `db` restart, the scanner cut from the network for
-30 / 60 / 120 s and 10 min, a slow migration during a deploy mid-scan, a calendar PDF export during a
-scan, the hostile uploads through the real upload, a hard design's figures on x86, Gotenberg watched
-for a week, and the ten admin scans with billed cost compared to recorded usage.
+**Still open of G2b after the first part** — most of it was done later the same day, see the next
+section; what stays open is listed at its end.
+
+## G2b — on the box, the second part (2026-11-13, "fill the gaps")
+
+Same box, same rules: only the container `wboost-scanner-1` was killed, constrained or disconnected;
+`web`, the database, Redis, MinIO, Gotenberg and every other project's container were left alone
+(the 136 other containers have the same start times and restart counts before and after). Four scans
+of **synthetic posters** drawn for the purpose (1080 × 1350, no customer material) in the owner's
+internal project, started through the public web by a temporary admin (deleted afterwards), all
+discarded. Scanner `0.2.0+7e7e78bc8b4a`, definition `6-142dae97f82b`, mode
+`on · admins + editors of entitled projects`, no other scan in progress at any of the tests.
+
+| Check | Observed | |
+|---|---|---|
+| Scanner cut from its network for **30 s** mid-build (`docker network disconnect wboost_scan wboost-scanner-1`, then `connect`) | two beats and one poll failed (`network`), the engine's run went on; `ready` on its **first try** 88 s after the claim (≈ 35 s undisturbed), $0.215; container not restarted, same address after the reconnect | pass |
+| Cut for **150 s** mid-build | app: `scanner_absent` from 60 s (entry card `service_waiting`, `canStart: false`; the running scan's status document unchanged — stage `read`, no waiting reason); scanner: `run aborted · app_unreachable` at 105 s after the last acknowledged beat; lease over at 120 s; the row stayed `running` with a lease in the past until the scanner came back (nothing else reads it), then at the reconnect `build_lease_lost → queued (restarted)` and `build_claim` in the same second, `ready` 40 s later. Usage: run 1 `lease_lost` $0.022, run 2 $0.138; open usage rows 0; one reserve, one settle | pass |
+| **Out of memory** mid-build: `docker update --memory 300m --memory-swap 300m` with 369 MiB in use (scanner 137 MiB, the run's worker 240 MiB, the engine 202 MiB), limit put back to 4 GiB / 8 GiB after 20 s | docker events: `oom`, `die 137`, then the policy restarted it 7 times with `die 78` — the scanner refuses to start under 3 GiB ("needs a memory limit of 3 GiB, this container has 0.29 GiB") — and once more 11 s after the limit was restored: started, healthy 6 s later, restart count 8. The scan: `running` until its lease ended, `build_lease_lost → queued (restarted)` 125 s after the claim, claimed in the same second, `ready` 48 s later. Usage: run 1 `lease_lost` $0.00 (killed 13 s into the run, before its first heartbeat carried figures), run 2 $0.168; open usage rows 0; one settle. `docker inspect` afterwards: memory 4 294 967 296, swap 8 589 934 592, reservation 536 870 912 — as declared | pass |
+| **`docker kill`** (the trap of the first part) | idle scanner killed 3 s after a cron tick: `exited (137)`, started by cron `scanner-revive` 57 s later (`scanner-revive: started wboost-scanner-1 (was exited with code 137)`), healthy 6 s after that, seen by the app. A clean `docker compose stop` exits 0 and is left alone (checked: stopped across a cron tick, still `exited (0)`; with `.scanner-hold` present the script does nothing either) | pass — closed by infra `scanner-revive.sh` + cron |
+| **`SCANNER_TOKEN` rotation** through `SCANNER_TOKEN_PREVIOUS` | 1. previous := current, a new token minted on the box into tmpfs and stored (no value shown); 2. `./deploy.sh main` with a scan in its build: `web` 401 → 402 now accepts `new,previous` (fingerprints compared, not values), worker re-created, scanner re-created last with the new token — the scan was released (`build_release → queued`, 26 s in, $0.061 recorded for the released run), claimed by the new container one second later and `ready` 69 s after that; 3. `SCANNER_TOKEN_PREVIOUS` deleted, the next deploy (the app's own CI deploy, `web` → 403): `web` accepts the new token only, the scanner container was not touched and is seen. **No failed scan, no refused call in the scanner's log** | pass |
+| Provider key out of `.env` | the same deploy: `.env` 12 keys, none of them the provider key; `.env.scanner` (root, 0600) 1 line; the scanner holds `ANTHROPIC_API_KEY` and `SCANNER_TOKEN` and no other credential; `web`'s and the worker's provider key empty; provider `ok`, the scan above built with it | pass |
+| The app's dependencies failing, seen from the scanner (renderer, storage) | **not run on the box**: the scanner cannot reach Gotenberg, MinIO, Redis or the database at all, and the only way to make a render or a file read fail is to break those production services or to use `app:ai-scan:fake-run`, which refuses in production; there is no admin fault hook. Covered locally (items 1 and 11: `renderer_busy` / `renderer_unavailable` / `storage_unavailable`, the 60 s tolerance, fix 7) and by the two network cuts above, which are the scanner's view of "the app does not answer" | not run, by the rule of the box |
+| Host reboot mid-scan | **not run, by decision** (a shared box). What would happen is written in the runbook ("A host reboot") from the restart policies (`always` on all nine containers, Docker enabled at boot) and the lease recovery measured above | documented |
+| Gotenberg's memory | 12 days of the box's own Prometheus series, the container up since 2026-11-01 and the ten scans of the checks in: working set 694–727 MiB at the time of the tests (14 % of 5 GiB; ≈ 205 MiB anonymous, 160 MiB tmpfs, the rest page cache); daily minimum 450–675 MiB, daily maximum 649–1 151 MiB, daily minimum of the anonymous part 132–188 MiB with no trend. The existing alerts (`ContainerMemoryNearLimit`, `…Critical`, `…LeakPredicted`, `ContainerOOMKilled`) cover it; the runbook has the one command that prints the series ("Gotenberg's memory") | no creep visible; the week of real use is still to come |
+| The box | the 136 containers of other projects: same `StartedAt` and restart counts before and after; nothing unhealthy | pass |
+| Spend | **$0.75** for the four scans ($0.215, $0.161, $0.168, $0.204) | — |
+
+Found on the way:
+
+- **A lease that ended is noticed only when somebody reads the row or a scanner polls.** With the
+  scanner away and nobody looking, the row says `running` with a lease in the past (150 s cut: 45 s).
+  Harmless — the next claim poll, the scanner's 30 s tick or the user's status read reaps it — but
+  `status --scans` can show it; `status --reap` clears it.
+- **An OOM under a limit that stays too low is a restart loop** (exit 78, Docker's back-off), not a
+  scan loop: the scanner never claims under 3 GiB. It ends by itself when the limit is right again.
+- **A run killed before its first heartbeat records $0** although the engine had begun (the report's
+  item 2 says "≤ 15 s of spend may be missing" — this is that case at its extreme).
+- The app's alert for a lost scanner (3 min) did not go out: every outage here was kept under it.
+  The box's own `ContainerOOMKilled` / `HostOOMKill` alerts did fire for the forced OOM.
+
+**The release pipeline** (the gap "a commit can reach production before its own Tests run"):
+confirmed — in a `workflow_run` event `github.sha` is the head of `main` when the event fires, and
+the shared ship workflow checked out and built that (run 43340365916 was started by the Tests of
+`ab97581f` and built `93f8e982`, whose own Tests then failed). Fixed with an optional `ref` input in
+`TheDevs-cz/ci` (`_ship.yml` / `_build.yml` / `_deploy.yml`, default = the old behaviour for every
+other project) and in `release.yml`: the tested commit is what is built, shipping runs are
+serialised, a commit older than the shipped one is refused, the last shipped commit is read from the
+run's title. Evidence in the runbook's "What a push ships" and in the infra journal.
+
+**Still open of G2b:** a real host reboot (by decision); Gotenberg / MinIO / Redis stopped or paused
+and a `db` restart (production services — not to be broken for a test); a slow migration during a
+deploy mid-scan; a calendar PDF export during a scan; the hostile uploads through the real upload;
+a hard design's figures on x86; Gotenberg read again after a week of real use; billed cost against
+recorded usage after the first ten admin scans (ten scans exist, all of them checks, $1.54 recorded — the
+provider's own report was not read).
