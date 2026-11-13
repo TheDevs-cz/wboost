@@ -85,6 +85,13 @@ final class AiScanImageController extends AbstractController
         $bytes ??= $this->storage->read($directory, $file);
 
         if ($bytes === null) {
+            // A run's renders are deleted the moment it ends, so a page that
+            // read "running, candidate 2" a second ago may ask for a file
+            // that is already gone. That is no error: "nothing to show".
+            if ($which === 'candidate') {
+                return new Response('', Response::HTTP_NO_CONTENT, ['Cache-Control' => 'no-store']);
+            }
+
             throw $this->createNotFoundException();
         }
 

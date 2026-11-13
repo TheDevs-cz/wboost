@@ -188,6 +188,11 @@ final class AiScanPermissionsTest extends WebTestCase
             self::assertResponseStatusCodeSame($expected, $which);
         }
 
+        // A render that is gone (a run's renders are deleted when it ends) is
+        // "nothing to show", not an error — the page may have just been told of it.
+        $client->request('GET', sprintf('/ai-scan/%s/image/candidate?n=3', $ready));
+        self::assertResponseStatusCodeSame($allowed ? 204 : 403);
+
         // Cancel applies to nothing that ended: allowed callers get the
         // refusal code, the others never get that far.
         $cancel = $this->post($client, sprintf('/ai-scan/%s/cancel', $ready));

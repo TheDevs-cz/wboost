@@ -34,6 +34,8 @@
     {% endif %}
 {% endblock %}
 
+{# „Nový sken“ (ux.md §8): a menu of the two kinds when the project has both
+   modules, a plain link to the one it has otherwise. #}
 {% block title_actions %}
     {% if can_start and has_calendars and has_templates %}
         <div class="dropdown">
@@ -98,8 +100,10 @@
                             {% set pill = is_calendar and row.status == 'accepted' ? ['mint', 'Rozvržení použito'] : (pills[row.status] ?? pills.expired) %}
                             <li class="as-hrow" data-scan="{{ row.id }}" data-status="{{ row.status }}">
                                 <span class="as-scan-th as-hrow-th">
-                                    {% if row.hasPicture and not gone %}
-                                        <img src="{{ path('ai_scan_image', {'id': row.id, 'which': row.hasProposal ? 'proposal' : 'preview'}) }}" alt="" loading="lazy" data-fallback="{{ path('ai_scan_image', {'id': row.id, 'which': 'working'}) }}|{{ path('ai_scan_image', {'id': row.id, 'which': 'original'}) }}">
+                                    {# `row.picture` = the copy of the upload that exists; nothing else is asked for. #}
+                                    {% set thumb = row.hasProposal ? 'proposal' : (row.picture == 'working' ? 'preview' : row.picture) %}
+                                    {% if row.hasPicture and not gone and thumb %}
+                                        <img src="{{ path('ai_scan_image', {'id': row.id, 'which': thumb}) }}" alt="" loading="lazy">
                                     {% endif %}
                                 </span>
                                 <span class="who">

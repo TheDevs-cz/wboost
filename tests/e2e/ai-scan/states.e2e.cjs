@@ -10,7 +10,8 @@ module.exports = {
     name: 'states',
     // a stopped / failed scan has no normalised copy: the page falls back from one picture to the other
     // … and the retry of a picture that failed twice is refused with 409 `no_retries_left`
-    allowed: [/\/image\/(working|original).*404|status of 404/, /status of 409 .*\/retry$/],
+    // No 404 is allowed: the page asks only for the copy of the picture that exists (`scan.picture`).
+    allowed: [/status of 409 .*\/retry$/],
     async run({ browser, page, h, scanner, check }) {
         const status = () => h.scan(page, (app) => app.scan && app.scan.status);
         const card = () => h.text(page, '.as-status');
@@ -90,6 +91,35 @@ module.exports = {
             assert.equal(h.psql(`SELECT try FROM ai_scan WHERE id = '${id}'`), '2');
             // The page of a scan that is finished with has no „Zkusit přesto“ any more.
             scanner.options.scenario = 'happy';
+        });
+
+        await check('„Naskenovat znovu“: the same picture starts a new scan at once, „…jiný formát“ goes through S2', async () => {
+            const first = await h.scan(page, (app) => app.scan.id);
+            assert.equal(await status(), 'ready');
+            const pick = async (mode) => {
+                await h.press(page, 'resc');
+                await page.waitForSelector('dialog[open]');
+                assert.match(await h.text(page, 'dialog[open]'), /Nový sken může dopadnout jinak, ne nutně lépe\..*Spotřebuje další sken/);
+                await page.click(`dialog[open] [data-mode="${mode}"]`);
+            };
+            // „Stejný obrázek, jiný formát“: back on S2 with the stored picture — nothing started.
+            await pick('format');
+            await h.waitView(page, 'chosen');
+            assert.match(await h.text(page, '.as-side'), /Formát šablony/);
+            assert.equal(await h.scan(page, (app) => app.scan), null);
+            // „Stejný obrázek znovu“: no S2 — the new scan is already waiting, under its own address.
+            await page.goto(h.urls.scan(first), { waitUntil: 'networkidle2' });
+            await h.waitView(page, 'review');
+            scanner.options.paused = true;
+            await pick('same');
+            await h.waitView(page, 'wait');
+            const second = await h.scan(page, (app) => app.scan.id);
+            assert.notEqual(second, first);
+            assert.ok(page.url().endsWith(`/z-obrazku/${second}`), 'one URL per scan');
+            assert.equal(h.psql(`SELECT status FROM ai_scan WHERE id = '${first}'`), 'ready', 'the first proposal stays');
+            assert.equal(h.psql(`SELECT options::text FROM ai_scan WHERE id = '${second}'`), h.psql(`SELECT options::text FROM ai_scan WHERE id = '${first}'`), 'the same format');
+            scanner.options.paused = false;
+            await h.waitView(page, 'review', 90000);
         });
 
         await check('discard a proposal: confirm dialog, toast, back to the upload', async () => {

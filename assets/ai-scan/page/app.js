@@ -317,6 +317,14 @@ export class ScanApp {
             event.stopPropagation();
             return;
         }
+        // Arrow keys walk a menu's rows (the `⋯` menu of a picture card, the font picker).
+        if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key) && event.target.closest('.as-ph-menu .menu')) {
+            const rows = $$('.mi', event.target.closest('.menu'));
+            const at = rows.indexOf(event.target.closest('.mi'));
+            const next = event.key === 'Home' ? 0 : event.key === 'End' ? rows.length - 1 : (at + (event.key === 'ArrowDown' ? 1 : -1) + rows.length) % rows.length;
+            if (rows[next]) { event.preventDefault(); rows[next].focus(); }
+            return;
+        }
         if (event.target.closest('.as-handle')) review.sliderKey(this, event);
     }
 

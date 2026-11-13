@@ -160,6 +160,9 @@ final readonly class AiScans
             'noteParams' => $scan->noteParams,
             'round' => $scan->round,
             'previewSeq' => $scan->previewSeq,
+            // The number of the latest render of the RUNNING run (`image/candidate?n=`);
+            // `previewSeq` only says that it changed — it grows across runs and tries.
+            'previewCandidate' => $scan->status === AiScanStatus::Running && $scan->candidates !== [] ? count($scan->candidates) : null,
             'stages' => self::stages($scan, $now),
             'textBoxes' => $scan->status->isInProgress() ? $scan->textBoxes : null,
             'picture' => self::picture($scan),

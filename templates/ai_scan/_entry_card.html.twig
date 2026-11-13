@@ -40,7 +40,7 @@
                         {%- elseif scan.status == 'queued' -%}
                             {{ icon('clock', 's14') }}<span>Ve frontě{% if scan.waiting is null and scan.queuePosition is not null %} · {{ scan.queuePosition > 0 ? scan.queuePosition ~ ' před vámi' : 'jste na řadě' }}{% endif %}</span>
                         {%- else -%}
-                            {{ icon('eye', 's14') }}<span>Návrh <span class="as-nm">„{{ scan.name }}“</span> čeká na kontrolu</span>
+                            {{ icon('eye', 's14') }}<span class="as-t1-fit" title="Návrh „{{ scan.name }}“ čeká na kontrolu"><span>Návrh „</span><span class="as-nm">{{ scan.name }}</span><span>“ čeká na kontrolu</span></span>
                         {%- endif -%}
                     </a>
                 {% endfor %}

@@ -112,19 +112,18 @@ export default class extends Controller {
 
             // A template with unfilled pictures (AI scan, ux.md T4): publishing
             // is an export — ask first, then repeat with `allowUnfilled=1`.
+            // (No `return` here: the confirmed repeat is sent AFTER the
+            // `finally` below has released the dialog — a `return` skipped it,
+            // and "Exportovat přesto" published nothing.)
             if (response.status === 409 && data && data.code === UNFILLED && !formData.has(CONFIRM_FIELD)) {
                 this._setStatus("", "");
                 again = await askUnfilled(data);
-                return;
-            }
-
-            if (response.ok && data && data.ok) {
+            } else if (response.ok && data && data.ok) {
                 this._setStatus("Hotovo — příspěvek byl publikován.", "ok");
-                return;
+            } else {
+                const message = (data && data.error) || "Publikování se nepovedlo. Zkuste to prosím znovu.";
+                this._setStatus(message, "error", data && data.reconnect);
             }
-
-            const message = (data && data.error) || "Publikování se nepovedlo. Zkuste to prosím znovu.";
-            this._setStatus(message, "error", data && data.reconnect);
         } catch (e) {
             this._setStatus("Publikování se nepovedlo. Zkuste to prosím znovu.", "error");
         } finally {

@@ -54,11 +54,18 @@ const config = {
     tmp: fs.mkdtempSync(path.join(os.tmpdir(), 'wboost-aiscan-e2e-')),
 };
 
+/**
+ * `docker compose exec` in the stack's service — or, for a run beside other work on the same
+ * machine, in an app container of its own (`E2E_WEB_CONTAINER`, with its own database `E2E_DB`
+ * on the stack's postgres): then nothing this run does touches the shared app. README.md.
+ */
 function compose(args, input) {
-    return execFileSync('docker', ['compose', 'exec', '-T', ...args], { cwd: ROOT, input, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+    const own = args[0] === 'web' && process.env.E2E_WEB_CONTAINER;
+    const command = own ? ['exec', '-i', process.env.E2E_WEB_CONTAINER, ...args.slice(1)] : ['compose', 'exec', '-T', ...args];
+    return execFileSync('docker', command, { cwd: ROOT, input, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
 }
 function psql(sql) {
-    return compose(['postgres', 'psql', '-U', 'postgres', '-d', 'wboost', '-v', 'ON_ERROR_STOP=1', '-At'], sql).trim();
+    return compose(['postgres', 'psql', '-U', 'postgres', '-d', process.env.E2E_DB || 'wboost', '-v', 'ON_ERROR_STOP=1', '-At'], sql).trim();
 }
 const quote = (text) => `'${String(text).replace(/'/g, "''")}'`;
 const consoleCommand = (...args) => compose(['web', 'bin/console', ...args]);
@@ -87,9 +94,28 @@ function ensureFixture() {
     if (process.env.E2E_KEEP_CACHE !== '1') {
         compose(['web', 'sh', '-c', 'rm -rf public/assets']);
         consoleCommand('cache:clear');
-        execFileSync('curl', ['-s', '-o', '/dev/null', '--max-time', '120', `${config.base}/login`]); // warm it up
+        warmUp();
     }
     consoleCommand('app:ai-scan:status', '--mode=on', '--admin-only=0', '--max-running=1', '--daily-starts-user=500', '--daily-starts-project=500');
+}
+
+/**
+ * After a cache clear the dev asset server compiles every module on its first request; a browser
+ * asking for dozens at once while the container is still being built gets a 500 for some of them
+ * (which stops every controller of that page). So: build the container with one request, then
+ * ask for every asset the importmap names, one after another, before any browser does.
+ */
+function warmUp() {
+    const html = execFileSync('curl', ['-s', '--max-time', '180', `${config.base}/login`], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+    const assets = [...new Set(html.match(/\/assets\/[A-Za-z0-9_@.\/-]+\.(?:js|css)/g) || [])];
+    if (!assets.length) return;
+    const list = path.join(os.tmpdir(), `wboost-e2e-warm-${process.pid}.txt`);
+    fs.writeFileSync(list, assets.map((asset) => `url = "${config.base}${asset}"\noutput = "/dev/null"\n`).join(''));
+    try {
+        execFileSync('curl', ['-s', '--max-time', '300', '-K', list], { stdio: 'ignore' });
+    } catch (error) { /* a slow asset is the browser's problem, not the warm-up's */ } finally {
+        fs.rmSync(list, { force: true });
+    }
 }
 
 /** Removes what earlier runs left: the scans of both projects, their usage rows, templates and access requests. */

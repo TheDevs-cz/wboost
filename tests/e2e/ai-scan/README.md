@@ -26,7 +26,10 @@ a final check "console is free of errors".
 
 The stack must let this machine call the scanner API: its address in
 `SCAN_NETWORK_CIDR` (`.env.dev.local`, see `scanner/README.md`). The runner
-clears the dev asset cache first (`E2E_KEEP_CACHE=1` skips it) and switches
+clears the dev asset cache first (`E2E_KEEP_CACHE=1` skips it), then asks for
+every asset the importmap names, one after another, before a browser does —
+a page that requests dozens of uncompiled modules at once right after a cache
+clear used to get a 500 for some of them — and switches
 the operating mode to `on` for everybody (`app:ai-scan:status --mode=on
 --admin-only=0`) — it leaves it that way.
 
@@ -40,8 +43,38 @@ the operating mode to `on` for everybody (`app:ai-scan:status --mode=on
 | `MAILER` | `http://localhost:8027` | the mail catcher's API (the access request's mail) |
 | `SCANNER_TOKEN` | the dev token of `.env.dev` | bearer of the scanner API |
 | `E2E_NO_FIXTURE` | – | `1` = bring your own accounts and projects |
+| `E2E_WEB_CONTAINER`, `E2E_DB` | – | run against an app container of your own (below) |
 | `E2E_KEEP` | – | `1` = leave the scans and templates of the run in place |
 | `SHOTS`, `HEADFUL` | – | screenshots directory; show the browser |
+
+## Beside other work on the same machine
+
+The scripts clear the dev cache, switch the operating mode and need the ONE
+build slot (`max running 1`) for themselves — a real scanner or somebody
+else's run on the same stack makes them fail by timeout. Give them an app of
+their own: a second web container on the stack's network with the tree
+mounted, its own `var/`, database, private bucket and scanner token —
+
+```bash
+docker run -d --name wboost-e2e-web --network wboost_default -p 8093:80 \
+  -v "$PWD":/app -v wboost-e2e-var:/app/var \
+  -v "$PWD/.docker/php/wboost.ini":/usr/local/etc/php/conf.d/zz-wboost.ini:ro \
+  -e 'DATABASE_URL=postgresql://postgres:postgres@postgres:5432/wboost_e2e?serverVersion=16&charset=utf8' \
+  -e S3_PRIVATE_BUCKET_NAME=wboost-e2e-private -e REDIS_CACHE_DSN=redis://redis:6379/7 -e XDEBUG_MODE=off \
+  -e SCANNER_TOKEN=e2e-scanner-token-not-a-secret-000000 \
+  -e 'SCAN_NETWORK_CIDR=172.31.250.0/24,127.0.0.1/32,::1/128,172.16.0.0/12,192.168.65.0/24' \
+  -e UPLOADS_BASE_URL=http://localhost:19010 ghcr.io/thedevs-cz/php:8.5-wboost
+docker compose exec -T postgres psql -U postgres -c 'CREATE DATABASE wboost_e2e'
+docker exec wboost-e2e-web sh -c 'chmod -R 777 var && bin/console doctrine:migrations:migrate -n'
+docker compose exec -T minio sh -c 'mc alias set local http://localhost:9000 wboost wboostminio && mc mb -p local/wboost-e2e-private'
+
+BASE=http://localhost:8093 E2E_WEB_CONTAINER=wboost-e2e-web E2E_DB=wboost_e2e \
+  SCANNER_TOKEN=e2e-scanner-token-not-a-secret-000000 node tests/e2e/ai-scan/run.cjs
+```
+
+(`UPLOADS_BASE_URL` = the stack's Minio port; the public bucket and the mail
+catcher are shared, which is harmless.) After a new migration run the
+`migrate` line again.
 
 ## Test data — never real data
 
@@ -63,9 +96,9 @@ and nobody's material is used.
 
 | File | Covers |
 | --- | --- |
-| `flow.e2e.cjs` | S1 refusals → S2 facts, inline font upload, consent by keyboard, privacy dialog → S3 stages / round / preview / live region → S4 opens by itself → font, text, left-out thing, layers, compare → leave and return → S4b multi upload, kind, single upload, remove + undo → create → editor + toast → read-only page, `Ze skenu` |
-| `paths.e2e.cjs` | every hidden file input opened by its button through the real file chooser (picture, fonts, several pictures, one place), custom width, the dialogs and the `⋯` menu by keyboard with the focus back on the opener, „Oříznout, aby místo vyplnil“, the gallery picker, the export question on the group and the document fill pages |
-| `states.e2e.cjs` | service not working, cancel while waiting / running, pre-check stop + „Zkusit přesto“, discard a proposal, refused, failed + leave / return, retry until the picture is refused, „Zahodit“, phone layout, reduced motion |
+| `flow.e2e.cjs` | S1 refusals → S2 facts, inline font upload, consent by keyboard, privacy dialog → S3 stages with the server's durations and notes / „Tyto texty jsme našli“ outlines / round / preview / live region → S4 opens by itself → the font picker (faces in their own typeface, keyboard), text, left-out thing, layers, compare → leave and return → S4b multi upload, kind, single upload, remove + undo → create → editor + toast → read-only page, `Ze skenu` |
+| `paths.e2e.cjs` | every hidden file input opened by its button through the real file chooser (picture, fonts, several pictures, one place), custom width, „Přidat písmo…“ inside the font picker, the dialogs and the `⋯` menu by keyboard with the focus back on the opener, „Oříznout, aby místo vyplnil“, the gallery picker, the export question on the group and the document fill pages |
+| `states.e2e.cjs` | service not working, cancel while waiting / running, pre-check stop + „Zkusit přesto“, „Naskenovat znovu“ (the same picture starts at once, another format goes through S2), discard a proposal, refused, failed + leave / return, retry until the picture is refused, „Zahodit“, phone layout, reduced motion |
 | `around.e2e.cjs` | the locked card → request dialog (focus, Escape) → request sent + mail; no AI request on pages of a user without scans; the enabled card, the strip, the shell's ring → toast → count, no polling once nothing is in progress, history; export with an unfilled picture |
 
 ## Driving a scan by hand

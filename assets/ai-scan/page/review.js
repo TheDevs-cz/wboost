@@ -4,7 +4,7 @@
 // document replaces the state, so "Vrátit" is `undo` of an item key and nothing is kept here.
 import { api, confirmDialog, creditLine, dateCz, dialogHead, esc, ic, openDialog, pl, urlFor } from '../kit.js';
 import { toast } from '../../shell/toast.js';
-import { FONT_ROLES, SIMPLIFICATIONS, summaryLine, toDecideLine } from '../copy.js';
+import { FONT_ROLES, SIMPLIFICATIONS, startHint, summaryLine, toDecideLine } from '../copy.js';
 import { boxStyle, cropOne, crops, cropStyle, head, historyLink, pixelsStyle, union } from './parts.js';
 import { offLine } from './wait.js';
 import { uploadFonts, usePicture } from './upload.js';
@@ -54,8 +54,29 @@ function viewer(app, { readOnly = false } = {}) {
 const decided = (hl, text, key, k) => `<div class="as-it decided" data-hl="${esc(hl)}"><p class="as-it-t">${ic('check-circle')}<span>${text}</span></p><button type="button" class="btn xs btn-ghost" data-act="undo" data-key="${esc(key)}" data-k="un${esc(k)}">Vrátit</button></div>`;
 const item = (hl, tag, cropHtml, title, body, acts) => `<article class="as-it" data-hl="${esc(hl)}">${cropHtml}<h3 class="as-it-t"><span class="as-ltag" aria-hidden="true">${tag}</span><span>${title}</span></h3>${body}${acts ? `<div class="as-it-acts">${acts}</div>` : ''}</article>`;
 
-function fontSelect(app, group, k) {
-    return `<label class="inp sel sm as-fontsel"><select aria-label="Vybrat jiné písmo" data-chg="chooseFont" data-group="${esc(group)}" data-k="fs${esc(k)}"><option value="">Vybrat jiné písmo…</option>${app.proposal.fonts.map((face) => `<option value="${esc(face)}">${esc(face)}</option>`).join('')}</select>${ic('chev-down', 's14')}</label>`;
+/**
+ * „Vybrat jiné písmo ▾“ (ux.md S4): the project's faces, each drawn in its own typeface, the one
+ * in use ticked; the last row adds a font file to the project and switches to it. A popover of
+ * the same kind as the `⋯` menu of a picture card (`app.menu`, Escape, click outside).
+ */
+function fontSelect(app, group, k, current = null) {
+    const id = `font:${k}`;
+    const open = app.menu === id;
+    const faces = app.proposal.fonts;
+    const rows = faces.map((face) => `<button type="button" class="mi as-fontopt" role="menuitemradio" aria-checked="${face === current}" data-act="pickFont" data-group="${esc(group)}" data-face="${esc(face)}"><span class="as-fontopt-n" style="font-family:${cssFamily(face)}">${esc(face)}</span>${face === current ? `<span class="end">${ic('check')}<span class="sr">používá se</span></span>` : ''}</button>`).join('');
+    const menu = open ? `<div class="menu as-fontmenu" role="menu" aria-label="Písma projektu">${rows || '<p class="cap" style="margin:6px 12px">Projekt nemá žádné písmo.</p>'}<div class="menu-sep" role="separator"></div><button type="button" class="mi" role="menuitem" data-act="uploadFont" data-group="${esc(group)}">${ic('upload')}Přidat písmo…<span class="end">TTF, OTF, WOFF</span></button></div>` : '';
+    return `<span class="as-ph-menu as-fontpick"><button type="button" class="btn xs btn-tertiary" aria-haspopup="menu" aria-expanded="${open}" data-act="fontMenu" data-id="${esc(id)}" data-k="phmenu${esc(id)}"${app.fontBusy ? ' disabled' : ''}>Vybrat jiné písmo${ic('chev-down', 's14')}</button>${menu}</span>`;
+}
+/** A face string as a CSS font-family value (the name the picker's @font-face rules use). */
+const cssFamily = (face) => `'${String(face).replace(/[^\p{L}\p{N} ()._-]/gu, '')}', sans-serif`;
+
+/** One @font-face per project face, so the picker can draw each in its own typeface. */
+function fontFaces(app) {
+    const files = (app.proposal && app.proposal.fontFiles) || {};
+    const css = Object.entries(files).map(([face, url]) => `@font-face{font-family:${cssFamily(face).split(',')[0]};src:url("${String(url).replace(/["\\\n]/g, '')}");font-display:swap}`).join('');
+    let style = document.getElementById('asFontFaces');
+    if (!style) { style = document.createElement('style'); style.id = 'asFontFaces'; document.head.append(style); }
+    if (style.textContent !== css) style.textContent = css;
 }
 const fontUpload = (group, k) => `<button type="button" class="btn xs btn-tertiary" data-act="uploadFont" data-group="${esc(group)}" data-k="fu${esc(k)}">${ic('upload', 's14')}Nahrát správné písmo</button>`;
 
@@ -72,7 +93,7 @@ function fontDecision(app, d) {
     const text = d.pattern === 'undetermined'
         ? `<p>Textu je málo nebo je písmo příliš ozdobné, takže ho s písmy projektu nejde porovnat. Použili jsme <b>${esc(d.face)}</b>. ${concerns}</p>`
         : `<p>V projektu jsme stejné písmo nenašli. Použili jsme nejbližší: <b>${esc(d.face)}</b>. Tvary písmen se od obrázku liší; ${size} ${concerns}</p>`;
-    return item(hl, 'T', crops(app, union(d.boxes.slice(0, 1))), title, text, `${fontSelect(app, d.group, d.key)}${fontUpload(d.group, d.key)}<button type="button" class="btn xs btn-ghost" data-act="keepFont" data-group="${esc(d.group)}" data-k="fk${esc(d.key)}">Nechat</button>`);
+    return item(hl, 'T', crops(app, union(d.boxes.slice(0, 1))), title, text, `${fontSelect(app, d.group, d.key, d.face)}${fontUpload(d.group, d.key)}<button type="button" class="btn xs btn-ghost" data-act="keepFont" data-group="${esc(d.group)}" data-k="fk${esc(d.key)}">Nechat</button>`);
 }
 
 function doubtfulDecision(app, d) {
@@ -210,7 +231,7 @@ ${p.unfinished ? `<div class="alert c-warning" role="status" data-region="unfini
 <div class="as-panel-body" id="asTabP" role="tabpanel" aria-labelledby="${app.tab === 'decisions' ? 'asTabDec' : 'asTabLay'}" tabindex="-1" data-region="body-${app.tab}" data-scroll="panel-${app.tab}">${app.tab === 'decisions' ? decisionsTab(app) : layersTab(app)}</div></section></aside></div>
 <input type="file" class="sr" id="asReviewFont" tabindex="-1" aria-hidden="true" accept=".ttf,.otf,.woff" data-chg="reviewFontFile" data-region="fontfile">
 <div class="as-foot" data-region="foot" data-deep><div class="as-foot-l" data-region="line">${ic('info')}<span>Návrh se stane šablonou, až ho vytvoříte. Uchováme ho do ${dateCz(p.expiresAt)}.</span>${status}</div>
-<div class="as-foot-r" data-region="row"><label class="inp">${ic('edit')}<input type="text" value="${esc(p.name)}" maxlength="30" aria-label="Název šablony" data-chg="setName" data-k="name"></label><span class="as-sp"></span><button type="button" class="btn sm ghost danger" data-act="discardProposal" data-k="disc">Zahodit</button><button type="button" class="btn sm btn-tertiary" data-act="rescan" data-k="resc">${ic('refresh')}Naskenovat znovu</button>${primary}</div></div>`;
+<div class="as-foot-r" data-region="row"><label class="inp">${ic('edit')}<input type="text" value="${esc(p.name)}" maxlength="30" aria-label="Název šablony" data-chg="setName" data-k="name"></label><span class="as-sp"></span><button type="button" class="btn sm ghost danger" data-act="discardProposal" data-k="disc">Zahodit</button><button type="button" class="btn sm btn-tertiary" data-act="rescan" data-k="resc"${app.busy === 'rescan' ? ' disabled' : ''}>${ic('refresh')}${app.busy === 'rescan' ? 'Spouštím…' : 'Naskenovat znovu'}</button>${primary}</div></div>`;
 }
 
 export function readonlyView(app) {
@@ -264,6 +285,7 @@ export function afterRender(app) {
     // The sweep while a fix renders and the slider's position live on the nodes, not in the
     // markup — so neither rebuilds the pictures.
     app.root.querySelectorAll('[data-busy]').forEach((frame) => frame.classList.toggle('busy', app.saving > 0));
+    if (app.menu && String(app.menu).startsWith('font:')) fontFaces(app);
     const handle = app.root.querySelector('.as-handle');
     if (handle) setPos(app, app.pos);
     if (!handle || handle.__bound) return;
@@ -314,16 +336,52 @@ async function chooseFont(app, groups, face) {
     for (const group of String(groups).split('|').filter(Boolean)) await app.fix({ type: 'choose_font', group, face });
 }
 
-async function rescanWith(app, mode) {
-    if (mode === 'new') { app.leave(app.urls.new); return; }
-    // The same picture again: the browser fetches the stored original and puts it on S2 — a new
-    // scan, with the format and the credit line in front of the user.
-    let file = null;
+/** The stored original as a File — what a new scan of the same picture uploads. */
+async function storedOriginal(app) {
     try {
         const response = await fetch(app.image('original'), { credentials: 'same-origin' });
-        if (response.ok) { const blob = await response.blob(); file = new File([blob], app.scan.fileName || 'obrazek', { type: blob.type }); }
-    } catch (e) { file = null; }
-    if (!file) { toast('Původní obrázek se nepodařilo načíst. Nahrajte ho znovu.', { error: true }); return; }
+        if (!response.ok) return null;
+        const blob = await response.blob();
+        return new File([blob], app.scan.fileName || 'obrazek', { type: blob.type });
+    } catch (e) { return null; }
+}
+
+/**
+ * „Naskenovat znovu“ (ux.md S4). `new` → the upload page. `format` → the stored original goes
+ * back to S2, where the format is chosen. `same` → a new scan of the same picture in the same
+ * format starts at once (the dialog already said what it costs); when it cannot start — a
+ * limit, the queue, a consent whose wording changed — the picture lands on S2, which says why.
+ */
+async function rescanWith(app, mode) {
+    if (mode === 'new') { app.leave(app.urls.new); return; }
+    if (app.busy) return;
+    app.busy = 'rescan';
+    app.render();
+    const file = await storedOriginal(app);
+    if (!file) { app.busy = null; app.render(); toast('Původní obrázek se nepodařilo načíst. Nahrajte ho znovu.', { error: true }); return; }
+    let refusal = null;
+    if (mode === 'same') {
+        const answer = await api.upload(app.urls.start, {
+            picture: file,
+            kind: 'template',
+            requestId: window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : `r-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+            consent: '0',
+            options: JSON.stringify(app.scan.options || {}),
+        });
+        if (answer.ok && answer.scan) {
+            app.busy = null;
+            app.proposal = null;
+            app.step = 'review';
+            app.scan = { ...answer.scan, name: file.name, fileName: file.name, mine: true, seen: false, hasPicture: true, projectId: app.project.id, options: app.scan.options || {} };
+            app.pushScan(app.scan);
+            app.notifyShell();
+            window.scrollTo({ top: 0 });
+            await app.enter();
+            return;
+        }
+        refusal = answer.code === 'network' || answer.code === 'http_error' ? 'network' : answer.code;
+    }
+    app.busy = null;
     app.scan = null;
     app.proposal = null;
     app.step = 'review';
@@ -331,6 +389,10 @@ async function rescanWith(app, mode) {
     document.documentElement.dataset.asScan = '';
     await app.refreshEntry();
     await usePicture(app, file);
+    if (refusal) {
+        if (refusal !== 'network' && refusal !== 'consent_required') { app.startRefusal = refusal; app.render(); }
+        toast(refusal === 'network' ? 'Nahrání se nepodařilo. Zkontrolujte připojení a zkuste to znovu.' : startHint(refusal, app.entry) || 'Sken se teď nepodařilo spustit. Zkuste to za chvíli.', { error: true });
+    }
 }
 
 export const actions = {
@@ -341,8 +403,16 @@ export const actions = {
     undo: (app, el) => app.fix({ type: 'undo', key: el.dataset.key }),
     infoUndo: (app, el) => app.fix({ type: el.dataset.fix }),
     keepFont: (app, el) => app.fix({ type: 'keep_font', group: el.dataset.group }),
-    chooseFont: (app, el) => { if (el.value) chooseFont(app, el.dataset.group, el.value); },
+    fontMenu: (app, el) => {
+        app.menu = app.menu === el.dataset.id ? null : el.dataset.id;
+        app.render();
+        const menu = el.parentElement && app.root.querySelector('.as-fontpick .menu');
+        const first = menu && (menu.querySelector('[aria-checked="true"]') || menu.querySelector('.mi'));
+        if (first) first.focus();
+    },
+    pickFont: (app, el) => { app.menu = null; chooseFont(app, el.dataset.group, el.dataset.face); },
     uploadFont: (app, el) => {
+        app.menu = null;
         app.fontTarget = el.dataset.group || '';
         const input = app.root.querySelector('#asReviewFont');
         if (input) { input.value = ''; input.click(); }

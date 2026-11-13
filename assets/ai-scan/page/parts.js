@@ -13,7 +13,16 @@ export function head(app, n, name, { lead = false } = {}) {
     return `<div class="as-backrow" data-region="backrow"><a href="${esc(app.urls.templates)}" class="back">${ic('arrow-left')}Šablony</a>${historyLink(app)}</div>
 <header class="head as-head" data-region="head"><div class="head-main"><span class="lbl">Projekt · ${esc(app.project.name)}</span><h1>Šablona z obrázku ${PREM}</h1>${lead ? `<span class="head-lead">${LEAD}</span>` : ''}<span class="as-step">Krok <b>${n} ${zz(of)} ${of}</b> · ${name}</span></div></header>`;
 }
-export const historyLink = (app) => (app.entry && app.entry.historyCount > 0 ? `<a href="${esc(app.urls.history)}" class="btn xs btn-ghost as-hist">${ic('history', 's14')}<span>Historie skenů</span></a>` : '');
+/**
+ * The right end of the back row: „Historie skenů“ and, for an administrator looking at a scan,
+ * „Využití tohoto skenu“ (ux.md §9.4 — the scan's row and usage in the admin tab „AI skeny“).
+ */
+export const historyLink = (app) => {
+    const usage = app.boot && app.boot.admin && app.scan && app.urls.usage
+        ? `<a href="${esc(String(app.urls.usage).replace('00000000-0000-0000-0000-000000000000', app.scan.id))}" class="btn xs btn-ghost as-hist" data-k="usage">${ic('chart', 's14')}<span>Využití tohoto skenu</span></a>` : '';
+    const history = app.entry && app.entry.historyCount > 0 ? `<a href="${esc(app.urls.history)}" class="btn xs btn-ghost as-hist">${ic('history', 's14')}<span>Historie skenů</span></a>` : '';
+    return usage || history ? `<span class="as-backrow-r">${usage}${history}</span>` : '';
+};
 
 /** `[x, y, w, h]` in source pixels → percent style of an absolutely placed box. */
 export function boxStyle(box, source) {

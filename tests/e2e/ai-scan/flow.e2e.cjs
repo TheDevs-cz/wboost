@@ -96,10 +96,21 @@ module.exports = {
             assert.deepEqual(labels, ['Kontrola obrázku', 'Čtení textů', 'Rozbor grafiky', 'Sestavení šablony', 'Porovnání a doladění', 'Dokončení']);
             const stages = (pattern, timeout) => page.waitForFunction((source) => new RegExp(source).test((document.querySelector('.as-stages') || {}).textContent || ''), { timeout }, pattern);
             await stages('Nalezeny 2 texty', 30000);
+            // „Tyto texty jsme našli“: the found lines outlined on the picture until the first render.
+            await page.waitForFunction(() => document.querySelectorAll('.as-pics .as-found').length === 2, { timeout: 10000 });
+            assert.match(await h.text(page, '.as-pics'), /Tyto texty jsme našli \(2\)/);
+            assert.ok(await page.$eval('.as-pics .as-found', (e) => { const r = e.getBoundingClientRect(); const f = e.parentElement.getBoundingClientRect(); return r.width > 20 && r.left >= f.left && r.right <= f.right; }), 'an outline lies on the picture');
             await stages('kolo 1 ze 2', 60000);
             assert.ok(await h.exists(page, '.as-pics img[src*="/image/candidate"]'), 'the first rendered preview is shown');
             await page.waitForFunction(() => /Sken běží/.test(document.querySelector('#asLive').textContent), { timeout: 5000 }); // announced a moment after the change
             assert.ok((await page.$$eval('.as-stages .done .dur', (n) => n.map((e) => e.textContent).filter(Boolean))).length >= 2, 'finished stages carry their duration');
+            assert.equal(await h.exists(page, '.as-pics .as-found'), false, 'the outlines give way to the rendered preview');
+            // The durations and notes are the server's (the stage log), not what this tab watched.
+            const rows = await page.$$eval('.as-stages .done', (n) => n.map((e) => [e.querySelector('span:nth-child(2)').firstChild.textContent, e.querySelector('.dur').textContent, (e.querySelector('.note') || {}).textContent || '']));
+            assert.ok(rows.length >= 3 && rows.every(([, took]) => /^\d+ s$|^\d+ min \d+ s$/.test(took)), `every finished stage has its duration: ${JSON.stringify(rows)}`);
+            assert.deepEqual(rows.find(([label]) => label === 'Čtení textů').slice(2), ['Nalezeny 2 texty'], 'the note stays with the stage it is about');
+            const stored = await page.evaluate(async (id) => (await (await fetch(`/ai-scan/${id}`, { headers: { Accept: 'application/json' } })).json()).scan.stages, scanId);
+            assert.ok(['check', 'read', 'analyse', 'build'].every((id) => stored[id] && Number.isInteger(stored[id].seconds)), `the status document carries the stage log: ${JSON.stringify(stored)}`);
         });
 
         await check('S4 opens by itself: summary, counters, the proposal is not a template yet', async () => {
@@ -119,7 +130,23 @@ module.exports = {
             assert.doesNotMatch(await h.text(page, '.as-panel-card'), /Vypadá jako/);
             const faces = (await proposal()).fonts;
             const other = faces[faces.length - 1];
-            await page.select('[data-chg="chooseFont"]', other);
+            // The picker: a popover of the project's faces, each drawn in its own typeface,
+            // walked by the arrow keys, closed by Escape with the focus back on its button.
+            await page.focus('[data-act="fontMenu"]');
+            await page.keyboard.press('Enter');
+            await page.waitForSelector('.as-fontmenu [data-act="pickFont"]');
+            assert.equal(await page.$$eval('.as-fontmenu [data-act="pickFont"]', (n) => n.length), faces.length, 'every face of the project');
+            assert.equal(await page.$eval('.as-fontmenu [aria-checked="true"]', (e) => e.dataset.face), (await proposal()).decisions.find((d) => d.type === 'font').face, 'the face in use is ticked');
+            await page.waitForFunction((face) => [...document.fonts].some((f) => f.family.replace(/['"]/g, '') === face && f.status === 'loaded'), { timeout: 15000 }, other);
+            assert.ok(await page.$eval(`.as-fontmenu [data-face="${other}"] .as-fontopt-n`, (e) => getComputedStyle(e).fontFamily.includes(e.textContent)), 'a face is drawn in its own typeface');
+            assert.match(await h.text(page, '.as-fontmenu .mi:last-child'), /Přidat písmo…/);
+            await page.keyboard.press('End');
+            assert.match(await page.evaluate(() => document.activeElement.textContent), /Přidat písmo…/);
+            await page.keyboard.press('Escape');
+            assert.equal(await h.exists(page, '.as-fontmenu'), false);
+            assert.equal(await page.evaluate(() => document.activeElement.dataset.act), 'fontMenu', 'Escape gives the focus back');
+            await page.click('[data-act="fontMenu"]');
+            await page.click(`.as-fontmenu [data-face="${other}"]`);
             await h.settled(page);
             assert.equal((await proposal()).toDecide, 2);
             assert.equal((await proposal()).elements.find((e) => e.id === 'headline').font, other);

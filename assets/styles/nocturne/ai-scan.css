@@ -35,6 +35,7 @@
 .as-page { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
 .as-backrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: -8px; }
 .as-backrow .back { min-height: 40px; }
+.as-backrow-r { display: flex; align-items: center; gap: 4px; margin-left: auto; }
 .as-head h1 { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .as-step { font-size: 13px; font-weight: 600; color: var(--muted); }
 .as-step b { color: var(--text); }
@@ -123,6 +124,10 @@
 @media (prefers-reduced-motion: reduce) { .as-frame.pending::after { display: none; } }
 .as-frame .fade-in { animation: as-fade 240ms var(--ease); }
 @keyframes as-fade { from { opacity: 0; } }
+/* S3 „Tyto texty jsme našli“: the found lines outlined on the picture */
+.as-found { position: absolute; z-index: 2; border: 1.5px solid var(--pch); border-radius: 3px; background: var(--pch-glow); box-shadow: 0 0 0 1px var(--surface); pointer-events: none; animation: as-fade 240ms var(--ease); }
+.as-found-frame img { opacity: .62; }
+@media (prefers-reduced-motion: reduce) { .as-found, .as-frame .fade-in { animation: none; } }
 .as-ocr { position: absolute; border: 1.5px solid var(--pch); border-radius: 3px; background: color-mix(in oklab, var(--pch) 14%, transparent); }
 .as-thumb96 { width: 96px; border-radius: 8px; overflow: hidden; flex: none; }
 .as-thumb96 img { display: block; width: 100%; }
@@ -397,8 +402,12 @@ dialog.as-dlg { max-height: calc(100dvh - 32px); overflow-y: auto; }
 
 @media (max-width: 1000px) { .as-s4b.as-grid { align-items: stretch; } }
 .as-pagedrop { background: color-mix(in oklab, var(--lav-deep) 96%, transparent); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
-a.as-t1-line > span { white-space: normal; overflow: visible; }
-.as-nm { display: inline-block; max-width: 14ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+/* T1: a scan's line on the card is ONE line (ux.md T1 — "name truncated to one line"): the
+   name gives way, what the line says about it stays. */
+a.as-t1-line > .as-t1-fit { display: flex; text-overflow: clip; }
+.as-t1-fit > span { flex: 0 1 auto; min-width: 0; white-space: pre; overflow: hidden; text-overflow: ellipsis; }
+.as-t1-fit > span:first-child { flex: none; }
+.as-t1-fit > .as-nm { flex: 0 1000 auto; min-width: 2ch; }
 .as-ph-menu .menu { z-index: 45; }
 .as-place-tag { top: -1.5px; bottom: auto; transform: translate(-50%, -100%); border-radius: 6px 6px 0 0; }
 .as-place-tag.in { top: 6px; transform: translate(-50%, 0); border-radius: 6px; }
@@ -489,12 +498,19 @@ a.as-tp-pill:hover { color: var(--text); }
 .as-file-th.none { display: grid; place-items: center; gap: 6px; min-height: 112px; padding: 10px; box-shadow: none; border: 1px dashed var(--line-3); color: var(--muted); text-align: center; }
 .as-fonts.warn { background: var(--pch-deep); border-color: var(--pch-line); color: var(--text); flex-wrap: wrap; padding-block: 8px; }
 .as-fonts.warn > .i { color: var(--pch-ink); }
+.as-fonts.warn > span:not(.i) { flex: 1 1 200px; }
 /* review */
 .as-box.ghost { opacity: 0; }
 .as-box.ghost.hl { opacity: 1; }
 .as-cmp-wrap { min-width: 0; }
 .as-under { display: flex; flex-direction: column; gap: 8px; }
 .as-fontsel { width: auto; min-width: 170px; max-width: 100%; }
+/* S4 font picker: the project's faces, each in its own typeface */
+.as-fontpick .menu { left: 0; right: auto; top: 34px; width: min(320px, calc(100vw - 116px)); max-height: 300px; overflow-y: auto; overscroll-behavior: contain; }
+.as-fontopt { min-height: 44px; }
+.as-fontopt-n { flex: 1 1 auto; min-width: 0; font-size: 17px; line-height: 1.2; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.as-fontopt[aria-checked="true"] { background: var(--surface-3); }
+.as-fontopt .end { color: var(--mnt-ink); }
 .as-leftrow.done { color: var(--text-2); font-size: 13px; }
 .as-leftdone { flex: 1; min-width: 0; display: inline-flex; align-items: center; gap: 6px; }
 .as-leftdone .i { color: var(--mnt-ink); flex: none; }
@@ -531,3 +547,5 @@ a.as-tp-pill:hover { color: var(--text); }
 .as-page [tabindex="-1"]:focus { outline: 0; }
 /* ==== /page ==== */
 .as-layer .sub .as-inl.txt { flex: 1 1 100%; }
+/* the "doubtful transcription" dot sits in front of its text, not on a row of its own */
+.as-layer .sub .as-dot + .as-inl.txt { flex: 1 1 calc(100% - 16px); }

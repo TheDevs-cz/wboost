@@ -27,6 +27,7 @@
              urls: {
                  templates: path('templates', {projectId: project.id}),
                  history: path('ai_scan_history', {projectId: project.id}),
+                 usage: is_granted('ROLE_ADMIN') ? path('admin_usage', {ai_scan: nil}) ~ '#ai-skeny' : null,
                  fonts: path('fonts_list', {id: project.id}),
                  fontUpload: path('upload_font', {id: project.id}),
                  new: path('ai_scan_new', {projectId: project.id}),

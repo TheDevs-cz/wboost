@@ -90,7 +90,7 @@ export default class extends Controller {
         const by = row.mine || !row.requestedBy ? '' : ` · Sken spustil(a) ${esc(row.requestedBy)}`;
         const show = (label, cls = 'btn-ghost') => `<a href="${esc(url)}" class="btn xs ${cls}">${label}</a>`;
         const discard = row.actions.includes('discard') ? `<button type="button" class="btn xs btn-ghost" data-action="ai-scan-strip#discard" data-id="${esc(row.id)}">Zahodit</button>` : '';
-        let cap; let acts; let tail = ''; let dim = false; let run = false; let which = 'preview';
+        let cap; let acts; let tail = ''; let dim = false; let run = false; let which = 'upload';
         switch (row.status) {
             case 'checking':
                 cap = `Trvá to pár vteřin${by}`;
@@ -126,7 +126,9 @@ export default class extends Controller {
                 cap = `${failureShort(row.status, row.code)}${by}`;
                 acts = `${show('Zobrazit')}${discard}`;
         }
-        const image = row.hasPicture ? `<img src="${esc(this.image(row.id, which))}" alt="" loading="lazy" data-fallback="${which === 'working' ? 'original' : 'working'}" data-id="${esc(row.id)}">` : '';
+        // `row.picture` says which copy of the upload exists — the card never asks for another.
+        const thumb = which === 'proposal' ? which : row.picture === 'working' ? 'preview' : row.picture;
+        const image = row.hasPicture && thumb ? `<img src="${esc(this.image(row.id, thumb))}" alt="" loading="lazy" data-id="${esc(row.id)}">` : '';
         return `<li class="as-scan${dim ? ' dim' : ''}" data-scan="${esc(row.id)}" data-status="${esc(row.status)}"><div class="as-scan-th${run ? ' run' : ''}">${image}</div><div class="as-scan-b"><a href="${esc(url)}" class="as-scan-n" title="${name}">${name}</a>${pill(row.status, tail)}<span class="cap">${cap}</span><div class="as-scan-acts">${acts}</div></div></li>`;
     }
 
@@ -139,14 +141,10 @@ export default class extends Controller {
         return urlFor(this.imageUrlValue, id).replace(/\/image\/[a-z]+$/, `/image/${which}`);
     }
 
-    /** A missing picture (no preview yet, HEIC original): next source, then none. */
+    /** A picture that went away meanwhile (purged): the tile stays empty. */
     imageFailed(event) {
         const img = event.target;
-        if (!(img instanceof HTMLImageElement) || !img.dataset.id) return;
-        const next = img.dataset.fallback;
-        if (!next) { img.remove(); return; }
-        img.dataset.fallback = next === 'working' ? 'original' : '';
-        img.src = this.image(img.dataset.id, next);
+        if (img instanceof HTMLImageElement && img.dataset.id) img.remove();
     }
 
     async retry(event) {

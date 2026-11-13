@@ -64,7 +64,7 @@ function projectFilter(projectIds) {
     return (scanId) => {
         if (!/^[0-9a-f-]{36}$/i.test(scanId)) return false;
         if (!known.has(scanId)) {
-            const out = execFileSync('docker', ['compose', 'exec', '-T', 'postgres', 'psql', '-U', 'postgres', '-d', 'wboost', '-At', '-c', `SELECT project_id FROM ai_scan WHERE id = '${scanId}'`], { cwd: path.resolve(__dirname, '../../../..'), encoding: 'utf8' }).trim();
+            const out = execFileSync('docker', ['compose', 'exec', '-T', 'postgres', 'psql', '-U', 'postgres', '-d', process.env.E2E_DB || 'wboost', '-At', '-c', `SELECT project_id FROM ai_scan WHERE id = '${scanId}'`], { cwd: path.resolve(__dirname, '../../../..'), encoding: 'utf8' }).trim();
             known.set(scanId, out);
         }
         return projectIds.includes(known.get(scanId));
@@ -228,11 +228,21 @@ async function intake(job, options, log) {
     return 'passed';
 }
 
+/** The poster's headline and line, in the pixels of the uploaded picture. */
+function foundTexts(job) {
+    const width = (job.source && job.source.width) || 900;
+    const height = (job.source && job.source.height) || 1200;
+    const k = width / 900;
+    return { width, height, boxes: [[80, 130, 620, 72], [80, 246, 300, 40]].map((box) => box.map((v) => Math.round(v * k))) };
+}
+
 async function build(job, options, log) {
     if (job.kind === 'calendar') return buildCalendar(job, options, log);
     const run = new Run(job, log);
     const steps = [
-        { stage: 'read' }, { stage: 'read', note: 'texts_found', noteParams: { n: 2 } },
+        // As the real scanner does it: the texts it found come with the next stage, and with
+        // their boxes (the poster's two lines) for „Tyto texty jsme našli“.
+        { stage: 'read' }, { stage: 'analyse', note: 'texts_found', noteParams: { n: 2 }, textBoxes: foundTexts(job) },
         { stage: 'analyse', note: 'zooming' }, { stage: 'analyse', note: 'measuring' }, { stage: 'analyse', note: 'fonts' },
         { stage: 'build', note: null },
     ];

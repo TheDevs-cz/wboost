@@ -139,7 +139,10 @@ export default class extends Controller {
 
         const parts = [];
         for (const [key, value] of new FormData(form)) {
-            if (key === '_fill_draft_token' || key === 'draftVersionId') {
+            // `allowUnfilled` is the export question's answer (AI scan, ai_scan_export_guard):
+            // it rides along with ONE submit and is gone again — never the user's work. With it
+            // in the baseline, every confirmed export left the page "unsaved".
+            if (key === '_fill_draft_token' || key === 'draftVersionId' || key === 'allowUnfilled') {
                 continue;
             }
             parts.push(`${key}=${typeof value === 'string' ? value : ''}`);

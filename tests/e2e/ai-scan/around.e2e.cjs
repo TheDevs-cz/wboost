@@ -12,7 +12,8 @@ module.exports = {
     name: 'around',
     // a scan under the pre-check has no normalised copy yet: its card falls back from one picture to the other
     // … and the export's first answer IS a 409 `unfilled_pictures` (the question)
-    allowed: [/\/image\/(preview|working|original).*404|status of 404 .*\/image\//, /status of 409 .*\/template-variant\/[0-9a-f-]+\/download/],
+    // No 404 is allowed: the lists ask only for pictures that exist (`row.picture`).
+    allowed: [/status of 409 .*\/template-variant\/[0-9a-f-]+\/(download|publish)/],
     async run({ browser, page, h, scanner, check }) {
         const cfg = h.config;
 
@@ -157,6 +158,66 @@ module.exports = {
             await page.click('dialog[open] [data-export-anyway]');
             const url = await Promise.race([sent, h.sleep(20000).then(() => null)]);
             assert.ok(url && url.includes(variantId), 'the form went again with allowUnfilled=1');
+            await h.sleep(500);
+            assert.equal(await page.evaluate(() => window.dispatchEvent(new Event('beforeunload', { cancelable: true }))), true, 'no unsaved-changes prompt after the confirmed export');
+        });
+
+        // The publish dialog needs a linked Facebook account and a social format. Neither exists for
+        // a scanned template in dev, so both are stubbed AT THE EDGES only: a row in `social_account`,
+        // the preset marker on the variant, and Meta's two answers (the list of pages, the publish
+        // itself). The dialog, its question and the app's own 409 are the real thing.
+        await check('publish asks first too: the question over the publish dialog, „Exportovat přesto“ repeats it with allowUnfilled', async () => {
+            const user = h.psql(`SELECT id FROM "user" WHERE email = ${h.quote(cfg.email)}`);
+            h.psql(`
+                INSERT INTO social_account (id, user_id, provider, provider_user_id, access_token, scopes, display_name, needs_reconnect, connected_at)
+                VALUES ('0e2ea15c-0000-7000-8000-00000000fb01', '${user}', 'facebook', 'e2e-ai-scan-stub', 'e2e-stub-not-a-token', '[]', 'E2E stub', false, now())
+                ON CONFLICT (id) DO NOTHING;
+                UPDATE template_variant SET dimension_preset = '4:5' WHERE id = '${variantId}';
+            `);
+            const posts = [];
+            const onRequest = (request) => {
+                const url = request.url();
+                if (/\/social\/facebook\/destinations|facebook.*destinations/.test(url) && request.method() === 'GET') {
+                    request.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ connected: true, pages: [{ id: 'e2e-page', name: 'E2E stránka', instagram: null }] }) }).catch(() => null);
+                } else if (request.method() === 'POST' && /\/publish$/.test(url)) {
+                    const confirmed = /name="allowUnfilled"\s+1|allowUnfilled/.test(request.postData() || '');
+                    posts.push(confirmed);
+                    // The first POST is the app's own answer (409 unfilled_pictures); the confirmed one would call Meta.
+                    if (confirmed) request.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) }).catch(() => null);
+                    else request.continue().catch(() => null);
+                } else request.continue().catch(() => null);
+            };
+            try {
+                await page.goto(`${cfg.base}/template-variant/${variantId}/export`, { waitUntil: 'domcontentloaded' });
+                await page.waitForSelector('.fi-share.dropdown-toggle', { timeout: 60000 });
+                // Meta is answered here from now on; everything else goes to the app untouched.
+                await page.setRequestInterception(true);
+                page.on('request', onRequest);
+                await page.click('.fi-share.dropdown-toggle');
+                await page.click('[data-action="variant-publish#open"][data-variant-publish-platform-param="facebook"]');
+                await page.waitForSelector('[data-variant-publish-target="modal"].is-open');
+                await page.waitForSelector('[data-variant-publish-target="destinations"] input[type="radio"]:checked', { timeout: 15000 });
+                await page.click('[data-variant-publish-target="submit"]');
+                await page.waitForSelector('dialog[open]', { timeout: 30000 });
+                assert.match(await h.text(page, 'dialog[open]'), /Šablona má 1 nedoplněný obrázek .*Exportovat přesto.*Otevřít editor/);
+                assert.deepEqual(posts, [false], 'the first publish went without the confirmation and the app refused it');
+                await page.keyboard.press('Escape');
+                await page.waitForFunction(() => !document.querySelector('dialog'));
+                assert.ok(await h.exists(page, '[data-variant-publish-target="modal"].is-open'), 'Escape closes the question, not the publish dialog');
+                assert.deepEqual(posts, [false], 'nothing was published');
+                await page.click('[data-variant-publish-target="submit"]');
+                await page.waitForSelector('dialog[open] [data-export-anyway]', { timeout: 30000 });
+                await page.click('dialog[open] [data-export-anyway]');
+                await page.waitForFunction(() => /Hotovo — příspěvek byl publikován/.test(document.querySelector('[data-variant-publish-target="status"]').textContent), { timeout: 30000 });
+                assert.deepEqual(posts, [false, false, true], 'the confirmed publish carries allowUnfilled=1');
+            } finally {
+                page.off('request', onRequest);
+                await page.setRequestInterception(false).catch(() => null);
+                h.psql(`
+                    DELETE FROM social_account WHERE id = '0e2ea15c-0000-7000-8000-00000000fb01';
+                    UPDATE template_variant SET dimension_preset = NULL WHERE id = '${variantId}';
+                `);
+            }
         });
     },
 };

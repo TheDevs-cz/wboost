@@ -2,8 +2,10 @@
  * The paths a walk with `uploadFile()` skips (docs/architecture/ai-scan.md § "UI", "Traps"): every
  * hidden file input is opened by its button through the real file chooser; dialogs and the `⋯` menu
  * by keyboard, with the focus back on the opener; "Oříznout, aby místo vyplnil"; the gallery picker;
- * and the export question on the group and the document fill pages (ux.md T4).
+ * and the export question on the group and the document fill pages (ux.md T4) — answered
+ * „Exportovat přesto“, the ZIP and the PDF are really rendered and saved by the browser.
  */
+const fs = require('fs');
 const path = require('path');
 const assert = require('assert/strict');
 
@@ -80,6 +82,17 @@ module.exports = {
             await h.settled(page);
             await page.waitForFunction((n) => window.__aiScan.proposal.toDecide === n - 1, { timeout: 20000 }, before);
             assert.match(await h.text(page, '.as-it.decided'), /Písmo nadpisů: .+ — texty jsme přepočítali/);
+            // The same upload from inside the picker: „Přidat písmo…“ is its last row. A face
+            // the project already has is not stored twice — it is chosen.
+            await page.click('.as-it.decided [data-act="undo"]');
+            await h.settled(page);
+            await page.click('[data-act="fontMenu"]');
+            await page.waitForSelector('.as-fontmenu');
+            assert.equal(await pickThrough('.as-fontmenu [data-act="uploadFont"]', [path.join(path.dirname(h.FONT), 'Inter-VariableSubset.ttf')]), false);
+            await h.waitToast(page, 'tento řez už v projektu je|Písmo přidáno');
+            await h.settled(page);
+            await page.waitForFunction((n) => window.__aiScan.proposal.toDecide === n - 1, { timeout: 20000 }, before);
+            assert.equal(await h.exists(page, '.as-fontmenu'), false, 'the picker closed');
         });
 
         let fotoId = null;
@@ -142,11 +155,13 @@ module.exports = {
                 await h.sleep(1500);
             }
             await page.waitForSelector(tile, { timeout: 15000 });
+            const picked = await page.$eval(tile, (el) => el.getAttribute('data-image-gallery-id-param'));
             await page.click(tile);
             await page.waitForFunction(() => !document.querySelector('#aiScanGalleryModal.show'), { timeout: 15000 });
             await h.settled(page);
             await page.waitForFunction((id) => Boolean(window.__aiScan.proposal.placeholders.find((x) => x.id === id).picture), { timeout: 20000 }, logoId);
-            assert.equal((await proposal()).placeholders.find((ph) => ph.id === logoId).picture.uploaded, false, 'a gallery pick, not an upload');
+            // (whether it counts as „uploaded for this scan“ depends on which folder the walk met first)
+            assert.equal((await proposal()).placeholders.find((ph) => ph.id === logoId).picture.fileId, picked, 'the picked gallery file fills the place');
         });
 
         let templateId = null;
@@ -189,8 +204,7 @@ module.exports = {
         });
 
         /** Export on a fill page: the question, Escape keeps the page, „Exportovat přesto“ repeats the POST with allowUnfilled. */
-        let stopIntercepting = async () => {};
-        const asksFirst = async (url, button, count) => {
+        const asksFirst = async (url, button, count, magic) => {
             await page.goto(url, { waitUntil: 'domcontentloaded' }); // the fill pages keep rendering previews — never "idle"
             await page.waitForSelector(button, { timeout: 60000 });
             await page.waitForFunction((selector) => !document.querySelector(selector).disabled, { timeout: 60000 }, button);
@@ -203,28 +217,37 @@ module.exports = {
             assert.equal(page.url(), url, 'Escape keeps the page');
             await page.click(button);
             await page.waitForSelector('dialog[open] [data-export-anyway]', { timeout: 60000 });
-            // The confirmed POST is caught and dropped: rendering every dimension / page takes a while and holds
-            // the session, which would stall the next page (the real export runs in around.e2e.cjs).
-            await page.setRequestInterception(true);
-            const sent = new Promise((resolve) => {
-                const onRequest = (request) => {
-                    if (request.method() === 'POST' && /allowUnfilled/.test(request.postData() || '')) { resolve(request.url()); request.abort().catch(() => null); } else request.continue().catch(() => null);
-                };
+            // „Exportovat přesto“ for real: the same POST goes again with allowUnfilled=1 and the
+            // file it answers with is saved by the browser — every dimension / page is rendered.
+            const cdp = await browser.target().createCDPSession();
+            const dir = fs.mkdtempSync(path.join(cfg.tmp, 'download-'));
+            await cdp.send('Browser.setDownloadBehavior', { behavior: 'allowAndName', downloadPath: dir, eventsEnabled: true });
+            const downloaded = new Promise((resolve) => {
+                cdp.on('Browser.downloadProgress', (event) => { if (event.state === 'completed') resolve(path.join(dir, event.guid)); else if (event.state === 'canceled') resolve(null); });
+            });
+            const posted = new Promise((resolve) => {
+                const onRequest = (request) => { if (request.method() === 'POST' && /allowUnfilled/.test(request.postData() || '')) { page.off('request', onRequest); resolve(request.url()); } };
                 page.on('request', onRequest);
-                stopIntercepting = async () => { page.off('request', onRequest); await page.setRequestInterception(false); };
             });
             await page.click('dialog[open] [data-export-anyway]');
-            const url2 = await Promise.race([sent, h.sleep(30000).then(() => null)]);
-            await stopIntercepting();
-            assert.ok(url2, 'the form went again with allowUnfilled=1');
+            assert.ok(await Promise.race([posted, h.sleep(30000).then(() => null)]), 'the form went again with allowUnfilled=1');
+            const file = await Promise.race([downloaded, h.sleep(240000).then(() => null)]);
+            await cdp.send('Browser.setDownloadBehavior', { behavior: 'default' }).catch(() => null);
+            await cdp.detach().catch(() => null);
+            assert.ok(file && fs.existsSync(file), 'the export came back as a file');
+            const bytes = fs.readFileSync(file);
+            assert.ok(bytes.length > 2000 && bytes.subarray(0, magic.length).toString('latin1') === magic, `a real ${magic === 'PK' ? 'ZIP' : 'PDF'} (${bytes.length} bytes, starts ${JSON.stringify(bytes.subarray(0, 4).toString('latin1'))})`);
+            assert.equal(page.url(), url, 'the page stays');
+            // … and is not "unsaved" because of the answer: leaving it asks nothing.
+            assert.equal(await page.evaluate(() => window.dispatchEvent(new Event('beforeunload', { cancelable: true }))), true, 'no unsaved-changes prompt after the confirmed export');
         };
 
-        await check('group fill page: the ZIP export asks first', async () => {
-            await asksFirst(`${cfg.base}/template-group/${groupId}/fill`, 'form [data-group-fill-target="exportButton"].btn-primary', '1 nedoplněný obrázek');
+        await check('group fill page: the ZIP export asks first, then really exports', async () => {
+            await asksFirst(`${cfg.base}/template-group/${groupId}/fill`, 'form [data-group-fill-target="exportButton"].btn-primary', '1 nedoplněný obrázek', 'PK');
         });
 
-        await check('document fill page: the PDF export asks first', async () => {
-            await asksFirst(`${cfg.base}/template-document/${documentId}/fill`, 'form [data-group-fill-target="exportButton"].btn-primary', '1 nedoplněný obrázek');
+        await check('document fill page: the PDF export asks first, then really exports', async () => {
+            await asksFirst(`${cfg.base}/template-document/${documentId}/fill`, 'form [data-group-fill-target="exportButton"].btn-primary', '1 nedoplněný obrázek', '%PDF');
         });
     },
 };
