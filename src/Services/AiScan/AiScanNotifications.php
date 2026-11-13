@@ -259,7 +259,7 @@ final readonly class AiScanNotifications
             'blurry_or_small' => 'Je příliš rozmazaný, texty v něm nepřečteme. Nahrajte ostřejší nebo větší verzi.',
             'not_expected_kind' => $scan->kind === AiScanKind::Calendar
                 ? 'Nenašli jsme v něm stránku týdenního kalendáře. Nahrajte obrázek jedné stránky s dny v týdnu.'
-                : 'Nenašli jsme v něm grafiku — je prázdný, nebo je to jen fotografie bez textů a tvarů.',
+                : 'Nenašli jsme v něm grafiku — je prázdný, nebo je to jen fotografie bez textů a tvarů, snímek obrazovky, stránka dokumentu či graf.',
             'several_designs' => $scan->kind === AiScanKind::Calendar
                 ? 'Je v něm víc stránek. Nahrajte obrázek jedné stránky kalendáře.'
                 : 'Je v něm víc grafik. Z jednoho obrázku umíme udělat jednu šablonu.',
