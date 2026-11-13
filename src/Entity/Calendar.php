@@ -80,6 +80,16 @@ class Calendar
     #[Column(options: ['default' => true])]
     public bool $linkElements = true;
 
+    /**
+     * Where the layout came from when that is not a preset: `scan` after an
+     * AI scan's layout was applied (docs/architecture/ai-scan.md § "Calendar
+     * scans"), null otherwise. NOT part of the layout document — step 2 reads
+     * it to show the card „Naskenovaný design“.
+     */
+    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+    #[Column(length: 16, nullable: true)]
+    public null|string $layoutOrigin = null;
+
     /** +1 on every successful save. */
     #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
     #[Column(options: ['default' => 0])]
@@ -226,6 +236,18 @@ class Calendar
         $this->step = 5;
 
         return $first;
+    }
+
+    /** @return bool true when the marker changed */
+    public function markLayoutOrigin(null|string $origin): bool
+    {
+        if ($origin === $this->layoutOrigin) {
+            return false;
+        }
+
+        $this->layoutOrigin = $origin;
+
+        return true;
     }
 
     public function regenerateClientToken(): void

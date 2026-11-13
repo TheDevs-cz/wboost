@@ -57,7 +57,7 @@ readonly final class SaveCalendarHandler
         $now = $this->clock->now();
 
         // 1. Roles — a client's request is refused whole.
-        if (!$actor->isDesigner() && ($message->designPatch !== null || $message->finish)) {
+        if (!$actor->isDesigner() && ($message->designPatch !== null || $message->finish || $message->setLayoutOrigin)) {
             throw new CalendarChangeForbidden();
         }
 
@@ -132,10 +132,19 @@ readonly final class SaveCalendarHandler
         // 5. Apply the design, then the history.
         $changedKeys = $calendar->applyDesign($design);
 
-        $designRecorded = array_diff($changedKeys, ['step']) !== [] && !$this->designEntryIsFresh($calendar, $message, $now);
+        // The marker of a scanned layout: written when the caller says so,
+        // otherwise gone as soon as a save changes the layout choice.
+        if ($message->setLayoutOrigin) {
+            $calendar->markLayoutOrigin($message->layoutOrigin);
+        } elseif (in_array('preset', $changedKeys, true)) {
+            $calendar->markLayoutOrigin(null);
+        }
+
+        $designRecorded = $message->designSentence !== null
+            || (array_diff($changedKeys, ['step']) !== [] && !$this->designEntryIsFresh($calendar, $message, $now));
 
         if ($designRecorded) {
-            $this->history->record($calendar, $actor, DescribeCalendarChange::DESIGN_CHANGED, $now);
+            $this->history->record($calendar, $actor, $message->designSentence ?? DescribeCalendarChange::DESIGN_CHANGED, $now);
         }
 
         foreach (array_slice($sentences, 0, self::MAX_HISTORY_ENTRIES) as $sentence) {

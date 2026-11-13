@@ -18,6 +18,7 @@ use WBoost\Web\Message\AiScan\SendAiScanEmail;
 use WBoost\Web\Repository\AiScanRepository;
 use WBoost\Web\Services\AiScan\Template\ScanProposal;
 use WBoost\Web\Services\AiScan\Template\ScanProposalView;
+use WBoost\Web\Value\AiScan\AiScanKind;
 use WBoost\Web\Value\AiScan\AiScanStatus;
 
 /**
@@ -200,19 +201,28 @@ final readonly class AiScanNotifications
         }
 
         $file = is_string($scan->sourceMeta['name'] ?? null) && $scan->sourceMeta['name'] !== '' ? $scan->sourceMeta['name'] : 'obrázek';
-        $name = $scan->status === AiScanStatus::Ready ? $this->proposal->name($scan) : $file;
-        $view = $scan->status === AiScanStatus::Ready ? $this->proposalView->view($scan) : null;
+        // A calendar scan proposes the layout of a calendar: the mail names
+        // the calendar and has nothing to decide (the template proposal's
+        // reader does not know a calendar proposal).
+        $calendar = $scan->kind === AiScanKind::Calendar;
+        $name = match (true) {
+            $calendar => $scan->calendar === null ? $file : $scan->calendar->name,
+            $scan->status === AiScanStatus::Ready => $this->proposal->name($scan),
+            default => $file,
+        };
+        $view = !$calendar && $scan->status === AiScanStatus::Ready ? $this->proposalView->view($scan) : null;
         $toDecide = is_int($view['toDecide'] ?? null) ? $view['toDecide'] : 0;
 
         [$kind, $subject] = match (true) {
-            $reminder => ['reminder', sprintf('Návrh „%s“ za 3 dny vyprší', $name)],
-            $scan->status === AiScanStatus::Ready => ['ready', 'Návrh šablony z obrázku je připravený'],
+            $reminder => ['reminder', sprintf($calendar ? 'Návrh rozvržení kalendáře „%s“ za 3 dny vyprší' : 'Návrh „%s“ za 3 dny vyprší', $name)],
+            $scan->status === AiScanStatus::Ready => ['ready', $calendar ? 'Návrh rozvržení kalendáře je připravený' : 'Návrh šablony z obrázku je připravený'],
             $scan->status === AiScanStatus::Stopped => ['stopped', 'Sken potřebuje jiný obrázek'],
             default => ['failed', 'Sken se nepodařil'],
         };
 
         $html = $this->twig->render('emails/ai_scan.html.twig', [
             'kind' => $kind,
+            'calendar' => $calendar,
             'subject' => $subject,
             'file' => $file,
             'name' => $name,
@@ -247,8 +257,12 @@ final readonly class AiScanNotifications
         return match ($scan->errorCode) {
             'photo_of_print' => 'Vypadá jako fotka tisku — fotka z ruky zkreslí rozměry i barvy. Nejlépe funguje export nebo snímek obrazovky.',
             'blurry_or_small' => 'Je příliš rozmazaný, texty v něm nepřečteme. Nahrajte ostřejší nebo větší verzi.',
-            'not_expected_kind' => 'Nenašli jsme v něm grafiku — je prázdný, nebo je to jen fotografie bez textů a tvarů.',
-            'several_designs' => 'Je v něm víc grafik. Z jednoho obrázku umíme udělat jednu šablonu.',
+            'not_expected_kind' => $scan->kind === AiScanKind::Calendar
+                ? 'Nenašli jsme v něm stránku týdenního kalendáře. Nahrajte obrázek jedné stránky s dny v týdnu.'
+                : 'Nenašli jsme v něm grafiku — je prázdný, nebo je to jen fotografie bez textů a tvarů.',
+            'several_designs' => $scan->kind === AiScanKind::Calendar
+                ? 'Je v něm víc stránek. Nahrajte obrázek jedné stránky kalendáře.'
+                : 'Je v něm víc grafik. Z jednoho obrázku umíme udělat jednu šablonu.',
             'unusable_input' => 'Soubor je poškozený nebo v neobvyklém formátu. Uložte ho znovu jako PNG nebo JPG.',
             'provider_unavailable' => 'Služba AI teď neodpovídá. Váš obrázek máme uložený — stačí to zkusit znovu.',
             'renderer_unavailable' => 'Náhled se teď nepodařilo vykreslit. Váš obrázek máme uložený — zkuste to znovu.',

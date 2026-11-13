@@ -117,13 +117,23 @@ final class CalendarRenderAssets
      *   its `url` is a token ({@see token()}) and the asset is put here under that token — the
      *   caller writes the document piece by piece and streams the file in ({@see writeDataUri()}),
      *   so a 10 MB photo never becomes a PHP string
+     * @param null|\stdClass $layout the layout of an unsaved document — its pictures are inlined too (never deferred)
      */
-    public function inlined(Calendar $calendar, array $pageKeys, CalendarPictureSource $source = CalendarPictureSource::Preview, null|array $assets = null, null|array &$deferred = null): \stdClass
+    public function inlined(Calendar $calendar, array $pageKeys, CalendarPictureSource $source = CalendarPictureSource::Preview, null|array $assets = null, null|array &$deferred = null, null|\stdClass $layout = null): \stdClass
     {
-        $defer = func_num_args() >= 5;
+        $defer = func_num_args() >= 5 && $layout === null;
         $deferred = [];
 
         $needed = $this->shared($calendar);
+
+        // A document that is not the stored one (CalendarPageRenderer::renderDocument):
+        // the pictures ITS layout names, on top of the stored layout's.
+        if ($layout !== null) {
+            foreach (CalendarLayoutAssets::ids($layout, false) as $id) {
+                $needed[strtolower($id)] = true;
+            }
+        }
+
         $perPage = $this->perPage($calendar);
 
         foreach ($pageKeys as $pageKey) {

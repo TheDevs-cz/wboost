@@ -29,6 +29,8 @@ readonly final class CalendarSavePayload
         public null|\stdClass $design,
         public array $ops,
         public bool $finish,
+        /** The designer chose a preset card over a scanned layout: `"layoutOrigin": null` in the payload. */
+        public bool $clearLayoutOrigin = false,
     ) {
     }
 
@@ -79,7 +81,15 @@ readonly final class CalendarSavePayload
             throw new InvalidCalendarChange('Neplatná data kalendáře (finish).');
         }
 
-        return new self($design, $ops, $finish);
+        // The marker of a scanned layout can only be CLEARED from the browser
+        // (`"layoutOrigin": null`); `scan` is written by the accept alone.
+        $clear = property_exists($data, 'layoutOrigin');
+
+        if ($clear && $data->layoutOrigin !== null) {
+            throw new InvalidCalendarChange('Neplatná data kalendáře (layoutOrigin).');
+        }
+
+        return new self($design, $ops, $finish, $clear);
     }
 
     /**

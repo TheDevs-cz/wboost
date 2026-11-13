@@ -21,16 +21,19 @@ use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\HandledStamp;
 use WBoost\Web\Entity\AiScan;
+use WBoost\Web\Entity\Calendar;
 use WBoost\Web\Entity\Project;
 use WBoost\Web\Entity\User;
 use WBoost\Web\Exceptions\ProjectNotFound;
 use WBoost\Web\Mcp\Security\McpScope;
 use WBoost\Web\Mcp\Security\McpToolScope;
+use WBoost\Web\Message\AiScan\AcceptCalendarScan;
 use WBoost\Web\Message\AiScan\AcceptTemplateScan;
 use WBoost\Web\Message\AiScan\ApplyAiScanFix;
 use WBoost\Web\Message\AiScan\CancelAiScan;
 use WBoost\Web\Message\AiScan\ContinueAiScan;
 use WBoost\Web\Message\AiScan\RequestAiScan;
+use WBoost\Web\Message\AiScan\RestoreCalendarScan;
 use WBoost\Web\Message\AiScan\RetryAiScan;
 use WBoost\Web\Repository\AiScanRepository;
 use WBoost\Web\Repository\ProjectRepository;
@@ -41,8 +44,10 @@ use WBoost\Web\Services\AiScan\AiScanNotifications;
 use WBoost\Web\Services\AiScan\AiScans;
 use WBoost\Web\Services\AiScan\AiScanStorage;
 use WBoost\Web\Services\AiScan\AiScanUrls;
+use WBoost\Web\Services\AiScan\Calendar\CalendarScanProposalView;
 use WBoost\Web\Services\AiScan\Template\ScanProposalView;
 use WBoost\Web\Services\ProvideIdentity;
+use WBoost\Web\Services\Security\CalendarVoter;
 use WBoost\Web\Services\Security\ProjectVoter;
 use WBoost\Web\Value\AiScan\AiScanChannel;
 use WBoost\Web\Value\AiScan\AiScanKind;
@@ -53,7 +58,8 @@ use WBoost\Web\Value\DimensionUnit;
 
 /**
  * `scan_design` — AI scan over MCP (docs/ai-scan/ux.md §10): a flat picture
- * of a finished design becomes a proposal, and the proposal a template.
+ * of a finished design becomes a proposal, and the proposal a template — or,
+ * for a picture of a desk-calendar page, the layout of a calendar.
  *
  * One tool, one argument `action`. It is the web wizard with the same rules,
  * limits and counting — every action goes through the messages the web
@@ -64,10 +70,10 @@ use WBoost\Web\Value\DimensionUnit;
  * | `start` | the upload (`RequestAiScan`) |
  * | `status` | the status poll |
  * | `result` | the review's document |
- * | `apply` | fixes + pictures + "Vytvořit šablonu" (`ApplyAiScanFix`, `AcceptTemplateScan`) |
+ * | `apply` | fixes + pictures + "Vytvořit šablonu" (`ApplyAiScanFix`, `AcceptTemplateScan`); calendars: „Použít rozvržení“ (`AcceptCalendarScan`) |
  * | `list` | "Historie skenů" |
  * | `cancel` / `retry` / `continue` | "Zrušit sken" / "Zkusit znovu" / "Zkusit přesto" |
- * | `restore` | calendars only — not available before calendar scans exist |
+ * | `restore` | calendars only: „Vrátit původní rozvržení“ (`RestoreCalendarScan`) |
  *
  * Web-only by decision (O12): the admin switch, the access request, discard,
  * the operating mode.
@@ -77,7 +83,8 @@ use WBoost\Web\Value\DimensionUnit;
  * an editor of a project with AI scan on) and USE (everything on an existing
  * scan: an admin, the requester, an editor of its project). `start` also
  * requires that the user agreed to the consent text **in the web** — an
- * agent cannot agree for them.
+ * agent cannot agree for them. Applying or restoring a CALENDAR scan also
+ * needs the designer's role on that calendar (the web's `calendar_edit`).
  *
  * **Refusals** are tool errors whose message starts with the code of
  * architecture.md §5.6 (`limit_reached: …`). Nothing is charged for a
@@ -105,6 +112,7 @@ readonly final class ScanDesignTool
         private AiScanStorage $storage,
         private AiScanUrls $urls,
         private ScanProposalView $proposalView,
+        private CalendarScanProposalView $calendarProposalView,
         private ProvideIdentity $provideIdentity,
         private \WBoost\Web\Repository\FileUploadRepository $files,
         #[Autowire(service: 'oneup_flysystem.minio_filesystem')]
@@ -120,6 +128,13 @@ readonly final class ScanDesignTool
      * gallery picture or leave for later. A scan is a background job that
      * usually takes 1–3 minutes (up to about 12) and produces a PROPOSAL;
      * nothing exists among the templates until you call "apply".
+     *
+     * With kind "calendar" it turns a picture of ONE PAGE of a weekly desk
+     * calendar into the LAYOUT of an existing 7-day calendar (calendarId):
+     * where the photo, the day rows, the header, the month and the logo sit,
+     * colours, fonts chosen from the project. The calendar does not change
+     * until "apply"; "apply" saves the layout at once and keeps the previous
+     * one, which "restore" puts back.
      *
      * It is a paid, per-project feature. Each scan that delivers a proposal —
      * and each one cancelled while already running — counts against the
@@ -141,7 +156,9 @@ readonly final class ScanDesignTool
      * n, "height": n} — the template's size when it should differ from the
      * picture's own pixels, e.g. A4 {"unit": "mm", "width": 210, "height":
      * 297}; it must have the picture's aspect ratio or it is ignored). kind is
-     * "template" (calendar scans are not available yet). Returns scanId,
+     * "template" (default) or "calendar"; a calendar scan also needs
+     * calendarId — a 7-day calendar of that project (list_calendars) — takes
+     * no format, and does not need a project font. Returns scanId,
      * status, creditsLeft, queuePosition, estimatedStartSeconds,
      * estimatedFinishSeconds, pollAfterSeconds.
      * Refusals (nothing is charged): not_enabled (AI scan is off for this
@@ -154,7 +171,9 @@ readonly final class ScanDesignTool
      * by the AI today), no_fonts (the project has no font; upload one with
      * upload_font), unsupported_image (not a JPG/PNG/WebP/HEIC, over 10 MB,
      * a side over 8000 px, over 36 megapixels, or the shorter side under
-     * 600 px), source_unscannable (this picture already failed twice).
+     * 600 px), source_unscannable (this picture already failed twice),
+     * wrong_state (kind "calendar" without a calendarId of a 7-day calendar
+     * of the project).
      *
      * "status" — scanId. Returns status (checking | queued | running | ready |
      * accepted | discarded | cancelled | stopped | failed | refused | expired),
@@ -178,6 +197,16 @@ readonly final class ScanDesignTool
      * thing), information[] (what was changed automatically — shrunk texts,
      * colours unified with the brand palette, simplifications), fonts[] (the
      * face strings you may choose from).
+     * For a CALENDAR scan it returns instead: calendarId, hasLayout (the
+     * calendar has a layout that "apply" replaces), preset, layout (the whole
+     * layout the calendar would get now — boxes in mm, styles), recognised[]
+     * ({element, state: found | approximate | absent, kept: true when the
+     * calendar keeps its current setting for an element the page does not
+     * show}), featuresOffered[] (switches the page shows and the calendar
+     * has off — pass the ones to turn on to "apply"), pictures[] ({slot: logo
+     * | header | background, current}: places whose picture was not taken
+     * from the image), fonts[], notExpressible[] ({code, box}: things on the
+     * page a wboost calendar cannot draw), notes[], expiresAt, applied.
      *
      * "apply" — scanId, and optionally fixes[], placeholders[], name. Applies
      * them and CREATES the template; idempotent — called again it returns the
@@ -199,6 +228,15 @@ readonly final class ScanDesignTool
      * Refusals (nothing is created): wrong_state, invalid_fix (names the
      * entry), stale_references (a font or picture the proposal uses is gone —
      * read "result" again), renderer_busy (try again in a few seconds).
+     * For a CALENDAR scan "apply" takes scanId and optionally features[] (keys
+     * of "result" featuresOffered to switch on; a scan never switches anything
+     * off) and SAVES the proposed layout into the calendar at once (the
+     * designer's role on the calendar is needed). Idempotent. Returns
+     * calendarId, revision, features (switched on), unfilledPictures (places
+     * without a picture — upload_calendar_asset, then set_calendar_layout
+     * styles {"logo": {"asset": id}}), restoreUntil (until when "restore"
+     * works), calendarUrl, created. Texts, photos and page content are never
+     * touched.
      *
      * "list" — projectId, optional status. The project's scans, newest first.
      *
@@ -215,14 +253,21 @@ readonly final class ScanDesignTool
      * (errorCode "photo_of_print"): scan it anyway, once; the result will be
      * approximate. Reserves a scan; refusals as "start".
      *
-     * "restore" — calendars only; answers wrong_state.
+     * "restore" — scanId of an applied CALENDAR scan, optional confirm. Puts
+     * back the layout, layout choice and switches the calendar had before
+     * "apply" — nothing else. Works until restoreUntil. When the layout or
+     * the switches were changed after "apply" it is refused with
+     * layout_changed (those edits would be lost): ask the user, then repeat
+     * with confirm: true. Returns calendarId, revision, restored (false = it
+     * had been restored already).
      *
      * Any action called in a state that does not allow it answers wrong_state.
      *
      * @param string $action One of: start, status, result, apply, list, cancel, retry, continue, restore.
      * @param null|string $projectId UUID of the project (get_context) — for "start" and "list".
      * @param null|string $scanId UUID of the scan — for every action except "start" and "list".
-     * @param null|string $kind "template" (default). Calendar scans are not available yet.
+     * @param null|string $kind "template" (default) or "calendar" — for "start".
+     * @param null|string $calendarId "start" with kind "calendar": UUID of the 7-day calendar the layout is proposed for.
      * @param null|string $imageId "start": a gallery picture of the project to scan.
      * @param null|string $imageBase64 "start": the picture's bytes, base64 (under about 3 MB). Use imageId for anything larger.
      * @param null|string $requestId "start": idempotency key (1–64 characters); repeat it to get the same scan back.
@@ -230,9 +275,10 @@ readonly final class ScanDesignTool
      * @param null|string $name "apply": the template's name, 3–30 characters.
      * @param null|array<array-key, mixed> $fixes "apply": fixes to apply before creating, in order.
      * @param null|array<array-key, mixed> $placeholders "apply": pictures, kind and fit per place.
+     * @param null|array<array-key, mixed> $features "apply" of a calendar scan: feature keys to switch on (from "result" featuresOffered).
      * @param null|string $status "list": only scans in this status.
      * @param bool $image "result": also return the proposal's render.
-     * @param bool $confirm "restore" only.
+     * @param bool $confirm "restore": overwrite edits made to the layout since "apply".
      */
     #[McpTool(name: 'scan_design')]
     public function __invoke(
@@ -241,6 +287,7 @@ readonly final class ScanDesignTool
         null|string $projectId = null,
         null|string $scanId = null,
         null|string $kind = null,
+        null|string $calendarId = null,
         null|string $imageId = null,
         null|string $imageBase64 = null,
         null|string $requestId = null,
@@ -251,6 +298,8 @@ readonly final class ScanDesignTool
         null|array $fixes = null,
         #[Schema(type: 'array', items: ['type' => 'object'])]
         null|array $placeholders = null,
+        #[Schema(type: 'array', items: ['type' => 'string'])]
+        null|array $features = null,
         null|string $status = null,
         bool $image = false,
         bool $confirm = false,
@@ -263,14 +312,14 @@ readonly final class ScanDesignTool
 
         try {
             return match ($action) {
-                'start' => $this->start($user, $projectId, $kind, $imageId, $imageBase64, $requestId, $format),
+                'start' => $this->start($user, $projectId, $kind, $calendarId, $imageId, $imageBase64, $requestId, $format),
                 'status' => self::json($this->statusOf($user, $this->scan($user, $scanId))),
                 'result' => $this->result($user, $this->scan($user, $scanId), $image),
-                'apply' => self::json($this->apply($user, $this->scan($user, $scanId), $fixes ?? [], $placeholders ?? [], $name)),
+                'apply' => self::json($this->apply($user, $this->scan($user, $scanId), $fixes ?? [], $placeholders ?? [], $name, $features ?? [])),
                 'list' => self::json($this->list($user, $projectId, $status)),
                 'cancel' => self::json($this->cancel($user, $this->scan($user, $scanId))),
                 'retry', 'continue' => self::json($this->restart($user, $this->scan($user, $scanId), $action)),
-                'restore' => throw self::refused(AiScanRefusal::WrongState, 'restore applies to calendar scans, which are not available yet.'),
+                'restore' => self::json($this->restore($user, $this->scan($user, $scanId), $confirm)),
                 default => throw new ToolCallException('action must be one of: ' . implode(', ', self::ACTIONS) . '.'),
             };
         } catch (AiScanRefused $refused) {
@@ -281,12 +330,17 @@ readonly final class ScanDesignTool
     /**
      * @param null|array<array-key, mixed> $format
      */
-    private function start(User $user, null|string $projectId, null|string $kind, null|string $imageId, null|string $imageBase64, null|string $requestId, null|array $format): CallToolResult
+    private function start(User $user, null|string $projectId, null|string $kind, null|string $calendarId, null|string $imageId, null|string $imageBase64, null|string $requestId, null|array $format): CallToolResult
     {
         $project = $this->project($projectId);
+        $scanKind = AiScanKind::tryFrom($kind ?? AiScanKind::Template->value);
 
-        if (($kind ?? AiScanKind::Template->value) !== AiScanKind::Template->value) {
-            throw new ToolCallException('unsupported_kind: only kind "template" can be scanned; calendar scans are not available yet. Nothing was started.');
+        if ($scanKind === null) {
+            throw new ToolCallException('unsupported_kind: kind must be "template" or "calendar". Nothing was started.');
+        }
+
+        if ($scanKind === AiScanKind::Calendar && ($calendarId === null || !Uuid::isValid($calendarId))) {
+            throw self::refused(AiScanRefusal::WrongState, 'a calendar scan needs calendarId — the UUID of a 7-day calendar of the project (list_calendars).');
         }
 
         if (!$this->access->isEntitled($user, $project)) {
@@ -310,13 +364,14 @@ readonly final class ScanDesignTool
                 requestId: self::requestId($requestId),
                 projectId: $project->id,
                 userId: $user->id,
-                kind: AiScanKind::Template,
+                kind: $scanKind,
                 channel: AiScanChannel::Mcp,
                 filePath: $path,
                 originalName: $fileName,
-                options: self::options($format),
+                options: $scanKind === AiScanKind::Calendar ? [] : self::options($format),
                 // Consent is given in the web, by the person — never here.
                 consentGiven: false,
+                calendarId: $scanKind === AiScanKind::Calendar ? Uuid::fromString((string) $calendarId) : null,
             ));
         } finally {
             @unlink($path);
@@ -360,6 +415,7 @@ readonly final class ScanDesignTool
             'scanId' => $scan->id->toString(),
             'projectId' => $scan->project->id->toString(),
             'kind' => $scan->kind->value,
+            'calendarId' => $view['calendarId'],
             'status' => $view['status'],
             'waiting' => $view['waiting'],
             'restarted' => $view['restarted'],
@@ -387,7 +443,7 @@ readonly final class ScanDesignTool
     private function result(User $user, AiScan $scan, bool $image): CallToolResult
     {
         $scan = $this->scans->current($scan);
-        $proposal = $this->proposalView->view($scan);
+        $proposal = $scan->kind === AiScanKind::Calendar ? $this->calendarResult($scan) : $this->proposalView->view($scan);
 
         if ($proposal === null) {
             throw self::refused(AiScanRefusal::WrongState, sprintf('the scan is "%s" and has no proposal to read (a proposal exists while status is "ready", and on an "accepted" scan until it expires).', $scan->status->value));
@@ -415,12 +471,13 @@ readonly final class ScanDesignTool
     /**
      * @param array<array-key, mixed> $fixes
      * @param array<array-key, mixed> $placeholders
+     * @param array<array-key, mixed> $features
      * @return array<string, mixed>
      */
-    private function apply(User $user, AiScan $scan, array $fixes, array $placeholders, null|string $name): array
+    private function apply(User $user, AiScan $scan, array $fixes, array $placeholders, null|string $name, array $features = []): array
     {
-        if ($scan->kind !== AiScanKind::Template) {
-            throw self::refused(AiScanRefusal::WrongState);
+        if ($scan->kind === AiScanKind::Calendar) {
+            return $this->applyCalendar($user, $scan, $features);
         }
 
         // A repeat on an accepted scan answers with the first result; its fixes are not applied again.
@@ -487,6 +544,113 @@ readonly final class ScanDesignTool
     }
 
     /**
+     * The review's document of a calendar scan, in the words the tool's
+     * description uses.
+     *
+     * @return null|array<string, mixed>
+     */
+    private function calendarResult(AiScan $scan): null|array
+    {
+        $view = $this->calendarProposalView->view($scan);
+
+        if ($view === null || $view['layout'] === null) {
+            return null;
+        }
+
+        return [
+            'kind' => 'calendar',
+            'calendarId' => $view['calendarId'],
+            'readOnly' => $view['readOnly'],
+            'unfinished' => $view['unfinished'],
+            'expiresAt' => $view['expiresAt'],
+            'hasLayout' => $view['hasLayout'],
+            'preset' => $view['preset'],
+            'layout' => $view['layout'],
+            'recognised' => $view['recognised'],
+            'featuresOffered' => array_column(is_array($view['features']) ? $view['features'] : [], 'key'),
+            'pictures' => array_map(
+                static fn (mixed $picture): array => is_array($picture) ? ['slot' => $picture['slot'] ?? null, 'current' => $picture['current'] ?? false] : [],
+                is_array($view['pictures']) ? $view['pictures'] : [],
+            ),
+            'fonts' => $view['fonts'],
+            'notExpressible' => $view['notExpressible'],
+            'notes' => $view['notes'],
+            'applied' => $view['applied'],
+        ];
+    }
+
+    /**
+     * @param array<array-key, mixed> $features
+     * @return array<string, mixed>
+     */
+    private function applyCalendar(User $user, AiScan $scan, array $features): array
+    {
+        $calendar = $this->designerCalendar($scan);
+        $result = $this->dispatch(new AcceptCalendarScan($scan->id, $user->id, array_values(array_filter($features, is_string(...)))));
+        assert(is_array($result));
+
+        return [
+            'scanId' => $scan->id->toString(),
+            'status' => AiScanStatus::Accepted->value,
+            'calendarId' => $calendar->id->toString(),
+            'calendarUrl' => $this->urls->calendar($calendar->id->toString()),
+            'revision' => $result['revision'] ?? null,
+            'features' => $result['features'] ?? [],
+            'unfilledPictures' => $result['unfilledPictures'] ?? 0,
+            'restoreUntil' => $result['restoreUntil'] ?? null,
+            'created' => $result['created'] ?? false,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function restore(User $user, AiScan $scan, bool $confirm): array
+    {
+        if ($scan->kind !== AiScanKind::Calendar) {
+            throw self::refused(AiScanRefusal::WrongState, 'restore applies to calendar scans only.');
+        }
+
+        $calendar = $this->designerCalendar($scan);
+
+        try {
+            $result = $this->dispatch(new RestoreCalendarScan($scan->id, $user->id, $confirm));
+        } catch (AiScanRefused $refused) {
+            if ($refused->refusal === AiScanRefusal::LayoutChanged) {
+                throw self::refused(AiScanRefusal::LayoutChanged, 'the layout or the switches of the calendar were changed after the scan was applied — restoring would lose those edits. Nothing was changed; ask the user, then repeat with confirm: true.');
+            }
+
+            throw $refused;
+        }
+
+        assert(is_array($result));
+
+        return [
+            'scanId' => $scan->id->toString(),
+            'calendarId' => $calendar->id->toString(),
+            'calendarUrl' => $this->urls->calendar($calendar->id->toString()),
+            'revision' => $result['revision'] ?? null,
+            'restored' => $result['restored'] ?? false,
+        ];
+    }
+
+    /** The scan's calendar, when the caller is its designer (the web's `calendar_edit`). */
+    private function designerCalendar(AiScan $scan): Calendar
+    {
+        $calendar = $scan->calendar;
+
+        if ($calendar === null) {
+            throw self::refused(AiScanRefusal::WrongState, 'the calendar this scan was made for no longer exists.');
+        }
+
+        if (!$this->security->isGranted(CalendarVoter::EDIT, $calendar)) {
+            throw new ToolCallException('designer_only: only the designer of the calendar (an editor of its project) can apply or restore a scanned layout. Nothing was changed.');
+        }
+
+        return $calendar;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function list(User $user, null|string $projectId, null|string $status): array
@@ -511,6 +675,7 @@ readonly final class ScanDesignTool
             $scans[] = [
                 'scanId' => $row['id'],
                 'kind' => $row['kind'],
+                'calendarId' => $row['calendarId'],
                 'status' => $row['status'],
                 'name' => $row['name'],
                 'fileName' => $row['fileName'],

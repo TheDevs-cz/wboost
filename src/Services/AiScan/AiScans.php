@@ -149,6 +149,7 @@ final readonly class AiScans
         return [
             'id' => $scan->id->toString(),
             'kind' => $scan->kind->value,
+            'calendarId' => $scan->calendar?->id->toString(),
             'status' => $scan->status->value,
             'waiting' => $waiting?->value,
             'restarted' => $scan->status->isInProgress() && $scan->autoRestart >= 1,

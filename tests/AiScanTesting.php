@@ -106,6 +106,7 @@ trait AiScanTesting
         bool $consent = true,
         null|string $requestId = null,
         AiScanKind $kind = AiScanKind::Template,
+        null|string $calendarId = null,
     ): UuidInterface {
         $users = self::getContainer()->get(UserRepository::class);
         $path = $picture ?? self::picture();
@@ -122,6 +123,7 @@ trait AiScanTesting
                 originalName: 'design.png',
                 options: [],
                 consentGiven: $consent,
+                calendarId: $calendarId === null ? null : Uuid::fromString($calendarId),
             ))->last(HandledStamp::class)?->getResult();
         } catch (HandlerFailedException $failed) {
             throw $failed->getPrevious() ?? $failed;
@@ -201,13 +203,13 @@ trait AiScanTesting
 
     /**
      * What a scanner that is not "too old" announces: every instrument the
-     * definition requires.
+     * definition requires, and `mm` — what building a calendar needs on top.
      *
      * @return list<string>
      */
     public static function instruments(): array
     {
-        return self::getContainer()->get(AiScanDefinition::class)->requiredInstruments();
+        return [...self::getContainer()->get(AiScanDefinition::class)->requiredInstruments(), 'mm'];
     }
 
     /**
@@ -421,6 +423,93 @@ trait AiScanTesting
 
         if (($finish['json']['status'] ?? null) !== 'ready') {
             throw new \LogicException('The scan did not become ready: ' . $finish['raw']);
+        }
+
+        return $scanId;
+    }
+
+    /**
+     * The commands of a calendar candidate: a preset's default with a few
+     * recognisable changes (a navy header, day numbers on the left).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public static function calendarCommands(string $preset = 'photoRight'): array
+    {
+        return [
+            ['op' => 'preset', 'preset' => $preset],
+            ['op' => 'configure', 'features' => ['qr' => true, 'events' => true]],
+            ['op' => 'layout', 'boxes' => ['logo' => ['x' => 250, 'y' => 30, 'w' => 30, 'h' => 20]], 'styles' => [
+                'head' => ['bg' => ['color' => '#1F3A5F']],
+                'cal' => ['numberSide' => 'start'],
+                'month' => ['color' => '#FFFFFF'],
+            ]],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $overrides
+     * @return array<string, mixed>
+     */
+    public static function calendarReport(int $candidate, array $overrides = []): array
+    {
+        return $overrides + [
+            'status' => 'proposed',
+            'candidate' => $candidate,
+            'unfinished' => false,
+            'type' => 'week',
+            'pageBox' => [0, 0, 1600, 748],
+            'photoBox' => [560, 140, 1040, 608],
+            'recognised' => [
+                ['element' => 'photo', 'state' => 'found'],
+                ['element' => 'cal', 'state' => 'found'],
+                ['element' => 'head', 'state' => 'found'],
+                ['element' => 'month', 'state' => 'approximate'],
+                ['element' => 'logo', 'state' => 'found'],
+                ['element' => 'wk', 'state' => 'absent'],
+            ],
+            'needsUpload' => [['slot' => 'logo'], ['slot' => 'header']],
+            'featuresOffered' => [['key' => 'qr'], ['key' => 'events'], ['key' => 'weekNumbers']],
+            'fonts' => [['group' => 'num', 'pattern' => 'nearest_available', 'face' => self::FACE, 'closeness' => 0.61]],
+            'notExpressible' => [['code' => 'ornament', 'box' => [10, 600, 300, 40]]],
+            'notes' => [['code' => 'ratio_adapted', 'w' => 297, 'h' => 150]],
+            'measures' => ['mae' => 0.031],
+        ];
+    }
+
+    /**
+     * Upload → intake → build → one calendar candidate → `ready`.
+     *
+     * @param array<string, mixed> $report overrides of {@see calendarReport()}
+     *
+     * @phpstan-impure
+     */
+    public static function calendarReady(
+        KernelBrowser $client,
+        string $calendarId,
+        string $projectId = TestDataFixture::PROJECT_1_ID,
+        string $email = TestDataFixture::USER_1_EMAIL,
+        array $report = [],
+        string $preset = 'photoRight',
+    ): string {
+        $scanId = self::start($projectId, $email, kind: AiScanKind::Calendar, calendarId: $calendarId)->toString();
+        self::passIntake($client, $scanId);
+        $build = self::claim($client, 'build');
+
+        $render = self::scanner($client, 'POST', $scanId . '/render', ['run' => $build['run'], 'seq' => 1, 'commands' => self::calendarCommands($preset)], $build['lease']);
+
+        if (($render['json']['candidate'] ?? null) !== 1) {
+            throw new \LogicException('The calendar candidate was not rendered: ' . $render['raw']);
+        }
+
+        $finish = self::scanner($client, 'POST', $scanId . '/finish', [
+            'run' => $build['run'], 'outcome' => 'proposed', 'candidate' => 1,
+            'report' => self::calendarReport(1, $report),
+            'usage' => self::usage(2),
+        ], $build['lease']);
+
+        if (($finish['json']['status'] ?? null) !== 'ready') {
+            throw new \LogicException('The calendar scan did not become ready: ' . $finish['raw']);
         }
 
         return $scanId;

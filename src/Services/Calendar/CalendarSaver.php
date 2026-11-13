@@ -38,10 +38,10 @@ readonly final class CalendarSaver
         return CalendarResponses::guard(function () use ($request, $calendar, $actor): JsonResponse {
             $payload = CalendarSavePayload::fromJson($request->request->getString('payload'));
 
-            $this->bus->dispatch(new SaveCalendar($calendar->id, $actor, $payload->design, $payload->ops, $payload->finish));
+            $this->bus->dispatch(new SaveCalendar($calendar->id, $actor, $payload->design, $payload->ops, $payload->finish, setLayoutOrigin: $payload->clearLayoutOrigin));
 
             // The handler locked and refreshed this very instance.
-            return new JsonResponse($this->document->saved($calendar));
+            return new JsonResponse($this->document->saved($calendar, $actor->isDesigner()));
         });
     }
 }

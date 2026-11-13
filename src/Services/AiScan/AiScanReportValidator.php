@@ -63,22 +63,41 @@ final class AiScanReportValidator
         'paletteSnaps' => ['from' => 'hex', 'to' => 'hex'],
     ];
 
+    /** Scalars at the top level of a calendar report (architecture.md §4.7). */
+    public const array CALENDAR_SCALARS = [
+        'status' => 'code',
+        'candidate' => 'int',
+        'unfinished' => 'bool',
+        'type' => 'code',
+        'pageBox' => 'box',
+        'photoBox' => 'box?',
+    ];
+
+    /** Arrays of a calendar report: name → the item fields the screens read. */
+    public const array CALENDAR_LISTS = [
+        'recognised' => ['element' => 'code', 'state' => 'code'],
+        'needsUpload' => ['slot' => 'code'],
+        'featuresOffered' => ['key' => 'feature'],
+        'fonts' => ['group' => 'feature', 'pattern' => 'code', 'face' => 'face?'],
+        'notExpressible' => ['code' => 'code', 'box' => 'box'],
+        'notes' => ['code' => 'code'],
+    ];
+
     /**
      * @return list<string> problems as `path: what` — empty when the report fits. Never echoes a value.
      */
     public function validate(AiScanKind $kind, mixed $report): array
     {
-        if ($kind !== AiScanKind::Template) {
-            // The calendar contract arrives with the calendar adapter (P5).
-            return ['report: no finish contract for this kind yet'];
-        }
-
         if (!is_array($report) || array_is_list($report)) {
             return ['report: must be an object'];
         }
 
+        [$scalars, $lists] = $kind === AiScanKind::Calendar
+            ? [self::CALENDAR_SCALARS, self::CALENDAR_LISTS]
+            : [self::TEMPLATE_SCALARS, self::TEMPLATE_LISTS];
+
         $problems = [];
-        $known = [...array_keys(self::TEMPLATE_SCALARS), ...array_keys(self::TEMPLATE_LISTS)];
+        $known = [...array_keys($scalars), ...array_keys($lists)];
 
         foreach ($report as $key => $value) {
             if (!in_array($key, $known, true) && !self::isFreeOfText($key, $value, 0)) {
@@ -86,11 +105,11 @@ final class AiScanReportValidator
             }
         }
 
-        foreach (self::TEMPLATE_SCALARS as $name => $type) {
+        foreach ($scalars as $name => $type) {
             $this->check($problems, $name, $report, $name, $type);
         }
 
-        foreach (self::TEMPLATE_LISTS as $name => $shape) {
+        foreach ($lists as $name => $shape) {
             if (!array_key_exists($name, $report)) {
                 $problems[] = $name . ': required';
 
@@ -153,6 +172,8 @@ final class AiScanReportValidator
 
         $fits = match ($type) {
             'code' => is_string($value) && preg_match('/^[a-z][a-z0-9_]{0,39}$/', $value) === 1,
+            // a key of the calendar's own vocabulary: `weekNumbers`, `numSat`
+            'feature' => is_string($value) && preg_match('/^[a-z][A-Za-z0-9]{0,39}$/', $value) === 1,
             'id' => self::isId($value),
             'ids' => is_array($value) && array_is_list($value) && count($value) <= self::MAX_ITEMS && array_all($value, self::isId(...)),
             'name' => self::isPlain($value, 40),

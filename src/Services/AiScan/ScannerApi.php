@@ -13,11 +13,16 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use WBoost\Web\Entity\Project;
+use WBoost\Web\Exceptions\CalendarModelUnavailable;
+use WBoost\Web\Exceptions\CalendarNotFound;
 use WBoost\Web\Exceptions\ProjectNotFound;
 use WBoost\Web\Exceptions\TemplateRenderUnavailable;
 use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Query\GetProjectPalette;
+use WBoost\Web\Repository\CalendarRepository;
 use WBoost\Web\Repository\ProjectRepository;
+use WBoost\Web\Services\AiScan\Calendar\CalendarCandidate;
+use WBoost\Web\Services\AiScan\Calendar\CalendarScanProposal;
 use WBoost\Web\Services\AiScan\Template\FontFacesRendererInterface;
 use WBoost\Web\Services\AiScan\Template\ScanRenderLimiter;
 use WBoost\Web\Services\AiScan\Template\TemplateProposal;
@@ -76,6 +81,8 @@ final readonly class ScannerApi
         private ProjectRepository $projectRepository,
         private GetFonts $getFonts,
         private GetProjectPalette $getProjectPalette,
+        private CalendarCandidate $calendarCandidate,
+        private CalendarRepository $calendarRepository,
         private LoggerInterface $logger,
     ) {
     }
@@ -160,7 +167,12 @@ final readonly class ScannerApi
         $leaseToken = bin2hex(random_bytes(32));
         $hash = hash('sha256', $leaseToken);
 
-        $claimed = $this->connection->transactional(function () use ($lane, $runtime, $now, $capacity, $hash, $scannerVersion): null|array {
+        // A scanner builds only the kinds whose instruments it has: one that is
+        // older than a kind keeps serving the others and never sees that
+        // kind's scans (they wait for a scanner that can build them).
+        $kinds = $this->definition->buildableKinds($instruments);
+
+        $claimed = $this->connection->transactional(function () use ($lane, $runtime, $now, $capacity, $hash, $scannerVersion, $kinds): null|array {
             if ($lane === AiScanLane::Intake) {
                 $id = $this->connection->fetchOne(
                     "SELECT id FROM ai_scan WHERE status = 'checking' AND lease_expires_at IS NULL
@@ -186,10 +198,16 @@ final readonly class ScannerApi
                 return null;
             }
 
+            if ($kinds === []) {
+                return null;
+            }
+
             /** @var list<array{id: string, project_id: string}> $queued */
             $queued = $this->connection->fetchAllAssociative(
-                "SELECT id, project_id FROM ai_scan WHERE status = 'queued' AND lease_expires_at IS NULL
+                "SELECT id, project_id FROM ai_scan WHERE status = 'queued' AND lease_expires_at IS NULL AND kind IN (:kinds)
                   ORDER BY waiting_since, id LIMIT 20 FOR UPDATE SKIP LOCKED",
+                ['kinds' => $kinds],
+                ['kinds' => \Doctrine\DBAL\ArrayParameterType::STRING],
             );
 
             foreach ($queued as $candidate) {
@@ -444,14 +462,11 @@ final readonly class ScannerApi
             return self::refuse(ScannerApiCode::LeaseLost);
         }
 
-        if ($held['row']['kind'] !== AiScanKind::Template->value) {
-            // Calendar candidates (`commands`) arrive with the calendar adapter (P5).
-            return self::refuse(ScannerApiCode::UnsupportedKind);
-        }
+        $calendar = $held['row']['kind'] === AiScanKind::Calendar->value;
 
         $seq = $body['seq'] ?? null;
 
-        if (!is_int($seq) || !array_key_exists('design', $body)) {
+        if (!is_int($seq) || !array_key_exists($calendar ? 'commands' : 'design', $body)) {
             return self::refuse(ScannerApiCode::InvalidRequest);
         }
 
@@ -462,7 +477,7 @@ final readonly class ScannerApi
                 $bytes = $this->storage->read($held['directory'], AiScanStorage::candidateName(self::int($candidate['n'] ?? null)));
 
                 if ($bytes !== null) {
-                    return self::rendered($candidate, $bytes);
+                    return self::rendered($candidate, $bytes, $calendar ? CalendarScanProposal::answerOf($candidate) : []);
                 }
             }
         }
@@ -484,9 +499,20 @@ final readonly class ScannerApi
         }
 
         try {
-            $result = $this->templateProposal->candidate($project, $body['design']);
-        } catch (TemplateRenderUnavailable) {
+            if ($calendar) {
+                $calendarId = self::nullableString($held['row']['calendar_id']);
+                $result = $this->calendarCandidate->render(
+                    $this->calendarRepository->get(Uuid::fromString($calendarId ?? '')),
+                    $body['commands'],
+                );
+            } else {
+                $result = $this->templateProposal->candidate($project, $body['design']) + ['design' => $body['design'], 'answer' => []];
+            }
+        } catch (TemplateRenderUnavailable|CalendarModelUnavailable) {
             return self::refuse(ScannerApiCode::RendererUnavailable);
+        } catch (CalendarNotFound|\InvalidArgumentException) {
+            // The calendar the scan was made for is gone: nothing to build on.
+            return self::refuse(ScannerApiCode::Gone);
         } finally {
             $this->renderLimiter->release($slot);
         }
@@ -511,7 +537,7 @@ final readonly class ScannerApi
             'width' => $result['width'],
             'height' => $result['height'],
             'issues' => $result['issues'],
-            'design' => $body['design'],
+            'design' => $result['design'],
         ];
 
         $stored = $this->connection->executeStatement(
@@ -533,7 +559,7 @@ final readonly class ScannerApi
             return self::refuse(ScannerApiCode::LeaseLost);
         }
 
-        return self::rendered($entry, $result['bytes']);
+        return self::rendered($entry, $result['bytes'], $result['answer']);
     }
 
     /**
@@ -739,7 +765,9 @@ final readonly class ScannerApi
             $held['run'],
             $held['hash'],
             self::int($candidate['n'] ?? null),
-            TemplateProposal::proposal($candidate, self::measured($body['boxes'] ?? null)),
+            $kind === AiScanKind::Calendar
+                ? CalendarScanProposal::proposal($candidate)
+                : TemplateProposal::proposal($candidate, self::measured($body['boxes'] ?? null)),
             $report,
             ($report['unfinished'] ?? false) === true,
         );
@@ -878,7 +906,7 @@ final readonly class ScannerApi
 
         $row = $this->connection->fetchAssociative(
             'SELECT id, project_id, kind, status, run, intake_tries, try, approximate, lease_token_hash, lease_expires_at,
-                    storage_secret, source_sha256, source_meta, options, candidates, error_code
+                    storage_secret, source_sha256, source_meta, options, candidates, error_code, calendar_id
                FROM ai_scan WHERE id = :id',
             ['id' => $id],
         );
@@ -920,6 +948,10 @@ final readonly class ScannerApi
 
         if ($lane === AiScanLane::Build) {
             $job['context'] = $this->context(self::string($row['project_id']));
+
+            if ($row['kind'] === AiScanKind::Calendar->value) {
+                $job['context']['calendar'] = $this->calendarContext(self::nullableString($row['calendar_id']));
+            }
         }
 
         return $job;
@@ -962,6 +994,21 @@ final readonly class ScannerApi
         ];
     }
 
+    /**
+     * The calendar a calendar scan builds for — `{supported: false}` when it
+     * is gone or cannot take a scanned layout (the build then fails).
+     *
+     * @return array<string, mixed>
+     */
+    private function calendarContext(null|string $calendarId): array
+    {
+        try {
+            return $this->calendarCandidate->context($this->calendarRepository->get(Uuid::fromString($calendarId ?? '')));
+        } catch (CalendarNotFound|CalendarModelUnavailable|\InvalidArgumentException) {
+            return ['supported' => false];
+        }
+    }
+
     private function noJob(null|string $reason): JsonResponse
     {
         return new JsonResponse([
@@ -974,10 +1021,11 @@ final readonly class ScannerApi
 
     /**
      * @param array<string, mixed> $candidate
+     * @param array<string, mixed> $extra what a calendar candidate answers beside the picture (view, page, layout)
      */
-    private static function rendered(array $candidate, string $bytes): JsonResponse
+    private static function rendered(array $candidate, string $bytes, array $extra = []): JsonResponse
     {
-        return new JsonResponse([
+        return new JsonResponse($extra + [
             'ok' => true,
             'candidate' => $candidate['n'] ?? null,
             'issues' => $candidate['issues'] ?? [],

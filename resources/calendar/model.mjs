@@ -49,7 +49,7 @@ const ENUMS = {
     numAlign: ['start', 'middle', 'end'],
     dayAlign: ['start', 'middle', 'end'],
     valign: ['top', 'middle', 'bottom'],
-    numberSide: ['start', 'end'],
+    numberSide: ['start', 'middle', 'end'],
     fit: ['contain', 'cover'],
     source: ['client', 'self'],
     form: ['a', 'b', 'c'],

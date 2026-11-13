@@ -113,7 +113,7 @@ readonly final class GetContextTool
      * it is not current, tell the user its message once per session, after
      * doing what they asked — never instead of it.
      *
-     * @param null|string $skillVersion The version your wboost skill states (e.g. "0.3.0"). Omit when you have no wboost skill.
+     * @param null|string $skillVersion The version your wboost skill states (e.g. "0.4.0"). Omit when you have no wboost skill.
      */
     #[McpTool(name: 'get_context')]
     public function __invoke(null|string $skillVersion = null): GetContextResponse

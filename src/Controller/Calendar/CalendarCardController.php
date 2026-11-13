@@ -12,6 +12,8 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\Calendar;
 use WBoost\Web\Services\Calendar\CalendarDocument;
+use WBoost\Web\Entity\User;
+use WBoost\Web\Services\AiScan\AiScanLists;
 use WBoost\Web\Services\Security\CalendarVoter;
 
 /**
@@ -23,12 +25,15 @@ use WBoost\Web\Services\Security\CalendarVoter;
  *
  * The same document the workspace bootstrap carries, without the session
  * part (`env`) and — like every answer outside the designer's client-link
- * dialog — without the client token.
+ * dialog — without the client token. For a designer it also says whether an
+ * AI scan of the calendar is on its way, waits for the review or failed
+ * (`scan`, ux.md C5).
  */
 final class CalendarCardController extends AbstractController
 {
     public function __construct(
         readonly private CalendarDocument $document,
+        readonly private AiScanLists $scans,
     ) {
     }
 
@@ -38,6 +43,15 @@ final class CalendarCardController extends AbstractController
         #[MapEntity(id: 'calendarId')]
         Calendar $calendar,
     ): Response {
-        return new JsonResponse($this->document->card($calendar));
+        $card = $this->document->card($calendar);
+        $user = $this->getUser();
+
+        // The pill of an AI scan on the card (designers only): `running` |
+        // `queued` | `ready` | `failed` | null — never for the client role.
+        $card['scan'] = $user instanceof User && $this->isGranted(CalendarVoter::EDIT, $calendar)
+            ? $this->scans->calendarPill($calendar->id->toString(), $user->id->toString())
+            : null;
+
+        return new JsonResponse($card);
     }
 }

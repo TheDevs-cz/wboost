@@ -3,7 +3,7 @@ name: wboost
 description: Works with a wboost account through the wboost MCP tools. Brand templates — find a template variant, fill its texts, pictures, shape colours and repeatable rows, preview it, export the PNG or a print PDF (bleed, crop marks), fill and export multi-page documents, author a design with the design DSL, upload pictures and fonts. Desk calendars (Kalendáře) — create one, set its layout and styles, upload photos and logos, fill events, waste collection days, name days, captions, cover / intro / contacts / back pages, render pages, export the print PDF, hand out the client link. Use whenever the user mentions wboost, a brand template or šablona, a social post, poster or leaflet from their brand, a multi-page document, or a desk / municipal calendar (stolní kalendář).
 license: MIT
 metadata:
-  version: "0.3.0"
+  version: "0.4.0"
 ---
 
 # wboost
@@ -11,15 +11,15 @@ metadata:
 wboost is a brand-manual platform. A **project** holds brand fonts and colours,
 a picture gallery, **templates** (designed canvases whose text, picture and
 colour slots are filled in and exported) and **desk calendars**. This skill
-(version 0.3.0) teaches the wboost MCP tools; their own descriptions carry the
+(version 0.4.0) teaches the wboost MCP tools; their own descriptions carry the
 field-level detail.
 
 ## First call of a session: the version check
 
 Pass this skill's version on your first wboost call:
 
-- templates: `get_context` with `{"skillVersion": "0.3.0"}`
-- a calendar-only connection (no `get_context`): `list_calendars` with `{"skillVersion": "0.3.0"}`
+- templates: `get_context` with `{"skillVersion": "0.4.0"}`
+- a calendar-only connection (no `get_context`): `list_calendars` with `{"skillVersion": "0.4.0"}`
 
 The answer carries `skill.status`. `current`: say nothing. `outdated`: do the
 user's task first, then tell them ONCE per session what is new
@@ -37,7 +37,7 @@ update.
 | fill + deliver | `render_variant` (preview), `export_variant` (PNG / print PDF) | `templates:read` / `templates:export` | [references/filling.md](references/filling.md) |
 | multi-page documents | `export_document`, `document_history`, `manage_document` | `templates:export` / `templates:design` | [references/documents-and-print.md](references/documents-and-print.md) |
 | author a design | `create_template` (a new empty template), `preview_design`, `set_design`, `upload_font`, `set_print_setup` | `templates:design` | [references/design.md](references/design.md) — read it BEFORE the first design call |
-| picture of a design → template (AI scan) | `scan_design` | `ai:scan` | [references/tools.md](references/tools.md) |
+| picture of a design → template, picture of a calendar page → calendar layout (AI scan) | `scan_design` | `ai:scan` | [references/tools.md](references/tools.md) |
 | add pictures | `upload_image` | `gallery:write` | [references/tools.md](references/tools.md) |
 | desk calendars | `list_calendars`, `get_calendar`, `render_calendar_page`, `manage_calendar`, `set_calendar_layout`, `upload_calendar_asset`, `update_calendar_content` | `calendars:read` / `calendars:write` | [references/calendars.md](references/calendars.md) — read it BEFORE calendar work |
 
@@ -175,7 +175,9 @@ reason codes, PDF variants — is in [references/calendars.md](references/calend
 - The AI scan (`scan_design`) is a paid, per-project feature with a monthly
   limit: one scan per picture the user asked for, never in a loop; its
   refusals (`not_enabled`, `consent_required`, `limit_reached`, …) are for the
-  user to resolve in the web app.
+  user to resolve in the web app. With `kind: "calendar"` it proposes the
+  layout of a 7-day calendar: `apply` saves it at once (the previous layout
+  comes back with `restore`), so say what will be replaced before you apply.
 - A calendar-only connection learns project ids from `list_calendars` alone:
   if the account has no calendar yet, ask the user for the project (or use
   `get_context` if the connection also has `templates:read`).

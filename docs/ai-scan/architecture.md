@@ -483,6 +483,17 @@ CI and owed to the app's). Where the client is more specific than the text above
   format travels as `options {targetUnit, targetWidth, targetHeight}` and accept scales the document to it;
   accept runs inside one bus transaction with the compile and the render BEFORE the first create; the
   ended-scan e-mail is a delayed `SendAiScanEmail` on the `async` transport with the nightly purge as backstop.
+- **As built in P5** (details: `docs/architecture/ai-scan.md` § "Calendar scans"): the calendar `render`
+  takes `commands` restricted to `preset` (always a reset to the preset's default), `configure` (features on
+  only) and `layout` (the patch); the candidate is the calendar's sample week `w02` drawn from the unsaved
+  document; the proposal stores the materialised layout and is never changed — what the review shows and what
+  accept saves is computed against the calendar as stored at that moment (an `absent` element keeps the
+  calendar's current box and style when the calendar has a layout; a place for a picture takes the held
+  picture, else the calendar's own); pictures added in the review are HELD with the scan and become calendar
+  assets at accept only; the marker is also cleared by a save that carries `"layoutOrigin": null` (the preset
+  card equal to the stored `preset` changes no design key); font items of the calendar review are information,
+  not fixes; `recognised[]` carries no fact code (the browser reads the fact off the layout); a scanner that
+  lacks a kind's instruments (`kinds.calendar.requiresInstruments: ["mm"]`) is never handed that kind's builds.
 - **Fit**: `Vejít celý` (contain, centred — default for logos and icons) or `Vyplnit` (cover; the
   browser crops the chosen picture to the place's ratio before upload — default for photos,
   patterns, illustrations).
@@ -1123,7 +1134,7 @@ ships **admins-only** (`admin_only` on) behind the per-project entitlement and t
 | P3 | Šablony wizard, accept, export rule, notification, access request, `scan_design` (templates), `create_template` | approved |
 | G2a | reliability gate, the part that runs locally | **passed 2026-11-13** — `reliability-report.md`; its open points go to G2b |
 | P4 | scanner on the box; G2b (reliability on the box); admins scan in production | approved |
-| P5 | calendars, on the same agent runner | approved |
+| P5 | calendars, on the same agent runner | **built 2026-11-13** — as built: `docs/architecture/ai-scan.md` § "Calendar scans"; measurements: `scanner/eval/RESULTS.md` |
 | Launch round | outside-made designs with their fonts and real calendar pages, 3 runs each on the API key, rated blind by the named designer; bars fixed | gate for P6 — inputs and the designer are owed by the owner |
 | G1 | legal and provider gate (§6) | gate for P6 |
 | P6 | customer launch: limits UI, launch gate, `admin_only` off | approved, behind both gates |

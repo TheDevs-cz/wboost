@@ -64,7 +64,36 @@ final class CalendarPageRenderer
      */
     public function render(Calendar $calendar, string $pageKey, bool $bleed = false, bool $marks = false, bool $sampleTexts = false, int $longEdge = self::DEFAULT_LONG_EDGE, RenderImageFormat $format = RenderImageFormat::Png): CalendarPageRender
     {
-        $model = $this->model->run($calendar, pages: true, warnings: true, view: ['bleed' => $bleed || $marks, 'marks' => $marks]);
+        return $this->renderDocument($calendar, $this->document->calendar($calendar), $pageKey, $bleed, $marks, $sampleTexts, $longEdge, $format);
+    }
+
+    /**
+     * The same picture for a calendar document that is NOT what is stored:
+     * `$document` has the shape of {@see CalendarDocument::calendar()} — the
+     * stored calendar with a design that was changed in memory (a layout
+     * proposed by an AI scan, {@see \WBoost\Web\Services\AiScan\Calendar\CalendarCandidate}).
+     * Nothing is saved, no revision moves, no history line is written.
+     *
+     * The calendar row still supplies what a document does not carry: the
+     * project (fonts, palette) and the uploaded pictures. With the stored
+     * document this IS {@see render()} — that method calls this one.
+     *
+     * @param array<string, mixed> $document
+     *
+     * @throws CalendarModelRefused `no_layout`, `unknown_page`
+     * @throws CalendarModelUnavailable
+     * @throws TemplateRenderUnavailable the renderer is busy or down
+     */
+    public function renderDocument(Calendar $calendar, array $document, string $pageKey, bool $bleed = false, bool $marks = false, bool $sampleTexts = false, int $longEdge = self::DEFAULT_LONG_EDGE, RenderImageFormat $format = RenderImageFormat::Png): CalendarPageRender
+    {
+        $model = $this->model->runDocument(
+            $document,
+            $this->document->assets($calendar),
+            $calendar->project,
+            pages: true,
+            warnings: true,
+            view: ['bleed' => $bleed || $marks, 'marks' => $marks],
+        );
 
         if (!$model->hasLayout()) {
             throw new CalendarModelRefused('no_layout', 'The calendar has no layout yet, so there is nothing to draw. Choose one first: set_calendar_layout with preset "photoLeft", "photoRight" (7 days) or "twoSided" (14 days).');
@@ -94,8 +123,8 @@ final class CalendarPageRenderer
         $height = max(1, (int) round($view['h'] * $scale));
 
         $boot = [
-            'calendar' => $this->document->calendar($calendar),
-            'assets' => $this->assets->inlined($calendar, [$pageKey]),
+            'calendar' => $document,
+            'assets' => $this->assets->inlined($calendar, [$pageKey], layout: ($document['layout'] ?? null) instanceof \stdClass ? $document['layout'] : null),
             'env' => [
                 'fonts' => $this->document->fonts($calendar->project),
                 'palette' => $this->document->palette($calendar->project),

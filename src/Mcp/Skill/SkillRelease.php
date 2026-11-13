@@ -35,10 +35,10 @@ use WBoost\Web\Mcp\Response\SkillVersionResponse;
  */
 final class SkillRelease
 {
-    public const string VERSION = '0.3.0';
+    public const string VERSION = '0.4.0';
 
     /** One or two lines: what the CURRENT version adds over the previous one. */
-    public const string WHATS_NEW = 'Desk calendars (Kalendáře: create, layout, content, photos, page renders, PDF export, client link), multi-page documents, print PDFs with bleed and crop marks, new templates (create_template) and the AI scan (scan_design), font uploads, recolourable shapes, repeatable rows and movable elements — and this update check.';
+    public const string WHATS_NEW = 'The AI scan (scan_design) now also reads a picture of a desk-calendar page: kind "calendar" proposes the layout of a 7-day calendar, "apply" saves it (with the switches you choose) and "restore" puts the previous layout back.';
 
     /** A stable download of the latest released skill folder, built by `.github/workflows/plugin-release.yml`. */
     public const string ZIP_URL = 'https://github.com/TheDevs-cz/wboost/releases/latest/download/wboost-skill.zip';

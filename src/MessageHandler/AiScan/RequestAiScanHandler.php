@@ -10,6 +10,7 @@ use Psr\Clock\ClockInterface;
 use Ramsey\Uuid\UuidInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use WBoost\Web\Entity\AiScan;
+use WBoost\Web\Exceptions\CalendarNotFound;
 use WBoost\Web\Exceptions\ProjectNotFound;
 use WBoost\Web\Exceptions\UserNotFound;
 use WBoost\Web\Message\AiScan\RequestAiScan;
@@ -24,6 +25,7 @@ use WBoost\Web\Services\AiScan\AiScanUpload;
 use WBoost\Web\Value\AiScan\AiScanKind;
 use WBoost\Web\Value\AiScan\AiScanRefusal;
 use WBoost\Web\Value\AiScan\AiScanRefused;
+use WBoost\Web\Value\Calendar\CalendarType;
 
 /**
  * Rule 1 (— → `checking`): the upload becomes a scan.
@@ -101,9 +103,14 @@ readonly final class RequestAiScanHandler
                 throw new AiScanRefused(AiScanRefusal::WrongState);
             }
 
-            $calendar = $this->calendarRepository->get($message->calendarId);
+            try {
+                $calendar = $this->calendarRepository->get($message->calendarId);
+            } catch (CalendarNotFound) {
+                throw new AiScanRefused(AiScanRefusal::WrongState);
+            }
 
-            if (!$calendar->project->id->equals($project->id)) {
+            // A scan proposes a layout for ONE 7-day calendar of this project.
+            if (!$calendar->project->id->equals($project->id) || $calendar->type !== CalendarType::Week) {
                 throw new AiScanRefused(AiScanRefusal::WrongState);
             }
         }

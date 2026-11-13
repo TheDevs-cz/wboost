@@ -167,6 +167,12 @@ return static function (ContainerConfigurator $container): void {
         \WBoost\Web\Services\AiScan\Template\FontFacesRenderer::class,
     );
 
+    // AI scan: the picture of a calendar candidate is a Gotenberg render — tests replace it.
+    $services->alias(
+        \WBoost\Web\Services\AiScan\Calendar\CalendarCandidatePictureInterface::class,
+        \WBoost\Web\Services\AiScan\Calendar\CalendarCandidatePicture::class,
+    );
+
     // Meta Graph API client — same pattern: tests replace it with a fake.
     $services->alias(
         \WBoost\Web\Services\Meta\MetaGraphApiInterface::class,

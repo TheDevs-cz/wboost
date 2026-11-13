@@ -87,7 +87,8 @@ return App::config([
             {"<id>": {"x": 0, "y": 40}} canvas px within their range.
             With the templates:design scope you can also author a variant's design:
             preview_design draws a design document without saving, set_design commits it.
-            create_template makes an empty template; scan_design (ai:scan) turns a picture into one.
+            create_template makes an empty template; scan_design (ai:scan) turns a picture into
+            one, or a calendar page into a calendar's layout.
             Every design should have exactly ONE background element - {"kind": "background",
             "id": "pozadi", "fill": "#ffffff"} (a colour or gradient) or "asset": "<gallery id>"
             (a picture). It is the editor's locked "Pozadí" layer covering the whole canvas

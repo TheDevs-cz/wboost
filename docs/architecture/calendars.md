@@ -29,7 +29,7 @@ Four tables (`Version20261111131800`; `calendar_export` came with
 
 | Table / entity | Holds |
 |---|---|
-| `calendar` / `Entity/Calendar` | one row = one calendar: the **design** (`name`, `year`, `type` week\|fortnight, `page`, `print`, `features` JSONB, `layout_preset`, `layout` JSONB, `link_elements`, `step`, `finished`) + the **content** JSONB + `client_token` (64 hex, unique) + `revision` (+1 per save) |
+| `calendar` / `Entity/Calendar` | one row = one calendar: the **design** (`name`, `year`, `type` week\|fortnight, `page`, `print`, `features` JSONB, `layout_preset`, `layout` JSONB, `link_elements`, `step`, `finished`) + the **content** JSONB + `client_token` (64 hex, unique) + `revision` (+1 per save) + `layout_origin` (`scan` when the layout was taken from an AI scan, else null — NOT part of the design, § "Scanned layouts") |
 | `calendar_asset` / `CalendarAsset` | every uploaded file: `kind` (`photo logo icon qr image page`), `path` = `calendars/{calendarId}/{assetId}.{ext}`, optional `preview_path` (`…-preview.webp`, only when the long edge > 1600 px), pixel `width`/`height` (null for SVG), embedded `description` (EXIF / XMP caption), uploader kind + user |
 | `calendar_history` / `CalendarHistoryEntry` | "Historie": `author_kind` (designer\|client), `user_id` (SET NULL), a ready Czech sentence, `created_at` |
 | `calendar_export` / `CalendarExport` | one PDF export job and its file: `variant` (print\|approval), `status` (queued\|running\|done\|failed), `progress_done` / `progress_total` (pages), `path` = `calendars/{calendarId}/exports/{40 hex}.pdf`, `size_bytes`, `error` (a Czech sentence), `calendar_revision` + `renderer_hash` (what the file was made from), requester kind + user, `created_at` / `updated_at` (heartbeat) / `finished_at` — § "PDF export" |
@@ -390,6 +390,18 @@ request stores nothing) → history → `revision++`, `updatedAt`.
   404 unknown calendar / token. `CalendarResponses::guard` unwraps
   `HandlerFailedException`.
 
+- **The marker of a scanned layout** (`calendar.layout_origin`, since
+  2026-11-13): a save that changes `preset` clears it; a payload with
+  top-level `"layoutOrigin": null` clears it explicitly (a designer picked the
+  preset card that equals the stored `preset` over a scanned layout — no
+  design key changes then); any other value, or the key in a client's
+  request, is refused. `SaveCalendar` also takes `setLayoutOrigin` /
+  `layoutOrigin` and `designSentence` from server-side callers — the AI scan's
+  accept and restore (`Převzal rozvržení ze skenu` / `Vrátil původní
+  rozvržení`, always recorded, never coalesced). A DESIGNER's save answer
+  carries `layoutOrigin` beside `calendar` and the designer's bootstrap
+  `env.layoutOrigin`; a client's answer and bootstrap carry neither.
+
 **Design is last-write-wins** (two designers, or two tabs). Only changed keys
 are sent, which narrows the window; nothing detects the conflict. Content
 merging is the only concurrency guarantee.
@@ -471,6 +483,7 @@ file from another project loads without pictures.
 | `calendar_save` / `calendar_asset_upload` / `calendar_history` / `calendar_card` | POST `…/save`, POST `…/asset`, GET `…/history`, GET `…/card` | `CalendarVoter::VIEW` |
 | `calendar_export_current` / `_request` / `_status` / `_download` | GET `…/export`, POST `…/export`, GET `…/export/{exportId}`, GET `…/export/{exportId}/download` | `CalendarVoter::VIEW` — whoever opens a calendar may export it |
 | `calendar_document_text` / `calendar_layout_import` / `calendar_client_link` / `calendar_delete` | POST `…/document-text`, `…/layout-import`, `…/client-link`, `…/delete` | `CalendarVoter::EDIT` |
+| `calendar_scan` | POST `…/scan/{scanId}/{accept\|restore\|picture}` | `CalendarVoter::EDIT` + the AI scan's USE; a scan of another calendar is 404 — § "Scanned layouts". **No `/k/{token}` twin** |
 | `calendar_client` (+ `_save`, `_asset`, `_history`, `_export_current` / `_export_request` / `_export_status` / `_export_download`) | `/k/{token}` (+ `/save`, `/asset`, `/history`, `/export…`) | public; the token is the credential |
 
 `{token}` = `[a-f0-9]{64}`, unknown → 404; regenerating it
@@ -716,6 +729,8 @@ message }` → `CalendarModelRefused`; a broken run → `CalendarModelUnavailabl
   2026-11-11) and `resources/` is copied into it (`tests/` is not — the script
   must not move there). Needs node ≥ 22.7, like the suites.
 - One spawn ≈ 60–100 ms, once per MCP calendar call. No web request uses it.
+- `cal.numberSide` takes `start` / `middle` / `end` on the patch path since
+  2026-11-13 (the editor always offered „Na střed“; the enum lacked it).
 - What only the script knows (keep in sync with the UI when a control is
   added): the `ENUMS` table of word-valued style keys and the patch rules
   (unknown key → refusal naming the key and its siblings; `family` must be a
@@ -730,6 +745,16 @@ message }` → `CalendarModelRefused`; a broken run → `CalendarModelUnavailabl
   keyed `0…n` (`iconCells["4"] = {"0": …}`); the script reads such lists as
   maps (`asMap`). The payload itself is decoded as `stdClass`, so stored maps
   stay objects.
+
+**`renderDocument()` — a page of an UNSAVED document** (since 2026-11-13).
+`CalendarPageRenderer::renderDocument($calendar, $document, $pageKey, …)`
+draws a calendar document that is not what is stored — the shape of
+`CalendarDocument::calendar()`, with a design changed in memory; the row
+still supplies the project (fonts, palette) and the uploaded pictures (those
+the document's own layout names are inlined too). `render()` IS
+`renderDocument()` with the stored document, so the two cannot drift
+(`CalendarRenderDocumentGotenbergTest`). Its one caller besides `render()` is
+the AI scan's candidate (`Services/AiScan/Calendar/CalendarCandidate`).
 
 **The renderer in Chromium — `Services/Calendar/CalendarPageRenderer`.** One
 page as PNG / WebP through Gotenberg, the vehicle of the template renders:
@@ -749,6 +774,39 @@ back. A render error is an uncaught exception → Gotenberg 409
 classified by `TemplateVariantImageRenderer::isRendererOverloaded`. Buffered
 bytes only, never a streamed response. Without project fonts the fallback face
 is Chromium's sans-serif, not Outfit (not shipped to Gotenberg).
+
+## Scanned layouts — AI scan „Naskenovat design“ (2026-11-13)
+
+Wizard step 2 of a 7-day calendar can take its layout from a picture of a
+calendar page: the AI scan (`docs/architecture/ai-scan.md` § "Calendar
+scans" — the job, the proposal, accept, restore, the scanner's side). What
+the calendar module itself carries:
+
+- **`calendar.layout_origin`** — `scan` after a scanned layout was applied;
+  the rules of the marker are in "Save contract". Step 2 shows the third
+  radio „Naskenovaný design“ while it is set; choosing a preset card then
+  REPLACES the layout with that preset's default (never mirrors the scanned
+  one) and clears the marker.
+- **Accept and restore are saves.** `AcceptCalendarScan` /
+  `RestoreCalendarScan` lock the row, compute the design in the model
+  (`replace_layout`, switches on) and go through `SaveCalendar` — same
+  validation, revision, history. Content is never part of them, so a client's
+  save in between is neither blocked nor lost. Accept keeps the previous
+  layout, layout choice, switches and marker with the scan until the scan's
+  `expires_at`; restore writes them back and asks for confirmation when the
+  layout or the switches changed since (`layout_changed`).
+- **A candidate is never saved.** The scanner's renders go through
+  `renderDocument()`; the calendar gets no revision, history line or asset
+  before „Použít rozvržení“. Pictures added in the review are held with the
+  scan and become assets (kinds `logo` / `image`) at accept only.
+- **The client link cannot do any of it**: `calendar_scan` needs
+  `calendar_edit`, has no `/k/{token}` twin, and the workspace bootstrap
+  carries `env.scan` (the scan addresses) for designers only.
+- **The export fingerprint did not move**: nothing under
+  `assets/calendar/{model,generate,render,editor,headless}/` knows about
+  scans; `CalendarExportFingerprintTest` pins it. The scan's browser code is
+  `ui/scan.js` (+ `ui/step2.js`, `ui/topbar.js`) and the marker lives in the
+  store beside `doc`, never in `doc.design`.
 
 ## PDF export — „Stáhnout PDF“ (2026-11-11)
 
@@ -1262,7 +1320,7 @@ zoom, snap and link behaviour (interaction, not data).
 
 | Layer | Where | Run |
 |---|---|---|
-| PHP | `tests/Controller/Calendar` (export: `CalendarExportControllerTest`), `tests/MessageHandler/Calendar`, `tests/Services/Calendar` (`CalendarPdfProducerTest`; the real export through Gotenberg is `CalendarPdfProducerGotenbergTest`, `--group gotenberg`), `tests/Services/Print/PdfChunkMergerTest.php` + `PdfPageBoxesTest.php`, the CMYK colour pass in `tests/Services/Print/Cmyk/*` (hand-built PDFs, the Chromium chunk fixture `tests/Fixtures/calendar/pdf/chromium-week-chunk.pdf`, the RGB verifier) and its real export `CalendarCmykExportGotenbergTest` (`--group gotenberg --filter CalendarCmyk`: inks read back through Ghostscript), `tests/Value/Calendar/CalendarPdfPlanTest.php`, `tests/Mcp/Tool/Calendar{Tools,DesignTools}Test.php`; fixtures `CALENDAR_{1,2,3}_ID` (+ tokens) in `TestDataFixture`, helpers `CalendarTesting` | `docker compose exec web vendor/bin/phpunit tests/Controller/Calendar …` |
+| PHP | `tests/Controller/Calendar` (export: `CalendarExportControllerTest`; AI scan: `CalendarScanTest`), `tests/MessageHandler/Calendar`, `tests/Services/Calendar` (`CalendarPdfProducerTest`; the real export through Gotenberg is `CalendarPdfProducerGotenbergTest`, `--group gotenberg`), `tests/Services/Print/PdfChunkMergerTest.php` + `PdfPageBoxesTest.php`, the CMYK colour pass in `tests/Services/Print/Cmyk/*` (hand-built PDFs, the Chromium chunk fixture `tests/Fixtures/calendar/pdf/chromium-week-chunk.pdf`, the RGB verifier) and its real export `CalendarCmykExportGotenbergTest` (`--group gotenberg --filter CalendarCmyk`: inks read back through Ghostscript), `tests/Value/Calendar/CalendarPdfPlanTest.php`, `tests/Mcp/Tool/Calendar{Tools,DesignTools}Test.php`; fixtures `CALENDAR_{1,2,3}_ID` (+ tokens) in `TestDataFixture`, helpers `CalendarTesting` | `docker compose exec web vendor/bin/phpunit tests/Controller/Calendar …` |
 | Node suites (every pure rule) | `tests/Fixtures/calendar/suites/*.mjs` + `harness.mjs`, `helpers.mjs` | in CI through `tests/Calendar/CalendarJsTest.php` (data provider globs the suites; a new suite file needs no PHP edit, a suite without a test fails); by hand `node tests/Fixtures/calendar/harness.mjs --all` or `… <suite>` |
 | Contract | `tests/Calendar/CalendarSeedContractTest.php` (PHP seed vs `BUILTIN_WASTE` via `dump-defaults.mjs`) | CI |
 | e2e (real pointer, asserts in mm) | `tests/e2e/calendar/*.e2e.cjs`, `lib/harness.cjs`, `lib/editor.cjs` | `node tests/e2e/calendar/run.cjs [filter]` — **not in CI** |
@@ -1375,8 +1433,10 @@ overflow warning, the approval PDF read with `pdftotext`).
 
 Deliberately not built (handoff §2), with the room left for them:
 
-- **AI design scan** ("Naskenovat design", Premium) and **layout import from a
-  PDF or image** — the Nahrát layout menu has the two rule-based items only.
+- **Layout import from a PDF or image in step 3** — the Nahrát layout menu has
+  the two rule-based items only. (The AI design scan of step 2 exists since
+  2026-11-13 — § "Scanned layouts"; PDF input and 14-day calendars are not
+  part of it.)
 - **Excel import** for Odpady and Akce a spolky (rule-based, postponed).
 - **CMYK print file — what is left** (the variant exists since 2026-11-12,
   "CMYK variant"): no overprint is set (K 100 text KNOCKS OUT what lies under

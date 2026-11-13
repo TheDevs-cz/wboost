@@ -85,6 +85,7 @@ readonly final class CalendarDocument
             $env['urls']['clientLink'] = $this->urlGenerator->generate('calendar_client_link', $id);
             $env['urls']['layoutImport'] = $this->urlGenerator->generate('calendar_layout_import', $id);
             $env['urls']['documentText'] = $this->urlGenerator->generate('calendar_document_text', $id);
+            $env['scan'] = $this->scanEnv($calendar);
             $env['clientUrl'] = $this->clientUrl($calendar);
             $env['siblings'] = [];
 
@@ -102,6 +103,12 @@ readonly final class CalendarDocument
             }
         }
 
+        if ($designer) {
+            // Where the layout came from when not a preset (`scan`) — beside
+            // the document, never inside it (the design's JavaScript does not know it).
+            $env['layoutOrigin'] = $calendar->layoutOrigin;
+        }
+
         return [
             'mode' => $designer ? 'designer' : 'client',
             'calendar' => $this->calendar($calendar),
@@ -111,17 +118,62 @@ readonly final class CalendarDocument
     }
 
     /**
+     * The addresses of „Naskenovat design“ (wizard step 2, designers only):
+     * the AI scan's own endpoints, with the nil uuid where a scan id goes.
+     * Whether the card is live, locked or waiting is answered by `entry`.
+     *
+     * @return array{nil: string, urls: array<string, string>}
+     */
+    private function scanEnv(Calendar $calendar): array
+    {
+        $nil = '00000000-0000-0000-0000-000000000000';
+        $project = ['projectId' => $calendar->project->id->toString()];
+        $id = $calendar->id->toString();
+        $scan = ['id' => $nil];
+        $own = ['calendarId' => $id, 'scanId' => $nil];
+
+        return [
+            'nil' => $nil,
+            'urls' => [
+                'entry' => $this->urlGenerator->generate('ai_scan_entry', $project + ['kind' => 'calendar', 'calendarId' => $id]),
+                'start' => $this->urlGenerator->generate('ai_scan_start', $project),
+                'accessRequest' => $this->urlGenerator->generate('ai_scan_access_request', $project),
+                'history' => $this->urlGenerator->generate('ai_scan_history', $project),
+                'status' => $this->urlGenerator->generate('ai_scan_status', $scan),
+                'proposal' => $this->urlGenerator->generate('ai_scan_proposal', $scan),
+                'image' => $this->urlGenerator->generate('ai_scan_image', $scan + ['which' => 'working']),
+                'action' => $this->urlGenerator->generate('ai_scan_action', $scan + ['action' => 'cancel']),
+                'seen' => $this->urlGenerator->generate('ai_scan_feedback', $scan + ['action' => 'seen']),
+                'rating' => $this->urlGenerator->generate('ai_scan_feedback', $scan + ['action' => 'rating']),
+                'accept' => $this->urlGenerator->generate('calendar_scan', $own + ['action' => 'accept']),
+                'restore' => $this->urlGenerator->generate('calendar_scan', $own + ['action' => 'restore']),
+                'picture' => $this->urlGenerator->generate('calendar_scan', $own + ['action' => 'picture']),
+                'fonts' => $this->urlGenerator->generate('fonts_list', ['id' => $calendar->project->id->toString()]),
+            ],
+        ];
+    }
+
+    /**
      * What a save answers: the stored calendar and its assets.
      *
-     * @return array{calendar: array<string, mixed>, assets: \stdClass, savedAt: string}
+     * @return array{calendar: array<string, mixed>, assets: \stdClass, savedAt: string, layoutOrigin?: null|string}
      */
-    public function saved(Calendar $calendar): array
+    public function saved(Calendar $calendar, bool $designer = true): array
     {
-        return [
+        $saved = [
             'calendar' => $this->calendar($calendar),
             'assets' => $this->assets($calendar),
             'savedAt' => $calendar->updatedAt->format(DATE_ATOM),
         ];
+
+        if ($designer) {
+            // Beside the document, never inside it: the marker is not part of
+            // the design the calendar's JavaScript normalises. Step 2 is the
+            // designer's, so a client's answer does not carry it.
+            $saved['layoutOrigin'] = $calendar->layoutOrigin;
+        }
+
+        return $saved;
     }
 
     /**

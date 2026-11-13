@@ -27,6 +27,17 @@ readonly final class SaveCalendar
         public null|\stdClass $designPatch = null,
         public array $ops = [],
         public bool $finish = false,
+        /**
+         * True = write `layoutOrigin` into the calendar's marker
+         * (`calendar.layout_origin`): `scan` when a scanned layout is applied,
+         * what it was before when it is restored, null when the designer
+         * chose a preset card over a scanned layout. Without it the marker is
+         * cleared only when the save changes `preset`.
+         */
+        public bool $setLayoutOrigin = false,
+        public null|string $layoutOrigin = null,
+        /** The history sentence of the design change instead of „Upravil vzhled a nastavení“ — always recorded. */
+        public null|string $designSentence = null,
     ) {
     }
 }

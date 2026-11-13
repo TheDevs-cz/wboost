@@ -23,7 +23,10 @@ use WBoost\Web\Value\ProjectModule;
  * "Historie skenů" (docs/ai-scan/ux.md §8) — every scan of a project,
  * server-rendered from {@see AiScanLists::history()}. The page changes
  * nothing; the row actions (retry, discard) are the JSON endpoint
- * `ai_scan_action`, called by the `ai-scan-history` controller.
+ * `ai_scan_action`, called by the `ai-scan-history` controller. Scans of both
+ * kinds are listed: a calendar scan opens its calendar's wizard
+ * (`calendar_workspace` with `?sken=`) and may offer „Vrátit původní
+ * rozvržení“ (`calendar_scan`, action `restore`).
  *
  * Who: whoever may see the project's scans — an admin or a project editor
  * ({@see AiScanAccess::canSeeProjectScans()}); a read-only member gets 403.
@@ -34,7 +37,7 @@ use WBoost\Web\Value\ProjectModule;
 #[RequiresProjectModule(ProjectModule::Templates)]
 final class AiScanHistoryController extends AbstractController
 {
-    private const array FILTERS = ['all' => 'Vše', 'waiting' => 'Čekají na kontrolu', 'done' => 'Hotové', 'failed' => 'Nepodařené'];
+    private const array FILTERS = ['all' => 'Vše', 'templates' => 'Šablony', 'calendars' => 'Kalendáře', 'waiting' => 'Čekají na kontrolu', 'done' => 'Hotové', 'failed' => 'Nepodařené'];
 
     public function __construct(
         readonly private AiScanLists $lists,

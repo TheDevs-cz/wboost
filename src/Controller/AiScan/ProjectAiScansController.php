@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Controller\AiScan;
 
+use Ramsey\Uuid\Uuid;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -21,7 +22,7 @@ use WBoost\Web\Value\AiScan\AiScanKind;
  *
  * - `?view=history` (default) with `?filter=all|templates|calendars|waiting|done|failed`
  *   — "Historie skenů";
- * - `?view=strip` (`&kind=template|calendar`) — the cards above the list (T5);
+ * - `?view=strip` (`&kind=template|calendar`, `&calendarId=` for one calendar's) — the cards above the list (T5);
  * - `templates` — template id → scan id for templates made from a scan in
  *   the last week (the pill `Ze skenu`).
  *
@@ -50,7 +51,7 @@ final class ProjectAiScansController extends AbstractController
         $filter = $request->query->getString('filter', 'all');
 
         $scans = $request->query->getString('view') === 'strip'
-            ? $this->lists->strip($project, $user, $kind)
+            ? $this->lists->strip($project, $user, $kind, self::calendarId($request))
             : $this->lists->history($project, $user, in_array($filter, AiScanLists::FILTERS, true) ? $filter : 'all');
 
         return self::json_(['ok' => true, 'scans' => $scans, 'templates' => $this->lists->recentlyCreatedTemplates($project)]);
@@ -65,7 +66,15 @@ final class ProjectAiScansController extends AbstractController
         $user = $this->viewer($project);
         $kind = AiScanKind::tryFrom($request->query->getString('kind')) ?? AiScanKind::Template;
 
-        return self::json_(['ok' => true, 'entry' => $this->lists->entry($project, $user, $kind)]);
+        return self::json_(['ok' => true, 'entry' => $this->lists->entry($project, $user, $kind, self::calendarId($request))]);
+    }
+
+    /** `?calendarId=` — the scans of one calendar (the calendar wizard's step 2). */
+    private static function calendarId(Request $request): null|string
+    {
+        $id = $request->query->getString('calendarId');
+
+        return Uuid::isValid($id) ? strtolower($id) : null;
     }
 
     private function viewer(Project $project): User

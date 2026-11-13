@@ -19,7 +19,7 @@ Contents: [Scopes](#scopes) · [`get_context`](#get_contextskillversion) ·
 [`manage_document`](#manage_documentaction-projectid-documentid-name-dimension-templateids-position-fields-pageid-bleedmm-cropmarks-categoryid) ·
 [`set_print_setup`](#set_print_setupvariantid-bleedmm-cropmarks) ·
 [`create_template`](#create_templateprojectid-name-dimension-categoryid) ·
-[`scan_design`](#scan_designaction---ai-scan-a-picture-becomes-a-template) ·
+[`scan_design`](#scan_designaction---ai-scan-a-picture-becomes-a-template-or-a-calendar-layout) ·
 [`preview_design`](#preview_designvariantid-design) ·
 [`set_design`](#set_designvariantid-design-acknowledgelosses) ·
 [Error wordings](#error-wordings-you-should-recognise)
@@ -70,7 +70,7 @@ with a message saying exactly that.
 
 ## `get_context(skillVersion?)`
 
-`skillVersion`: the version your wboost skill states (`"0.3.0"`); omit it when
+`skillVersion`: the version your wboost skill states (`"0.4.0"`); omit it when
 you have no wboost skill. Changes nothing. Returns:
 
 ```jsonc
@@ -94,7 +94,7 @@ you have no wboost skill. Changes nothing. Returns:
     }]
   }],
   "skill": {                                        // the version check — see SKILL.md
-    "latestVersion": "0.3.0", "installedVersion",   // null when no skillVersion was sent
+    "latestVersion": "0.4.0", "installedVersion",   // null when no skillVersion was sent
     "status",                                       // "current" | "outdated" | "unknown"
     "message", "whatsNew",                          // null when current; tell the user once
     "updateClaudeCode", "updateClaudeAi"            // the update routes; null when current
@@ -588,7 +588,7 @@ a project the account cannot see), `project_not_editable`, `invalid_name`,
 A document page is made with `manage_document` `add_page` instead; nothing
 here deletes.
 
-## `scan_design(action, …)` — AI scan: a picture becomes a template
+## `scan_design(action, …)` — AI scan: a picture becomes a template or a calendar layout
 
 Scope `ai:scan` (implies nothing; a paid feature WBoost switches on per
 project). A flat picture of a finished design (JPG, PNG, WebP, HEIC; ≤ 10 MB,
@@ -599,10 +599,12 @@ runs in the background, usually 1–3 minutes (up to about 12).
 
 | action | arguments | returns |
 |---|---|---|
-| `start` | `projectId`; `imageId` (a gallery picture) **or** `imageBase64` (≤ ~3 MB); `requestId?` (idempotency key); `format?` `{unit: px\|mm\|cm, width, height}` — same aspect ratio as the picture | `scanId`, `status`, `creditsLeft`, `queuePosition`, `estimatedStartSeconds`, `estimatedFinishSeconds`, `pollAfterSeconds` |
+| `start` | `projectId`; `imageId` (a gallery picture) **or** `imageBase64` (≤ ~3 MB); `requestId?` (idempotency key); `kind?` `template` (default) \| `calendar`; template: `format?` `{unit: px\|mm\|cm, width, height}` — same aspect ratio as the picture; calendar: `calendarId` (a 7-day calendar of the project) | `scanId`, `status`, `creditsLeft`, `queuePosition`, `estimatedStartSeconds`, `estimatedFinishSeconds`, `pollAfterSeconds` |
 | `status` | `scanId` | `status`, `waiting`, `restarted`, `stage`, `note`, `round`, `elapsedSeconds`, queue fields, `expiresAt`, `unfinished`, `errorCode` + `errorSentence`, `retriesLeft`, `canRetry`, `canContinue`, `pollAfterSeconds` (null once ended) |
 | `result` | `scanId`, `image?` | `name`, `counts`, `toDecide`, `elements[]`, `placeholders[]`, `decisions[]` (each with the `fixes[]` it accepts), `information[]`, `fonts[]` (+ the render with `image: true`) |
-| `apply` | `scanId`, `fixes?[]`, `placeholders?[]` `{id, assetId\|null, kind?: fixed\|input, fit?: contain\|cover}`, `name?` (3–30) | `templateId`, `variantId`, `editorUrl`, `unfilledPictures`, `created` — creates the template; idempotent |
+| `apply` | template: `scanId`, `fixes?[]`, `placeholders?[]` `{id, assetId\|null, kind?: fixed\|input, fit?: contain\|cover}`, `name?` (3–30) | `templateId`, `variantId`, `editorUrl`, `unfilledPictures`, `created` — creates the template; idempotent |
+| `apply` | calendar: `scanId`, `features?[]` (keys of `featuresOffered` to switch on) | `calendarId`, `calendarUrl`, `revision`, `features`, `unfilledPictures`, `restoreUntil`, `created` — SAVES the layout into the calendar; idempotent |
+| `restore` | `scanId` (an applied calendar scan), `confirm?` | `calendarId`, `calendarUrl`, `revision`, `restored` — the previous layout, layout choice and switches come back |
 | `list` | `projectId`, `status?` | `scans[]` |
 | `cancel` | `scanId` | `status`, `counted` (true when it was already running) |
 | `retry` | `scanId` (failed) | `status`, `retriesLeft` — at most twice per upload |
@@ -627,13 +629,64 @@ refused `start`: `not_enabled`, `consent_required` (the user must agree to the
 data-processing text in the wboost web app; you cannot agree for them),
 `limit_reached`, `daily_starts_reached`, `project_queue_full`, `queue_full`,
 `temporarily_unavailable`, `project_paused`, `no_fonts`, `unsupported_image`,
-`unsupported_kind` (only `template`), `source_unscannable`, `no_retries_left`,
+`unsupported_kind` (`template` or `calendar`), `source_unscannable`, `no_retries_left`,
 `wrong_state` (the action does not apply in the scan's state), `invalid_fix`
 (names the entry; nothing is created), `stale_references`, `renderer_busy`.
 
 Places left empty show a grey stand-in in the new template
 (`unfilledPictures`); `export_variant` / `export_document` then refuse with
 `unfilled_pictures` until they are filled or `allowUnfilled: true` is passed.
+
+### Calendar scans (`kind: "calendar"`)
+
+A picture of **one page of a weekly desk calendar** becomes the proposed
+**layout** of an existing 7-day calendar — nothing of the calendar changes
+until `apply`. The scan takes over where the photo, the day rows
+(Kalendárium), the header, the month, the week number, the caption and the
+logo sit, their colours, and fonts chosen among the project's (a project
+without fonts is fine: the built-in face is used). It never reads the page's
+texts, days or photos — the calendar generates those itself — and never takes
+a picture out of the image.
+
+`result` of a calendar scan:
+
+```jsonc
+{
+  "kind": "calendar", "calendarId", "expiresAt",
+  "hasLayout": true,            // the calendar has a layout that apply REPLACES
+  "preset": "photoRight",
+  "layout": { "v": 1, "boxes": {…}, "order": […], "styles": {…} },   // what the calendar would get now (mm, pt)
+  "recognised": [ { "element": "photo|cap|cal|month|wk|head|logo|qr|bg",
+                    "state": "found|approximate|absent",
+                    "kept": false } ],   // kept: the calendar keeps its current setting (element not on the page)
+  "featuresOffered": ["qr", "events"],   // switches the page shows and the calendar has off
+  "pictures": [ { "slot": "logo|header|background", "current": false } ],   // places whose picture you must supply
+  "fonts": [ { "group": "num", "pattern": "measured_match|nearest_available|undetermined", "face" } ],
+  "notExpressible": [ { "code": "ornament|header_text|second_photo|more_logos|days_in_grid|rotated_text|month_colours|multilingual_names", "box" } ],
+  "notes": [ { "code": "fortnight_left_half|ratio_adapted|colours_estimated|page_box_set" } ],
+  "applied": null               // after apply: { restoreUntil, restorable, restored, changed, features }
+}
+```
+
+Rules:
+
+- `apply` **saves at once** and replaces the calendar's layout; tell the user
+  first when `hasLayout` is true. It needs the designer's role on the calendar
+  (`designer_only` otherwise). Texts, photos and page content are never
+  touched. A scan only ever switches features ON, and only those you pass in
+  `features[]`.
+- `restore` puts back the layout, layout choice and switches the calendar had
+  before `apply` — until `restoreUntil` (the scan's `expiresAt`, not 30 days
+  from applying). If the layout or switches were edited after `apply` it
+  refuses with `layout_changed`: those edits would be lost — ask the user,
+  then repeat with `confirm: true`.
+- Pictures: for each `pictures[]` slot without `current`, upload the file with
+  `upload_calendar_asset` (`logo` → kind `logo`; `header` / `background` →
+  kind `image`) after `apply` and set it with `set_calendar_layout`
+  (`styles: {"logo": {"asset": id}}`, `{"head": {"bg": {"asset": id, "imageOn": true}}}`,
+  `{"bg": {"asset": id, "imageOn": true}}`).
+- 14-day calendars cannot be scanned (`wrong_state` at `start`).
+- Look at the result with `render_calendar_page` after `apply`.
 
 ## `preview_design(variantId, design)`
 

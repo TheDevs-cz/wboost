@@ -77,7 +77,7 @@ readonly final class ListCalendarsTool
      * what they asked.
      *
      * @param null|string $projectId UUID of one project to narrow the listing to (calendars[].projectId of an earlier call, or get_context projects[].id). Omit to list every reachable project's calendars.
-     * @param null|string $skillVersion The version your wboost skill states (e.g. "0.3.0"). Omit when you have no wboost skill.
+     * @param null|string $skillVersion The version your wboost skill states (e.g. "0.4.0"). Omit when you have no wboost skill.
      */
     #[McpTool(name: 'list_calendars')]
     public function __invoke(null|string $projectId = null, null|string $skillVersion = null): ListCalendarsResponse

@@ -536,6 +536,37 @@ final readonly class AiScanTransitions
         ) !== null);
     }
 
+    /**
+     * Rule 14 for calendars: the scanned layout was applied. `restore` keeps
+     * what the calendar held before — its layout, layout choice, switches and
+     * marker — and a hash of what the accept wrote, until `expires_at`.
+     *
+     * @param array<string, mixed> $restore
+     */
+    public function acceptCalendar(string $id, array $restore): bool
+    {
+        return $this->atomically(fn (): bool => $this->apply(
+            $id,
+            AiScanEvent::Accept,
+            ['restore = CAST(:restore AS JSONB)', 'seen_at = COALESCE(seen_at, :now)'],
+            ['restore' => self::json($restore)],
+            "kind = 'calendar'",
+        ) !== null);
+    }
+
+    /**
+     * "Vrátit původní rozvržení" was used: the snapshot stays (the date of
+     * the scan decides when it goes), the row remembers it was taken.
+     */
+    public function markRestored(string $id): bool
+    {
+        return $this->connection->executeStatement(
+            "UPDATE ai_scan SET restore = jsonb_set(restore, '{restoredAt}', to_jsonb(CAST(:now AS TEXT)))
+              WHERE id = :id AND status = 'accepted' AND restore IS NOT NULL AND NOT jsonb_exists(restore, 'restoredAt')",
+            ['id' => $id, 'now' => $this->clock->now()->format(DATE_ATOM)],
+        ) === 1;
+    }
+
     /** Rule 15. No ledger line: a delivered scan stays counted. */
     public function discard(string $id): bool
     {

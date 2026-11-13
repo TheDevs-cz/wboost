@@ -7,7 +7,7 @@ Produce a finished wboost export from this brief: **$ARGUMENTS**
 
 Follow the wboost skill's loop and do not skip a step:
 
-1. `get_context` with `{"skillVersion": "0.3.0"}` — pick the project. If several
+1. `get_context` with `{"skillVersion": "0.4.0"}` — pick the project. If several
    could match the brief, ask. (If `skill.status` is not `current`, mention the
    update once at the end, as the wboost skill says.)
 2. `find_templates` with a `query` drawn from the brief. Show the candidates and

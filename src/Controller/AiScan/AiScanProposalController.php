@@ -14,8 +14,10 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\AiScan;
 use WBoost\Web\Entity\User;
 use WBoost\Web\Services\AiScan\AiScans;
+use WBoost\Web\Services\AiScan\Calendar\CalendarScanProposalView;
 use WBoost\Web\Services\AiScan\Template\ScanProposalView;
 use WBoost\Web\Services\Security\AiScanVoter;
+use WBoost\Web\Value\AiScan\AiScanKind;
 
 /**
  * `GET /ai-scan/{id}/proposal` — the review's document (ux.md S4, S4b):
@@ -28,6 +30,7 @@ final class AiScanProposalController extends AbstractController
     public function __construct(
         readonly private AiScans $scans,
         readonly private ScanProposalView $proposalView,
+        readonly private CalendarScanProposalView $calendarProposalView,
     ) {
     }
 
@@ -38,7 +41,7 @@ final class AiScanProposalController extends AbstractController
         AiScan $scan,
     ): Response {
         $scan = $this->scans->current($scan);
-        $response = new JsonResponse(['ok' => true, 'scan' => $this->scans->view($scan), 'proposal' => $this->proposalView->view($scan)]);
+        $response = new JsonResponse(['ok' => true, 'scan' => $this->scans->view($scan), 'proposal' => $scan->kind === AiScanKind::Calendar ? $this->calendarProposalView->view($scan) : $this->proposalView->view($scan)]);
         $response->headers->set('Cache-Control', 'no-store');
 
         return $response;

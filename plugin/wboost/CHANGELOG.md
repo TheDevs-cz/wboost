@@ -5,6 +5,22 @@ every deploy. When the server is newer than your skill, Claude tells you once
 per session how to update (see the README). Versions follow `x.y.z`: a new or
 changed tool or parameter is at least a minor bump.
 
+## 0.4.0 — 2026-11-13
+
+**AI scan for desk calendars** (`scan_design`, scope `ai:scan`).
+- `start` takes `kind: "calendar"` + `calendarId` (a 7-day calendar of the
+  project): a picture of one calendar page becomes a proposed **layout** —
+  where the photo, the day rows, the header, the month and the logo sit,
+  colours, fonts chosen from the project. A project font is not required.
+- `result` of a calendar scan: `layout`, `preset`, `recognised[]`,
+  `featuresOffered[]`, `pictures[]`, `fonts[]`, `notExpressible[]`, `notes[]`.
+- `apply` takes `features[]` (switches to turn on) and saves the layout into
+  the calendar at once; the previous layout is kept until `restoreUntil`.
+- `restore` (new behaviour, parameter `confirm`) puts the previous layout,
+  layout choice and switches back; `layout_changed` without `confirm: true`
+  when the layout was edited since.
+- `status` / `list` rows carry `calendarId`.
+
 ## 0.3.0 — 2026-11-12
 
 Everything the server learned since 0.2.0 (2026-08-07), now taught by the skill.

@@ -48,6 +48,15 @@ return static function (ContainerConfigurator $container): void {
         \WBoost\Web\Tests\Fakes\FakeFontFacesRenderer::class,
     );
 
+    // AI scan: the picture of a calendar candidate is a Gotenberg render too.
+    $services->alias(
+        \WBoost\Web\Services\AiScan\Calendar\CalendarCandidatePictureInterface::class,
+        \WBoost\Web\Tests\Fakes\FakeCalendarCandidatePicture::class,
+    );
+
+    // …the real one stays reachable for the `gotenberg` group.
+    $services->set(\WBoost\Web\Services\AiScan\Calendar\CalendarCandidatePicture::class);
+
     // Meta Graph API double — publish tests never talk to graph.facebook.com.
     $services->alias(
         \WBoost\Web\Services\Meta\MetaGraphApiInterface::class,

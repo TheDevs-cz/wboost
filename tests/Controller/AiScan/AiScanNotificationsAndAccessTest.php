@@ -74,6 +74,23 @@ final class AiScanNotificationsAndAccessTest extends WebTestCase
         self::assertEmailCount(1);
     }
 
+    public function testACalendarScansMailNamesTheCalendarAndOpensItsWizard(): void
+    {
+        $scanId = self::calendarReady($this->client, TestDataFixture::CALENDAR_2_ID);
+        $notifications = self::getContainer()->get(AiScanNotifications::class);
+        $this->backdate($scanId, 'finished_at', '-3 minutes');
+
+        self::assertTrue($notifications->sendEnded(Uuid::fromString($scanId)));
+        $mail = self::getMailerMessage();
+        self::assertInstanceOf(Email::class, $mail);
+        self::assertSame('Návrh rozvržení kalendáře je připravený', $mail->getSubject());
+        $html = (string) $mail->getHtmlBody();
+        self::assertStringContainsString('„Obecní kalendář“', $html);
+        self::assertStringContainsString('Kalendář se nezmění, dokud rozvržení nepoužijete.', $html);
+        self::assertStringNotContainsString('Šablona vznikne', $html);
+        self::assertStringContainsString(sprintf('/calendar/%s?sken=%s', TestDataFixture::CALENDAR_2_ID, $scanId), $html);
+    }
+
     public function testSeenCancelsTheEmailAndOnlyTheRequestersLookCounts(): void
     {
         $scanId = self::ready($this->client);

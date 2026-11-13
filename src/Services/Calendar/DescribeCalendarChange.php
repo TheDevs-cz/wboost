@@ -21,6 +21,8 @@ readonly final class DescribeCalendarChange
     public const string LINK_COPIED = 'Zkopíroval odkaz pro klienta';
     public const string LINK_REGENERATED = 'Vygeneroval nový odkaz pro klienta';
     public const string LAYOUT_FROM_FILE = 'Načetl layout ze souboru';
+    public const string SCAN_APPLIED = 'Převzal rozvržení ze skenu';
+    public const string SCAN_RESTORED = 'Vrátil původní rozvržení';
     public const string MOON_CHANGED = 'Upravil fáze měsíce';
     public const string SPECIAL_PAGES_CHANGED = 'Upravil speciální stránky';
     public const string GROUPS_REORDERED = 'Změnil pořadí skupin';

@@ -81,17 +81,24 @@ final readonly class AiScanLists
      *
      * @return list<array<string, mixed>>
      */
-    public function strip(Project $project, User $viewer, AiScanKind $kind = AiScanKind::Template): array
+    public function strip(Project $project, User $viewer, AiScanKind $kind = AiScanKind::Template, null|string $calendarId = null): array
     {
+        $params = [
+            'project' => $project->id->toString(),
+            'kind' => $kind->value,
+            'viewer' => $viewer->id->toString(),
+            'since' => AiScanTime::sql($this->clock->now()->modify(sprintf('-%d hours', self::OTHERS_SEE_FAILURES_HOURS))),
+        ];
+
+        if ($calendarId !== null) {
+            $params['calendar'] = $calendarId;
+        }
+
         $rows = $this->load(
             "project_id = :project AND kind = :kind AND status IN ('checking', 'queued', 'running', 'ready', 'stopped', 'failed', 'refused')
-               AND (status NOT IN ('stopped', 'failed', 'refused') OR requested_by_id = :viewer OR finished_at >= :since)",
-            [
-                'project' => $project->id->toString(),
-                'kind' => $kind->value,
-                'viewer' => $viewer->id->toString(),
-                'since' => AiScanTime::sql($this->clock->now()->modify(sprintf('-%d hours', self::OTHERS_SEE_FAILURES_HOURS))),
-            ],
+               AND (status NOT IN ('stopped', 'failed', 'refused') OR requested_by_id = :viewer OR finished_at >= :since)"
+                . ($calendarId === null ? '' : ' AND calendar_id = :calendar'),
+            $params,
             50,
         );
 
@@ -104,9 +111,13 @@ final readonly class AiScanLists
      * `state`: `enabled` · `admin_preview` (an admin on a project without AI
      * scan) · `locked` · `request_sent` · `limit_reached` · `service_waiting`.
      *
+     * With `$calendarId` (the calendar wizard's step 2): `scans` are that
+     * calendar's only, and `applied` names its latest applied scan whose
+     * previous layout can still be put back („Vrátit původní“).
+     *
      * @return array<string, mixed>
      */
-    public function entry(Project $project, User $viewer, AiScanKind $kind = AiScanKind::Template): array
+    public function entry(Project $project, User $viewer, AiScanKind $kind = AiScanKind::Template, null|string $calendarId = null): array
     {
         $now = $this->clock->now();
         $runtime = $this->runtime->get();
@@ -146,8 +157,9 @@ final readonly class AiScanLists
                 'estimatedStartSeconds' => $estimate->startSeconds,
                 'estimatedFinishSeconds' => $estimate->finishSeconds,
             ],
-            'scans' => $this->access->canSeeProjectScans($viewer, $project) ? $this->strip($project, $viewer, $kind) : [],
+            'scans' => $this->access->canSeeProjectScans($viewer, $project) ? $this->strip($project, $viewer, $kind, $calendarId) : [],
             'historyCount' => $this->count('project_id = :project', ['project' => $projectId]),
+            'applied' => $calendarId === null ? null : $this->applied($calendarId),
         ];
     }
 
@@ -218,6 +230,7 @@ final readonly class AiScanLists
         $hasProposal = $scan->proposal !== null && in_array($scan->status, [AiScanStatus::Ready, AiScanStatus::Accepted], true);
 
         $name = match (true) {
+            $scan->kind === AiScanKind::Calendar && $scan->calendar !== null => $scan->calendar->name,
             $scan->resultTemplate !== null => $scan->resultTemplate->name,
             $hasProposal && $scan->kind === AiScanKind::Template => $this->proposal->name($scan),
             default => $file,
@@ -231,6 +244,16 @@ final readonly class AiScanLists
 
         if ($scan->status === AiScanStatus::Accepted && $scan->resultVariant !== null) {
             $actions[] = 'open_template';
+        }
+
+        if ($scan->kind === AiScanKind::Calendar && $scan->calendar !== null) {
+            $actions[] = 'open_calendar';
+
+            // „Vrátit původní rozvržení“ — while the snapshot lives.
+            if ($scan->status === AiScanStatus::Accepted && is_array($scan->restore) && !isset($scan->restore['restoredAt'])
+                && $scan->expiresAt !== null && $scan->expiresAt > $this->clock->now()) {
+                $actions[] = 'restore';
+            }
         }
 
         if ($scan->status === AiScanStatus::Failed && $scan->retriesLeft() > 0 && $scan->expiresAt !== null) {
@@ -261,6 +284,64 @@ final readonly class AiScanLists
             'hasPicture' => $scan->status->isInProgress() || $scan->expiresAt !== null,
             'actions' => $actions,
         ];
+    }
+
+    /**
+     * The pill on a calendar's card (ux.md C5): `running` · `queued` (also
+     * while the picture is being checked) · `ready` (a proposal waits) ·
+     * `failed` (the viewer's own scan ended without one and was not looked
+     * at yet) · null.
+     */
+    public function calendarPill(string $calendarId, string $viewerId): null|string
+    {
+        /** @var list<array{status: string, mine: bool|int|string, seen: bool|int|string}> $rows */
+        $rows = $this->connection->fetchAllAssociative(
+            "SELECT status, (requested_by_id = :viewer) AS mine, (seen_at IS NOT NULL) AS seen FROM ai_scan
+              WHERE calendar_id = :calendar AND kind = 'calendar'
+                AND status IN ('checking', 'queued', 'running', 'ready', 'stopped', 'failed', 'refused')
+              ORDER BY created_at DESC, id DESC LIMIT 20",
+            ['calendar' => $calendarId, 'viewer' => $viewerId],
+        );
+
+        $pill = null;
+
+        foreach ($rows as $row) {
+            $state = match ($row['status']) {
+                'running' => 'running',
+                'checking', 'queued' => 'queued',
+                'ready' => 'ready',
+                default => in_array($row['mine'], [true, 1, '1', 't'], true) && !in_array($row['seen'], [true, 1, '1', 't'], true) ? 'failed' : null,
+            };
+
+            // What is moving wins over what waits, what waits over what failed.
+            foreach (['running', 'queued', 'ready', 'failed'] as $rank => $name) {
+                if ($state === $name && ($pill === null || $rank < array_search($pill, ['running', 'queued', 'ready', 'failed'], true))) {
+                    $pill = $name;
+                }
+            }
+        }
+
+        return $pill;
+    }
+
+    /**
+     * The calendar's latest applied scan whose snapshot is still there.
+     *
+     * @return null|array{scanId: string, restoreUntil: string}
+     */
+    private function applied(string $calendarId): null|array
+    {
+        $row = $this->connection->fetchAssociative(
+            "SELECT id, expires_at FROM ai_scan
+              WHERE calendar_id = :calendar AND kind = 'calendar' AND status = 'accepted' AND restore IS NOT NULL
+                AND NOT jsonb_exists(restore, 'restoredAt') AND expires_at > :now
+              ORDER BY finished_at DESC, id DESC LIMIT 1",
+            ['calendar' => $calendarId, 'now' => AiScanTime::sql($this->clock->now())],
+        );
+
+        $until = is_array($row) && is_string($row['expires_at']) ? AiScanTime::fromSql($row['expires_at']) : null;
+
+        return is_array($row) && is_string($row['id']) && $until !== null ? ['scanId' => $row['id'], 'restoreUntil' => $until->format(DATE_ATOM)] : null;
     }
 
     private function openRequest(string $projectId, string $userId): null|string

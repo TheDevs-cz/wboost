@@ -223,6 +223,15 @@ project must have AI sken switched on and the user must have agreed to the
 consent text in the web app first; each delivered scan counts against the
 project's monthly limit.
 
+**From a picture of a calendar page (AI scan, calendars).** "Převezmi
+rozvržení z téhle stránky do kalendáře Obec Lhota 2027" — `scan_design`
+`start` with `kind: "calendar"` and the `calendarId` (a 7-day calendar),
+`status` until `ready`, `result` (the proposed layout, what was recognised,
+`featuresOffered`, the places that need a picture), then `apply` with the
+`features[]` to switch on: the layout is saved at once and the previous one
+kept — `restore` brings it back until `restoreUntil` (`confirm: true` when
+the layout was edited since). Texts, photos and page content are not touched.
+
 **No empty variant yet?** "Založ v projektu Studio Brno novou šablonu A5 na
 výšku se spadávkou 3 mm a ořezovými značkami" — `create_template` with
 `projectId`, `name` (3–30 characters), `dimension` (`{"unit": "mm", "width":

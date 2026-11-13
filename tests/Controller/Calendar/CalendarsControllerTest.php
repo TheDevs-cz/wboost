@@ -131,7 +131,9 @@ final class CalendarsControllerTest extends WebTestCase
         $browser->request('GET', $workspace . '/card');
         self::assertResponseIsSuccessful();
         $card = self::json($browser);
-        self::assertSame(['calendar', 'assets'], array_keys($card));
+        // `scan`: the pill of an AI scan of this calendar (none here).
+        self::assertSame(['calendar', 'assets', 'scan'], array_keys($card));
+        self::assertNull($card['scan']);
         self::assertSame(TestDataFixture::CALENDAR_2_ID, self::dig($card, 'calendar', 'id'));
         self::assertSame('photoLeft', self::dig($card, 'calendar', 'preset'));
         self::assertSame('Popisek-jen-v-dokumentu', self::dig($card, 'calendar', 'content', 'pageCaptions', 'w05', 'text'));

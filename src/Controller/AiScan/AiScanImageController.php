@@ -12,6 +12,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\AiScan;
 use WBoost\Web\Services\AiScan\AiScanStorage;
+use WBoost\Web\Services\AiScan\Calendar\CalendarScanPictures;
 use WBoost\Web\Services\Security\AiScanVoter;
 
 /**
@@ -22,7 +23,8 @@ use WBoost\Web\Services\Security\AiScanVoter;
  *
  * `which`: `original` · `working` · `preview` · `candidate` (the kept one, or
  * `?n=` for a numbered candidate of the current run) · `proposal` (the
- * proposal with the review's fixes; the kept candidate until the first fix).
+ * proposal with the review's fixes; the kept candidate until the first fix) ·
+ * `picture` (`?slot=` — a picture held for a place of a calendar proposal).
  * Add `?v=<seq>` to get past the browser's five-minute cache when the
  * picture changed.
  */
@@ -30,13 +32,14 @@ final class AiScanImageController extends AbstractController
 {
     public function __construct(
         readonly private AiScanStorage $storage,
+        readonly private CalendarScanPictures $pictures,
     ) {
     }
 
     #[Route(
         path: '/ai-scan/{id}/image/{which}',
         name: 'ai_scan_image',
-        requirements: ['id' => '[0-9a-fA-F-]{36}', 'which' => 'original|working|preview|candidate|proposal'],
+        requirements: ['id' => '[0-9a-fA-F-]{36}', 'which' => 'original|working|preview|candidate|proposal|picture'],
         methods: ['GET'],
     )]
     #[IsGranted(AiScanVoter::USE, 'scan')]
@@ -46,6 +49,23 @@ final class AiScanImageController extends AbstractController
         string $which,
         Request $request,
     ): Response {
+        if ($which === 'picture') {
+            // A picture held for a place of a calendar proposal (`?slot=`).
+            $held = $this->pictures->read($scan, $request->query->getString('slot'));
+
+            if ($held === null) {
+                throw $this->createNotFoundException();
+            }
+
+            return new Response($held['bytes'], Response::HTTP_OK, [
+                'Content-Type' => $held['contentType'],
+                'Content-Length' => (string) strlen($held['bytes']),
+                'Cache-Control' => 'private, max-age=300',
+                'X-Content-Type-Options' => 'nosniff',
+                'Content-Disposition' => 'inline',
+            ]);
+        }
+
         $extension = is_string($scan->sourceMeta['ext'] ?? null) ? $scan->sourceMeta['ext'] : '';
         $contentType = is_string($scan->sourceMeta['contentType'] ?? null) ? $scan->sourceMeta['contentType'] : 'application/octet-stream';
 

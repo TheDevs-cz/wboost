@@ -61,6 +61,33 @@ final class AiScanDefinition
         return is_array($required) ? array_values(array_filter($required, is_string(...))) : [];
     }
 
+    /**
+     * The kinds a scanner offering these instruments can BUILD: a kind may
+     * name instruments of its own (`kinds.<kind>.requiresInstruments`) on top
+     * of the definition's. A scanner image older than a kind keeps serving
+     * the others — the claim never hands it a scan of a kind it cannot build
+     * (it would crash on it and the scan would fail as `interrupted`).
+     *
+     * @param list<string> $instruments
+     * @return list<string>
+     */
+    public function buildableKinds(array $instruments): array
+    {
+        $kinds = $this->definition()['kinds'] ?? [];
+        $buildable = [];
+
+        foreach (is_array($kinds) ? $kinds : [] as $kind => $spec) {
+            $required = is_array($spec) ? ($spec['requiresInstruments'] ?? []) : [];
+            $required = is_array($required) ? array_filter($required, is_string(...)) : [];
+
+            if (array_diff($required, $instruments) === []) {
+                $buildable[] = (string) $kind;
+            }
+        }
+
+        return $buildable;
+    }
+
     /** What one running run reserves against the spend ceilings. */
     public function engineBudgetMicroUsd(): int
     {

@@ -194,9 +194,12 @@ final class ScanDesignTest extends WebTestCase
 
         self::assertStringStartsWith('unsupported_image:', $this->error(['imageBase64' => base64_encode('not a picture')] + $start));
         self::assertStringStartsWith('unsupported_image:', $this->error(['imageBase64' => '***'] + $start));
-        self::assertStringStartsWith('unsupported_kind:', $this->error(['kind' => 'calendar'] + $start));
+        self::assertStringStartsWith('unsupported_kind:', $this->error(['kind' => 'poster'] + $start));
+        // A calendar scan is for ONE 7-day calendar of the project.
+        self::assertStringStartsWith('wrong_state:', $this->error(['kind' => 'calendar'] + $start));
+        self::assertStringStartsWith('wrong_state:', $this->error(['kind' => 'calendar', 'calendarId' => TestDataFixture::CALENDAR_3_ID] + $start));
         self::assertStringContainsString('format must be', $this->error(['format' => ['unit' => 'inch', 'width' => 1, 'height' => 1]] + $start));
-        self::assertStringStartsWith('wrong_state:', $this->error(['action' => 'restore', 'scanId' => Uuid::uuid7()->toString()]));
+        self::assertStringContainsString('No scan with id', $this->error(['action' => 'restore', 'scanId' => Uuid::uuid7()->toString()]));
 
         self::switchOn(\WBoost\Web\Value\AiScan\AiScanMode::Paused);
         self::assertStringStartsWith('temporarily_unavailable:', $this->error($start));
@@ -236,6 +239,70 @@ final class ScanDesignTest extends WebTestCase
         self::assertStringStartsWith('not_enabled:', $this->error(['action' => 'start', 'projectId' => self::PROJECT, 'imageBase64' => $this->pictureBase64()], TestDataFixture::MCP_TOKEN_SHARED_USER));
         self::assertStringContainsString('No project with id', $this->error(['action' => 'list', 'projectId' => TestDataFixture::PROJECT_2_ID], TestDataFixture::MCP_TOKEN_SHARED_USER));
         self::assertSame('checking', self::text($scanId, 'status'));
+    }
+
+    public function testACalendarScanProposesALayoutApplySavesItAndRestorePutsThePreviousOneBack(): void
+    {
+        $calendarId = TestDataFixture::CALENDAR_2_ID;
+        $column = static fn (string $name): string => (string) (is_scalar($value = self::connection()->fetchOne(sprintf('SELECT %s FROM calendar WHERE id = :id', $name), ['id' => $calendarId])) ? $value : '');
+        $layoutBefore = self::decoded($column('layout'));
+        $presetBefore = $column('layout_preset');
+
+        $started = $this->ok(['action' => 'start', 'projectId' => self::PROJECT, 'kind' => 'calendar', 'calendarId' => $calendarId, 'imageBase64' => $this->pictureBase64()]);
+        $scanId = $started['scanId'];
+        self::assertSame('calendar', self::text($scanId, 'kind'));
+        self::assertSame($calendarId, self::text($scanId, 'calendar_id'));
+
+        // restore applies to an APPLIED calendar scan only.
+        self::assertStringStartsWith('wrong_state:', $this->error(['action' => 'restore', 'scanId' => $scanId]));
+
+        self::passIntake($this->browser(), $scanId);
+        $build = self::claim($this->browser(), 'build');
+        self::scanner($this->browser(), 'POST', $scanId . '/render', ['run' => $build['run'], 'seq' => 1, 'commands' => self::calendarCommands()], $build['lease']);
+        $finish = self::scanner($this->browser(), 'POST', $scanId . '/finish', ['run' => $build['run'], 'outcome' => 'proposed', 'candidate' => 1, 'report' => self::calendarReport(1), 'usage' => self::usage(2)], $build['lease']);
+        self::assertSame('ready', $finish['json']['status'] ?? null, $finish['raw']);
+
+        /** @var array{kind: string, calendarId: string, hasLayout: bool, preset: string, layout: array{styles: array{cal: array{numberSide: string}}}, featuresOffered: list<string>, recognised: list<array{element: string, state: string, kept: bool}>, pictures: list<array{slot: string, current: bool}>, applied: mixed} $result */
+        $result = $this->payload($this->call(['action' => 'result', 'scanId' => $scanId]));
+        self::assertSame(['calendar', $calendarId, true, 'photoRight'], [$result['kind'], $result['calendarId'], $result['hasLayout'], $result['preset']]);
+        self::assertSame('start', $result['layout']['styles']['cal']['numberSide']);
+        self::assertSame(['qr', 'events'], $result['featuresOffered']);
+        self::assertSame(['logo', 'header'], array_column($result['pictures'], 'slot'));
+        self::assertNull($result['applied']);
+
+        /** @var array{status: string, calendarId: string, features: list<string>, unfilledPictures: int, restoreUntil: null|string, created: bool, revision: int} $applied */
+        $applied = $this->payload($this->call(['action' => 'apply', 'scanId' => $scanId, 'features' => ['qr', 'moon']]));
+        self::assertSame(['accepted', $calendarId, ['qr'], 2, true], [$applied['status'], $applied['calendarId'], $applied['features'], $applied['unfilledPictures'], $applied['created']]);
+        self::assertNotNull($applied['restoreUntil']);
+        self::assertSame('scan', self::connection()->fetchOne('SELECT layout_origin FROM calendar WHERE id = :id', ['id' => $calendarId]));
+
+        // Idempotent.
+        /** @var array{created: bool, revision: int} $again */
+        $again = $this->payload($this->call(['action' => 'apply', 'scanId' => $scanId]));
+        self::assertFalse($again['created']);
+        self::assertSame($applied['revision'], $again['revision']);
+
+        // The layout is edited after the apply (another tool, the web): restore asks first.
+        self::connection()->executeStatement("UPDATE calendar SET layout = jsonb_set(layout, '{boxes,logo,x}', '12') WHERE id = :id", ['id' => $calendarId]);
+        $refused = $this->error(['action' => 'restore', 'scanId' => $scanId]);
+        self::assertStringStartsWith('layout_changed:', $refused);
+        self::assertStringContainsString('confirm: true', $refused);
+        self::assertSame('scan', self::connection()->fetchOne('SELECT layout_origin FROM calendar WHERE id = :id', ['id' => $calendarId]));
+
+        /** @var array{restored: bool, calendarId: string} $restored */
+        $restored = $this->payload($this->call(['action' => 'restore', 'scanId' => $scanId, 'confirm' => true]));
+        self::assertTrue($restored['restored']);
+        self::assertEquals($layoutBefore, self::decoded($column('layout')));
+        self::assertSame($presetBefore, $column('layout_preset'));
+        self::assertSame('', $column('layout_origin'));
+
+        /** @var array{restored: bool} $repeat */
+        $repeat = $this->payload($this->call(['action' => 'restore', 'scanId' => $scanId]));
+        self::assertFalse($repeat['restored']);
+
+        /** @var array{scans: list<array{scanId: string, kind: string, calendarId: null|string}>} $list */
+        $list = $this->payload($this->call(['action' => 'list', 'projectId' => self::PROJECT]));
+        self::assertSame(['calendar', $calendarId], [$list['scans'][0]['kind'], $list['scans'][0]['calendarId']]);
     }
 
     // ---- helpers -----------------------------------------------------------

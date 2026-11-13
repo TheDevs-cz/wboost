@@ -1,7 +1,8 @@
-# AI sken — the job core (P1), the review, accept, notifications, access request and MCP (P3 backend) and the wizard (P3 UI), the admin tab and operating e-mails (P4)
+# AI sken — the job core (P1), the review, accept, notifications, access request and MCP (P3 backend) and the wizard (P3 UI), the admin tab and operating e-mails (P4), calendar scans (P5)
 
-"AI sken" turns a flat picture of a design into an editable template (later:
-a calendar layout). A picture is uploaded, a **scanner** — a separate service
+"AI sken" turns a flat picture of a design into an editable template — or a
+picture of one desk-calendar page into the layout of a calendar. A picture is
+uploaded, a **scanner** — a separate service
 under `scanner/`, built in its own phase — works on it with a model, and the
 user reviews a proposal. This file describes what lives in the application:
 the job, its states, credits and spend, storage, permissions and the API the
@@ -18,8 +19,11 @@ the card in "Nová šablona", the scan cards above the template list, "Historie
 skenů", the shell's badge and toast, the export dialog and the admin's
 switches; and the app side of P4: the **admin tab "AI skeny"** on
 `/admin/usage` (§ "Admin tab") and the **operating e-mails to admins** with
-`app:ai-scan:watch` (§ "Operating e-mails"). **What does not:** calendars
-(P5). The scanner on the box is infrastructure — `docs/ai-scan/runbook.md`.
+`app:ai-scan:watch` (§ "Operating e-mails"); and **calendar scans** (P5,
+§ "Calendar scans"): the calendar adapter's render tools, accept with a
+restorable snapshot, „Vrátit původní“, the marker `calendar.layout_origin`,
+MCP `scan_design` for calendars and the step-2 panel of the calendar wizard.
+The scanner on the box is infrastructure — `docs/ai-scan/runbook.md`.
 
 **The feature is inert unless switched on.** Operating mode defaults to `off`,
 `admin_only` to on, every project's entitlement to off, and the scanner
@@ -62,6 +66,7 @@ with `app:ai-scan:status`.
 | Lists (P3 UI) | `Controller/AiScan/AiScanHistoryController` (`ai_scan_history`), `templates/ai_scan/{history,_entry_card}.html.twig`, `Twig/AiScanExtension`, `assets/controllers/ai_scan_{entry,strip,history}_controller.js`, `assets/ai-scan/lists.js` |
 | Shell, export, admin (P3 UI) | `Twig/{AiScanShellExtension,AiScanExportExtension}`, `templates/_shell/_ai_scan_signal.html.twig`, `assets/controllers/ai_scan_{shell,export_guard,admin}_controller.js`, `assets/ai-scan/export-guard.js`, `assets/shell/toast.js` |
 | Shared browser code | `assets/ai-scan/{kit,copy,file-checks}.js`, `assets/styles/nocturne/ai-scan.css` |
+| Calendar scans (P5) | `Services/AiScan/Calendar/{CalendarCandidate,CalendarCandidatePicture,CalendarScanProposal,CalendarScanProposalView,CalendarScanPictures}`, messages `AcceptCalendarScan` / `RestoreCalendarScan` + handlers, `Controller/Calendar/CalendarScanController`, `Calendar::$layoutOrigin`, `CalendarPageRenderer::renderDocument()`; browser: `assets/calendar/ui/{step2,scan,topbar}.js` — `calendars.md` |
 
 ## The one rule about writing a scan
 
@@ -101,7 +106,7 @@ applies to is read from `AiScanTransitionTable`, never repeated in a query.
 | 12 | "Zkusit přesto": `stopped` (photo of a print, once) → `queued` | `continueAnyway` | reserve |
 | 13 | "Zkusit znovu": `failed` → `queued`, or → `checking` when no pre-check is stored | `retry` | reserve |
 | 13a | mode `off` → everything in progress `failed interrupted` | `interruptForModeOff` | refund |
-| 14 | `ready` → `accepted` (does not move `expires_at`) | `accept` — called by P3's `AcceptTemplateScan` | — |
+| 14 | `ready` → `accepted` (does not move `expires_at`) | `accept` — called by `AcceptTemplateScan`; `acceptCalendar` (stores the snapshot in `restore`) — called by `AcceptCalendarScan` | — |
 | 15 / 16 | → `discarded` / `expired` | `discard` / `expire` (purge) | — |
 
 Columns worth knowing:
@@ -171,7 +176,9 @@ It runs on every scanner `claim` and `tick`, in the nightly purge — and
 Scan files are in a second, **private** bucket (`S3_PRIVATE_BUCKET_NAME`,
 default `wboost-private`; Flysystem `oneup_flysystem.private_filesystem`; no
 anonymous policy): `ai-scan/{projectId}/{scanId}/{secret}/` with
-`original.{ext}`, `working.webp`, `preview.webp`, `candidate-{n}.webp`.
+`original.{ext}`, `working.webp`, `preview.webp`, `candidate-{n}.webp`,
+`proposal.webp` (templates) and `picture-{slot}.{ext}` (pictures held for a
+calendar proposal's places).
 `secret` is 128 random bits on the row, in no URL, e-mail or log. Bytes leave
 only through `AiScanImageController` (USE permission, buffered,
 `Cache-Control: private`) and the scanner API. There is no public or presigned
@@ -222,6 +229,7 @@ decoded in the web process: normalising is the scanner's intake.
 | `GET /admin/ai-scan/access-requests`, `POST /admin/ai-scan/access-request/{id}/{approve\|dismiss}` | `ROLE_ADMIN` |
 | `POST /project/{projectId}/ai-scan/entitlement` | `ROLE_ADMIN` + session CSRF token `project_ai_scan` |
 | `GET /admin/usage` (tab "AI skeny"), `POST /admin/ai-scan/runtime` (`admin_ai_scan_runtime`) | `ROLE_ADMIN`; the POST + session CSRF token `admin_ai_scan_runtime` |
+| `POST /calendar/{calendarId}/scan/{scanId}/{accept\|restore\|picture}` (`calendar_scan`) | `calendar_edit` on the calendar (the designer) AND USE on the scan; a scan of another calendar is 404. No `/k/{token}` twin exists |
 | `/internal/scanner/*` | the scanner only (below) |
 | MCP `scan_design` | scope `ai:scan`, then START / USE per action |
 
@@ -390,11 +398,11 @@ tells the scanner what to do with the run:
 
 | Call | Request | Answer |
 |---|---|---|
-| `POST claim` | `{lane: "intake"\|"build", scannerVersion, instruments: [..], capacity}` | `{ok, mode, job}` or `{ok, mode, job: null, reason}` — `reason`: `null` (nothing to do), `paused`, `off`, `provider_blocked`, `scanner_too_old` (an instrument of `requiresInstruments` is missing), `spend_ceiling`. Runs the reaper first |
+| `POST claim` | `{lane: "intake"\|"build", scannerVersion, instruments: [..], capacity}` | `{ok, mode, job}` or `{ok, mode, job: null, reason}` — `reason`: `null` (nothing to do), `paused`, `off`, `provider_blocked`, `scanner_too_old` (an instrument of `requiresInstruments` is missing), `spend_ceiling`. Runs the reaper first. **A build claim hands out only kinds this scanner can build**: a kind may name instruments of its own (`kinds.<kind>.requiresInstruments` — calendars: `mm`); a scanner without them keeps getting the other kinds and never sees that kind's scans (they wait; after 60 min `queue_timeout`, refunded) |
 | `GET {id}/source?run=N` | — | bytes: the original (intake) or `working.webp` (build) |
 | `PUT {id}/artifact/{working\|preview}?run=N` | raw bytes, ≤ 25 MB; intake only | `{ok, bytes}` |
 | `POST {id}/beat` | `{run, seq, stage?, note?, noteParams?, round?, usage, resources?}` | `{ok, cancel, mode, leaseExpiresAt}`; `cancel: true` (+ `status`) when the scan was cancelled or interrupted — stop. Extends the lease (build: 120 s). `seq` must grow; an older one changes nothing |
-| `POST {id}/render` | `{run, seq, design}` | rendered: `{ok, candidate: n, issues, width, height, image: {contentType: "image/webp", base64}}`; rejected by validation: `{ok, candidate: null, issues}` (nothing stored). Idempotent by `(run, seq)`. At most `caps.candidates` per run, then `candidate_limit` |
+| `POST {id}/render` | template: `{run, seq, design}` · calendar: `{run, seq, commands}` (§ "Calendar scans") | rendered: `{ok, candidate: n, issues, width, height, image: {contentType: "image/webp", base64}}` (+ for a calendar `view`, `page`, `preset`, `layout`, `features`); rejected by validation: `{ok, candidate: null, issues}` (nothing stored). Idempotent by `(run, seq)`. At most `caps.candidates` per run, then `candidate_limit` |
 | `POST {id}/faces` | `{run, seq, lines: [..≤ 8], faces?: [face strings], size?: px (8–400, default 64)}` | `{ok, width, height, cells: [{face, line, x, y, width, height, fontSize}], image}` — one row per `(face, line)`, black on white, row height `2 × size`, left padding 24 px. Stores nothing |
 | `POST {id}/finish` (intake) | `{run, outcome: "passed", preCheck?, sourceMeta?, usage}` · `{outcome: "stopped", reason, …}` · `{outcome: "failed", error: "provider_unavailable", …}` · `{outcome: "refused", …}` | `{ok, applied: true, status, code}`; `passed` needs the working copy stored first (`missing_artifact`) |
 | `POST {id}/finish` (build) | `{run, outcome: "proposed", candidate, report, boxes?, usage}` · `{outcome: "failed", error: "provider_unavailable"\|"renderer_unavailable"\|"timeout"\|"build", usage}` · `{outcome: "refused", usage}` | `{ok, applied: true, status, code}`. A report that does not fit the finish contract, or a `candidate` not rendered in this run, ends the scan as `failed build` (answered `status: "failed", code: "build"`) |
@@ -418,6 +426,9 @@ tells the scanner what to do with the run:
   }
 }
 ```
+
+A calendar build's `context` also carries `calendar` (§ "Calendar scans") and
+its `fonts` may be empty.
 
 `context` is in build claims only; an intake claim has `leaseSeconds: 150` and
 the original's `contentType` / `bytes`. `source.width` / `height` are what the
@@ -444,6 +455,12 @@ of a picture reaches a column the screens read:
   characters, no markup, no line breaks), nested to a small depth.
 - `boxes` (what was measured on the kept candidate) keeps numbers, booleans
   and code / id / hex strings, to a bounded depth.
+- A **calendar** report has its own contract (`CALENDAR_SCALARS` /
+  `CALENDAR_LISTS` of the validator): `status`, `candidate`, `unfinished`,
+  `type`, `pageBox`, `photoBox` (nullable) and the lists `recognised`
+  (`element`, `state`), `needsUpload` (`slot`), `featuresOffered` (`key`),
+  `fonts` (`group`, `pattern`, `face`), `notExpressible` (`code`, `box`),
+  `notes` (`code`) — codes, keys and boxes only; extras under the same rule.
 
 The design document of each candidate is stored as sent — it IS the proposal.
 
@@ -875,11 +892,196 @@ network retry.
 - The read-only page lists a decision as open or settled from the proposal;
   it does not know what was changed in the editor afterwards.
 
+## Calendar scans (P5)
+
+A picture of **one page of a weekly desk calendar** becomes the proposed
+**layout** of an existing 7-day calendar (`ai_scan.calendar_id`, given at the
+upload; 14-day calendars and another project's calendar are `wrong_state`; a
+project without fonts is fine). The job, the states, credits, storage and
+notifications are the shared core; what differs is below. The rule of
+`calendars.md` holds throughout: **the calendar's JavaScript generates, the
+server stores and guards** — a candidate is built by the calendar's own model
+in node, the browser draws the proposal with the calendar's own renderer.
+
+### The scanner's side
+
+- **Claim** — `job.context.calendar` (`CalendarCandidate::context()`):
+  `{supported, type, year, page (the materialised design.page), bleedMm,
+  features (the switches as they are), hasLayout, presets, samplePage {key,
+  from, to, title}, defaultLayout {preset: "photoLeft", layout}}` — the whole
+  default layout, i.e. every box and every style key the patch path takes.
+  `supported: false` (calendar gone, 14 days) → the build fails.
+- **Render** — `{run, seq, commands}`: a list of ≤ 8 commands of
+  `resources/calendar/model.mjs`, a closed subset checked by
+  `CalendarCandidate`: `{op: "preset", preset}` (always a RESET to that
+  preset's default — a candidate never inherits the calendar's styling),
+  `{op: "configure", features: {key: true}}` (ON only; any other key or a
+  `false` is `invalid_command`), `{op: "layout", boxes?, order?, styles?}`
+  (the validated patch: unknown keys and enum values are refused with the
+  model's message, numbers are clamped and come back as `info` issues).
+  The commands run on the stored calendar's document **in memory**
+  (`CalendarModelBridge::run`), the sample week page — `w02`, a week that
+  never holds a public holiday — is drawn by
+  `CalendarPageRenderer::renderDocument()` (trim box, 1600 px, sample texts
+  on, WebP; behind `CalendarCandidatePictureInterface`, faked in tests).
+  When the candidate has `events` on and the sample week holds no event,
+  two sample events are put into the in-memory document (`withSampleEvents`)
+  so the picture shows where event texts land.
+  **Nothing is saved**: no revision, no history line, no asset. The answer
+  adds `view` (the mm box the picture shows), `page`, `preset`, the
+  materialised `layout` and `features`. A refusal by the model is
+  `{ok: true, candidate: null, issues: [{severity: "error", stage: "model",
+  code, message}]}`.
+- **What is stored per candidate** (`candidates[].design`):
+  `{kind: "calendar", preset, featuresOn[], layoutJson, page, view}` — the
+  layout as a JSON **string**, because a layout holds maps that are empty or
+  keyed by digits and the column is read as PHP arrays. `finish` copies the
+  kept one into `proposal.document`.
+- **Finish** — the calendar report (above).
+- Tools of a kind may be per-kind variants: an entry of `tools.json` with an
+  `id` (`scan_crop.calendar`) named in `kinds.calendar.tools`; the scanner
+  resolves by `id`, then by name. Template entries are unchanged.
+- The contract fixture (`scanner-api.v1.json`) was re-recorded with `mm` in
+  the claim; it holds template flows only (a calendar render would need
+  Gotenberg in the default group).
+- `numberSide: "middle"` is accepted on the model's patch path since P5 (the
+  editor always offered it); nothing under `assets/calendar/` changed for
+  scans — `CalendarExportFingerprintTest` pins the renderer fingerprint.
+
+### The proposal, computed against the calendar as it is
+
+The stored proposal never changes. What the review shows and what accept
+saves is `CalendarScanProposal::plan($scan, $calendar, $pictures)`:
+
+1. the proposed layout, **every asset reference dropped** (a proposal may name
+   no picture);
+2. for an element the report calls `absent` (of `cap month wk head logo qr
+   bg`) — when the calendar HAS a layout — the calendar's current box and
+   style group instead ("an element not found keeps the calendar's current
+   setting"); without a layout the candidate's own state stays (the scanner
+   hides what it did not find);
+3. per place for a picture (`needsUpload[].slot`: `logo` → `styles.logo.asset`,
+   `header` → `styles.head.bg.asset` + `imageOn`, `background` →
+   `styles.bg.asset` + `imageOn`): the picture held for it, else the picture
+   the calendar already has there (`current`), else nothing.
+
+Switches: `featuresOffered` ∩ known features ∩ what the calendar has OFF;
+accept turns on only those the user ticked. A scan never switches anything
+off and never touches content.
+
+`GET /ai-scan/{id}/proposal` answers this for a calendar scan
+(`CalendarScanProposalView`): `kind: "calendar"`, `calendarId`, `readOnly`,
+`unfinished`, `expiresAt`, `candidate`, `source {width, height}`, `pageBox` /
+`photoBox` (source px — the browser's preview only), `page`, `view`,
+`hasLayout`, `preset`, `layout`, `recognised[{element, state, kept}]`,
+`features[{key}]`, `pictures[{slot, picture {url, name, width, height} | null,
+current}]`, `fonts[{group, pattern, face, closeness}]`, `projectFaces`,
+`notExpressible[{code, box}]`, `notes[{code, w?, h?}]`, `approximate`,
+`applied` (null until accepted: `{restoreUntil, restorable, restored, changed,
+features}`).
+
+### Pictures are held, not uploaded
+
+`POST /calendar/{calendarId}/scan/{scanId}/picture` (`slot` + `picture`, or
+`slot` + `remove=1`) keeps a picture **with the scan** — `picture-{slot}.{ext}`
+in its private directory, named in `ai_scan.pictures.slots` by a conditional
+update (`… AND status = 'ready'`). JPEG / PNG / WebP by their bytes, ≤ 10 000 000
+bytes, ≤ 60 Mpx by the header; no SVG (the preview serves held pictures from
+the app's own origin: `GET /ai-scan/{id}/image/picture?slot=`). They become
+calendar assets only at accept. Calendar assets can never be deleted, so a
+discarded or expired proposal must leave none — and leaves none: the scan
+directory goes with the scan.
+
+### Accept — `AcceptCalendarScan`
+
+`POST /calendar/{calendarId}/scan/{scanId}/accept` (`features[]`). Under the
+scan's row lock and the calendar's row lock, in the bus transaction:
+
+1. a repeat on an `accepted` scan answers with the first result
+   (`created: false`);
+2. the snapshot of the calendar **as stored now** (`CalendarScanProposal::snapshot`:
+   `layoutJson`, `preset`, `featuresJson`, `layoutOrigin`, `step`) — a save
+   through the client link in between changed content only and is simply
+   kept;
+3. held pictures → calendar assets (`CalendarAssetUploader::storeFile`, kinds
+   `logo` / `image`);
+4. `plan()` → model commands `[configure {ticked: true}, replace_layout]` →
+   the payload → **`SaveCalendar`** (the one write path) with `preset` = the
+   proposal's, `setLayoutOrigin: true, layoutOrigin: "scan"` and the history
+   sentence `Převzal rozvržení ze skenu`;
+5. `AiScanTransitions::acceptCalendar()` stores `restore` = the snapshot +
+   `appliedHash` (`CalendarScanProposal::hash(layout, features)` of what was
+   written — key order and `5` vs `5.0` do not matter), `features`, `assets`.
+
+Answer: `{calendarId, revision, features, pictures, unfilledPictures,
+restoreUntil, created, document (a save answer: calendar, assets, savedAt,
+layoutOrigin), scan, applied}`. Refusals: `wrong_state`, `invalid_fix`
+(`field: pictures | layout`), `temporarily_unavailable` (node).
+`expires_at` does not move.
+
+### Restore — `RestoreCalendarScan`
+
+`POST …/restore` (`confirm`). Writes the snapshot's layout, layout choice,
+switches and marker back through `SaveCalendar` (`Vrátil původní rozvržení`)
+— nothing else: content, the name, the year and the pictures that became
+assets stay. A calendar that had no layout goes back to step 2. If
+`hash(layout, features)` of the stored calendar ≠ `appliedHash` the caller
+must send `confirm` — otherwise `layout_changed` (409), nothing written.
+Available while the scan's `expires_at` lies ahead (the nightly purge then
+nulls `restore`); a repeat answers `restored: false`. The snapshot marks
+`restoredAt` (`markRestored`).
+
+### The marker — `calendar.layout_origin`
+
+One nullable column (`Version20261113190000`), `scan` or null. Set by accept,
+put back by restore, **cleared by `SaveCalendarHandler` when a save changes
+`preset`** — and, because choosing the preset card that equals the stored
+`preset` changes no key, by a save whose payload carries top-level
+`"layoutOrigin": null` (the only value accepted from a browser; a client's
+request with it is refused whole). It travels beside the document
+(`env.layoutOrigin` in the designer's bootstrap, `layoutOrigin` in a
+designer's save answer — a client gets neither), never
+inside `calendar` — the design's JavaScript does not know it. Editing a
+scanned layout in step 3 keeps the marker.
+
+### Lists, links, MCP
+
+- `GET ai_scan_entry?kind=calendar&calendarId=` — the entry of ONE calendar:
+  its scans only, and `applied {scanId, restoreUntil}` for its latest applied
+  scan whose snapshot is still there. Rows carry `calendarId`; calendar rows
+  are named after the calendar and may offer `open_calendar` and `restore`.
+- `GET calendar_card` adds `scan`: `running | queued | ready | failed | null`
+  (designers only) — the pill of ux.md C5.
+- E-mails and MCP link to `/calendar/{id}?sken={scanId}` (`AiScanUrls::scan`).
+- MCP `scan_design`: `start` with `kind: "calendar"` + `calendarId`; `result`
+  (layout, recognised, featuresOffered, pictures, …); `apply` with
+  `features[]`; `restore` with `confirm` — `layout_changed` without it.
+  Applying and restoring need `calendar_edit` (`designer_only`). Held pictures
+  are web-only: over MCP a picture is uploaded with `upload_calendar_asset`
+  after `apply`.
+
+### Deviations from architecture.md / ux.md (backend, P5)
+
+- The `render` body is `commands` as specified, but restricted to three ops
+  and always reset to a preset first; the candidate's `view` is the trim box.
+- Report `recognised[]` carries no "fact code": the browser derives the fact
+  beside each element from the layout itself.
+- Font decisions of the calendar review are information only — a face is
+  changed in step 3; there is no `choose_font` fix for calendars and
+  `ai_scan.fixes` stays null.
+- "Element not found keeps the calendar's current setting" applies when the
+  calendar has a layout; for a calendar without one the candidate decides
+  (an absent logo / month / week number / QR is hidden by the scanner).
+- A design save that only re-chooses the SAME preset over MCP
+  (`set_calendar_layout preset + reset`) does not clear the marker.
+- A failed accept after a held picture was stored leaves that file (not the
+  row) in the calendar's directory — the storage report lists it as orphaned.
+
 ## MCP (P3)
 
 `scan_design` (`ScanDesignTool`, scope `ai:scan` — implies nothing, off by
 default): `start`, `status`, `result`, `apply`, `list`, `cancel`, `retry`,
-`continue`; `restore` answers `wrong_state` until calendar scans exist. Every
+`continue`, `restore` (calendar scans — § "Calendar scans"). Every
 action dispatches the web's messages with channel `mcp`; refusals are tool
 errors starting with the code. `start` never gives consent
 (`consent_required` until the user agreed in the web). `apply` saves its
@@ -979,10 +1181,23 @@ docker compose exec web bin/console app:ai-scan:status --mode=off
   scans), `tests/Services/AiScan/AiScanAlertsTest` (each condition opens
   once, the reminder, the end, the quiet half hour, nothing while `off`, a
   claim won once, the watch command — time is passed to `run($now)`).
+- P5: `tests/Controller/Calendar/CalendarScanTest` (claim context, candidates
+  from commands, the instrument filter, the report contract, the proposal
+  document, accept — once, with pictures, after a client-link save, refused on
+  `/k/{token}` / to a read-only member / with a foreign scan —, restore and
+  its confirmation, retention, discard, the marker, the entry and the card
+  pill), `tests/Mcp/Tool/ScanDesignTest` (calendar flow),
+  `tests/Services/Calendar/CalendarExportFingerprintTest` (the renderer
+  fingerprint is what it was), `CalendarRenderDocumentGotenbergTest`
+  (`--group gotenberg`: `renderDocument` = `render` for the stored document),
+  `tests/FaultInjection/CalendarScanRaceTest`; browser:
+  `tests/e2e/calendar/scan.e2e.cjs`.
 - **Fault injection** — real races between forked processes, outside DAMA's
   transaction (`tests/FaultInjection/`: `AiScanRaceTest` — claims, cancels,
   the reaper, starts, a replaced run's usage; `AiScanReviewRaceTest` — accept
-  × 2, accept vs discard, accept vs expiry, fix vs accept, two tabs fixing);
+  × 2, accept vs discard, accept vs expiry, fix vs accept, two tabs fixing;
+  `CalendarScanRaceTest` — accept × 3, accept vs discard, accept vs a client's
+  save, restore × 2);
   not in the default run — a job of its own in the Tests workflow:
 
   ```bash
@@ -1033,3 +1248,12 @@ docker compose exec web bin/console app:ai-scan:status --mode=off
   beside a real scanner).
 - `resources/ai-scan/definition/` is sent to the scanner verbatim; its numbers
   are mirrored in `AiScanLimits` and `AiScanValuesTest` compares the two.
+- A calendar LAYOUT must never pass through a PHP array (empty and
+  digit-keyed maps become lists): it is a `stdClass` tree in memory and a JSON
+  string in `ai_scan` columns (`layoutJson`). Read it with
+  `CalendarScanProposal::layout()`.
+- A new scan KIND that an older scanner image cannot build must name an
+  instrument in `kinds.<kind>.requiresInstruments` — otherwise the pinned
+  image claims it, crashes, and the scan ends `interrupted`.
+- The calendar accept and restore go through `SaveCalendar`: never write
+  `layout`, `features` or `layout_origin` from a scan handler directly.

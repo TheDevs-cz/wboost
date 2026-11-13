@@ -95,7 +95,8 @@ final class SaveCalendarControllerTest extends WebTestCase
 
         $answer = self::save($browser, self::SAVE_URL, ['design' => $design], $token);
         self::assertResponseIsSuccessful();
-        self::assertSame(['calendar', 'assets', 'savedAt'], array_keys($answer));
+        self::assertSame(['calendar', 'assets', 'savedAt', 'layoutOrigin'], array_keys($answer));
+        self::assertNull($answer['layoutOrigin']);
 
         // …and a reload gives exactly the same document.
         $reloaded = self::bootstrap($browser, self::WORKSPACE_URL);

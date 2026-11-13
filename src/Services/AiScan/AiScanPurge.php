@@ -65,7 +65,7 @@ final readonly class AiScanPurge
         foreach ($due as $scan) {
             if (in_array($scan['status'], ['accepted', 'discarded'], true)) {
                 $dropped = $this->connection->executeStatement(
-                    "UPDATE ai_scan SET expires_at = NULL, candidates = '[]'
+                    "UPDATE ai_scan SET expires_at = NULL, candidates = '[]', restore = NULL, pictures = NULL
                       WHERE id = :id AND status IN ('accepted', 'discarded') AND expires_at IS NOT NULL AND expires_at < :now",
                     ['id' => $scan['id'], 'now' => $nowSql],
                 );

@@ -155,6 +155,23 @@ final class StartAiScanTest extends WebTestCase
     public function testACalendarScanNeedsACalendarOfTheProject(): void
     {
         $this->assertRefused('wrong_state', fn () => self::start(kind: AiScanKind::Calendar));
+        // Another project's calendar, a calendar that does not exist.
+        $this->assertRefused('wrong_state', fn () => self::start(kind: AiScanKind::Calendar, calendarId: TestDataFixture::CALENDAR_3_ID));
+        $this->assertRefused('wrong_state', fn () => self::start(kind: AiScanKind::Calendar, calendarId: '00000000-0000-0000-0000-00000000dead'));
+
+        $scanId = self::start(kind: AiScanKind::Calendar, calendarId: TestDataFixture::CALENDAR_1_ID)->toString();
+        self::assertSame(TestDataFixture::CALENDAR_1_ID, self::row($scanId)['calendar_id']);
+    }
+
+    public function testACalendarScanNeedsNoProjectFontAndNoFourteenDayCalendarCanBeScanned(): void
+    {
+        // PROJECT_2 has no font: a template scan is refused there, a calendar scan is not.
+        self::entitle(TestDataFixture::PROJECT_2_ID);
+        $scanId = self::start(TestDataFixture::PROJECT_2_ID, TestDataFixture::USER_2_EMAIL, kind: AiScanKind::Calendar, calendarId: TestDataFixture::CALENDAR_3_ID)->toString();
+        self::assertSame('checking', self::row($scanId)['status']);
+
+        self::connection()->executeStatement("UPDATE calendar SET type = 'fortnight', layout = NULL, layout_preset = NULL WHERE id = :id", ['id' => TestDataFixture::CALENDAR_1_ID]);
+        $this->assertRefused('wrong_state', fn () => self::start(kind: AiScanKind::Calendar, calendarId: TestDataFixture::CALENDAR_1_ID));
     }
 
     public function testTheMonthlyLimitCountsDeliveredScansAndRefundsGiveItBack(): void
