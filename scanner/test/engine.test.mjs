@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import Anthropic from '@anthropic-ai/sdk';
 import { runMessages, toToolResultContent } from '../src/engine/messages.mjs';
-import { engineEnv, runSdk, foreignTools } from '../src/engine/sdk.mjs';
+import { engineEnv, ENGINE_PASS, runSdk, foreignTools } from '../src/engine/sdk.mjs';
 import { engine, userContent } from '../src/engine/index.mjs';
 import { UsageMeter, priceUsage, fromApiUsage, fromModelUsage, LIST_PRICES } from '../src/engine/pricing.mjs';
 import { mkdtempSync, existsSync, rmSync } from 'node:fs';
@@ -163,6 +163,59 @@ test('engine environment: request behaviour is pinned; the config directory is i
     assert.equal(engineEnv({ base: { ANTHROPIC_API_KEY: 'sk-test', SCANNER_TOKEN: 'app-token' }, settings, scratchDir }).SCANNER_TOKEN, undefined);
     assert.equal(engineEnv({ base: { PATH: '/bin', SCANNER_TOKEN: 'app-token' }, settings, scratchDir }).SCANNER_TOKEN, undefined);
     assert.ok(keyed.CLAUDE_CONFIG_DIR.startsWith(scratchDir) && existsSync(keyed.CLAUDE_CONFIG_DIR));
+});
+
+test('engine environment: an allowlist — nothing of the machine but what a request to the provider needs', async () => {
+    const scratchDir = mkdtempSync(join(tmpdir(), 'scan-env-'));
+    const settings = { requestTimeoutSeconds: 120, retries: 4, streamIdleSeconds: 60 };
+    const PINNED = ['API_TIMEOUT_MS', 'CLAUDE_CODE_MAX_RETRIES', 'CLAUDE_BYTE_STREAM_IDLE_TIMEOUT_MS', 'CLAUDE_CODE_DISABLE_AUTO_MEMORY', 'CLAUDE_CODE_DISABLE_TERMINAL_TITLE', 'CLAUDE_CODE_DISABLE_BACKGROUND_TASKS', 'CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS', 'DISABLE_AUTOUPDATER', 'DISABLE_ERROR_REPORTING', 'MAX_MCP_OUTPUT_TOKENS', 'CLAUDE_CODE_DISABLE_REFUSAL_FALLBACK'];
+    // a developer's machine (and the scanner's own container): none of this is the engine's business
+    const UNRELATED = {
+        AWS_ACCESS_KEY_ID: 'AKIA-not', AWS_SECRET_ACCESS_KEY: 'aws-secret', AWS_SESSION_TOKEN: 'aws-session', GITHUB_TOKEN: 'ghp_not', GH_TOKEN: 'gho_not', NPM_TOKEN: 'npm_not',
+        DATABASE_URL: 'postgres://u:p@db/x', OPENAI_API_KEY: 'sk-other', SENTRY_AUTH_TOKEN: 'sntrys_not', SSH_AUTH_SOCK: '/tmp/agent.sock', STRIPE_SECRET_KEY: 'sk_live_not',
+        SCANNER_TOKEN: 'app-token', SCANNER_APP_URL: 'http://web', SCANNER_WORKER: '1', WBOOST_MCP_URL: 'http://mcp', OAUTH2_PRIVATE_KEY: 'pem',
+        NODE_OPTIONS: '--require /tmp/x.js', CLAUDE_CODE_EFFORT_LEVEL: 'max', CLAUDE_CODE_REFUSAL_FALLBACK_CATCH_ALL: '1', CLAUDE_CODE_USE_BEDROCK: '1', ANTHROPIC_MODEL: 'other', ANTHROPIC_CUSTOM_HEADERS: 'x: y',
+        PWD: '/somewhere', OLDPWD: '/elsewhere', SHELL: '/bin/zsh', EDITOR: 'vi', npm_config_token: 'x',
+    };
+    const MACHINE = { PATH: '/usr/bin:/bin', HOME: '/home/dev', USER: 'dev', LOGNAME: 'dev', TMPDIR: '/tmp/run', LANG: 'cs_CZ.UTF-8', LC_ALL: 'C.UTF-8', LC_CTYPE: 'UTF-8', TZ: 'Europe/Prague' };
+    const NETWORK = { HTTPS_PROXY: 'http://proxy:3128', https_proxy: 'http://proxy:3128', HTTP_PROXY: 'http://proxy:3128', NO_PROXY: 'localhost', NODE_EXTRA_CA_CERTS: '/etc/ca.pem', SSL_CERT_FILE: '/etc/ssl/cert.pem', ANTHROPIC_BASE_URL: 'http://127.0.0.1:1' };
+    const sorted = (o) => Object.keys(o).sort();
+
+    // production: an API key. The credential, the machine, the network, the pinned settings — and a config + home of the run's own
+    const keyed = engineEnv({ base: { ...UNRELATED, ...MACHINE, ...NETWORK, ANTHROPIC_API_KEY: 'sk-ant-key', EMPTY: '' }, settings, scratchDir });
+    assert.deepEqual(sorted(keyed), [...Object.keys(MACHINE), ...Object.keys(NETWORK), ...PINNED, 'ANTHROPIC_API_KEY', 'CLAUDE_CONFIG_DIR', 'CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC'].sort());
+    assert.equal(keyed.ANTHROPIC_API_KEY, 'sk-ant-key'); assert.equal(keyed.ANTHROPIC_BASE_URL, NETWORK.ANTHROPIC_BASE_URL); assert.equal(keyed.PATH, MACHINE.PATH); assert.equal(keyed.LC_ALL, 'C.UTF-8');
+    assert.ok(keyed.HOME.startsWith(scratchDir) && keyed.CLAUDE_CONFIG_DIR.startsWith(scratchDir), 'with a key nothing of the engine is outside the run\'s scratch');
+    assert.deepEqual([keyed.API_TIMEOUT_MS, keyed.CLAUDE_CODE_MAX_RETRIES, keyed.CLAUDE_CODE_DISABLE_REFUSAL_FALLBACK], ['120000', '4', '1']);
+    for (const name of Object.keys(UNRELATED)) assert.equal(keyed[name], undefined, `${name} must not reach the engine`);
+
+    // the plan's token (a container in development) is a credential too; a gateway's bearer rides along with one
+    const token = engineEnv({ base: { ...UNRELATED, ...MACHINE, CLAUDE_CODE_OAUTH_TOKEN: 'plan-token', ANTHROPIC_AUTH_TOKEN: 'bearer' }, settings, scratchDir });
+    assert.deepEqual([token.CLAUDE_CODE_OAUTH_TOKEN, token.ANTHROPIC_AUTH_TOKEN], ['plan-token', 'bearer']);
+    assert.ok(token.HOME.startsWith(scratchDir));
+
+    // development: no credential — the plan login is found through the untouched HOME (its files; on macOS the
+    // keychain entry of USER) or a config directory of the developer's choosing
+    const plan = engineEnv({ base: { ...UNRELATED, ...MACHINE, CLAUDE_CONFIG_DIR: '/home/dev/.claude-work', ANTHROPIC_AUTH_TOKEN: 'stray' }, settings, scratchDir });
+    assert.deepEqual(sorted(plan), [...Object.keys(MACHINE), ...PINNED, 'CLAUDE_CONFIG_DIR'].sort());
+    assert.deepEqual([plan.HOME, plan.USER, plan.CLAUDE_CONFIG_DIR, plan.ANTHROPIC_API_KEY, plan.ANTHROPIC_AUTH_TOKEN], ['/home/dev', 'dev', '/home/dev/.claude-work', undefined, undefined]);
+    for (const name of Object.keys(UNRELATED)) assert.equal(plan[name], undefined, `${name} must not reach the engine`);
+    assert.ok(ENGINE_PASS.includes('ANTHROPIC_API_KEY') && !ENGINE_PASS.includes('SCANNER_TOKEN'));
+
+    // the run itself: without an `env` of the caller's, what the harness is started with is that list of this process
+    const mine = { AWS_SECRET_ACCESS_KEY: 'aws-secret-of-this-test', SCANNER_TOKEN: 'app-token-of-this-test', ANTHROPIC_API_KEY: 'sk-ant-of-this-test' };
+    const before = Object.fromEntries(Object.keys(mine).map((k) => [k, process.env[k]]));
+    Object.assign(process.env, mine);
+    let seen = null;
+    try {
+        await runSdk({ model: 'claude-opus-5-5', system: 's', content: [{ type: 'text', text: 'x' }], tools: [], settings, scratchDir, prices: {}, query: ({ options }) => { seen = options.env; return (async function* () {})(); } });
+    } finally {
+        for (const [k, v] of Object.entries(before)) if (v === undefined) delete process.env[k]; else process.env[k] = v;
+    }
+    assert.equal(seen.ANTHROPIC_API_KEY, mine.ANTHROPIC_API_KEY); assert.equal(seen.PATH, process.env.PATH);
+    assert.equal(seen.AWS_SECRET_ACCESS_KEY, undefined); assert.equal(seen.SCANNER_TOKEN, undefined);
+    assert.deepEqual(Object.keys(seen).filter((k) => !ENGINE_PASS.includes(k) && !k.startsWith('LC_') && !PINNED.includes(k) && k !== 'CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC'), []);
+    rmSync(scratchDir, { recursive: true, force: true });
 });
 
 test('Agent SDK: a tool the harness announces that is not the scanner\'s ends the run before the first request', async () => {

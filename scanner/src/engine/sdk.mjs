@@ -14,6 +14,9 @@
 //
 // Credentials come from the environment only: ANTHROPIC_API_KEY set → the key; unset → the plan the
 // machine is logged in to (development and tests).
+//
+// The subprocess inherits an ALLOWLIST of the scanner's environment (`ENGINE_PASS`), never the whole of it: on
+// a developer's machine that would hand unrelated secrets to a process that reads untrusted pictures.
 import { query, createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
 import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { mkdirSync } from 'node:fs';
@@ -41,10 +44,39 @@ function toolServer(tools, dispatch) {
     return server;
 }
 
-/** The environment the harness subprocess gets: the scanner's own WITHOUT the app token, plus pinned request behaviour. */
+/**
+ * What the harness subprocess may inherit from the scanner's environment — an allowlist. Everything else
+ * (a developer's cloud keys, a database URL, a GitHub token, the app token) stays behind: the engine reads a
+ * picture that may carry instructions, so it gets what a request to the provider needs and nothing more.
+ */
+export const ENGINE_PASS = Object.freeze([
+    // where programs, the home (the plan login of a developer's machine: its files, on macOS the keychain entry
+    // of USER) and temporary files are
+    'PATH', 'HOME', 'USER', 'LOGNAME', 'TMPDIR', 'TMP', 'TEMP',
+    // locale and time zone
+    'LANG', 'LANGUAGE', 'TZ',
+    // the provider credential: an API key (production), the plan's token (a container in development), a gateway's
+    // bearer (dropped below unless a credential is set), and the address requests go to (the tests' fault proxy)
+    'ANTHROPIC_API_KEY', 'CLAUDE_CODE_OAUTH_TOKEN', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_BASE_URL',
+    // a plan login kept in a directory of its own (overwritten below when a credential is set)
+    'CLAUDE_CONFIG_DIR',
+    // an outgoing proxy and its certificates
+    'HTTP_PROXY', 'HTTPS_PROXY', 'NO_PROXY', 'ALL_PROXY', 'http_proxy', 'https_proxy', 'no_proxy', 'all_proxy',
+    'NODE_EXTRA_CA_CERTS', 'SSL_CERT_FILE', 'SSL_CERT_DIR',
+    // node under emulation (set by the container runtime, not by the scanner)
+    'UV_USE_IO_URING',
+]);
+/** …and the locale categories (LC_ALL, LC_CTYPE, …). */
+const ENGINE_PASS_PREFIXES = Object.freeze(['LC_']);
+
+/** The environment the harness subprocess gets: the allowlist above out of the scanner's own, plus pinned request behaviour. */
 export function engineEnv({ base = process.env, settings = {}, scratchDir }) {
-    const env = { ...base };
-    delete env.SCANNER_TOKEN; // the engine talks to the provider only; the app is the scanner's business
+    const env = {};
+    for (const [key, value] of Object.entries(base)) {
+        if (value === undefined || value === '') continue;
+        if (ENGINE_PASS.includes(key) || ENGINE_PASS_PREFIXES.some((p) => key.startsWith(p))) env[key] = value;
+    }
+    // (the app token — SCANNER_TOKEN — is not on the list: the engine talks to the provider only)
     // the credential comes from the environment: an API key (production), or the plan's token for a machine
     // that has no login (CLAUDE_CODE_OAUTH_TOKEN — a container in development)
     const keyed = !!env.ANTHROPIC_API_KEY || !!env.CLAUDE_CODE_OAUTH_TOKEN;
@@ -71,8 +103,8 @@ export function engineEnv({ base = process.env, settings = {}, scratchDir }) {
         // A refusal then ends the turn (`model_refusal_no_fallback`) and the scan is `refused` (§5.2).
         CLAUDE_CODE_DISABLE_REFUSAL_FALLBACK: '1',
     });
-    delete env.CLAUDE_CODE_REFUSAL_FALLBACK_CATCH_ALL; // would switch a catch-all fallback back on
-    delete env.CLAUDE_CODE_EFFORT_LEVEL; // would override the definition's effort
+    // not on the list, so never inherited: CLAUDE_CODE_REFUSAL_FALLBACK_CATCH_ALL (would switch a catch-all
+    // fallback back on), CLAUDE_CODE_EFFORT_LEVEL (would override the definition's effort), NODE_OPTIONS, …
     if (keyed) {
         // nothing of the engine outlives the run or touches the image: its configuration and its home are in the run's scratch
         env.CLAUDE_CONFIG_DIR = join(scratchDir, 'engine-config');
