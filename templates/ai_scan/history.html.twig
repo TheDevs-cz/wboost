@@ -2,7 +2,10 @@
 
 {# "Historie skenů" (docs/ai-scan/ux.md §8) — every scan of the project.
    `rows` are AiScanLists::history() rows plus `when`. Rows are server-rendered;
-   the ai-scan-history controller only runs the two row actions. #}
+   the ai-scan-history controller only runs the row actions. A calendar scan
+   (`row.kind == 'calendar'`) lives in its calendar's wizard: its links open
+   `calendar_workspace` with `?sken=`, and `restore` in its actions is
+   „Vrátit původní rozvržení“. #}
 {% set active_menu_item = 'templates' %}
 {% set nil_uuid = '00000000-0000-0000-0000-000000000000' %}
 {% set pills = {
@@ -50,7 +53,7 @@
             <nav class="fbar" aria-label="Filtr">
                 {% for key, label in filters %}
                     <a href="{{ path('ai_scan_history', key == 'all' ? {'projectId': project.id} : {'projectId': project.id, 'filter': key}) }}" class="chip{{ filter == key ? ' on' : '' }}"{% if filter == key %} aria-current="true"{% endif %}>{{ label }}{% if key == 'all' %} <span class="n">{{ total }}</span>{% endif %}</a>
-                    {% if key == 'all' %}<span class="sep" aria-hidden="true"></span>{% endif %}
+                    {% if key in ['all', 'calendars'] %}<span class="sep" aria-hidden="true"></span>{% endif %}
                 {% endfor %}
             </nav>
 
@@ -66,8 +69,13 @@
                         {% for row in rows %}
                             {% set gone = row.status in ['expired', 'discarded'] %}
                             {% set name = row.name ?: (row.fileName ?: 'Sken') %}
-                            {% set url = path('ai_scan_page', {'projectId': project.id, 'scanId': row.id}) %}
-                            {% set pill = pills[row.status] ?? pills.expired %}
+                            {% set is_calendar = row.kind == 'calendar' %}
+                            {# A calendar scan whose calendar is gone has nowhere to open. #}
+                            {% set url = is_calendar
+                                ? (row.calendarId ? path('calendar_workspace', {'calendarId': row.calendarId, 'sken': row.id}) : null)
+                                : path('ai_scan_page', {'projectId': project.id, 'scanId': row.id}) %}
+                            {% set gone = gone or url is null %}
+                            {% set pill = is_calendar and row.status == 'accepted' ? ['mint', 'Rozvržení použito'] : (pills[row.status] ?? pills.expired) %}
                             <li class="as-hrow" data-scan="{{ row.id }}" data-status="{{ row.status }}">
                                 <span class="as-scan-th as-hrow-th">
                                     {% if row.hasPicture and not gone %}
@@ -89,7 +97,7 @@
                                     {% if row.status == 'ready' and row.unfinished %}<span class="cap">nedokončeno</span>{% endif %}
                                 </span>
                                 {% set in_progress = row.status in ['checking', 'queued', 'running'] %}
-                                {% if not gone and (row.actions is not empty or in_progress) %}
+                                {% if not gone and (row.actions|filter(a => a != 'open_calendar') is not empty or in_progress) %}
                                     <div class="dropdown">
                                         <button type="button" class="btn icon xs btn-ghost" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Akce: {{ name }}">{{ icon('more', 's16') }}</button>
                                         <div class="dropdown-menu dropdown-menu-end">
@@ -99,11 +107,17 @@
                                             {% if 'open_proposal' in row.actions %}
                                                 <a href="{{ url }}" class="dropdown-item">{{ icon('eye', 's16') }}Otevřít návrh</a>
                                             {% endif %}
+                                            {% if 'restore' in row.actions and row.calendarId %}
+                                                <button type="button" class="dropdown-item" data-action="ai-scan-history#restore" data-id="{{ row.id }}" data-url="{{ path('calendar_scan', {'calendarId': row.calendarId, 'scanId': row.id, 'action': 'restore'}) }}">{{ icon('undo', 's16') }}Vrátit původní rozvržení</button>
+                                            {% endif %}
+                                            {% if is_calendar and row.status == 'accepted' and 'open_calendar' in row.actions %}
+                                                <a href="{{ path('calendar_workspace', {'calendarId': row.calendarId}) }}" class="dropdown-item">{{ icon('calendar', 's16') }}Otevřít kalendář</a>
+                                            {% endif %}
                                             {% if 'open_template' in row.actions and row.resultVariantId %}
                                                 <a href="{{ path('template_variant_editor', {'variantId': row.resultVariantId}) }}" class="dropdown-item">{{ icon('edit', 's16') }}Otevřít šablonu</a>
                                             {% endif %}
                                             {% if 'retry' in row.actions %}
-                                                <button type="button" class="dropdown-item" data-action="ai-scan-history#retry" data-id="{{ row.id }}">{{ icon('refresh', 's16') }}Zkusit znovu</button>
+                                                <button type="button" class="dropdown-item" data-action="ai-scan-history#retry" data-id="{{ row.id }}"{% if is_calendar %} data-page-url="{{ url }}"{% endif %}>{{ icon('refresh', 's16') }}Zkusit znovu</button>
                                             {% endif %}
                                             {% if row.status in ['stopped', 'refused'] or ('continue' in row.actions) %}
                                                 <a href="{{ url }}" class="dropdown-item">{{ icon('eye', 's16') }}Zobrazit</a>

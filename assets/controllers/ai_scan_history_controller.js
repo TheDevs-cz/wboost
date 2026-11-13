@@ -1,12 +1,13 @@
 /* stimulusFetch: 'lazy' */
 import { Controller } from '@hotwired/stimulus';
-import { retryScan, discardScan } from '../ai-scan/lists.js';
+import { retryScan, discardScan, restoreCalendarLayout } from '../ai-scan/lists.js';
 
 /*
  * "Historie skenů" (templates/ai_scan/history.html.twig, docs/ai-scan/ux.md
  * §8): the rows are server-rendered; this runs the two row actions —
  * "Zkusit znovu" (opens the scan page) and "Zahodit" (asks first, then the
- * page reloads so the row shows `Zahozeno`) — and steps a thumbnail down
+ * page reloads so the row shows `Zahozeno`), for a calendar scan also "Vrátit
+ * původní rozvržení" (asks first when the layout was edited since) — and steps a thumbnail down
  * through its fallback pictures when the first one does not exist.
  */
 export default class extends Controller {
@@ -37,8 +38,15 @@ export default class extends Controller {
     async retry(event) {
         const button = event.currentTarget;
         button.disabled = true;
-        const started = await retryScan({ actionUrl: this.actionUrlValue, pageUrl: this.pageUrlValue, id: button.dataset.id });
+        const started = await retryScan({ actionUrl: this.actionUrlValue, pageUrl: button.dataset.pageUrl || this.pageUrlValue, id: button.dataset.id });
         if (!started) button.disabled = false;
+    }
+
+    async restore(event) {
+        const button = event.currentTarget;
+        button.disabled = true;
+        if (await restoreCalendarLayout({ url: button.dataset.url })) window.location.reload();
+        else button.disabled = false;
     }
 
     async discard(event) {

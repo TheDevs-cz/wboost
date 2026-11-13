@@ -9,6 +9,7 @@ import { specialFamilies } from '../calendar/render/special.js';
 import { createApi } from '../calendar/state/api.js';
 import { createStore } from '../calendar/state/store.js';
 import { choiceDialog, confirmDialog, h, toast } from '../calendar/ui/dom.js';
+import { createScan } from '../calendar/ui/scan.js';
 import { mountTopBar } from '../calendar/ui/topbar.js';
 import { mountStep1 } from '../calendar/ui/step1.js';
 import { mountStep2 } from '../calendar/ui/step2.js';
@@ -32,6 +33,9 @@ import { openTool } from '../calendar/ui/tools/index.js';
  *   toast(message, error?)                 kit toast
  *   confirm({ title, text, confirmLabel, cancelLabel?, danger? }) → Promise<boolean>
  *   openTool(key)                          opens a content tool (ui/tools/index.js)
+ *   scan                                   the AI scan of this calendar (ui/scan.js; null for a client
+ *                                          and where the bootstrap carries no `env.scan`) — step 2
+ *                                          mounts its card / panel, the top bar reads its signals
  *   setStageProbe(probe | null)            the module showing "the page on the stage" registers
  *                                          { scale(): px per mm, toClient(xMm, yMm): { x, y }, page(): Page | null }
  *                                          so window.__calendar can answer scale() / toClient() / geometry()
@@ -82,6 +86,8 @@ export default class extends Controller {
             },
             actions: { save: () => this.save(), leave: () => this.leave(), finish: () => this.finish() },
         };
+        // „Naskenovat design“ lives for the whole workspace: it polls in any step (dot, toast)
+        this.ctx.scan = createScan(this.ctx);
 
         this.top = h('div', { class: 'cal-ws-top' });
         this.body = h('div', { class: 'cal-ws-body' });
@@ -126,6 +132,7 @@ export default class extends Controller {
         if (this.unsubscribe) this.unsubscribe();
         if (this.mounted) this.mounted.destroy();
         if (this.topBar) this.topBar.destroy();
+        if (this.ctx && this.ctx.scan) this.ctx.scan.destroy();
         this.top.remove();
         this.body.remove();
         this.store = null;
@@ -263,6 +270,7 @@ export default class extends Controller {
                     selection: s.ui.selection,
                     zoom: s.ui.zoom,
                     status: s.status,
+                    layoutOrigin: s.layoutOrigin,
                     mode: env.mode,
                     canUndo: store.canUndo(),
                     canRedo: store.canRedo(),

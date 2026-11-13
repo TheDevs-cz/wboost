@@ -4,6 +4,13 @@
 // layout; the other card shows what a click gives — the default layout while nothing exists yet,
 // the current layout mirrored once one does. 14 days: no choice — the single two-sided layout is
 // applied on entering the step and shown on one card with Pokračovat.
+//
+// AI scan (ux.md §6, `ui/scan.js`): under the cards of a 7-day calendar sits the action card
+// „Naskenovat design“ — or its panel — drawn by `ctx.scan` into `.cal-scan`. When the calendar's
+// layout came from a scan (`store.getState().layoutOrigin === 'scan'`) a third REAL radio
+// `[data-preset="scan"]` „Naskenovaný design“ is shown selected with the current layout; the two
+// preset cards then preview — and a click on them applies — the preset's DEFAULT layout (never a
+// mirror of the scanned one), with the toast „Rozvržení nahrazeno výchozím“ · Vrátit.
 
 import { bleedOf } from '../model/defaults.js';
 import { defaultLayout, mirrorLayout } from '../model/layouts.js';
@@ -16,6 +23,7 @@ const CARDS = [
     { preset: 'photoLeft', title: 'Fotka vlevo', text: 'Fotografie vlevo, dny v týdnu vpravo' },
     { preset: 'photoRight', title: 'Fotka vpravo', text: 'Dny v týdnu vlevo, fotografie vpravo' },
 ];
+const SCANNED = { preset: 'scan', title: 'Naskenovaný design', text: 'Rozvržení převzaté z vašeho kalendáře' };
 const TWO_SIDED = { preset: 'twoSided', title: 'Dvoustranné rozvržení', text: 'První týden vlevo, fotografie uprostřed, druhý týden vpravo' };
 
 /**
@@ -26,13 +34,15 @@ const TWO_SIDED = { preset: 'twoSided', title: 'Dvoustranné rozvržení', text:
 export function mountStep2(root, ctx) {
     const { store, env } = ctx;
     const design = () => store.getState().doc.design;
+    const scanned = () => store.getState().layoutOrigin === 'scan' && Boolean(design().layout) && design().type === 'week';
 
     /** The document a card previews. */
     function previewDoc(preset) {
         const doc = store.getState().doc;
         const d = doc.design;
-        if (d.layout && d.preset === preset) return doc;
-        const layout = d.layout && d.type === 'week'
+        if (preset === 'scan') return doc;
+        if (d.layout && d.preset === preset && !scanned()) return doc;
+        const layout = d.layout && d.type === 'week' && !scanned()
             ? mirrorLayout(d.layout, d.page)
             : normalizeLayout(defaultLayout(preset, d.page, bleedOf(d.print), env), d.type, d.page, env);
         return { ...doc, design: { ...d, preset, layout } };
@@ -47,13 +57,27 @@ export function mountStep2(root, ctx) {
     let thumbs = [];
     let builtFor = null;
     let cards = [];
+    let scanMount = null;
+
+    /** A preset card: over a scanned layout it replaces the layout and says so. */
+    function choose(preset) {
+        if (preset === 'scan') {
+            store.setStep(3);
+            return;
+        }
+        const replaced = scanned();
+        store.choosePreset(preset);
+        if (replaced) ctx.toast('Rozvržení nahrazeno výchozím', false, { label: 'Vrátit', onClick: () => store.undo() });
+    }
 
     function build() {
         for (const thumb of thumbs) thumb.destroy();
         thumbs = [];
         cards = [];
         const fortnight = design().type === 'fortnight';
-        builtFor = design().type;
+        builtFor = `${design().type}:${scanned()}`;
+        if (scanMount) scanMount.destroy();
+        scanMount = null;
 
         const card = (spec, interactive) => {
             const preview = h('span', { class: 'cal-layp' });
@@ -67,20 +91,23 @@ export function mountStep2(root, ctx) {
                     h('span', { class: 'cal-layf' }, body, h('button', { type: 'button', class: 'btn sm btn-tertiary', 'data-cal-action': 'continue', onClick: () => store.setStep(3) }, 'Pokračovat', icon('arrow-right', 's16'))),
                 );
             }
-            const button = h('button', { type: 'button', class: 'cal-layc', role: 'radio', 'data-preset': spec.preset, onClick: () => store.choosePreset(spec.preset) }, preview, body);
+            const button = h('button', { type: 'button', class: 'cal-layc', role: 'radio', 'data-preset': spec.preset, onClick: () => choose(spec.preset) }, preview, body);
             cards.push({ spec, button });
             return button;
         };
 
         const list = fortnight
             ? h('div', { class: 'cal-lays one' }, card(TWO_SIDED, false))
-            : h('div', { class: 'cal-lays', role: 'radiogroup', 'aria-label': 'Rozvržení stránky' }, ...CARDS.map((spec) => card(spec, true)));
-        root.replaceChildren(h('div', { class: 'cal-s2' }, h('div', { class: 'cal-s2c' }, list)));
+            : h('div', { class: 'cal-lays', role: 'radiogroup', 'aria-label': 'Rozvržení stránky' }, ...[...CARDS, ...(scanned() ? [SCANNED] : [])].map((spec) => card(spec, true)));
+        // „Naskenovat design“: the action card or the panel, weekly calendars only
+        const scanSlot = !fortnight && ctx.scan ? h('div', { class: 'cal-scan' }) : null;
+        root.replaceChildren(h('div', { class: 'cal-s2' }, h('div', { class: 'cal-s2c' }, list, scanSlot)));
+        if (scanSlot) scanMount = ctx.scan.mount(scanSlot);
         sync();
     }
 
     function sync() {
-        const active = design().layout ? design().preset : null;
+        const active = !design().layout ? null : scanned() ? 'scan' : design().preset;
         for (const { spec, button } of cards) {
             const on = spec.preset === active;
             button.classList.toggle('on', on);
@@ -98,7 +125,7 @@ export function mountStep2(root, ctx) {
 
     const unsubscribe = store.subscribe((event) => {
         if (event.type === 'ui' || event.type === 'status' || (event.type === 'layout' && event.live)) return;
-        if (design().type !== builtFor) {
+        if (`${design().type}:${scanned()}` !== builtFor) {
             if (design().type === 'fortnight' && !design().layout) store.choosePreset('twoSided', { advance: false });
             build();
             return;
@@ -112,6 +139,7 @@ export function mountStep2(root, ctx) {
             unsubscribe();
             refresh.cancel();
             for (const thumb of thumbs) thumb.destroy();
+            if (scanMount) scanMount.destroy();
             root.replaceChildren();
         },
     };

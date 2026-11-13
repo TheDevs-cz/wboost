@@ -8,10 +8,15 @@
  *   node tests/e2e/ai-scan/lib/fake-scanner.cjs --scenario=stop       # the pre-check stops the next scan (photo of a print)
  *   node tests/e2e/ai-scan/lib/fake-scanner.cjs --scenario=fail --once
  *
+ * A CALENDAR scan (kind `calendar`, tests/e2e/calendar/scan.e2e.cjs) gets a calendar candidate —
+ * `render` with model `commands` — and the calendar report (docs/architecture/ai-scan.md
+ * § "Calendar scans"); `options.calendar` may override parts of that report.
+ *
  * Scenarios: happy · stop (photo_of_print) · blurry · fail (build) · provider · refuse ·
  * hang (claims a build, beats `--beats` times, then stops answering).
  * `--project=<id>` serves only that project's scans (looked up with psql through docker compose);
  * without it EVERY waiting scan is taken — do not run it beside a real scanner.
+ * `options.idleMs` (default 700) is the pause between two empty claim rounds.
  * Options: --beat-ms=1200 (pause between heartbeats) · --beats=6 · --once (one scan, then exit) ·
  * --intake-only (pass the pre-check, leave the scan queued).
  *
@@ -117,8 +122,76 @@ const boxes = () => [
     { id: 'sub', kind: 'text', box: [80, 240, 420, 50], colour: '#000000', lines: 1, sourceLineWidths: [300], fittedSize: 44 },
 ];
 
+// ---- a calendar scan -------------------------------------------------------------------------
+
+/** The model commands of the fake calendar candidate: Fotka vpravo, a navy header, numbers on the left. */
+const calendarCommands = () => [
+    { op: 'preset', preset: 'photoRight' },
+    { op: 'layout', boxes: { logo: { x: 262, y: 14, w: 34, h: 11 } }, styles: {
+        head: { bg: { color: '#1F3A5F' } },
+        month: { color: '#FFFFFF', align: 'start' },
+        cal: { numberSide: 'start' },
+        num: { color: '#1F3A5F' },
+    } },
+];
+
+/** The calendar report; `rendered` is the app's answer to `render` (`width`, `height`, `layout`). */
+function calendarReport(candidate, rendered, overrides = {}) {
+    const w = rendered.width || 1600;
+    const h = rendered.height || 748;
+    const view = rendered.view || { x: 0, y: 0, w: 310, h: 145 };
+    const photo = rendered.layout && rendered.layout.boxes ? rendered.layout.boxes.photo : null;
+    const px = (mm) => Math.round((mm / view.w) * w);
+    return {
+        status: 'proposed', candidate, unfinished: false, type: 'week',
+        // the fake working copy IS the uploaded picture: the page fills it
+        pageBox: [0, 0, w, h],
+        photoBox: photo ? [Math.max(0, px(photo.x)), Math.max(0, px(photo.y)), Math.min(w, px(photo.w)), Math.min(h, px(photo.h))] : null,
+        recognised: [
+            { element: 'photo', state: 'found' }, { element: 'cap', state: 'approximate' }, { element: 'cal', state: 'found' },
+            { element: 'month', state: 'found' }, { element: 'wk', state: 'absent' }, { element: 'head', state: 'found' },
+            { element: 'logo', state: 'found' }, { element: 'qr', state: 'absent' }, { element: 'bg', state: 'found' },
+        ],
+        needsUpload: [{ slot: 'logo' }, { slot: 'header' }],
+        featuresOffered: [{ key: 'qr' }, { key: 'events' }],
+        fonts: [{ group: 'num', pattern: 'nearest_available', face: null, closeness: 0.61 }, { group: 'month', pattern: 'undetermined', face: null }],
+        notExpressible: [{ code: 'ornament', box: [0, Math.round(h * 0.86), Math.round(w * 0.3), Math.round(h * 0.08)] }],
+        notes: [{ code: 'ratio_adapted', w: 297, h: 150 }],
+        measures: { mae: 0.031 },
+        ...overrides,
+    };
+}
+
+async function buildCalendar(job, options, log) {
+    const run = new Run(job, log);
+    const steps = [{ stage: 'read' }, { stage: 'read', note: 'rows_found', noteParams: { n: 7 } }, { stage: 'analyse', note: 'measuring' }, { stage: 'analyse', note: 'fonts' }, { stage: 'build', note: null }];
+    try {
+        for (const step of steps.slice(0, Math.max(1, options.beats))) { await run.beat(step); await sleep(options.beatMs); }
+        if (options.scenario === 'hang') { log(`${job.id} build → hanging (no more heartbeats)`); return 'hang'; }
+        if (options.scenario === 'provider') { await run.post('finish', { outcome: 'failed', error: 'provider_unavailable', usage: usage(3) }); log(`${job.id} build → failed provider`); return 'failed'; }
+        const rendered = await run.post('render', { seq: ++run.seq, commands: calendarCommands() });
+        if (options.scenario === 'fail' || rendered.candidate === null || rendered.candidate === undefined) {
+            if (rendered.candidate === null) log(`render rejected: ${JSON.stringify(rendered.issues).slice(0, 400)}`);
+            await run.post('finish', { outcome: 'failed', error: 'build', usage: usage(4) });
+            log(`${job.id} build → failed build`);
+            return 'failed';
+        }
+        await sleep(options.beatMs);
+        await run.beat({ stage: 'refine', round: 1, note: null });
+        await sleep(options.beatMs);
+        await run.beat({ stage: 'finish', round: 1 });
+        await run.post('finish', { outcome: 'proposed', candidate: rendered.candidate, report: calendarReport(rendered.candidate, rendered, options.calendar || {}), usage: usage(6) });
+        log(`${job.id} build → proposed (calendar candidate ${rendered.candidate})`);
+        return 'ready';
+    } catch (error) {
+        if (error.cancelled || (error.answer && error.answer.status === 409)) { log(`${job.id} build stopped: the app ended the run`); return 'cancelled'; }
+        throw error;
+    }
+}
+
 async function claim(lane) {
-    const answer = await call('POST', 'claim', { body: { lane, scannerVersion: VERSION, instruments: ['ocr', 'crop', 'measure', 'font_rank', 'compare'], capacity: 1 } });
+    // `mm` = the calendar instrument: without it the app hands out no calendar build
+    const answer = await call('POST', 'claim', { body: { lane, scannerVersion: VERSION, instruments: ['ocr', 'crop', 'measure', 'font_rank', 'compare', 'mm'], capacity: 1 } });
     return answer.json && answer.json.job ? answer.json.job : null;
 }
 
@@ -156,6 +229,7 @@ async function intake(job, options, log) {
 }
 
 async function build(job, options, log) {
+    if (job.kind === 'calendar') return buildCalendar(job, options, log);
     const run = new Run(job, log);
     const steps = [
         { stage: 'read' }, { stage: 'read', note: 'texts_found', noteParams: { n: 2 } },
@@ -199,12 +273,14 @@ async function serve(options, log = (line) => console.log(`[fake-scanner] ${line
     let lastTick = 0;
     for (;;) {
         if (options.stopped) return;
-        if (options.paused) { await sleep(300); continue; }
+        // the tick goes out while paused too: a scanner that says nothing for 60 s reads as absent
+        if (options.paused && Date.now() - lastTick <= 20000) { await sleep(300); continue; }
         if (Date.now() - lastTick > 20000) {
             const tick = await call('POST', 'tick', { body: { scannerVersion: VERSION, provider: { state: 'ok' } } });
             if (tick.status !== 200 || !tick.json || tick.json.mode !== 'on') throw new Error(`tick answered ${tick.status}, mode ${tick.json && tick.json.mode}. Switch AI scan on: bin/console app:ai-scan:status --mode=on`);
             lastTick = Date.now();
         }
+        if (options.paused) { await sleep(300); continue; }
         // `options.accepts(scanId)` (the e2e harness: only scans of the e2e projects) — anything
         // else is given back at once, so a real scanner working beside us keeps its scans.
         const foreign = async (job) => {
@@ -221,7 +297,7 @@ async function serve(options, log = (line) => console.log(`[fake-scanner] ${line
             if (buildJob) { if (await foreign(buildJob)) continue; await build(buildJob, options, log); done += 1; if (options.once) return; continue; }
         }
         if (options.once && done > 0) return;
-        await sleep(700);
+        await sleep(options.idleMs || 700);
     }
 }
 

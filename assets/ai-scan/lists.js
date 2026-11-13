@@ -1,4 +1,4 @@
-// AI sken — what the lists around a scan share (T5 strip, §8 history): the two row actions.
+// AI sken — what the lists around a scan share (T5 strip, §8 history): the row actions.
 import { api, confirmDialog, urlFor } from './kit.js';
 import { startHint } from './copy.js';
 import { toast } from '../shell/toast.js';
@@ -34,5 +34,31 @@ export async function discardScan({ actionUrl, id, proposal = false }) {
         return false;
     }
     toast(proposal ? 'Návrh zahozen' : 'Sken zahozen');
+    return true;
+}
+
+/**
+ * "Vrátit původní rozvržení" of a calendar scan from a list (ux.md §6 "Applying"): the layout,
+ * layout choice and switches the calendar had before the scan was applied go back — nothing else.
+ * When the layout was edited since, the server answers `layout_changed` and the user is asked first.
+ * @param {{url: string}} o  the calendar's restore address (`calendar_scan`, action `restore`)
+ * @returns {Promise<boolean>} whether the layout was put back
+ */
+export async function restoreCalendarLayout({ url }) {
+    let answer = await api.post(url);
+    if (answer.code === 'layout_changed') {
+        const yes = await confirmDialog({
+            title: 'Vrátit původní rozvržení?',
+            text: 'Od použití skenu jste rozvržení upravili. Vrácením o tyto úpravy přijdete. Texty, fotky a obsah stránek zůstanou.',
+            confirm: 'Vrátit původní',
+        });
+        if (!yes) return false;
+        answer = await api.post(url, { confirm: '1' });
+    }
+    if (!answer.ok) {
+        toast(answer.code === 'wrong_state' ? 'Původní rozvržení už vrátit nejde.' : 'Původní rozvržení se nepodařilo vrátit. Zkuste to za chvíli.', { error: true });
+        return false;
+    }
+    toast('Původní rozvržení vráceno');
     return true;
 }

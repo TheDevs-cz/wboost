@@ -10,6 +10,9 @@ import { openExport } from '../calendar/ui/export.js';
 import { openHistory } from '../calendar/ui/history.js';
 import { mountLazyThumb, renderThumb } from '../calendar/ui/thumb.js';
 
+/** ux.md C5 — the pill of an AI scan on a calendar's card: `scan` of `urls.card` → [tone, icon, label]. */
+const SCAN_PILLS = { running: ['pch', 'clock', 'Sken běží'], queued: ['pch', 'clock', 'Ve frontě'], ready: ['pch', 'eye', 'Návrh připraven'], failed: ['rose', 'x-circle', 'Sken se nepodařil'] };
+
 const PRESET_WORDS = { photoLeft: 'fotka vlevo', photoRight: 'fotka vpravo', twoSided: 'dvoustranné' };
 
 /**
@@ -23,6 +26,10 @@ const PRESET_WORDS = { photoLeft: 'fotka vlevo', photoRight: 'fotka vpravo', two
  *   thumb  .cal-thumb  ← inline SVG of the first week page (the cover while no layout exists), lazy
  *   meta   .cal-meta   ← "Týdenní · 2027 · fotka vlevo · 55 stran"
  *   time   <time datetime> ← relative time ("před 5 min")
+ *
+ * `urls.card` also answers `scan` (designers only): `running` | `queued` |
+ * `ready` | `failed` | null → one pill `.cal-scan-pill` on the card, a link
+ * that opens the calendar on step 2 with the scan's panel (`?sken=1`).
  *
  * The page carries no calendar document. A card fetches its own
  * (`urls.card` → `{ calendar, assets }`) when it scrolls into view, then
@@ -64,6 +71,7 @@ export default class extends Controller {
                 const data = await response.json();
                 if (!this.thumbs) return; // disconnected meanwhile
 
+                this.scanPill(card, data.scan, script ? (JSON.parse(script.textContent).urls || {}).workspace : null);
                 const env = { ...shared, fonts, accent, assets: data.assets || {} };
                 const doc = normalizeDocument(data.calendar, env);
                 const pages = buildPages(doc);
@@ -154,6 +162,26 @@ export default class extends Controller {
         } catch (e) {
             // no sessionStorage: nothing to show
         }
+    }
+
+    /** The pill of an AI scan (ux.md C5) under the card's summary line. */
+    scanPill(card, state, workspaceUrl) {
+        const old = card.querySelector('.cal-scan-pill');
+        if (old) old.remove();
+        const spec = SCAN_PILLS[state];
+        const link = card.querySelector('.cal-card-link');
+        const href = workspaceUrl || (link ? link.getAttribute('href') : null);
+        if (!spec || !href) return;
+        const pill = document.createElement('a');
+        pill.className = `pill ${spec[0]} cal-scan-pill`;
+        pill.href = `${href}${href.includes('?') ? '&' : '?'}sken=1`;
+        pill.dataset.calScanPill = state;
+        const icon = document.createElement('span');
+        icon.className = `i i-${spec[1]} s12`;
+        icon.setAttribute('aria-hidden', 'true');
+        pill.append(icon, spec[2]);
+        const meta = card.querySelector('.cal-meta');
+        (meta || link).after(pill);
     }
 
     disconnect() {

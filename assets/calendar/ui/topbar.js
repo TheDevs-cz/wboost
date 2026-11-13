@@ -3,6 +3,10 @@
 // name as text, status and Uložit.
 //
 // Built once and updated in place from store events, so the name field keeps its focus.
+//
+// AI scan (`ctx.scan`, ui/scan.js): while a scan of this calendar is unfinished — or its proposal
+// waits — step 2 carries a peach dot (`.as-stepdot`); while the scan panel shows a lavender
+// primary of its own, Pokračovat is drawn tertiary (one primary per view).
 
 import { h, icon } from './dom.js';
 
@@ -56,6 +60,7 @@ export function mountTopBar(root, ctx) {
             const n = index + 1;
             const number = h('span', { class: 'cal-stn', 'aria-hidden': 'true' }, String(n));
             const button = h('button', { type: 'button', class: 'cal-step', 'data-cal-step': String(n), title: label, onClick: () => store.setStep(n) }, number, h('span', { class: 'cal-stl' }, label));
+            if (n === 2) button.append(h('span', { class: 'as-stepdot', role: 'img', hidden: true, 'data-cal-scan-dot': '' }));
             stepButtons.push({ n, button, number });
             steps.append(h('li', null, button));
         });
@@ -101,6 +106,19 @@ export function mountTopBar(root, ctx) {
         else next.replaceChildren('Pokračovat', icon('arrow-right', 's16'));
     }
 
+    function syncScan() {
+        if (!designer) return;
+        const scan = ctx.scan;
+        const dot = steps.querySelector('[data-cal-scan-dot]');
+        const unfinished = Boolean(scan && scan.weekly() && scan.unfinished());
+        const waiting = Boolean(scan && scan.weekly() && scan.attention());
+        dot.hidden = !(unfinished || waiting);
+        dot.setAttribute('aria-label', unfinished ? 'sken běží' : 'návrh rozvržení čeká na kontrolu');
+        const quiet = Boolean(scan && design().step === 2 && scan.primaryShown());
+        next.classList.toggle('btn-primary', !quiet);
+        next.classList.toggle('btn-tertiary', quiet);
+    }
+
     function syncHistory() {
         if (!designer) return;
         const d = design();
@@ -139,16 +157,20 @@ export function mountTopBar(root, ctx) {
             syncSteps();
             syncHistory();
             syncName();
+            syncScan();
         }
     });
+    const unsubscribeScan = ctx.scan ? ctx.scan.subscribe(syncScan) : null;
 
     syncSteps();
     syncHistory();
     syncStatus();
+    syncScan();
 
     return {
         destroy() {
             unsubscribe();
+            if (unsubscribeScan) unsubscribeScan();
             root.replaceChildren();
         },
     };

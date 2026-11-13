@@ -135,3 +135,61 @@ export const SIMPLIFICATIONS = {
 };
 /** Font group roles of the report → the genitive used in `Písmo {skupiny}`. */
 export const FONT_ROLES = { headline: 'nadpisů', subheadline: 'podnadpisů', body: 'textů', button: 'tlačítek', caption: 'popisků', other: 'dalších textů' };
+
+// ---- Kalendáře — „Naskenovat design“ (ux.md §6, S1–S5 calendar slots) ----------------------
+/** Everything the calendar wizard's scan panel says that differs from the template wizard. */
+export const CAL = {
+    card: {
+        title: 'Naskenovat design',
+        text: 'Nahrajte obrázek stránky svého kalendáře. AI rozpozná, kde je fotografie, kalendárium, hlavička a logo, a navrhne stejné rozvržení.',
+    },
+    drop: { bold: 'Přetáhněte sem obrázek stránky kalendáře', phone: 'Klepněte a vyberte obrázek', cap: 'JPG, PNG, WebP nebo HEIC · nejvýše 10 MB · jedna týdenní stránka' },
+    tipsOk: ['Export stránky z grafického programu', 'Jedna celá týdenní stránka, rovně a bez ořezu', 'Běžný týden — ne titulní strana ani měsíční přehled'],
+    tipsNo: ['Fotka kalendáře na stole — zkreslí barvy i rozměry', 'Více stránek v jednom obrázku', 'Ozdobné pruhy a rámečky — rozvržení má pevnou sadu prvků'],
+    takeOver: 'Převezmeme rozmístění fotografie, kalendária, hlavičky, měsíce a loga a také barvy. Písma vybereme z projektu. Fotky, texty a dny doplní kalendář sám.',
+    hasLayout: 'Kalendář už rozvržení má. Sken ho nezmění, dokud návrh nepoužijete.',
+    ratioOk: 'Poměr stran odpovídá vašemu kalendáři',
+    ratioOther: (w, h) => `Stránka má jiný poměr stran než váš kalendář (${w} × ${h} mm) — rozvržení přizpůsobíme`,
+    /** S3 — the stages as a calendar scan names them (the codes are the scanner's). */
+    stages: [
+        { id: 'check', label: 'Kontrola obrázku', title: 'Kontroluji obrázek…' },
+        { id: 'read', label: 'Čtení dnů a čísel', title: 'Čtu dny a čísla…' },
+        { id: 'analyse', label: 'Rozbor stránky', title: 'Rozebírám stránku…' },
+        { id: 'build', label: 'Sestavení rozvržení', title: 'Sestavuji rozvržení…' },
+        { id: 'refine', label: 'Porovnání a doladění', title: 'Porovnávám s originálem…' },
+        { id: 'finish', label: 'Dokončení', title: 'Dokončuji…' },
+    ],
+    leave: '<b>Můžete odejít — dáme vědět.</b> Sken běží na serveru. Návrh najdete tady v kroku Rozvržení; když tu nebudete, pošleme e‑mail.',
+    usable: 'Průvodce můžete dál používat — panel zavřete křížkem, sken poběží dál.',
+    /** S5 — the two cards that read differently for a calendar page. */
+    failure: {
+        not_expected_kind: { title: 'Tohle nevypadá jako stránka kalendáře', text: 'Potřebujeme jednu týdenní stránku s fotografií a dny v řádcích.' },
+        several_designs: { title: 'V obrázku je víc stránek', text: 'Z jednoho obrázku převezmeme jedno rozvržení. Ořízněte ho na jednu týdenní stránku.' },
+    },
+    /** C4 — the rows of „Co jsme rozpoznali“. */
+    elements: { photo: 'Fotografie', cap: 'Popisek fotky', cal: 'Kalendárium', month: 'Měsíc', wk: 'Číslo týdne', head: 'Hlavička', logo: 'Logo', qr: 'QR kód', bg: 'Pozadí' },
+    states: { found: ['ok', 'check', 'rozpoznáno'], approximate: ['ap', 'help', 'přibližně'], absent: ['no', 'minus', 'nenalezeno'] },
+    absent: 'na stránce jsme nenašli',
+    kept: 'na stránce jsme nenašli — zůstane jako dosud',
+    features: { weekNumbers: 'Zapnout čísla týdnů', captions: 'Zapnout popisek fotky', moon: 'Zapnout fáze měsíce', qr: 'Zapnout QR kód', events: 'Zapnout akce', waste: 'Zapnout svoz odpadů', timeChange: 'Zapnout změnu času', seasons: 'Zapnout roční období', shifts: 'Zapnout směny' },
+    notExpressible: {
+        ornament: 'Ozdobný pruh / rámeček / ornament', header_text: 'Text v hlavičce', second_photo: 'Druhá fotografie', more_logos: 'Další loga',
+        days_in_grid: 'Dny v mřížce', rotated_text: 'Svislý nebo otočený text', month_colours: 'Jiné barvy pro každý měsíc', multilingual_names: 'Vícejazyčné názvy',
+    },
+    notes: {
+        fortnight_left_half: () => 'Obrázek vypadá jako čtrnáctidenní kalendář — převzali jsme levou polovinu.',
+        ratio_adapted: (n) => (n.w && n.h ? `Stránka má jiný poměr stran než váš kalendář (${n.w} × ${n.h} mm) — rozvržení jsme přizpůsobili.` : 'Stránka má jiný poměr stran než váš kalendář — rozvržení jsme přizpůsobili.'),
+        colours_estimated: () => 'Barvy jsou jen odhad.',
+        page_box_set: () => 'Obrázek měl okraje — stránku jsme v něm našli a ořízli.',
+    },
+    slots: { logo: 'Logo', header: 'Obrázek v hlavičce', background: 'Obrázek na pozadí' },
+    /** Style groups of the report's `fonts[]` → the genitive of `Písmo {…}`. */
+    fontGroups: { num: 'čísel dnů', numSat: 'čísel sobot', numSun: 'čísel nedělí', numHol: 'čísel svátků', day: 'názvů dnů', name: 'jmenin', hol: 'svátků', ev: 'akcí', month: 'měsíce', wk: 'čísla týdne', cap: 'popisku fotky', time: 'časů', shift: 'směn' },
+    fontPattern: {
+        measured_match: (face) => `odpovídá písmu projektu${face ? ` ${face}` : ''}`,
+        nearest_available: (face) => `nejbližší dostupné${face ? ` — ${face}` : ''}`,
+        undetermined: (face) => `nepodařilo se určit${face ? `, použili jsme ${face}` : ''}`,
+    },
+};
+/** `· 1 obrázek doplníte později · {n} obrázky · {n} obrázků` (ux.md §2.4). */
+export const picturesLater = (n) => (n > 0 ? ` · ${n} ${pl(n, 'obrázek', 'obrázky', 'obrázků')} doplníte později` : '');

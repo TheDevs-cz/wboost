@@ -13,7 +13,11 @@
 //     status  { status }                  'clean' | 'dirty' | 'saving' | 'error'
 //     undo    { direction }               a snapshot was restored by undo() / redo(); always follows
 //                                         the `layout { live: false }` event of that restore
-//     replace {}                          the document was replaced by a save response
+//     replace {}                          the document was replaced by a save response (or by
+//                                         `load()` — an AI scan's layout applied / taken back)
+// - `state.layoutOrigin` (`'scan'` | null) is the marker of a scanned layout. It lives BESIDE the
+//   document — never in `doc.design` — and travels in the save answer (`response.layoutOrigin`);
+//   the only thing the browser may ask for is clearing it (payload `"layoutOrigin": null`).
 // - Layout and design changes are designer-only; in client mode they throw (the server refuses
 //   them too). Content changes of collections outside the client whitelist throw in client mode.
 
@@ -21,7 +25,7 @@ import { DEFAULT_PRINT, K, bleedOf, clampLimit } from '../model/defaults.js';
 import { COLLECTIONS, shiftContentYear } from '../model/content.js';
 import { availableParts, isElementVisible } from '../model/elements.js';
 import { defaultLayout, mirrorLayout, presetsForType, rebaseLayoutForType } from '../model/layouts.js';
-import { normalizeLayout } from '../model/normalize.js';
+import { normalizeDocument, normalizeLayout } from '../model/normalize.js';
 import { buildPages } from '../generate/pages.js';
 import { createDayContext } from '../generate/day.js';
 import { layoutWeekPage } from '../render/week-layout.js';
@@ -78,6 +82,9 @@ export function createStore({ doc, env, api, measurer }) {
         dirtyContent: new Map(),
         ui: { ...DEFAULT_UI, toolState: {} },
         status: 'clean',
+        // where the layout came from when not a preset: 'scan' | null (see the header)
+        layoutOrigin: env.layoutOrigin === 'scan' ? 'scan' : null,
+        serverLayoutOrigin: env.layoutOrigin === 'scan' ? 'scan' : null,
     };
 
     let seq = 0;
@@ -177,7 +184,8 @@ export function createStore({ doc, env, api, measurer }) {
 
     function snapshot() {
         const { design } = state.doc;
-        return JSON.stringify({ layout: design.layout, captions: design.features.captions, preset: design.preset });
+        // `origin` only while a scanned layout is on: an undo over „Fotka vlevo / vpravo“ brings the marker back
+        return JSON.stringify({ layout: design.layout, captions: design.features.captions, preset: design.preset, ...(state.layoutOrigin ? { origin: state.layoutOrigin } : {}) });
     }
 
     /** Auto-grow of Měsíc / Číslo týdne (§E.5) for a layout that is about to become current. */
@@ -395,6 +403,16 @@ export function createStore({ doc, env, api, measurer }) {
             writeDesign({ preset, layout });
             keys.push('preset');
             layoutChanged = true;
+        } else if (state.layoutOrigin === 'scan') {
+            // over a scanned layout a preset card REPLACES it with the preset's default (never a
+            // mirror of the scan) and the marker goes — one undo step brings both back
+            const before = snapshot();
+            const layout = grown(normalizeLayout(defaultLayout(preset, design.page, bleedOf(design.print), env), design.type, design.page, env), { ...design, preset });
+            undoStack.push(before);
+            state.layoutOrigin = null;
+            writeDesign({ preset, layout });
+            keys.push('preset');
+            layoutChanged = true;
         } else if (preset !== design.preset) {
             const before = snapshot();
             const layout = grown(mirrorLayout(design.layout, design.page), { ...design, preset });
@@ -514,6 +532,8 @@ export function createStore({ doc, env, api, measurer }) {
         const features = parsed.captions === design.features.captions ? design.features : { ...design.features, captions: parsed.captions === true };
         const preset = presetsForType(design.type).includes(parsed.preset) ? parsed.preset : design.preset;
         writeDesign({ layout, features, preset });
+        // the marker can come back only while the server still has it
+        state.layoutOrigin = parsed.origin === 'scan' && state.serverLayoutOrigin === 'scan' ? 'scan' : null;
         markDesign('layout', 'features', 'preset');
         liveSession = null;
         const selectionChanged = fixSelection();
@@ -606,6 +626,12 @@ export function createStore({ doc, env, api, measurer }) {
             state.server = next.server;
             state.dirtyDesign = next.dirtyDesign;
             state.dirtyContent = next.dirtyContent;
+            if ('layoutOrigin' in response) {
+                // a clear that is still pending locally (chosen while the request was on its way) stays
+                const pendingClear = state.serverLayoutOrigin === 'scan' && state.layoutOrigin === null;
+                state.serverLayoutOrigin = response.layoutOrigin === 'scan' ? 'scan' : null;
+                if (!pendingClear) state.layoutOrigin = state.serverLayoutOrigin;
+            }
             saving = false;
             failed = false;
             const selectionChanged = fixSelection();
@@ -651,6 +677,32 @@ export function createStore({ doc, env, api, measurer }) {
         return request;
     }
 
+    /**
+     * Replaces the whole document by what the server has just stored through another door — an AI
+     * scan's layout applied or taken back (`{ calendar, assets, layoutOrigin }`, the shape of a
+     * save answer). Nothing local survives: callers make sure the store is clean first. The undo
+     * stack starts again.
+     */
+    function load(response) {
+        mergeAssets(response.assets);
+        const fresh = normalizeDocument(response.calendar, env);
+        state.doc = fresh;
+        state.server = { design: fresh.design, content: fresh.content };
+        state.dirtyDesign = new Set();
+        state.dirtyContent = new Map();
+        state.serverLayoutOrigin = response.layoutOrigin === 'scan' ? 'scan' : null;
+        state.layoutOrigin = state.serverLayoutOrigin;
+        undoStack.clear();
+        liveSession = null;
+        failed = false;
+        const hadSelection = state.ui.selection !== null;
+        state.ui = { ...state.ui, selection: null, iconCell: null };
+        const uiKeys = clampView();
+        emit({ type: 'replace' });
+        emitUiIf(hadSelection || uiKeys.length > 0, [...(hadSelection ? ['selection'] : []), ...uiKeys]);
+        refreshStatus();
+    }
+
     return {
         getState: () => state,
         subscribe(fn) {
@@ -688,5 +740,6 @@ export function createStore({ doc, env, api, measurer }) {
         setUi,
         isDirty,
         save,
+        load,
     };
 }

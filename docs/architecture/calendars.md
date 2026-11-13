@@ -703,6 +703,99 @@ Waste rhythms follow ISO week parity (so they shift across a 53-week year).
   a text that does not fit (`overflow`) — all derived from geometry + the
   asset map, nothing stored, never blocking.
 
+### Calendar scan — UI (P5)
+
+„Naskenovat design“ in step 2 (ux.md §6; backend: § "Scanned layouts" below
+and `ai-scan.md` § "Calendar scans"). Weekly calendars, designers only.
+
+| File | Role |
+|---|---|
+| `ui/scan.js` | `createScan(ctx)` → ONE `CalendarScan` per workspace (`ctx.scan`; null for a client or without `env.scan`). Owns the entry facts, the current scan and its proposal; polls `status` while a scan is on its way **in any step** (2 s with the panel on screen, 10 s otherwise); `mount(root)` draws the action card or the panel into step 2's `.cal-scan`. Apply / restore, pictures, cancel / discard / retry |
+| `ui/scan/views.js` | markup strings of the card and of the panel's screens (`upload`, `chosen`, `wait`, `fail`, `gone`, `review`, `pictures`), the comparison slider, the privacy and access-request dialogs |
+| `ui/scan/preview.js` | the live render of the proposal (`previewDocument` / `previewMarkup`: the calendar's own renderer on a document that exists only for the preview), `cropPicture` (the one canvas), `elementFact` — the phrase beside a recognised element, derived from the layout |
+| `ui/step2.js` | mounts `ctx.scan` under the cards; the third radio `[data-preset="scan"]` |
+| `ui/topbar.js` | the peach dot on step 2 (`[data-cal-scan-dot]`), tertiary `Pokračovat` |
+| `assets/ai-scan/copy.js` `CAL` | every Czech sentence of the calendar scan |
+
+- **Rendering** is the template wizard's: strings + `morph()` (regions
+  `data-region`, imported from `assets/ai-scan/page/app.js`), the same `as-*`
+  classes (`ai-scan.css`); the calendar-only rules (`as-act`, `as-cpanel`,
+  `as-cgrid`, `as-rec`, `as-cantl`, `as-stepdot`, `cal-scan*`) are in
+  `calendar.css`. Events are delegated: `data-act` (click), `data-chg`
+  (change). Everything not written in the code goes through `esc()`.
+- **The proposal is drawn live**, never from the candidate picture:
+  `proposal.layout` on the sample week `proposal.page`, the ticked switches
+  on, a held picture as a temporary asset entry (`scan-preview-{slot}`) and
+  the photo region of the upload (`photoBox`, cut by a canvas into a blob URL)
+  as the page's photo. Nothing of it enters the store or a save. The SVG is
+  put into `[data-proposal]` after each render (outside the patched markup)
+  and redrawn only when its signature changes.
+- **The marker** `layoutOrigin` (`'scan'` | null) is `store.getState().layoutOrigin`
+  — beside the document, never in `doc.design` (the export fingerprint and
+  `normalizeDocument` do not know it). Initial value `env.layoutOrigin`; every
+  save answer that carries `layoutOrigin` updates it (a client's does not).
+  `store.choosePreset()` over a scanned layout REPLACES the layout with the
+  preset's default (no mirror), clears the marker and is one undo step — the
+  undo snapshot carries `origin` while the marker is on, and an undo brings
+  it back only while the server still has it (`serverLayoutOrigin`).
+  `buildPayload()` adds top-level `"layoutOrigin": null` when the server has
+  the marker and the store dropped it (server-side `model.mjs` never does:
+  its env has no marker). Node suite `scan-marker`.
+- **`store.load(response)`** takes a document saved through another door (the
+  answer of accept / restore: `{ calendar, assets, layoutOrigin }`): replaces
+  doc and server copy, clears dirty marks and the undo stack, emits
+  `replace`. Callers make sure the store is clean first — apply is disabled
+  with „Nejdřív uložte rozpracované změny.“ + `Uložit`, restore says so in a
+  toast.
+- **Links** `/calendar/{id}?sken={scanId}` (e-mails, MCP, history, the shell's
+  toast) and `?sken=1` (the list pill) open step 2 with the panel; the
+  parameter is removed from the address at once.
+- **Top bar**: `scan.primaryShown()` (views `chosen`, `review`, `pictures`,
+  `fail`) → `Pokračovat` is `btn-tertiary`; `scan.unfinished()` /
+  `scan.attention()` → the dot. A proposal that becomes ready while the panel
+  is not on screen is a toast `Návrh rozvržení je připravený` · `Zkontrolovat`
+  in any step. `<html data-as-scan>` names the workspace's scan so the
+  shell's own toast (`ai_scan_shell_controller`, which now links calendar
+  scans to their calendar) stays quiet for it.
+- **List** (`calendar_list_controller.js`): `scan` of `urls.card` → one pill
+  `a.cal-scan-pill[data-cal-scan-pill]`. **History**
+  (`templates/ai_scan/history.html.twig`): chips `Šablony` / `Kalendáře`,
+  calendar rows open their calendar, `Vrátit původní rozvržení`
+  (`assets/ai-scan/lists.js` `restoreCalendarLayout`, asks on `layout_changed`).
+- **DOM hooks**: `[data-cal-scan-card][data-state]`,
+  `[data-cal-scan-panel][data-view]`, `[data-cal-action="scan-open|scan-close|
+  scan-start|scan-pictures|scan-apply|scan-restore|scan-discard|scan-rescan"]`,
+  `[data-preset="scan"]`, `[data-cal-scan-dot]`, `[data-proposal]`,
+  `#calScanFile`, `#calScanPic` (always in the panel's markup), `[data-slot]`
+  on a picture card. Test hooks: `window.__calendarScan` (`view()`, `scan()`,
+  `proposal()`, `entry()`), `window.__calendar.state().layoutOrigin`.
+- **e2e**: `tests/e2e/calendar/scan.e2e.cjs` with the fake scanner
+  (`tests/e2e/ai-scan/lib/fake-scanner.cjs`, calendar branch; it takes only
+  the e2e project's scans). The script works as its own administrator, so it
+  runs under "admins only" and changes no operating setting.
+
+Deviations from `docs/ai-scan/ux.md` §6:
+
+- **No in-review font decisions.** Font rows are information („Písmo čísel
+  dnů: nejbližší dostupné — …“, changed in step 3); „Nahrát správné písmo“ /
+  „Vybrat jiné písmo“ / „Nechat“ are not built. Without a project font the
+  item links to the Fonty page (new tab).
+- No `Ukázat vrstvy` switch and no numbered places over the proposal in the
+  pictures step; no 👍 / 👎 rating in the panel.
+- The header of the summary card says `Návrh rozvržení je připravený.` — there
+  is nothing to count as "to decide".
+- The stage names of a calendar scan are the calendar's own (`CAL.stages`);
+  S3's „Tyto řádky jsme našli“ overlay is not drawn (as for templates).
+- A picture for a place is JPG / PNG / WebP from disk only (no gallery, no
+  SVG); it has no fit choice — the layout's own (`logo.fit`, the fill's
+  `fit`) applies.
+- „Naskenovat znovu“ returns to the upload zone (the proposal stays in the
+  history until it is discarded or expires); it does not reuse the picture.
+- The sidebar's AI-scan badge still counts template scans only (Šablony
+  item); the Kalendáře item carries none.
+- After „Vrátit původní“ from the scan's history row the page reloads; the
+  open-calendar tab of another window is not told.
+
 ## Server-side model and headless render
 
 Two things let a calendar be authored and looked at WITHOUT a browser. Neither

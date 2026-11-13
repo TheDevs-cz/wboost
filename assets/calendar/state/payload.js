@@ -33,7 +33,7 @@ export function splitContentKey(key) {
 const clone = (v) => (v === undefined ? undefined : JSON.parse(JSON.stringify(v)));
 
 /**
- * @param state  `{ doc, dirtyDesign, dirtyContent }`
+ * @param state  `{ doc, dirtyDesign, dirtyContent, layoutOrigin?, serverLayoutOrigin? }`
  * @param opts   `{ finish?: boolean }`
  * @returns `{ payload, sent }` — `payload` is the JSON of §C.5; `sent` remembers what went out:
  *          `{ design: { [key]: canonical JSON }, content: [{ key, seq }], finish }`
@@ -63,6 +63,9 @@ export function buildPayload(state, opts = {}) {
     if (ops.length) payload.content = ops;
 
     if (sent.finish) payload.finish = true;
+    // the designer chose a preset card over a scanned layout: the marker `layout_origin` goes.
+    // `null` is the only value the server takes; it rides along with the layout that replaced the scan
+    if (state.serverLayoutOrigin === 'scan' && state.layoutOrigin === null && payload.design) payload.layoutOrigin = null;
     return { payload, sent };
 }
 

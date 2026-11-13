@@ -32,6 +32,8 @@ export default class extends Controller {
         projectId: String,
         // Route `ai_scan_page`.
         page: { type: String, default: '/project/__PROJECT__/sablony/z-obrazku/__SCAN__' },
+        // Route `calendar_workspace` with `?sken=` (the wizard opens step 2 with the scan's panel).
+        calendar: { type: String, default: '/calendar/__CALENDAR__?sken=__SCAN__' },
     };
 
     connect() {
@@ -111,11 +113,17 @@ export default class extends Controller {
     notify(scan) {
         const name = scan.name || scan.fileName || 'bez názvu';
         const prefix = scan.projectId !== this.projectIdValue && scan.projectName ? `${scan.projectName}: ` : '';
-        const href = this.pageValue.replace('__PROJECT__', scan.projectId).replace('__SCAN__', scan.id);
+        // A calendar scan lives in its calendar's wizard (step 2), a template scan on its own page.
+        const calendar = scan.kind === 'calendar' && scan.calendarId;
+        const href = calendar
+            ? this.calendarValue.replace('__CALENDAR__', scan.calendarId).replace('__SCAN__', scan.id)
+            : this.pageValue.replace('__PROJECT__', scan.projectId).replace('__SCAN__', scan.id);
         // An editor with unsaved work must not be left by a click on a toast.
         const newTab = document.querySelector(DIRTY) !== null;
         const action = (label) => ({ label, href, newTab });
-        if (scan.status === 'ready') {
+        if (scan.status === 'ready' && calendar) {
+            toast(`${prefix}Návrh rozvržení pro „${name}“ je připravený`, { ai: true, key: `scan-${scan.id}`, action: action('Zkontrolovat') });
+        } else if (scan.status === 'ready') {
             toast(`${prefix}Návrh šablony „${name}“ je připravený ke kontrole`, { ai: true, key: `scan-${scan.id}`, action: action('Zkontrolovat') });
         } else if (scan.status === 'stopped') {
             toast(`${prefix}Sken „${name}“ potřebuje jiný obrázek`, { key: `scan-${scan.id}`, action: action('Zobrazit') });
