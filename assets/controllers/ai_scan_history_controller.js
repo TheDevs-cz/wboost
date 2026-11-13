@@ -6,8 +6,8 @@ import { retryScan, discardScan } from '../ai-scan/lists.js';
  * "Historie skenů" (templates/ai_scan/history.html.twig, docs/ai-scan/ux.md
  * §8): the rows are server-rendered; this runs the two row actions —
  * "Zkusit znovu" (opens the scan page) and "Zahodit" (asks first, then the
- * page reloads so the row shows `Zahozeno`) — and steps a thumbnail down to
- * its fallback picture when the first one does not exist.
+ * page reloads so the row shows `Zahozeno`) — and steps a thumbnail down
+ * through its fallback pictures when the first one does not exist.
  */
 export default class extends Controller {
     static values = { pageUrl: String, actionUrl: String };
@@ -17,9 +17,10 @@ export default class extends Controller {
         this.onImageError = (event) => {
             const img = event.target;
             if (!(img instanceof HTMLImageElement)) return;
-            const next = img.dataset.fallback;
+            // `a|b`: the next pictures to try (a scan that never passed the pre-check has only its original).
+            const [next, ...rest] = (img.dataset.fallback || '').split('|').filter(Boolean);
             if (!next) { img.remove(); return; }
-            img.dataset.fallback = '';
+            img.dataset.fallback = rest.join('|');
             img.src = next;
         };
         this.element.addEventListener('error', this.onImageError, true);

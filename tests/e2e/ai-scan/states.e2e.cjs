@@ -82,6 +82,8 @@ module.exports = {
             assert.match(text, /Zkusit přesto spotřebuje 1 sken.*Jde to jen jednou\./);
             assert.equal(await page.$$eval('.as-status .rose, .as-status .fail', (n) => n.length), 0, 'no rose on a stop');
             assert.ok(await h.exists(page, '.as-result-ico.neutral'));
+            // the picture stays beside the card (the scan was started in this page — no reload)
+            await page.waitForFunction(() => { const img = document.querySelector('.as-pic-one img'); return img && img.complete && img.naturalWidth > 0; }, { timeout: 10000 });
             await h.press(page, 'anyway');
             await h.waitView(page, 'wait');
             await h.waitView(page, 'review', 40000);

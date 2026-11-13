@@ -208,7 +208,7 @@ async function start(app) {
     app.starting = false;
     if (answer.ok && answer.scan) {
         app.entry.consent.given = true;
-        app.scan = { ...answer.scan, name: picked.file.name, fileName: picked.file.name, mine: true, seen: false, projectId: app.project.id };
+        app.scan = { ...answer.scan, name: picked.file.name, fileName: picked.file.name, mine: true, seen: false, hasPicture: true, projectId: app.project.id };
         app.pushScan(app.scan);
         app.notifyShell();
         await app.enter();

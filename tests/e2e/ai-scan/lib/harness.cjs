@@ -46,6 +46,8 @@ const config = {
     lockedEmail: 'e2e-aiscan-locked@test.cz',
     lockedProjectId: '0e2ea15c-0000-7000-8000-000000000002',
     lockedProjectName: 'E2E AI sken — zamčeno',
+    // An administrator, only to set up what a plain user cannot: a template group and a document.
+    adminEmail: 'e2e-aiscan-admin@test.cz',
     headless: process.env.HEADFUL === '1' ? false : 'new',
     shots: process.env.SHOTS || null,
     mailer: (process.env.MAILER || 'http://localhost:8027').replace(/\/$/, ''),
@@ -69,9 +71,10 @@ const consoleCommand = (...args) => compose(['web', 'bin/console', ...args]);
  */
 function ensureFixture() {
     if (process.env.E2E_NO_FIXTURE === '1') return;
-    for (const email of [config.email, config.lockedEmail]) {
+    for (const email of [config.email, config.lockedEmail, config.adminEmail]) {
         if (psql(`SELECT count(*) FROM "user" WHERE email = ${quote(email)}`) === '0') consoleCommand('app:user:register', email, config.password);
     }
+    psql(`UPDATE "user" SET roles = '["ROLE_ADMIN"]' WHERE email = ${quote(config.adminEmail)}`);
     const project = (id, name, email, enabled) => psql(`
         INSERT INTO project (id, created_at, name, owner_id, sharing, slug, modules, ai_scan_enabled, ai_scan_monthly_limit)
         SELECT ${quote(id)}, now(), ${quote(name)}, u.id, '[]', ${quote('e2e-ai-sken-' + id.slice(-4))}, '["manuals", "templates"]', ${enabled}, NULL
@@ -97,7 +100,9 @@ function purge() {
         DELETE FROM ai_access_request WHERE project_id IN ${ids};
         UPDATE ai_scan SET result_template_id = NULL, result_variant_id = NULL WHERE project_id IN ${ids};
         DELETE FROM ai_scan WHERE project_id IN ${ids};
+        DELETE FROM template_document WHERE project_id IN ${ids};
         DELETE FROM template WHERE project_id IN ${ids};
+        DELETE FROM template_group WHERE project_id IN ${ids};
         -- the fake model's usage would add up to the project's daily spend ceiling over a few runs
         DELETE FROM ai_usage_event WHERE project_id IN ${ids};
         UPDATE "user" SET ai_scan_consent_version = NULL, ai_scan_consent_at = NULL WHERE email IN (${quote(config.email)}, ${quote(config.lockedEmail)});

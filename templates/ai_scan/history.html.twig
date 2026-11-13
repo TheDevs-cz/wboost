@@ -71,7 +71,7 @@
                             <li class="as-hrow" data-scan="{{ row.id }}" data-status="{{ row.status }}">
                                 <span class="as-scan-th as-hrow-th">
                                     {% if row.hasPicture and not gone %}
-                                        <img src="{{ path('ai_scan_image', {'id': row.id, 'which': row.hasProposal ? 'proposal' : 'preview'}) }}" alt="" loading="lazy" data-fallback="{{ path('ai_scan_image', {'id': row.id, 'which': 'working'}) }}">
+                                        <img src="{{ path('ai_scan_image', {'id': row.id, 'which': row.hasProposal ? 'proposal' : 'preview'}) }}" alt="" loading="lazy" data-fallback="{{ path('ai_scan_image', {'id': row.id, 'which': 'working'}) }}|{{ path('ai_scan_image', {'id': row.id, 'which': 'original'}) }}">
                                     {% endif %}
                                 </span>
                                 <span class="who">

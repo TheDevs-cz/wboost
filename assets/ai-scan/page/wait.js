@@ -201,6 +201,8 @@ export function failView(app) {
     const scan = app.scan;
     const f = failure(scan.status, scan.code);
     const run = app.run || observe(app, scan);
+    // `hasPicture` is a field of the list row (the page's boot value); a scan started in this
+    // page has only its status document — its picture was uploaded a moment ago.
     const tryTail = (scan.try || 1) >= 2 ? ` · ${scan.try}. pokus` : '';
     // Why "Zkusit znovu" / "Zkusit přesto" cannot run now: a limit or the service (disabled, with
     // the hint), or the picture failed twice (the button goes).
@@ -233,7 +235,7 @@ ${f.anyway && scan.canContinue ? `<p class="cap" style="margin:0">${ic('sparkle'
 <div class="as-status-end"><button type="button" class="btn sm ghost danger" data-act="discardScan" data-k="discard"${app.busy === 'discard' ? ' disabled' : ''}>${ic('trash')}Zahodit</button><span class="cap">Jinak sken zmizí sám za 30 dní.</span></div></section>`;
 
     return `${head(app, 2, 'Rozpoznávání')}
-<div class="as-grid side-first" data-region="fail" data-deep><div class="as-main" data-region="pic"><section class="as-card"><figure class="as-pic as-pic-one"><figcaption><span class="lbl">Váš obrázek</span></figcaption><div class="as-frame">${scan.hasPicture ? fallbackImg(pictureSources(app), 'Původní obrázek') : ''}<span class="as-noimg">${ic('image', '')}Obrázek už nemáme uložený</span></div></figure></section></div><aside class="as-side" data-region="result">${card}</aside></div>`;
+<div class="as-grid side-first" data-region="fail" data-deep><div class="as-main" data-region="pic"><section class="as-card"><figure class="as-pic as-pic-one"><figcaption><span class="lbl">Váš obrázek</span></figcaption><div class="as-frame${scan.hasPicture === false ? ' none' : ''}">${scan.hasPicture === false ? '' : fallbackImg(pictureSources(app), 'Původní obrázek')}<span class="as-noimg">${ic('image', '')}Obrázek už nemáme uložený</span></div></figure></section></div><aside class="as-side" data-region="result">${card}</aside></div>`;
 }
 
 // ---- a scan that is finished with ------------------------------------------------------------------

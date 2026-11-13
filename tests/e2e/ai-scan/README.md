@@ -46,7 +46,9 @@ the operating mode to `on` for everybody (`app:ai-scan:status --mode=on
 ## Test data — never real data
 
 `ensureFixture()` registers two plain users (neither is an admin, each sees
-only its own project): the editor of "E2E AI sken" (AI scan on, no monthly
+only its own project) and one administrator (`e2e-aiscan-admin@test.cz`, used
+by `paths` only to set up a template group and a document, which need the
+designer role): the editor of "E2E AI sken" (AI scan on, no monthly
 limit) and the owner of "E2E AI sken — zamčeno" (AI scan off — the locked card
 and the access request). `purge()` deletes the scans, their usage rows (the fake
 model's cost would add up to the project's daily spend ceiling), templates and
@@ -62,6 +64,7 @@ and nobody's material is used.
 | File | Covers |
 | --- | --- |
 | `flow.e2e.cjs` | S1 refusals → S2 facts, inline font upload, consent by keyboard, privacy dialog → S3 stages / round / preview / live region → S4 opens by itself → font, text, left-out thing, layers, compare → leave and return → S4b multi upload, kind, single upload, remove + undo → create → editor + toast → read-only page, `Ze skenu` |
+| `paths.e2e.cjs` | every hidden file input opened by its button through the real file chooser (picture, fonts, several pictures, one place), custom width, the dialogs and the `⋯` menu by keyboard with the focus back on the opener, „Oříznout, aby místo vyplnil“, the gallery picker, the export question on the group and the document fill pages |
 | `states.e2e.cjs` | service not working, cancel while waiting / running, pre-check stop + „Zkusit přesto“, discard a proposal, refused, failed + leave / return, retry until the picture is refused, „Zahodit“, phone layout, reduced motion |
 | `around.e2e.cjs` | the locked card → request dialog (focus, Escape) → request sent + mail; no AI request on pages of a user without scans; the enabled card, the strip, the shell's ring → toast → count, no polling once nothing is in progress, history; export with an unfilled picture |
 
