@@ -4,7 +4,9 @@ import { toast, toastAfterNavigation } from '../shell/toast.js';
 import { api } from '../ai-scan/kit.js';
 
 /*
- * Access requests of a project on the admin's edit-project page (ux.md §9.2):
+ * Access requests of a project on the admin's edit-project page (ux.md §9.2)
+ * and of every project on Admin › Statistiky › AI skeny (§9.4, one controller
+ * per row there):
  * `Zapnout` → POST ai_scan_access_request_resolve …/approve (switches the
  * project on, approves its other open requests, e-mails the requesters) and
  * reloads, because the switch, its state and the usage line are server
@@ -33,8 +35,22 @@ export default class extends Controller {
             return;
         }
 
+        // The list the row is in: this element on the edit-project page, the
+        // rows' common parent on the admin tab (there every row is a controller).
+        const list = row.closest('.as-reqs') || this.element;
+        const card = list.closest('#ai-zadosti');
         row.remove();
-        if (!this.element.querySelector('[data-ai-scan-request]')) this.element.remove();
+        const left = list.querySelectorAll('[data-ai-scan-request]').length;
+
+        // Admin tab: the counts beside the heading and on the tab follow, and
+        // the card leaves with its last request.
+        if (card) {
+            document.querySelectorAll('#ai-zadosti h2 .pd-n, #st-tab-ai-skeny .pd-n').forEach((count) => {
+                if (left) count.textContent = String(left);
+                else count.remove();
+            });
+        }
+        if (!left) (card || list).remove();
         toast('Žádost zamítnuta');
     }
 }
