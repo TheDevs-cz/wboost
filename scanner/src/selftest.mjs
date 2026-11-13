@@ -1,7 +1,8 @@
 // `scanner selftest`: is everything a scan needs inside this image / on this machine — without the app,
 // without the provider, without the network (the image is checked with `--network none`)?
 //   sharp · the OCR sidecar with its models (a fixed picture → the expected line) · the engine binary of the
-//   Agent SDK for this platform · a HEIC decoder · a PDF rasteriser · a writable scratch root · not running as root
+//   Agent SDK for this platform · a HEIC decoder · a PDF rasteriser · the converters' memory limit (prlimit, Linux) ·
+//   a writable scratch root · not running as root
 import { execFile } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { mkdirSync, rmSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
@@ -10,7 +11,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 import { runOcr, mergeLines, ocrPython } from './instruments/ocr.mjs';
-import { normaliseInChild } from './intake/normalise.mjs';
+import { normaliseInChild, runTool, TOOL_ADDRESS_SPACE_BYTES } from './intake/normalise.mjs';
+import { onPath } from './childenv.mjs';
 import { packageVersion } from './config.mjs';
 import { memoryLimitBytes } from './proc.mjs';
 
@@ -66,6 +68,14 @@ export async function selftest({ scratch = process.env.SCANNER_SCRATCH_DIR || jo
             if (!r.ok) throw new Error(`a PDF upload ends as ${r.stop} / ${r.detail}`);
             return { format: r.meta.format, working: `${r.meta.workingWidth}x${r.meta.workingHeight}`, peakRssMb: r.resources?.peakRssMb ?? null };
         } finally { rmSync(dir, { recursive: true, force: true }); }
+    });
+    await check('converter-limit', async () => {
+        // the HEIC / PDF converters run under an address-space limit (util-linux's prlimit): on Linux it must be there and take
+        if (process.platform !== 'linux') return { enforced: false, reason: `no prlimit on ${process.platform}` };
+        if (!onPath('prlimit')) throw new Error('prlimit is not on the PATH: the converters would run without a memory limit');
+        const kib = (await runTool('sh', ['-c', 'ulimit -v'])).stdout.trim();
+        if (kib !== String(TOOL_ADDRESS_SPACE_BYTES / 1024)) throw new Error(`a converter runs with an address-space limit of ${kib} KiB`);
+        return { enforced: true, addressSpaceMb: TOOL_ADDRESS_SPACE_BYTES / 1048576 };
     });
     await check('scratch', async () => { const d = join(scratch, 'selftest'); mkdirSync(d, { recursive: true }); writeFileSync(join(d, 'x'), 'x'); rmSync(d, { recursive: true, force: true }); return { dir: scratch }; });
     const limit = memoryLimitBytes();

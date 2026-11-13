@@ -11,6 +11,7 @@ import { readFile, writeFile, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { decoderEnv, onPath } from '../childenv.mjs';
 
 const run = promisify(execFile);
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -23,7 +24,52 @@ const isHeic = (buf) => buf.length > 12 && buf.toString('latin1', 4, 8) === 'fty
 
 const isPdf = (buf) => buf.subarray(0, 1024).includes('%PDF-');
 /** A converter gets the PATH and nothing else of the scanner's environment (no token, no provider key). */
-const TOOL_ENV = { PATH: process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin', LANG: 'C' };
+const TOOL_ENV = decoderEnv({}, { PATH: process.env.PATH });
+/**
+ * The address space an external converter (heif-convert, pdfinfo, pdftoppm) may map: 1.5 GiB. The largest legal
+ * upload needs a fraction of it; a file whose header lies about its size, or a PDF with an enormous embedded
+ * picture, fails to allocate and the converter ends — named `undecodable` / `pdf_unreadable` — instead of
+ * taking the container's memory. Enforced with util-linux's `prlimit` where it is on the PATH (the image);
+ * a developer's macOS has none and runs the converter unlimited.
+ */
+export const TOOL_ADDRESS_SPACE_BYTES = 1536 * 1024 * 1024;
+
+/**
+ * Runs one external converter: minimal environment, the address-space limit, SIGKILL at the timeout.
+ * A program that is not installed is `ENOENT`, with or without the limiter in front of it.
+ */
+export async function runTool(bin, args, { timeoutMs = 15_000, addressSpaceBytes = TOOL_ADDRESS_SPACE_BYTES, env = TOOL_ENV } = {}) {
+    const program = onPath(bin, env.PATH);
+    if (!program) throw Object.assign(new Error(`${bin} is not installed`), { code: 'ENOENT' });
+    const limiter = process.platform === 'linux' && addressSpaceBytes > 0 ? onPath('prlimit', env.PATH) : null;
+    const argv = limiter ? [limiter, `--as=${Math.round(addressSpaceBytes)}`, '--', program, ...args] : [program, ...args];
+    return run(argv[0], argv.slice(1), { timeout: timeoutMs, killSignal: 'SIGKILL', env });
+}
+
+/**
+ * The canvas a HEIF file DECLARES (the largest `ispe` property of its `meta` box), read without decoding
+ * anything → {width, height} | null. The converter is never started on a file that declares more than the
+ * upload limits allow — or declares nothing.
+ */
+export function heicDeclaredSize(buf) {
+    let meta = null;
+    for (let at = 0; at + 8 <= buf.length;) {
+        let size = buf.readUInt32BE(at), head = 8;
+        if (size === 1) { if (at + 16 > buf.length) break; size = Number(buf.readBigUInt64BE(at + 8)); head = 16; } else if (size === 0) size = buf.length - at;
+        if (size < head) break;
+        if (buf.toString('latin1', at + 4, at + 8) === 'meta') { meta = buf.subarray(at + head, Math.min(buf.length, at + size)); break; }
+        at += size;
+    }
+    if (!meta) return null;
+    let width = 0, height = 0;
+    // ispe: size 20, 'ispe', version + flags, width, height
+    for (let at = meta.indexOf('ispe', 4, 'latin1'); at !== -1 && at + 16 <= meta.length; at = meta.indexOf('ispe', at + 4, 'latin1')) {
+        if (meta.readUInt32BE(at - 4) !== 20) continue;
+        const w = meta.readUInt32BE(at + 8), h = meta.readUInt32BE(at + 12);
+        if (w * h > width * height) { width = w; height = h; }
+    }
+    return width && height ? { width, height } : null;
+}
 export const PDF_PAGE = Object.freeze({ dpi: 300, minLongEdgePx: 1600 });
 
 /**
@@ -33,13 +79,13 @@ export const PDF_PAGE = Object.freeze({ dpi: 300, minLongEdgePx: 1600 });
  * "pixels" would come out too small to read its small print).
  * → {png, pages, pageMm: [w, h]} | {error: 'pdf_unsupported' | 'pdf_unreadable' | 'pdf_encrypted' | 'pdf_empty'}
  */
-async function pdfFirstPage(buf, { longEdgePx, dpi = PDF_PAGE.dpi, minLongEdgePx = PDF_PAGE.minLongEdgePx, timeoutMs = 15_000 }) {
+async function pdfFirstPage(buf, { longEdgePx, dpi = PDF_PAGE.dpi, minLongEdgePx = PDF_PAGE.minLongEdgePx, timeoutMs = 15_000, addressSpaceBytes = TOOL_ADDRESS_SPACE_BYTES }) {
     const dir = await mkdtemp(join(tmpdir(), 'scan-pdf-'));
     try {
         const src = join(dir, 'in.pdf'), out = join(dir, 'page');
         await writeFile(src, buf);
         let info;
-        try { info = (await run('pdfinfo', ['-f', '1', '-l', '1', src], { timeout: timeoutMs, env: TOOL_ENV })).stdout; } catch (e) {
+        try { info = (await runTool('pdfinfo', ['-f', '1', '-l', '1', src], { timeoutMs, addressSpaceBytes })).stdout; } catch (e) {
             if (e?.code === 'ENOENT') return { error: 'pdf_unsupported' };
             return { error: /Incorrect password|encrypt/i.test(String(e?.stderr ?? '')) ? 'pdf_encrypted' : 'pdf_unreadable' };
         }
@@ -50,7 +96,7 @@ async function pdfFirstPage(buf, { longEdgePx, dpi = PDF_PAGE.dpi, minLongEdgePx
         const [wPt, hPt] = turned ? [Number(size[2]), Number(size[1])] : [Number(size[1]), Number(size[2])];
         if (!(wPt > 0 && hPt > 0)) return { error: 'pdf_empty' };
         const long = Math.round(Math.max(minLongEdgePx, Math.min(longEdgePx, Math.max(wPt, hPt) * dpi / 72)));
-        try { await run('pdftoppm', ['-f', '1', '-l', '1', '-singlefile', '-png', '-scale-to', String(long), src, out], { timeout: timeoutMs, env: TOOL_ENV }); } catch (e) {
+        try { await runTool('pdftoppm', ['-f', '1', '-l', '1', '-singlefile', '-png', '-scale-to', String(long), src, out], { timeoutMs, addressSpaceBytes }); } catch (e) {
             return { error: e?.code === 'ENOENT' ? 'pdf_unsupported' : 'pdf_unreadable' };
         }
         const mm = (pt) => +(pt * 25.4 / 72).toFixed(1);
@@ -58,17 +104,22 @@ async function pdfFirstPage(buf, { longEdgePx, dpi = PDF_PAGE.dpi, minLongEdgePx
     } catch { return { error: 'pdf_unreadable' }; } finally { await rm(dir, { recursive: true, force: true }); }
 }
 
-/** HEIC (HEVC) is not in sharp's prebuilt decoder: convert with a system tool when one exists. */
-async function heicToPng(buf) {
+/**
+ * HEIC (HEVC) is not in sharp's prebuilt decoder: convert with a system tool when one exists.
+ * → {png} | {error: 'heic_unsupported' (no converter is installed) | 'undecodable' (one ran and failed: a broken
+ *   file, a timeout, or a picture it could not hold inside its address-space limit)}
+ */
+async function heicToPng(buf, { addressSpaceBytes = TOOL_ADDRESS_SPACE_BYTES } = {}) {
     const dir = await mkdtemp(join(tmpdir(), 'scan-heic-'));
     try {
         const src = join(dir, 'in.heic'), out = join(dir, 'out.png');
         await writeFile(src, buf);
         const attempts = [['heif-convert', [src, out]], ['heif-dec', [src, out]], ['magick', [src + '[0]', out]], ...(process.platform === 'darwin' ? [['sips', ['-s', 'format', 'png', src, '--out', out]]] : [])];
+        let ran = false;
         for (const [bin, args] of attempts) {
-            try { await run(bin, args, { timeout: 30_000 }); return await readFile(out); } catch { /* try the next tool */ }
+            try { await runTool(bin, args, { timeoutMs: 30_000, addressSpaceBytes }); return { png: await readFile(out) }; } catch (e) { if (e?.code !== 'ENOENT') ran = true; /* try the next tool */ }
         }
-        return null;
+        return { error: ran ? 'undecodable' : 'heic_unsupported' };
     } finally { await rm(dir, { recursive: true, force: true }); }
 }
 
@@ -76,14 +127,15 @@ async function heicToPng(buf) {
  * → {ok: true, working: Buffer, workingPng: Buffer, preview: Buffer, meta} or {ok: false, stop, detail}.
  * `stop` is a stop reason of architecture §5.6: `unusable_input` or `blurry_or_small`.
  */
-export async function normalise(input, { limits = UPLOAD_LIMITS, working = WORKING_COPY, format = 'webp' } = {}) {
+export async function normalise(input, { limits = UPLOAD_LIMITS, working = WORKING_COPY, format = 'webp', toolAddressSpaceBytes = TOOL_ADDRESS_SPACE_BYTES } = {}) {
+    limits = { ...UPLOAD_LIMITS, ...limits }; // a caller that leaves a limit out does not switch the check off
     let buf = Buffer.isBuffer(input) ? input : await readFile(input);
     if (buf.length === 0) return stop('unusable_input', 'empty');
     if (buf.length > limits.maxBytes) return stop('unusable_input', 'too_many_bytes');
     const open = (b) => sharp(b, { limitInputPixels: limits.maxPixels, failOn: 'error', pages: 1 });
     let meta, converted = false, pdf = null;
     if (isPdf(buf)) {
-        pdf = await pdfFirstPage(buf, { longEdgePx: working.longEdgePx });
+        pdf = await pdfFirstPage(buf, { longEdgePx: working.longEdgePx, addressSpaceBytes: toolAddressSpaceBytes });
         if (pdf.error) return stop('unusable_input', pdf.error);
         buf = pdf.png;
     }
@@ -91,10 +143,18 @@ export async function normalise(input, { limits = UPLOAD_LIMITS, working = WORKI
         meta = await open(buf).metadata();
         if (meta.format === 'heif' && meta.compression !== 'av1') throw new Error('hevc');
     } catch (e) {
-        if (!isHeic(buf)) return stop('unusable_input', /pixel limit/i.test(String(e.message)) ? 'too_many_pixels' : 'undecodable');
-        const png = await heicToPng(buf);
-        if (!png) return stop('unusable_input', 'heic_unsupported');
-        buf = png; converted = true;
+        const tooMany = /pixel limit/i.test(String(e.message));
+        if (!isHeic(buf)) return stop('unusable_input', tooMany ? 'too_many_pixels' : 'undecodable');
+        // The limits are applied to what the file DECLARES before the system converter sees it: the header sharp
+        // read, and the container's own size property. A HEIC that declares nothing is not converted at all.
+        if (tooMany) return stop('unusable_input', 'too_many_pixels');
+        const declared = [meta?.width && meta?.height ? { width: meta.width, height: meta.height } : null, heicDeclaredSize(buf)].filter(Boolean);
+        if (!declared.length) return stop('unusable_input', 'undecodable');
+        if (declared.some((d) => Math.max(d.width, d.height) > limits.maxSidePx)) return stop('unusable_input', 'side_too_long');
+        if (declared.some((d) => d.width * d.height > limits.maxPixels)) return stop('unusable_input', 'too_many_pixels');
+        const heic = await heicToPng(buf, { addressSpaceBytes: toolAddressSpaceBytes });
+        if (heic.error) return stop('unusable_input', heic.error);
+        buf = heic.png; converted = true;
         try { meta = await open(buf).metadata(); } catch { return stop('unusable_input', 'undecodable'); }
     }
     if (meta.format === 'svg') return stop('unusable_input', 'vector');
@@ -145,14 +205,18 @@ export async function normalise(input, { limits = UPLOAD_LIMITS, working = WORKI
  * preview.webp into `outDir`. → {ok, meta, files} | {ok: false, stop, detail}; a crash or a timeout is
  * reported as {ok: false, stop: 'unusable_input', detail: 'intake_crashed' | 'intake_timeout'}.
  */
-export function normaliseInChild(inputPath, outDir, { timeoutMs = 20_000, heapMb = 384, format = 'webp', limits = UPLOAD_LIMITS, working = WORKING_COPY, onSpawn = null, signal = null } = {}) {
+export function normaliseInChild(inputPath, outDir, { timeoutMs = 20_000, heapMb = 384, format = 'webp', limits = UPLOAD_LIMITS, working = WORKING_COPY, toolAddressSpaceBytes = TOOL_ADDRESS_SPACE_BYTES, onSpawn = null, signal = null, env = process.env, script = join(HERE, 'normalise-child.mjs') } = {}) {
     return new Promise((resolve) => {
-        const detached = process.env.SCANNER_WORKER !== '1'; // inside a run's child process it stays in that process's group
-        const child = spawn(process.execPath, [`--max-old-space-size=${heapMb}`, join(HERE, 'normalise-child.mjs'), inputPath, outDir, JSON.stringify({ format, limits, working })], { stdio: ['ignore', 'pipe', 'pipe'], detached });
+        // The child LEADS a process group of its own — also below a run's worker — so that the timeout, an abort
+        // and its own death take the converters it started (heif-convert, pdftoppm) with it: killing the node
+        // process alone would leave them running. The main process still finds all of them through the parent
+        // chain when it kills a run's tree (proc.mjs). Its environment is the decoder's: no token, no provider key.
+        const child = spawn(process.execPath, [`--max-old-space-size=${heapMb}`, script, inputPath, outDir, JSON.stringify({ format, limits, working, toolAddressSpaceBytes })], { stdio: ['ignore', 'pipe', 'pipe'], detached: true, env: decoderEnv({}, env) });
         onSpawn?.(child.pid);
         let out = '', done = false;
-        const kill = () => { try { if (detached) process.kill(-child.pid, 'SIGKILL'); else child.kill('SIGKILL'); } catch { /* gone */ } };
-        const finish = (v) => { if (done) return; done = true; clearTimeout(timer); signal?.removeEventListener('abort', onAbort); resolve(v); };
+        const kill = () => { try { process.kill(-child.pid, 'SIGKILL'); } catch { try { child.kill('SIGKILL'); } catch { /* gone */ } } };
+        // (on every ending: whatever of the group outlived the node process is killed with it)
+        const finish = (v) => { if (done) return; done = true; clearTimeout(timer); signal?.removeEventListener('abort', onAbort); kill(); resolve(v); };
         const timer = setTimeout(() => { kill(); finish({ ok: false, stop: 'unusable_input', detail: 'intake_timeout' }); }, timeoutMs);
         const onAbort = () => { kill(); finish({ ok: false, stop: 'unusable_input', detail: 'aborted' }); };
         signal?.addEventListener('abort', onAbort, { once: true });

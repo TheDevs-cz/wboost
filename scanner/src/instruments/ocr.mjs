@@ -5,6 +5,7 @@ import { existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { union } from './raster.mjs';
+import { ocrEnv } from '../childenv.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const OCR_SCRIPT = join(HERE, 'ocr', 'ocr.py');
@@ -21,7 +22,7 @@ export function ocrPython(env = process.env) {
  * pool it started.
  * → {lines: [{text, conf, box}], seconds, loadSeconds, peakRssMb, cpuSeconds, wallMs, pid}
  */
-export function runOcr(imagePath, { threads = 3, scale = 1, timeoutMs = 30_000, signal = null, python = ocrPython(), onSpawn = null } = {}) {
+export function runOcr(imagePath, { threads = 3, scale = 1, timeoutMs = 30_000, signal = null, python = ocrPython(), onSpawn = null, env = process.env } = {}) {
     return new Promise((done, fail) => {
         const started = Date.now();
         // standalone: the sidecar leads its own process group. Inside a run's child process (SCANNER_WORKER) it
@@ -29,7 +30,8 @@ export function runOcr(imagePath, { threads = 3, scale = 1, timeoutMs = 30_000, 
         const detached = process.env.SCANNER_WORKER !== '1';
         const child = spawn(python, [OCR_SCRIPT, imagePath, '--threads', String(threads), '--scale', String(scale)], {
             stdio: ['ignore', 'pipe', 'pipe'], detached,
-            env: { ...process.env, OMP_NUM_THREADS: String(threads), OMP_THREAD_LIMIT: String(threads) },
+            // the sidecar reads a picture of unknown origin: no token, no provider key (childenv.mjs)
+            env: ocrEnv(threads, env),
         });
         onSpawn?.(child.pid);
         let out = '', err = '', settled = false;

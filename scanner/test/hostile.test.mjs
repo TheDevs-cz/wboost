@@ -3,14 +3,16 @@
 // of the scanner. Fixtures are generated here; the HEIC one is a synthetic picture (test/fixtures/).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, rmSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, readdirSync, chmodSync, existsSync } from 'node:fs';
 import { deflateSync, crc32 } from 'node:zlib';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
-import { normaliseInChild } from '../src/intake/normalise.mjs';
+import { normaliseInChild, runTool, heicDeclaredSize, TOOL_ADDRESS_SPACE_BYTES } from '../src/intake/normalise.mjs';
+import { onPath } from '../src/childenv.mjs';
+import { alive } from '../src/proc.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const base = (w, h, background = { r: 200, g: 30, b: 30 }) => sharp({ create: { width: w, height: h, channels: 3, background } });
@@ -78,11 +80,11 @@ test('hostile fixtures: each ends in a named outcome within the memory and time 
     assert.ok(rows.filter((r) => r.name.startsWith('decompression bomb')).every((r) => r.peakRssMb < 250), JSON.stringify(rows.slice(0, 2)));
 });
 
-test('HEIC: converted where the system has a decoder, named `heic_unsupported` where it has none — never a crash', async (t) => {
+test('HEIC: converted where the system has a converter, named `heic_unsupported` where it has none (`undecodable` where it has one without a decoder) — never a crash', async (t) => {
     const dir = mkdtempSync(join(tmpdir(), 'scan-heic-'));
     t.after(() => rmSync(dir, { recursive: true, force: true }));
     const r = await normaliseInChild(join(HERE, 'fixtures', 'synthetic.heic'), dir);
-    if (r.ok) { assert.equal(r.meta.format, 'heic'); assert.deepEqual([r.meta.workingWidth, r.meta.workingHeight], [900, 700]); } else assert.deepEqual([r.stop, r.detail], ['unusable_input', 'heic_unsupported']);
+    if (r.ok) { assert.equal(r.meta.format, 'heic'); assert.deepEqual([r.meta.workingWidth, r.meta.workingHeight], [900, 700]); } else { assert.equal(r.stop, 'unusable_input'); assert.ok(['heic_unsupported', 'undecodable'].includes(r.detail), r.detail); }
     assert.ok(r.resources.peakRssMb < MEMORY_BOUND_MB);
     t.diagnostic(`HEIC here: ${r.ok ? 'converted' : 'no decoder (heic_unsupported)'} · ${r.resources.peakRssMb} MB`);
     // a HEIC that is cut short is unusable either way
@@ -106,4 +108,125 @@ test('a decoder that runs away is killed at the limit and the outcome is named; 
     const starved = await normaliseInChild(join(dir, 'max.jpg'), dir, { heapMb: 8 });
     assert.equal(typeof starved.ok, 'boolean');
     if (!starved.ok) assert.ok(['intake_crashed', 'intake_error'].includes(starved.detail), starved.detail);
+});
+
+// ---------------------------------------------------------------------------------- the external converters
+
+/** The synthetic HEIC with every size property (`ispe`) of its header rewritten: it CLAIMS w × h, its data is 900 × 700. */
+function heicClaiming(w, h) {
+    const buf = Buffer.from(readFileSync(join(HERE, 'fixtures', 'synthetic.heic')));
+    let n = 0;
+    for (let at = buf.indexOf('ispe', 0, 'latin1'); at !== -1; at = buf.indexOf('ispe', at + 4, 'latin1')) { buf.writeUInt32BE(w, at + 8); buf.writeUInt32BE(h, at + 12); n++; }
+    assert.ok(n >= 1, 'the fixture has a size property');
+    return buf;
+}
+
+/** A one-page A4 PDF whose only content is a w × h picture, 1 bit a pixel, deflated to almost nothing. */
+function pdfWithPicture(w, h) {
+    const data = deflateSync(Buffer.alloc(Math.ceil(w / 8) * h), { level: 9 });
+    const content = 'q 595 0 0 842 0 0 cm /Im0 Do Q';
+    const parts = [Buffer.from('%PDF-1.4\n')], offsets = [];
+    const size = () => parts.reduce((a, b) => a + b.length, 0);
+    const add = (n, body) => { offsets[n] = size(); parts.push(Buffer.from(`${n} 0 obj\n`), Buffer.isBuffer(body) ? body : Buffer.from(body), Buffer.from('\nendobj\n')); };
+    add(1, '<< /Type /Catalog /Pages 2 0 R >>');
+    add(2, '<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
+    add(3, '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>');
+    add(4, Buffer.concat([Buffer.from(`<< /Type /XObject /Subtype /Image /Width ${w} /Height ${h} /ColorSpace /DeviceGray /BitsPerComponent 1 /Filter /FlateDecode /Length ${data.length} >>\nstream\n`), data, Buffer.from('\nendstream')]));
+    add(5, `<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
+    const xref = size();
+    parts.push(Buffer.from(`xref\n0 6\n0000000000 65535 f \n${[1, 2, 3, 4, 5].map((n) => `${String(offsets[n]).padStart(10, '0')} 00000 n \n`).join('')}trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`));
+    return Buffer.concat(parts);
+}
+
+const executable = (file, body) => { writeFileSync(file, body); chmodSync(file, 0o755); return file; };
+const PRLIMIT = process.platform === 'linux' && !!onPath('prlimit');
+
+test('a HEIC that claims a huge canvas is refused from its header — the system converter is never started', async (t) => {
+    const dir = mkdtempSync(join(tmpdir(), 'scan-heic-claim-'));
+    t.after(() => rmSync(dir, { recursive: true, force: true }));
+    assert.deepEqual(heicDeclaredSize(readFileSync(join(HERE, 'fixtures', 'synthetic.heic'))), { width: 900, height: 700 });
+    assert.deepEqual(heicDeclaredSize(heicClaiming(30000, 30000)), { width: 30000, height: 30000 });
+    assert.equal(heicDeclaredSize(Buffer.from('not a container at all, and long enough to look into')), null);
+    // converters that would leave a trace if they were started
+    const bin = join(dir, 'bin'), started = join(dir, 'started');
+    mkdirSync(bin); mkdirSync(started);
+    for (const name of ['heif-convert', 'heif-dec', 'magick', 'sips']) executable(join(bin, name), `#!/bin/sh\ntouch "${started}/${name}"\nexit 1\n`);
+    const env = { ...process.env, PATH: `${bin}:/usr/bin:/bin` };
+    for (const [w, h, details] of [[30000, 30000, ['too_many_pixels', 'side_too_long']], [8100, 700, ['side_too_long']], [7200, 5001, ['too_many_pixels']], [65535, 65535, ['too_many_pixels', 'side_too_long']]]) {
+        writeFileSync(join(dir, 'claim.heic'), heicClaiming(w, h));
+        const t0 = Date.now();
+        const r = await normaliseInChild(join(dir, 'claim.heic'), dir, { env });
+        assert.deepEqual([r.ok, r.stop], [false, 'unusable_input'], `${w} × ${h}`);
+        assert.ok(details.includes(r.detail), `${w} × ${h}: ${r.detail}`);
+        assert.ok(r.resources.peakRssMb < 250 && Date.now() - t0 < 5000, `${w} × ${h}: ${r.resources.peakRssMb} MB, ${Date.now() - t0} ms`);
+        assert.deepEqual(readdirSync(started), [], `${w} × ${h}: no converter was started`);
+    }
+    // the control: the same file with an honest header does reach the converter
+    const honest = await normaliseInChild(join(HERE, 'fixtures', 'synthetic.heic'), dir, { env });
+    assert.deepEqual([honest.ok, honest.detail], [false, 'undecodable']);
+    assert.ok(readdirSync(started).length >= 1);
+});
+
+test('a PDF with a huge embedded picture ends bounded: a page-sized working copy or `pdf_unreadable`, inside the time and memory bound', { skip: !POPPLER && 'no poppler here' }, async (t) => {
+    const dir = mkdtempSync(join(tmpdir(), 'scan-pdf-bomb-'));
+    t.after(() => rmSync(dir, { recursive: true, force: true }));
+    for (const side of [30000, 60000]) { // 0.9 and 3.6 gigapixels in a file of ≈ 0.1 / 0.4 MB
+        writeFileSync(join(dir, 'bomb.pdf'), pdfWithPicture(side, side));
+        const t0 = Date.now();
+        const r = await normaliseInChild(join(dir, 'bomb.pdf'), dir);
+        const ms = Date.now() - t0;
+        t.diagnostic(`${side} × ${side} px in a PDF: ${r.ok ? `working copy ${r.meta.workingWidth} × ${r.meta.workingHeight}` : `${r.stop} / ${r.detail}`} · ${r.resources?.peakRssMb ?? '?'} MB · ${ms} ms`);
+        // the rasteriser is asked for the PAGE at ≤ 4096 px, never for the picture: it either draws that or gives up
+        if (r.ok) { assert.equal(r.meta.format, 'pdf'); assert.ok(Math.max(r.meta.workingWidth, r.meta.workingHeight) <= 4096); assert.ok(r.resources.peakRssMb < MEMORY_BOUND_MB); }
+        else { assert.equal(r.stop, 'unusable_input'); assert.ok(['pdf_unreadable', 'intake_timeout'].includes(r.detail), r.detail); }
+        assert.ok(ms < TIME_BOUND_MS + 2000, `${ms} ms`);
+    }
+});
+
+test('the converters run under an address-space limit: one that asks for more ends, and the upload is refused by name', { skip: !PRLIMIT && 'no prlimit here (util-linux; the image has it)' }, async (t) => {
+    const dir = mkdtempSync(join(tmpdir(), 'scan-aslimit-'));
+    t.after(() => rmSync(dir, { recursive: true, force: true }));
+    // the limit a converter runs under is the one the scanner names (ulimit -v speaks KiB)
+    assert.equal((await runTool('sh', ['-c', 'ulimit -v'])).stdout.trim(), String(TOOL_ADDRESS_SPACE_BYTES / 1024));
+    assert.equal(TOOL_ADDRESS_SPACE_BYTES, 1536 * 1024 * 1024);
+    // a converter that cannot have the memory it wants (here: any at all) fails — the scanner goes on and names the outcome
+    const pdf = await normaliseInChild(join(HERE, '..', 'src', 'intake', 'selftest.pdf'), dir, { toolAddressSpaceBytes: 8 << 20 });
+    assert.deepEqual([pdf.ok, pdf.stop, pdf.detail], [false, 'unusable_input', POPPLER ? 'pdf_unreadable' : 'pdf_unsupported']);
+    const heic = await normaliseInChild(join(HERE, 'fixtures', 'synthetic.heic'), dir, { toolAddressSpaceBytes: 8 << 20 });
+    assert.deepEqual([heic.ok, heic.stop], [false, 'unusable_input']); assert.ok(['undecodable', 'heic_unsupported'].includes(heic.detail), heic.detail);
+    // a program that is not installed is still told apart from one that failed
+    await assert.rejects(runTool('no-such-converter', []), (e) => e.code === 'ENOENT');
+});
+
+test('the intake timeout kills the converter with the child: nothing of its process group is left running', async (t) => {
+    const dir = mkdtempSync(join(tmpdir(), 'scan-group-'));
+    t.after(() => rmSync(dir, { recursive: true, force: true }));
+    // a rasteriser that never comes back, with a child of its own — both write their pids down
+    const bin = join(dir, 'bin'); mkdirSync(bin);
+    const pids = join(dir, 'pids');
+    executable(join(bin, 'pdfinfo'), `#!/bin/sh\nsleep 300 &\necho "$$ $!" > "${pids}"\nwait\n`);
+    writeFileSync(join(dir, 'x.pdf'), '%PDF-1.4 a stand-in');
+    const env = { ...process.env, PATH: `${bin}:/usr/bin:/bin` };
+    let childPid = null;
+    const t0 = Date.now();
+    const r = await normaliseInChild(join(dir, 'x.pdf'), dir, { timeoutMs: 4000, env, onSpawn: (pid) => { childPid = pid; } });
+    assert.deepEqual([r.ok, r.stop, r.detail], [false, 'unusable_input', 'intake_timeout']);
+    assert.ok(Date.now() - t0 < 6000);
+    assert.ok(existsSync(pids), 'the converter had started');
+    const converter = readFileSync(pids, 'utf8').trim().split(' ').map(Number);
+    assert.equal(converter.length, 2);
+    const gone = async () => { for (let i = 0; i < 40; i++) { if (![childPid, ...converter].some((p) => alive(p))) return true; await new Promise((ok) => setTimeout(ok, 50)); } return false; };
+    assert.ok(await gone(), `still alive: ${[childPid, ...converter].filter((p) => alive(p))}`);
+
+    // the same for an abort from outside
+    rmSync(pids);
+    const controller = new AbortController();
+    const aborted = normaliseInChild(join(dir, 'x.pdf'), dir, { env, signal: controller.signal, onSpawn: (pid) => { childPid = pid; } });
+    for (let i = 0; i < 100 && !existsSync(pids); i++) await new Promise((ok) => setTimeout(ok, 50));
+    await new Promise((ok) => setTimeout(ok, 50));
+    const second = readFileSync(pids, 'utf8').trim().split(' ').map(Number);
+    controller.abort();
+    assert.equal((await aborted).detail, 'aborted');
+    converter.splice(0, 2, ...second);
+    assert.ok(await gone(), `still alive after the abort: ${[childPid, ...converter].filter((p) => alive(p))}`);
 });

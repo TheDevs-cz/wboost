@@ -8,6 +8,7 @@
 import { fork } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { execFile } from 'node:child_process';
+import { workerEnv, ocrEnv } from './childenv.mjs';
 import { join } from 'node:path';
 import { HttpScannerApi, PROTOCOL_VERSION, INSTRUMENTS, DEFAULT_TIMING } from './protocol.mjs';
 import { Lane, JobRunner, WORKER } from './lanes.mjs';
@@ -32,7 +33,7 @@ export function logger(mode = 'json', write = (line) => process.stdout.write(lin
 /** Does the OCR sidecar start here? → the instruments this scanner can offer. */
 export function checkInstruments(python = ocrPython()) {
     return new Promise((resolve) => {
-        execFile(python, ['-c', 'import rapidocr, onnxruntime'], { timeout: 30_000 }, (err) => {
+        execFile(python, ['-c', 'import rapidocr, onnxruntime'], { timeout: 30_000, env: ocrEnv(1) }, (err) => {
             resolve(err ? INSTRUMENTS.filter((i) => i !== 'ocr') : [...INSTRUMENTS]);
         });
     });
@@ -132,7 +133,7 @@ export class Scanner {
         let definition = null;
         try { definition = JSON.parse(this.lastDefinition?.files?.['definition.json'] ?? 'null'); } catch { /* none seen yet */ }
         const result = await new Promise((resolve) => {
-            const child = this.probeChild = fork(this.deps.workerPath, [], { detached: true, stdio: ['ignore', 'inherit', 'inherit', 'ipc'], env: { ...process.env, SCANNER_WORKER: '1', TMPDIR: scratchDir, ...(this.deps.workerEnv ?? {}) } });
+            const child = this.probeChild = fork(this.deps.workerPath, [], { detached: true, stdio: ['ignore', 'inherit', 'inherit', 'ipc'], env: workerEnv(process.env, { SCANNER_WORKER: '1', TMPDIR: scratchDir, ...(this.deps.workerEnv ?? {}) }) });
             let r = null;
             const timer = setTimeout(() => { killTree(child.pid); }, 60_000);
             child.on('message', (m) => { if (m?.type === 'result') r = m.result; });

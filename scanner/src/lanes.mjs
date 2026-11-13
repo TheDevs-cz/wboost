@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { Heartbeat } from './timers.mjs';
 import { timingOf } from './protocol.mjs';
 import { killTree, descendants } from './proc.mjs';
+import { workerEnv } from './childenv.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const WORKER = join(HERE, 'worker.mjs');
@@ -76,7 +77,8 @@ export class JobRunner {
                 this.child = fork(this.o.workerPath, [], {
                     detached: true, // the leader of its own process group: the engine and the OCR sidecar are killed with it
                     stdio: ['ignore', 'inherit', 'inherit', 'ipc'],
-                    env: { ...this.o.env, SCANNER_WORKER: '1', TMPDIR: this.scratchDir, SCANNER_OCR_THREADS: String(this.o.threads), OMP_NUM_THREADS: String(this.o.threads), ...(this.o.workerEnv ?? {}) },
+                    // without the app token: the worker gets it with the job (below), and what it starts never sees it
+                    env: workerEnv(this.o.env, { SCANNER_WORKER: '1', TMPDIR: this.scratchDir, SCANNER_OCR_THREADS: String(this.o.threads), OMP_NUM_THREADS: String(this.o.threads), ...(this.o.workerEnv ?? {}) }),
                 });
                 this.child.on('message', (m) => {
                     if (m?.type === 'state' && m.state) {

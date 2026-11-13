@@ -17,7 +17,7 @@ process.on('message', async (m) => {
     const b = { ...JSON.parse(process.env.STUB_WORKER ?? '{}'), ...(m.job.options?.stub ?? {}) };
     mkdirSync(m.scratchDir, { recursive: true });
     writeFileSync(join(m.scratchDir, 'leftover.bin'), Buffer.alloc(1024));
-    if (b.log) appendFileSync(b.log, JSON.stringify({ scan: m.job.id, run: m.job.run, lane: m.lane, pid: process.pid, scratchDir: m.scratchDir, tmpdir: process.env.TMPDIR, threads: process.env.SCANNER_OCR_THREADS }) + '\n');
+    if (b.log) appendFileSync(b.log, JSON.stringify({ scan: m.job.id, run: m.job.run, lane: m.lane, pid: process.pid, scratchDir: m.scratchDir, tmpdir: process.env.TMPDIR, threads: process.env.SCANNER_OCR_THREADS, envNames: Object.keys(process.env), tokenByIpc: typeof m.app?.token === 'string' && m.app.token.length > 0 }) + '\n');
     if (b.spawn) {
         // like the engine binary (in this process's group), like a sidecar that leads its own group, and a grandchild
         const inGroup = spawn('sleep', ['300'], { stdio: 'ignore' });
