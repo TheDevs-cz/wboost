@@ -819,7 +819,12 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
             self::containerMemberIds(CanvasContainer::collectionFromCanvas($canvas)),
         );
 
-        return json_encode($canvas, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+        // The result is embedded RAW inside a <script> of the render template.
+        // Without the HEX flags a text holding `</script>` (unescaped slashes!)
+        // closes that block and runs as script in the renderer's browser —
+        // user texts and AI-scan proposals both reach this. `<`, `>`, `&` and
+        // quotes become \uXXXX escapes: the parsed value is identical.
+        return json_encode($canvas, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
     }
 
     /**

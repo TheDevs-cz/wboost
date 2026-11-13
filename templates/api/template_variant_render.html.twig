@@ -58,7 +58,7 @@
                 // FontFaceObserver; here we construct FontFace objects from the
                 // inlined data URIs and await load(), which guarantees the
                 // glyphs are resident before Fabric measures or paints.
-                const fontFaces = {{ font_faces|json_encode|raw }};
+                const fontFaces = {{ font_faces|json_encode(constant('JSON_HEX_TAG') b-or constant('JSON_HEX_AMP') b-or constant('JSON_HEX_APOS') b-or constant('JSON_HEX_QUOT'))|raw }};
                 await Promise.all(fontFaces.map(async (face) => {
                     try {
                         const fontFace = new FontFace(face.family, 'url("' + face.src + '")');
@@ -76,12 +76,12 @@
                 }
 
                 const canvasJson = {{ canvas_json|raw }};
-                const textOverrides = {{ text_overrides|json_encode|raw }};
-                const richTextOverrides = {{ rich_text_overrides|json_encode|raw }};
-                const fontOverrides = {{ font_overrides|default([])|json_encode|raw }};
-                const listConfigs = {{ list_configs|json_encode|raw }};
-                const hiddenOverrides = {{ hidden_overrides|json_encode|raw }};
-                const containers = {{ containers|json_encode|raw }};
+                const textOverrides = {{ text_overrides|json_encode(constant('JSON_HEX_TAG') b-or constant('JSON_HEX_AMP') b-or constant('JSON_HEX_APOS') b-or constant('JSON_HEX_QUOT'))|raw }};
+                const richTextOverrides = {{ rich_text_overrides|json_encode(constant('JSON_HEX_TAG') b-or constant('JSON_HEX_AMP') b-or constant('JSON_HEX_APOS') b-or constant('JSON_HEX_QUOT'))|raw }};
+                const fontOverrides = {{ font_overrides|default([])|json_encode(constant('JSON_HEX_TAG') b-or constant('JSON_HEX_AMP') b-or constant('JSON_HEX_APOS') b-or constant('JSON_HEX_QUOT'))|raw }};
+                const listConfigs = {{ list_configs|json_encode(constant('JSON_HEX_TAG') b-or constant('JSON_HEX_AMP') b-or constant('JSON_HEX_APOS') b-or constant('JSON_HEX_QUOT'))|raw }};
+                const hiddenOverrides = {{ hidden_overrides|json_encode(constant('JSON_HEX_TAG') b-or constant('JSON_HEX_AMP') b-or constant('JSON_HEX_APOS') b-or constant('JSON_HEX_QUOT'))|raw }};
+                const containers = {{ containers|json_encode(constant('JSON_HEX_TAG') b-or constant('JSON_HEX_AMP') b-or constant('JSON_HEX_APOS') b-or constant('JSON_HEX_QUOT'))|raw }};
                 const strictContainerOverflow = {{ strict_container_overflow ? 'true' : 'false' }};
 
                 // overflow-wrap: break-word for Textbox — shared module (see
