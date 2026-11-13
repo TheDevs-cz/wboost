@@ -34,7 +34,7 @@ rule for all development and testing); production sets the key. Nothing reads `.
 |---|---|
 | `scanner [serve]` | the service; runs until SIGTERM / SIGINT |
 | `scanner healthcheck` | exit 0 while the running service is healthy — the container healthcheck |
-| `scanner selftest` | sharp, the OCR sidecar with its models, the engine binary, a HEIC upload, a PDF upload, scratch — needs no network |
+| `scanner selftest` | sharp, the OCR sidecar with its models, the engine binary, a HEIC upload, a PDF upload, the converters' memory limit (`prlimit`, Linux), scratch — needs no network |
 | `scanner version` | package version `+` commit |
 | `scanner scan-file <picture> --project <id> …` | one scan of a file through the app's MCP design tools (development, the evaluation) |
 
@@ -70,7 +70,8 @@ main process (bin/scanner.mjs serve → src/main.mjs)
                         → ONE release per job (≤ 20 s) → scratch removed → exit, within 30 s whatever happens
 
 child process of one run (src/worker.mjs)
- intake:  source → normalise (a child of its own: pixel limit, small heap, raised OOM score) → artefacts
+ intake:  source → normalise (a child of its own, leading its own process group: pixel limit, small heap, raised OOM
+          score; the HEIC / PDF converters below it under `prlimit --as` 1.5 GiB, killed with it) → artefacts
           → pre-check (Haiku) → finish passed | stopped | failed provider_unavailable | refused
  build:   working copy → pre-pass (OCR sidecar, background, palette, font ranking) → model loop under caps
           (engine binary of the Agent SDK) → keep-best → verification render of the fonts → measured report → finish
@@ -88,6 +89,9 @@ child process of one run (src/worker.mjs)
 | Thread pools pinned to `floor(3 ÷ concurrency)`; a concurrency the memory limit cannot hold is refused at start | `src/config.mjs` |
 | The timing the service needs before its first claim (claim poll, tick, the HTTP client's attempt and tolerance, probe, shutdown, kill grace) are constants — `DEFAULT_TIMING` — and a test holds them equal to the definition's `timing`, key by key; a run takes its own timing from its claim's definition | `src/protocol.mjs`, `test/timers.test.mjs` |
 | A run that hangs while the heartbeat lives is killed at run cap + R + one attempt + 15 s = 465 s (intake: 150 s) and never released | `src/lanes.mjs` |
+| Who gets which variable: a process that decodes untrusted bytes (the normalise child, `heif-convert`, `pdfinfo` / `pdftoppm`, the OCR sidecar) gets an allowlist — `PATH`, `LANG`, `TMPDIR`; the sidecar also its thread pools and `HOME` — never `SCANNER_TOKEN` or a provider credential. A run's worker gets the scanner's environment without `SCANNER_TOKEN` (the token reaches it with the job, over IPC); the provider credential stays there because the worker starts the engine, and the engine never gets the app token | `src/childenv.mjs`, `src/engine/sdk.mjs` `engineEnv` |
+| The engine's tool list is verified on every run: a tool the harness announces that is not `mcp__scan__*` or `StructuredOutput` ends the run at once (`engine_tools`) | `src/engine/sdk.mjs` `foreignTools` |
+| A `finish` the app did not answer (an outage, 5xx) is sent once more **unchanged** — never replaced by another outcome; still undelivered, the run says nothing more and the lease lapses. Only a 4xx answer is followed by `failed build` | `src/run.mjs` `sendFinish` |
 | No model fallback: a refused turn is never re-run on another model (`CLAUDE_CODE_DISABLE_REFUSAL_FALLBACK=1`); were the harness to do it anyway, the run is stopped as a refusal and the other model's tokens are priced by its own row | `src/engine/sdk.mjs` |
 
 ### Health
@@ -102,7 +106,7 @@ healthy and says so (`protocol.accepted: false`, the lanes are `held`).
 
 | Step | Code | Notes |
 |---|---|---|
-| Intake: normalise | `src/intake/normalise.mjs` (+ `normalise-child.mjs`) | a child process with a pixel limit decodes the upload: HEIC (system converter), CMYK, 16-bit, EXIF rotation, first frame, alpha on white → working copy (sRGB, 8 bit, long edge ≤ 4096 px) + preview. Limits: 10 MB, 8000 px a side, 36 Mpx, short side ≥ 600 px; child cut at 20 s. **A PDF** is taken as a picture of its **first page** (poppler's `pdftoppm`, run with an empty environment): the page at 300 dpi — an A4 becomes 2480 × 3508 px —, the long edge never above 4096 px nor below 1600 px; `meta.format = pdf`, `pageMm`, facts `pdf_first_page` (+ `first_frame_only` for more pages). Encrypted / broken / no rasteriser → `unusable_input` (`pdf_encrypted`, `pdf_unreadable`, `pdf_unsupported`). Its text and fonts are not read |
+| Intake: normalise | `src/intake/normalise.mjs` (+ `normalise-child.mjs`) | a child process with a pixel limit decodes the upload: HEIC (system converter), CMYK, 16-bit, EXIF rotation, first frame, alpha on white → working copy (sRGB, 8 bit, long edge ≤ 4096 px) + preview. Limits: 10 MB, 8000 px a side, 36 Mpx, short side ≥ 600 px (the built-in ones, overridden key by key by the definition's `upload`); a HEIC is held against them by what its header declares **before** the converter is started; child cut at 20 s — its whole process group. **A PDF** is taken as a picture of its **first page** (poppler's `pdftoppm`, run with an empty environment): the page at 300 dpi — an A4 becomes 2480 × 3508 px —, the long edge never above 4096 px nor below 1600 px; `meta.format = pdf`, `pageMm`, facts `pdf_first_page` (+ `first_frame_only` for more pages). Encrypted / broken / no rasteriser → `unusable_input` (`pdf_encrypted`, `pdf_unreadable`, `pdf_unsupported`). Its text and fonts are not read |
 | Intake: pre-check | `src/intake/precheck.mjs` | one Haiku call on the preview, own request settings (18 s, 1 retry, ≤ 38 s): design / calendar page / photo of a print / several designs / blurry or small / not a design → pass or a stop reason |
 | Pre-pass (mandatory, no model) | `src/adapters/template.mjs` `prepass()` | OCR lines (RapidOCR sidecar, pinned threads) → measured ink box, glyph colour and backdrop per line; background fit; palette; font ranking of the project's faces for one line per text style (the app renders, the scanner compares glyph shapes and fits the size) |
 | Model loop | `src/engine/` | Opus 5.5 at effort `high` gets the picture + the pre-pass as its first message and 7 tools: `scan_source`, `scan_crop`, `scan_measure`, `font_rank`, `compare_region`, `design_preview`, `design_patch` |
@@ -170,7 +174,7 @@ docker run --rm --network none --read-only --tmpfs /tmp:rw,exec,size=256m wboost
 
 `node:24.22.3-bookworm-slim` pinned by digest · production `node_modules` with the one engine binary
 (linux-x64, glibc) · a virtualenv with the OCR stack pinned to the package (`requirements.lock`), the
-OCR models fetched at build time · `libheif-examples` for HEIC · `poppler-utils` for page 1 of a PDF · `tini` · user `node` (uid 1000) ·
+OCR models fetched at build time · `libheif-examples` for HEIC · `poppler-utils` for page 1 of a PDF (both run under util-linux's `prlimit`, part of the base image — the build and the self-test check it) · `tini` · user `node` (uid 1000) ·
 no `npm`, no tests, no evaluation, no prompt, no credential. It writes under `/tmp` only (scratch,
 the engine's home and configuration — per run), so the root file system can be read-only.
 `HEALTHCHECK` = `node bin/scanner.mjs healthcheck`. Size and memory: `eval/RESULTS.md` §5.
@@ -179,6 +183,13 @@ CI (`.github/workflows/scanner.yml`): tests on every push that touches `scanner/
 `resources/ai-scan/`; on `main` the image is built and pushed to
 **`ghcr.io/thedevs-cz/wboost-scanner`** — tags `sha-<commit>`, `main`, `latest` — and its self-test
 runs with no network. Nothing is deployed from here; the box pins a tag.
+
+**Weekly rebuild** (job `weekly`, Mondays 05:30 UTC or `workflow_dispatch` on `main`): the image is otherwise
+built only when `scanner/` changes, so fixed system libraries (libheif, poppler, …) would never arrive. The
+tested commit of `main` is rebuilt without the layer cache, self-tested and pushed as
+**`weekly-YYYYMMDD`** — `sha-<commit>`, `main` and `latest` are never moved by it. When its Debian packages
+differ from the image of `main`, one issue labelled `scanner-image` is opened (or refreshed) with the tag to
+pin and the packages that moved; production changes only when the pin is bumped.
 
 What the deployment needs (`~/www/lily.srv/apps/wboost/compose.yaml`, phase P4):
 
@@ -214,7 +225,7 @@ measure parity with the prototypes' engine.
 ## Tests
 
 ```bash
-npm test                # 239 tests, ≈ 85 s — no model, no app
+npm test                # 250 tests, ≈ 95 s — no model, no app
 npm run test:slow       # the app-outage rules at their real times (≈ 85 s)
 ```
 
@@ -226,7 +237,8 @@ npm run test:slow       # the app-outage rules at their real times (≈ 85 s)
 | `main.test.mjs` | the service: config and the memory rule; the intake lane next to a running build; **two workers never cross scans**; protocol mismatch; too old by instruments; provider probe; shutdown inside the limit; health |
 | `service.test.mjs` | `scanner serve` as a real process with the real child, the real OCR sidecar and the **real engine binary** against a fault proxy and a stand-in app: a build, an intake, a refusal (no other model asked), **SIGTERM mid-build** (engine dead by pid, one release with usage, exit 0, scratch gone) |
 | `engine-faults.test.mjs` | both engines against the fault proxy: pinned retries and delays, request timeout, stream-idle watchdog, what is never retried, refusal — and the fallback detection when the switch is taken away |
-| `hostile.test.mjs` | decompression bombs, 36 Mpx, CMYK, 16-bit, animated, truncated, HEIC, SVG, empty, > 10 MB — each a named outcome within a memory and time bound |
+| `hostile.test.mjs` | decompression bombs, 36 Mpx, CMYK, 16-bit, animated, truncated, HEIC, SVG, empty, > 10 MB — each a named outcome within a memory and time bound; a HEIC that claims a huge canvas never reaches the converter; a PDF with a gigapixel picture ends bounded; the converters' address-space limit (Linux); the timeout / an abort leave nothing of the child's process group running |
+| `childenv.test.mjs` | the environments read from the processes themselves: the normalise child, the converters, the OCR sidecar (no app token, no provider credential), a run's worker (token over IPC, not in its environment) |
 | `contract.test.mjs` | the contract fixture replayed from the scanner's side (`test/contract/README.md` — the app's CI replays it from its side) |
 | `calendar.test.mjs` | the calendar adapter: row ladder, page-box detection, picture mask, tools in mm, `calendar_preview` (commands, patch, caps, a refused patch), the report's closed lists, a whole calendar build against a stand-in calendar model, the `commands` render of the client |
 | `run`, `tools`, `finish`, `intake`, `instruments`, `engine`, `caps`, `classify` | step A: the build and intake of one job, caps, the image rule, the report, the instruments |
