@@ -90,8 +90,12 @@ export function unrankedLines(build, layout, features, have) {
  */
 export async function buildCalendarReport({ build, finish = null, unfinished = false, stopReason = null, rank = null, verify = null }) {
     if (!build.candidates.length) return { status: 'failed', error: 'no_candidate' };
-    const preferred = Number.isInteger(finish?.preferredCandidate) && build.candidates.some((c) => c.n === finish.preferredCandidate) ? finish.preferredCandidate : null;
-    const kb = keepBest(build.page, build.candidates, { preferred });
+    // a candidate in which a picture covers a month line or a week label is kept only when there is no other:
+    // the measurement cannot see it (the logo and the QR code are left out of every number)
+    const clean = build.candidates.filter((c) => !c.overlaps?.length);
+    const pool = clean.length ? clean : build.candidates;
+    const preferred = Number.isInteger(finish?.preferredCandidate) && pool.some((c) => c.n === finish.preferredCandidate) ? finish.preferredCandidate : null;
+    const kb = keepBest(build.page, pool, { preferred });
     const kept = build.candidates.find((c) => c.n === kb.candidate);
     const { layout, features } = kept;
 

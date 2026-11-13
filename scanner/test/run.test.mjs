@@ -337,6 +337,11 @@ test('intake: the upload limits start from the built-in ones — a definition th
     assert.deepEqual(uploadLimitsOf({}, 'template'), { ...UPLOAD_LIMITS });
     assert.deepEqual(uploadLimitsOf({ upload: { minShortSidePx: 700 } }, 'template'), { ...UPLOAD_LIMITS, minShortSidePx: 700 });
     assert.deepEqual(uploadLimitsOf({ upload: { maxBytes: 5_000_000, maxPixels: null }, kinds: { calendar: { upload: { minShortSidePx: 300, maxSidePx: 'x' } } } }, 'calendar'), { ...UPLOAD_LIMITS, maxBytes: 5_000_000, minShortSidePx: 300 });
+    // a calendar page: at least 640 × 280 px — the longer side is a limit of the kind only (off for a template)
+    assert.equal(UPLOAD_LIMITS.minLongSidePx, 0);
+    const shipped = JSON.parse(definitionFiles()['definition.json']);
+    assert.deepEqual(uploadLimitsOf(shipped, 'calendar'), { ...UPLOAD_LIMITS, ...shipped.upload, minShortSidePx: 280, minLongSidePx: 640 });
+    assert.equal(uploadLimitsOf(shipped, 'template').minLongSidePx, 0);
     // through the lane: a definition without `maxPixels` / `maxBytes` still refuses a picture over 36 Mpx
     const files = definitionFiles();
     const def = JSON.parse(files['definition.json']);
@@ -347,4 +352,9 @@ test('intake: the upload limits start from the built-in ones — a definition th
     const sent = {};
     const out = await runIntake({ job: { id: 's', kind: 'template', lane: 'intake', run: 1, definition: { files } }, api: { source: async () => big, putArtifact: async () => {}, finish: async (p) => { sent.finish = p; } }, engine: { name: 'x', run: async () => { throw new Error('no model call'); } }, scratchDir: mkdtempSync(join(tmpdir(), 'scan-in-')) });
     assert.deepEqual([out.outcome, out.reason, sent.finish.preCheck.detail], ['stopped', 'unusable_input', 'too_many_pixels']);
+    // a calendar page 600 px wide is high enough (280 px) and too narrow: stopped before any model call
+    const narrow = await sharp({ create: { width: 600, height: 280, channels: 3, background: '#ffffff' } }).png().toBuffer();
+    const small = {};
+    const stopped = await runIntake({ job: { id: 's', kind: 'calendar', lane: 'intake', run: 1, definition: { files: definitionFiles() } }, api: { source: async () => narrow, putArtifact: async () => {}, finish: async (p) => { small.finish = p; } }, engine: { name: 'x', run: async () => { throw new Error('no model call'); } }, scratchDir: mkdtempSync(join(tmpdir(), 'scan-in-')) });
+    assert.deepEqual([stopped.outcome, stopped.reason, small.finish.preCheck.detail], ['stopped', 'blurry_or_small', 'too_small']);
 });

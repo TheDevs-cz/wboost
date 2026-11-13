@@ -16,7 +16,8 @@ import { decoderEnv, onPath } from '../childenv.mjs';
 const run = promisify(execFile);
 const HERE = dirname(fileURLToPath(import.meta.url));
 
-export const UPLOAD_LIMITS = Object.freeze({ maxBytes: 10_000_000, maxSidePx: 8000, maxPixels: 36_000_000, minShortSidePx: 600 });
+// `minLongSidePx`: off unless a definition asks for it (a calendar page: 640 px — `kinds.calendar.upload`)
+export const UPLOAD_LIMITS = Object.freeze({ maxBytes: 10_000_000, maxSidePx: 8000, maxPixels: 36_000_000, minShortSidePx: 600, minLongSidePx: 0 });
 export const WORKING_COPY = Object.freeze({ longEdgePx: 4096, previewLongEdgePx: 1600 });
 
 const stop = (code, detail) => ({ ok: false, stop: code, detail });
@@ -164,7 +165,7 @@ export async function normalise(input, { limits = UPLOAD_LIMITS, working = WORKI
     if (!width || !height) return stop('unusable_input', 'undecodable');
     if (Math.max(width, height) > limits.maxSidePx) return stop('unusable_input', 'side_too_long');
     if (width * height > limits.maxPixels) return stop('unusable_input', 'too_many_pixels');
-    if (Math.min(width, height) < limits.minShortSidePx) return stop('blurry_or_small', 'too_small');
+    if (Math.min(width, height) < limits.minShortSidePx || Math.max(width, height) < (limits.minLongSidePx ?? 0)) return stop('blurry_or_small', 'too_small');
     const pipeline = () => open(buf).rotate().flatten({ background: '#ffffff' }).toColourspace('srgb')
         .resize({ width: working.longEdgePx, height: working.longEdgePx, fit: 'inside', withoutEnlargement: true });
     let raw;

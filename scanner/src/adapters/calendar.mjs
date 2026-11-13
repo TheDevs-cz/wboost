@@ -187,6 +187,53 @@ export function pictureMask(layout, features, toPx, W, H) {
     return mask;
 }
 
+// ------------------------------------------------------------------- labels under a picture
+
+/** The generated one-line labels (Měsíc, Číslo týdne) and the user's pictures that must not cover them. */
+const LABEL_KEYS = ['month', 'month2', 'wk', 'wk2'];
+const PICTURE_KEYS = ['logo', 'qr'];
+/** The clear space kept between a label's frame and a picture (mm). */
+export const LABEL_GAP_MM = 1.5;
+/** The narrowest frame a label is cut down to: Měsíc ("PROSINEC 2026 / LEDEN 2027"), Číslo týdne ("53. týden"). */
+const LABEL_MIN_MM = { month: 40, wk: 14 };
+const isBox = (b) => isObject(b) && ['x', 'y', 'w', 'h'].every((k) => typeof b[k] === 'number' && Number.isFinite(b[k]));
+const meets = (a, b, gap = 0) => a.x < b.x + b.w + gap && b.x < a.x + a.w + gap && a.y < b.y + b.h && b.y < a.y + a.h;
+/** The alignment a frame's text really has: the second frame is drawn mirrored. */
+const frameAlign = (align = 'start', key) => (key in FIRST_FRAME ? ({ start: 'end', end: 'start' }[align] ?? 'middle') : align);
+
+/**
+ * Which labels of a layout stand under a picture: `[{label, picture}]`. `boxes` are complete boxes (a
+ * rendered layout, or a candidate laid over the default); a hidden element, a label whose switch is
+ * off (`weekNumbers`) and a QR code that is not switched on are not on the page.
+ */
+export function labelOverlaps(boxes, features = {}, gap = 0) {
+    const on = (key) => {
+        const el = elementOf(key);
+        if (!isBox(boxes?.[key]) || !isObject(boxes?.[el]) || boxes[el].hidden === true) return false;
+        if (el === 'wk') return features?.weekNumbers !== false;
+        if (el === 'qr') return features?.qr === true;
+        return true;
+    };
+    const out = [];
+    for (const label of LABEL_KEYS) for (const picture of PICTURE_KEYS) if (on(label) && on(picture) && meets(boxes[label], boxes[picture], gap)) out.push({ label, picture });
+    return out;
+}
+
+/**
+ * Moves a label's frame out from under a picture: the frame keeps its row and is cut to the part beside
+ * the picture — the part its text grows AWAY from the picture in when it is wide enough (a frame of
+ * Měsíc / Číslo týdne grows by itself, away from its anchor edge), else the other part. → the new box,
+ * or null when neither part can hold the label.
+ */
+export function clearOfPicture(label, picture, align, minWidth, gap = LABEL_GAP_MM) {
+    const left = { x: label.x, w: r1(picture.x - gap - label.x) };
+    const right = { x: r1(picture.x + picture.w + gap), w: r1(label.x + label.w - (picture.x + picture.w + gap)) };
+    // text anchored at the frame's right edge grows to the left: the part left of the picture is the safe one
+    const order = align === 'end' ? [left, right] : align === 'start' ? [right, left] : (left.w >= right.w ? [left, right] : [right, left]);
+    const part = order.find((p) => p.w >= minWidth);
+    return part ? { x: part.x, y: label.y, w: part.w, h: label.h } : null;
+}
+
 // ------------------------------------------------------------------------------------- the build
 
 export class CalendarBuild {
@@ -445,7 +492,39 @@ export class CalendarBuild {
         return out;
     }
 
-    commandsOf(c) { return CalendarBuild.commandsOf({ ...c, boxes: this.#withSecondFrames(c.boxes) }); }
+    /**
+     * A 14-day candidate's labels are kept clear of the pictures: a second frame is placed as the mirror
+     * image of its first one, and a logo that stands in the top right corner of the source would then sit
+     * ON the second week's month line (the proposal read "LEDE[logo]7"). A label frame that meets the
+     * logo or the QR code is cut to the part beside the picture. → {boxes, adjusted: [{box, picture, to}]}
+     */
+    #clearLabels(boxes, c) {
+        if (!this.fortnight) return { boxes, adjusted: [] };
+        const defaults = this.calendar.defaultLayout?.layout ?? {};
+        const styles = mergeDeep(defaults.styles ?? {}, c.styles ?? {});
+        const features = { ...(this.calendar.features ?? {}), ...Object.fromEntries((c.features ?? []).map((f) => [f, true])) };
+        const full = (key) => ({ ...(isObject(defaults.boxes?.[key]) ? defaults.boxes[key] : {}), ...(isObject(boxes[key]) ? boxes[key] : {}) });
+        const out = { ...boxes }, adjusted = [];
+        // every pass moves one frame away from one picture; a frame cut twice (logo and QR code) converges
+        for (let pass = 0; pass < 4; pass++) {
+            const all = Object.fromEntries([...LABEL_KEYS, ...PICTURE_KEYS].map((k) => [k, { ...full(k), ...(isObject(out[k]) ? out[k] : {}) }]));
+            const hit = labelOverlaps(all, features, LABEL_GAP_MM).find((o) => !adjusted.some((x) => x.box === o.label && x.picture === o.picture));
+            if (!hit) break;
+            const el = elementOf(hit.label);
+            const to = clearOfPicture(all[hit.label], all[hit.picture], frameAlign(styles[el]?.align, hit.label), LABEL_MIN_MM[el]);
+            adjusted.push({ box: hit.label, picture: hit.picture, to: to ? [to.x, to.y, to.w, to.h] : null });
+            if (to) out[hit.label] = { ...(isObject(out[hit.label]) ? out[hit.label] : {}), ...to };
+        }
+        return { boxes: out, adjusted };
+    }
+
+    /** The commands of a candidate and what the scanner moved in it. → {commands, adjusted} */
+    planOf(c) {
+        const { boxes, adjusted } = this.#clearLabels(this.#withSecondFrames(c.boxes), c);
+        return { commands: CalendarBuild.commandsOf({ ...c, boxes }), adjusted };
+    }
+
+    commandsOf(c) { return this.planOf(c).commands; }
 
     static commandsOf(c) {
         const layout = { op: 'layout' };
@@ -463,7 +542,7 @@ export class CalendarBuild {
         if (this.caps.candidatesLeft() < 1) throw new ToolUserError(`the candidate budget is used (${this.caps.limits.candidates} of ${this.caps.limits.candidates} rendered) — return the final report now; the scanner keeps the best candidate`);
         if (this.caps.rejectionsLeft() < 1) throw new ToolUserError('the validation budget is used — return the final report now');
         const candidate = this.#candidateOf(a);
-        const commands = this.commandsOf(candidate);
+        const { commands, adjusted } = this.planOf(candidate);
         this.onNote(this.candidates.length ? 'refine' : 'build');
         const res = await this.app.renderCommands(commands);
         const issues = (res.issues ?? []).map(({ severity, stage, code, message }) => ({ severity, stage, code, message }));
@@ -481,10 +560,16 @@ export class CalendarBuild {
             feedback: { mae: fb.mae, pictureShare: fb.pictureShare, worstCells: fb.worstCells, elements: fb.elements, rules: fb.rules, ...(this.fortnight ? { rules2: fb.rules2 } : {}) } });
         this.attempts.push({ rendered: true, candidate: n });
         const boxes = Object.fromEntries(Object.entries(res.layout?.boxes ?? {}).map(([k, b]) => [k, b.hidden ? { hidden: true } : [b.x, b.y, b.w, b.h]]));
+        // a label under a picture, in the layout AS RENDERED (frames of Měsíc / Číslo týdne grow to their text)
+        const overlaps = labelOverlaps(res.layout?.boxes ?? {}, res.features ?? {});
+        this.candidates.at(-1).overlaps = overlaps;
+        const moved = adjusted.filter((x) => x.to);
         return {
             json: {
                 candidate: n, rendered: true, mae: fb.mae, pictureShare: fb.pictureShare, history: this.candidates.map((c) => ({ candidate: c.n, mae: c.mae })),
                 notes: issues.filter((i) => i.severity !== 'error').map((i) => i.message),
+                ...(moved.length ? { adjusted: moved, adjustedNote: 'the scanner cut these label frames to the part beside the picture — the picture would have covered the label (a second frame is the mirror image of its first frame unless you send it). Send the frame yourself, clear of the picture, to place it otherwise.' } : {}),
+                ...(overlaps.length ? { overlaps, overlapsNote: 'these labels stand UNDER a picture in this candidate (the logo / QR code covers the text) — the user would see a cut-off month or week label. Correct it in the next candidate: move or narrow the label frame (its text is anchored at the frame edge `align` names; mirrored in a second frame), or move the picture.' } : {}),
                 boxes, rules: fb.rules, ...(this.fortnight ? { rules2: fb.rules2 } : {}), elements: fb.elements, worstCells: fb.worstCells,
                 hint: 'the photo, the logo and the QR code are the user\'s pictures — their boxes are left out of every number. Corrections: calendar_preview with "patch": true and only what changes.',
             },

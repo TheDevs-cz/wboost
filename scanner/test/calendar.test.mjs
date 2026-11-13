@@ -10,7 +10,7 @@ import { definitionFiles } from '../src/drivers/file-job.mjs';
 import { readDefinition, HttpScannerApi, INSTRUMENTS } from '../src/protocol.mjs';
 import { ocrPython } from '../src/instruments/ocr.mjs';
 import * as im from '../src/instruments/raster.mjs';
-import { CalendarBuild, detectRules, rowLadder, columnLadders, detectPageBox, pictureMask, mergeDeep, withMmRulers } from '../src/adapters/calendar.mjs';
+import { CalendarBuild, detectRules, rowLadder, columnLadders, detectPageBox, pictureMask, mergeDeep, withMmRulers, labelOverlaps, clearOfPicture } from '../src/adapters/calendar.mjs';
 import { buildCalendarReport, shown } from '../src/finish/calendar-report.mjs';
 import { Caps } from '../src/caps.mjs';
 import { scriptedEngine } from './support/fakes.mjs';
@@ -405,6 +405,82 @@ test('14 days: second frames the model does not send are the mirror of the first
     assert.equal(b.candidates[1].feedback.rules2.delta.x0Mm, -10, 'the feedback of the second column is its own');
     await assert.rejects(() => tools.calendar_preview({ preset: 'photoLeft' }), /twoSided/);
     assert.equal(b.candidates.length, 2);
+});
+
+test('labels under a picture: which ones, and the part of the frame beside the picture', () => {
+    const boxes = { logo: { x: 262, y: 14, w: 28, h: 11 }, qr: { x: 199.5, y: 113, w: 21, h: 21, hidden: true }, month: { x: 6, y: 12.5, w: 120, h: 14.5 }, month2: { x: 184, y: 12.5, w: 120, h: 14.5 }, wk: { x: 6, y: 139, w: 72, h: 4.5 }, wk2: { x: 232, y: 139, w: 72, h: 4.5 } };
+    assert.deepEqual(labelOverlaps(boxes), [{ label: 'month2', picture: 'logo' }]);
+    assert.deepEqual(labelOverlaps({ ...boxes, logo: { ...boxes.logo, hidden: true } }), [], 'a hidden logo covers nothing');
+    assert.deepEqual(labelOverlaps({ ...boxes, month: { ...boxes.month, hidden: true } }), [], 'the flag of the first frame hides both');
+    // a QR code counts only when it is switched on; a week label only while the switch is not off
+    const qr = { ...boxes, qr: { x: 240, y: 136, w: 20, h: 8 } };
+    assert.deepEqual(labelOverlaps(qr, {}), [{ label: 'month2', picture: 'logo' }]);
+    assert.deepEqual(labelOverlaps(qr, { qr: true }), [{ label: 'month2', picture: 'logo' }, { label: 'wk2', picture: 'qr' }]);
+    assert.deepEqual(labelOverlaps(qr, { qr: true, weekNumbers: false }), [{ label: 'month2', picture: 'logo' }]);
+    // a picture beside the frame, nearer than the gap, counts when a gap is asked for
+    assert.equal(labelOverlaps({ ...boxes, logo: { x: 127, y: 14, w: 20, h: 11 } }).length, 0);
+    assert.deepEqual(labelOverlaps({ ...boxes, logo: { x: 127, y: 14, w: 20, h: 11 } }, {}, 1.5), [{ label: 'month', picture: 'logo' }]);
+
+    // text flush right (a mirrored second frame) grows to the left: the part LEFT of the picture
+    assert.deepEqual(clearOfPicture(boxes.month2, boxes.logo, 'end', 40), { x: 184, y: 12.5, w: 76.5, h: 14.5 });
+    // text flush left grows to the right: the part RIGHT of the picture — when it can hold the label
+    assert.deepEqual(clearOfPicture({ x: 6, y: 12.5, w: 120, h: 14.5 }, { x: 6, y: 14, w: 24, h: 11 }, 'start', 40), { x: 31.5, y: 12.5, w: 94.5, h: 14.5 });
+    // … else the other part (the label keeps its place, the frame ends before the picture)
+    assert.deepEqual(clearOfPicture({ x: 6, y: 12.5, w: 120, h: 14.5 }, { x: 100, y: 14, w: 24, h: 11 }, 'start', 40), { x: 6, y: 12.5, w: 92.5, h: 14.5 });
+    // a picture across the whole frame leaves nothing
+    assert.equal(clearOfPicture({ x: 6, y: 12.5, w: 60, h: 14.5 }, { x: 20, y: 10, w: 40, h: 20 }, 'start', 40), null);
+});
+
+test('14 days: a logo in the top right corner does not cover the second month line — the mirrored frame ends before it; a frame the model sends under the logo is cut as well', async () => {
+    const { b, app, tools } = await build14();
+    // the acceptance case: the month line top left, the logo top right — `month2` mirrors to x 184…304, under the logo
+    const first = await tools.calendar_preview({ boxes: { logo: { x: 262, y: 14, w: 28, h: 11 } } });
+    assert.equal(first.json.rendered, true, JSON.stringify(first.json.issues));
+    const sent = app.last.find((c) => c.op === 'layout').boxes;
+    assert.deepEqual(sent.month2, { x: 184, y: 12.5, w: 76.5, h: 14.5 }, 'the frame ends 1.5 mm left of the logo; its text is flush right there');
+    assert.equal(sent.month, undefined, 'the first frame was not touched');
+    assert.deepEqual(first.json.adjusted, [{ box: 'month2', picture: 'logo', to: [184, 12.5, 76.5, 14.5] }]);
+    assert.match(first.json.adjustedNote, /beside the picture/);
+    assert.equal(first.json.overlaps, undefined, 'nothing stands under a picture in the rendered layout');
+    assert.deepEqual(b.candidates[0].overlaps, []);
+    // what the model said stays what "patch" builds on: the cut is the scanner's, made again for every candidate
+    assert.equal(b.working.boxes.month2, undefined);
+
+    // the model moves the logo away: the mirror image is whole again
+    await tools.calendar_preview({ patch: true, boxes: { logo: { x: 143, y: 15, w: 24, h: 24 } } });
+    assert.equal(app.last.find((c) => c.op === 'layout').boxes.month2, undefined, 'nothing is sent for it: the default second frame applies');
+    assert.equal(app.renders, 2);
+
+    // a second frame the model sends itself under the logo, and the first frame under a logo at the top left
+    const third = await tools.calendar_preview({ boxes: { logo: { x: 262, y: 14, w: 28, h: 11 }, month2: { x: 200, w: 104 } } });
+    assert.deepEqual(app.last.find((c) => c.op === 'layout').boxes.month2, { x: 200, y: 12.5, w: 60.5, h: 14.5 });
+    assert.deepEqual(third.json.adjusted.map((x) => x.box), ['month2']);
+    const { app: app2, tools: tools2 } = await build14();
+    await tools2.calendar_preview({ boxes: { logo: { x: 8, y: 14, w: 24, h: 11 } } });
+    const left = app2.last.find((c) => c.op === 'layout').boxes;
+    assert.deepEqual(left.month, { x: 33.5, y: 12.5, w: 92.5, h: 14.5 }, 'text flush left starts right of the logo');
+    assert.equal(left.month2, undefined, 'the second frame is not a mirror of the cut');
+});
+
+test('a label that stands under a picture in the rendered layout is named in the feedback (7 days: nothing is moved)', async () => {
+    const { b, app, tools } = await build();
+    b.ocrSource = [];
+    const r = await tools.calendar_preview({ preset: 'photoLeft', boxes: { logo: { x: 270, y: 14, w: 30, h: 11 } } });
+    assert.deepEqual(r.json.overlaps, [{ label: 'month', picture: 'logo' }]);
+    assert.match(r.json.overlapsNote, /UNDER a picture/);
+    assert.equal(r.json.adjusted, undefined);
+    assert.deepEqual(app.last.find((c) => c.op === 'layout').boxes, { logo: { x: 270, y: 14, w: 30, h: 11 } });
+    const clean = await tools.calendar_preview({ preset: 'photoLeft' });
+    assert.equal(clean.json.overlaps, undefined);
+    // keep-best: the measurement cannot tell the two apart (a logo is left out of every number) and would keep
+    // the later one — the candidate with the covered month line loses to the clean one
+    const finish = { status: 'done', recognised: [], needsUpload: [], featuresOffered: [], notExpressible: [] };
+    await tools.calendar_preview({ preset: 'photoLeft', boxes: { logo: { x: 270, y: 14, w: 30, h: 11 } } });
+    assert.deepEqual(b.candidates.map((c) => c.overlaps.length), [1, 0, 1]);
+    assert.equal((await buildCalendarReport({ build: b, finish: { ...finish, preferredCandidate: 3 } })).candidate, 2);
+    // … and is kept when every candidate has one
+    b.candidates.splice(1, 1);
+    assert.equal((await buildCalendarReport({ build: b, finish: { ...finish, preferredCandidate: 1 } })).candidate, 3);
 });
 
 test('14 days: the report says the calendar\'s type and when the picture shows one week only; a 7-day calendar keeps its own note', async () => {

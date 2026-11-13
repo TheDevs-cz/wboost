@@ -670,6 +670,52 @@ prints.
 Until the production scanner image carries this change it still stops a calendar page under 600 px with
 `blurry_or_small` (not counted): the app accepts it, the old intake does not.
 
+### 9.6 The calendar minimum is a size: 640 × 280 px (2026-11-13, after the production check)
+
+"Short side ≥ 300 px" refused a calendar page 640 px wide: at the calendar's own 310 : 145 it is 299 px
+high. The rule is now **longer side ≥ 640 px and shorter side ≥ 280 px** for kind `calendar`
+(`AiScanLimits::UPLOAD_MIN_{LONG,SHORT}_SIDE_CALENDAR`, `kinds.calendar.upload {minShortSidePx,
+minLongSidePx}`, the browser, the MCP texts, the skill — one test reads them all). What it rests on:
+
+**OCR alone** — the pre-pass sidecar at the scale the calendar adapter uses (a 2000 px long edge, at most
+3 ×), on the two real 977 × 457 px pages and the clean `s06` (1600 × 748), resized. "Located" = lines of
+the original's reading whose box holds the centre of a line read at the small size (stricter than the line
+count of §9.5; the sidecar is deterministic — three runs gave the same lines):
+
+| size | Markvartovice: located of 24 | Bruzovice (14-day): of 44 | s06: of 21 |
+|---|---|---|---|
+| 641 × 300 (§9.5) | 24 | 41 | 19 |
+| **640 × 299** | 23 | 40 | 20 |
+| 640 × 290 | 22 | 40 | 20 |
+| **640 × 280** | 24 | 41 | 21 |
+| 650 × 280 | 22 | 41 | 21 |
+| 620 × 290 | 21 | 41 | 20 |
+| 600 × 280 | 22 | 41 | 20 |
+| 580 × 271 | 23 | 37 | 19 |
+| 556 × 260 | 19 | 36 | 19 |
+| 534 × 250 | 21 | 40 | 18 |
+
+- There is no edge at 300 px. From 600 to 650 px of width the reading locates 21–24 / 40–41 / 19–21 lines
+  and WHICH line it loses changes with the resampling — one pixel of height (641 × 300 → 640 × 299) moves
+  the count by one in either direction. 640 × 299 and 640 × 280 are inside that band (83 and 86 of 89
+  against 84 at 641 × 300).
+- Under 600 px of width the dense page goes (37 and 36 of 44), and at 600 × 280 the losses start to be
+  lines a layout is read from: Markvartovice loses the day number "12" and a name day in every run,
+  Bruzovice a weekday name. So the width is held at the size that was measured as good — 640 px — and
+  the height may go down to 280 px for a page that is a little flatter than 310 : 145.
+
+**Whole scans** (real job core, `scanner serve` from this tree, Opus 5.5 `high`, the developer's plan; one
+run each, through the calendar wizard of a local app):
+
+| input | size | status | wall s | turns | cost $ | texts outlined | result |
+|---|---|---|---|---|---|---|---|
+| a synthetic 7-day page | 640 × 299 | ready | 120 | 14 | 0.274 | 17 | every element judged; photo, Kalendárium, month, week label, header and logo placed as on the page |
+| markvartovice, resized | 600 × 280 | ready | 90 | 15 | 0.351 | 22 | every element judged, seven day rows from the rule ladder, header / month / week label / logo / caption placed as at 641 × 300 — the build copes with the two lines the reading lost |
+| the 14-day page of the production check (logo top right; it read "LEDE▮7") | 1600 × 748 | ready | 61 | 7 | 0.241 | 27 | both month lines whole: `month` 8.3…145.2 mm, `month2` 155.5…260 mm, flush right 5.5 mm left of the logo (265.5…302.3 mm) — the model sent `month2` itself, as the instructions now ask; a run before the sentence "every week keeps its month line" was added hid `month2` under the photo instead (121 s, 10 turns, $0.416) |
+
+Not measured: masked edge F1 at these sizes (the eval harness was not run; the rows above were looked at
+in the review), HEIC / PDF pages near the minimum.
+
 ## 10. The open quality gaps, closed or measured (2026-11-13)
 
 What §0–§9 left open, each with what was done and what was measured. Model runs: the developer's Claude plan
