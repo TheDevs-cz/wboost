@@ -735,8 +735,15 @@ targets the calendar's own type), designers only.
   duration of every finished stage and the note it ended with come from
   `stages`, the server's stage log (the browser keeps no durations; a live
   note that belongs to an earlier stage stays with that row). `observe()` /
-  `needsRender()` are imported from `assets/ai-scan/page/wait.js`. Not taken
-  over: the outlines of the found texts (`textBoxes`). Between 641 and
+  `needsRender()` are imported from `assets/ai-scan/page/wait.js`.
+  **„Tyto texty jsme našli (n)“** — the outlines of the lines the reading
+  found (`textBoxes` of the status document: `{width, height, boxes}` in
+  pixels of the working copy; the calendar adapter sends them with
+  `texts_found`, as the template adapter does) — are drawn in the
+  „Průběžný náhled“ frame while the scan runs, the working copy exists and
+  no render came yet: `views.foundTexts()` with the wizard's `boxStyle()`
+  and `.as-found` / `.as-found-frame` (`[data-cal-scan-found="n"]`); the
+  first render replaces them. Between 641 and
   1000 px (one column) the upload and the running render sit side by side
   (`.as-cpics`) and a lone picture is at most 480 px wide (`.as-cpic-one`) —
   a calendar page is a wide picture.
@@ -767,9 +774,11 @@ targets the calendar's own type), designers only.
   event `asset-selected`, and the server copies the gallery file's bytes to
   the scan (`fileId`). JPG, PNG, WebP or SVG. The upload zone and the
   chosen-file card take a dropped page the same way (`data-dropzone="page"`).
-- **Upload checks**: `inspectFiles(files, {minShortSide: 300, goodShortSide:
-  600})` — a calendar page is taken from a 300 px short side (the template
-  wizard: 600); under 600 px the chosen-file checks say „Malý obrázek —
+- **Upload checks**: `inspectFiles(files, {minShortSide: 280, minLongSide:
+  640, goodShortSide: 600})` — a calendar page is taken from 640 × 280 px,
+  longer × shorter side (a page 640 px wide is 299 px high; the template
+  wizard: a 600 px short side — the mirrors of the size are listed in
+  `ai-scan.md` § "Upload" and pinned by `AiScanValuesTest`); under 600 px the chosen-file checks say „Malý obrázek —
   rozvržení může vyjít méně přesně“ and the review's „Pro informaci“ carries
   the low-resolution line (from `proposal.source`, nothing stored).
 - **„Naskenovat znovu“** asks (`rescanDialog`): `Stejný obrázek znovu` puts
@@ -796,6 +805,25 @@ targets the calendar's own type), designers only.
   `replace`. Callers make sure the store is clean first — apply is disabled
   with „Nejdřív uložte rozpracované změny.“ + `Uložit`, restore says so in a
   toast.
+- **„Použít rozvržení“ changes the step in one piece.** The accepted document
+  comes back at step 3 (the model's `replace_layout` advances it), so the
+  `replace` event of `store.load()` is what swaps step 2's module for the
+  editor. A store listener that unsubscribed while an event is being
+  delivered is NOT called for that event (`emit()` checks the live set;
+  node suite `scan-marker`) — step 2's listener used to answer the same
+  `replace` after its module was destroyed and drew step 2 again over the
+  editor, under a top bar that said step 3 (found on production,
+  2026-11-13). `mountStep2` also ignores events once destroyed.
+- **Scans applied one after the other are restored in reverse order**
+  (`ai-scan.md` § "Restore"): `entry.applied` names the scan applied LAST
+  whose snapshot lives. After a restore the panel reads the entry again, so
+  when what came back is itself a scanned layout (scan A, then B, B
+  restored → A's layout with the marker `scan`) the card offers A's
+  „Vrátit původní rozvržení“ at once and the toast says „Vráceno rozvržení
+  z předchozího skenu“ instead of „Původní rozvržení vráceno“. An applied
+  scan opened from its link shows the pill „Vráceno původní rozvržení“ once
+  restored, and says so when a newer scan was applied over it
+  (`applied.superseded`: no restore button until that one is put back).
 - **Links** `/calendar/{id}?sken={scanId}` (e-mails, MCP, history, the shell's
   toast) and `?sken=1` (the list pill) open step 2 with the panel; the
   parameter is removed from the address at once.
@@ -810,12 +838,22 @@ targets the calendar's own type), designers only.
   `a.cal-scan-pill[data-cal-scan-pill]`. **History**
   (`templates/ai_scan/history.html.twig`): chips `Šablony` / `Kalendáře`,
   calendar rows open their calendar, `Vrátit původní rozvržení`
-  (`assets/ai-scan/lists.js` `restoreCalendarLayout`, asks on `layout_changed`).
+  (`assets/ai-scan/lists.js` `restoreCalendarLayout`, asks on `layout_changed`)
+  — offered on the row of the scan applied last only. An applied row says
+  `Rozvržení použito`, after its restore `Vráceno původní rozvržení`
+  (`row.layoutRestored`). Calendars are often left with the default name, so
+  the caption of a calendar row also says which calendar it is and what was
+  scanned: `Kalendáře · 14 dní · 2027 · stranka.png · kdo · kdy`
+  (`row.calendar {type, year}`, `[data-calendar-facts]`, `row.fileName`).
 - **Who**: an editor of a project with AI sken switched on is the ordinary
   user of all of this (decision 16) — the card's state is then `enabled`;
   an administrator on a project without the switch sees `admin_preview` and
   the line saying so; an editor of a project without it sees `locked` →
   „Požádat o přístup“ → `request_sent`.
+- **A finished scan opened from a link** (`?sken=…`): step 2 may be on
+  screen before the scan's proposal arrived. The panel then shows the view
+  `loading` („Načítáme sken…“) — it used to say „Původní rozvržení už vrátit
+  nejde“ / „Sken už není k dispozici“ until the answer came.
 - **DOM hooks**: `[data-cal-scan-card][data-state]`,
   `[data-cal-scan-panel][data-view]`, `[data-cal-action="scan-open|scan-close|
   scan-start|scan-pictures|scan-apply|scan-restore|scan-discard|scan-rescan"]`,
@@ -838,7 +876,11 @@ targets the calendar's own type), designers only.
   paused), the whole flow (the picture the status names, the render it names,
   the server's stage durations), layers, rating, numbered places, drop, gallery,
   rescan, an applied scan opened from its link, the history row's restore
-  and the history of a project with only the Kalendáře module.
+  and the history of a project with only the Kalendáře module; since
+  2026-11-13 also the outlines of the found texts, a 640 × 299 px page (taken) and a 600 × 280 px one (refused), „Zamítnout“ of an access request by an administrator, the
+  step change of „Použít rozvržení“ (editor on screen, nothing of step 2),
+  and two scans applied one after the other and restored in reverse order
+  (card, toast, history pills, the rows' calendar facts).
 
 Deviations from `docs/ai-scan/ux.md` §6:
 
@@ -848,8 +890,7 @@ Deviations from `docs/ai-scan/ux.md` §6:
   item links to the Fonty page (new tab).
 - The header of the summary card says `Návrh rozvržení je připravený.` — there
   is nothing to count as "to decide".
-- The stage names of a calendar scan are the calendar's own (`CAL.stages`);
-  S3's „Tyto řádky jsme našli“ overlay is not drawn (as for templates).
+- The stage names of a calendar scan are the calendar's own (`CAL.stages`).
 - A picture for a place has no fit choice — the layout's own (`logo.fit`,
   the fill's `fit`) applies and is changed in step 3; there is no
   „Vybrat víc z galerie“ (a proposal has at most three places — the gallery
@@ -878,6 +919,9 @@ Deviations from `docs/ai-scan/ux.md` §6:
   item); the Kalendáře item carries none.
 - After „Vrátit původní“ from the scan's history row the page reloads; the
   open-calendar tab of another window is not told.
+- A recognised element that is `approximate` says „přibližně“ once: the
+  visible fact starts with the word, so the icon's hidden label is left out
+  for that state (it read „přibližně přibližně“).
 
 ## Server-side model and headless render
 
@@ -970,7 +1014,10 @@ the calendar module itself carries:
   save in between is neither blocked nor lost. Accept keeps the previous
   layout, layout choice, switches and marker with the scan until the scan's
   `expires_at`; restore writes them back and asks for confirmation when the
-  layout or the switches changed since (`layout_changed`).
+  layout or the switches changed since (`layout_changed`). Scans applied one
+  after the other form a stack — only the one applied last can be restored,
+  and restoring it brings back the earlier scan's layout WITH its marker
+  (`CalendarScanRestoreOrder`, `ai-scan.md` § "Restore").
 - **A candidate is never saved.** The scanner's renders go through
   `renderDocument()`; the calendar gets no revision, history line or asset
   before „Použít rozvržení“. Pictures added in the review are held with the

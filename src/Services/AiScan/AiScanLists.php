@@ -11,6 +11,7 @@ use WBoost\Web\Entity\AiScan;
 use WBoost\Web\Entity\Project;
 use WBoost\Web\Entity\User;
 use WBoost\Web\Query\GetFonts;
+use WBoost\Web\Services\AiScan\Calendar\CalendarScanRestoreOrder;
 use WBoost\Web\Services\AiScan\Template\ScanProposal;
 use WBoost\Web\Value\AiScan\AiScanKind;
 use WBoost\Web\Value\AiScan\AiScanMode;
@@ -51,6 +52,7 @@ final readonly class AiScanLists
         private AiScanDefinition $definition,
         private ScanProposal $proposal,
         private GetFonts $getFonts,
+        private CalendarScanRestoreOrder $restoreOrder,
     ) {
     }
 
@@ -159,7 +161,7 @@ final readonly class AiScanLists
             ],
             'scans' => $this->access->canSeeProjectScans($viewer, $project) ? $this->strip($project, $viewer, $kind, $calendarId) : [],
             'historyCount' => $this->count('project_id = :project', ['project' => $projectId]),
-            'applied' => $calendarId === null ? null : $this->applied($projectId, $calendarId),
+            'applied' => $calendarId === null ? null : $this->restoreOrder->top($calendarId, $projectId),
         ];
     }
 
@@ -249,12 +251,20 @@ final readonly class AiScanLists
         if ($scan->kind === AiScanKind::Calendar && $scan->calendar !== null) {
             $actions[] = 'open_calendar';
 
-            // „Vrátit původní rozvržení“ — while the snapshot lives.
+            // „Vrátit původní rozvržení“ — while the snapshot lives, and only for the
+            // scan applied LAST to its calendar (CalendarScanRestoreOrder).
             if ($scan->status === AiScanStatus::Accepted && is_array($scan->restore) && !isset($scan->restore['restoredAt'])
-                && $scan->expiresAt !== null && $scan->expiresAt > $this->clock->now()) {
+                && $scan->expiresAt !== null && $scan->expiresAt > $this->clock->now() && $this->restoreOrder->isTop($scan)) {
                 $actions[] = 'restore';
             }
         }
+
+        // What tells two calendar scans apart in a list: calendars are often
+        // left with the default name, so the row also says which kind of
+        // calendar and which year it is (ux.md §8).
+        $calendar = $scan->kind === AiScanKind::Calendar && $scan->calendar !== null
+            ? ['type' => $scan->calendar->type->value, 'year' => $scan->calendar->year]
+            : null;
 
         if ($scan->status === AiScanStatus::Failed && $scan->retriesLeft() > 0 && $scan->expiresAt !== null) {
             $actions[] = 'retry';
@@ -287,6 +297,10 @@ final readonly class AiScanLists
             ),
             // The files are gone once `expiresAt` is null on an ended scan.
             'hasPicture' => $scan->status->isInProgress() || $scan->expiresAt !== null,
+            'calendar' => $calendar,
+            // An applied calendar scan whose „Vrátit původní rozvržení“ was used.
+            'layoutRestored' => $scan->kind === AiScanKind::Calendar && $scan->status === AiScanStatus::Accepted
+                && is_array($scan->restore) && isset($scan->restore['restoredAt']),
             'actions' => $actions,
         ];
     }
@@ -327,28 +341,6 @@ final readonly class AiScanLists
         }
 
         return $pill;
-    }
-
-    /**
-     * The calendar's latest applied scan whose snapshot is still there — of a
-     * calendar of THIS project: the caller was checked against the project
-     * only, and the calendar id comes from the query string.
-     *
-     * @return null|array{scanId: string, restoreUntil: string}
-     */
-    private function applied(string $projectId, string $calendarId): null|array
-    {
-        $row = $this->connection->fetchAssociative(
-            "SELECT id, expires_at FROM ai_scan
-              WHERE project_id = :project AND calendar_id = :calendar AND kind = 'calendar' AND status = 'accepted' AND restore IS NOT NULL
-                AND NOT jsonb_exists(restore, 'restoredAt') AND expires_at > :now
-              ORDER BY finished_at DESC, id DESC LIMIT 1",
-            ['project' => $projectId, 'calendar' => $calendarId, 'now' => AiScanTime::sql($this->clock->now())],
-        );
-
-        $until = is_array($row) && is_string($row['expires_at']) ? AiScanTime::fromSql($row['expires_at']) : null;
-
-        return is_array($row) && is_string($row['id']) && $until !== null ? ['scanId' => $row['id'], 'restoreUntil' => $until->format(DATE_ATOM)] : null;
     }
 
     private function openRequest(string $projectId, string $userId): null|string

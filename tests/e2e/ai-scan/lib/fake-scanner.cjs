@@ -173,9 +173,19 @@ function calendarReport(candidate, rendered, overrides = {}) {
     };
 }
 
+/** The lines of text the reading "found" on a calendar page (the month line, two day rows), in pixels of the working copy. */
+function calendarFoundTexts(job) {
+    const width = (job.source && job.source.width) || 1600;
+    const height = (job.source && job.source.height) || 748;
+    const kx = width / 1600;
+    const ky = height / 748;
+    return { width, height, boxes: [[40, 70, 300, 46], [40, 158, 210, 52], [40, 238, 190, 52]].map(([x, y, w, h]) => [Math.round(x * kx), Math.round(y * ky), Math.round(w * kx), Math.round(h * ky)]) };
+}
+
 async function buildCalendar(job, options, log) {
     const run = new Run(job, log);
-    const steps = [{ stage: 'read' }, { stage: 'read', note: 'rows_found', noteParams: { n: 7 } }, { stage: 'analyse', note: 'measuring' }, { stage: 'analyse', note: 'fonts' }, { stage: 'build', note: null }];
+    // as the real calendar adapter does it: the texts the reading found come with their boxes („Tyto texty jsme našli“)
+    const steps = [{ stage: 'read', note: 'texts_found', noteParams: { n: 3 }, textBoxes: calendarFoundTexts(job) }, { stage: 'read', note: 'rows_found', noteParams: { n: 7 } }, { stage: 'analyse', note: 'measuring' }, { stage: 'analyse', note: 'fonts' }, { stage: 'build', note: null }];
     try {
         for (const step of steps.slice(0, Math.max(1, options.beats))) { await run.beat(step); await sleep(options.beatMs); }
         if (options.scenario === 'hang') { log(`${job.id} build → hanging (no more heartbeats)`); return 'hang'; }

@@ -307,7 +307,7 @@ bucket that does not exist is an ordinary 404 and proves nothing.
 `AiScanUpload::inspect()` reads the HEADER only — magic bytes for the type
 (JPEG, PNG, WebP, HEIC, **PDF**; SVG and everything else refused), the byte size
 (≤ 10 000 000), and the pixel size the header declares (each side ≤ 8000,
-≤ 36 Mpx, short side ≥ 600 — **≥ 300 for kind `calendar`**; HEIC and PDF are
+≤ 36 Mpx, short side ≥ 600 — **for kind `calendar` at least 640 × 280, longer × shorter side**; HEIC and PDF are
 accepted on bytes alone). Nothing is decoded in the web process: normalising is
 the scanner's intake.
 
@@ -332,18 +332,33 @@ and captions of `assets/ai-scan/page/upload.js` and
 docblock and refusal text; the skill's `references/tools.md` still lists the
 four picture types — to be corrected with the next skill release.
 
-The calendar minimum (`AiScanLimits::UPLOAD_MIN_SHORT_SIDE_CALENDAR`) has
-three mirrors that must move together: `kinds.calendar.upload.minShortSidePx`
-of `definition.json` (the scanner's intake merges a kind's `upload` over the
-shared one), `MIN_SHORT_SIDE_CALENDAR` in `assets/ai-scan/file-checks.js`
-(`inspectFiles(files, {minShortSide})`), and the sentences that name the
-number (`CAL.uploadSmall`, the MCP tool's docblock and refusal text; the
-skill's `references/tools.md` still names 600 px for every kind — stricter
-than the server, to be corrected with the next skill release, a wording
-change alone is not worth a version). Why 300: `scanner/eval/RESULTS.md` §9.5 —
-real calendar pages are often 977 × 457 px exports, every line is still
-found at a 300 px short side, and what suffers is the exact face and a few
-tenths of a point, which the review says under 600 px instead of refusing.
+The calendar minimum — **640 × 280 px**, longer × shorter side
+(`AiScanLimits::UPLOAD_MIN_LONG_SIDE_CALENDAR`,
+`UPLOAD_MIN_SHORT_SIDE_CALENDAR`; since 2026-11-13) — has mirrors that must
+move together: `kinds.calendar.upload {minShortSidePx, minLongSidePx}` of
+`definition.json` (the scanner's intake merges a kind's `upload` over the
+shared one — the numbers reach the scanner with every claim),
+`MIN_SHORT_SIDE_CALENDAR` / `MIN_LONG_SIDE_CALENDAR` in
+`assets/ai-scan/file-checks.js` (`inspectFiles(files, {minShortSide,
+minLongSide})`), and the sentences that name the size: `CAL.uploadSmall`,
+the MCP tool's docblock and refusal text, the skill's `references/tools.md`,
+`docs/ai-scan/ux.md`.
+`AiScanValuesTest::testEveryMirrorOfTheCalendarMinimumSaysTheSameNumber`
+reads every one of them and fails when one is left behind. Why a calendar
+page may be small at all: `scanner/eval/RESULTS.md` §9.5 — real pages are
+often 977 × 457 px exports, the lines are still found, and what suffers is
+the exact face and a few tenths of a point, which the review says under
+600 px instead of refusing. Why not "short side ≥ 300 px" any more: at the
+calendar's own 310 : 145 a page 640 px wide is 299 px high, and the rule
+refused it by one pixel (production, 2026-11-13). Why a rule on the WIDTH:
+§9.6 — a page 640 px wide reads as the 641 × 300 px page of §9.5, also
+when it is a little flatter (640 × 280), while at 600 × 280 the reading
+already loses a day number; so the width is held at 640 px and the height
+may go down to 280 px. `minLongSidePx` is a key the scanner knows since
+the image that carries this change (`UPLOAD_LIMITS.minLongSidePx`, 0 =
+off): an older image applies the short side only, which matters for a
+HEIC or a PDF alone (the app accepts those on bytes; every other picture
+is refused by `AiScanUpload` before the scanner sees it).
 
 ## Permissions
 
@@ -1352,6 +1367,25 @@ Built 2026-11-13; measurements `scanner/eval/RESULTS.md` §11.
   lands in the second week column.
 - **The scanner** sends every second frame explicitly: one the model does not
   name is the mirror image of its first frame (`scanner/README.md`).
+- **No picture covers a label** (definition 10, 2026-11-13). The first
+  14-day scans on production read „LEDE▮7“: the source had its logo in the
+  top right corner, the model placed `logo` there, and the mirrored `month2`
+  — the second week's month line, flush right — landed under it. The
+  module's default layout is not at fault (its logo sits in the middle of the
+  header, clear of both month frames; a 14-day calendar that was never
+  scanned shows both lines whole) and nothing under `assets/calendar/`
+  changed. Fixed at the source, three ways: the instructions say it
+  (`system.calendar.md`, `system.calendar.fortnight.md`); the adapter cuts a
+  label frame (`month`, `month2`, `wk`, `wk2`) that meets the logo or a
+  switched-on QR code to the part of the frame beside the picture, 1.5 mm
+  clear — the part the text grows away from the picture in, when it is wide
+  enough — and tells the model (`adjusted` in the answer of
+  `calendar_preview`; 14-day candidates only); and every candidate's answer
+  lists the labels that still stand under a picture in the layout as
+  rendered (`overlaps`, both types), which the model corrects in its next
+  candidate — and keep-best chooses among the candidates without such a
+  label when there is one. The first two reach production with the app (the definition
+  travels with each claim); the cut and `overlaps` need the scanner image.
 - **Report.** `type` = `week` | `fortnight` (the calendar's). Notes when the
   page and the calendar disagree: `fortnight_left_half` (a two-week picture
   for a 7-day calendar — the left week was rebuilt) and
@@ -1397,8 +1431,8 @@ off and never touches content.
 `features[{key}]`, `pictures[{slot, picture {url, name, width, height} | null,
 current}]`, `fonts[{group, pattern, face, closeness}]`, `projectFaces`,
 `notExpressible[{code, box}]`, `notes[{code, w?, h?}]`, `approximate`,
-`rating` (null | 1 | -1 — „Jak se sken povedl?“), `applied` (null until accepted: `{restoreUntil, restorable, restored, changed,
-features}`).
+`rating` (null | 1 | -1 — „Jak se sken povedl?“), `applied` (null until accepted: `{restoreUntil, restorable, restored, superseded, changed,
+features}` — `restorable`: this scan is the one its calendar can restore now; `superseded`: a scan applied later goes first).
 
 ### Pictures are held, not uploaded
 
@@ -1452,7 +1486,25 @@ layoutOrigin), scan, applied}`. Refusals: `wrong_state`, `invalid_fix`
 `POST …/restore` (`confirm`). Writes the snapshot's layout, layout choice,
 switches and marker back through `SaveCalendar` (`Vrátil původní rozvržení`)
 — nothing else: content, the name, the year and the pictures that became
-assets stay. A calendar that had no layout goes back to step 2. If
+assets stay.
+
+**Scans applied one after the other are restored in reverse order**
+(`CalendarScanRestoreOrder`, 2026-11-13). Scan A, then scan B: B's snapshot
+is A's layout with A's marker (`layoutOrigin: "scan"`), A's snapshot is what
+the calendar had before any scan. Only the scan applied LAST whose snapshot
+lives and was not used — the top — can be restored; an earlier one is
+`wrong_state` until then (restoring A under B would let B's restore bring a
+scanned layout back over the original). Restoring B writes A's layout, layout
+choice, switches and marker back, B is marked `restoredAt`, and A is the top
+again: its restore is offered as before, without a confirmation as long as
+nothing was edited (the calendar equals A's `appliedHash` again). "Last" is
+the order of the APPLY — `restore.appliedRevision`, the calendar's revision
+right after the accept — not the order the scans were made in: a proposal
+may wait for days. The same rule answers everywhere: `entry.applied`, the
+`restore` action of a list row, `applied.restorable` / `applied.superseded`
+of the proposal document, MCP. Tests:
+`CalendarScanTest::testTwoAppliedScansAreRestoredInTheReverseOrderOfTheirApplying`,
+the e2e script's two-scan check. A calendar that had no layout goes back to step 2. If
 `hash(layout, features)` of the stored calendar ≠ `appliedHash` the caller
 must send `confirm` — otherwise `layout_changed` (409), nothing written.
 Available while the scan's `expires_at` lies ahead (the nightly purge then
@@ -1475,12 +1527,19 @@ scanned layout in step 3 keeps the marker.
 ### Lists, links, MCP
 
 - `GET ai_scan_entry?kind=calendar&calendarId=` — the entry of ONE calendar:
-  its scans only, and `applied {scanId, restoreUntil}` for its latest applied
-  scan whose snapshot is still there. Both are read **within the project of
+  its scans only, and `applied {scanId, restoreUntil}` for the scan applied
+  to it LAST whose snapshot is still there and unused
+  (`CalendarScanRestoreOrder::top()`). Both are read **within the project of
   the URL** (`project_id = … AND calendar_id = …`): the caller is checked
   against the project only and the calendar id is a query parameter, so a
   calendar of another project answers with nothing. Rows carry `calendarId`; calendar rows
-  are named after the calendar and may offer `open_calendar` and `restore`.
+  are named after the calendar and may offer `open_calendar` and `restore`
+  (the top of the calendar's applied scans only). They also carry `calendar
+  {type, year}` (null for a template scan or a calendar that is gone) —
+  calendars often keep the default name, so „Historie skenů“ says
+  `7 dní · 2027` / `14 dní · 2027` and the scanned file's name beside it —
+  and `layoutRestored` (an applied scan whose restore was used: the row's
+  pill is `Vráceno původní rozvržení` instead of `Rozvržení použito`).
 - `GET calendar_card` adds `scan`: `running | queued | ready | failed | null`
   (designers only) — the pill of ux.md C5.
 - E-mails and MCP link to `/calendar/{id}?sken={scanId}` (`AiScanUrls::scan`).

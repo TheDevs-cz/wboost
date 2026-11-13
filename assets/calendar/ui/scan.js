@@ -21,7 +21,7 @@
 // `asset-selected`; the server copies the gallery file's bytes to the scan.
 //
 // DOM hooks (e2e contract): [data-cal-scan-card], [data-cal-scan-panel][data-view="upload|chosen|
-// wait|review|pictures|fail|gone"], [data-cal-action="scan-open|scan-start|scan-apply|scan-restore|
+// wait|review|pictures|fail|gone|loading"], [data-cal-action="scan-open|scan-start|scan-apply|scan-restore|
 // scan-discard|scan-rescan|scan-pictures|scan-close"], file inputs #calScanFile / #calScanPic (always
 // in the panel's markup — never created on the fly).
 //
@@ -29,7 +29,7 @@
 
 import { api, announce, urlFor } from '../../ai-scan/kit.js';
 import { CAL, startHint } from '../../ai-scan/copy.js';
-import { MIN_SHORT_SIDE_CALENDAR, inspectFiles } from '../../ai-scan/file-checks.js';
+import { MIN_LONG_SIDE_CALENDAR, MIN_SHORT_SIDE_CALENDAR, inspectFiles } from '../../ai-scan/file-checks.js';
 import { morph } from '../../ai-scan/page/app.js';
 import { observe, needsRender } from '../../ai-scan/page/wait.js';
 import * as views from './scan/views.js';
@@ -83,6 +83,8 @@ class CalendarScan {
         this.layers = false; // „Ukázat vrstvy“
         this.feedback = null; // null | 'down' (the note field is open) | 'sent'
         this.busy = null;
+        this.loaded = null; // the id of the finished scan whose proposal was read (or could not be)
+        this.rating = null; // the request of the last thumb
         this.actionRefusal = null;
         this.timer = null;
         this.ticker = window.setInterval(() => this.tick(), 1000);
@@ -245,6 +247,8 @@ class CalendarScan {
         const scan = this.scan;
         if (!scan) return this.picked ? 'chosen' : 'upload';
         if (IN_PROGRESS.includes(scan.status)) return 'wait';
+        // the proposal of a finished scan was not read yet: nothing is said about it before it is here
+        if (['ready', 'accepted'].includes(scan.status) && this.loaded !== scan.id) return 'loading';
         if (scan.status === 'ready' && this.proposal && this.proposal.layout) return this.step === 'pictures' && this.proposal.pictures.length ? 'pictures' : 'review';
         if (ENDED_BADLY.includes(scan.status)) return 'fail';
         return 'gone';
@@ -352,7 +356,10 @@ class CalendarScan {
             return;
         }
         if (scan && ['ready', 'accepted'].includes(scan.status)) {
-            await this.loadProposal();
+            // step 2 may be drawn before this is read (a link `?sken=…` mounts it first): the panel then
+            // says "loading", never „Sken už není k dispozici“ / „Původní rozvržení už vrátit nejde“ for a
+            // moment. (No redraw here: a panel on the waiting screen keeps it until the review is ready.)
+            try { await this.loadProposal(); } finally { this.loaded = scan.id; }
             if (scan.status === 'ready' && this.proposal) {
                 this.ticked = new Set((this.proposal.features || []).map((f) => f.key));
                 if (!this.proposal.pictures.length) this.step = 'review';
@@ -476,8 +483,8 @@ class CalendarScan {
     // ---- S1 / S2 ----------------------------------------------------------------------------
 
     async take(files) {
-        // a calendar page may be smaller than a design; under 600 px the checks say so
-        const result = await inspectFiles(files, { minShortSide: MIN_SHORT_SIDE_CALENDAR, goodShortSide: views.LOW_RESOLUTION_SHORT_SIDE });
+        // a calendar page may be smaller than a design (640 × 280 px); under 600 px the checks say so
+        const result = await inspectFiles(files, { minShortSide: MIN_SHORT_SIDE_CALENDAR, minLongSide: MIN_LONG_SIDE_CALENDAR, goodShortSide: views.LOW_RESOLUTION_SHORT_SIDE });
         if (!result || this.scan) return;
         if (this.picked && this.picked.previewUrl) URL.revokeObjectURL(this.picked.previewUrl);
         if (result.error) {
@@ -579,7 +586,10 @@ class CalendarScan {
             const input = this.root ? this.root.querySelector('[data-k="fbt"]') : null;
             if (input) input.focus();
         }
-        const answer = await api.post(urlFor(this.urls.rating, this.scan.id), { rating });
+        // the note of 👎 is sent by a second request: it waits for this one (`sendFeedback`), or a slow
+        // answer here would arrive last and store the rating without the note
+        this.rating = api.post(urlFor(this.urls.rating, this.scan.id), { rating });
+        const answer = await this.rating;
         if (!answer.ok || !this.proposal) return;
         this.proposal.rating = rating;
         if (rating === 1) { this.feedback = 'sent'; this.ctx.toast('Díky za hodnocení'); }
@@ -589,6 +599,7 @@ class CalendarScan {
     async sendFeedback() {
         const input = this.root ? this.root.querySelector('[data-k="fbt"]') : null;
         const note = input ? input.value.trim() : '';
+        if (this.rating) await this.rating;
         await api.post(urlFor(this.urls.rating, this.scan.id), note ? { rating: -1, note } : { rating: -1 });
         if (this.proposal) this.proposal.rating = -1;
         this.feedback = 'sent';
@@ -825,7 +836,12 @@ class CalendarScan {
         if (this.scan && this.scan.id === scanId) { this.open = false; this.another(); }
         this.store.load(answer.document);
         this.changed();
-        this.ctx.toast('Původní rozvržení vráceno');
+        // What came back may itself be a scanned layout (scan A, then scan B, B restored → A's layout
+        // with its marker): the server then names A as the applied scan and its restore is offered again.
+        const previousScan = answer.document.layoutOrigin === 'scan';
+        this.ctx.toast(previousScan ? 'Vráceno rozvržení z předchozího skenu' : 'Původní rozvržení vráceno');
+        await this.refreshEntry();
+        this.changed();
     }
 }
 

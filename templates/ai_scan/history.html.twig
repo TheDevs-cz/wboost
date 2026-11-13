@@ -121,7 +121,12 @@
                                 ? (row.calendarId ? path('calendar_workspace', {'calendarId': row.calendarId, 'sken': row.id}) : null)
                                 : path('ai_scan_page', {'projectId': project.id, 'scanId': row.id}) %}
                             {% set gone = gone or url is null %}
-                            {% set pill = is_calendar and row.status == 'accepted' ? ['mint', 'Rozvržení použito'] : (pills[row.status] ?? pills.expired) %}
+                            {# An applied calendar scan: its layout is in the calendar — or was put back („Vrátit původní rozvržení“). #}
+                            {% set pill = is_calendar and row.status == 'accepted'
+                                ? (row.layoutRestored ? ['neutral', 'Vráceno původní rozvržení'] : ['mint', 'Rozvržení použito'])
+                                : (pills[row.status] ?? pills.expired) %}
+                            {# Calendars often keep the default name: the row also says which calendar it is (7 / 14 days, year) and which file was scanned. #}
+                            {% set calendar_facts = is_calendar and row.calendar ? ((row.calendar.type == 'fortnight' ? '14 dní' : '7 dní') ~ ' · ' ~ row.calendar.year) : null %}
                             <li class="as-hrow" data-scan="{{ row.id }}" data-status="{{ row.status }}">
                                 <span class="as-scan-th as-hrow-th">
                                     {# `row.picture` = the copy of the upload that exists; nothing else is asked for. #}
@@ -136,7 +141,7 @@
                                     {% else %}
                                         <a href="{{ url }}" class="u-nm" title="{{ name }}">{{ name }}</a>
                                     {% endif %}
-                                    <span class="cap">{{ row.kind == 'calendar' ? 'Kalendáře' : 'Šablony' }}{% if row.requestedBy %} · {{ row.requestedBy }}{% endif %} · {{ row.when }}</span>
+                                    <span class="cap">{{ row.kind == 'calendar' ? 'Kalendáře' : 'Šablony' }}{% if calendar_facts %} · <span data-calendar-facts>{{ calendar_facts }}</span>{% endif %}{% if is_calendar and row.fileName and row.fileName != name %} · <span class="as-hrow-file" title="{{ row.fileName }}">{{ row.fileName }}</span>{% endif %}{% if row.requestedBy %} · {{ row.requestedBy }}{% endif %} · {{ row.when }}</span>
                                 </span>
                                 <span class="st">
                                     <span class="pill {{ pill[0] }}">{{ pill[1] }}</span>

@@ -110,7 +110,7 @@ called a pokus.
 
 | Quantity | Value |
 |---|---|
-| Upload | JPG, PNG, WebP, HEIC; ≤ 10 MB (10 000 000 bytes); each side ≤ 8000 px; ≤ 36 megapixels; shorter side ≥ 600 px (a calendar page: ≥ 300 px — real pages are often 977 × 457 px exports; measured in `scanner/eval/RESULTS.md` §9.5). Pictures only in the first build; PDF comes later, as "first page only" |
+| Upload | JPG, PNG, WebP, HEIC; ≤ 10 MB (10 000 000 bytes); each side ≤ 8000 px; ≤ 36 megapixels; shorter side ≥ 600 px (a calendar page: at least 640 × 280 px, longer × shorter side — real pages are often 977 × 457 px exports and a page 640 px wide is 299 px high; measured in `scanner/eval/RESULTS.md` §9.5 and §9.6). Pictures only in the first build; PDF comes later, as "first page only" |
 | Template size made from a scan | longer side ≤ 5000 px (A3 at 300 dpi) |
 | Usual duration | 1–3 min; pre-check 5–15 s |
 | Limit of one run | 6 min; the scanner may restart a run once by itself → up to ≈ 12 min of work plus waiting |
@@ -240,7 +240,7 @@ scanner in the checking step, which then stops the scan with F3e if it is out of
 | PSD / AI / IDML / SVG | `Zdrojové soubory (PSD, AI, InDesign, SVG) zatím neumíme. Uložte stránku jako obrázek (PNG nebo JPG) nebo jako PDF a nahrajte ji.` |
 | More than one | `Nahrajte jen jeden obrázek.` |
 | > 10 MB | `Obrázek je větší než 10 MB. Zmenšete ho nebo ho uložte jako JPG.` |
-| Short side < 600 px (Kalendáře: < 300 px) | `Obrázek je příliš malý ({w} × {h} px). Kratší strana musí mít aspoň 600 px, lépe 1000 px a víc.` (Kalendáře: `…aspoň 300 px, lépe 600 px a víc.`) |
+| Short side < 600 px (Kalendáře: under 640 × 280 px) | `Obrázek je příliš malý ({w} × {h} px). Kratší strana musí mít aspoň 600 px, lépe 1000 px a víc.` (Kalendáře: `Obrázek je příliš malý ({w} × {h} px). Stránka kalendáře musí mít aspoň 640 × 280 px, lépe 1280 × 600 px a víc.`) |
 | Side > 8000 px or > 36 Mpx | `Obrázek je příliš velký ({w} × {h} px). Zmenšete ho — nejvýše 8000 px na stranu a 36 megapixelů.` |
 | Network | `Nahrání se nepodařilo. Zkontrolujte připojení a zkuste to znovu.` + `Zkusit znovu` (the same request id, so a repeat never makes a second scan) |
 
@@ -264,7 +264,7 @@ Browser-side facts (nothing has left the browser):
 | Check | OK | Warning (peach, never blocks) |
 |---|---|---|
 | Type / size | `Formát a velikost jsou v pořádku` | — |
-| Resolution | `Dostatečné rozlišení` | `Malý obrázek — drobné texty nemusíme přečíst` (600–999 px; Kalendáře, 300–599 px: `Malý obrázek — rozvržení může vyjít méně přesně`, and the review's `Pro informaci` then says `Obrázek má nízké rozlišení — polohy a velikosti písma mohou být méně přesné. Zkontrolujte je v kroku Úpravy prvků.`) |
+| Resolution | `Dostatečné rozlišení` | `Malý obrázek — drobné texty nemusíme přečíst` (600–999 px; Kalendáře, a short side of 280–599 px: `Malý obrázek — rozvržení může vyjít méně přesně`, and the review's `Pro informaci` then says `Obrázek má nízké rozlišení — polohy a velikosti písma mohou být méně přesné. Zkontrolujte je v kroku Úpravy prvků.`) |
 | Sharpness | `Obrázek je ostrý` | `Obrázek je rozmazaný — výsledek bude jen přibližný` |
 | Ratio (Kalendáře) | `Poměr stran odpovídá vašemu kalendáři` | `Stránka má jiný poměr stran než váš kalendář ({š} × {v} mm) — rozvržení přizpůsobíme` |
 | HEIC | no preview, no pixel checks in browsers that cannot decode it: file name, size, `Náhled uvidíte po nahrání` | `Fotka z telefonu (HEIC). Pokud jde o fotku tisku, výsledek bude jen přibližný.` |
@@ -941,17 +941,22 @@ v tomto projektu. Obrázky a nepřijaté návrhy uchováváme 30 dní.`, primary
 
 ```
 │ [▣] Výsledek zápasu U19      Šablony    ● Připraveno ke kontrole · vyprší 12. 12.  Jana N. · dnes 11:42  ⋯ │
-│ [▣] Stolní kalendář 2027     Kalendáře  ✔ Rozvržení použito                        Petr K. · včera       ⋯ │
+│ [▣] Stolní kalendář 2027     Kalendáře · 14 dní · 2027 · strana.png  ✔ Rozvržení použito   Petr K. · včera  ⋯ │
 │ [▣] letak-podzim.png         Šablony    ✖ Nepodařilo se · 2. pokus                 Jana N. · 10. 11.     ⋯ │
 ```
 
 Phone: thumbnail + name + pill, then module · who · when. Pills: §2.1.
 
+A calendar row also says WHICH calendar it is — calendars are often left with the default name:
+`Kalendáře · 7 dní · 2027 · {scanned file}` (14 dní for a two-week calendar). An applied calendar
+scan whose layout was put back shows the neutral pill `Vráceno původní rozvržení` instead of
+`Rozvržení použito`.
+
 | Row menu | When |
 |---|---|
 | `Otevřít návrh` | `ready`; also `accepted` while the proposal still exists (read-only) |
 | `Otevřít šablonu` / `Otevřít kalendář` | `accepted` |
-| `Vrátit původní rozvržení` | calendar, `accepted`, until the date |
+| `Vrátit původní rozvržení` | calendar, `accepted`, until the date — on the row of the scan applied LAST to its calendar only (scans applied one after the other are put back in reverse order: restoring the later one returns the earlier scan's layout, and the offer moves to that row) |
 | `Zkusit znovu` | `failed`, while retries and the picture remain |
 | `Zahodit` (`.mi.danger`) | `ready`, `failed`, `stopped`, `refused`, `cancelled` |
 

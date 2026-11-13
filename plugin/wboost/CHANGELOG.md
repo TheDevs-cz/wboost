@@ -5,6 +5,19 @@ every deploy. When the server is newer than your skill, Claude tells you once
 per session how to update (see the README). Versions follow `x.y.z`: a new or
 changed tool or parameter is at least a minor bump.
 
+## 0.5.3 — 2026-11-13
+
+**AI scan of a calendar page — smaller pictures, restore order** (`scan_design`;
+no new tool or parameter).
+- A calendar page must be at least **640 × 280 px** (longer × shorter side;
+  the rule was "shorter side ≥ 300 px" and refused a 640 × 299 px page by one
+  pixel). Templates stay at 600 px on the shorter side.
+- Several scans applied to one calendar are restored in reverse order: only
+  the scan applied last can be restored — `result` says so in
+  `applied.restorable` / `applied.superseded`, an earlier scan answers
+  `wrong_state`. Restoring the last one brings back the earlier scan's layout,
+  and that scan's own `restore` works again.
+
 ## 0.5.2 — 2026-11-13
 
 **AI scan — 14-day calendars** (`scan_design`; no new tool or parameter).

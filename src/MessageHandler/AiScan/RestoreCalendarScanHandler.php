@@ -18,6 +18,7 @@ use WBoost\Web\Repository\AiScanRepository;
 use WBoost\Web\Repository\CalendarRepository;
 use WBoost\Web\Services\AiScan\AiScanTransitions;
 use WBoost\Web\Services\AiScan\Calendar\CalendarScanProposal;
+use WBoost\Web\Services\AiScan\Calendar\CalendarScanRestoreOrder;
 use WBoost\Web\Services\Calendar\DescribeCalendarChange;
 use WBoost\Web\Value\AiScan\AiScanKind;
 use WBoost\Web\Value\AiScan\AiScanRefusal;
@@ -34,6 +35,12 @@ use WBoost\Web\Value\Calendar\CalendarActor;
  *
  * The snapshot lives until the scan's `expires_at` (the date the review
  * showed); after that there is nothing to restore (`wrong_state`).
+ *
+ * Two scans applied one after the other: the later one is restored first
+ * ({@see CalendarScanRestoreOrder}; the earlier one is `wrong_state` until
+ * then). Restoring the later one brings the earlier scan's layout AND its
+ * marker back — the snapshot holds `layoutOrigin = scan` — and the earlier
+ * scan's own restore is available again.
  */
 #[AsMessageHandler]
 readonly final class RestoreCalendarScanHandler
@@ -45,6 +52,7 @@ readonly final class RestoreCalendarScanHandler
         private CalendarRepository $calendars,
         private AiScanTransitions $transitions,
         private ClockInterface $clock,
+        private CalendarScanRestoreOrder $order,
     ) {
     }
 
@@ -79,6 +87,13 @@ readonly final class RestoreCalendarScanHandler
         if (isset($restore['restoredAt'])) {
             // A repeat: the first call did it.
             return ['calendarId' => $calendar->id->toString(), 'revision' => $calendar->revision, 'restored' => false];
+        }
+
+        // Applied scans of one calendar are restored in the reverse order of
+        // their applying: a scan applied over this one goes first (its
+        // snapshot IS this scan's layout). Read under the calendar's row lock.
+        if (!$this->order->isTop($scan)) {
+            throw new AiScanRefused(AiScanRefusal::WrongState);
         }
 
         $changed = CalendarScanProposal::hash($calendar->layout, $calendar->features) !== ($restore['appliedHash'] ?? null);

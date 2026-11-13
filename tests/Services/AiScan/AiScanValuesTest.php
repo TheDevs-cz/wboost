@@ -125,6 +125,50 @@ final class AiScanValuesTest extends TestCase
         }
     }
 
+    /**
+     * The smallest calendar page a scan takes is one number written in many
+     * places (docs/architecture/ai-scan.md § "Upload"): they move together.
+     */
+    public function testEveryMirrorOfTheCalendarMinimumSaysTheSameNumber(): void
+    {
+        $root = dirname(__DIR__, 3);
+        $short = AiScanLimits::UPLOAD_MIN_SHORT_SIDE_CALENDAR;
+        $long = AiScanLimits::UPLOAD_MIN_LONG_SIDE_CALENDAR;
+        $size = sprintf('%d × %d px', $long, $short);
+        $read = static fn (string $path): string => (string) file_get_contents($root . '/' . $path);
+
+        // A page 640 px wide is 299 px high at the calendar's own 310 : 145 — the rule must take it.
+        self::assertLessThanOrEqual(640, $long);
+        self::assertLessThanOrEqual((int) floor(640 * 145 / 310), $short);
+
+        $definition = json_decode($read('resources/ai-scan/definition/definition.json'), true, flags: JSON_THROW_ON_ERROR);
+        self::assertIsArray($definition);
+        $kinds = $definition['kinds'] ?? null;
+        self::assertIsArray($kinds);
+        $calendar = $kinds['calendar'] ?? null;
+        self::assertIsArray($calendar);
+        self::assertSame(['minShortSidePx' => $short, 'minLongSidePx' => $long], $calendar['upload'] ?? null, 'kinds.calendar.upload of the definition (the scanner\'s intake)');
+        $upload = $definition['upload'] ?? null;
+        self::assertIsArray($upload);
+        self::assertSame(AiScanLimits::UPLOAD_MIN_SHORT_SIDE, $upload['minShortSidePx'] ?? null);
+        self::assertArrayNotHasKey('minLongSidePx', $upload, 'a template has no minimum of its longer side');
+
+        $browser = $read('assets/ai-scan/file-checks.js');
+        self::assertStringContainsString(sprintf('export const MIN_SHORT_SIDE_CALENDAR = %d;', $short), $browser, 'the browser check');
+        self::assertStringContainsString(sprintf('export const MIN_LONG_SIDE_CALENDAR = %d;', $long), $browser, 'the browser check');
+        self::assertStringContainsString(sprintf('Stránka kalendáře musí mít aspoň %s, lépe 1280 × 600 px a víc.', $size), $read('assets/ai-scan/copy.js'), 'CAL.uploadSmall');
+
+        $tool = $read('src/Mcp/Tool/ScanDesignTool.php');
+        self::assertStringContainsString(sprintf('a calendar page: at least %s)', $size), $tool, 'the MCP docblock');
+        self::assertStringContainsString(sprintf('(a calendar page: at least %s).', $size), $tool, 'the MCP refusal text');
+
+        $skill = $read('plugin/wboost/skills/wboost/references/tools.md');
+        self::assertStringContainsString(sprintf('a calendar page: at least %s', $size), $skill, 'the skill, scan_design');
+        self::assertStringContainsString(sprintf('least **%s**', $size), $skill, 'the skill, calendar scans');
+
+        self::assertStringContainsString(sprintf('a calendar page: at least %s', $size), $read('docs/ai-scan/ux.md'));
+    }
+
     public function testTheAppAcceptsProtocolNAndNMinusOne(): void
     {
         $directory = sys_get_temp_dir() . '/ai-scan-definition-' . bin2hex(random_bytes(4));

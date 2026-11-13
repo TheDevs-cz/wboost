@@ -70,7 +70,7 @@ with a message saying exactly that.
 
 ## `get_context(skillVersion?)`
 
-`skillVersion`: the version your wboost skill states (`"0.5.2"`); omit it when
+`skillVersion`: the version your wboost skill states (`"0.5.3"`); omit it when
 you have no wboost skill. Changes nothing. Returns:
 
 ```jsonc
@@ -94,7 +94,7 @@ you have no wboost skill. Changes nothing. Returns:
     }]
   }],
   "skill": {                                        // the version check — see SKILL.md
-    "latestVersion": "0.5.2", "installedVersion",   // null when no skillVersion was sent
+    "latestVersion": "0.5.3", "installedVersion",   // null when no skillVersion was sent
     "status",                                       // "current" | "outdated" | "unknown"
     "message", "whatsNew",                          // null when current; tell the user once
     "updateClaudeCode", "updateClaudeAi"            // the update routes; null when current
@@ -593,7 +593,7 @@ here deletes.
 Scope `ai:scan` (implies nothing; a paid feature WBoost switches on per
 project). A flat picture of a finished design (JPG, PNG, WebP, HEIC, or a PDF —
 its first page is scanned; ≤ 10 MB, sides ≤ 8000 px, ≤ 36 Mpx, shorter side
-≥ 600 px for a template, ≥ 300 px for a calendar page) becomes a **proposal**:
+≥ 600 px for a template; a calendar page: at least 640 × 280 px) becomes a **proposal**:
 texts, shapes, colours and **places for pictures** (pictures are never taken
 out of the image). Nothing exists among the templates until `apply`. A scan
 runs in the background, usually 1–3 minutes (up to about 12).
@@ -654,8 +654,9 @@ without fonts is fine: the built-in face is used). It never reads the page's
 texts, days or photos — the calendar generates those itself — and never takes
 a picture out of the image.
 
-The picture of a calendar page may be small: its shorter side must be at
-least **300 px** (a template scan needs 600 px). Under about 600 px the layout
+The picture of a calendar page may be small: it must be at
+least **640 × 280 px** — longer × shorter side (a template scan needs 600 px
+on the shorter side). Under about 600 px the layout
 may come out less precise — say so when the user has a larger original.
 
 `result` of a calendar scan:
@@ -674,7 +675,7 @@ may come out less precise — say so when the user has a larger original.
   "fonts": [ { "group": "num", "pattern": "measured_match|nearest_available|undetermined", "face" } ],
   "notExpressible": [ { "code": "ornament|header_text|second_photo|more_logos|days_in_grid|rotated_text|month_colours|multilingual_names", "box" } ],
   "notes": [ { "code": "fortnight_left_half|ratio_adapted|colours_estimated|page_box_set" } ],
-  "applied": null               // after apply: { restoreUntil, restorable, restored, changed, features }
+  "applied": null               // after apply: { restoreUntil, restorable, restored, superseded, changed, features }
 }
 ```
 
@@ -689,7 +690,11 @@ Rules:
   before `apply` — until `restoreUntil` (the scan's `expiresAt`, not 30 days
   from applying). If the layout or switches were edited after `apply` it
   refuses with `layout_changed`: those edits would be lost — ask the user,
-  then repeat with `confirm: true`.
+  then repeat with `confirm: true`. Several scans applied to one calendar are
+  restored in reverse order: only the one applied LAST can be restored
+  (`applied.restorable`; an earlier one has `applied.superseded: true` and
+  answers `wrong_state`). Restoring the last one brings the earlier scan's
+  layout back, and that scan's own `restore` works again.
 - Pictures: for each `pictures[]` slot without `current`, upload the file with
   `upload_calendar_asset` (`logo` → kind `logo`; `header` / `background` →
   kind `image`) after `apply` and set it with `set_calendar_layout`

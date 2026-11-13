@@ -14,7 +14,7 @@ const PICTURE_ACCEPT = 'image/jpeg,image/png,image/webp,image/svg+xml';
 const PREM = `<span class="tp-prem">${ic('sparkle', 's14')}Premium</span>`;
 const IN_PROGRESS = ['checking', 'queued', 'running'];
 const LONG_AFTER_SECONDS = 180;
-/** Under this short side (px) the review says the result may be less precise (file-checks: calendars are taken from 300 px). */
+/** Under this short side (px) the review says the result may be less precise (file-checks: a calendar page is taken from 640 × 280 px). */
 export const LOW_RESOLUTION_SHORT_SIDE = 600;
 const STAGES = CAL.stages;
 const stageIndex = (id) => STAGES.findIndex((s) => s.id === id);
@@ -67,7 +67,7 @@ export function card(scan) {
 
 export function panel(scan) {
     const view = scan.view();
-    const body = { upload: uploadView, chosen: chosenView, wait: waitView, fail: failView, gone: goneView, review: reviewView, pictures: picturesView }[view](scan);
+    const body = { upload: uploadView, chosen: chosenView, wait: waitView, fail: failView, gone: goneView, review: reviewView, pictures: picturesView, loading: loadingView }[view](scan);
     const title = view === 'review' ? 'Naskenovat design — kontrola' : view === 'pictures' ? 'Naskenovat design — fotky a loga' : 'Naskenovat design';
     const history = scan.entry && scan.entry.historyCount > 0 ? `<a href="${esc(scan.urls.history)}" class="btn xs btn-ghost as-hist" aria-label="Historie skenů">${ic('history', 's14')}<span>Historie skenů</span></a>` : '';
     return `<section class="as-cpanel" data-region="panel" data-deep data-cal-scan-panel data-view="${view}" aria-labelledby="calScanPT">
@@ -257,10 +257,22 @@ function picture(scan, alt) {
     return which ? `<img src="${esc(scan.image(which))}" alt="${esc(alt)}">` : '';
 }
 
+/**
+ * „Tyto texty jsme našli“ (ux.md S3) — the lines the reading found, outlined on the uploaded page:
+ * `textBoxes` of the status document (`{ width, height, boxes: [[x, y, w, h]] }`, pixels of the
+ * working copy), drawn as the template wizard draws them (`boxStyle`, `.as-found`).
+ */
+export function foundTexts(row) {
+    const found = row.textBoxes;
+    if (!found || !Array.isArray(found.boxes) || !found.boxes.length || !(found.width > 0) || !(found.height > 0)) return '';
+    return found.boxes.map((box) => `<span class="as-found" style="${boxStyle(box, found)}"></span>`).join('');
+}
+
 function waitView(scan) {
     const row = scan.scan;
     const running = row.status === 'running';
     const original = picture(scan, 'Původní obrázek');
+    const found = running && row.picture === 'working' ? foundTexts(row) : '';
     // The latest render of the running run (`previewCandidate`; `previewSeq` only says "changed").
     // After an automatic restart the renders of the run that broke are gone from the server: the
     // last one this panel showed stays (the address is unchanged — the browser's cache answers).
@@ -274,6 +286,12 @@ function waitView(scan) {
     if (seq > 0) {
         preview = `<div class="as-frame${running ? ' busy' : ''}"><img class="fade-in" src="${esc(scan.lastPreview.url)}" alt="Průběžný náhled rozvržení" onerror="this.onerror=null;this.closest('.as-frame').classList.add('none')"><span class="as-noimg">${ic('image', '')}Náhled se právě obnovuje</span></div>`;
         caption = !running ? 'Poslední náhled před přerušením' : row.round >= 1 ? `Náhled po ${row.round}. kole porovnání` : 'První náhled — ještě ho doladíme';
+    } else if (found) {
+        // the first real evidence, a few seconds in: the page with the found lines outlined
+        const n = row.textBoxes.boxes.length;
+        preview = `<div class="as-frame busy as-found-frame" data-cal-scan-found="${n}"><img class="fade-in" src="${esc(scan.image('working'))}" alt="Vaše stránka s vyznačenými texty, které jsme našli">${found}</div>`;
+        caption = `Tyto texty jsme našli (${n})`;
+        key = `found-${n}`;
     } else {
         preview = original ? `<div class="as-frame${running ? ' pending' : ''} dim">${picture(scan, '')}</div>` : '';
         caption = running ? 'První náhled uvidíte za pár vteřin.' : 'Náhled se začne tvořit, až sken přijde na řadu.';
@@ -329,6 +347,12 @@ ${f.anyway && row.canContinue && scan.entry ? `<p class="cap" style="margin:0">$
     return `<div class="as-cgrid side-first" data-region="fail" data-deep><div class="as-main" data-region="pic-${row.picture || 'none'}"><figure class="as-pic as-cpic-one"><figcaption><span class="lbl">Váš obrázek</span></figcaption><div class="as-frame${row.picture ? '' : ' none'}">${picture(scan, 'Původní obrázek')}<span class="as-noimg">${ic('image', '')}${row.hasPicture === false ? 'Obrázek už nemáme uložený' : 'Náhled tohoto obrázku prohlížeč neumí zobrazit'}</span></div></figure></div><div data-region="result">${cardHtml}</div></div>`;
 }
 
+// ---- a finished scan whose proposal is being read (a link `?sken=…` opens step 2 before it arrives) ----
+
+function loadingView() {
+    return `<section class="as-card as-status" data-region="loading" aria-busy="true" style="max-width:560px"><div class="as-status-t"><span class="as-spin"></span><h3 class="as-status-h">Načítáme sken…</h3></div></section>`;
+}
+
 // ---- a scan that is finished with ---------------------------------------------------------------
 
 function goneView(scan) {
@@ -339,11 +363,12 @@ function goneView(scan) {
         discarded: ['Sken byl zahozen', 'Návrh i obrázek jsme smazali.'],
         expired: ['Sken vypršel', 'Po 30 dnech jsme obrázek i nepřijatý návrh smazali.'],
         accepted: applied && applied.restored ? ['Původní rozvržení je zpět', 'Rozvržení z tohoto skenu jste vrátili. Texty, fotky a obsah stránek zůstaly.']
-            : ['Rozvržení z tohoto skenu je použité', applied && applied.restorable ? `Původní rozvržení můžete vrátit do ${dateCz(applied.restoreUntil)}. Texty, fotky a obsah stránek zůstanou.` : 'Původní rozvržení už vrátit nejde.'],
+            : applied && applied.superseded ? ['Rozvržení z tohoto skenu jste použili', 'Potom jste použili rozvržení z novějšího skenu. Až ho vrátíte, půjde vrátit i tohle.']
+                : ['Rozvržení z tohoto skenu je použité', applied && applied.restorable ? `Původní rozvržení můžete vrátit do ${dateCz(applied.restoreUntil)}. Texty, fotky a obsah stránek zůstanou.` : 'Původní rozvržení už vrátit nejde.'],
     }[row.status] || ['Sken už není k dispozici', ''];
     const restore = applied && applied.restorable ? `<button type="button" class="btn sm btn-tertiary" data-act="restore" data-scan="${esc(row.id)}" data-cal-action="scan-restore" data-k="restore"${scan.restoring ? ' disabled' : ''}>${ic('undo')}Vrátit původní rozvržení</button>` : '';
     const upload = scan.entry && scan.entry.canStart ? `<button type="button" class="btn sm ${row.status === 'accepted' ? 'btn-tertiary' : 'btn-primary'}" data-act="other" data-k="other">${ic('upload')}Nahrát obrázek</button>` : '';
-    return `<section class="as-card as-status" data-region="gone" style="max-width:560px"><div class="as-status-t"><span class="as-result-ico neutral">${ic(row.status === 'accepted' ? 'check' : 'info', '')}</span>${row.status === 'accepted' ? '<span class="pill mint">Rozvržení použito</span>' : pill(row.status)}</div><h3 class="as-status-h">${copy[0]}</h3><p class="as-status-p">${esc(copy[1])}</p><div class="as-row">${restore}${upload}</div></section>`;
+    return `<section class="as-card as-status" data-region="gone" style="max-width:560px"><div class="as-status-t"><span class="as-result-ico neutral">${ic(row.status === 'accepted' ? 'check' : 'info', '')}</span>${row.status === 'accepted' ? (applied && applied.restored ? '<span class="pill neutral">Vráceno původní rozvržení</span>' : '<span class="pill mint">Rozvržení použito</span>') : pill(row.status)}</div><h3 class="as-status-h">${copy[0]}</h3><p class="as-status-p">${esc(copy[1])}</p><div class="as-row">${restore}${upload}</div></section>`;
 }
 
 // ---- C4 — review ----------------------------------------------------------------------------------
@@ -470,7 +495,9 @@ function recognised(scan) {
     const rows = p.recognised.map((item) => {
         const [cls, icon, sr] = CAL.states[item.state] || CAL.states.found;
         const fact = item.state === 'absent' ? (item.kept ? CAL.kept : CAL.absent) : `${item.state === 'approximate' ? 'přibližně' : ''}${item.state === 'approximate' && elementFact(item.element, p.layout, page) ? ' — ' : ''}${elementFact(item.element, p.layout, page)}`;
-        return `<li class="${cls}"${LAYER_TAGS[item.element] ? ` data-hl="${esc(item.element)}"` : ''}>${ic(icon)}<b>${CAL.elements[item.element] || esc(item.element)}<span class="sr"> — ${sr}</span></b><span class="f">${esc(fact)}</span></li>`;
+        // „přibližně“ is already the first word of the fact beside the name: the icon's hidden label would say it twice
+        const state = item.state === 'approximate' ? '' : `<span class="sr"> — ${sr}</span>`;
+        return `<li class="${cls}"${LAYER_TAGS[item.element] ? ` data-hl="${esc(item.element)}"` : ''}>${ic(icon)}<b>${CAL.elements[item.element] || esc(item.element)}${state}</b><span class="f">${esc(fact)}</span></li>`;
     }).join('');
     return rows ? `<div class="as-card" data-region="rec"><h3>Co jsme rozpoznali</h3><ul class="as-rec">${rows}</ul><p class="cap" style="margin:0">Co jsme nenašli, zůstane v kalendáři nastavené jako dosud. Sken nic nevypíná.</p></div>` : '';
 }

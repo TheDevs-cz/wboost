@@ -178,7 +178,7 @@ readonly final class ScanDesignTool
      * by the AI today), no_fonts (the project has no font; upload one with
      * upload_font), unsupported_image (not a JPG/PNG/WebP/HEIC/PDF, over 10 MB,
      * a side over 8000 px, over 36 megapixels, or the shorter side under
-     * 600 px — 300 px for kind "calendar"), source_unscannable (this picture already failed twice),
+     * 600 px — a calendar page: at least 640 × 280 px), source_unscannable (this picture already failed twice),
      * wrong_state (kind "calendar" without a calendarId of a calendar of the
      * project).
      *
@@ -267,7 +267,11 @@ readonly final class ScanDesignTool
      * the switches were changed after "apply" it is refused with
      * layout_changed (those edits would be lost): ask the user, then repeat
      * with confirm: true. Returns calendarId, revision, restored (false = it
-     * had been restored already).
+     * had been restored already). When several scans were applied to one
+     * calendar they are restored in reverse order: only the scan applied
+     * last can be restored (an earlier one answers wrong_state until then) —
+     * restoring it brings back the earlier scan's layout, whose own restore
+     * then works again ("result" → applied.restorable / applied.superseded).
      *
      * Any action called in a state that does not allow it answers wrong_state.
      *
@@ -907,7 +911,7 @@ readonly final class ScanDesignTool
             AiScanRefusal::TemporarilyUnavailable => 'AI scan is temporarily unavailable (paused, or the scanner is away); try later.',
             AiScanRefusal::ProjectPaused => 'the AI refused three pictures of this project today; scans can be started again tomorrow.',
             AiScanRefusal::NoFonts => 'the project has no font, and texts cannot be created without one; upload a font (upload_font) first.',
-            AiScanRefusal::UnsupportedImage => 'the picture must be a JPG, PNG, WebP or HEIC (or a PDF — its first page is scanned) of at most 10 MB, each side at most 8000 px, at most 36 megapixels, the shorter side at least 600 px (300 px for a calendar page).',
+            AiScanRefusal::UnsupportedImage => 'the picture must be a JPG, PNG, WebP or HEIC (or a PDF — its first page is scanned) of at most 10 MB, each side at most 8000 px, at most 36 megapixels, the shorter side at least 600 px (a calendar page: at least 640 × 280 px).',
             AiScanRefusal::SourceUnscannable => 'this picture already failed twice; use another one.',
             AiScanRefusal::NoRetriesLeft => 'both retries of this upload are used up.',
             AiScanRefusal::WrongState => 'the scan is not in a state this action applies to; read "status".',

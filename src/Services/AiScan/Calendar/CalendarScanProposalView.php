@@ -36,6 +36,7 @@ final readonly class CalendarScanProposalView
         private UrlGeneratorInterface $urlGenerator,
         private GetFonts $getFonts,
         private ClockInterface $clock,
+        private CalendarScanRestoreOrder $restoreOrder,
     ) {
     }
 
@@ -133,7 +134,11 @@ final readonly class CalendarScanProposalView
     }
 
     /**
-     * @return null|array{restoreUntil: null|string, restorable: bool, restored: bool, changed: bool, features: list<string>}
+     * `restorable` — „Vrátit původní“ can be used NOW: the snapshot lives, it
+     * was not used yet, and no later scan was applied over this one
+     * (`superseded` — {@see CalendarScanRestoreOrder}: that one goes first).
+     *
+     * @return null|array{restoreUntil: null|string, restorable: bool, restored: bool, superseded: bool, changed: bool, features: list<string>}
      */
     public function applied(AiScan $scan): null|array
     {
@@ -149,12 +154,15 @@ final readonly class CalendarScanProposalView
         /** @var list<string> $features */
         $features = is_array($restore) && is_array($restore['features'] ?? null) ? array_values(array_filter($restore['features'], is_string(...))) : [];
 
+        $top = $alive && !$restored && $this->restoreOrder->isTop($scan);
+
         return [
             'restoreUntil' => $alive ? $scan->expiresAt->format(DATE_ATOM) : null,
-            'restorable' => $alive && !$restored,
+            'restorable' => $top,
             'restored' => $restored,
+            'superseded' => $alive && !$restored && !$top,
             // Edits since the accept: „Vrátit původní“ asks before it overwrites them.
-            'changed' => $alive && !$restored
+            'changed' => $top
                 && CalendarScanProposal::hash($calendar->layout, $calendar->features) !== ($restore['appliedHash'] ?? null),
             'features' => $features,
         ];

@@ -159,4 +159,20 @@ export default async function (t, load) {
         assert.equal(store.getState().doc.design.preset, 'twoSided');
         assert.equal(store.getState().layoutOrigin, 'scan');
     });
+
+    t.test('a listener that unsubscribes while an event is delivered is not called for that event', async () => {
+        // „Použít rozvržení“: the accepted document comes back at step 3 — the workspace (subscribed
+        // first) destroys step 2's module on `replace`; that module must not answer the same event
+        // (it redrew step 2 over the step-3 editor).
+        const { store } = await makeStore({ preset: 'photoLeft', styles: scanned }, null);
+        const calls = [];
+        let stopSecond = null;
+        store.subscribe((event) => { if (event.type === 'replace') { calls.push('workspace'); stopSecond(); } });
+        stopSecond = store.subscribe((event) => { if (event.type === 'replace') calls.push('step2'); });
+        store.subscribe((event) => { if (event.type === 'replace') calls.push('topbar'); });
+        const applied = await makeDoc(load, { preset: 'photoRight', styles: scanned });
+        store.load({ calendar: { id: 'cal-1', revision: 9, ...copy(applied.design), step: 3, content: copy(applied.content) }, assets: {}, layoutOrigin: 'scan' });
+        assert.deepEqual(calls, ['workspace', 'topbar']);
+        assert.equal(store.getState().doc.design.step, 3);
+    });
 }

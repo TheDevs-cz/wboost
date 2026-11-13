@@ -217,6 +217,67 @@ module.exports = {
                 }
             });
 
+            await check('T1 locked → the administrator\'s „Zamítnout“ closes the request: the card is `locked` again and access can be asked for once more', async () => {
+                const adminEmail = 'e2e-calendar-admin@test.cz';
+                if (psql(`SELECT count(*) FROM "user" WHERE email = ${quote(adminEmail)}`) === '0') compose(['web', 'bin/console', 'app:user:register', adminEmail, h.config.password]);
+                psql(`UPDATE "user" SET roles = '["ROLE_ADMIN"]' WHERE email = ${quote(adminEmail)}`);
+                project(h, 'ai_scan_enabled = false');
+                const context = await browser.createBrowserContext();
+                try {
+                    // before any request: locked, the one action is „Požádat o přístup“ — nothing uploads, no panel
+                    await h.reload(page);
+                    await h.gotoStep(page, 2);
+                    await waitCard('locked');
+                    assert.equal(await page.$('[data-cal-scan-card] [data-cal-action="scan-open"]'), null);
+                    assert.equal(await page.$('[data-cal-scan-panel]'), null);
+                    assert.equal(await page.$eval('[data-cal-scan-card] [data-act="request"]', (el) => el.disabled), false);
+                    await page.click('[data-cal-scan-card] [data-act="request"]');
+                    await page.waitForSelector('dialog[open] [data-send]');
+                    await page.click('dialog[open] [data-send]');
+                    await page.waitForFunction(() => /Žádost odeslána/.test((document.querySelector('dialog[open]') || {}).textContent || ''), { timeout: 15000 });
+                    await page.click('dialog[open] [data-done]');
+                    await waitCard('request_sent');
+
+                    // the administrator: Statistiky → AI skeny → Žádosti o přístup → Zamítnout
+                    const admin = await context.newPage();
+                    await admin.setViewport({ width: 1440, height: 900 });
+                    await admin.goto(`${h.config.base}/login`, { waitUntil: 'networkidle2' });
+                    await admin.type('input[name="_username"]', adminEmail);
+                    await admin.type('input[name="_password"]', h.config.password);
+                    await Promise.all([admin.waitForNavigation({ waitUntil: 'networkidle2' }), admin.click('button[type="submit"]')]);
+                    await admin.goto(`${h.config.base}/admin/usage#ai-skeny`, { waitUntil: 'networkidle2' });
+                    const row = `#ai-zadosti [data-ai-scan-request]`;
+                    await admin.waitForSelector(`${row} [data-decision="dismiss"]`, { visible: true, timeout: 20000 });
+                    assert.match(await admin.$eval(row, (el) => el.innerText.replace(/\s+/g, ' ')), new RegExp(`žádá o AI sken v projektu ${h.config.projectName}`));
+                    if (h.config.shots) await admin.screenshot({ path: path.join(h.config.shots, 'scan-00c2-admin-request.png') });
+                    await admin.click(`${row} [data-decision="dismiss"]`);
+                    await admin.waitForFunction(() => !document.querySelector('#ai-zadosti [data-ai-scan-request]'), { timeout: 15000 });
+                    assert.equal(psql(`SELECT status FROM ai_access_request WHERE project_id = ${quote(h.config.projectId)}`), 'dismissed');
+                    assert.equal(psql(`SELECT ai_scan_enabled FROM project WHERE id = ${quote(h.config.projectId)}`), 'f', 'a dismissal switches nothing on');
+                    await admin.close();
+
+                    // the requester: the card is back at `locked` — the same card as before the request, and it works again
+                    await h.reload(page);
+                    await h.gotoStep(page, 2);
+                    await waitCard('locked');
+                    assert.match(await text('[data-cal-scan-card]'), /Naskenovat design.*Premium.*Požádat o přístup/);
+                    assert.doesNotMatch(await text('[data-cal-scan-card]'), /Žádost odeslána|Dáme vám vědět/);
+                    await shot('scan-00c3-locked-after-dismissal');
+                    await page.click('[data-cal-scan-card] [data-act="request"]');
+                    await page.waitForSelector('dialog[open] [data-send]');
+                    await page.click('dialog[open] [data-send]');
+                    await page.waitForFunction(() => /Žádost odeslána/.test((document.querySelector('dialog[open]') || {}).textContent || ''), { timeout: 15000 });
+                    await page.click('dialog[open] [data-done]');
+                    await waitCard('request_sent');
+                    assert.equal(psql(`SELECT string_agg(status, ',' ORDER BY created_at) FROM ai_access_request WHERE project_id = ${quote(h.config.projectId)}`), 'dismissed,open');
+                } finally {
+                    await context.close().catch(() => null);
+                    // the administrator stays as a plain account (it may own log rows): never an admin outside this check
+                    psql(`DELETE FROM ai_access_request WHERE project_id = ${quote(h.config.projectId)}; UPDATE "user" SET roles = '[]' WHERE email = ${quote(adminEmail)};`);
+                    project(h, 'ai_scan_enabled = true');
+                }
+            });
+
             await check('T1 limit: the month\'s scans are used up — the button is disabled and the line says when it resets', async () => {
                 project(h, 'ai_scan_monthly_limit = 0');
                 try {
@@ -291,11 +352,21 @@ module.exports = {
                 assert.equal(await panelView(), 'upload');
             });
 
-            await check('S1 a calendar page may be small: 977 × 457 px is taken with a note, under 300 px it is refused', async () => {
-                const tiny = await logoPicture(browser, path.join(tmp, 'mala.png'), { width: 620, height: 290, colour: '#888', label: '' });
+            await check('S1 a calendar page may be small: 977 × 457 px is taken with a note, a page under 640 × 280 px is refused, a 640 px wide page (299 px high) is not', async () => {
+                const tiny = await logoPicture(browser, path.join(tmp, 'mala.png'), { width: 590, height: 276, colour: '#888', label: '' });
                 await (await page.$('#calScanFile')).uploadFile(tiny);
-                await page.waitForFunction(() => /620 × 290 px/.test((document.querySelector('#calScanErr') || {}).textContent || ''), { timeout: 8000 });
-                assert.match(await text('#calScanErr'), /Kratší strana musí mít aspoň 300 px, lépe 600 px a víc\./);
+                await page.waitForFunction(() => /590 × 276 px/.test((document.querySelector('#calScanErr') || {}).textContent || ''), { timeout: 8000 });
+                assert.match(await text('#calScanErr'), /Stránka kalendáře musí mít aspoň 640 × 280 px, lépe 1280 × 600 px a víc\./);
+                // 600 × 280 px: high enough, not wide enough
+                const narrow = await logoPicture(browser, path.join(tmp, 'uzka.png'), { width: 600, height: 280, colour: '#888', label: '' });
+                await (await page.$('#calScanFile')).uploadFile(narrow);
+                await page.waitForFunction(() => /600 × 280 px/.test((document.querySelector('#calScanErr') || {}).textContent || ''), { timeout: 8000 });
+                // the calendar's own 2.14 : 1 at a common width: 640 px wide is 299 px high — taken (the rule was „short side ≥ 300 px“)
+                const page640 = await logoPicture(browser, path.join(tmp, 'stranka-640.png'), { width: 640, height: 299, colour: '#1f3a5f', label: '' });
+                await (await page.$('#calScanFile')).uploadFile(page640);
+                await waitPanel('chosen');
+                assert.match(await text('[data-cal-scan-panel]'), /640 × 299 px.*Malý obrázek — rozvržení může vyjít méně přesně/);
+                assert.equal(await page.$('#calScanErr'), null);
                 const small = await logoPicture(browser, path.join(tmp, 'stranka-977.png'), { width: 977, height: 457, colour: '#1f3a5f', label: '' });
                 await (await page.$('#calScanFile')).uploadFile(small);
                 await waitPanel('chosen');
@@ -360,6 +431,23 @@ module.exports = {
                 });
                 assert.ok(shown.logged >= 1, 'the status document carries a stage log');
                 assert.ok(shown.done.some((text) => /^(\d+ s|\d+ min \d+ s)$/.test(text)), `durations: ${shown.done.join(' | ')}`);
+                // „Tyto texty jsme našli“: before the first render the page shows the lines the reading found, outlined
+                await page.waitForSelector('[data-cal-scan-panel] [data-cal-scan-found]', { timeout: 30000 });
+                const found = await page.evaluate(() => {
+                    const frame = document.querySelector('[data-cal-scan-panel] [data-cal-scan-found]');
+                    const box = frame.getBoundingClientRect();
+                    return {
+                        said: frame.closest('figure').querySelector('figcaption').innerText.replace(/\s+/g, ' ').trim(),
+                        sent: window.__calendarScan.scan().textBoxes.boxes.length,
+                        inside: [...frame.querySelectorAll('.as-found')].map((el) => { const r = el.getBoundingClientRect(); return r.width > 4 && r.height > 2 && r.left >= box.left - 1 && r.right <= box.right + 1 && r.top >= box.top - 1 && r.bottom <= box.bottom + 1; }),
+                        src: frame.querySelector('img').getAttribute('src'),
+                    };
+                });
+                assert.match(found.said, /Tyto texty jsme našli \(3\)/);
+                assert.equal(found.sent, 3);
+                assert.deepEqual(found.inside, [true, true, true], 'every outline lies on the picture');
+                assert.match(found.src, /\/image\/working$/);
+                await shot('scan-04a-found-texts');
                 // the first render: the address carries the candidate the status document named
                 await page.waitForFunction(() => /\/image\/candidate\?n=\d+&v=\d+/.test((document.querySelector('[data-cal-scan-panel] [data-region^="prev-"] img') || { src: '' }).src), { timeout: 60000 });
                 options.beatMs = 8000; // …and the scan stays running while this check looks
@@ -391,6 +479,10 @@ module.exports = {
                 assert.match(body, /Kalendárium.*čísla vlevo/);
                 assert.match(body, /Hlavička.*#1F3A5F/);
                 assert.match(body, /Číslo týdne.*na stránce jsme nenašli/);
+                // an element rebuilt only roughly says so ONCE — also to a screen reader (the icon's hidden label used to repeat it)
+                const rough = await page.$$eval('[data-cal-scan-panel] .as-rec li.ap', (els) => els.map((el) => el.textContent.replace(/\s+/g, ' ').trim()));
+                assert.ok(rough.length >= 1 && rough.every((row) => (row.match(/přibližně/g) || []).length === 1), rough.join(' | '));
+                assert.match(rough[0], /^Popisek fotky\s*přibližně/);
                 assert.match(body, /Tohle kalendář neumí.*Ozdobný pruh/);
                 assert.match(body, /Písmo čísel dnů: nejbližší dostupné/);
                 assert.match(body, /Stránka má jiný poměr stran než váš kalendář \(297 × 150 mm\)/);
@@ -426,8 +518,12 @@ module.exports = {
                 const photo = await page.$eval('[data-box="photo"]', (el) => { const f = el.parentElement.getBoundingClientRect(); const b = el.getBoundingClientRect(); return (b.left + b.width / 2 - f.left) / f.width; });
                 assert.ok(photo > 0.5, `photo outline centre at ${photo}`);
                 // (the row may be redrawn once while the page's size is being read: hover again then)
-                await page.hover('.as-rec li[data-hl="photo"]').catch(() => page.hover('.as-rec li[data-hl="photo"]'));
-                await page.waitForFunction(() => document.querySelector('.as-box[data-box="photo"]').classList.contains('hl'), { timeout: 3000 }).catch(() => null);
+                // …and the page may still move under the pointer (the legend, the size of the upload): until the outline answers
+                for (let attempt = 0; attempt < 5; attempt += 1) {
+                    await page.mouse.move(2, 2);
+                    await page.hover('.as-rec li[data-hl="photo"]').catch(() => null);
+                    if (await page.waitForFunction(() => document.querySelector('.as-box[data-box="photo"]').classList.contains('hl'), { timeout: 1500 }).then(() => true, () => false)) break;
+                }
                 assert.equal(await page.$eval('.as-box[data-box="photo"]', (el) => el.classList.contains('hl')), true, `hover: ${await page.evaluate(() => { const li = document.querySelector('.as-rec li[data-hl="photo"]'); const r = li.getBoundingClientRect(); const at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return `${Math.round(r.top)} ${at && at.tagName}.${at && at.className} hover=${li.matches(':hover')}`; })}`);
                 await shot('scan-06b-layers');
                 await page.click('label:has([data-k="layers"])');
@@ -541,6 +637,11 @@ module.exports = {
                 assert.equal(applied.status, 'clean');
                 assert.equal(applied.canUndo, false); // the step history starts again
                 assert.match(applied.design.name, /Kalendář ze skenu/);
+                // the top bar and the body change together: step 3's editor, nothing of step 2 under it — now and a moment later
+                const shown = () => page.evaluate(() => ({ step: document.querySelector('.cal-ws').dataset.calShownStep, editor: Boolean(document.querySelector('.cal-b3')), step2: Boolean(document.querySelector('.cal-s2')), on: (document.querySelector('.cal-step.on, .cal-step[aria-current]') || { dataset: {} }).dataset.calStep || null }));
+                assert.deepEqual(await shown(), { step: '3', editor: true, step2: false, on: '3' });
+                await new Promise((resolve) => setTimeout(resolve, 2500));
+                assert.deepEqual(await shown(), { step: '3', editor: true, step2: false, on: '3' });
                 await shot('scan-08-applied');
             });
 
@@ -656,6 +757,9 @@ module.exports = {
                 await page.goto(`${h.config.base}/calendar/${calendarId}?sken=${third}`, { waitUntil: 'networkidle2' });
                 await h.waitReady(page);
                 await page.waitForSelector('.cal-ws[data-cal-shown-step="2"]', { timeout: 15000 });
+                // while the scan's proposal is read the panel says so — never „už vrátit nejde“ for a moment
+                await page.waitForFunction(() => ['loading', 'gone'].includes((document.querySelector('[data-cal-scan-panel]') || { dataset: {} }).dataset.view), { timeout: 15000 });
+                assert.doesNotMatch(await text('[data-cal-scan-panel]'), /už vrátit nejde|není k dispozici/);
                 await waitPanel('gone');
                 assert.doesNotMatch(page.url(), /sken=/);
                 const body = await text('[data-cal-scan-panel]');
@@ -677,7 +781,80 @@ module.exports = {
                 await Promise.all([page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }), page.click(`${row} [data-action="ai-scan-history#restore"]`)]);
                 assert.equal(psql(`SELECT coalesce(layout_origin, 'none') || ':' || layout_preset FROM calendar WHERE id = ${quote(calendarId)}`), 'none:photoLeft');
                 assert.equal(await page.$(`${row} [data-action="ai-scan-history#restore"]`), null);
+                assert.match(await text(row), /Vráceno původní rozvržení/);
+                assert.doesNotMatch(await text(row), /Rozvržení použito/);
                 assert.equal(psql(`SELECT description FROM calendar_history WHERE calendar_id = ${quote(calendarId)} ORDER BY created_at DESC, id DESC LIMIT 1`), 'Vrátil původní rozvržení');
+                await h.openCalendar(page, calendarId);
+            });
+
+            let scanA = null;
+            let scanB = null;
+            await check('Two scans applied one after the other: „Vrátit původní“ on the second returns the first one\'s layout with its marker, and the first one\'s restore is offered again', async () => {
+                const applyScan = async (name) => {
+                    await h.gotoStep(page, 2);
+                    await page.waitForSelector('[data-cal-scan-card] [data-cal-action="scan-open"]');
+                    await startScan(await picture(name));
+                    await waitPanel('review', 60000);
+                    const id = await page.evaluate(() => window.__calendarScan.scan().id);
+                    await page.click('[data-cal-action="scan-pictures"]');
+                    await waitPanel('pictures');
+                    await page.click('[data-cal-action="scan-apply"]');
+                    await page.waitForFunction((scanId) => { const s = window.__calendarScan.entry(); return s && s.applied && s.applied.scanId === scanId && document.querySelector('.cal-ws').dataset.calShownStep === '3'; }, { timeout: 20000 }, id);
+                    return id;
+                };
+                scanA = await applyScan('stranka-a.png');
+                scanB = await applyScan('stranka-b.png');
+                assert.equal((await state()).layoutOrigin, 'scan');
+                const historyRow = async (id) => {
+                    const row = `.as-hrow[data-scan="${id}"]`;
+                    return { text: await text(row), restore: Boolean(await page.$(`${row} [data-action="ai-scan-history#restore"]`)) };
+                };
+                const history = `${h.config.base}/project/${h.config.projectId}/sablony/historie-skenu?filter=calendars`;
+
+                // the offer belongs to the scan applied LAST — on the card and in the history
+                await h.gotoStep(page, 2);
+                await page.waitForSelector(`[data-cal-scan-card] [data-cal-action="scan-restore"][data-scan="${scanB}"]`);
+                await page.goto(history, { waitUntil: 'networkidle2' });
+                assert.deepEqual([(await historyRow(scanA)).restore, (await historyRow(scanB)).restore], [false, true]);
+                assert.match((await historyRow(scanA)).text, /Rozvržení použito/);
+                await h.openCalendar(page, calendarId);
+                await h.gotoStep(page, 2);
+
+                // B back: A's layout and A's marker — and A's own „Vrátit původní rozvržení“ on the card
+                await page.waitForSelector(`[data-cal-scan-card] [data-cal-action="scan-restore"][data-scan="${scanB}"]`);
+                await page.click('[data-cal-scan-card] [data-cal-action="scan-restore"]');
+                await h.waitToast(page, 'Vráceno rozvržení z předchozího skenu');
+                await page.waitForSelector(`[data-cal-scan-card] [data-cal-action="scan-restore"][data-scan="${scanA}"]`, { timeout: 15000 });
+                assert.equal((await state()).layoutOrigin, 'scan');
+                assert.equal(await page.$('.cal-dialog.show'), null, 'nothing was edited: no question');
+                await page.waitForSelector('[data-preset="scan"][aria-checked="true"]');
+                assert.match(await text('[data-cal-scan-card]'), /Rozvržení je převzaté ze skenu\. Vrátit původní rozvržení jde do \d+\. \d+\. \d{4}\./);
+                assert.equal(psql(`SELECT coalesce(layout_origin, 'none') FROM calendar WHERE id = ${quote(calendarId)}`), 'scan');
+                await shot('scan-10d-second-restored');
+
+                // the history says what happened to each of them, and which calendar they belong to
+                await page.goto(history, { waitUntil: 'networkidle2' });
+                const [rowA, rowB] = [await historyRow(scanA), await historyRow(scanB)];
+                assert.match(rowB.text, /Vráceno původní rozvržení/);
+                assert.equal(rowB.restore, false);
+                assert.match(rowA.text, /Rozvržení použito/);
+                assert.equal(rowA.restore, true);
+                assert.match(rowA.text, /Kalendáře · 7 dní · \d{4} · stranka-a\.png/);
+                await shot('scan-10e-history-two-scans');
+
+                // A back: the layout from before both scans, no marker, nothing left to restore
+                await h.openCalendar(page, calendarId);
+                await h.gotoStep(page, 2);
+                await page.waitForSelector(`[data-cal-scan-card] [data-cal-action="scan-restore"][data-scan="${scanA}"]`);
+                await page.click('[data-cal-scan-card] [data-cal-action="scan-restore"]');
+                await h.waitToast(page, 'Původní rozvržení vráceno');
+                await page.waitForFunction(() => !document.querySelector('[data-cal-action="scan-restore"]') && window.__calendarScan.entry().applied === null, { timeout: 15000 });
+                const s = await state();
+                assert.equal(s.layoutOrigin, null);
+                assert.equal(s.design.preset, 'photoLeft');
+                assert.equal(await page.$('[data-preset="scan"]'), null);
+                await page.goto(history, { waitUntil: 'networkidle2' });
+                assert.match((await historyRow(scanA)).text, /Vráceno původní rozvržení/);
                 await h.openCalendar(page, calendarId);
             });
 
@@ -736,8 +913,11 @@ module.exports = {
                 assert.ok(rows.length >= 4, `rows: ${rows.length}`);
                 assert.ok(rows.every((row) => /Kalendáře/.test(row.text)));
                 const accepted = rows.filter((row) => row.status === 'accepted');
-                assert.equal(accepted.length, 3);
-                assert.ok(accepted.every((row) => /Rozvržení použito/.test(row.text)));
+                assert.equal(accepted.length, 5);
+                // every one of them was put back since: the row says so instead of „Rozvržení použito“
+                assert.ok(accepted.every((row) => /Vráceno původní rozvržení/.test(row.text) && !/Rozvržení použito/.test(row.text)), accepted.map((row) => row.text).join(' | '));
+                // …and which calendar it is: 7 days, its year, the scanned file
+                assert.ok(rows.every((row) => /Kalendáře · 7 dní · \d{4} · /.test(row.text)), rows.map((row) => row.text).join(' | '));
                 assert.ok(rows.filter((row) => row.href).every((row) => new RegExp(`/calendar/${calendarId}\\?sken=`).test(row.href)));
                 assert.ok(await page.$('.fbar a.chip.on[href*="filter=calendars"]'));
                 await shot('scan-13-history');
@@ -788,6 +968,17 @@ module.exports = {
                 assert.equal(s.design.preset, 'twoSided');
                 assert.deepEqual([s.design.layout.boxes.cal.w, s.design.layout.boxes.cal2.x, s.design.layout.boxes.cal2.w], [79, 236, 79]);
                 assert.equal(psql(`SELECT layout_origin || ':' || layout_preset || ':' || type FROM calendar WHERE id = ${quote(fortnightId)}`), 'scan:twoSided:fortnight');
+                // both calendars carry the default name: the history tells them apart by their type
+                const facts = await (async () => {
+                    const other = await browser.newPage();
+                    try {
+                        await other.goto(`${h.config.base}/project/${h.config.projectId}/sablony/historie-skenu?filter=calendars`, { waitUntil: 'networkidle2' });
+                        return await other.$$eval('.as-hrow', (els) => els.map((el) => ({ href: (el.querySelector('a.u-nm') || {}).href || '', facts: (el.querySelector('[data-calendar-facts]') || { textContent: '' }).textContent.trim() })));
+                    } finally { await other.close(); }
+                })();
+                assert.ok(facts.filter((row) => row.href.includes(fortnightId)).every((row) => /^14 dní · \d{4}$/.test(row.facts)), JSON.stringify(facts));
+                assert.ok(facts.some((row) => row.href.includes(fortnightId)));
+                assert.ok(facts.filter((row) => row.href.includes(calendarId)).every((row) => /^7 dní · \d{4}$/.test(row.facts)));
             });
 
             await check('14 days: step 2 offers „Naskenovaný design“ beside the two-sided layout; the layout card puts the default back, one undo returns the scan', async () => {

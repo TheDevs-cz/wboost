@@ -126,8 +126,9 @@ export function mountStep2(root, ctx) {
     if (design().type === 'fortnight' && !design().layout) store.choosePreset('twoSided', { advance: false });
     build();
 
+    let destroyed = false;
     const unsubscribe = store.subscribe((event) => {
-        if (event.type === 'ui' || event.type === 'status' || (event.type === 'layout' && event.live)) return;
+        if (destroyed || event.type === 'ui' || event.type === 'status' || (event.type === 'layout' && event.live)) return;
         if (`${design().type}:${scanned()}` !== builtFor) {
             if (design().type === 'fortnight' && !design().layout) store.choosePreset('twoSided', { advance: false });
             build();
@@ -139,6 +140,7 @@ export function mountStep2(root, ctx) {
 
     return {
         destroy() {
+            destroyed = true;
             unsubscribe();
             refresh.cancel();
             for (const thumb of thumbs) thumb.destroy();

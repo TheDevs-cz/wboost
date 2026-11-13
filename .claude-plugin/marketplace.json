@@ -10,7 +10,7 @@
       "name": "wboost",
       "source": "./plugin/wboost",
       "description": "Work with wboost from Claude: brand templates (find, fill, preview, export PNG or print PDF), multi-page documents, design authoring with the design DSL, gallery pictures and fonts, and desk calendars (Kalendáře: create, lay out, fill, render, export, share).",
-      "version": "0.5.2",
+      "version": "0.5.3",
       "author": {
         "name": "TheDevs",
         "url": "https://wboost.cz"

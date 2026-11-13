@@ -1,5 +1,5 @@
 {
-    "version": "9",
+    "version": "10",
     "protocolVersion": 1,
     "requiresInstruments": [
         "ocr",
@@ -161,7 +161,8 @@
                 "mm"
             ],
             "upload": {
-                "minShortSidePx": 300
+                "minShortSidePx": 280,
+                "minLongSidePx": 640
             },
             "system": [
                 "system.common.md",

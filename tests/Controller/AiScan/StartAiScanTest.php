@@ -122,15 +122,24 @@ final class StartAiScanTest extends WebTestCase
         $this->upload([], self::pngHeader(8000, 600));
         self::assertResponseStatusCodeSame(201);
 
-        // A calendar page may be smaller (short side ≥ 300 px): a real 977 × 457 px page passes,
-        // the same file as a template scan does not, and 299 px is refused for a calendar too.
+        // A calendar page may be smaller — at least 640 × 280 px: a real 977 × 457 px page passes,
+        // the same file as a template scan does not. A page 640 px wide is 299 px high at the
+        // calendar's own 2.14 : 1 (the rule „short side ≥ 300“ refused it by one pixel) and is
+        // taken, also when it is a little flatter; a narrower or a lower one is refused.
         $calendar = ['kind' => 'calendar', 'calendarId' => TestDataFixture::CALENDAR_1_ID];
         $answer = $this->upload([], self::pngHeader(977, 457));
         self::assertResponseStatusCodeSame(422);
         self::assertSame('small', $answer['reason'] ?? null);
-        $answer = $this->upload($calendar, self::pngHeader(640, 299));
-        self::assertResponseStatusCodeSame(422);
-        self::assertSame('small', $answer['reason'] ?? null);
+        foreach ([[639, 299], [600, 280], [640, 279], [279, 640]] as [$width, $height]) {
+            $answer = $this->upload($calendar, self::pngHeader($width, $height));
+            self::assertResponseStatusCodeSame(422, sprintf('%d × %d px', $width, $height));
+            self::assertSame('small', $answer['reason'] ?? null);
+        }
+
+        $this->upload($calendar, self::pngHeader(640, 299));
+        self::assertResponseStatusCodeSame(201);
+        $this->upload($calendar, self::pngHeader(640, 280));
+        self::assertResponseStatusCodeSame(201);
         $this->upload($calendar, self::pngHeader(977, 457));
         self::assertResponseStatusCodeSame(201);
 
@@ -138,7 +147,8 @@ final class StartAiScanTest extends WebTestCase
         $this->client->request('POST', sprintf('/project/%s/ai-scan', self::PROJECT), ['_token' => 'csrf-token'], server: ['HTTP_ORIGIN' => 'http://localhost']);
         self::assertResponseStatusCodeSame(422);
 
-        self::assertSame(2, self::rowCount('ai_scan'));
+        // The four accepted uploads above — nothing that was refused left a row.
+        self::assertSame(4, self::rowCount('ai_scan'));
     }
 
     public function testAFileOverTenMegabytesIsRefused(): void

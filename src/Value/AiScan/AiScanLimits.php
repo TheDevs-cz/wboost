@@ -59,11 +59,19 @@ final class AiScanLimits
     public const int UPLOAD_MIN_SHORT_SIDE = 600;
     /**
      * A calendar page is 2.14 : 1 and is scanned for its LAYOUT, not its
-     * texts: the scanner finds every line of the real pages down to a 300 px
-     * short side (scanner/eval/RESULTS.md §9.5). Mirrors: `kinds.calendar.upload`
-     * of the definition, `assets/ai-scan/file-checks.js`.
+     * texts: it is taken from **640 × 280 px** — the longer side at least
+     * 640 px, the shorter at least 280 px. The rule used to be "short side
+     * ≥ 300 px", which refused a page 640 px wide by one pixel (299 px high
+     * at the calendar's own ratio). The width is what the reading needs: a
+     * page 640 px wide reads as at 641 × 300 px, also when it is a little
+     * flatter (640 × 280), while a page 600 px wide starts to lose lines
+     * (scanner/eval/RESULTS.md §9.5, §9.6). Mirrors: `kinds.calendar.upload`
+     * of the definition, `assets/ai-scan/file-checks.js`, `CAL.uploadSmall`,
+     * the MCP tool's docblock and refusal text, the skill's `tools.md`,
+     * `ux.md` — `AiScanValuesTest` reads them all.
      */
-    public const int UPLOAD_MIN_SHORT_SIDE_CALENDAR = 300;
+    public const int UPLOAD_MIN_SHORT_SIDE_CALENDAR = 280;
+    public const int UPLOAD_MIN_LONG_SIDE_CALENDAR = 640;
     /** A template made from a scan: long edge. */
     public const int TEMPLATE_MAX_LONG_EDGE = 5000;
     /** What the scanner may PUT as one artifact (the working copy is ≤ 4096 px). */

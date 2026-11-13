@@ -7,6 +7,7 @@ namespace WBoost\Web\Tests\Controller\Calendar;
 use Ramsey\Uuid\Uuid;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use WBoost\Web\Repository\CalendarHistoryRepository;
 use WBoost\Web\Services\AiScan\AiScanPurge;
@@ -513,6 +514,98 @@ final class CalendarScanTest extends WebTestCase
         self::assertSame('', $calendar['origin']);
         self::assertSame(2, $calendar['step']);
         self::assertFalse(self::dig($calendar['features'], 'qr'));
+    }
+
+    public function testTwoAppliedScansAreRestoredInTheReverseOrderOfTheirApplying(): void
+    {
+        // Two proposals of the same calendar; the one scanned SECOND is applied
+        // first — the order that counts is the order of the applying.
+        $first = self::calendarReady($this->client, self::DESIGNED, preset: 'photoRight');
+        $second = self::calendarReady($this->client, self::DESIGNED, preset: 'photoLeft');
+        TestingLogin::logInAsUser($this->client, TestDataFixture::USER_1_EMAIL);
+        $entryUrl = sprintf('/project/%s/ai-scan/entry?kind=calendar&calendarId=%s', self::PROJECT, self::DESIGNED);
+        $history = sprintf('/project/%s/sablony/historie-skenu', self::PROJECT);
+        $applied = function () use ($entryUrl): mixed {
+            $this->client->request('GET', $entryUrl);
+
+            $top = self::dig(self::json($this->client), 'entry', 'applied');
+
+            return is_array($top) ? $top['scanId'] ?? null : null;
+        };
+        $row = fn (string $scanId): Crawler => $this->client->request('GET', $history)->filter(sprintf('li.as-hrow[data-scan="%s"]', $scanId));
+        $original = self::state(self::DESIGNED);
+
+        self::assertTrue($this->post(self::DESIGNED, $second, 'accept')['ok']);
+        $afterA = self::state(self::DESIGNED);
+        self::assertSame('photoLeft', $afterA['preset']);
+        self::assertSame('scan', $afterA['origin']);
+        self::assertSame($second, $applied());
+
+        self::assertTrue($this->post(self::DESIGNED, $first, 'accept')['ok']);
+        $afterB = self::state(self::DESIGNED);
+        self::assertSame('photoRight', $afterB['preset']);
+        self::assertNotEquals($afterA['layout'], $afterB['layout']);
+        // B's snapshot is A's layout WITH its marker.
+        self::assertSame('scan', self::dig(self::scanJson($first, 'restore'), 'layoutOrigin'));
+
+        // The offer belongs to the scan applied last — in the wizard and in the history.
+        self::assertSame($first, $applied());
+        self::assertCount(1, $row($first)->filter('[data-action="ai-scan-history#restore"]'));
+        self::assertCount(0, $row($second)->filter('[data-action="ai-scan-history#restore"]'));
+        self::assertSame('Rozvržení použito', trim($row($second)->filter('.pill')->text()));
+
+        // The scan underneath cannot be restored yet: nothing is written.
+        $refused = $this->post(self::DESIGNED, $second, 'restore', ['confirm' => '1']);
+        self::assertSame('wrong_state', $refused['code']);
+        self::assertSame($afterB['revision'], self::calInt(self::DESIGNED, 'revision'));
+
+        // „Vrátit původní“ on B: A's layout, A's layout choice and A's marker are back …
+        $answer = $this->post(self::DESIGNED, $first, 'restore');
+        self::assertTrue($answer['ok'], (string) json_encode($answer));
+        self::assertTrue($answer['restored']);
+        self::assertSame('scan', self::dig($answer, 'document', 'layoutOrigin'));
+        $back = self::state(self::DESIGNED);
+        self::assertEquals($afterA['layout'], $back['layout']);
+        self::assertSame($afterA['preset'], $back['preset']);
+        self::assertSame('scan', $back['origin']);
+        self::assertEquals($afterA['features'], $back['features']);
+
+        // … and A's own restore is offered again; the history says what happened to each.
+        self::assertSame($second, $applied());
+        self::assertSame('Vráceno původní rozvržení', trim($row($first)->filter('.pill')->text()));
+        self::assertCount(0, $row($first)->filter('[data-action="ai-scan-history#restore"]'));
+        self::assertSame('Rozvržení použito', trim($row($second)->filter('.pill')->text()));
+        self::assertCount(1, $row($second)->filter('[data-action="ai-scan-history#restore"]'));
+
+        // A's restore needs no confirmation (nothing was edited) and ends at the layout from before both scans.
+        $answer = $this->post(self::DESIGNED, $second, 'restore');
+        self::assertTrue($answer['ok'], (string) json_encode($answer));
+        self::assertTrue($answer['restored']);
+        self::assertNull(self::dig($answer, 'document', 'layoutOrigin'));
+        $end = self::state(self::DESIGNED);
+        self::assertEquals($original['layout'], $end['layout']);
+        self::assertSame($original['preset'], $end['preset']);
+        self::assertSame('', $end['origin']);
+        self::assertNull($applied());
+        self::assertSame('Vráceno původní rozvržení', trim($row($second)->filter('.pill')->text()));
+        self::assertStringNotContainsString('Rozvržení použito', (string) $this->client->getResponse()->getContent());
+    }
+
+    public function testAHistoryRowOfACalendarScanSaysWhichCalendarItIs(): void
+    {
+        $week = self::calendarReady($this->client, self::DESIGNED);
+        TestingLogin::logInAsUser($this->client, TestDataFixture::USER_1_EMAIL);
+        // Two calendars left with the same name: the type and the year tell them apart.
+        self::connection()->executeStatement("UPDATE calendar SET name = 'Stolní kalendář 2027' WHERE id IN (:a, :b)", ['a' => self::DESIGNED, 'b' => self::EMPTY]);
+        self::connection()->executeStatement("UPDATE calendar SET type = 'fortnight', layout = NULL, layout_preset = NULL, step = 2 WHERE id = :id", ['id' => self::EMPTY]);
+        $fortnight = self::start(self::PROJECT, TestDataFixture::USER_1_EMAIL, kind: AiScanKind::Calendar, calendarId: self::EMPTY)->toString();
+
+        $crawler = $this->client->request('GET', sprintf('/project/%s/sablony/historie-skenu', self::PROJECT));
+        self::assertResponseIsSuccessful();
+        $facts = static fn (string $scanId): string => trim($crawler->filter(sprintf('li.as-hrow[data-scan="%s"] [data-calendar-facts]', $scanId))->text());
+        $year = self::calInt(self::DESIGNED, 'year');
+        self::assertSame('7 dní · ' . $year, $facts($week));
+        self::assertSame('14 dní · ' . self::calInt(self::EMPTY, 'year'), $facts($fortnight));
     }
 
     public function testRestoreIsGoneWithTheScansRetention(): void

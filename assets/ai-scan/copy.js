@@ -148,8 +148,8 @@ export const CAL = {
     tipsNo: ['Fotka kalendáře na stole — zkreslí barvy i rozměry', 'Více stránek v jednom obrázku', 'Ozdobné pruhy a rámečky — rozvržení má pevnou sadu prvků'],
     takeOver: 'Převezmeme rozmístění fotografie, kalendária, hlavičky, měsíce a loga a také barvy. Písma vybereme z projektu. Fotky, texty a dny doplní kalendář sám.',
     hasLayout: 'Kalendář už rozvržení má. Sken ho nezmění, dokud návrh nepoužijete.',
-    /** S1 — a calendar page may be smaller than a design (short side ≥ 300 px). */
-    uploadSmall: (w, h) => `Obrázek je příliš malý (${w} × ${h} px). Kratší strana musí mít aspoň 300 px, lépe 600 px a víc.`,
+    /** S1 — a calendar page may be smaller than a design: at least 640 × 280 px (longer × shorter side). */
+    uploadSmall: (w, h) => `Obrázek je příliš malý (${w} × ${h} px). Stránka kalendáře musí mít aspoň 640 × 280 px, lépe 1280 × 600 px a víc.`,
     lowResolutionCheck: 'Malý obrázek — rozvržení může vyjít méně přesně',
     lowResolution: 'Obrázek má nízké rozlišení — polohy a velikosti písma mohou být méně přesné. Zkontrolujte je v kroku Úpravy prvků.',
     ratioOk: 'Poměr stran odpovídá vašemu kalendáři',

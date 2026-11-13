@@ -96,7 +96,10 @@ export function createStore({ doc, env, api, measurer }) {
     // ---- events ---------------------------------------------------------------------------
 
     function emit(event) {
-        for (const fn of [...listeners]) fn(event);
+        // A listener that unsubscribed while this event was being delivered is not called any more:
+        // the workspace swaps the step's module on `replace` / `design`, and the module it just
+        // destroyed must not answer the same event (it used to redraw step 2 over step 3).
+        for (const fn of [...listeners]) if (listeners.has(fn)) fn(event);
     }
 
     function isDirty() {

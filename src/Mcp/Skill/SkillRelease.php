@@ -35,10 +35,10 @@ use WBoost\Web\Mcp\Response\SkillVersionResponse;
  */
 final class SkillRelease
 {
-    public const string VERSION = '0.5.2';
+    public const string VERSION = '0.5.3';
 
     /** One or two lines: what the CURRENT version adds over the previous one. */
-    public const string WHATS_NEW = 'AI scan: a 14-day calendar can be scanned too — the proposal is its two-sided layout (a two-week page for a 14-day calendar, a one-week page for a 7-day one; the result notes say when they disagree).';
+    public const string WHATS_NEW = 'AI scan of a calendar page: the picture must be at least 640 × 280 px (was: shorter side ≥ 300 px, which refused a 640 × 299 px page), and scans applied to one calendar are restored in reverse order — only the one applied last can be restored.';
 
     /** A stable download of the latest released skill folder, built by `.github/workflows/plugin-release.yml`. */
     public const string ZIP_URL = 'https://github.com/TheDevs-cz/wboost/releases/latest/download/wboost-skill.zip';

@@ -80,6 +80,11 @@ final class AiScanUpload
             if (min($width, $height) < ($kind === AiScanKind::Calendar ? AiScanLimits::UPLOAD_MIN_SHORT_SIDE_CALENDAR : AiScanLimits::UPLOAD_MIN_SHORT_SIDE)) {
                 throw self::refused('small');
             }
+
+            // A calendar page is wide: its width is what the reading needs (640 × 280 px).
+            if ($kind === AiScanKind::Calendar && max($width, $height) < AiScanLimits::UPLOAD_MIN_LONG_SIDE_CALENDAR) {
+                throw self::refused('small');
+            }
         }
 
         $sha256 = hash_file('sha256', $path);
