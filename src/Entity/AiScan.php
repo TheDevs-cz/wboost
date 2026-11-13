@@ -70,6 +70,25 @@ class AiScan
     #[Column(options: ['default' => 0])]
     public int $round = 0;
 
+    /**
+     * The stages of the current try as the scanner went through them:
+     * `{<stage>: {at, end?, note?, params?}}` (epoch seconds). Written only
+     * by the transitions and the heartbeat — `docs/architecture/ai-scan.md`
+     * § "Stage log".
+     *
+     * @var null|array<string, array<string, mixed>>
+     */
+    #[Column(type: Types::JSON, nullable: true, options: ['jsonb' => true])]
+    public null|array $stageLog = null;
+
+    /**
+     * Where the current run found lines of text: `{width, height, boxes}`.
+     *
+     * @var null|array{width: int, height: int, boxes: list<list<int>>}
+     */
+    #[Column(type: Types::JSON, nullable: true, options: ['jsonb' => true])]
+    public null|array $textBoxes = null;
+
     /** Grows with every stored candidate render: the screen reloads its picture when it changes. */
     #[Column(options: ['default' => 0])]
     public int $previewSeq = 0;

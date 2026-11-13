@@ -400,6 +400,11 @@ final readonly class ScanProposalView
             'information' => $information,
             'changes' => $changes,
             'fonts' => $this->proposal->faces($scan->project->id),
+            // face string → the font file's public address (the picker's @font-face).
+            'fontFiles' => (object) array_map(
+                fn (string $path): string => $this->uploaderHelper->getPublicPath($path),
+                $this->proposal->faceFiles($scan->project->id),
+            ),
             'rating' => $scan->rating,
         ];
     }

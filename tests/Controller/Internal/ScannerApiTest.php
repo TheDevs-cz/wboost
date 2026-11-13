@@ -14,7 +14,9 @@ use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Message\AiScan\CancelAiScan;
 use WBoost\Web\Message\AiScan\RetryAiScan;
 use WBoost\Web\Message\AiScan\SetAiScanRuntime;
+use WBoost\Web\Repository\AiScanRepository;
 use WBoost\Web\Services\AiScan\AiScanRuntimeState;
+use WBoost\Web\Services\AiScan\AiScans;
 use WBoost\Web\Services\AiScan\AiScanStandIn;
 use WBoost\Web\Services\AiScan\Template\ScanRenderLimiter;
 use WBoost\Web\Tests\AiScanTesting;
@@ -409,6 +411,71 @@ final class ScannerApiTest extends WebTestCase
         self::assertSame('build', $row['stage']);
         self::assertSame(1000 + 5000, $row['input_tokens']);
         self::assertSame(['1:pre_check:passed', '1:builder:open'], self::usageRows($id));
+    }
+
+    public function testTheStageLogKeepsDurationsNotesAndFoundTexts(): void
+    {
+        $build = self::running($this->client);
+        $id = $build['id'];
+        /** @return array{status: string, picture: null|string, textBoxes: mixed, stages: array<string, array{seconds: null|int, note: null|string, noteParams: null|array<string, int>}>} */
+        $view = static function () use ($id): array {
+            $container = self::getContainer();
+            $container->get(EntityManagerInterface::class)->clear();
+            $scan = $container->get(AiScanRepository::class)->get(Uuid::fromString($id));
+            /** @var array{status: string, picture: null|string, textBoxes: mixed, stages: array<string, array{seconds: null|int, note: null|string, noteParams: null|array<string, int>}>} $document */
+            $document = $container->get(AiScans::class)->view($scan);
+
+            return $document;
+        };
+        $log = static fn (string $scanId): array => self::decoded(self::row($scanId)['stage_log']);
+
+        // The check of this try ended when the intake passed; the build opened `read`.
+        self::assertEqualsCanonicalizing(['check', 'read'], array_keys($log($id)));
+        self::assertIsArray($log($id)['check']);
+        self::assertArrayHasKey('end', $log($id)['check']);
+        self::assertSame('working', $view()['picture']);
+
+        // The reading found texts — the same beat already announces the next stage.
+        self::scanner($this->client, 'POST', $id . '/beat', [
+            'run' => 1, 'seq' => 1, 'stage' => 'analyse', 'note' => 'texts_found', 'noteParams' => ['n' => 12],
+            'textBoxes' => ['width' => 900, 'height' => 1200, 'boxes' => [[10, 20, 300, 40], [10.4, 80.6, 200, 30], [800, 20, 300, 40], 'x', [1, 2, 3]]],
+            'usage' => [],
+        ], $build['lease']);
+        self::scanner($this->client, 'POST', $id . '/beat', ['run' => 1, 'seq' => 2, 'note' => 'fonts', 'usage' => []], $build['lease']);
+        self::scanner($this->client, 'POST', $id . '/beat', ['run' => 1, 'seq' => 3, 'stage' => 'build', 'note' => null, 'usage' => []], $build['lease']);
+
+        // Make the times tell: read took 3 s, analyse 40 s.
+        self::connection()->executeStatement(
+            "UPDATE ai_scan SET stage_log = jsonb_set(jsonb_set(stage_log, '{read,at}', to_jsonb((stage_log #>> '{build,at}')::bigint - 43)), '{analyse,at}', to_jsonb((stage_log #>> '{build,at}')::bigint - 40)) WHERE id = :id",
+            ['id' => $id],
+        );
+
+        $document = $view();
+        self::assertSame(['check', 'read', 'analyse', 'build'], array_keys($document['stages']));
+        self::assertSame(['seconds' => 3, 'note' => 'texts_found', 'noteParams' => ['n' => 12]], $document['stages']['read']);
+        self::assertSame(['seconds' => 40, 'note' => 'fonts', 'noteParams' => null], $document['stages']['analyse']);
+        self::assertNull($document['stages']['build']['seconds']);
+        self::assertIsInt($document['stages']['check']['seconds']);
+        // Boxes outside the picture and malformed ones are dropped, the rest rounded.
+        self::assertEquals(['width' => 900, 'height' => 1200, 'boxes' => [[10, 20, 300, 40], [10, 81, 200, 30]]], $document['textBoxes']);
+
+        // The end of the run closes the last stage; the boxes are for the waiting screen only.
+        self::scanner($this->client, 'POST', $id . '/render', ['run' => 1, 'seq' => 1, 'design' => self::design()], $build['lease']);
+        self::scanner($this->client, 'POST', $id . '/finish', ['run' => 1, 'outcome' => 'proposed', 'candidate' => 1, 'report' => self::report(1), 'usage' => self::usage(4)], $build['lease']);
+        $document = $view();
+        self::assertSame('ready', $document['status']);
+        self::assertIsInt($document['stages']['build']['seconds']);
+        self::assertNull($document['textBoxes']);
+
+        // A lost lease starts the build's stages again and keeps the check.
+        $second = self::running($this->client);
+        self::scanner($this->client, 'POST', $second['id'] . '/beat', ['run' => 1, 'seq' => 1, 'stage' => 'build', 'usage' => []], $second['lease']);
+        $this->expireLease($second['id']);
+        self::scanner($this->client, 'POST', 'tick', []);
+        self::assertSame('queued', self::row($second['id'])['status']);
+        $again = self::claim($this->client, 'build');
+        self::assertSame($second['id'], $again['id']);
+        self::assertEqualsCanonicalizing(['check', 'read'], array_keys($log($second['id'])));
     }
 
     public function testAHeartbeatExtendsTheLease(): void

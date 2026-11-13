@@ -399,6 +399,44 @@ final readonly class ScannerApi
             $params['noteParams'] = $note === null || $note->paramNames() === [] ? null : json_encode($note->params($body['noteParams'] ?? null));
         }
 
+        // The stage log (durations and the note each stage ended with) —
+        // what the waiting screen shows of the stages nobody watched.
+        $log = "COALESCE(stage_log, '{}'::jsonb)";
+
+        if ($stage !== null) {
+            $log = sprintf(
+                "jsonb_set(%s, ARRAY[CAST(:stage AS TEXT)], COALESCE(stage_log -> CAST(:stage AS TEXT), jsonb_build_object('at', CAST(:epoch AS BIGINT))))",
+                $log,
+            );
+            $params['epoch'] = $now->getTimestamp();
+        }
+
+        if ($note !== null) {
+            // A note about what was read belongs to the reading, whichever
+            // stage the same beat already announces.
+            $owner = in_array($note, [AiScanNote::TextsFound, AiScanNote::RowsFound], true)
+                ? "'read'"
+                : ($stage !== null ? 'CAST(:stage AS TEXT)' : 'CAST(stage AS TEXT)');
+            $log = sprintf(
+                "(SELECT CASE WHEN %2\$s IS NULL THEN l.v ELSE jsonb_set(l.v, ARRAY[%2\$s], COALESCE(l.v -> %2\$s, jsonb_build_object('at', CAST(:epoch AS BIGINT))) || CAST(:notePatch AS JSONB)) END FROM (SELECT %1\$s AS v) l)",
+                $log,
+                $owner,
+            );
+            $params['epoch'] = $now->getTimestamp();
+            $params['notePatch'] = json_encode(['note' => $note->value, 'params' => $note->paramNames() === [] ? null : $note->params($body['noteParams'] ?? null)]);
+        }
+
+        if ($stage !== null || $note !== null) {
+            $set[] = 'stage_log = ' . $log;
+        }
+
+        $textBoxes = self::textBoxes($body['textBoxes'] ?? null);
+
+        if ($textBoxes !== null) {
+            $set[] = 'text_boxes = CAST(:textBoxes AS JSONB)';
+            $params['textBoxes'] = json_encode($textBoxes);
+        }
+
         if (is_int($body['round'] ?? null)) {
             $set[] = 'round = :round';
             $params['round'] = max(0, min($body['round'], 9));
@@ -1093,6 +1131,58 @@ final readonly class ScannerApi
         }
 
         return $flat;
+    }
+
+    /**
+     * Where the scanner found lines of text, for the waiting screen's
+     * "Tyto texty jsme našli": the size the boxes are measured in and up to
+     * 300 `[x, y, width, height]` boxes — whole numbers only, no text.
+     *
+     * @return null|array{width: int, height: int, boxes: list<array{int, int, int, int}>}
+     */
+    private static function textBoxes(mixed $raw): null|array
+    {
+        if (!is_array($raw) || !is_int($raw['width'] ?? null) || !is_int($raw['height'] ?? null) || !is_array($raw['boxes'] ?? null)) {
+            return null;
+        }
+
+        $width = $raw['width'];
+        $height = $raw['height'];
+
+        if ($width < 1 || $height < 1 || $width > 100_000 || $height > 100_000) {
+            return null;
+        }
+
+        $boxes = [];
+
+        foreach (array_slice($raw['boxes'], 0, 300) as $box) {
+            if (!is_array($box) || count($box) !== 4) {
+                continue;
+            }
+
+            $numbers = [];
+
+            foreach (array_values($box) as $value) {
+                if (!is_int($value) && !is_float($value)) {
+                    continue 2;
+                }
+
+                $numbers[] = (int) round($value);
+            }
+
+            $x = $numbers[0];
+            $y = $numbers[1] ?? -1;
+            $w = $numbers[2] ?? 0;
+            $h = $numbers[3] ?? 0;
+
+            if ($w < 1 || $h < 1 || $x < 0 || $y < 0 || $x + $w > $width || $y + $h > $height) {
+                continue;
+            }
+
+            $boxes[] = [$x, $y, $w, $h];
+        }
+
+        return ['width' => $width, 'height' => $height, 'boxes' => $boxes];
     }
 
     /**

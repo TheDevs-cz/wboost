@@ -280,6 +280,11 @@ final readonly class AiScanLists
             'channel' => $scan->channel->value,
             'seen' => $scan->seenAt !== null,
             'hasProposal' => $hasProposal,
+            // The format the scan was started with — „Stejný obrázek znovu“ sends it again.
+            'options' => (object) array_filter(
+                array_intersect_key($scan->options, ['targetUnit' => 1, 'targetWidth' => 1, 'targetHeight' => 1]),
+                static fn (mixed $value): bool => is_string($value) || is_int($value) || is_float($value),
+            ),
             // The files are gone once `expiresAt` is null on an ended scan.
             'hasPicture' => $scan->status->isInProgress() || $scan->expiresAt !== null,
             'actions' => $actions,

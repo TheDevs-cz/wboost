@@ -149,6 +149,25 @@ final readonly class ScanProposal
     }
 
     /**
+     * Where each face's font file is stored — for the review's font picker,
+     * which draws every face in its own typeface.
+     *
+     * @return array<string, string> face string → storage path
+     */
+    public function faceFiles(UuidInterface $projectId): array
+    {
+        $files = [];
+
+        foreach ($this->getFonts->allForProject($projectId) as $font) {
+            foreach ($font->faces as $face) {
+                $files[$font->faceFamily($face)] = $face->filePath;
+            }
+        }
+
+        return $files;
+    }
+
+    /**
      * The design document of the proposal with every fix applied.
      *
      * @param null|array{fixes: array{items: array<string, array<string, mixed>>, ...}, pictures: array{places: array<string, array<string, mixed>>, ...}} $state

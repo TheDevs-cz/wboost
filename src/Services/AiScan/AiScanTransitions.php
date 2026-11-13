@@ -65,6 +65,9 @@ final readonly class AiScanTransitions
                     'beat_seq = 0',
                     "stage = 'check'",
                     'stage_started_at = :now',
+                    // The stage log of this try starts here (§ "Stage log").
+                    sprintf("stage_log = jsonb_build_object('check', jsonb_build_object('at', %s))", self::EPOCH),
+                    'text_boxes = NULL',
                     'scanner_version = COALESCE(:scanner, scanner_version)',
                 ],
                 ['hash' => $leaseTokenHash, 'lease' => $this->in(AiScanLimits::INTAKE_LEASE_SECONDS), 'scanner' => $scannerVersion],
@@ -251,6 +254,12 @@ final readonly class AiScanTransitions
                     'beat_seq = 0',
                     "stage = 'read'",
                     'stage_started_at = :now',
+                    // A build starts its stages again; the check of this try stays.
+                    sprintf(
+                        "stage_log = (COALESCE(stage_log, '{}'::jsonb) - 'read' - 'analyse' - 'build' - 'refine' - 'finish') || jsonb_build_object('read', jsonb_build_object('at', %s))",
+                        self::EPOCH,
+                    ),
+                    'text_boxes = NULL',
                     'note = NULL',
                     'note_params = NULL',
                     'round = 0',
@@ -613,6 +622,9 @@ final readonly class AiScanTransitions
         });
     }
 
+    /** `:now` as whole seconds — the unit of `ai_scan.stage_log`. */
+    public const string EPOCH = 'CAST(EXTRACT(EPOCH FROM CAST(:now AS TIMESTAMP)) AS BIGINT)';
+
     /** `finish` comes from the run holding the scan, or from the last run of a scan nobody has claimed since. */
     private const string RUN_OWNS_THE_SCAN = "run = :run AND lease_token_hash = :hash AND (status = 'running' OR lease_expires_at IS NULL)";
 
@@ -641,6 +653,10 @@ final readonly class AiScanTransitions
                     'lease_token_hash = NULL',
                     'stage = NULL',
                     'stage_started_at = NULL',
+                    // A retry that checks again starts a new log; one that goes
+                    // straight to the queue keeps the check it already passed.
+                    "stage_log = CASE WHEN stage_log -> 'check' IS NULL THEN NULL ELSE jsonb_build_object('check', stage_log -> 'check') END",
+                    'text_boxes = NULL',
                     'note = NULL',
                     'note_params = NULL',
                     'seen_at = NULL',
@@ -755,6 +771,16 @@ final readonly class AiScanTransitions
             assert($to !== null);
 
             $assignments = [sprintf("status = '%s'", $to->value), ...$set];
+
+            // Whatever the transition, the stage the scan was in ends now —
+            // unless the transition writes the stage log itself (a claim).
+            if (array_filter($set, static fn (string $item): bool => str_starts_with($item, 'stage_log =')) === []) {
+                $assignments[] = sprintf(
+                    "stage_log = CASE WHEN stage IS NOT NULL AND stage_log -> stage IS NOT NULL AND stage_log -> stage -> 'end' IS NULL
+                        THEN jsonb_set(stage_log, ARRAY[CAST(stage AS TEXT), 'end'], to_jsonb(%s)) ELSE stage_log END",
+                    self::EPOCH,
+                );
+            }
 
             if ($history) {
                 $assignments[] = sprintf(

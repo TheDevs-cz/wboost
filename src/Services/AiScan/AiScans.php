@@ -14,8 +14,10 @@ use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Repository\AiScanRepository;
 use WBoost\Web\Value\AiScan\AiScanKind;
 use WBoost\Web\Value\AiScan\AiScanLimits;
+use WBoost\Web\Value\AiScan\AiScanNote;
 use WBoost\Web\Value\AiScan\AiScanRefusal;
 use WBoost\Web\Value\AiScan\AiScanRefused;
+use WBoost\Web\Value\AiScan\AiScanStage;
 use WBoost\Web\Value\AiScan\AiScanStatus;
 use WBoost\Web\Value\AiScan\AiScanWaiting;
 
@@ -158,6 +160,9 @@ final readonly class AiScans
             'noteParams' => $scan->noteParams,
             'round' => $scan->round,
             'previewSeq' => $scan->previewSeq,
+            'stages' => self::stages($scan, $now),
+            'textBoxes' => $scan->status->isInProgress() ? $scan->textBoxes : null,
+            'picture' => self::picture($scan),
             'try' => $scan->try,
             'retriesLeft' => $scan->retriesLeft(),
             'canRetry' => $scan->status === AiScanStatus::Failed && $scan->retriesLeft() > 0,
@@ -177,6 +182,62 @@ final readonly class AiScans
             'resultTemplateId' => $scan->resultTemplate?->id->toString(),
             'resultVariantId' => $scan->resultVariant?->id->toString(),
         ];
+    }
+
+    /**
+     * The stages this try went through, in order: how long each took (null
+     * for the one still running) and the note it ended with.
+     *
+     * @return array<string, array{seconds: null|int, note: null|string, noteParams: null|array<string, int>}>
+     */
+    private static function stages(AiScan $scan, DateTimeImmutable $now): array
+    {
+        $log = $scan->stageLog ?? [];
+        $stages = [];
+        $ids = array_values(array_filter(
+            array_map(static fn (AiScanStage $stage): string => $stage->value, AiScanStage::cases()),
+            static fn (string $id): bool => is_array($log[$id] ?? null) && is_int($log[$id]['at'] ?? null),
+        ));
+
+        $at = static fn (string $id): null|int => is_int($log[$id]['at'] ?? null) ? $log[$id]['at'] : null;
+
+        foreach ($ids as $index => $id) {
+            $entry = $log[$id];
+            $start = $at($id);
+            $next = $ids[$index + 1] ?? null;
+            // A stage ends when the next one starts, or when the claim ended.
+            $end = is_int($entry['end'] ?? null) ? $entry['end'] : ($next !== null && $id !== AiScanStage::Check->value ? $at($next) : null);
+            $note = AiScanNote::tryFrom(is_string($entry['note'] ?? null) ? $entry['note'] : '');
+            $stages[$id] = [
+                'seconds' => $end === null || $start === null ? null : max(0, min($end - $start, 86_400)),
+                'note' => $note?->value,
+                'noteParams' => $note === null || $note->paramNames() === [] ? null : $note->params($entry['params'] ?? null),
+            ];
+        }
+
+        return $stages;
+    }
+
+    /**
+     * Which copy of the uploaded picture a browser can show right now —
+     * so no page asks for a file that does not exist: the scanner's
+     * normalised copy (and its small `preview`) once the pre-check passed,
+     * before that the original unless it is a HEIC, null when the files are
+     * gone.
+     */
+    private static function picture(AiScan $scan): null|string
+    {
+        if (!$scan->status->isInProgress() && $scan->expiresAt === null) {
+            return null;
+        }
+
+        if ($scan->preCheck !== null) {
+            return 'working';
+        }
+
+        $type = is_string($scan->sourceMeta['contentType'] ?? null) ? $scan->sourceMeta['contentType'] : '';
+
+        return in_array($type, ['image/jpeg', 'image/png', 'image/webp'], true) ? 'original' : null;
     }
 
     /**
