@@ -26,6 +26,13 @@ use WBoost\Web\Value\AiScan\ProviderState;
  * Two filters, both by link (a URL contract — `AdminUsageController`):
  * one scan with every usage row of it, or one project's scans.
  *
+ * Spend outlives its project: `ai_usage_event` and `ai_credit_ledger` are
+ * FK-less and nothing deletes them, so the sums of the day and of the month
+ * keep counting a deleted project. Here such a project is one row of
+ * `projects` with `deleted: true` (named by the snapshot its usage rows
+ * carry), and the project filter on its id lists its usage rows — its scans
+ * went with it.
+ *
  * Ids, codes, numbers and e-mail addresses only — nothing of a picture.
  *
  * @phpstan-import-type ProjectRow from AiUsageOverview
@@ -36,6 +43,9 @@ final readonly class GetAiUsageOverview
 {
     /** Ended scans on one page, under the ones in progress. */
     public const int ENDED_LIMIT = 50;
+
+    /** Usage rows of a deleted project on its filter page — the newest ones. */
+    public const int DELETED_PROJECT_USAGE_LIMIT = 200;
 
     public function __construct(
         private Connection $connection,
@@ -49,7 +59,7 @@ final readonly class GetAiUsageOverview
     /**
      * @param int $page the page of ended scans, 1-based; out of range = the nearest page
      * @param null|string $scanId a valid uuid: only this scan, with its usage rows (wins over `$projectId`)
-     * @param null|string $projectId a valid uuid: only this project's scans; an unknown project is no filter
+     * @param null|string $projectId a valid uuid: only this project's scans — of a deleted project with spend left, its usage rows; an unknown project is no filter
      */
     public function overview(int $page = 1, null|string $scanId = null, null|string $projectId = null): AiUsageOverview
     {
@@ -111,7 +121,7 @@ final readonly class GetAiUsageOverview
     }
 
     /**
-     * @return array{scans: list<ScanRow>, scansTotal: int, scanPage: int, scanPages: int, filterScanId: null|string, filterProject: null|array{id: string, name: string}, scanUsage: list<UsageRow>}
+     * @return array{scans: list<ScanRow>, scansTotal: int, scanPage: int, scanPages: int, filterScanId: null|string, filterProject: null|array{id: string, name: string, deleted: bool}, scanUsage: list<UsageRow>}
      */
     private function scanList(DateTimeImmutable $now, int $page, null|string $scanId, null|string $projectId): array
     {
@@ -125,7 +135,7 @@ final readonly class GetAiUsageOverview
                 'scanPages' => 1,
                 'filterScanId' => $scanId,
                 'filterProject' => null,
-                'scanUsage' => $this->usage($scanId),
+                'scanUsage' => $this->usage('scan_id = :id ORDER BY occurred_at, run, step', $scanId),
             ];
         }
 
@@ -133,7 +143,7 @@ final readonly class GetAiUsageOverview
 
         if ($projectId !== null) {
             $name = $this->connection->fetchOne('SELECT name FROM project WHERE id = :id', ['id' => $projectId]);
-            $project = is_string($name) ? ['id' => $projectId, 'name' => $name] : null;
+            $project = is_string($name) ? ['id' => $projectId, 'name' => $name, 'deleted' => false] : $this->deletedProject($projectId);
         }
 
         $where = $project === null ? 'TRUE' : 's.project_id = :project';
@@ -154,28 +164,59 @@ final readonly class GetAiUsageOverview
             'scanPages' => $pages,
             'filterScanId' => null,
             'filterProject' => $project,
-            'scanUsage' => [],
+            // A deleted project has no scan left (they cascade with it) — what is left of it is its spend.
+            'scanUsage' => $project !== null && $project['deleted']
+                ? $this->usage(sprintf('project_id = :id ORDER BY occurred_at DESC, scan_id, run, step LIMIT %d', self::DELETED_PROJECT_USAGE_LIMIT), $project['id'])
+                : [],
         ];
     }
 
     /**
-     * Every usage row of a scan — they outlive the scan row.
+     * A project that is gone but left usage or ledger rows: its id and the
+     * name its newest usage row remembers ('' when only ledger rows are left).
      *
+     * @return null|array{id: string, name: string, deleted: bool}
+     */
+    private function deletedProject(string $projectId): null|array
+    {
+        $left = $this->connection->fetchOne(
+            'SELECT EXISTS (SELECT 1 FROM ai_usage_event WHERE project_id = :id) OR EXISTS (SELECT 1 FROM ai_credit_ledger WHERE project_id = :id)',
+            ['id' => $projectId],
+        );
+
+        if ($left !== true && $left !== 't' && $left !== 1 && $left !== '1') {
+            return null;
+        }
+
+        $name = $this->connection->fetchOne(
+            'SELECT project_name FROM ai_usage_event WHERE project_id = :id ORDER BY occurred_at DESC LIMIT 1',
+            ['id' => $projectId],
+        );
+
+        return ['id' => $projectId, 'name' => self::string($name), 'deleted' => true];
+    }
+
+    /**
+     * Usage rows — of a scan (all of them: they outlive the scan row) or of a
+     * deleted project (they outlive the project too).
+     *
+     * @param string $where a condition on `:id` with its ORDER BY (and LIMIT) — a constant of this class, never input
      * @return list<UsageRow>
      */
-    private function usage(string $scanId): array
+    private function usage(string $where, string $id): array
     {
         $rows = $this->connection->fetchAllAssociative(
-            'SELECT run, step, model, occurred_at, closed_at, duration_ms, turns, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens,
+            "SELECT scan_id, run, step, model, occurred_at, closed_at, duration_ms, turns, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens,
                     cost_micro_usd, outcome, error_code
-               FROM ai_usage_event WHERE scan_id = :scan ORDER BY occurred_at, run, step',
-            ['scan' => $scanId],
+               FROM ai_usage_event WHERE $where",
+            ['id' => $id],
         );
 
         return array_map(static function (array $row): array {
             $duration = self::int($row['duration_ms']);
 
             return [
+                'scanId' => self::string($row['scan_id']),
                 'run' => self::int($row['run']),
                 'step' => self::string($row['step']),
                 'model' => self::string($row['model']),
@@ -196,12 +237,33 @@ final readonly class GetAiUsageOverview
 
     /**
      * Every project: the ones with AI scan on first, then by this month's
-     * use, then by name.
+     * use, then by name — and after them the DELETED projects that left
+     * spend behind (usage or ledger rows whose project is gone), one row per
+     * project id, the costliest first.
      *
      * @return list<ProjectRow>
      */
     private function projects(DateTimeImmutable $now): array
     {
+        // Counted scans of a project id (ledger) and what it cost (usage).
+        $ledger = "SELECT project_id,
+                          GREATEST(0, -COALESCE(SUM(delta) FILTER (WHERE period = :period), 0)) AS month,
+                          COUNT(*) FILTER (WHERE reason = 'settle') AS total
+                     FROM ai_credit_ledger GROUP BY project_id";
+        $usage = "SELECT project_id,
+                         COALESCE(SUM(cost_micro_usd) FILTER (WHERE occurred_at >= :month), 0) AS cost_month,
+                         COALESCE(SUM(cost_micro_usd), 0) AS cost_total,
+                         COUNT(*) FILTER (WHERE outcome = 'refused' AND closed_at >= :day) AS refusals_today,
+                         (ARRAY_AGG(project_name ORDER BY occurred_at DESC))[1] AS project_name,
+                         (ARRAY_AGG(owner_email ORDER BY occurred_at DESC))[1] AS owner_email
+                    FROM ai_usage_event GROUP BY project_id";
+        $params = [
+            'period' => AiScanTime::period($now),
+            'month' => AiScanTime::sql(AiScanTime::startOfDay($now)->modify('first day of this month')),
+            // The same count the start guard makes (`AiScans::assertMayStart()`).
+            'day' => AiScanTime::sql(AiScanTime::startOfDay($now)),
+        ];
+
         $rows = $this->connection->fetchAllAssociative(
             "SELECT p.id, p.name, u.name AS owner_name, u.email AS owner_email, p.ai_scan_enabled, p.ai_scan_monthly_limit,
                     COALESCE(l.month, 0) AS month, COALESCE(l.total, 0) AS total,
@@ -209,42 +271,58 @@ final readonly class GetAiUsageOverview
                     COALESCE(c.refusals_today, 0) AS refusals_today
                FROM project p
                JOIN \"user\" u ON u.id = p.owner_id
-               LEFT JOIN (
-                    SELECT project_id,
-                           GREATEST(0, -COALESCE(SUM(delta) FILTER (WHERE period = :period), 0)) AS month,
-                           COUNT(*) FILTER (WHERE reason = 'settle') AS total
-                      FROM ai_credit_ledger GROUP BY project_id
-               ) l ON l.project_id = p.id
-               LEFT JOIN (
-                    SELECT project_id,
-                           COALESCE(SUM(cost_micro_usd) FILTER (WHERE occurred_at >= :month), 0) AS cost_month,
-                           COALESCE(SUM(cost_micro_usd), 0) AS cost_total,
-                           COUNT(*) FILTER (WHERE outcome = 'refused' AND closed_at >= :day) AS refusals_today
-                      FROM ai_usage_event GROUP BY project_id
-               ) c ON c.project_id = p.id
+               LEFT JOIN ($ledger) l ON l.project_id = p.id
+               LEFT JOIN ($usage) c ON c.project_id = p.id
               ORDER BY p.ai_scan_enabled DESC, COALESCE(l.month, 0) DESC, COALESCE(c.cost_total, 0) DESC, LOWER(p.name), p.id",
-            [
-                'period' => AiScanTime::period($now),
-                'month' => AiScanTime::sql(AiScanTime::startOfDay($now)->modify('first day of this month')),
-                // The same count the start guard makes (`AiScans::assertMayStart()`).
-                'day' => AiScanTime::sql(AiScanTime::startOfDay($now)),
-            ],
+            $params,
         );
 
-        return array_map(static fn (array $row): array => [
-            'id' => self::string($row['id']),
-            'name' => self::string($row['name']),
-            'ownerName' => self::nullableString($row['owner_name']),
-            'ownerEmail' => self::string($row['owner_email']),
-            'enabled' => (bool) $row['ai_scan_enabled'],
-            'limit' => is_numeric($row['ai_scan_monthly_limit']) ? (int) $row['ai_scan_monthly_limit'] : null,
-            'month' => self::int($row['month']),
-            'total' => self::int($row['total']),
-            'costMonthMicroUsd' => self::int($row['cost_month']),
-            'costTotalMicroUsd' => self::int($row['cost_total']),
-            'refusalsToday' => self::int($row['refusals_today']),
-            'paused' => self::int($row['refusals_today']) >= AiScanLimits::PROJECT_REFUSALS_PER_DAY,
-        ], $rows);
+        // Spend is never deleted with its project (both tables are FK-less): the
+        // sums of the day and the month count these rows, so the list shows them.
+        $deleted = $this->connection->fetchAllAssociative(
+            "SELECT x.project_id AS id, COALESCE(c.project_name, '') AS name, COALESCE(c.owner_email, '') AS owner_email,
+                    COALESCE(l.month, 0) AS month, COALESCE(l.total, 0) AS total,
+                    COALESCE(c.cost_month, 0) AS cost_month, COALESCE(c.cost_total, 0) AS cost_total
+               FROM (SELECT project_id FROM ai_usage_event UNION SELECT project_id FROM ai_credit_ledger) x
+               LEFT JOIN ($ledger) l ON l.project_id = x.project_id
+               LEFT JOIN ($usage) c ON c.project_id = x.project_id
+              WHERE NOT EXISTS (SELECT 1 FROM project p WHERE p.id = x.project_id)
+              ORDER BY COALESCE(c.cost_total, 0) DESC, x.project_id",
+            $params,
+        );
+
+        return [
+            ...array_map(static fn (array $row): array => [
+                'id' => self::string($row['id']),
+                'name' => self::string($row['name']),
+                'deleted' => false,
+                'ownerName' => self::nullableString($row['owner_name']),
+                'ownerEmail' => self::string($row['owner_email']),
+                'enabled' => (bool) $row['ai_scan_enabled'],
+                'limit' => is_numeric($row['ai_scan_monthly_limit']) ? (int) $row['ai_scan_monthly_limit'] : null,
+                'month' => self::int($row['month']),
+                'total' => self::int($row['total']),
+                'costMonthMicroUsd' => self::int($row['cost_month']),
+                'costTotalMicroUsd' => self::int($row['cost_total']),
+                'refusalsToday' => self::int($row['refusals_today']),
+                'paused' => self::int($row['refusals_today']) >= AiScanLimits::PROJECT_REFUSALS_PER_DAY,
+            ], $rows),
+            ...array_map(static fn (array $row): array => [
+                'id' => self::string($row['id']),
+                'name' => self::string($row['name']),
+                'deleted' => true,
+                'ownerName' => null,
+                'ownerEmail' => self::string($row['owner_email']),
+                'enabled' => false,
+                'limit' => null,
+                'month' => self::int($row['month']),
+                'total' => self::int($row['total']),
+                'costMonthMicroUsd' => self::int($row['cost_month']),
+                'costTotalMicroUsd' => self::int($row['cost_total']),
+                'refusalsToday' => 0,
+                'paused' => false,
+            ], $deleted),
+        ];
     }
 
     /**

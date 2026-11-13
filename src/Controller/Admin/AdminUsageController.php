@@ -38,7 +38,8 @@ final class AdminUsageController extends AbstractController
             // query parameters — a URL contract other pages link to (always with
             // `#ai-skeny`, which opens the tab):
             //   ?ai_scan=<scan uuid>       that scan only, with every usage row of it
-            //   ?ai_project=<project uuid> that project's scans only (paged)
+            //   ?ai_project=<project uuid> that project's scans only (paged); of a deleted
+            //                              project with spend left: its usage rows
             //   ?ai_page=<n>               the page of ended scans, 1-based
             // Anything that is not a uuid / a positive number is ignored.
             'ai' => $this->getAiUsageOverview->overview(

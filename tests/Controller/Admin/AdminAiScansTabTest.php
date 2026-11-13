@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use Ramsey\Uuid\Uuid;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use WBoost\Web\Services\AiScan\AiScanTime;
 use WBoost\Web\Services\AiScan\AiScanTransitions;
 use WBoost\Web\Tests\AiScanTesting;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
@@ -20,8 +21,9 @@ use WBoost\Web\Value\AiScan\AiScanRefused;
  * it, the operating strip's forms writing the runtime row, „Vypnuto“ asking
  * first and interrupting scans, the page with nothing, with requests and
  * with scans; the scans' row menu and rating dialog, paging, the two filters
- * by link (`?ai_scan=`, `?ai_project=` — a URL contract) and a project paused
- * for refusals.
+ * by link (`?ai_scan=`, `?ai_project=` — a URL contract), a project paused
+ * for refusals, the state's name by kind, and the spend a deleted project
+ * left behind.
  */
 final class AdminAiScansTabTest extends WebTestCase
 {
@@ -250,8 +252,11 @@ final class AdminAiScansTabTest extends WebTestCase
         self::assertStringContainsString(TestDataFixture::USER_1_EMAIL, $row->text());
         self::assertStringContainsString('Šablony', $row->text());
         self::assertStringContainsString('web', $row->text());
-        self::assertStringContainsString('$', $row->filter('td[data-l="Náklady"]')->text());
-        self::assertNotSame('—', $row->filter('td[data-l="Tokeny"]')->text());
+        // Two-line cells: cost over tokens, duration over the try.
+        self::assertStringContainsString('$', $row->filter('td[data-l="Náklady · tokeny"]')->text());
+        self::assertStringContainsString('tok.', $row->filter('td[data-l="Náklady · tokeny"] .ai-sub')->text());
+        self::assertStringContainsString('1. pokus', $row->filter('td[data-l="Doba · pokus"] .ai-sub')->text());
+        self::assertCount(8, $pane->filter('table.ai-scans thead th'), 'eight columns: the table fits 1440 px');
         self::assertStringNotContainsString('Headline', $pane->text(), 'nothing of the picture');
 
         // The row's menu: a popover outside the table, opened by the row's button.
@@ -310,7 +315,7 @@ final class AdminAiScansTabTest extends WebTestCase
         }
 
         // The note is in the dialog, no longer a tooltip of the pill.
-        self::assertNull($crawler->filter(sprintf('tr[data-scan="%s"] td[data-l="Hodnocení"] .pill', $bad))->attr('title'));
+        self::assertNull($crawler->filter(sprintf('tr[data-scan="%s"] td[data-l="Kredit · hodnocení"] [data-rating] .pill', $bad))->attr('title'));
     }
 
     public function testEndedScansArePagedAndScansInProgressStayOnTheFirstPage(): void
@@ -505,6 +510,111 @@ final class AdminAiScansTabTest extends WebTestCase
         } catch (AiScanRefused $refused) {
             self::assertSame('project_paused', $refused->refusal->value);
         }
+    }
+
+    public function testAnAcceptedScanIsNamedByItsKind(): void
+    {
+        self::entitle(self::PROJECT);
+        self::switchOn(AiScanMode::On);
+        $scan = self::ready($this->client);
+        TestingLogin::logInAsUser($this->client, TestDataFixture::ADMIN_USER_EMAIL);
+
+        // Raw rows: only the label is under test.
+        self::connection()->executeStatement("UPDATE ai_scan SET status = 'accepted' WHERE id = :id", ['id' => $scan]);
+        $row = $this->client->request('GET', '/admin/usage')->filter(sprintf('tr[data-scan="%s"]', $scan));
+        self::assertSame('Šablona vytvořena', $row->filter('td[data-l="Stav"] .pill')->text());
+
+        // An accepted calendar scan made no template — the wording of the user's history.
+        self::connection()->executeStatement("UPDATE ai_scan SET kind = 'calendar' WHERE id = :id", ['id' => $scan]);
+        $row = $this->client->request('GET', '/admin/usage')->filter(sprintf('tr[data-scan="%s"]', $scan));
+        self::assertResponseIsSuccessful();
+        self::assertSame('Rozvržení použito', $row->filter('td[data-l="Stav"] .pill')->text());
+        self::assertStringNotContainsString('Šablona vytvořena', $row->text());
+        self::assertStringContainsString('Kalendáře', $row->filter('th .ai-sub')->text());
+    }
+
+    public function testTheSpendOfADeletedProjectStaysCountedAndIsShownAsADeletedProject(): void
+    {
+        // What a deleted project leaves: FK-less usage and ledger rows of an id no project has.
+        $gone = Uuid::uuid7()->toString();
+        $scan = Uuid::uuid7()->toString();
+        $ledgerOnly = Uuid::uuid7()->toString();
+        $period = AiScanTime::period(new DateTimeImmutable());
+
+        foreach ([['pre_check', 750_000], ['builder', 1_250_000]] as [$step, $cost]) {
+            self::connection()->executeStatement(
+                "INSERT INTO ai_usage_event (id, scan_id, run, step, occurred_at, closed_at, cost_micro_usd, outcome, model, project_id, project_name, owner_email, user_email, channel, kind)
+                 VALUES (:id, :scan, 1, :step, NOW(), NOW(), :cost, 'proposed', 'test-model', :project, 'Zaniklá firma', 'byvaly@example.com', 'user@example.com', 'web', 'template')",
+                ['id' => Uuid::uuid7()->toString(), 'scan' => $scan, 'step' => $step, 'cost' => $cost, 'project' => $gone],
+            );
+        }
+
+        foreach ([[$gone, 'reserve', -1], [$gone, 'settle', 0], [$ledgerOnly, 'reserve', -1], [$ledgerOnly, 'refund', 1]] as [$project, $reason, $delta]) {
+            self::connection()->executeStatement(
+                'INSERT INTO ai_credit_ledger (id, project_id, scan_id, try, period, delta, reason, cost_micro_usd, created_at)
+                 VALUES (:id, :project, :scan, 1, :period, :delta, :reason, 0, NOW())',
+                ['id' => Uuid::uuid7()->toString(), 'project' => $project, 'scan' => $project === $gone ? $scan : Uuid::uuid7()->toString(), 'period' => $period, 'delta' => $delta, 'reason' => $reason],
+            );
+        }
+
+        TestingLogin::logInAsUser($this->client, TestDataFixture::ADMIN_USER_EMAIL);
+        $crawler = $this->client->request('GET', '/admin/usage');
+        self::assertResponseIsSuccessful();
+        $pane = $crawler->filter('#st-ai-skeny');
+
+        // The sums keep counting it.
+        self::assertStringContainsString('Dnes utraceno 2,00 $', $pane->text());
+        self::assertStringContainsString('tento měsíc 2,00 $', $pane->text());
+
+        // One row per deleted project id, in the first table: no link to the project, no switch.
+        $row = $pane->filter(sprintf('#ai-projekty > .ai-wrap tr[data-deleted-project="%s"]', $gone));
+        self::assertCount(1, $row);
+        self::assertStringContainsString('Smazaný projekt', $row->filter('th')->text());
+        self::assertStringContainsString('Zaniklá firma', $row->filter('th')->text());
+        self::assertStringContainsString(substr($gone, 0, 8), $row->filter('th')->text());
+        self::assertSame('byvaly@example.com', $row->filter('td[data-l="Vlastník"]')->text());
+        self::assertSame('1', $row->filter('td[data-l="Tento měsíc"]')->text());
+        self::assertSame('1', $row->filter('td[data-l="Celkem"]')->text());
+        self::assertSame('2,00 $', $row->filter('td[data-l="Náklady"]')->text());
+        self::assertCount(0, $row->filter('form, button'));
+        self::assertSame([sprintf('/admin/usage?ai_project=%s#ai-skeny', $gone)], $row->filter('a')->each(static fn ($a): string => (string) $a->attr('href')));
+
+        // Only ledger rows left: still a row, nameless.
+        $bare = $pane->filter(sprintf('#ai-projekty tr[data-deleted-project="%s"]', $ledgerOnly));
+        self::assertCount(1, $bare);
+        self::assertStringContainsString('Smazaný projekt', $bare->filter('th')->text());
+        self::assertSame('0', $bare->filter('td[data-l="Tento měsíc"]')->text(), 'refunded');
+
+        // Nothing of the page links into a project that is gone.
+        foreach ($crawler->filter('a[href], form[action]')->each(static fn ($node): string => (string) ($node->attr('href') ?? $node->attr('action'))) as $target) {
+            foreach ([$gone, $ledgerOnly] as $id) {
+                self::assertTrue(!str_contains($target, $id) || str_starts_with($target, '/admin/usage?ai_project='), $target);
+            }
+        }
+
+        // The filter on a deleted project: no scans (they went with it), its usage rows.
+        $crawler = $this->client->request('GET', sprintf('/admin/usage?ai_project=%s', $gone));
+        self::assertResponseIsSuccessful();
+        $card = $crawler->filter('#ai-skeny-tabulka');
+        self::assertCount(1, $card->filter('.ai-filter[data-filter="project"]'));
+        self::assertStringContainsString('Jen smazaný projekt', $card->filter('.ai-filter')->text());
+        self::assertCount(0, $card->filter('table.ai-scans'));
+        self::assertStringContainsString('Projekt byl smazán', $card->text());
+        self::assertCount(2, $card->filter('#ai-vyuziti tbody tr'));
+        self::assertStringContainsString('Celkem za projekt 2,00 $', $card->filter('#ai-vyuziti')->text());
+        self::assertSame(sprintf('/admin/usage?ai_scan=%s#ai-skeny', $scan), $card->filter('#ai-vyuziti tbody tr')->eq(0)->filter('a')->attr('href'));
+
+        // … and that link — the usage of a scan whose row is gone — works.
+        $crawler = $this->client->request('GET', sprintf('/admin/usage?ai_scan=%s', $scan));
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('Sken už neexistuje.', $crawler->filter('#ai-skeny-tabulka')->text());
+        self::assertCount(2, $crawler->filter('#ai-vyuziti tbody tr'));
+        self::assertStringContainsString('Celkem za sken 2,00 $', $crawler->filter('#ai-vyuziti')->text());
+
+        $crawler = $this->client->request('GET', sprintf('/admin/usage?ai_project=%s', $ledgerOnly));
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('Zůstaly jen záznamy o kreditech.', $crawler->filter('#ai-skeny-tabulka')->text());
+        self::assertCount(0, $crawler->filter('#ai-vyuziti'));
     }
 
     /** Copies of an ended scan row, each a minute older — raw rows, as a purge-free history would hold. */
