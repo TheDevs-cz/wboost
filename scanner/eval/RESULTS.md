@@ -1051,6 +1051,12 @@ nothing moved: `s03` frames 0.09 mm, type 0.33 pt, categorical 100 %, F1 1.000 (
 0.06 mm, 0.14 pt, 100 %, F1 1.000 ($0.30, 66 s). Inside the spread §10.5 measured.
 
 
+**On production** (image `sha-8cae9b67`, definition `9-ccb3eb4ee3b0`, the provider key; 2026-11-13 21:19): one
+scan of `s12` for a scratch 14-day calendar in the owner's internal project — `ready` in 74 s (check 3 s, read
+16 s, build 45 s, refine 9 s; 10 turns, 3 candidates), **$0.305** recorded, `twoSided`, both week columns and the
+photo within 0.2 mm of the truth, no note; discarded, the calendar and the temporary admin deleted. Scanner
+cgroup peak 619 MiB.
+
 **Not measured:** a 14-day page whose columns are NOT mirror images of each other (numbers on the same
 side in both — the layout cannot express it; the instructions say to report `cal` as approximate), a
 photographed 14-day print, a 14-day page with a margin (`s10-shot`'s case; the page-box detection is
