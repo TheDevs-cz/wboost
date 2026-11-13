@@ -73,4 +73,8 @@ class AiScanRuntime
 
     #[Column(length: 32, nullable: true)]
     public null|string $failureClass = null;
+
+    /** When the circuit breaker set the mode to `paused`; cleared when an admin sets a mode. */
+    #[Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    public null|DateTimeImmutable $breakerTrippedAt = null;
 }

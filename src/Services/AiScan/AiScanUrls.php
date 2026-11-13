@@ -50,6 +50,12 @@ final readonly class AiScanUrls
         return $this->urls->generate('edit_project', ['id' => $project->id->toString()], UrlGeneratorInterface::ABSOLUTE_URL) . '#project-modules';
     }
 
+    /** The admin's tab „AI skeny“ — the operating strip, requests, projects and scans. */
+    public function admin(): string
+    {
+        return $this->urls->generate('admin_usage', [], UrlGeneratorInterface::ABSOLUTE_URL) . '#ai-skeny';
+    }
+
     public function editor(string $variantId): string
     {
         return $this->urls->generate('template_variant_editor', ['variantId' => $variantId], UrlGeneratorInterface::ABSOLUTE_URL);

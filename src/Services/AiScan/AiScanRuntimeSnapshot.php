@@ -33,6 +33,8 @@ final readonly class AiScanRuntimeSnapshot
         public bool $scannerTooOld,
         public int $consecutiveFailures,
         public null|string $failureClass,
+        /** Since when the mode is `paused` by the circuit breaker (null: it is not). */
+        public null|DateTimeImmutable $breakerTrippedAt = null,
     ) {
     }
 

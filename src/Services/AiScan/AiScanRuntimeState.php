@@ -53,6 +53,8 @@ final readonly class AiScanRuntimeState
             scannerTooOld: (bool) $row['scanner_too_old'],
             consecutiveFailures: self::int($row['consecutive_failures']),
             failureClass: self::nullableString($row['failure_class']),
+            // (`?? null`: the column arrives with a migration; a row read before it has none.)
+            breakerTrippedAt: AiScanTime::fromSql(self::nullableString($row['breaker_tripped_at'] ?? null)),
         );
     }
 
@@ -77,6 +79,9 @@ final readonly class AiScanRuntimeState
 
         if ($mode !== null) {
             $set[] = 'mode = :mode';
+            // A mode set by hand ends "paused by the circuit breaker" — also
+            // `paused` again: the admin has taken over.
+            $set[] = 'breaker_tripped_at = NULL';
             $params['mode'] = $mode->value;
 
             if ($mode === AiScanMode::On) {
@@ -188,7 +193,8 @@ final readonly class AiScanRuntimeState
         }
 
         return $this->connection->executeStatement(
-            "UPDATE ai_scan_runtime SET mode = 'paused' WHERE id = 1 AND mode = 'on'",
+            "UPDATE ai_scan_runtime SET mode = 'paused', breaker_tripped_at = :now WHERE id = 1 AND mode = 'on'",
+            ['now' => AiScanTime::sql($this->clock->now())],
         ) === 1;
     }
 

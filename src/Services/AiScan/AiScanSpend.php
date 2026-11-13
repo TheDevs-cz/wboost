@@ -39,6 +39,39 @@ final readonly class AiScanSpend
         return $this->running(null) * $this->definition->engineBudgetMicroUsd();
     }
 
+    /** Recorded spend of the whole system today, without what running runs reserve — it only grows within a day. */
+    public function recordedToday(DateTimeImmutable $now): int
+    {
+        return $this->spent(null, $now);
+    }
+
+    /** Recorded spend since the first of the month (Europe/Prague). */
+    public function recordedThisMonth(DateTimeImmutable $now): int
+    {
+        $sum = $this->connection->fetchOne(
+            'SELECT COALESCE(SUM(cost_micro_usd), 0) FROM ai_usage_event WHERE occurred_at >= :since',
+            ['since' => AiScanTime::sql(AiScanTime::startOfDay($now)->modify('first day of this month'))],
+        );
+
+        return is_numeric($sum) ? (int) $sum : 0;
+    }
+
+    /** One run's reserved budget, in micro-USD. */
+    public function runBudget(): int
+    {
+        return $this->definition->engineBudgetMicroUsd();
+    }
+
+    /**
+     * No further run fits under the daily ceiling, whatever is running: what
+     * is RECORDED today plus one run's budget is over it. Unlike
+     * {@see totalCeilingReached()} it does not flap with reservations.
+     */
+    public function dayExhausted(AiScanRuntimeSnapshot $runtime, DateTimeImmutable $now): bool
+    {
+        return $this->spent(null, $now) + $this->definition->engineBudgetMicroUsd() > $runtime->dailyCeilingMicroUsd;
+    }
+
     public function totalCeilingReached(AiScanRuntimeSnapshot $runtime, DateTimeImmutable $now): bool
     {
         return $this->totalToday($now) >= $runtime->dailyCeilingMicroUsd;
