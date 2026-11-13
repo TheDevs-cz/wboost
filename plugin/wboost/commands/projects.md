@@ -5,7 +5,7 @@ argument-hint: "[project or template name to filter by]"
 
 Orient the user in their wboost account.
 
-1. Call `get_context` with `{"skillVersion": "0.5.0"}` (a calendar-only
+1. Call `get_context` with `{"skillVersion": "0.5.1"}` (a calendar-only
    connection has no `get_context`: call `list_calendars` with the same
    argument instead and list the calendars). Report, per project: its name, how many templates and
    variants it holds, its brand fonts and brand colours, and the canvas

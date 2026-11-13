@@ -277,10 +277,18 @@ final class ScanDesignTest extends WebTestCase
         self::assertSame('scan', self::connection()->fetchOne('SELECT layout_origin FROM calendar WHERE id = :id', ['id' => $calendarId]));
 
         // Idempotent.
-        /** @var array{created: bool, revision: int} $again */
+        /** @var array{created: bool, revision: int, unfilledPictures: int} $again */
         $again = $this->payload($this->call(['action' => 'apply', 'scanId' => $scanId]));
         self::assertFalse($again['created']);
         self::assertSame($applied['revision'], $again['revision']);
+        self::assertSame(2, $again['unfilledPictures'], 'a repeat counts the places that are empty now, as the first answer did');
+
+        // …and "now" is meant: once the calendar carries a logo, one place is left.
+        self::connection()->executeStatement("UPDATE calendar SET layout = jsonb_set(layout, '{styles,logo,asset}', '\"0e2ecafe-0000-7000-8000-00000000a55e\"') WHERE id = :id", ['id' => $calendarId]);
+        /** @var array{created: bool, unfilledPictures: int} $later */
+        $later = $this->payload($this->call(['action' => 'apply', 'scanId' => $scanId]));
+        self::assertSame([false, 1], [$later['created'], $later['unfilledPictures']]);
+        self::connection()->executeStatement("UPDATE calendar SET layout = layout #- '{styles,logo,asset}' WHERE id = :id", ['id' => $calendarId]);
 
         // The layout is edited after the apply (another tool, the web): restore asks first.
         self::connection()->executeStatement("UPDATE calendar SET layout = jsonb_set(layout, '{boxes,logo,x}', '12') WHERE id = :id", ['id' => $calendarId]);

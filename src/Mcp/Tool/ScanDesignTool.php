@@ -232,9 +232,10 @@ readonly final class ScanDesignTool
      * For a CALENDAR scan "apply" takes scanId and optionally features[] (keys
      * of "result" featuresOffered to switch on; a scan never switches anything
      * off) and SAVES the proposed layout into the calendar at once (the
-     * designer's role on the calendar is needed). Idempotent. Returns
-     * calendarId, revision, features (switched on), unfilledPictures (places
-     * without a picture — upload_calendar_asset, then set_calendar_layout
+     * designer's role on the calendar is needed). Idempotent (a repeat
+     * answers created: false). Returns calendarId, revision, features
+     * (switched on), unfilledPictures (the scan's picture places that are
+     * empty in the calendar now — upload_calendar_asset, then set_calendar_layout
      * styles {"logo": {"asset": id}}), restoreUntil (until when "restore"
      * works), calendarUrl, created. Texts, photos and page content are never
      * touched.

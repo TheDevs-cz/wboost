@@ -1186,7 +1186,9 @@ directory goes with the scan.
 scan's row lock and the calendar's row lock, in the bus transaction:
 
 1. a repeat on an `accepted` scan answers with the first result
-   (`created: false`);
+   (`created: false`) — except `unfilledPictures`, which is always counted
+   against the calendar as it is NOW (the scan's slots whose picture the
+   calendar's layout does not carry), for the apply and for a repeat alike;
 2. the snapshot of the calendar **as stored now** (`CalendarScanProposal::snapshot`:
    `layoutJson`, `preset`, `featuresJson`, `layoutOrigin`, `step`) — a save
    through the client link in between changed content only and is simply

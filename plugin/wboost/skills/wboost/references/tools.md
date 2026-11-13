@@ -70,7 +70,7 @@ with a message saying exactly that.
 
 ## `get_context(skillVersion?)`
 
-`skillVersion`: the version your wboost skill states (`"0.5.0"`); omit it when
+`skillVersion`: the version your wboost skill states (`"0.5.1"`); omit it when
 you have no wboost skill. Changes nothing. Returns:
 
 ```jsonc
@@ -94,7 +94,7 @@ you have no wboost skill. Changes nothing. Returns:
     }]
   }],
   "skill": {                                        // the version check — see SKILL.md
-    "latestVersion": "0.5.0", "installedVersion",   // null when no skillVersion was sent
+    "latestVersion": "0.5.1", "installedVersion",   // null when no skillVersion was sent
     "status",                                       // "current" | "outdated" | "unknown"
     "message", "whatsNew",                          // null when current; tell the user once
     "updateClaudeCode", "updateClaudeAi"            // the update routes; null when current
@@ -591,8 +591,9 @@ here deletes.
 ## `scan_design(action, …)` — AI scan: a picture becomes a template or a calendar layout
 
 Scope `ai:scan` (implies nothing; a paid feature WBoost switches on per
-project). A flat picture of a finished design (JPG, PNG, WebP, HEIC; ≤ 10 MB,
-sides ≤ 8000 px, ≤ 36 Mpx, shorter side ≥ 600 px) becomes a **proposal**:
+project). A flat picture of a finished design (JPG, PNG, WebP, HEIC, or a PDF —
+its first page is scanned; ≤ 10 MB, sides ≤ 8000 px, ≤ 36 Mpx, shorter side
+≥ 600 px for a template, ≥ 300 px for a calendar page) becomes a **proposal**:
 texts, shapes, colours and **places for pictures** (pictures are never taken
 out of the image). Nothing exists among the templates until `apply`. A scan
 runs in the background, usually 1–3 minutes (up to about 12).
@@ -603,7 +604,7 @@ runs in the background, usually 1–3 minutes (up to about 12).
 | `status` | `scanId` | `status`, `waiting`, `restarted`, `stage`, `note`, `round`, `elapsedSeconds`, queue fields, `expiresAt`, `unfinished`, `errorCode` + `errorSentence`, `retriesLeft`, `canRetry`, `canContinue`, `pollAfterSeconds` (null once ended) |
 | `result` | `scanId`, `image?` | `name`, `counts`, `toDecide`, `elements[]`, `placeholders[]`, `decisions[]` (each with the `fixes[]` it accepts), `information[]`, `fonts[]` (+ the render with `image: true`) |
 | `apply` | template: `scanId`, `fixes?[]`, `placeholders?[]` `{id, assetId\|null, kind?: fixed\|input, fit?: contain\|cover}`, `name?` (3–30) | `templateId`, `variantId`, `editorUrl`, `unfilledPictures`, `created` — creates the template; idempotent |
-| `apply` | calendar: `scanId`, `features?[]` (keys of `featuresOffered` to switch on) | `calendarId`, `calendarUrl`, `revision`, `features`, `unfilledPictures`, `restoreUntil`, `created` — SAVES the layout into the calendar; idempotent |
+| `apply` | calendar: `scanId`, `features?[]` (keys of `featuresOffered` to switch on) | `calendarId`, `calendarUrl`, `revision`, `features`, `unfilledPictures`, `restoreUntil`, `created` — SAVES the layout into the calendar; idempotent (a repeat answers `created: false` and the number of places that are empty now) |
 | `restore` | `scanId` (an applied calendar scan), `confirm?` | `calendarId`, `calendarUrl`, `revision`, `restored` — the previous layout, layout choice and switches come back |
 | `list` | `projectId`, `status?` | `scans[]` |
 | `cancel` | `scanId` | `status`, `counted` (true when it was already running) |
@@ -647,6 +648,10 @@ logo sit, their colours, and fonts chosen among the project's (a project
 without fonts is fine: the built-in face is used). It never reads the page's
 texts, days or photos — the calendar generates those itself — and never takes
 a picture out of the image.
+
+The picture of a calendar page may be small: its shorter side must be at
+least **300 px** (a template scan needs 600 px). Under about 600 px the layout
+may come out less precise — say so when the user has a larger original.
 
 `result` of a calendar scan:
 

@@ -35,10 +35,10 @@ use WBoost\Web\Mcp\Response\SkillVersionResponse;
  */
 final class SkillRelease
 {
-    public const string VERSION = '0.5.0';
+    public const string VERSION = '0.5.1';
 
     /** One or two lines: what the CURRENT version adds over the previous one. */
-    public const string WHATS_NEW = 'Texts in a design take "letterSpacing" (tracking in thousandths of an em — 50 = 0.05 em); it round-trips through get_design, the linter and the text fit count it.';
+    public const string WHATS_NEW = 'AI scan: a calendar page may be small (shorter side from 300 px; templates stay at 600 px), a PDF is accepted (its first page), and a repeated calendar "apply" reports how many picture places are empty now.';
 
     /** A stable download of the latest released skill folder, built by `.github/workflows/plugin-release.yml`. */
     public const string ZIP_URL = 'https://github.com/TheDevs-cz/wboost/releases/latest/download/wboost-skill.zip';

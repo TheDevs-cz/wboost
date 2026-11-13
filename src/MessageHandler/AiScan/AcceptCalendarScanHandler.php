@@ -215,22 +215,21 @@ readonly final class AcceptCalendarScanHandler
         /** @var list<string> $features */
         $features = is_array($restore['features'] ?? null) ? array_values(array_filter($restore['features'], is_string(...))) : [];
         $assets = is_array($restore['assets'] ?? null) ? $restore['assets'] : [];
-        $filled = 0;
+        // The scan's places for a picture that are empty in the calendar AS IT IS
+        // NOW — the same question for the apply and for a repeated call (which
+        // used to answer 0): after the apply the calendar's layout carries the
+        // pictures that were held with the scan, and whatever was added or taken
+        // away since counts as well.
         $plan = CalendarScanProposal::plan($scan, $calendar);
         $slots = CalendarScanProposal::slots($scan);
-
-        foreach ($slots as $slot) {
-            if (isset($assets[$slot]) || in_array($slot, $plan['currentPictures'] ?? [], true)) {
-                $filled++;
-            }
-        }
+        $filled = count(array_intersect($slots, $plan['currentPictures'] ?? []));
 
         return [
             'calendarId' => $calendar->id->toString(),
             'revision' => $calendar->revision,
             'features' => $features,
             'pictures' => count($assets),
-            'unfilledPictures' => $created ? count($slots) - $filled : 0,
+            'unfilledPictures' => count($slots) - $filled,
             'restoreUntil' => $scan->expiresAt?->format(DATE_ATOM),
             'created' => $created,
         ];

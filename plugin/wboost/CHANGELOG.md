@@ -5,6 +5,16 @@ every deploy. When the server is newer than your skill, Claude tells you once
 per session how to update (see the README). Versions follow `x.y.z`: a new or
 changed tool or parameter is at least a minor bump.
 
+## 0.5.1 — 2026-11-13
+
+**AI scan — corrected limits** (`scan_design`; no new tool or parameter).
+- The shorter side of the picture must be at least 600 px for a template and
+  at least **300 px for a calendar page** (the skill said 600 px for both).
+- A PDF is accepted as the picture: its first page is scanned.
+- A repeated `apply` of a calendar scan (`created: false`) reports in
+  `unfilledPictures` how many of the scan's picture places are empty in the
+  calendar now — it used to answer 0.
+
 ## 0.5.0 — 2026-11-13
 
 **Letter spacing in the design DSL.**
