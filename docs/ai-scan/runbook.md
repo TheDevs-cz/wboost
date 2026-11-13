@@ -33,8 +33,12 @@ The scanner is one container of the `wboost` stack: 4 GiB memory limit, 3 CPUs (
 its no-CPU-limit rule, infra D87), read-only root, a 768 MB `/tmp`, no capabilities, concurrency 1. It
 sits on the network `wboost_scan` (`10.200.107.0/24`) with `web` and nothing else: it cannot resolve or
 reach the database, Redis, MinIO or Gotenberg. `web` answers `/internal/scanner/*` only to a peer
-address inside that subnet (`SCAN_NETWORK_CIDR`) that sends `SCANNER_TOKEN`; the public router refuses
-`/internal/` itself (403) before the app is asked.
+address inside that subnet (`SCAN_NETWORK_CIDR`) that sends `SCANNER_TOKEN` — everybody else gets 404.
+**That check in the app is the guarantee.** The public router adds a second, best-effort layer: it
+answers 403 before the app is asked for `/internal/…` in the spellings the app would route there
+(repeated or encoded slashes, an `/index.php/` prefix, any letter case — infra
+`apps/wboost/compose.yaml`, router `wboost-internal-paths`). A spelling the edge pattern does not know
+ends in the app's 404, not in an answer.
 
 All commands: on the box (`root@lily.srv.thedevs.cz`), in `/srv/wboost`.
 
@@ -52,22 +56,42 @@ The admin tab `/admin/usage` → "AI skeny" shows the same and changes the mode 
 **2. Stop and start the scanner.**
 
 ```bash
-docker compose stop scanner     # SIGTERM: the running scan is released back to the queue, exit in ≈ 3 s (limit 30 s)
-docker compose up -d scanner    # start again; `restart scanner` = both
+touch /srv/wboost/.scanner-hold && docker compose stop scanner    # stop it ON PURPOSE — the hold file FIRST
+rm /srv/wboost/.scanner-hold && docker compose start scanner      # start it again
+docker compose restart scanner                                    # a plain restart needs no hold file
 ```
 
-A stopped scanner makes the app say `scanner_absent` after 60 s: uploads are refused, waiting scans
-wait (and fail refunded after 60 minutes).
+`stop` sends SIGTERM: the running scan is released back to the queue and the scanner exits in ≈ 3 s
+with code 0. When the release cannot reach the app, or its own 30 s limit runs out, it exits **1**;
+when the 45 s grace period runs out Docker kills it (**137**). A stopped scanner makes the app say
+`scanner_absent` after 60 s: uploads are refused, waiting scans wait (and fail refunded after 60
+minutes).
 
-**`docker kill` is not a restart.** Docker treats a kill as a manual stop and does not apply
-`restart: always` (found on 2026-11-13). It no longer matters: the host cron `scanner-revive` (every
+**The hold file `/srv/wboost/.scanner-hold` is what makes a deliberate stop stick.** Three things
+would otherwise start a stopped scanner again, and all three respect the file:
+
+- the next app deploy — `deploy.sh` ends with `up -d scanner`, several times a day; with the file it
+  prints a note and leaves the scanner alone (a changed pin is then not applied either);
+- cron `scanner-revive` (below), when the stop ended in 137;
+- nothing else: the container's policy is `restart: unless-stopped`, so a restart of the Docker
+  daemon or of the host does **not** bring back a scanner that was stopped by hand (it does bring
+  back one that was running).
+
+The file only holds the *process* down. The switch for the *feature* is the mode (3. below, "Kill
+switch"): with the mode `off` nothing is scanned whether a scanner runs or not.
+
+**`docker kill` is not a restart.** Docker treats a kill as a manual stop and does not apply the
+restart policy (found on 2026-11-13). It no longer matters: the host cron `scanner-revive` (every
 minute, `~/www/lily.srv/apps/wboost/scanner-revive.sh`) starts a scanner container that is `exited`
-with a non-zero code — measured: killed just after a tick, started again 57 s later, healthy 6 s after
+with code **137** — measured: killed just after a tick, started again 57 s later, healthy 6 s after
 that; a scan it was running is recovered by its lease like any crash. It only ever runs `docker start`
-(nothing is re-created) and it **leaves a clean stop alone**: `docker compose stop scanner` exits 0 and
-stays stopped. To hold the scanner down whatever its exit code (a stop that had to be killed after the
-45 s grace exits 137): `touch /srv/wboost/.scanner-hold`, and remove the file afterwards. A real crash,
-an OOM kill or a boot restart it by the policy (below: "Measured on the box", "A host reboot").
+(nothing is re-created), only under the deploy lock (beside a running deploy it does nothing and looks
+again a minute later), and it **leaves every other exit alone**: 0 (a clean stop) and 1 (a stop that
+could not finish cleanly — the app was unreachable, which is exactly when somebody pulls the plug) stay
+stopped. Until the evening of 2026-11-13 it revived any non-zero exit and so undid such a stop within
+a minute. A stop that ran into the 45 s grace exits 137 like a kill — that is what the hold file is
+for. A real crash, an OOM kill or a boot restart it by the policy (below: "Measured on the box", "A
+host reboot"). It writes to `/var/log/lily/wboost-cron.log` only when it starts something or fails.
 
 **3. Switch the mode** — no deploy, effective on the next request (also in the admin tab):
 
@@ -75,13 +99,27 @@ an OOM kill or a boot restart it by the policy (below: "Measured on the box", "A
 docker compose exec web bin/console app:ai-scan:status --mode=off      # everything stops, scans in progress fail refunded
 docker compose exec web bin/console app:ai-scan:status --mode=paused   # nothing new starts, a running scan finishes
 docker compose exec web bin/console app:ai-scan:status --mode=on
-docker compose exec web bin/console app:ai-scan:status --admin-only=1  # 1 = only admins may start scans (the state until the customer launch)
+docker compose exec web bin/console app:ai-scan:status --admin-only=1  # 1 = only admins may start scans; production runs with 0 since 2026-11-13 (decision 16)
 ```
 
-**4. Ship a scanner** (a new image of `scanner/`). The Scanner workflow pushes
-`ghcr.io/thedevs-cz/wboost-scanner:sha-<full commit>`; nothing deploys it. In `~/www/lily.srv`:
-change the sha in `apps/wboost/compose.yaml` (`scanner.image`), add a journal line, push (the box
-receives the file within a minute, nothing restarts), then either wait for the next app deploy or
+**4. Ship a scanner** (a new image of `scanner/`) — "Scanner image". The Scanner workflow pushes
+`ghcr.io/thedevs-cz/wboost-scanner:sha-<full commit>`; nothing deploys it. The bump, in
+`~/www/lily.srv`:
+
+1. wait for the Scanner workflow of that commit to be green (the tag must exist:
+   `docker buildx imagetools inspect ghcr.io/thedevs-cz/wboost-scanner:sha-<full commit>`);
+2. `git pull --rebase`, change the sha in `apps/wboost/compose.yaml` (`scanner.image` — that one
+   line), add a journal entry, push. The box receives the file within a minute; nothing restarts;
+3. on the box: `docker compose exec -T web bin/console app:ai-scan:status --scans` — nothing in
+   progress (a re-create mid-scan is clean, but why);
+4. activate — wait for the next app deploy or run the command below;
+5. check: `docker compose ps scanner` healthy on the new image, `status` → `Scanner seen … (version
+   0.2.0+<sha>)`.
+
+The pin is the **tag alone, on purpose without an `@sha256:` digest**: the tag carries a full commit
+sha and is written once; with a digest beside it, a bump that changes only the sha in the tag would
+keep running the old image without a word (Docker follows the digest and ignores the tag). If
+`/srv/wboost/.scanner-hold` exists the deploy does not touch the scanner — remove it first.
 
 ```bash
 cd /srv/wboost && flock /run/lily-deploy-runner.lock ./deploy.sh main
@@ -119,14 +157,19 @@ Roll back a scanner the same way with the previous sha.
 builds exactly the commit that run tested (`workflow_run.head_sha`), not the head of `main`; the image
 carries it as the label `org.opencontainers.image.revision` (and the tag `sha-<commit>`). Shipping runs
 do not overlap, a docs-only / landing-only change since the last shipped commit is not shipped, and a
-commit older than the shipped one is refused. What runs:
+commit that is not on `main` or is older than the shipped one is refused. Only a Tests run of a *push*
+to this repository's `main` can ship (not a pull request, whatever its branch is called). To retry a
+failed Release use **"Re-run all jobs"**: "Re-run failed jobs" ships nothing on purpose (it would reuse
+the checks' old answers). A green Release means "image pushed, the box accepted the deploy request" —
+not that the rollout succeeded (the run does not wait for it). What runs:
 `docker inspect -f '{{index .Config.Labels "org.opencontainers.image.revision"}}' $(docker ps -qf name=wboost-web)`.
 
 ### Roll back P4
 
 1. `status --mode=off` — instant; the feature is inert, scans in progress fail refunded, `ready`
    proposals stay usable.
-2. `docker compose stop scanner` — the spending process is gone.
+2. `touch /srv/wboost/.scanner-hold && docker compose stop scanner` — the spending process is gone
+   and stays gone through app deploys, cron and a restart of Docker or the host ("Production" 2).
 3. For good: in `~/www/lily.srv` take out the `scanner` service, the `scan` network and web's AI-scan
    variables (D87 "Rollback"), push, `./deploy.sh main`, then delete the stopped scanner container
    with compose — a reverted compose file alone leaves a running container running. The bucket
@@ -145,10 +188,14 @@ Figures and the checks that are still open: `reliability-report.md` § "G2b".
 | `docker compose restart scanner` mid-build | shutdown 2.6 s; released, claimed again 3 s later, restart not used; `ready` |
 | App deploy (blue-green `web`) with a scan running | the scanner container is not touched; the scan finishes on its first try |
 | `/internal/scanner/*` | internet: 403; another stack's container: 404; `web`'s other networks, right token: 404; scan network, wrong token: 404 |
+| `/internal/…` in other spellings, from the internet (evening of 2026-11-13) | `/internal%2Fscanner/claim`, `/index.php/internal/scanner/claim`, `//internal/…`, `/INTERNAL/…`, `/Index.PHP/internal/…`, `/index.php%2Finternal/…`: 403 at the edge (the first two reached the app before — 404 / 405 from it, nothing exposed). `/internal%252Fscanner/…` and `/internal%5Cscanner/…` are not known to the edge pattern: 404 from the app |
 | Scanner cut from its network for 30 s mid-build (`docker network disconnect wboost_scan`) | beats and polls fail (`network`), the run goes on; `ready` on its first try, 88 s after the claim instead of ≈ 35 s; nothing restarted |
 | Scanner cut from its network for 150 s mid-build | after 60 s the app says `scanner_absent` (the entry card: `service_waiting`, no new uploads; the running scan's page keeps its stage); the scanner aborts its run itself at 105 s (`app_unreachable`); the lease ends at 120 s; on reconnect the scan is put back (`restarted`), claimed at once and `ready` 40 s later. Lost run: `lease_lost`, $0.02 |
 | Out of memory mid-build (limit lowered to 300 MiB for 20 s, `docker update`) | cgroup OOM kill, exit 137, restarted by the policy; while the limit stayed too low the scanner refused to start (exit 78, 7 quick restarts — it needs 3 GiB); 11 s after the limit was put back it was up, healthy 6 s later; the scan was put back when its lease ended (125 s after the claim) and `ready` 48 s after that. No open usage row, one settle. The box's `HostOOMKill` alert pages for such a kill and names the container (infra D89) |
 | `docker kill` while idle | started again by cron `scanner-revive` 57 s later (worst case: killed just after a tick), healthy after 6 s more |
+| Hold file + `docker kill`, idle (evening of 2026-11-13) | `exited (137)` through two cron ticks **and** an app deploy in between (its log: "the scanner is held down on purpose; NOT started"); hold file removed at 20:12:00 → started by the 20:12:01 tick, healthy 5 s later |
+| `docker compose stop scanner` while the app is unreachable (network disconnected), idle, no hold file | exit 0 (an idle scanner has nothing to release, so the stop is clean) — still stopped 70 s later |
+| A manual stop ending non-zero but not 137 (`docker kill -s QUIT` → exit 131; stands in for the scanner's own exit 1, which needs a scan in progress whose release fails), no hold file | still `exited (131)` after two cron ticks; nothing in the cron log |
 | Token rotation with a scan running (`SCANNER_TOKEN_PREVIOUS`, two deploys) | no failed scan: the scan was released when the scanner was re-created with the new token and `ready` 70 s later; after the second deploy `web` accepts the new token only and the scanner was not touched |
 
 ## The one command
@@ -167,7 +214,7 @@ How to read `status`:
 
 | Line | Normal | Means trouble when |
 |---|---|---|
-| Mode | `on · admins only` (before P6) | `paused` — set by hand or by the circuit breaker; `off` — set by hand |
+| Mode | `on · admins + editors of entitled projects` (since 2026-11-13, decision 16: access needs only the per-project switch) | `paused` — set by hand or by the circuit breaker; `off` — set by hand; `on · admins only` — somebody set `--admin-only=1`: customers of switched-on projects cannot start scans |
 | Waiting reason | `—` | `paused`, `scanner_absent` (no scanner call for 60 s), `scanner_too_old`, `provider_blocked` — this is what a waiting user is shown ("Sken čeká") and why uploads are refused (`temporarily_unavailable`, HTTP 503) |
 | Scanner | `seen N s ago`, N < 30 (an idle scanner polls every 5 s) | N ≥ 60, `never seen`, `· TOO OLD` |
 | Provider | `ok` | `blocked · <code>` |
@@ -184,8 +231,8 @@ How to read `status`:
 |---|---|---|
 | No new scans, let running ones finish | `status --mode=paused` | uploads refused (503 `temporarily_unavailable`), nothing claimed; a `running` scan finishes and is delivered; `checking` / `queued` scans wait and fail after 60 min as `queue_timeout`, refunded |
 | Stop everything now | `status --mode=off` | at the switch every `checking` / `queued` / `running` scan → `failed interrupted`, **refunded**; the scanner learns it from its next heartbeat and kills the engine (7 s measured, ≤ 15 s); `ready` proposals stay usable (review, accept, discard do not depend on the mode) |
-| Stop the spending process itself | `docker compose stop scanner` | SIGTERM: runs aborted, one `release` each with the usage, exit ≤ 30 s (grace 45 s); released scans go back to `queued` without using their restart. After 60 s the app says `scanner_absent`: uploads refused, waiting scans fail after 60 min (`queue_timeout`, refunded) |
-| Back | `status --mode=on` (and `docker compose up -d scanner`) | the next request starts scans again; failed scans are retried by their users ("Zkusit znovu", 2 per upload) |
+| Stop the spending process itself | `touch /srv/wboost/.scanner-hold && docker compose stop scanner` — the hold file **first** | SIGTERM: runs aborted, one `release` each with the usage, exit ≤ 30 s (grace 45 s); released scans go back to `queued` without using their restart. After 60 s the app says `scanner_absent`: uploads refused, waiting scans fail after 60 min (`queue_timeout`, refunded). The file keeps it stopped: without it the next app deploy starts the scanner again, and cron `scanner-revive` does when the stop ended in a kill (exit 137) |
+| Back | `status --mode=on` (and `rm /srv/wboost/.scanner-hold && docker compose start scanner`) | the next request starts scans again; failed scans are retried by their users ("Zkusit znovu", 2 per upload) |
 
 `paused` is also what the **circuit breaker** sets: three scans in a row ending in the same failure
 class. Look at `status --scans` for the common cause before switching back to `on`.
@@ -281,19 +328,30 @@ of `resources/ai-scan/definition/definition.json`.
 `status` → `Scanner seen N s ago` with N ≥ 60 (`scanner_absent`).
 
 ```bash
-docker compose ps scanner                      # restarting? unhealthy? OOM-killed (exit 137)?
+docker compose ps -a scanner                   # restarting? unhealthy? exited — with which code?
+ls -la /srv/wboost/.scanner-hold               # exists = somebody is holding it down on purpose
 docker compose logs --tail 200 scanner         # JSON lines: ids, codes, durations — never a design's text
 docker compose exec scanner node bin/scanner.mjs healthcheck
-docker compose up -d scanner                   # start / recreate
+docker compose start scanner                   # start (never re-creates; `up -d --pull never scanner` applies a changed definition)
 ```
 
 - A scanner that died mid-scan left a lease: 120 s after its last heartbeat the reaper puts the scan
   back (`restarted`); a second death fails it `interrupted`, refunded — a poisonous picture cannot
   loop, and the same picture failing twice in a project is refused for 30 days (`source_unscannable`).
-- The container is `Exited`: with code 0 somebody stopped it on purpose (`docker compose up -d scanner`
-  when that is over); with another code (137 = `docker kill`) cron `scanner-revive` starts it within a
-  minute — unless `/srv/wboost/.scanner-hold` exists (see "Production" 2). A line
-  `scanner-revive: started …` in `/var/log/lily/wboost-cron.log` says it did.
+- The container is `Exited` — it was stopped by hand (a crash or an OOM kill would have been restarted
+  by the policy). By exit code:
+  - **0** — a clean stop; **1** — a stop the scanner could not finish cleanly (its release did not
+    reach the app, or its 30 s limit ran out). Both stay stopped: somebody decided so. Look for
+    `/srv/wboost/.scanner-hold` and ask before starting it (`rm` the file, `docker compose start
+    scanner`);
+  - **137** — killed: `docker kill`, or a stop that outlasted the 45 s grace. Cron `scanner-revive`
+    starts it within a minute — unless the hold file exists (then it was a deliberate stop) or a
+    deploy is running. A line `scanner-revive: started …` in `/var/log/lily/wboost-cron.log` says it
+    did;
+  - **78** — it refused its configuration (below).
+- An OOM kill at the scanner's own 4 GiB limit sends the box's `ContainerOwnLimitOOMKill` (warning,
+  not the critical `HostOOMKill` — infra D87 addendum 2): contained, the scan is recovered by its
+  lease. Once is a heavy picture; repeated is a limit or a leak to look at.
 - `Restarting` with exit 78 in a loop: it refuses its configuration — see `Refused at start` below.
 - `Refused at start`: the log says why — a concurrency the memory limit cannot hold (3 GiB for 1),
   a missing `SCANNER_APP_URL` / `SCANNER_TOKEN`.
@@ -305,8 +363,9 @@ docker compose up -d scanner                   # start / recreate
 
 The box is shared and is not rebooted for a test. What happens, from the pieces that were tested:
 
-- Every container of the stack has `restart: always` and Docker starts at boot, so all of them come
-  back without anybody acting; no start order is enforced by Docker after a boot. `web` and the worker
+- Every container of the stack has `restart: always` (the scanner `unless-stopped`: it comes back
+  if it was running, and stays down if it was stopped by hand) and Docker starts at boot, so all of
+  them come back without anybody acting; no start order is enforced by Docker after a boot. `web` and the worker
   wait for the database themselves; the scanner needs only `web` and retries every call (a scanner
   that starts before `web` answers stays `starting` / unhealthy until its first accepted poll, then
   healthy — the same path as every blue-green deploy and as the network cut above).
@@ -357,7 +416,7 @@ Everything is additive (migrations add tables and columns only) and inert while 
 | Phase | Roll back by | `checking` | `queued` | `running` | `ready` |
 |---|---|---|---|---|---|
 | P1–P3 (the app: job core, wizard, MCP) | `status --mode=off` — instant, no deploy. Reverting the app image is not needed and not enough (rows stay) | `failed interrupted`, refunded | `failed interrupted`, refunded | `failed interrupted`, refunded; the scanner aborts within 15 s | untouched — review, accept and discard keep working; expires 30 days after the scan ended |
-| P4 (the scanner on the box) | `status --mode=off` first (above), then `docker compose stop scanner`; to remove it for good the rollback commit of `lily.srv` must also delete the service — reverting the compose push does not stop a running container | as above with `off`; with only the scanner stopped: waits, then `failed queue_timeout` after 60 min, refunded | same | SIGTERM → released → `queued`, restart not used → then as `queued` | untouched |
+| P4 (the scanner on the box) | `status --mode=off` first (above), then `touch /srv/wboost/.scanner-hold && docker compose stop scanner`; to remove it for good the rollback commit of `lily.srv` must also delete the service — reverting the compose push does not stop a running container | as above with `off`; with only the scanner stopped: waits, then `failed queue_timeout` after 60 min, refunded | same | SIGTERM → released → `queued`, restart not used → then as `queued` | untouched |
 | A scanner tag that misbehaves | pin the previous `sha-<commit>` and deploy the box (the app accepts protocol N − 1) | waits ≤ 1 min for the new container | same | released by the old one, claimed by the new one | untouched |
 | An app deploy that breaks the scanner API | redeploy the previous app image (blue-green). Schema of this release is additive, so the previous code runs on it | wait (the scanner retries every call for 60 s; longer → `restarted`) | same | survives an outage ≤ 60 s; longer → self-abort at 105 s, `queued`, claimed again | untouched |
 | P5 (calendars) | switch the action card off with the entitlement; previous scanner tag | — | — | — | applied layouts stay; "Vrátit původní" works until the scan's date |

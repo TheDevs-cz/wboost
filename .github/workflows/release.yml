@@ -19,11 +19,25 @@
 #     sha-<it> and `main`, built with APP_VERSION=<it>;
 #   - `concurrency` — shipping runs never overlap, so the `main` tag the box
 #     pulls is this run's build; a waiting run is replaced by a newer one, whose
-#     preflight diffs against the last commit that really shipped;
-#   - the preflight refuses a commit OLDER than the one already shipped (a
-#     re-run of an old Release run must not roll production back).
+#     preflight diffs against the last shipped commit;
+#   - the preflight (`changed`) refuses a commit that is not on main, and one
+#     OLDER than the last shipped one — at the time `changed` RUNS. So that a
+#     re-run cannot ship on a stale answer, `ship-production` runs only in the
+#     attempt in which `changed` itself ran:
+#       "Re-run all jobs"     -> `changed` checks again, now -> an old run is refused;
+#       "Re-run failed jobs"  -> `changed` is not re-run (its old output would be
+#                                reused) -> ship-production is SKIPPED. To retry a
+#                                failed ship, use "Re-run all jobs".
 # `run-name` carries the shipped commit, because a run's own head_sha is main's
 # HEAD at trigger time — the preflight reads the last shipped commit from there.
+#
+# "SHIPPED" HERE MEANS: the run's ship-production job succeeded — the image was
+# pushed and the box ACCEPTED the deploy webhook. It does not mean the rollout
+# succeeded: `await_deploy` is false (the box has no commit-status token for this
+# repository — infra repo docs/backlog.md), so a rollout that fails or reverts on
+# the box leaves this run green. The box tells: Loki `app="deploy"`, the
+# `DeployFailed` alert, and
+#   docker inspect -f '{{index .Config.Labels "org.opencontainers.image.revision"}}' <web container>
 #
 # Secret (set on this repo): DEPLOY_WEBHOOK_SECRET (the per-app HMAC key). Passed
 # EXPLICITLY because the reusable workflow lives under a different owner
@@ -77,6 +91,8 @@ jobs:
             && github.event.workflow_run.head_repository.full_name == github.repository }}
         outputs:
             app: ${{ steps.f.outputs.app }}
+            # the attempt this answer belongs to — see ship-production's `if`
+            attempt: ${{ github.run_attempt }}
         steps:
             - uses: actions/checkout@v6
               with:
@@ -122,9 +138,14 @@ jobs:
                   fi
                   echo "app=false" >> "$GITHUB_OUTPUT"
 
+    # Ships only on an answer of THIS attempt. "Re-run failed jobs" re-runs this
+    # job but not `changed`, whose output — "ship", decided when the run was new —
+    # would be reused: an old run re-run that way would put older code over newer.
+    # There `needs.changed.outputs.attempt` is the earlier attempt's number, so the
+    # job is skipped; "Re-run all jobs" runs `changed` again and is judged afresh.
     ship-production:
         needs: changed
-        if: ${{ needs.changed.outputs.app == 'true' }}
+        if: ${{ needs.changed.outputs.app == 'true' && needs.changed.outputs.attempt == format('{0}', github.run_attempt) }}
         uses: TheDevs-cz/ci/.github/workflows/_ship.yml@v1
         secrets:
             DEPLOY_WEBHOOK_SECRET: ${{ secrets.DEPLOY_WEBHOOK_SECRET }}
