@@ -209,6 +209,12 @@ class. Look at `status --scans` for the common cause before switching back to `o
 
 ## Stuck scan — one scan does not move
 
+A scan that goes `running` → `queued` again and again with the code `restarted` is being handed back
+by the scanner (`release`: a scanner restart, or the provider blocked). That is bounded: three
+releases in one try are let through, the fourth ends the scan `failed interrupted` — refunded, the
+user sees „Sken se přerušil“ with „Zkusit znovu“ (`ai_scan.releases` counts them; a retry starts at 0).
+Three scans ending that way in a row trip the circuit breaker like any other failure class.
+
 ```bash
 status --scan=<id>
 ```
@@ -244,6 +250,29 @@ What already bounds it without anybody acting: a run may start only while record
 a day per user, 20 per project; 2 retries and 1 "Zkusit přesto" per upload; a refund gives no start
 back; one run is cut at $1.50, 40 turns, 6 minutes. The provider workspace's own monthly limit is the
 outer guard (G1).
+
+### "Hlášená spotřeba neodpovídá ceníku" (`usage_suspect`)
+
+The watch found a usage row of the last 24 hours that cannot be taken at its word; the mail says which
+kind and how many:
+
+- **a model the price table does not know** — the cost of that run is the scanner's own figure. Add
+  the model to `prices.models` of `resources/ai-scan/definition/definition.json` (a definition change:
+  deploy the app), or find out why the scanner runs another model than the definition names;
+- **a finished build without a single token** — the scanner delivered a proposal and reported no
+  usage: the ceilings then count only the $1.50 reservation while the run lasts. A scanner bug; compare
+  with the provider's console and pause (`--mode=paused`) if it repeats;
+- **a run above the cap** — one run was reported to cost more than 3 × the engine budget ($4.50). It
+  is recorded AT the cap (`cost`), the reported figure stays in `engine_cost_micro_usd`:
+
+```bash
+docker compose exec -T db psql -U wboost -d wboost -c "SELECT scan_id, run, step, model, price_version,
+  input_tokens, output_tokens, cost_micro_usd, engine_cost_micro_usd, outcome FROM ai_usage_event
+  WHERE occurred_at > NOW() - INTERVAL '24 hours' AND (price_version IS NULL OR cost_micro_usd >= 4500000
+    OR engine_cost_micro_usd > 4500000 OR (step = 'builder' AND outcome = 'proposed' AND input_tokens + output_tokens = 0))"
+```
+
+One mail, one reminder a day while such rows keep coming, no "back to normal" mail.
 
 ## Provider blocked
 
@@ -373,6 +402,22 @@ want to wait: `docker compose exec web bin/console app:ai-scan:purge`).
 missing rows older than 24 h, leftover candidate renders, open usage rows of scans that are no longer
 in progress, due e-mails and the one reminder 3 days before a proposal expires. Safe to run at any time
 and twice.
+
+It is also what keeps the deletion promise for the ROW: a discarded, an expired and an accepted scan
+past its date hold no proposal, report, fixes, text boxes, pictures, snapshot or file name. The last
+figure of its output — `N rows scrubbed of leftover texts` — is the net under that and is normally 0.
+To check by hand (read-only; expect 0):
+
+```bash
+docker compose exec -T db psql -U wboost -d wboost -Atc "SELECT COUNT(*) FROM ai_scan
+  WHERE (status IN ('discarded','expired') OR (status = 'accepted' AND expires_at IS NULL))
+    AND (proposal IS NOT NULL OR fixes IS NOT NULL OR report IS NOT NULL OR text_boxes IS NOT NULL
+      OR pictures IS NOT NULL OR restore IS NOT NULL OR jsonb_array_length(candidates) > 0
+      OR jsonb_exists(source_meta, 'name'))"
+```
+
+`files dropped of N accepted/discarded` counts rows whose files really went; a storage that refused
+tonight leaves the row its date and the next night tries again (the row's texts are gone either way).
 
 ## Links in e-mails point to the wrong host
 

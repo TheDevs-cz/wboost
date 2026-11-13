@@ -29,6 +29,23 @@ final class AiScanLimits
     public const int RETENTION_DAYS = 30;
     /** Lost intake leases per try: the second stops the scan. */
     public const int MAX_INTAKE_TRIES = 2;
+    /**
+     * Graceful releases of a build per try (rule 7: the scanner hands the run
+     * back — it is shutting down, or the provider is blocked). A release
+     * consumes no automatic restart and starts the queue timeout again, so
+     * without a bound a scan whose every run ends in a release would be
+     * claimed — and paid for — for ever. Three are let through; the fourth
+     * fails the scan as `interrupted`, refunded.
+     *
+     * Why three: a release needs a scanner restart (or a provider block) to
+     * land INSIDE a run of this scan, and a run is at most W = 360 s. A
+     * deploy of the scanner happens a few times a day at most, so one scan
+     * meets one, on a bad day two; four in a row inside its ≤ 4 × 6 min of
+     * work is not a deploy any more. And the bound is what holds the cost:
+     * at most 4 released runs + the try's own two (one automatic restart) —
+     * 6 × the $1.50 budget — where there was none.
+     */
+    public const int MAX_BUILD_RELEASES = 3;
     public const int MAX_RETRIES = 2;
     public const int SOURCE_FAILURES_MAX = 2;
     public const int SOURCE_FAILURE_WINDOW_DAYS = 30;
@@ -51,6 +68,18 @@ final class AiScanLimits
     public const int TEMPLATE_MAX_LONG_EDGE = 5000;
     /** What the scanner may PUT as one artifact (the working copy is ≤ 4096 px). */
     public const int ARTIFACT_MAX_BYTES = 25_000_000;
+
+    /**
+     * What ONE run (one usage row) may be recorded to have cost, as a
+     * multiple of the engine budget of the definition ($1.50 → $4.50). The
+     * figures come from another process: without a bound one lying or broken
+     * report — tokens up to 2·10⁹, or the scanner's own cost for a model the
+     * price table does not know — books thousands of dollars, closes the
+     * day's ceilings and falsifies the admin's sums. A real run ends at its
+     * budget (the engine checks it between turns, so a little above); three
+     * times that is never honest. The engine's own figure is stored as sent.
+     */
+    public const int USAGE_COST_CAP_BUDGETS = 3;
 
     public const int DEFAULT_MONTHLY_LIMIT = 10;
     public const string TIMEZONE = 'Europe/Prague';

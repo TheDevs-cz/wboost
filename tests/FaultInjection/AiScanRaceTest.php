@@ -314,11 +314,12 @@ final class AiScanRaceTest extends KernelTestCase
             );
 
             if ($accepted) {
-                // The accept came first: nothing expired, the proposal is intact.
-                // (The purge may, after it, have dropped the FILES of the now accepted scan — its retention had run out.)
+                // The accept came first: nothing expired.
+                // (The purge may, after it, have dropped the files of the now accepted scan AND
+                // what its row held of the picture — its retention had run out; accepting does
+                // not move the date.)
                 self::assertSame(0, $purged);
                 self::assertSame('accepted', self::text($due, 'status'));
-                self::assertNotSame('', self::text($due, 'proposal'));
             } else {
                 self::assertSame(1, $purged);
                 self::assertSame('expired', self::text($due, 'status'));
@@ -374,6 +375,63 @@ final class AiScanRaceTest extends KernelTestCase
             self::assertSame(4, self::rowCount('ai_scan', "status IN ('checking', 'queued', 'running')"));
             self::assertSame(4, self::rowCount('ai_credit_ledger', "reason = 'reserve'"));
         }
+    }
+
+    /**
+     * The project row serialises one project's starts; the guards that count
+     * ACROSS projects (a user's starts of the day, the scans waiting in
+     * total, the day's spend) need every start judged one after the other —
+     * the advisory lock of `AiScans::assertMayStart()`. Shown on the daily
+     * limit: with one start left, two projects at once get one.
+     */
+    public function testOneUserStartingInTwoProjectsAtOnceCannotPassTheDailyLimitTwice(): void
+    {
+        $start = static fn (string $project, string $calendar): \Closure => static function (ContainerInterface $c) use ($project, $calendar): string {
+            $path = self::picture();
+
+            try {
+                $c->get(EntityManagerInterface::class)->getConnection()->transactional(
+                    static fn (): string => $c->get(RequestAiScanHandler::class)(new RequestAiScan(
+                        scanId: Uuid::uuid7(),
+                        requestId: bin2hex(random_bytes(8)),
+                        projectId: Uuid::fromString($project),
+                        userId: Uuid::fromString(TestDataFixture::ADMIN_USER_ID),
+                        // A calendar scan needs no fonts — the second project has none.
+                        kind: AiScanKind::Calendar,
+                        channel: AiScanChannel::Web,
+                        filePath: $path,
+                        originalName: 'race.png',
+                        options: [],
+                        consentGiven: true,
+                        calendarId: Uuid::fromString($calendar),
+                    ))->toString(),
+                );
+
+                return 'started';
+            } catch (AiScanRefused $refused) {
+                return $refused->refusal->value;
+            } finally {
+                @unlink($path);
+            }
+        };
+
+        $here = $start(self::PROJECT, TestDataFixture::CALENDAR_1_ID);
+        $there = $start(TestDataFixture::PROJECT_2_ID, TestDataFixture::CALENDAR_3_ID);
+
+        for ($round = 0; $round < self::ROUNDS; $round++) {
+            // One start left today for this user.
+            $this->clean(false);
+            self::connection()->executeStatement('UPDATE ai_scan_runtime SET daily_starts_user = 1');
+
+            $results = $this->race($here, $there);
+            sort($results);
+
+            self::assertSame(['daily_starts_reached', 'started'], $results, 'one start a day means one');
+            self::assertSame(1, self::rowCount('ai_scan'));
+            self::assertSame(1, self::rowCount('ai_credit_ledger', "reason = 'reserve'"));
+        }
+
+        self::connection()->executeStatement('UPDATE ai_scan_runtime SET daily_starts_user = 10');
     }
 
     public function testTheSameRequestIdTwiceIsOneScan(): void

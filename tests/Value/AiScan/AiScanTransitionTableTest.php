@@ -43,6 +43,7 @@ final class AiScanTransitionTableTest extends TestCase
             'build_lease_lost' => ['running' => 'queued'],
             'build_lease_lost_again' => ['running' => 'failed'],
             'build_release' => ['running' => 'queued'],
+            'build_release_again' => ['running' => 'failed'],
             'cancel' => ['checking' => 'cancelled', 'queued' => 'cancelled', 'running' => 'cancelled'],
             'entitlement_off' => ['checking' => 'cancelled', 'queued' => 'cancelled'],
             'queue_timeout' => ['checking' => 'failed', 'queued' => 'failed'],

@@ -365,25 +365,51 @@ final readonly class AiScanTransitions
 
     /**
      * Rule 7: the scanner hands the run back (shutdown, or the provider is
-     * blocked). Back to `queued`; the automatic restart is NOT consumed.
+     * blocked). Back to `queued`; the automatic restart is NOT consumed — but
+     * the release is counted, and one beyond
+     * {@see AiScanLimits::MAX_BUILD_RELEASES} in a try fails the scan as
+     * interrupted, with a refund: a scan whose every run is handed back must
+     * not be claimed (and paid for) for ever.
      */
     public function releaseBuild(string $id, int $run, string $leaseTokenHash): bool
     {
         return $this->atomically(function () use ($id, $run, $leaseTokenHash): bool {
+            $params = ['run' => $run, 'hash' => $leaseTokenHash, 'max' => AiScanLimits::MAX_BUILD_RELEASES];
+
             $done = $this->apply(
                 $id,
                 AiScanEvent::BuildRelease,
-                [...$this->requeued(), 'lease_token_hash = NULL'],
-                ['run' => $run, 'hash' => $leaseTokenHash],
-                'run = :run AND lease_token_hash = :hash',
+                [...$this->requeued(), 'lease_token_hash = NULL', 'releases = releases + 1'],
+                $params,
+                'run = :run AND lease_token_hash = :hash AND releases < :max',
                 code: 'restarted',
             ) !== null;
 
             if ($done) {
                 $this->usage->close($id, $run, AiUsageStep::Builder, AiUsageOutcome::Released);
+
+                return true;
             }
 
-            return $done;
+            $try = $this->apply(
+                $id,
+                AiScanEvent::BuildReleaseAgain,
+                // Not the picture's fault: `failure_count` stays.
+                [...$this->ended(AiScanErrorCode::Interrupted->value), 'lease_expires_at = NULL', 'claimed_at = NULL', 'lease_token_hash = NULL', 'releases = releases + 1'],
+                $params,
+                'run = :run AND lease_token_hash = :hash AND releases >= :max',
+                code: AiScanErrorCode::Interrupted->value,
+            );
+
+            if ($try === null) {
+                return false;
+            }
+
+            $this->credits->refund($id, $try);
+            $this->usage->close($id, $run, AiUsageStep::Builder, AiUsageOutcome::Released, AiScanErrorCode::Interrupted->value);
+            $this->runtime->scanEnded(AiScanErrorCode::Interrupted->value);
+
+            return true;
         });
     }
 
@@ -576,22 +602,27 @@ final readonly class AiScanTransitions
         ) === 1;
     }
 
-    /** Rule 15. No ledger line: a delivered scan stays counted. */
+    /**
+     * Rule 15. No ledger line: a delivered scan stays counted. Everything
+     * read from the picture goes from the row NOW ({@see SCRUB}) — the user
+     * threw the scan away; the caller deletes the files after.
+     */
     public function discard(string $id): bool
     {
-        return $this->atomically(fn (): bool => $this->apply($id, AiScanEvent::Discard, ['seen_at = COALESCE(seen_at, :now)']) !== null);
+        return $this->atomically(fn (): bool => $this->apply($id, AiScanEvent::Discard, ['seen_at = COALESCE(seen_at, :now)', ...self::SCRUB]) !== null);
     }
 
     /**
-     * Rule 16, the purge's: the retention ran out. The proposal and its
-     * snapshot go from the row here; the caller deletes the files after.
+     * Rule 16, the purge's: the retention ran out. Everything read from the
+     * picture goes from the row here ({@see SCRUB}); the caller deletes the
+     * files after.
      */
     public function expire(string $id): bool
     {
         return $this->atomically(fn (): bool => $this->apply(
             $id,
             AiScanEvent::Expire,
-            ['proposal = NULL', 'restore = NULL', 'pictures = NULL', 'fixes = NULL', "candidates = '[]'", 'expires_at = NULL'],
+            [...self::SCRUB, 'expires_at = NULL'],
             [],
             'expires_at IS NOT NULL AND expires_at < :now',
         ) !== null);
@@ -622,6 +653,32 @@ final readonly class AiScanTransitions
         });
     }
 
+    /**
+     * What "we delete the proposal and the picture" means for the ROW: every
+     * column that holds something read from the picture or typed into the
+     * review — the proposal (the design with its texts), the candidates it
+     * was chosen from, the fixes, the report (doubtful texts, font guesses),
+     * where lines of text were found, the pictures chosen for its places, a
+     * calendar's snapshot — and the uploaded file's name. Codes, counts,
+     * times, usage and the history stay: they are what the lists and the
+     * admin read. Used by discard, by expiry and by the purge of an accepted
+     * scan whose retention ran out.
+     */
+    public const array SCRUB = [
+        'proposal = NULL',
+        'fixes = NULL',
+        'report = NULL',
+        'text_boxes = NULL',
+        'pictures = NULL',
+        'restore = NULL',
+        "candidates = '[]'",
+        "source_meta = source_meta - 'name'",
+    ];
+
+    /** A row {@see SCRUB} has something left to take from. */
+    public const string SCRUBBABLE = "(proposal IS NOT NULL OR fixes IS NOT NULL OR report IS NOT NULL OR text_boxes IS NOT NULL OR pictures IS NOT NULL
+        OR restore IS NOT NULL OR jsonb_array_length(candidates) > 0 OR jsonb_exists(source_meta, 'name'))";
+
     /** `:now` as whole seconds — the unit of `ai_scan.stage_log`. */
     public const string EPOCH = 'CAST(EXTRACT(EPOCH FROM CAST(:now AS TIMESTAMP)) AS BIGINT)';
 
@@ -642,6 +699,7 @@ final readonly class AiScanTransitions
                     ...$extraSet,
                     'try = try + 1',
                     'auto_restart = 0',
+                    'releases = 0',
                     'started_at = :now',
                     'waiting_since = :now',
                     'finished_at = NULL',

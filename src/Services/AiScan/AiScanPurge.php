@@ -18,11 +18,17 @@ use WBoost\Web\Services\AiScan\Template\ScanUploads;
  *    out becomes `expired` — the conditional update re-checks the state, so
  *    an accept or a retry racing the purge wins or loses cleanly — and only
  *    then its files are deleted. `accepted` / `discarded` scans keep their
- *    state and only lose the files. Pictures uploaded for an expired
- *    proposal move to the gallery's Koš, as on discard;
+ *    state and lose the files and what the row holds of the picture
+ *    ({@see AiScanTransitions::SCRUB}); their `expires_at` is cleared only
+ *    once the files are really gone, so a failed delete is retried the next
+ *    night. Pictures uploaded for an expired proposal move to the gallery's
+ *    Koš, as on discard;
  * 3. the private bucket's own rule: a scan directory whose newest object is
- *    **older than 24 hours** and whose row is missing or expired is deleted
- *    (uploads whose transaction failed, files of deleted projects);
+ *    **older than 24 hours** and whose row is missing, expired, discarded
+ *    or accepted-and-past-its-date is deleted (uploads whose transaction
+ *    failed, files of deleted projects, deletes that failed);
+ * 3a. rows past the point where their texts go that still hold some are
+ *    scrubbed (the net under discard / expiry; `scrubbed`);
  * 4. usage rows left open by scans that are no longer in progress are closed;
  * 5. e-mails that are due and were not sent by their own delayed message,
  *    and the one reminder three days before a proposal expires
@@ -33,6 +39,12 @@ final readonly class AiScanPurge
     private const int ORPHAN_AGE_SECONDS = 86400;
     /** How far back the sweep of leftover candidate renders looks: every scan is met by a few nightly runs. */
     private const int CANDIDATE_SWEEP_SECONDS = 3 * 86400;
+    /**
+     * States whose scan has no file left by rule: a directory of such a row
+     * that is still there (a delete that failed at discard, at expiry or in
+     * an earlier purge) is swept like one whose row is missing.
+     */
+    private const array NO_FILES = ['expired', 'discarded', 'accepted_gone'];
 
     public function __construct(
         private Connection $connection,
@@ -48,13 +60,13 @@ final readonly class AiScanPurge
     }
 
     /**
-     * @return array{reaped: int, expired: int, filesDropped: int, orphanDirectories: int, usageClosed: int, uploadsTrashed: int, emails: int, candidatesDropped: int}
+     * @return array{reaped: int, expired: int, filesDropped: int, orphanDirectories: int, usageClosed: int, uploadsTrashed: int, emails: int, candidatesDropped: int, scrubbed: int}
      */
     public function run(): array
     {
         $now = $this->clock->now();
         $nowSql = AiScanTime::sql($now);
-        $result = ['reaped' => $this->reaper->run(), 'expired' => 0, 'filesDropped' => 0, 'orphanDirectories' => 0, 'usageClosed' => 0, 'uploadsTrashed' => 0, 'emails' => 0, 'candidatesDropped' => 0];
+        $result = ['reaped' => $this->reaper->run(), 'expired' => 0, 'filesDropped' => 0, 'orphanDirectories' => 0, 'usageClosed' => 0, 'uploadsTrashed' => 0, 'emails' => 0, 'candidatesDropped' => 0, 'scrubbed' => 0];
 
         /** @var list<array{id: string, project_id: string, status: string, pictures: null|string}> $due */
         $due = $this->connection->fetchAllAssociative(
@@ -64,13 +76,22 @@ final readonly class AiScanPurge
 
         foreach ($due as $scan) {
             if (in_array($scan['status'], ['accepted', 'discarded'], true)) {
+                // The files first. The row gives up its date only when they
+                // are gone: a storage that failed tonight is tried again
+                // tomorrow. What the row holds of the picture goes either way.
+                $deleted = $this->storage->deleteScan($scan['project_id'], $scan['id']);
+
                 $dropped = $this->connection->executeStatement(
-                    "UPDATE ai_scan SET expires_at = NULL, candidates = '[]', restore = NULL, pictures = NULL
-                      WHERE id = :id AND status IN ('accepted', 'discarded') AND expires_at IS NOT NULL AND expires_at < :now",
+                    sprintf(
+                        "UPDATE ai_scan SET %s%s
+                          WHERE id = :id AND status IN ('accepted', 'discarded') AND expires_at IS NOT NULL AND expires_at < :now",
+                        implode(', ', AiScanTransitions::SCRUB),
+                        $deleted ? ', expires_at = NULL' : '',
+                    ),
                     ['id' => $scan['id'], 'now' => $nowSql],
                 );
 
-                if ($dropped === 1 && $this->storage->deleteScan($scan['project_id'], $scan['id'])) {
+                if ($dropped === 1 && $deleted) {
                     $result['filesDropped']++;
                 }
 
@@ -92,14 +113,29 @@ final readonly class AiScanPurge
                 continue;
             }
 
+            // `accepted_gone`: an accepted scan whose date was cleared — its files were due.
             $status = Uuid::isValid($directory['scanId'])
-                ? $this->connection->fetchOne('SELECT status FROM ai_scan WHERE id = :id', ['id' => $directory['scanId']])
+                ? $this->connection->fetchOne(
+                    "SELECT CASE WHEN status = 'accepted' AND expires_at IS NULL THEN 'accepted_gone' ELSE status END FROM ai_scan WHERE id = :id",
+                    ['id' => $directory['scanId']],
+                )
                 : false;
 
-            if (($status === false || $status === 'expired') && $this->storage->deleteScan($directory['projectId'], $directory['scanId'])) {
+            if (($status === false || in_array($status, self::NO_FILES, true)) && $this->storage->deleteScan($directory['projectId'], $directory['scanId'])) {
                 $result['orphanDirectories']++;
             }
         }
+
+        // The net under discard, expiry and the purge above: a row that is
+        // past the point where its texts go and still holds some — rows that
+        // reached it before the rule was complete (2026-11-13), or a
+        // statement that was skipped. Idempotent; usually zero.
+        $result['scrubbed'] = (int) $this->connection->executeStatement(sprintf(
+            "UPDATE ai_scan SET %s
+              WHERE (status IN ('discarded', 'expired') OR (status = 'accepted' AND expires_at IS NULL)) AND %s",
+            implode(', ', AiScanTransitions::SCRUB),
+            AiScanTransitions::SCRUBBABLE,
+        ));
 
         // Candidate renders of runs that ended without the scanner's finish (a
         // cancel, a lost lease, mode off): the finish drops them itself, this

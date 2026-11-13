@@ -443,8 +443,9 @@ final class AiScanAlertsTest extends KernelTestCase
     private function spend(int $microUsd): void
     {
         self::connection()->executeStatement(
-            "INSERT INTO ai_usage_event (id, scan_id, run, step, occurred_at, closed_at, cost_micro_usd, outcome, project_id, project_name, owner_email, user_email, channel, kind)
-             VALUES (:id, :scan, 1, 'builder', :at, :at, :cost, 'proposed', :project, 'Projekt', 'owner@example.com', 'user@example.com', 'web', 'template')",
+            // Priced from the table and with tokens: an ordinary row (`usage_suspect` stays quiet).
+            "INSERT INTO ai_usage_event (id, scan_id, run, step, occurred_at, closed_at, cost_micro_usd, outcome, project_id, project_name, owner_email, user_email, channel, kind, input_tokens, price_version)
+             VALUES (:id, :scan, 1, 'builder', :at, :at, :cost, 'proposed', :project, 'Projekt', 'owner@example.com', 'user@example.com', 'web', 'template', 1000, 'test')",
             [
                 'id' => Uuid::uuid7()->toString(),
                 'scan' => Uuid::uuid7()->toString(),

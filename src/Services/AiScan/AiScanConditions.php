@@ -25,6 +25,7 @@ final readonly class AiScanConditions
         private AiScanRuntimeState $runtime,
         private AiScanSpend $spend,
         private Connection $connection,
+        private RecordAiUsage $usage,
     ) {
     }
 
@@ -46,6 +47,8 @@ final readonly class AiScanConditions
         )));
         $waiting = $this->connection->fetchOne("SELECT COUNT(*) FROM ai_scan WHERE status IN ('checking', 'queued')");
         $stalled = $oldest !== null && $now->getTimestamp() - $oldest->getTimestamp() > AiScanAlertCode::QUEUE_STALLED_SECONDS;
+
+        $suspect = $this->suspectUsage($now);
 
         return [
             new AiScanCondition(
@@ -87,6 +90,60 @@ final readonly class AiScanConditions
                 $oldest,
                 ['waiting' => is_numeric($waiting) ? (int) $waiting : 0],
             ),
+            new AiScanCondition(
+                AiScanAlertCode::UsageSuspect,
+                $suspect['unknownModel'] + $suspect['zeroUsage'] + $suspect['capped'] > 0,
+                $suspect['since'],
+                ['unknownModel' => $suspect['unknownModel'], 'zeroUsage' => $suspect['zeroUsage'], 'capped' => $suspect['capped'], 'model' => $suspect['model']],
+            ),
+        ];
+    }
+
+    /**
+     * Usage rows of the last 24 hours whose figures cannot be taken at their
+     * word (review of 2026-11-13) — counted per reason:
+     *
+     * - `unknownModel`: something was reported and the price table did not
+     *   price it (`price_version` is null) — the cost is the scanner's own;
+     * - `zeroUsage`: a build that delivered a proposal reported no tokens —
+     *   the ceilings then bind only through the reservation;
+     * - `capped`: the cost was cut at {@see RecordAiUsage::costCapMicroUsd()},
+     *   or the engine's own figure lies above it.
+     *
+     * @return array{unknownModel: int, zeroUsage: int, capped: int, model: string, since: null|DateTimeImmutable}
+     */
+    private function suspectUsage(DateTimeImmutable $now): array
+    {
+        $unknown = 'price_version IS NULL AND (input_tokens + output_tokens + cache_read_tokens + cache_write_tokens > 0 OR engine_cost_micro_usd > 0)';
+        $zero = "step = 'builder' AND outcome = 'proposed' AND input_tokens + output_tokens = 0";
+        $capped = 'cost_micro_usd = :cap OR engine_cost_micro_usd > :cap';
+
+        $row = $this->connection->fetchAssociative(
+            sprintf(
+                'SELECT COUNT(*) FILTER (WHERE %1$s) AS unknown_model,
+                        COUNT(*) FILTER (WHERE %2$s) AS zero_usage,
+                        COUNT(*) FILTER (WHERE %3$s) AS capped,
+                        MAX(model) FILTER (WHERE %1$s) AS model,
+                        MIN(occurred_at) FILTER (WHERE (%1$s) OR (%2$s) OR (%3$s)) AS since
+                   FROM ai_usage_event WHERE occurred_at >= :from',
+                $unknown,
+                $zero,
+                $capped,
+            ),
+            [
+                'cap' => $this->usage->costCapMicroUsd(),
+                'from' => AiScanTime::sql($now->modify(sprintf('-%d seconds', AiScanAlertCode::USAGE_SUSPECT_SECONDS))),
+            ],
+        );
+
+        $count = static fn (string $key): int => is_array($row) && is_numeric($row[$key] ?? null) ? (int) $row[$key] : 0;
+
+        return [
+            'unknownModel' => $count('unknown_model'),
+            'zeroUsage' => $count('zero_usage'),
+            'capped' => $count('capped'),
+            'model' => is_array($row) && is_string($row['model'] ?? null) ? $row['model'] : '',
+            'since' => is_array($row) ? AiScanTime::fromSql(self::string($row['since'] ?? null)) : null,
         ];
     }
 

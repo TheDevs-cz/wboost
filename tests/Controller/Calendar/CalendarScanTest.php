@@ -303,6 +303,60 @@ final class CalendarScanTest extends WebTestCase
         self::assertSame(self::dig($drawn, 'name'), $calendar['name']);
     }
 
+    /**
+     * The candidate's picture goes to the scanner and on to the AI provider;
+     * the consent speaks of the uploaded picture only. So the sample week is
+     * drawn without anything the customer put into the calendar.
+     */
+    public function testACandidateIsDrawnWithoutTheCalendarsOwnContent(): void
+    {
+        $content = [
+            'v' => 1,
+            'events' => ['e1' => ['date' => '2027-01-12', 'name' => 'Tajná schůze zastupitelstva', 'club' => 'c1', 'icon' => null]],
+            'clubs' => ['c1' => ['code' => 'SDH', 'name' => 'Hasiči Tajná Lhota', 'pos' => 0]],
+            'names' => ['n1' => ['date' => '2027-01-13', 'name' => 'Bohumil Tajný']],
+            'comments' => ['k1' => ['date' => '2027-01-14', 'text' => 'Tajná poznámka', 'author' => 'Klient', 'at' => '2026-11-01T10:00:00+01:00']],
+            'pageCaptions' => ['w02' => ['text' => 'Tajný popisek fotografie']],
+            'pagePhotos' => ['w02' => ['asset' => 'tajna-fotka', 'zoom' => 1, 'px' => 0.5, 'py' => 0.5]],
+            'pageQr' => ['w02' => ['asset' => 'tajny-qr']],
+            'wasteExtras' => ['x1' => ['kind' => 'bio', 'date' => '2027-01-15']],
+        ];
+        self::connection()->executeStatement('UPDATE calendar SET content = CAST(:content AS JSONB) WHERE id = :id', ['content' => json_encode($content), 'id' => self::DESIGNED]);
+
+        FakeCalendarCandidatePicture::forget();
+        $scanId = self::start(self::PROJECT, kind: AiScanKind::Calendar, calendarId: self::DESIGNED)->toString();
+        self::passIntake($this->client, $scanId);
+        $build = self::claim($this->client, 'build');
+
+        // Nothing of it is in what the scanner is told about the calendar…
+        self::assertStringNotContainsString('Tajn', (string) json_encode($build['job'], JSON_UNESCAPED_UNICODE));
+
+        $render = self::scanner($this->client, 'POST', $scanId . '/render', ['run' => $build['run'], 'seq' => 1, 'commands' => self::calendarCommands()], $build['lease']);
+        self::assertSame(1, $render['json']['candidate'] ?? null);
+
+        // …and nothing of it is in the document the candidate's picture is drawn from.
+        $call = FakeCalendarCandidatePicture::lastCall();
+        self::assertNotNull($call);
+        $drawn = (string) json_encode($call['document']['content'] ?? null, JSON_UNESCAPED_UNICODE);
+        self::assertStringNotContainsString('Tajn', $drawn);
+        self::assertStringNotContainsString('tajn', $drawn);
+        self::assertStringNotContainsString('SDH', $drawn);
+
+        $shown = self::decoded($drawn);
+        // The sample week still shows where event texts land — with sample events.
+        self::assertSame(['scanSampleEvent1', 'scanSampleEvent2'], array_keys((array) self::dig($shown, 'events')));
+        self::assertSame('Ukázková akce', self::dig($shown, 'events', 'scanSampleEvent1', 'name'));
+        // Otherwise it is the content of a calendar nobody has filled in.
+        self::assertSame(['events', 'v', 'wasteKinds'], self::sorted(array_keys($shown)));
+        self::assertNotContains(true, array_column((array) self::dig($shown, 'wasteKinds'), 'on'));
+        // The rest of the answer (and of the stored candidate) holds no content either.
+        self::assertStringNotContainsString('Tajn', $render['raw']);
+        self::assertStringNotContainsString('Tajn', self::text($scanId, 'candidates'));
+
+        // The calendar itself is untouched.
+        self::assertStringContainsString('Tajná schůze zastupitelstva', (string) self::cal(self::DESIGNED, 'content'));
+    }
+
     public function testAcceptAfterASaveThroughTheClientLinkKeepsTheClientsContent(): void
     {
         $scanId = self::calendarReady($this->client, self::DESIGNED);
@@ -667,6 +721,17 @@ final class CalendarScanTest extends WebTestCase
     }
 
     // ---- helpers ------------------------------------------------------------------
+
+    /**
+     * @param list<int|string> $values
+     * @return list<int|string>
+     */
+    private static function sorted(array $values): array
+    {
+        sort($values);
+
+        return $values;
+    }
 
     /**
      * @param array<string, mixed> $fields

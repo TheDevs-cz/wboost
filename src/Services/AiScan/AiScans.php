@@ -45,13 +45,36 @@ final readonly class AiScans
     }
 
     /**
+     * The advisory lock every start takes (two-integer key; the class is the
+     * scan render limiter's, whose slots are 1 and 2).
+     */
+    private const int START_LOCK_CLASS = 0x77624149;
+    private const int START_LOCK = 0;
+
+    /**
      * The guards every start shares — a new upload, "Zkusit znovu" and
-     * "Zkusit přesto". Call it with the project row locked.
+     * "Zkusit přesto". Call it with the project row locked, inside the
+     * transaction that writes the start.
+     *
+     * The project's row serialises the starts of ONE project. Three guards
+     * count across projects — a user's starts of the day, the scans waiting
+     * in total, the day's spend with what running scans reserve — and one
+     * user starting in two projects at the same moment used to pass each of
+     * them twice. So every start also takes one transaction-level advisory
+     * lock before it counts: starts are judged one after the other, whoever
+     * makes them. It is held until the start commits (well under a second —
+     * the upload was received before); always taken AFTER the project row,
+     * and nothing takes a project row while holding it.
      *
      * @throws AiScanRefused
      */
     public function assertMayStart(User $user, Project $project, AiScanKind $kind, string $sourceSha256): void
     {
+        $this->connection->executeQuery(
+            'SELECT pg_advisory_xact_lock(:class, :key)',
+            ['class' => self::START_LOCK_CLASS, 'key' => self::START_LOCK],
+        );
+
         $now = $this->clock->now();
         $runtime = $this->runtime->get();
         $projectId = $project->id->toString();

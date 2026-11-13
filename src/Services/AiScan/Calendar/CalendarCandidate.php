@@ -90,7 +90,9 @@ final readonly class CalendarCandidate
         $document['layout'] = $layout;
         $document['preset'] = $preset;
         $document['features'] = $features instanceof \stdClass ? $features : (object) $calendar->features;
-        $document['content'] = self::withSampleEvents($document['content'] ?? null, $document['features'], $page);
+        // Never the calendar's own content: this picture goes to the scanner
+        // and on to the AI provider (CalendarCandidateContent).
+        $document['content'] = self::withSampleEvents(CalendarCandidateContent::neutral(), $document['features'], $page);
 
         try {
             $render = $this->picture->picture($calendar, $document, $page['key']);

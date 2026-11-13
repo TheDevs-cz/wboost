@@ -44,6 +44,7 @@ final class AiScanTransitionTable
             E::BuildLeaseLost->value => [S::Running->value => S::Queued],
             E::BuildLeaseLostAgain->value => [S::Running->value => S::Failed],
             E::BuildRelease->value => [S::Running->value => S::Queued],
+            E::BuildReleaseAgain->value => [S::Running->value => S::Failed],
             // 8, 9
             E::Cancel->value => [
                 S::Checking->value => S::Cancelled,

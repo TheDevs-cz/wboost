@@ -27,6 +27,8 @@ enum AiScanEvent: string
     case BuildLeaseLost = 'build_lease_lost';
     case BuildLeaseLostAgain = 'build_lease_lost_again';
     case BuildRelease = 'build_release';
+    /** A release beyond {@see AiScanLimits::MAX_BUILD_RELEASES} of the try: the scan fails as interrupted instead of going back. */
+    case BuildReleaseAgain = 'build_release_again';
     case Cancel = 'cancel';
     case EntitlementOff = 'entitlement_off';
     case QueueTimeout = 'queue_timeout';

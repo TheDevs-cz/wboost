@@ -13,6 +13,7 @@ use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Value\AiScan\AiScanErrorCode;
 use WBoost\Web\Value\AiScan\AiScanEvent as E;
 use WBoost\Web\Value\AiScan\AiScanStatus as S;
+use WBoost\Web\Value\AiScan\AiScanLimits;
 use WBoost\Web\Value\AiScan\AiScanStopReason;
 use WBoost\Web\Value\AiScan\AiScanTransitionTable;
 
@@ -37,6 +38,7 @@ final class AiScanTransitionsTest extends KernelTestCase
         'finish_failed' => 'refund',
         'finish_refused' => 'refund',
         'build_lease_lost_again' => 'refund',
+        'build_release_again' => 'refund',
         'entitlement_off' => 'refund',
         'queue_timeout' => 'refund',
         'mode_off' => 'refund',
@@ -288,6 +290,7 @@ final class AiScanTransitionsTest extends KernelTestCase
             'expires_at' => null,
             'error_code' => null,
             'auto_restart' => 0,
+            'releases' => 0,
         ];
 
         if ($state->isInProgress()) {
@@ -309,6 +312,7 @@ final class AiScanTransitionsTest extends KernelTestCase
             E::IntakeLeaseLostAgain => [$set['lease_expires_at'], $set['intake_losses']] = ['past', 1],
             E::BuildLeaseLost => [$set['lease_expires_at'], $set['auto_restart']] = ['past', 0],
             E::BuildLeaseLostAgain => [$set['lease_expires_at'], $set['auto_restart']] = ['past', 1],
+            E::BuildReleaseAgain => $set['releases'] = AiScanLimits::MAX_BUILD_RELEASES,
             E::QueueTimeout => [$set['waiting_since'], $set['lease_expires_at']] = ['long ago', null],
             E::Expire => $set['expires_at'] = 'past',
             E::ContinueAnyway => $set['error_code'] = AiScanStopReason::PhotoOfPrint->value,
@@ -356,7 +360,7 @@ final class AiScanTransitionsTest extends KernelTestCase
             E::FinishFailed => $t->finishFailed($id, 1, self::HASH, AiScanErrorCode::Timeout),
             E::FinishRefused => $t->finishRefused($id, 1, self::HASH),
             E::BuildLeaseLost, E::BuildLeaseLostAgain => $t->buildLeaseLost($id),
-            E::BuildRelease => $t->releaseBuild($id, 1, self::HASH),
+            E::BuildRelease, E::BuildReleaseAgain => $t->releaseBuild($id, 1, self::HASH),
             E::Cancel => $t->cancel($id),
             E::EntitlementOff => $t->cancelForEntitlementOff($id),
             E::QueueTimeout => $t->queueTimeout($id),

@@ -129,6 +129,10 @@ class AiScan
     #[Column(options: ['default' => 0])]
     public int $autoRestart = 0;
 
+    /** Builds the scanner handed back in the current try (rule 7) — bounded by {@see \WBoost\Web\Value\AiScan\AiScanLimits::MAX_BUILD_RELEASES}. */
+    #[Column(options: ['default' => 0])]
+    public int $releases = 0;
+
     /** Grows at every build claim — the key of the build's calls and usage row. */
     #[Column(options: ['default' => 0])]
     public int $run = 0;

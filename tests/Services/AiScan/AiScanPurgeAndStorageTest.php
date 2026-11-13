@@ -100,7 +100,7 @@ final class AiScanPurgeAndStorageTest extends WebTestCase
         self::assertDirectoryDoesNotExist(self::PRIVATE_ROOT . '/' . dirname($this->directory($ready)));
 
         self::assertSame('accepted', self::text($accepted, 'status'), 'keeps its state');
-        self::assertNotSame('', self::text($accepted, 'proposal'));
+        self::assertSame('', self::text($accepted, 'proposal'), 'what the row held of the picture goes with the files');
         self::assertDirectoryDoesNotExist(self::PRIVATE_ROOT . '/' . dirname($this->directory($accepted)));
 
         self::assertSame('ready', self::text($notYet, 'status'));

@@ -473,6 +473,20 @@ final readonly class AiScanAlerts
                 'clearedSubject' => 'AI sken: fronta se znovu hýbe',
                 'cleared' => 'Žádný sken už nečeká déle než 15 minut.',
             ],
+            AiScanAlertCode::UsageSuspect => [
+                'subject' => 'AI sken: hlášená spotřeba neodpovídá ceníku',
+                'what' => sprintf(
+                    'Za posledních 24 hodin skener nahlásil spotřebu, které nelze věřit: neznámý model v ceníku — %d× (%s), hotový návrh bez jediného tokenu — %d×, cena jednoho běhu nad stropem %d× rozpočtu — %d×. U neznámého modelu počítáme cenu podle údaje skeneru, u běhu nad stropem jsme ji na strop zkrátili; denní stropy útraty proto nemusejí odpovídat skutečnosti.',
+                    (int) ($condition->facts['unknownModel'] ?? 0),
+                    $fact('model') === '' ? 'model neuveden' : $fact('model'),
+                    (int) ($condition->facts['zeroUsage'] ?? 0),
+                    AiScanLimits::USAGE_COST_CAP_BUDGETS,
+                    (int) ($condition->facts['capped'] ?? 0),
+                ),
+                'todo' => 'Otevřete v administraci „Využití skenu“ u posledních skenů a porovnejte je s přehledem u poskytovatele. Chybí-li model v ceníku (resources/ai-scan/definition/definition.json, prices.models), doplňte ho; jinak hledejte chybu ve skeneru. Postup: docs/ai-scan/runbook.md, část „Spend spike“.',
+                'clearedSubject' => 'AI sken: hlášená spotřeba je znovu v pořádku',
+                'cleared' => 'Za posledních 24 hodin žádné podezřelé hlášení spotřeby.',
+            ],
         };
     }
 }

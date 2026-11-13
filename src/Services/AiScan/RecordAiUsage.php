@@ -7,6 +7,7 @@ namespace WBoost\Web\Services\AiScan;
 use Doctrine\DBAL\Connection;
 use Psr\Clock\ClockInterface;
 use Ramsey\Uuid\Uuid;
+use WBoost\Web\Value\AiScan\AiScanLimits;
 use WBoost\Web\Value\AiScan\AiUsageFigures;
 use WBoost\Web\Value\AiScan\AiUsageOutcome;
 use WBoost\Web\Value\AiScan\AiUsageStep;
@@ -22,6 +23,9 @@ use WBoost\Web\Value\AiScan\AiUsageStep;
  * - {@see close()} when the run ends, however it ends. A closed row still
  *   accepts later figures (a late call "records usage only"), never a second
  *   outcome.
+ *
+ * The cost of a row is the price table's when it knows the model, otherwise
+ * the engine's own figure — and never more than {@see costCapMicroUsd()}.
  *
  * The scan row's totals are the sums of its usage rows, refreshed here.
  */
@@ -98,6 +102,11 @@ final readonly class RecordAiUsage
             $figures->cacheWrite1hTokens,
         );
 
+        // One run cannot have cost more than a few budgets, whatever it
+        // says (AiScanLimits::USAGE_COST_CAP_BUDGETS); a row AT the cap is
+        // what the admins are told about (`usage_suspect`).
+        $cost = min($priced ?? $figures->engineCostMicroUsd, $this->costCapMicroUsd());
+
         // GREATEST: the figures are cumulative, so an out-of-order heartbeat
         // must never take anything back.
         $this->connection->executeStatement(
@@ -124,7 +133,7 @@ final readonly class RecordAiUsage
                 'cacheWrite' => $figures->cacheWriteTokens,
                 'cacheWrite1h' => $figures->cacheWrite1hTokens,
                 'engineCost' => $figures->engineCostMicroUsd,
-                'cost' => $priced ?? $figures->engineCostMicroUsd,
+                'cost' => $cost,
                 'priceVersion' => $priced === null ? null : $this->definition->priceVersion(),
                 'turns' => $figures->turns,
                 'duration' => $figures->durationMs,
@@ -135,6 +144,12 @@ final readonly class RecordAiUsage
         );
 
         $this->refreshTotals($scanId);
+    }
+
+    /** The most one usage row is recorded to have cost. */
+    public function costCapMicroUsd(): int
+    {
+        return AiScanLimits::USAGE_COST_CAP_BUDGETS * $this->definition->engineBudgetMicroUsd();
     }
 
     /**

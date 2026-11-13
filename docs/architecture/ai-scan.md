@@ -108,7 +108,7 @@ applies to is read from `AiScanTransitionTable`, never repeated in a query.
 | 3a / 3b | lost intake lease: once more / `stopped unusable_input` | `intakeLeaseLost` (reaper) | — / refund |
 | 4 | `queued` → `running` | `claimBuild` | — |
 | 5 / 6 | `running` → `ready` / `failed` / `refused` | `finishProposed` / `finishFailed` / `finishRefused` | settle / refund |
-| 7 / 6 | lost build lease: `queued` once, then `failed interrupted` | `buildLeaseLost` (reaper); `releaseBuild` | — / refund |
+| 7 / 6 | lost build lease: `queued` once, then `failed interrupted`; a build handed back (`release`): `queued` up to three times a try, the fourth `failed interrupted` | `buildLeaseLost` (reaper); `releaseBuild` | — / refund |
 | 8 / 9 | cancel while waiting / while running | `cancel` | refund / **settle** |
 | 10 | entitlement off → waiting scans `cancelled` | `cancelForEntitlementOff` | refund |
 | 11 | waited longer than 60 min → `failed queue_timeout` | `queueTimeout` (reaper) | refund |
@@ -127,6 +127,17 @@ Columns worth knowing:
   and **are never reused**: a released or retried intake gets a new number, so
   no two attempts share a usage row. `intake_losses` counts lost intake leases
   in the current try (the second stops the scan).
+- `releases` — builds the scanner handed back in the current try (rule 7,
+  `release`): a release consumes no automatic restart and starts the queue
+  timeout again, so it has a bound of its own —
+  `AiScanLimits::MAX_BUILD_RELEASES` = **3**; one more (event
+  `build_release_again`) ends the scan `failed interrupted`, refunded, its
+  usage closed, counted by the circuit breaker, **not** against the picture.
+  Reset by a retry / continue. Why 3: a release needs a scanner restart or a
+  provider block to land inside a run of this scan (≤ W = 6 min); deploys of
+  the scanner happen a few times a day, so a scan meets one, rarely two —
+  four in a row is a loop, and before the bound such a scan was claimed and
+  paid for without end (`ScannerReleaseCapTest`).
 - `lease_token_hash` — sha256 of the latest claim's lease token. Kept when the
   REAPER puts a run back (that run's late `finish` is still accepted while
   nobody has claimed the scan again); cleared by release, retry and continue.
@@ -190,13 +201,29 @@ and shown only while the scan is in progress (the status document's
   `ai_usage_event` **plus $1.50 for every running run**. A run may start only
   while that plus its own $1.50 fits both ceilings (total, project). Checked
   at upload and at every build claim.
+- **Starts are judged one after the other.** The project row
+  (`SELECT … FOR UPDATE`) serialises the starts of one project; the guards
+  that count ACROSS projects — a user's starts of the day, the scans waiting
+  in total, the day's total spend — were passed twice by one user starting in
+  two projects at the same moment. `AiScans::assertMayStart()` therefore
+  takes one transaction-level advisory lock (`pg_advisory_xact_lock`, class
+  of the render limiter, key 0) before it counts; it is held until the start
+  commits, always taken after the project row, and nothing takes a project
+  row while holding it (`AiScanRaceTest::testOneUserStartingInTwoProjects…`).
 - **Usage** (`ai_usage_event`, FK-less, survives the scan, the project and the
   user): one row per `(scan, run, step)`, opened at claim, upserted from every
   heartbeat (figures are cumulative; `GREATEST`, so a late beat takes nothing
   back), closed with an outcome when the run ends — however it ends. A killed
   run therefore has a closed row with the last heartbeat's figures. Cost: the
   price table of `definition.json` when it knows the model, otherwise the
-  engine's own figure. **Cache writes are priced by lifetime**: the scanner
+  engine's own figure — and **never more than three engine budgets per row**
+  (`AiScanLimits::USAGE_COST_CAP_BUDGETS` × `caps.engineBudgetMicroUsd` =
+  $4.50; `RecordAiUsage::costCapMicroUsd()`): the figures are another
+  process's word, clamped only to 0–2·10⁹, so one broken report could book
+  $2000, close the day's ceilings and falsify the admin's sums.
+  `engine_cost_micro_usd` keeps what was said. A row at the cap, a row the
+  table did not price, and a finished build without a token are announced to
+  the admins (`usage_suspect`, § "Operating e-mails"). **Cache writes are priced by lifetime**: the scanner
   sends the total (`cacheWriteTokens`) and its split (`cacheWrite5mTokens`,
   `cacheWrite1hTokens`); the 1-hour part is stored in `cache_write_1h_tokens`
   and charged at `cacheWrite1h` (2 × input), the rest at `cacheWrite`
@@ -226,8 +253,39 @@ URL. The app never decodes these files.
 
 Deletion: `discard` deletes the scan's files at once; the nightly purge
 expires scans 30 days after their end and deletes directories older than 24 h
-whose row is missing or expired; deleting a project deletes
+whose row is missing, `expired`, `discarded`, or `accepted` with its date
+cleared; deleting a project deletes
 `ai-scan/{projectId}/` (`DeleteProjectHandler`). See `storage-inventory.md`.
+
+**"We delete the proposal and the picture" holds for the row too**
+(`AiScanTransitions::SCRUB`, review of 2026-11-13). When a scan is
+discarded, when it expires, and when the retention of an accepted scan runs
+out, one statement empties every column that holds something read from the
+picture or typed into the review: `proposal`, `candidates`, `fixes`,
+`report`, `text_boxes`, `pictures`, `restore`, and `source_meta.name` (the
+uploaded file's name). Codes, counts, times, the stage log, the history and
+the usage stay — the lists and the admin tab read only those.
+
+| When | Files | Row |
+|---|---|---|
+| `discard` | deleted at once | scrubbed in the transition |
+| expiry (`ready`, `failed`, `stopped`, `refused`, `cancelled` → `expired`) | deleted after the transition | scrubbed in the transition, `expires_at` cleared |
+| `accepted`, before `expires_at` | kept | kept — the read-only page and „Vrátit původní“ need them |
+| `accepted` / `discarded`, `expires_at` passed (purge) | deleted | scrubbed; `expires_at` cleared **only when the delete succeeded** |
+
+- A file delete that fails is never lost: the accepted / discarded row keeps
+  its date and is found again the next night; and the 24-hour sweep takes the
+  directory of any row that should have no files.
+- The purge ends with a net (`scrubbed` in its output): rows that are past
+  that point and still hold something — rows that got there before the rule
+  was complete, or a statement that was skipped. Idempotent, usually 0; it
+  is what cleaned the rows that existed on 2026-11-13.
+- What reads such a row: the history and the strip (`fileName: null`,
+  `hasProposal: false`, no `open_proposal`), the wizard's page (the "gone"
+  views — „Návrh i obrázek jsme smazali“, „Sken a původní obrázek jsme po 30
+  dnech smazali“), `GET /ai-scan/{id}/proposal` (`proposal: null`; a calendar
+  scan answers `applied` alone), the admin tab, the e-mail (`obrázek` instead
+  of the name). `AiScanRetentionScrubTest` walks them for each of the three.
 
 The bucket itself: created by `.docker/setup-minio.sh` locally (and by
 `app:ai-scan:fake-run` when missing); in production the box's `deploy.sh`
@@ -433,6 +491,7 @@ usage and answers one `AiScanCondition` per `AiScanAlertCode`:
 | `spend_80` | RECORDED spend of the day ≥ 80 % of the daily ceiling, and one more run still fits | first seen |
 | `spend_ceiling` | recorded spend + one run's budget > the daily ceiling (`AiScanSpend::dayExhausted()`) | first seen |
 | `queue_stalled` | the oldest `checking` / `queued` scan waits > 15 min | its `waiting_since` |
+| `usage_suspect` | a usage row of the last 24 h cannot be taken at its word: the price table did not price it although something was reported (`price_version` null — an unknown model, the cost is the scanner's own figure), a build that delivered a proposal reported no tokens, or a cost at / an engine figure above the cap of $4.50 a run. The mail counts each reason and names the model. One reminder a day while such rows keep coming; **closes silently** (like `spend_80`) once 24 h passed without one | the oldest such row |
 
 The spend conditions use recorded spend on purpose: it only grows within a
 day, while the total with reservations goes up and down with every run.
@@ -1118,9 +1177,27 @@ in node, the browser draws the proposal with the calendar's own renderer.
   never holds a public holiday — is drawn by
   `CalendarPageRenderer::renderDocument()` (trim box, 1600 px, sample texts
   on, WebP; behind `CalendarCandidatePictureInterface`, faked in tests).
-  When the candidate has `events` on and the sample week holds no event,
-  two sample events are put into the in-memory document (`withSampleEvents`)
-  so the picture shows where event texts land.
+  **The picture shows nothing the customer put into the calendar**
+  (`CalendarCandidateContent::neutral()`, review of 2026-11-13): the
+  candidate's picture goes back to the scanner and on to the AI provider,
+  and the consent speaks of the uploaded picture, what is read from it, the
+  project's font names and palette only. Until then the sample week was
+  drawn with the calendar's real content — its events and their clubs, extra
+  names, waste dates, the week's photo, caption, page pictures and QR code.
+  Now the in-memory document carries the content of a calendar nobody has
+  filled in (`CalendarContentSeed::initial()`), whatever is stored; the
+  renderer's sample texts (caption, LOGO / QR placeholders) stand where
+  nothing is. When the candidate has `events` on, two sample events
+  („Ukázková akce“) are put into it (`withSampleEvents`) so the picture
+  shows where event texts land. The layout holds no content either — a
+  candidate always starts from a preset's default — and the claim's
+  `context.calendar` never did. Tests: `CalendarScanTest::testACandidateIsDrawnWithoutTheCalendarsOwnContent`
+  (the document handed to the renderer) and, through the real Gotenberg,
+  `CalendarRenderDocumentGotenbergTest::testACandidateShowsNothingOfTheCalendarsContent`
+  (the same pixels with and without content). A trade-off to know: a
+  calendar's waste dates and shifts are not in a candidate either, so the
+  scan cannot see where THEY would land — as for every calendar scanned
+  before its content exists, which is the usual order.
   **Nothing is saved**: no revision, no history line, no asset. The answer
   adds `view` (the mm box the picture shows), `page`, `preset`, the
   materialised `layout` and `features`. A refusal by the model is
@@ -1335,7 +1412,7 @@ and greps a whole run's log records.
 |---|---|
 | `app:ai-scan:status [--mode=…] [--admin-only=0\|1] [--max-running=N] [--daily-ceiling-usd=…] [--project-ceiling-usd=…] [--daily-starts-user=N] [--daily-starts-project=N] [--reap]` | shows the state; with options writes the runtime row |
 | `app:ai-scan:watch` | no options. Evaluates the operating conditions and e-mails the admins what is due (§ "Operating e-mails"). One line per action (`opened <code>`, `reminded <code>`, `cleared <code>`), nothing when there is nothing to do; exit 0, or 1 when a mail could not be handed over (`failed <code> …`, the claim is given back). Cron, every 5 minutes; safe to run twice at once |
-| `app:ai-scan:purge` | reaper, expiry, orphan files, leftover usage rows — nightly host cron on the box (`ai-scan-purge`, 03:00 Europe/Prague) |
+| `app:ai-scan:purge` | reaper, expiry, files and row texts of accepted / discarded scans past their date, orphan files, leftover candidate renders, the scrub net, leftover usage rows, due e-mails — nightly host cron on the box (`ai-scan-purge`, 03:00 Europe/Prague) |
 | `app:ai-scan:fake-run <project-id> <user-email> [--scenario=happy\|stop\|fail\|refuse\|cancel\|hang\|all] [--beats=N] [--beat-interval=S] [--no-render]` | a fake scanner; **refuses in production** |
 
 Local use: `.env.dev` sets a dev token and the local `scan` network
@@ -1365,7 +1442,12 @@ docker compose exec web bin/console app:ai-scan:status --mode=off
 
 - Unit: `tests/Value/AiScan`, `tests/Services/AiScan/{AiScanValuesTest,AiScanQueueEstimateTest,AiScanReportValidatorTest}`, `tests/Services/Security/ScannerServiceAuthenticatorTest`.
 - Against the database: `tests/Services/AiScan/AiScanTransitionsTest` (every
-  state × event), `AiScanPurgeAndStorageTest`.
+  state × event), `AiScanPurgeAndStorageTest`, `AiScanRetentionScrubTest`
+  (what leaves the row at discard / expiry / the end of an accepted scan's
+  retention, the pages that still answer, a failing storage, the sweep and
+  the net), `AiScanUsageGuardsTest` (the cost cap, `usage_suspect`),
+  `AiScanMailLinksOutsideARequestTest`,
+  `tests/Controller/Internal/ScannerReleaseCapTest`.
 - Functional: `tests/Controller/Internal/ScannerApiTest`,
   `tests/Controller/AiScan/*` (the permission matrix, every start refusal, the
   admin switch, the commands, the log capture). Shared set-up:
@@ -1442,6 +1524,14 @@ docker compose exec web bin/console app:ai-scan:status --mode=off
 ## Traps
 
 - Do not change a scan through the ORM (see "The one rule").
+- A new column that holds something read from the picture, typed into the
+  review or named by the user goes into `AiScanTransitions::SCRUB` **and**
+  `SCRUBBABLE` — otherwise it outlives the deletion the screens promise.
+- Nothing of a customer's own content may enter a candidate render or a
+  claim's `context`: what goes to the scanner goes to the AI provider, and
+  the consent names the uploaded picture, the project's fonts and palette —
+  nothing else. Extending either means changing the consent copy and its
+  version first.
 - A new state or event goes into `AiScanTransitionTable` first; both
   transition tests walk every state × event and will name what is missing.
 - `SCANNER_TOKEN` / `SCAN_NETWORK_CIDR` have empty defaults in `.env` AND in

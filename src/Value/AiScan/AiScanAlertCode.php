@@ -25,11 +25,19 @@ enum AiScanAlertCode: string
     case SpendCeiling = 'spend_ceiling';
     /** The oldest waiting scan waits longer than {@see QUEUE_STALLED_SECONDS}. */
     case QueueStalled = 'queue_stalled';
+    /**
+     * A usage report of the last {@see USAGE_SUSPECT_SECONDS} that cannot be
+     * taken at its word: a model the price table does not know (the cost is
+     * then the scanner's own figure), a build that delivered a proposal and
+     * reported no tokens, or a run whose cost had to be capped.
+     */
+    case UsageSuspect = 'usage_suspect';
 
     /** Heartbeat lost: an idle scanner polls every 5 s; a restart takes well under a minute. */
     public const int ABSENT_SECONDS = 180;
     public const int PROVIDER_BLOCKED_SECONDS = 600;
     public const int QUEUE_STALLED_SECONDS = 900;
+    public const int USAGE_SUSPECT_SECONDS = 86400;
     /** While a condition lasts: one reminder per this many seconds. */
     public const int REMINDER_SECONDS = 86400;
 
@@ -45,10 +53,11 @@ enum AiScanAlertCode: string
     /**
      * Whether its end is worth a mail. The 80 % mark is a warning about
      * nothing that stopped working: it closes silently (at midnight, or when
-     * the ceiling itself is reached and says so).
+     * the ceiling itself is reached and says so). So does a suspect usage
+     * report: it "ends" only by leaving the 24-hour window.
      */
     public function announcesRecovery(): bool
     {
-        return $this !== self::Spend80;
+        return !in_array($this, [self::Spend80, self::UsageSuspect], true);
     }
 }
