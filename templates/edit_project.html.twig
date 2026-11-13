@@ -134,7 +134,7 @@
                     <label for="paiLimit" class="lbl">Měsíční limit skenů</label>
                     <input type="number" id="paiLimit" name="monthly_limit" class="form-control" min="0" max="100000" step="1" inputmode="numeric" placeholder="bez limitu" value="{{ project.aiScanMonthlyLimit }}">
                     <button type="submit" class="btn btn-light">Uložit limit</button>
-                    <span class="cap">Tento měsíc {{ ai_scan_usage.month }}{% if project.aiScanMonthlyLimit is not null %} z {{ project.aiScanMonthlyLimit }}{% endif %} · Celkem {{ ai_scan_usage.total }}</span>
+                    <span class="cap">Tento měsíc {{ ai_scan_usage.month }}{% if project.aiScanMonthlyLimit is not null %} z {{ project.aiScanMonthlyLimit }}{% endif %} · Celkem {{ ai_scan_usage.total }} · <a href="{{ path('admin_usage', {'ai_project': project.id}) }}#ai-skeny" class="pai-usage">Využití →</a></span>
                 </form>
                 <p class="cap pd-foot">{{ icon('info', 's14') }}Vypnutím se nic nesmaže. Čekající skeny zrušíme a nezapočítáme, běžící doběhnou a hotové návrhy půjde dokončit. Prázdný limit znamená bez limitu.</p>
             </section>

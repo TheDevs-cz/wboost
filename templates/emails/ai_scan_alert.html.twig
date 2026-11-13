@@ -20,10 +20,20 @@
                             <p style="margin: 0 0 16px; color: #333; font-size: 15px; line-height: 1.5;">{{ what }}</p>
 
                             <table cellpadding="0" cellspacing="0" style="margin: 0 0 20px; width: 100%;">
-                                <tr>
-                                    <td style="padding: 6px 0; color: #777; font-size: 13px; width: 150px;">{{ kind == 'cleared' ? 'Trvalo od' : 'Trvá od' }}</td>
-                                    <td style="padding: 6px 0; color: #333; font-size: 14px;">{{ since }}{% if until %} do {{ until }}{% endif %}</td>
-                                </tr>
+                                {# `rows` (label → value) replaces the "since" line: a mail about one project and one day. #}
+                                {% if rows is defined and rows %}
+                                    {% for label, value in rows %}
+                                        <tr>
+                                            <td style="padding: 6px 0; color: #777; font-size: 13px; width: 190px;">{{ label }}</td>
+                                            <td style="padding: 6px 0; color: #333; font-size: 14px;">{{ value }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td style="padding: 6px 0; color: #777; font-size: 13px; width: 150px;">{{ kind == 'cleared' ? 'Trvalo od' : 'Trvá od' }}</td>
+                                        <td style="padding: 6px 0; color: #333; font-size: 14px;">{{ since }}{% if until %} do {{ until }}{% endif %}</td>
+                                    </tr>
+                                {% endif %}
                                 <tr>
                                     <td style="padding: 6px 0; color: #777; font-size: 13px;">Provozní režim</td>
                                     <td style="padding: 6px 0; color: #333; font-size: 14px;">{{ mode }}</td>
@@ -45,7 +55,7 @@
                                 <tr>
                                     <td>
                                         <a href="{{ url }}" style="display: inline-block; padding: 12px 28px; background-color: #3b82f6; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 15px; font-weight: 600;">
-                                            Otevřít AI skeny v administraci
+                                            {{ button|default('Otevřít AI skeny v administraci') }}
                                         </a>
                                     </td>
                                 </tr>
@@ -55,7 +65,7 @@
                     <tr>
                         <td style="padding: 20px 32px; background-color: #f8f9fa; border-top: 1px solid #e9ecef;">
                             <p style="margin: 0; color: #999; font-size: 12px;">
-                                Provozní zpráva aplikace WBoost pro administrátory.{% if kind != 'cleared' %} O konci tohoto stavu vám dáme vědět.{% endif %}
+                                Provozní zpráva aplikace WBoost pro administrátory.{% if footer is defined and footer %} {{ footer }}{% elseif kind != 'cleared' %} O konci tohoto stavu vám dáme vědět.{% endif %}
                             </p>
                         </td>
                     </tr>

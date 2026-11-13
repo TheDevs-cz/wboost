@@ -70,6 +70,12 @@ final readonly class AiScanUrls
         return $this->urls->generate('admin_usage', [], UrlGeneratorInterface::ABSOLUTE_URL) . '#ai-skeny';
     }
 
+    /** The same tab with its scans table narrowed to one project (`?ai_project=`). */
+    public function adminProject(string $projectId): string
+    {
+        return $this->urls->generate('admin_usage', ['ai_project' => $projectId], UrlGeneratorInterface::ABSOLUTE_URL) . '#ai-skeny';
+    }
+
     public function editor(string $variantId): string
     {
         return $this->urls->generate('template_variant_editor', ['variantId' => $variantId], UrlGeneratorInterface::ABSOLUTE_URL);

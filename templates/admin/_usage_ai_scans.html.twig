@@ -10,6 +10,13 @@
       - a request            → ai_scan_admin_controller (JSON endpoint), one
                                controller per row so its toast names the project
     „Vypnuto“ opens a Bootstrap modal first: it interrupts scans in progress.
+
+    The scans table is paged (`?ai_page=`, ended scans, 50 a page) and has two
+    filters by link: `?ai_scan=<uuid>` (that scan + every usage row of it) and
+    `?ai_project=<uuid>` — a URL contract, see AdminUsageController. A row's
+    menu is a `popover` element (top layer: the table scrolls sideways and
+    would clip a dropdown), placed by ai_scan_admin_table_controller; the
+    menus and the rating dialogs are rendered OUTSIDE the table.
     Styles: assets/styles/nocturne/admin.css (`ai-*`); tables become cards in
     a narrow container (`data-l` is the cell's label there).
 #}
@@ -32,6 +39,11 @@
     {%- endif -%}
 {%- endmacro %}
 
+{# The tab with its query: the project filter is kept, page 1 has no parameter. #}
+{% macro url(project, page) -%}
+    {{- path('admin_usage', (project ? {ai_project: project.id} : {})|merge(page > 1 ? {ai_page: page} : {})) }}#ai-skeny
+{%- endmacro %}
+
 {% macro status(scan) -%}
     {%- set labels = {checking: 'Kontrola', queued: 'Ve frontě', running: 'Běží', ready: 'Návrh připraven', accepted: 'Šablona vytvořena', discarded: 'Zahozen', cancelled: 'Zrušen', stopped: 'Zastaven', failed: 'Nezdařil se', refused: 'Odmítnut', expired: 'Vypršel'} -%}
     {%- set tone = scan.inProgress ? 'pch' : (scan.status in ['ready', 'accepted'] ? 'mint' : (scan.status in ['failed', 'refused'] ? 'rose' : 'neutral')) -%}
@@ -43,7 +55,8 @@
     {% import _self as m %}
     {% for project in projects %}
         <tr>
-            <th scope="row" class="ai-main" data-l="Projekt"><a href="{{ path('edit_project', {id: project.id}) }}#project-ai-scan">{{ project.name }}</a></th>
+            <th scope="row" class="ai-main" data-l="Projekt"><a href="{{ path('edit_project', {id: project.id}) }}#project-ai-scan">{{ project.name }}</a>
+                {%- if project.paused %} <span class="pill rose" data-paused title="Poskytovatel dnes v projektu odmítl {{ project.refusalsToday }} {{ project.refusalsToday < 5 ? 'obrázky' : 'obrázků' }}. Nové skeny půjdou spustit zase zítra.">Pozastaveno do zítřka · {{ project.refusalsToday }} odmítnutí</span>{% endif %}</th>
             <td class="ai-l" data-l="Vlastník" title="{{ project.ownerEmail }}">{{ project.ownerName ?: project.ownerEmail }}</td>
             <td data-l="AI sken">
                 <form method="post" action="{{ path('project_ai_scan_set', {projectId: project.id}) }}" class="ai-sw">
@@ -58,6 +71,7 @@
             <td data-l="Limit">{{ project.limit is null ? 'bez limitu' : project.limit }}</td>
             <td data-l="Celkem">{{ project.total }}</td>
             <td data-l="Náklady" title="Celkem {{ m.usd(project.costTotalMicroUsd) }}">{{ project.costMonthMicroUsd or project.costTotalMicroUsd ? m.usd(project.costMonthMicroUsd) : '—' }}</td>
+            <td class="ai-acts" data-l="Skeny"><a href="{{ path('admin_usage', {ai_project: project.id}) }}#ai-skeny" aria-label="Skeny projektu {{ project.name }}">Skeny</a></td>
         </tr>
     {% endfor %}
 {% endmacro %}
@@ -76,6 +90,7 @@
                     <th scope="col">Limit</th>
                     <th scope="col">Celkem</th>
                     <th scope="col">Náklady</th>
+                    <th scope="col"><span class="visually-hidden">Skeny projektu</span></th>
                 </tr>
             </thead>
             <tbody>{{ m.project_rows(projects) }}</tbody>
@@ -246,16 +261,32 @@
 </div>
 
 {# =============================================================== Skeny #}
-<div class="st-card" id="ai-skeny-tabulka">
+{% set rated = ai.scans|filter(scan => scan.rating is not null) %}
+<div class="st-card" id="ai-skeny-tabulka" data-controller="ai-scan-admin-table">
     <div class="st-card-h">
         <div><h2>Skeny <span class="pd-n">{{ ai.scansTotal }}</span></h2>
-            <span class="cap">Nejdřív skeny, které běží nebo čekají, pod nimi posledních {{ constant('WBoost\\Web\\Query\\GetAiUsageOverview::ENDED_LIMIT') }} ukončených.
+            <span class="cap">Nejdřív skeny, které běží nebo čekají, pod nimi ukončené — {{ constant('WBoost\\Web\\Query\\GetAiUsageOverview::ENDED_LIMIT') }} na stránku.
                 Doba = čas práce skeneru (u běžících čas v aktuálním stavu). Kredit říká, jestli se pokus započítal.</span></div>
     </div>
+
+    {% if ai.filterScanId or ai.filterProject %}
+        <p class="ai-filter" data-filter="{{ ai.filterScanId ? 'scan' : 'project' }}">
+            {{ icon('filter', 's16') }}
+            <span>{% if ai.filterScanId %}Jen sken <code class="ai-code">{{ ai.filterScanId }}</code> a jeho využití{% else %}Jen projekt <b>{{ ai.filterProject.name }}</b>{% endif %}</span>
+            <a href="{{ path('admin_usage') }}#ai-skeny" class="btn btn-light xs">{{ icon('x', 's14') }}Zrušit filtr</a>
+        </p>
+    {% endif %}
+
     {% if ai.scans is empty %}
         <div class="empty">
             <span class="ico-c">{{ icon('sparkle') }}</span>
-            <p>Zatím žádný sken. Jakmile někdo nahraje obrázek, objeví se tady i s náklady.</p>
+            {% if ai.filterScanId %}
+                <p>{{ ai.scanUsage is empty ? 'Sken s tímto ID neexistuje.' : 'Sken už neexistuje. Záznamy o jeho využití zůstávají — jsou níže.' }}</p>
+            {% elseif ai.filterProject %}
+                <p>Projekt {{ ai.filterProject.name }} zatím nemá žádný sken.</p>
+            {% else %}
+                <p>Zatím žádný sken. Jakmile někdo nahraje obrázek, objeví se tady i s náklady.</p>
+            {% endif %}
         </div>
     {% else %}
         <div class="ai-wrap">
@@ -276,14 +307,17 @@
                         <th scope="col" class="ai-l">Hodn.</th>
                         <th scope="col" class="ai-l">Kanál</th>
                         <th scope="col">Paměť / CPU</th>
-                        <th scope="col"><span class="visually-hidden">Odkazy</span></th>
+                        <th scope="col"><span class="visually-hidden">Akce</span></th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for scan in ai.scans %}
+                        {% set when = scan.createdAt ? scan.createdAt|date('j. n. Y H:i', 'Europe/Prague') : '—' %}
                         <tr data-scan="{{ scan.id }}" class="{{ scan.inProgress ? 'ai-live' }}">
-                            <td class="ai-l" data-l="Kdy">{{ scan.createdAt ? scan.createdAt|date('j. n. Y H:i', 'Europe/Prague') : '—' }}</td>
-                            <th scope="row" class="ai-main" data-l="Projekt">{{ scan.projectName }}</th>
+                            <td class="ai-l" data-l="Kdy">{{ when }}</td>
+                            <th scope="row" class="ai-main" data-l="Projekt">
+                                {%- if ai.filterProject %}{{ scan.projectName }}{% else %}<a href="{{ path('admin_usage', {ai_project: scan.projectId}) }}#ai-skeny" title="Jen skeny tohoto projektu">{{ scan.projectName }}</a>{% endif -%}
+                            </th>
                             <td class="ai-l" data-l="Uživatel">{{ scan.user }}</td>
                             <td class="ai-l" data-l="Modul">{{ scan.kind == 'calendar' ? 'Kalendáře' : 'Šablony' }}</td>
                             <td class="ai-l" data-l="Stav">{{ m.status(scan) }}</td>
@@ -295,14 +329,13 @@
                             <td class="ai-l" data-l="Hodnocení">
                                 {%- if scan.rating is null -%}—
                                 {%- elseif scan.rating > 0 -%}<span class="pill mint">Dobrý</span>
-                                {%- else -%}<span class="pill rose"{% if scan.ratingNote %} title="{{ scan.ratingNote }}"{% endif %}>Špatný</span>{% if scan.ratingNote %}<span class="visually-hidden"> — {{ scan.ratingNote }}</span>{% endif %}
+                                {%- else -%}<span class="pill rose">Špatný</span>{% if scan.ratingNote %}<span class="visually-hidden"> — s poznámkou</span>{% endif %}
                                 {%- endif -%}
                             </td>
                             <td class="ai-l" data-l="Kanál">{{ scan.channel == 'mcp' ? 'MCP' : 'web' }}</td>
                             <td data-l="Paměť / CPU">{% if scan.peakRssMb is not null %}{{ scan.peakRssMb }} MB{% if scan.cpuSeconds is not null %} / {{ scan.cpuSeconds }} s{% endif %}{% else %}—{% endif %}</td>
-                            <td class="ai-acts" data-l="Odkazy">
-                                {% if scan.kind == 'template' %}<a href="{{ path('ai_scan_page', {projectId: scan.projectId, scanId: scan.id}) }}">Otevřít sken</a>{% endif %}
-                                <a href="{{ path('project_dashboard', {id: scan.projectId}) }}">Otevřít projekt</a>
+                            <td class="ai-acts ai-acts-menu" data-l="Akce">
+                                <button type="button" class="btn btn-ghost icon xs" popovertarget="aiMenu-{{ scan.id }}" aria-haspopup="true" aria-label="Akce skenu: {{ scan.projectName }}, {{ when }}">{{ icon('more', 's16') }}</button>
                             </td>
                         </tr>
                     {% endfor %}
@@ -310,4 +343,115 @@
             </table>
         </div>
     {% endif %}
+
+    {# ---- one scan's usage: every ai_usage_event row of it (they outlive the scan) ---- #}
+    {% if ai.filterScanId and ai.scanUsage is not empty %}
+        <div class="ai-usage" id="ai-vyuziti">
+            <h3 class="lbl">Využití skenu <span class="pd-n">{{ ai.scanUsage|length }}</span></h3>
+            <div class="ai-wrap">
+                <table class="st-table ai-tbl">
+                    <caption class="visually-hidden">Využití skenu — jeden řádek za každý běh a krok</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col" class="ai-main">Běh · krok</th>
+                            <th scope="col" class="ai-l">Model</th>
+                            <th scope="col" class="ai-l">Kdy</th>
+                            <th scope="col">Doba</th>
+                            <th scope="col">Kola</th>
+                            <th scope="col">Vstup</th>
+                            <th scope="col">Výstup</th>
+                            <th scope="col" title="Čtení / zápis mezipaměti">Mezipaměť</th>
+                            <th scope="col">Náklady</th>
+                            <th scope="col" class="ai-l">Výsledek</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% set sum = 0 %}
+                        {% for row in ai.scanUsage %}
+                            {% set sum = sum + row.costMicroUsd %}
+                            <tr data-usage="{{ row.run }}-{{ row.step }}">
+                                <th scope="row" class="ai-main" data-l="Běh · krok">{{ row.run }} · {{ {pre_check: 'kontrola', builder: 'stavba'}[row.step] ?? row.step }}</th>
+                                <td class="ai-l" data-l="Model">{{ row.model ?: '—' }}</td>
+                                <td class="ai-l" data-l="Kdy">{{ row.occurredAt ? row.occurredAt|date('j. n. Y H:i', 'Europe/Prague') : '—' }}</td>
+                                <td data-l="Doba">{{ row.seconds is null ? '—' : m.dur(row.seconds) }}</td>
+                                <td data-l="Kola">{{ row.turns ?: '—' }}</td>
+                                <td data-l="Vstup">{{ row.tokensIn|number_format(0, ',', ' ') }}</td>
+                                <td data-l="Výstup">{{ row.tokensOut|number_format(0, ',', ' ') }}</td>
+                                <td data-l="Mezipaměť" title="čtení {{ row.tokensCacheRead|number_format(0, ',', ' ') }} · zápis {{ row.tokensCacheWrite|number_format(0, ',', ' ') }}">{{ row.tokensCacheRead|number_format(0, ',', ' ') }} / {{ row.tokensCacheWrite|number_format(0, ',', ' ') }}</td>
+                                <td data-l="Náklady">{{ m.usd(row.costMicroUsd) }}</td>
+                                <td class="ai-l" data-l="Výsledek">
+                                    {%- if not row.closed -%}<span class="pill pch">běží</span>
+                                    {%- else -%}<code class="ai-code">{{ row.outcome ?? '—' }}</code>{% if row.code %} <code class="ai-code">{{ row.code }}</code>{% endif %}
+                                    {%- endif -%}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <p class="cap ai-usage-sum">Celkem za sken <b>{{ m.usd(sum) }}</b></p>
+        </div>
+    {% endif %}
+
+    {% if ai.scanPages > 1 %}
+        <nav class="ai-pager" aria-label="Stránky skenů">
+            {% if ai.scanPage > 1 %}
+                <a class="btn btn-light sm" rel="prev" href="{{ m.url(ai.filterProject, ai.scanPage - 1) }}">{{ icon('chev-left', 's14') }}Novější</a>
+            {% else %}
+                <span class="btn btn-light sm disabled" aria-disabled="true">{{ icon('chev-left', 's14') }}Novější</span>
+            {% endif %}
+            <span class="cap">Strana {{ ai.scanPage }} z {{ ai.scanPages }}</span>
+            {% if ai.scanPage < ai.scanPages %}
+                <a class="btn btn-light sm" rel="next" href="{{ m.url(ai.filterProject, ai.scanPage + 1) }}">Starší{{ icon('chev-right', 's14') }}</a>
+            {% else %}
+                <span class="btn btn-light sm disabled" aria-disabled="true">Starší{{ icon('chev-right', 's14') }}</span>
+            {% endif %}
+        </nav>
+    {% endif %}
+
+    {# The rows' menus — popovers live in the top layer, so the sideways-scrolling table cannot clip them. #}
+    {% for scan in ai.scans %}
+        <div class="menu ai-menu" id="aiMenu-{{ scan.id }}" popover data-ai-scan-admin-table-target="menu">
+            {% if scan.kind == 'template' %}
+                <a class="mi" href="{{ path('ai_scan_page', {projectId: scan.projectId, scanId: scan.id}) }}" data-item="scan">{{ icon('eye', 's16') }}Otevřít sken</a>
+            {% elseif scan.calendarId %}
+                <a class="mi" href="{{ path('calendar_workspace', {calendarId: scan.calendarId, sken: scan.id}) }}" data-item="scan">{{ icon('eye', 's16') }}Otevřít sken</a>
+            {% endif %}
+            <a class="mi" href="{{ path('project_dashboard', {id: scan.projectId}) }}" data-item="project">{{ icon('folder', 's16') }}Otevřít projekt</a>
+            {% if scan.rating is not null %}
+                <button type="button" class="mi" data-item="rating" popovertarget="aiMenu-{{ scan.id }}" popovertargetaction="hide"
+                        data-bs-toggle="modal" data-bs-target="#aiRating-{{ scan.id }}">{{ icon('star', 's16') }}Zobrazit hodnocení</button>
+            {% endif %}
+            {% if not ai.filterScanId %}
+                <a class="mi" href="{{ path('admin_usage', {ai_scan: scan.id}) }}#ai-skeny" data-item="usage">{{ icon('chart', 's16') }}Využití skenu</a>
+            {% endif %}
+        </div>
+    {% endfor %}
 </div>
+
+{# „Zobrazit hodnocení“ — one small dialog per rated scan of the page, outside the cards. #}
+{% for scan in rated %}
+    <div class="modal fade ai-rating" id="aiRating-{{ scan.id }}" tabindex="-1" aria-hidden="true" aria-labelledby="aiRatingH-{{ scan.id }}">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title" id="aiRatingH-{{ scan.id }}">Hodnocení skenu</h4>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zavřít"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="ai-rating-v"><span class="ai-rating-ico" aria-hidden="true">{{ scan.rating > 0 ? '👍' : '👎' }}</span>
+                        <span><b>{{ scan.rating > 0 ? 'Dobrý návrh' : 'Špatný návrh' }}</b>
+                            <span class="cap">{{ scan.user }} · {{ scan.projectName }}{% if scan.createdAt %} · sken z {{ scan.createdAt|date('j. n. Y H:i', 'Europe/Prague') }}{% endif %}</span></span></p>
+                    {% if scan.ratingNote %}
+                        <blockquote class="ai-rating-note">{{ scan.ratingNote }}</blockquote>
+                    {% else %}
+                        <p class="cap mb-0">Bez poznámky.</p>
+                    {% endif %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-tertiary sm" data-bs-dismiss="modal">Zavřít</button>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endfor %}

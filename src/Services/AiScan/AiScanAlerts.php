@@ -41,11 +41,24 @@ use WBoost\Web\Value\AiScan\AiScanMode;
  *   switched off on purpose — except the end of a condition that was
  *   announced.
  *
- * The mails carry codes, numbers and times only.
+ * **A project paused for refusals** ({@see PROJECT_PAUSED}) is not a
+ * condition of the service but of one project and one day: the provider
+ * refused three of its pictures today (Europe/Prague), so its starts are
+ * refused with `project_paused` until midnight. The pause is counted, never
+ * stored. The admins get **one mail per project per day** — claimed by
+ * inserting the `(project, day)` row of `ai_scan_project_pause`
+ * ({@see claimProjectPause()}); no reminder and no "back to normal", because
+ * it ends by itself. Like everything else it is not announced while the mode
+ * is `off`; if the mode comes back the same day, it is announced then.
+ *
+ * The mails carry codes, numbers and times only — the pause's also the
+ * project's name and id.
  */
 final readonly class AiScanAlerts
 {
     public const int REOPEN_QUIET_SECONDS = 1800;
+    /** The code of the mail about a project paused for refusals — also the start refusal's code. */
+    public const string PROJECT_PAUSED = 'project_paused';
 
     /**
      * @param list<string> $adminNotificationRecipients
@@ -92,7 +105,52 @@ final readonly class AiScanAlerts
             }
         }
 
+        // A project paused for refusals: one mail per project and day.
+        if ($runtime->mode !== AiScanMode::Off) {
+            foreach ($this->conditions->pausedProjects($now) as $project) {
+                $day = AiScanTime::startOfDay($now);
+
+                if (!$this->claimProjectPause($project['projectId'], $day, $project['refusals'], $now)) {
+                    continue;
+                }
+
+                try {
+                    $this->projectPauseMail($project, $day, $runtime);
+                } catch (\Throwable $failure) {
+                    $this->connection->executeStatement(
+                        'DELETE FROM ai_scan_project_pause WHERE project_id = :project AND day = :day',
+                        ['project' => $project['projectId'], 'day' => $day->format('Y-m-d')],
+                    );
+                    $lines[] = sprintf('failed %s %s (%s) — the claim was given back', self::PROJECT_PAUSED, $project['projectId'], $failure::class);
+                    ++$failed;
+
+                    continue;
+                }
+
+                $lines[] = sprintf('opened %s %s', self::PROJECT_PAUSED, $project['projectId']);
+            }
+        }
+
         return ['lines' => $lines, 'failed' => $failed];
+    }
+
+    /**
+     * The claim of the one mail about a project paused on `$day` (midnight,
+     * Europe/Prague): the insert of its row. True = this caller inserted it
+     * and sends.
+     */
+    public function claimProjectPause(string $projectId, DateTimeImmutable $day, int $refusals, DateTimeImmutable $now): bool
+    {
+        return $this->connection->executeStatement(
+            'INSERT INTO ai_scan_project_pause (project_id, day, refusals, announced_at) VALUES (:project, :day, :refusals, :now)
+             ON CONFLICT (project_id, day) DO NOTHING',
+            [
+                'project' => $projectId,
+                'day' => $day->setTimezone(new DateTimeZone(AiScanLimits::TIMEZONE))->format('Y-m-d'),
+                'refusals' => $refusals,
+                'now' => AiScanTime::sql($now),
+            ],
+        ) === 1;
     }
 
     /**
@@ -305,6 +363,41 @@ final readonly class AiScanAlerts
             'until' => $kind === 'cleared' ? $now->setTimezone($zone)->format('j. n. Y H:i') : null,
             'mode' => self::modeLabel($runtime->mode),
             'url' => $this->urls->admin(),
+        ]);
+
+        $this->mailer->send((new Email())->to(...$this->adminNotificationRecipients)->subject($subject)->html($html));
+    }
+
+    /**
+     * @param array{projectId: string, projectName: string, refusals: int} $project
+     */
+    private function projectPauseMail(array $project, DateTimeImmutable $day, AiScanRuntimeSnapshot $runtime): void
+    {
+        $subject = sprintf('AI sken: projekt %s je do zítřka pozastaven', $project['projectName']);
+        $resumes = $day->modify('+1 day');
+
+        $html = $this->twig->render('emails/ai_scan_alert.html.twig', [
+            'kind' => 'opened',
+            'subject' => $subject,
+            'code' => self::PROJECT_PAUSED,
+            'what' => sprintf(
+                'Poskytovatel AI dnes odmítl %d %s z projektu %s. Nové skeny v tomto projektu proto do půlnoci nespouštíme; kdo to zkusí, uvidí, že skeny půjdou spustit zase zítra. Ostatních projektů se to netýká a hotové návrhy fungují dál.',
+                $project['refusals'],
+                $project['refusals'] < 5 ? 'obrázky' : 'obrázků',
+                $project['projectName'],
+            ),
+            'todo' => 'Podívejte se v administraci na dnešní skeny projektu — kdo je spustil a jak skončily. Vypadá-li to na zneužití, AI sken projektu vypněte. Jinak není potřeba dělat nic: pozastavení skončí samo.',
+            'rows' => [
+                'Projekt' => $project['projectName'],
+                'ID projektu' => $project['projectId'],
+                'Odmítnutí dnes' => (string) $project['refusals'],
+                'Den' => $day->format('j. n. Y'),
+                'Skeny půjdou znovu spustit' => $resumes->format('j. n. Y H:i'),
+            ],
+            'mode' => self::modeLabel($runtime->mode),
+            'url' => $this->urls->adminProject($project['projectId']),
+            'button' => 'Otevřít skeny projektu v administraci',
+            'footer' => 'Pozastavení skončí samo o půlnoci — další zprávu o něm nepošleme.',
         ]);
 
         $this->mailer->send((new Email())->to(...$this->adminNotificationRecipients)->subject($subject)->html($html));

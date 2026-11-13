@@ -530,8 +530,27 @@ a.acc-link > .i { color: var(--subtle); flex: none; }
 .ai-tbl .ai-main a:hover { color: var(--lav-ink); }
 .ai-tbl tr.ai-live > * { background: color-mix(in oklab, var(--pch-deep) 45%, var(--surface)); }
 .ai-sw { margin: 0; display: inline-flex; vertical-align: middle; }
-.ai-acts a { margin-left: 14px; font-weight: 600; color: var(--lav-ink); text-decoration: none; }
-.ai-acts a:hover { text-decoration: underline; }
+.st-table .ai-acts a { font-weight: 600; color: var(--lav-ink); text-decoration: none; }
+.st-table .ai-acts a:hover { text-decoration: underline; }
+/* The menu column stays in view while the wide table scrolls sideways. */
+.ai-tbl .ai-acts-menu { width: 1%; padding-top: 4px; padding-bottom: 4px; position: sticky; right: 0; z-index: 1; background: var(--surface); }
+/* A row's menu: a popover (top layer), placed by ai_scan_admin_table_controller. */
+.ai-menu { position: fixed; inset: auto; margin: 0; max-width: calc(100vw - 16px); }
+.ai-menu:not(:popover-open) { display: none; }
+.ai-menu .mi { white-space: nowrap; }
+.ai-filter { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 14px; border-radius: 14px; background: var(--lav-deep); color: var(--text); font-size: 13px; }
+.ai-filter > .i { color: var(--lav-ink); flex: none; }
+.ai-filter > span { flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; }
+.ai-usage { display: flex; flex-direction: column; gap: 10px; padding-top: 16px; border-top: 1px solid var(--line); }
+.ai-usage .lbl { margin: 0; display: flex; align-items: center; gap: 8px; }
+.ai-usage-sum { margin: 0; text-align: right; }
+.ai-usage-sum b { color: var(--text); font-weight: 600; }
+.ai-pager { display: flex; align-items: center; justify-content: center; gap: 14px; }
+.ai-pager .btn.disabled { opacity: .45; pointer-events: none; }
+.ai-rating-v { display: flex; align-items: center; gap: 14px; margin: 0 0 14px; }
+.ai-rating-v > span:last-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.ai-rating-ico { font-size: 28px; line-height: 1; flex: none; }
+.ai-rating-note { margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line-2); color: var(--text); font-size: 14px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
 .ai-more > summary { cursor: pointer; display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--muted); list-style: none; border-radius: 8px; }
 .ai-more > summary::-webkit-details-marker { display: none; }
 .ai-more > summary:hover { color: var(--text); }
@@ -550,7 +569,10 @@ a.acc-link > .i { color: var(--subtle); flex: none; }
     .st-table.ai-tbl tbody tr > .ai-main, .st-table.ai-tbl tbody tr > .ai-acts { grid-column: 1 / -1; }
     .ai-tbl tbody tr > .ai-main::before, .ai-tbl tbody tr > .ai-acts::before { content: none; }
     .st-table.ai-tbl tbody tr > .ai-acts { flex-direction: row; flex-wrap: wrap; gap: 6px 18px; }
-    .ai-acts a { margin-left: 0; }
+    /* The row menu sits in the card's top right corner. */
+    .ai-tbl tbody tr { position: relative; }
+    .st-table.ai-tbl tbody tr > .ai-acts-menu { position: absolute; top: 8px; right: 8px; width: auto; }
+    .st-table.ai-tbl tbody tr:has(> .ai-acts-menu) > .ai-main { padding-right: 36px; }
 }
 @media (max-width: 560px) {
     .ai-op-mode, .ai-op-mode .seg { width: 100%; }

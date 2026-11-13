@@ -90,6 +90,40 @@ final readonly class AiScanConditions
         ];
     }
 
+    /**
+     * The projects whose starts are paused on the day `$now` falls in
+     * (Europe/Prague): the provider refused {@see AiScanLimits::PROJECT_REFUSALS_PER_DAY}
+     * of their pictures that day. The same count the start guard makes
+     * (`AiScans::assertMayStart()`) — nothing is stored, and at midnight the
+     * list is empty again.
+     *
+     * @return list<array{projectId: string, projectName: string, refusals: int}>
+     */
+    public function pausedProjects(DateTimeImmutable $now): array
+    {
+        $day = AiScanTime::startOfDay($now);
+        $rows = $this->connection->fetchAllAssociative(
+            "SELECT e.project_id, COALESCE(MAX(p.name), MAX(e.project_name)) AS name, COUNT(*) AS refusals
+               FROM ai_usage_event e
+               LEFT JOIN project p ON p.id = e.project_id
+              WHERE e.outcome = 'refused' AND e.closed_at >= :since AND e.closed_at < :until
+              GROUP BY e.project_id
+             HAVING COUNT(*) >= :limit
+              ORDER BY MIN(e.closed_at), e.project_id",
+            [
+                'since' => AiScanTime::sql($day),
+                'until' => AiScanTime::sql($day->modify('+1 day')),
+                'limit' => AiScanLimits::PROJECT_REFUSALS_PER_DAY,
+            ],
+        );
+
+        return array_map(static fn (array $row): array => [
+            'projectId' => is_string($row['project_id']) ? $row['project_id'] : '',
+            'projectName' => is_string($row['name']) ? $row['name'] : '',
+            'refusals' => is_numeric($row['refusals']) ? (int) $row['refusals'] : 0,
+        ], $rows);
+    }
+
     private static function string(mixed $value): null|string
     {
         return is_string($value) ? $value : null;
