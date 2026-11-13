@@ -110,7 +110,7 @@ jobs:
     ship-production:
         needs: changed
         if: ${{ needs.changed.outputs.app == 'true' }}
-        uses: TheDevs-cz/ci/.github/workflows/_ship.yml@ref-input
+        uses: TheDevs-cz/ci/.github/workflows/_ship.yml@v1
         secrets:
             DEPLOY_WEBHOOK_SECRET: ${{ secrets.DEPLOY_WEBHOOK_SECRET }}
         with:
