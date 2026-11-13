@@ -26,8 +26,9 @@ const timeline = [];
 const onChange = (s) => { timeline.push({ t: +((Date.now() - t0) / 1000).toFixed(1), status: s.status, stage: s.stage ?? null, note: s.note ?? null, code: s.code ?? null }); };
 let end = await user.wait(id, { timeoutS: 900, onChange });
 let continued = null;
-if (flag('continue') && end.status === 'stopped') {
-    continued = { stoppedFor: end.code ?? end.stopReason ?? null, at: +((Date.now() - t0) / 1000).toFixed(1) };
+const scanOf = (answer) => answer.scan ?? answer;
+if (flag('continue') && scanOf(end).status === 'stopped') {
+    continued = { stoppedFor: scanOf(end).code ?? scanOf(end).errorCode ?? null, at: +((Date.now() - t0) / 1000).toFixed(1) };
     const again = await user.act(id, 'continue');
     continued.accepted = !!again.ok; continued.code = again.code ?? null;
     if (again.ok) end = await user.wait(id, { timeoutS: 900, onChange });

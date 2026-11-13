@@ -806,6 +806,161 @@ Mean (min–max) of the five runs; `node eval/spread.mjs --label gaps`:
   give IoU 0.05, close share 0.18 (A1 0.40, `argumenty` 0.33 — one or two of its twelve texts fall just under box IoU 0.7
   in some runs —, B1 0.17, the other two 0), cost $0.06, wall 14 s.
 
+### 10.5 Calendars — run-to-run spread, the font rows re-measured, a project without fonts
+
+All through the real job core (`scanner serve`, the app's upload endpoint), the target calendar as in §9 (a
+7-day calendar with every switch off and no layout). `node eval/calendar.mjs … --out eval/runs/_calendar-gaps`:
+three synthetic pages five times, three more once, Chotěbuz three times — **21 of 21 `ready`**, 0 unfinished,
+≤ 15 turns, build ≤ 98 s, $5.89 computed, 0 provider retries.
+
+**Run-to-run spread** — mean (min–max) over the runs of one page:
+
+| Page | runs | whole scan s | cost $ | frame err mm | anchor err mm | type err pt | ΔE00 | categorical | face exact | masked edge F1 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| s03 | 5 | 70 (54–79) | 0.273 (0.230–0.301) | 0.04 (0.02–0.06) | 0.28 (0.21–0.38) | 0.23 (0.08–0.33) | 2.6 (2.4–3.0) | 100 % ×5 | 63 % (50–67) | 1.000 (0.999–1.000) |
+| s08 | 5 | 63 (56–66) | 0.248 (0.219–0.308) | 0.03 (0.03–0.04) | 0.21 (0.10–0.28) | 0.26 (0.21–0.36) | 2.5 (2.2–3.1) | 93 % ×5 | 74 % (57–100) | 1.000 ×5 |
+| s10 | 5 | 64 (50–75) | 0.274 (0.214–0.367) | 0.07 (0.06–0.07) | 0.12 (0.02–0.19) | 0.13 (0.00–0.21) | 2.5 (2.4–2.5) | 100 % ×5 | 74 % (71–86) | 1.000 (0.999–1.000) |
+| Chotěbuz (real page) | 3 | 100 (93–106) | 0.344 (0.298–0.426) | – | – | – | – | – | – | 0.651 · 0.642 · 0.629 (hand-built 0.626) |
+
+- **Geometry and every categorical choice repeat**: frames within 0.04 mm, anchors within 0.18 mm, type
+  within 0.25 pt across five runs; the shown / hidden and the categorical scores are identical in all
+  five runs of each page — including the one wrong choice, s08's `photoOverHeader`, which is wrong five times
+  out of five (a systematic miss, not noise).
+- **What does not repeat is the font face of small text**: 50–67 %, 57–100 %, 71–86 % of the faces exact
+  per run. The family is always right on s03 and s10; the weight of 7–9 pt lines (Medium / SemiBold /
+  Regular) changes between runs.
+- Chotěbuz: 0.63–0.65 three times (P5: 0.651, 0.646) — at or above the hand-built layout every time.
+
+**The font rows (§9.3), re-measured** — the six synthetic pages of §9.3's table, one run each, with the
+sub-pixel verification and the final rule (`eval/runs/_calendar-gaps3`; `node eval/calendar-fonts.mjs`):
+
+| | §9.3 (verification at the fitted size, whole pixels) | now |
+|---|---|---|
+| `measured_match`, chosen face = truth / ≠ truth | 8 / **0** | 5 / **0** |
+| `nearest_available`, chosen face = truth / ≠ truth | **9** / 3 | **0** / 0 |
+| `undetermined`, chosen face = truth / ≠ truth | 12 / 2 | 24 / 5 |
+| a face that IS the page's, called "nearest available" | **9 of 17 determined rows (53 %)** | **0 of 5 (0 %)** |
+| "measured match" on a face that is not the page's | 0 of 8 | 0 of 5 |
+
+- The wrong "nearest available" is gone — **but not because small type now verifies**. What the sub-pixel
+  comparison gives on these 1600 px pages, the same six pages with the scores kept in the rows
+  (`_calendar-gaps2`):
+
+  | Line | ink height | the page's own face | another face of the family |
+  |---|---|---|---|
+  | month (9 glyphs) | 21–39 px | 0.887, 0.908, 0.912, 0.922, 0.947 | 0.867 |
+  | weekday name (7 glyphs) | 12–17 px | 0.777, 0.804, 0.835, 0.849, 0.852 | — |
+  | name day (6–9 glyphs) | 14–20 px | 0.449 (italic), 0.688, 0.702 | — |
+  | caption (29 glyphs) | 14–15 px | 0.573, 0.736, 0.763, 0.811 | 0.778 |
+  | day number (2 digits) | 30–58 px | 0.15–0.26 | 0.13–0.48 |
+
+  Above ≈ 22 px of ink the page's own face and its neighbour separate (0.887–0.947 against 0.867, bar 0.88).
+  Below it they do not: a caption scores 0.78 in the neighbouring weight and 0.57–0.81 in its own. No
+  comparison can tell Medium from SemiBold at 14 px on a 1600 px page — the difference is a third of a pixel
+  of stroke. So the rule says what the measurement can carry: under 22 px (or ≤ 3 glyphs) a line that does
+  not reach the short-line bar is `undetermined`, never "nearest available" and never a match by its length.
+- Consequence, stated plainly: **the flag is now never wrong in either direction on these pages, and it speaks
+  only about large type** — 5 of 34 rows determined (the month line; §9.3 had 20 of 34 determined, 9 of them
+  wrongly cautious). Day numbers are never determined (two digits, whatever the size).
+- The template-side bar (a present face called a substitute ≤ 20 %, target ≤ 10 %) is **met on calendars
+  for the rows the flag speaks about (0 of 5)**; for 7–11 pt text on a 1600 px page there is no verdict. A
+  page uploaded at twice the size (3200 px: captions at 28 px) would bring those lines above the limit —
+  not measured.
+- Under definition 7 (0.90 / 0.83, the 16 px limit of P5), the 17 synthetic scans of the batch above gave
+  10 / 0 matches, 6 / 5 "nearest available" (5 of the 6 = s08's month at 0.887 against a bar of 0.90, five
+  runs), 64 / 11 undetermined — which is what moved the short-line bar to 0.88.
+
+**A project WITHOUT fonts, the real model** (a copy of the target calendar in a project with no font):
+
+| Input | Outcome | whole scan s | cost $ | candidates | font rows | recognised |
+|---|---|---|---|---|---|---|
+| s03 (synthetic) | `ready` | 46 | 0.206 | 2 | none (as designed: no project face to speak of) | photo, caption, Kalendárium, month, header, logo, background found; week label and QR absent — as with fonts |
+| Chotěbuz (real page) | `ready` | 90 | 0.389 | 2 | none | all found but the QR; header `approximate` |
+| a TEMPLATE scan in that project | refused at the upload: `no_fonts` — no scan, no credit | — | — | — | — | — |
+
+A calendar scan runs to a proposal without any project font, at the usual cost and time; a template scan
+is refused before it starts (texts cannot be created without a face) — the rule of the app, confirmed.
+
+### 10.6 Letter spacing — built into the DSL, measured in the scan, NOT taken up by the instructions
+
+The hard round's most frequent "cannot express" was tracked-out type (12 texts of B1–B5). Built: a text
+element of the design DSL takes `letterSpacing` (thousandths of an em → Fabric `charSpacing`; parser,
+compiler, decompiler, linter, the scan's refit, skill 0.5.0 — app commit `405e30e8`), and the scanner measures
+it: a ranking carries `spaced: {size, letterSpacing}` when the line is at least 0.1 em per character wider
+than the face sets it at the source's letter height.
+
+Two rounds with instructions that offered the key (definition drafts, never deployed; file driver, one run
+per input, against the 3–8 earlier runs of the same inputs):
+
+| | round 1: "use `spaced`, or your own reading" | round 2: only a measured value is kept (the scanner removes any other), floor 0.1 em |
+|---|---|---|
+| tracked texts set on B2 / B3 / B4 | 1 / 5 / 2 (160–250 thousandths; one of 40) | 1 / 5 / 1 (130–200) |
+| size within ± 5 % on B2 / B3 / B4 (earlier runs: 0.63 / 0.13 / 0.29) | 0.75 / 0.06 / 0.43 | 0.25 / 0.03 / 0.43 |
+| text box IoU on B2 / B3 / B4 (earlier: 0.61 / 0.37 / 0.37) | 0.58 / 0.36 / 0.37 | 0.52 / 0.35 / 0.35 |
+| `vite-ze-2-strana` (easy; 8 earlier runs: 2 texts, IoU 0.96, all sizes right) | a text given `letterSpacing: 35` it does not have, size 37 for 40 → size right 1 of 2 | no tracking, but the three-line block split into three texts → IoU 0.62 |
+| `argumenty`, `pripomenuti-photo` (easy / photo) | no tracking; inside their usual spread | no tracking; inside their usual spread |
+
+**Not adopted.** The tracked labels are found and set, but nothing measurable improves on the inputs that
+have them (their faces are substitutes, so the scorer's size and box follow the substitute, not the
+tracking), and the one easy input that changed changed for the worse in both rounds (0 of 8 earlier runs had
+either defect). One run per input cannot separate that from chance, and a possible harm on easy inputs is
+not worth an unproven gain on hard ones. As shipped: the DSL has the key (people and MCP clients can use
+it), the scanner computes `spaced` but does not show it to the model, the instructions do not mention the
+key, and a `letterSpacing` that no ranking measured would be removed from a candidate (the guard for the
+day the instructions offer it). What taking it up needs: inputs with tracked type whose face IS in the
+project (none in the sets), five repeats each, and a `letterSpacing` parameter of the `faces` render so a
+tracked text can be verified.
+
+### 10.7 Through the real app: the font report, a PDF, a photograph of a print
+
+`scanner serve` against the app's job core (definition 8), `node eval/e2e.mjs` / `node eval/one.mjs`:
+
+| Input | Outcome | whole scan s | cost $ | candidates | Fonts in the report |
+|---|---|---|---|---|---|
+| argumenty (easy) | ready | 73 | 0.340 | 3 | 3 × `measured_match` (0.94, 0.82 on 33 glyphs, one by its ranking) — §0.1: 2 + 1 wrong "nearest available" |
+| vite-ze-2-strana (easy) | ready | 46 | 0.197 | 3 | 2 × `measured_match` (0.97, 0.86) |
+| mouzaika-s-textem (easy) | ready | 48 | 0.179 | 2 | 2 × `measured_match` (0.98, 0.90) |
+| B3-letak-a4 (hard, faces absent) | ready | 112 | 0.546 | 3 | 5 × `nearest_available` (≤ 0.71) |
+| **a PDF** — one A4 page with live text, made here (HTML → PDF) | ready | 63 | 0.298 | 3 | 4 × `measured_match` (0.91–0.97); 5 texts, 1 place; canvas 2479 × 3508 px |
+| a "photo" of a print (synthetic: B2 turned 11° on a desk), template | stopped `photo_of_print` at 6 s (refund) → "Zkusit přesto" → ready, `approximate` | 73 in all | 0.279 | 2 | 5 × `nearest_available` (0.06–0.54) — **now `undetermined`**, see below |
+| a "photo" of a calendar page (synthetic: s05 turned 5°) | stopped `photo_of_print` at 6 s (refund) → "Zkusit přesto" → ready, `approximate` | 76 in all | 0.321 | 2 | notes `ratio_adapted`, `colours_estimated`, `page_box_set`; photo / Kalendárium / background `approximate`; font rows 0.16–0.30 "nearest available" — **now `undetermined`** |
+
+- **Present faces through the real app: 7 of 7 groups `measured_match`** (§0.1: 9 of 10); absent faces: 5 of
+  5 `nearest_available`.
+- **PDF (owner decision O4): built, and cheap.** The intake rasterises page 1 with poppler's `pdftoppm` at
+  300 dpi of the page (long edge 1600 … 4096 px): 0.7 s for the A4 above, the normalise child at 361 MB;
+  the app accepts `%PDF-` by signature and byte size. From there it is a picture like any other — the
+  scan above is an ordinary one. One file, made here; **no real-world PDF was scanned** (none in the sets).
+  The page's own text and font names are not read (architecture.md, follow-up F1 — the opportunity and what
+  it takes).
+- **Photographs of prints.** The sets hold no real photograph of a print — only synthetic ones (a design
+  turned on a "desk" with uneven light and noise). Both went the designed way: stopped, refunded, continued,
+  built as `approximate`, charged once. What the run showed: on glyphs seen at an angle the font comparison
+  returns 0.06–0.54 for every face and the report called that "nearest available". Changed: in an
+  approximate scan a face that does not verify is `undetermined` (tests in `finish.test.mjs`). **Real photos
+  remain unmeasured.**
+- No provider retry and no provider error in any of the ≈ 80 real scans of this round: there is still no
+  real provider error body on record.
+
+### 10.8 The bars after this round, and what stays open
+
+| Bar / open item | Before | Now | |
+|---|---|---|---|
+| Templates: a present font reported as a substitute (target ≤ 10 %) | 18 % (12 / 68) | **0 % (0 / 68)** | **met** |
+| Templates: an absent font reported as a match (must be 0) | 0 / 155 | **0 / 155** | **met** |
+| Calendars: a present face reported "nearest available" | 9 of 17 determined rows | **0 of 5** — small type is `undetermined` | **met for what the flag speaks about**; no verdict under 22 px of ink |
+| Run-to-run agreement, templates | 3 runs | 5 runs of 5 inputs: words and sizes identical on easy / photo; hard inputs change layer types | measured; no number is fixed for this bar in §4.10 |
+| Run-to-run agreement, calendars | not measured | 5 runs of 3 pages: geometry within 0.04 mm / 0.25 pt, categorical identical; small-text faces vary | measured |
+| A project without fonts, real model | unit tests only | calendar: 2 of 2 `ready`; template: refused `no_fonts` | measured |
+| Pre-check, not the expected kind | not tried for calendars | calendars 16 of 16 stopped; templates: a chart and a plain photo pass | measured; **the template side lets non-designs through** |
+| Photos of prints | synthetic, pre-check only | synthetic, whole path, both kinds | **real photos: still none** |
+| SDK retry back-off | ≈ 9 s | ≈ 68 s for 429 / 5xx (plan: 60 s); 529: 2 s | **matched for 429 / 5xx; 529 cannot be set** |
+| Real provider error bodies | none | none occurred | open — only production can show one |
+| PDF input (O4) | not accepted | page 1 as a picture | **done**; text / fonts of the PDF: F1 |
+| DSL: letter-spacing | not expressible | in the DSL; not used by the scan | **partly** |
+| DSL: rotation, mixed styles, named overlay | — | not built — architecture.md "State of F1 and F2" says what each takes | open |
+| Memory, time and cost of a hard design on x86 | Rosetta only | the production scan: `docs/ai-scan/reliability-report.md`, G2b | see there |
+
 ## Tables (generated by `node eval/report.mjs`)
 
 ### Per run

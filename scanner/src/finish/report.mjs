@@ -208,7 +208,9 @@ export async function buildTemplateReport({ build, finish = null, unfinished = f
         const v = verification.get(g) ?? null;
         const decisive = v ? v.score : score;
         const matched = v ? verifiedMatch(v, thresholds) : (score !== null && score >= available);
-        const undetermined = !v && (score === null || (top && top.score < (build.settings.undeterminedScore ?? 0.35)));
+        // a photograph of a print (an approximate scan): glyphs seen at an angle and through a lens prove nothing about a
+        // face that does not verify — it is not called a substitute on that evidence
+        const undetermined = (!v && (score === null || (top && top.score < (build.settings.undeterminedScore ?? 0.35)))) || (!!build.approximate && !matched);
         const pattern = undetermined ? 'undetermined' : matched ? 'measured_match' : 'nearest_available';
         const change = median(changes);
         return {

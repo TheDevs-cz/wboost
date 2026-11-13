@@ -43,8 +43,8 @@ export class TemplateBuild {
      * @param context  {fonts: [face strings], brandColours: [hex], standInAssetId}
      * @param app      {render(design) → {rendered, issues, status, image: {data, mimeType} | null}}
      */
-    constructor({ source, sourcePath, context, app, caps, settings = {}, signal = null, onNote = () => {} }) {
-        this.source = source; this.sourcePath = sourcePath; this.context = context; this.app = app; this.caps = caps; this.signal = signal; this.onNote = onNote;
+    constructor({ source, sourcePath, context, app, caps, settings = {}, signal = null, onNote = () => {}, approximate = false }) {
+        this.source = source; this.sourcePath = sourcePath; this.context = context; this.app = app; this.caps = caps; this.signal = signal; this.onNote = onNote; this.approximate = approximate;
         this.settings = { availableScore: 0.8, prepassLines: 6, faceSheets: 12, ocrThreads: 3, snapDeltaE: 2, ...settings };
         this.sourceGray = im.gray(source);
         this.W = source.width; this.H = source.height;

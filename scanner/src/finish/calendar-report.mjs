@@ -146,7 +146,8 @@ export async function buildCalendarReport({ build, finish = null, unfinished = f
             const v = verified.get(group) ?? null;
             // too little to judge by: a line of ≤ 3 glyphs, or glyphs under 22 px tall in the picture (a 9 pt name day on a
             // 1600 px page is 14 px: its own face and the neighbouring weight score alike — eval/RESULTS.md §10.5)
-            const short = glyphCount(r.text) <= 3 || (r.ink?.h ?? 0) < thresholds.verifiedSmallInkPx;
+            // … or the picture is a photograph of a print (an approximate scan): glyphs seen at an angle prove nothing
+            const short = glyphCount(r.text) <= 3 || (r.ink?.h ?? 0) < thresholds.verifiedSmallInkPx || !!build.approximate;
             const matched = v ? verifiedMatch(v, thresholds) : (r.available && r.best.face === face);
             const pattern = matched ? 'measured_match' : (short || (!v && !r.available && own.score < (build.settings.undeterminedScore ?? 0.35)) ? 'undetermined' : 'nearest_available');
             const closeness = v ? v.score : own.score;

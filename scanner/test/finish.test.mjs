@@ -121,7 +121,11 @@ test('report: a face that does not draw the source glyphs is a substitute — ma
     assert.equal(g.matched, false); assert.equal(g.guessSupported, false);
     assert.equal(g.bestFace, 'Sans (Bold)'); assert.ok(g.score < g.bestScore);
     assert.equal(g.pattern, 'nearest_available'); assert.ok(g.mismatch > 0.15);
-    assert.equal(typeof g.sizeChangePercent, 'number');
+    assert.equal(typeof g.sizeChangePercent, 'number');    // the same evidence from a photograph of a print (an approximate scan) proves nothing: not called a substitute
+    build.approximate = true;
+    const photographed = await buildTemplateReport({ build, finish: { status: 'done', preferredCandidate: 1, headline: 'nadpis', placeholders: [], approximations: [], omitted: [], lowConfidenceTexts: [],
+        fonts: [{ group: 'nadpis', texts: ['nadpis'], sourceClass: 'sans', sourceLooksLike: 'Sans' }] }, rank: (lines) => build.rank(lines) });
+    assert.deepEqual([photographed.fonts[0].pattern, photographed.fonts[0].matched], ['undetermined', false]);
 });
 
 test('report: the third font pattern — nothing to compare with → undetermined; no texts at all → the no_texts note; a pattern place is a simplification', async () => {
