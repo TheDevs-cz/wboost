@@ -475,7 +475,7 @@ final class DesignDecompilerTest extends TestCase
                 'angle' => 12,
                 'styles' => [['start' => 0, 'end' => 3, 'style' => ['fill' => '#ff0000']]],
                 'underline' => true,
-                'charSpacing' => 40,
+                'charSpacing' => 4000,
                 'fill' => ['type' => 'linear'],
             ]),
             self::image(['flipY' => true, 'cropX' => 20, 'filters' => ['grayscale'], 'shadow' => ['color' => '#000000'], 'editorLocked' => true]),
@@ -773,6 +773,20 @@ final class DesignDecompilerTest extends TestCase
      * (The font then fails at COMPILE time, with the project's face list
      * attached — plan §4.2-10 — which is the message worth giving.)
      */
+    public function testLetterSpacingReadsBackAsTheDslsOwnKeyWithoutALoss(): void
+    {
+        $canvas = ['objects' => [self::textbox(['charSpacing' => 40])]];
+
+        $decompiled = self::decompile($canvas, [], []);
+        $element = $decompiled->document->textElements()[0];
+
+        self::assertSame(40.0, $element->letterSpacing);
+        self::assertSame(40.0, $element->toArray()['letterSpacing']);
+        self::assertSame([], $decompiled->losses);
+        // and a text without tracking does not grow a key
+        self::assertArrayNotHasKey('letterSpacing', self::decompile(['objects' => [self::textbox([])]], [], [])->document->textElements()[0]->toArray());
+    }
+
     public function testMissingTextPropertiesDecompileToFabricsOwnDefaults(): void
     {
         $canvas = ['objects' => [['type' => 'Textbox', 'left' => 0, 'top' => 0, 'width' => 400]]];
@@ -784,6 +798,7 @@ final class DesignDecompilerTest extends TestCase
         self::assertSame(40.0, $element->size);
         self::assertSame(TextElement::DEFAULT_COLOR, $element->color);
         self::assertSame(TextElement::DEFAULT_LINE_HEIGHT, $element->lineHeight);
+        self::assertSame(0.0, $element->letterSpacing);
         self::assertSame('', $element->text);
         self::assertSame([], $decompiled->losses);
     }

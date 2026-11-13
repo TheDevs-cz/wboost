@@ -30,6 +30,8 @@ readonly final class TextElement implements DesignElement
 {
     public const string DEFAULT_COLOR = '#000000';
     public const float DEFAULT_LINE_HEIGHT = 1.16;
+    public const int MIN_LETTER_SPACING = -200;
+    public const int MAX_LETTER_SPACING = 1000;
 
     public function __construct(
         public string $id,
@@ -56,6 +58,12 @@ readonly final class TextElement implements DesignElement
          * (px, null = anywhere on the artwork). Null = fixed in place.
          */
         public null|ElementMoveAllowance $userMove = null,
+        /**
+         * Tracking in thousandths of an em (Fabric's `charSpacing`), added
+         * after every character; 0 = the face's own spacing. Em-relative, so
+         * it survives a change of `size`.
+         */
+        public float $letterSpacing = 0.0,
     ) {
     }
 
@@ -90,6 +98,11 @@ readonly final class TextElement implements DesignElement
 
         if ($this->userMove !== null) {
             $data['userMove'] = $this->userMove->toArray();
+        }
+
+        // Only when set: a design without tracking reads exactly as before.
+        if ($this->letterSpacing !== 0.0) {
+            $data['letterSpacing'] = $this->letterSpacing;
         }
 
         return $data;

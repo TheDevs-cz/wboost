@@ -62,10 +62,10 @@ use Ramsey\Uuid\UuidInterface;
  *  - **`textAlign: justify`.** It redistributes space within a line; it cannot
  *    change the line count.
  *
- * `charSpacing` IS modelled (Fabric's unit: 1/1000 em) even though the design
- * DSL carries no such key today, because canvases authored in the editor do and
- * the API exposes it as `inputs[].textStyle.charSpacing` — leaving it out would
- * silently under-measure those.
+ * `charSpacing` IS modelled (Fabric's unit: 1/1000 em): it is the design DSL's
+ * `letterSpacing` (the linter passes it), canvases authored in the editor carry
+ * it and the API exposes it as `inputs[].textStyle.charSpacing` — leaving it
+ * out would silently under-measure those.
  *
  * ## Caller's responsibility
  *

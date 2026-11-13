@@ -359,6 +359,7 @@ readonly final class DesignLinter
                 $element->size,
                 $rects[$element->id]->width,
                 self::renderedText($element),
+                $element->letterSpacing,
             );
         }
 

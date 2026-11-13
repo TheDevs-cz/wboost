@@ -607,6 +607,8 @@ final readonly class ApplyFixes
     {
         $text = is_string($element['text'] ?? null) ? $element['text'] : '';
         $lines = explode("\n", $text);
+        // tracking (thousandths of an em) is part of the line's width in either face
+        $spacing = self::number($element['letterSpacing'] ?? null) ?? 0.0;
         $widths = array_values(array_filter(
             array_map(self::number(...), is_array($measured['sourceLineWidths'] ?? null) ? $measured['sourceLineWidths'] : []),
             static fn (null|float $width): bool => $width !== null && $width > 0.0,
@@ -616,7 +618,7 @@ final readonly class ApplyFixes
         // line that decides whether the text fits.
         if ($widths !== [] && count($widths) === count($lines)) {
             $widest = array_keys($widths, max($widths), true)[0];
-            $size = $this->fitTextToWidth->fit($projectId, $face, $lines[$widest], $widths[$widest] * $scale);
+            $size = $this->fitTextToWidth->fit($projectId, $face, $lines[$widest], $widths[$widest] * $scale, $spacing);
 
             if ($size !== null && $size > 0.0) {
                 return round($size, 1);
@@ -635,8 +637,8 @@ final readonly class ApplyFixes
             }
         }
 
-        $old = $this->fitTextToWidth->advanceAtOnePixel($projectId, $font, $longest);
-        $new = $this->fitTextToWidth->advanceAtOnePixel($projectId, $face, $longest);
+        $old = $this->fitTextToWidth->advanceAtOnePixel($projectId, $font, $longest, $spacing);
+        $new = $this->fitTextToWidth->advanceAtOnePixel($projectId, $face, $longest, $spacing);
 
         if ($current === null || $old === null || $new === null || $new <= 0.0) {
             return null;

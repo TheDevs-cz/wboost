@@ -572,7 +572,7 @@ readonly final class DesignCompiler
             'fill' => $element->color,
             'textAlign' => $element->align->value,
             'lineHeight' => $element->lineHeight,
-            'charSpacing' => 0,
+            'charSpacing' => $element->letterSpacing === 0.0 ? 0 : $element->letterSpacing,
             'editable' => true,
             // §4.2-8: no lockScaling*/hasControls/selectable/evented — Fabric
             // does not serialize them and `applyTextboxDefaults()` re-derives

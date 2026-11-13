@@ -220,7 +220,7 @@ within the document. Slugs carry input identity across saves.
 | `canvas` | `width`, `height`, `background` |
 | `canvas.background` | `image`, `fill` |
 | `at` | `area`, `col`, `marginX`, `marginY`, `offsetX`, `offsetY` |
-| `text` element | `kind`, `id`, `text`, `font`, `size`, `color`, `align`, `lineHeight`, `opacity`, `at`, `x`, `y`, `width`, `input`, `userMove` |
+| `text` element | `kind`, `id`, `text`, `font`, `size`, `color`, `align`, `lineHeight`, `letterSpacing`, `opacity`, `at`, `x`, `y`, `width`, `input`, `userMove` |
 | `text` input block | `name`, `maxLength`, `uppercase`, `hidable`, `locked`, `richText`, `sampleValue`, `allowedFonts`, `fontChoice`, `allowedColors` |
 | `image` element | `kind`, `id`, `asset`, `at`, `x`, `y`, `width`, `height`, `input`, `mirror`, `opacity`, `userMove` |
 | `image` input block | `name`, `placeholder`, `allowMove`, `allowResize`, `allowRotate`, `hidable`, `allowedDirectories` |
@@ -259,6 +259,9 @@ within the document. Slugs carry input identity across saves.
 - **`text`**: `text`, `font` and `size` are required, plus a placement.
   `color` defaults to `#000000`, `align` to `left`, `lineHeight` to `1.16`,
   `opacity` to `1` (a fraction 0…1, like a shape's — `0.6` = 60 % opaque).
+  `letterSpacing` is tracking in thousandths of an em, added after every
+  character (`50` = 0.05 em, `-20` tightens; −200 … 1000, default `0`): use it
+  for spaced-out capitals instead of a larger `size` or spaces between letters.
 - **`text` `input`**: `maxLength` refuses longer fills, `uppercase` shouts for
   the user, `hidable` lets them blank it, `locked` makes it fixed copy,
   `sampleValue` is what renders until filled, `richText` allows styled runs.

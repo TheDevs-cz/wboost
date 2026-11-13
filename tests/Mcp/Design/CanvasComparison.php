@@ -30,7 +30,7 @@ use WBoost\Web\Value\RichText;
  * | `type`, stack POSITION | z-order is the design |
  * | `left`, `top`, displayed width/height | the pixels |
  * | `angle` | rotation is not expressible; a rotated fixture MUST fail here |
- * | `text`, `fontFamily`, effective `fontSize`, `fill`, `textAlign`, `lineHeight` | what the text looks like |
+ * | `text`, `fontFamily`, effective `fontSize`, `fill`, `textAlign`, `lineHeight`, `charSpacing` | what the text looks like |
  * | `inputId`, `name`, `maxLength`, `locked`, `uppercase`, `hidable`, `richText`, `sampleValue`, `allowedFonts`, `fontChoice`, `allowedColors` | the fill contract |
  * | `imagePlaceholder`, `isBackground`, `allowMove/Resize/Rotate`, `allowedDirectoryIds` | the slot contract |
  * | resolved `assetId` | WHICH gallery picture the object shows |
@@ -459,6 +459,7 @@ final class CanvasComparison
                 'fill' => self::normalizeColor($object['fill'] ?? null) ?? '#000000',
                 'textAlign' => strtolower(self::string($object, 'textAlign') ?? 'left'),
                 'lineHeight' => self::number($object, 'lineHeight') ?? 1.16,
+                'charSpacing' => self::number($object, 'charSpacing') ?? 0.0,
                 'maxLength' => $maxLength === null || $maxLength < 1 ? null : $maxLength,
                 'locked' => $input !== null ? $input->locked : ($object['locked'] ?? false) === true,
                 'uppercase' => $input !== null ? $input->uppercase : ($object['uppercase'] ?? false) === true,

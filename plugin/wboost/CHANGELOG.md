@@ -5,6 +5,16 @@ every deploy. When the server is newer than your skill, Claude tells you once
 per session how to update (see the README). Versions follow `x.y.z`: a new or
 changed tool or parameter is at least a minor bump.
 
+## 0.5.0 — 2026-11-13
+
+**Letter spacing in the design DSL.**
+- A `text` element takes `letterSpacing`: tracking in thousandths of an em,
+  added after every character (`50` = 0.05 em; −200 … 1000; default 0). It is
+  em-relative, so it survives a change of `size`.
+- `get_design` returns it for a text that has it (no more `style_dropped`
+  loss for letter spacing), the linter counts it when it estimates wrapped
+  lines, and the AI scan's "refit" keeps it.
+
 ## 0.4.0 — 2026-11-13
 
 **AI scan for desk calendars** (`scan_design`, scope `ai:scan`).

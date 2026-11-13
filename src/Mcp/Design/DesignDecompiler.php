@@ -980,6 +980,7 @@ readonly final class DesignDecompiler
             self::textInputSpec($object, $input),
             self::opacity($object),
             ElementMoveAllowance::fromCanvasObject($object),
+            max((float) TextElement::MIN_LETTER_SPACING, min((float) TextElement::MAX_LETTER_SPACING, self::number($object, 'charSpacing') ?? 0.0)),
         );
     }
 
@@ -1921,13 +1922,17 @@ readonly final class DesignDecompiler
             }
         }
 
+        // Letter spacing is the DSL's `letterSpacing` (the same unit as
+        // Fabric's `charSpacing`); only a value outside the DSL's range is lost.
         $charSpacing = self::number($object, 'charSpacing') ?? 0.0;
 
-        if (abs($charSpacing) > self::GEOMETRY_EPSILON) {
+        if ($charSpacing < TextElement::MIN_LETTER_SPACING || $charSpacing > TextElement::MAX_LETTER_SPACING) {
             $losses[] = new DesignLoss($path, DesignLossCode::StyleDropped, sprintf(
-                '%s has letter spacing (%s); the DSL has no word for it and saving resets it to 0 — which re-wraps the text.',
+                '%s has letter spacing %s, outside what the DSL can say (%d … %d); saving clamps it — which re-wraps the text.',
                 $path,
                 self::formatNumber($charSpacing),
+                TextElement::MIN_LETTER_SPACING,
+                TextElement::MAX_LETTER_SPACING,
             ));
         }
 

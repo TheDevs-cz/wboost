@@ -5,7 +5,7 @@ brand assets, fill, preview and export templates (PNG or print PDF), fill and
 export multi-page documents, add pictures and fonts, author a variant's design,
 and create, design, fill and export desk calendars (Kalendáře).
 
-Current version: **0.4.0** — see [CHANGELOG.md](CHANGELOG.md).
+Current version: **0.5.0** — see [CHANGELOG.md](CHANGELOG.md).
 
 ## Install
 

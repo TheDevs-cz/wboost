@@ -624,6 +624,18 @@ final class DslParserTest extends TestCase
     // defaults — the single authoritative statement
     // -----------------------------------------------------------------
 
+    public function testLetterSpacingIsReadInThousandthsOfAnEmAndWrittenOnlyWhenSet(): void
+    {
+        $spaced = DslParser::parse(self::documentWith(self::textElement(['letterSpacing' => 120])))->textElements()[0];
+        $plain = DslParser::parse(self::documentWith(self::textElement([])))->textElements()[0];
+
+        self::assertSame(120.0, $spaced->letterSpacing);
+        self::assertSame(120.0, $spaced->toArray()['letterSpacing']);
+        self::assertSame(0.0, $plain->letterSpacing);
+        self::assertArrayNotHasKey('letterSpacing', $plain->toArray());
+        self::assertSame(-200.0, DslParser::parse(self::documentWith(self::textElement(['letterSpacing' => -200])))->textElements()[0]->letterSpacing);
+    }
+
     /**
      * Every optional key and the value it takes when omitted. If a default
      * changes, this test is the place it is decided; nothing else states them.
@@ -1049,6 +1061,12 @@ final class DslParserTest extends TestCase
             'elements[0].LineHeight',
             DslErrorCode::UnknownKey,
             'Did you mean "lineHeight"?',
+        ];
+        yield 'letter spacing outside the range' => [
+            self::documentWith(self::textElement(['letterSpacing' => 1500])),
+            'elements[0].letterSpacing',
+            DslErrorCode::InvalidValue,
+            'thousandths of an em',
         ];
         yield 'height is not a text key' => [
             self::documentWith(self::textElement(['height' => 200])),

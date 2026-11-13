@@ -1703,6 +1703,24 @@ final class DesignCompilerTest extends TestCase
      * merely absent from the JSON: it is gone from the input the moment a human
      * opens the variant and presses save.
      */
+    public function testLetterSpacingCompilesToFabricsCharSpacingAndZeroStaysTheIntegerItWas(): void
+    {
+        $text = static fn (array $extra): array => [
+            'kind' => 'text', 'id' => 'headline', 'text' => 'SLEVA', 'font' => self::FONT_BOLD,
+            'size' => 96, 'x' => 80, 'y' => 120, 'width' => 920,
+        ] + $extra;
+        $compile = fn (array $extra): array => $this->compile([
+            'canvas' => ['width' => self::CANVAS, 'height' => self::CANVAS],
+            'elements' => [$text($extra)],
+        ])->objects()[0];
+
+        self::assertSame(120.0, $compile(['letterSpacing' => 120])['charSpacing']);
+        self::assertSame(-25.0, $compile(['letterSpacing' => -25])['charSpacing']);
+        // a design without tracking compiles byte-identically to one made before the key existed
+        self::assertSame(0, $compile([])['charSpacing']);
+        self::assertSame(0, $compile(['letterSpacing' => 0])['charSpacing']);
+    }
+
     public function testTextInputMetadataIsWrittenToBothTheObjectAndTheInput(): void
     {
         $compiled = $this->compile([

@@ -35,10 +35,10 @@ use WBoost\Web\Mcp\Response\SkillVersionResponse;
  */
 final class SkillRelease
 {
-    public const string VERSION = '0.4.0';
+    public const string VERSION = '0.5.0';
 
     /** One or two lines: what the CURRENT version adds over the previous one. */
-    public const string WHATS_NEW = 'The AI scan (scan_design) now also reads a picture of a desk-calendar page: kind "calendar" proposes the layout of a 7-day calendar, "apply" saves it (with the switches you choose) and "restore" puts the previous layout back.';
+    public const string WHATS_NEW = 'Texts in a design take "letterSpacing" (tracking in thousandths of an em — 50 = 0.05 em); it round-trips through get_design, the linter and the text fit count it.';
 
     /** A stable download of the latest released skill folder, built by `.github/workflows/plugin-release.yml`. */
     public const string ZIP_URL = 'https://github.com/TheDevs-cz/wboost/releases/latest/download/wboost-skill.zip';

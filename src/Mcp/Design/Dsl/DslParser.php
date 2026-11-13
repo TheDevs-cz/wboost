@@ -72,7 +72,7 @@ final class DslParser
     public const array AT_KEYS = ['area', 'col', 'marginX', 'marginY', 'offsetX', 'offsetY'];
 
     /** @var list<string> */
-    public const array TEXT_KEYS = ['kind', 'id', 'text', 'font', 'size', 'color', 'align', 'lineHeight', 'opacity', 'at', 'x', 'y', 'width', 'input', 'userMove'];
+    public const array TEXT_KEYS = ['kind', 'id', 'text', 'font', 'size', 'color', 'align', 'lineHeight', 'letterSpacing', 'opacity', 'at', 'x', 'y', 'width', 'input', 'userMove'];
 
     /** @var list<string> */
     public const array TEXT_INPUT_KEYS = ['name', 'maxLength', 'uppercase', 'hidable', 'locked', 'richText', 'sampleValue', 'allowedFonts', 'fontChoice', 'allowedColors'];
@@ -402,6 +402,7 @@ final class DslParser
         $color = $this->readHexColor($path, $raw, 'color') ?? TextElement::DEFAULT_COLOR;
         $align = $this->readTextAlign($path, $raw);
         $lineHeight = $this->readPositiveNumber($path, $raw, 'lineHeight') ?? TextElement::DEFAULT_LINE_HEIGHT;
+        $letterSpacing = $this->readLetterSpacing($path, $raw);
         $opacity = $this->readOpacity($path, $raw);
         $placement = $this->parsePlacement($path, $raw, allowHeight: false);
         $input = $this->parseTextInput($path, $raw['input'] ?? null);
@@ -411,7 +412,7 @@ final class DslParser
             return null;
         }
 
-        return new TextElement($id, $text, $font, $size, $color, $align, $lineHeight, $placement, $input, $opacity, $userMove);
+        return new TextElement($id, $text, $font, $size, $color, $align, $lineHeight, $placement, $input, $opacity, $userMove, $letterSpacing);
     }
 
     /**
@@ -793,6 +794,34 @@ final class DslParser
         }
 
         return $style;
+    }
+
+    /**
+     * `letterSpacing` is Fabric's `charSpacing`: thousandths of an em, added
+     * after every character. 0 (the default) is the face's own spacing.
+     *
+     * @param array<array-key, mixed> $raw
+     */
+    private function readLetterSpacing(string $path, array $raw): float
+    {
+        $value = $this->readNumber($path, $raw, 'letterSpacing');
+
+        if ($value === null) {
+            return 0.0;
+        }
+
+        if ($value < TextElement::MIN_LETTER_SPACING || $value > TextElement::MAX_LETTER_SPACING) {
+            $this->invalidValue($path, 'letterSpacing', sprintf(
+                'is in thousandths of an em (50 = 0.05 em between letters) and must lie between %d and %d, got %s',
+                TextElement::MIN_LETTER_SPACING,
+                TextElement::MAX_LETTER_SPACING,
+                self::number($value),
+            ));
+
+            return 0.0;
+        }
+
+        return $value;
     }
 
     /**
