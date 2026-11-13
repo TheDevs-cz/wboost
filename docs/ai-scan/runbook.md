@@ -374,6 +374,22 @@ missing rows older than 24 h, leftover candidate renders, open usage rows of sca
 in progress, due e-mails and the one reminder 3 days before a proposal expires. Safe to run at any time
 and twice.
 
+## Links in e-mails point to the wrong host
+
+The mail about an ended scan is rendered by `messenger-consumer`, the reminder and the admins' alerts
+by the cron commands — outside a request. Their links start with **`DEFAULT_URI`**
+(`framework.router.default_uri`): `https://wboost.cz` unless the environment says otherwise (the default
+is in the image's `.env` and in `config/services.php`; nothing has to be rendered from Infisical). To see
+what a container would write, read-only:
+
+```bash
+docker compose exec -T web bin/console debug:container --env-var=DEFAULT_URI
+docker compose exec -T messenger-consumer bin/console debug:config framework router | grep default_uri
+```
+
+`http://localhost/…` in a mail means the setting is missing in that container (an image older than
+2026-11-13), not a mailer problem.
+
 ## What is not built
 
 - **An e-mail for "a project paused for refusals"** (architecture §7 lists it): nothing pauses a project,

@@ -649,6 +649,18 @@ final class CalendarScanTest extends WebTestCase
         self::assertSame([], $entry['scans']);
         self::assertSame($scanId, self::dig($entry, 'applied', 'scanId'));
 
+        // Somebody of ANOTHER project naming this calendar learns nothing of
+        // it: neither the applied scan's id nor until when it can be put back.
+        TestingLogin::logInAsUser($this->client, TestDataFixture::USER_2_EMAIL);
+        $this->client->request('GET', sprintf('/project/%s/ai-scan/entry?kind=calendar&calendarId=%s', TestDataFixture::PROJECT_2_ID, self::DESIGNED));
+        self::assertResponseIsSuccessful();
+        $foreign = self::dig(self::json($this->client), 'entry');
+        self::assertIsArray($foreign);
+        self::assertNull($foreign['applied']);
+        self::assertSame([], $foreign['scans']);
+        self::assertStringNotContainsString($scanId, (string) $this->client->getResponse()->getContent());
+        TestingLogin::logInAsUser($this->client, TestDataFixture::USER_1_EMAIL);
+
         $this->post(self::DESIGNED, $scanId, 'restore');
         $this->client->request('GET', $url . self::DESIGNED);
         self::assertNull(self::dig(self::json($this->client), 'entry', 'applied'));

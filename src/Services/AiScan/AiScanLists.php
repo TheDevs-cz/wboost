@@ -159,7 +159,7 @@ final readonly class AiScanLists
             ],
             'scans' => $this->access->canSeeProjectScans($viewer, $project) ? $this->strip($project, $viewer, $kind, $calendarId) : [],
             'historyCount' => $this->count('project_id = :project', ['project' => $projectId]),
-            'applied' => $calendarId === null ? null : $this->applied($calendarId),
+            'applied' => $calendarId === null ? null : $this->applied($projectId, $calendarId),
         ];
     }
 
@@ -330,18 +330,20 @@ final readonly class AiScanLists
     }
 
     /**
-     * The calendar's latest applied scan whose snapshot is still there.
+     * The calendar's latest applied scan whose snapshot is still there — of a
+     * calendar of THIS project: the caller was checked against the project
+     * only, and the calendar id comes from the query string.
      *
      * @return null|array{scanId: string, restoreUntil: string}
      */
-    private function applied(string $calendarId): null|array
+    private function applied(string $projectId, string $calendarId): null|array
     {
         $row = $this->connection->fetchAssociative(
             "SELECT id, expires_at FROM ai_scan
-              WHERE calendar_id = :calendar AND kind = 'calendar' AND status = 'accepted' AND restore IS NOT NULL
+              WHERE project_id = :project AND calendar_id = :calendar AND kind = 'calendar' AND status = 'accepted' AND restore IS NOT NULL
                 AND NOT jsonb_exists(restore, 'restoredAt') AND expires_at > :now
               ORDER BY finished_at DESC, id DESC LIMIT 1",
-            ['calendar' => $calendarId, 'now' => AiScanTime::sql($this->clock->now())],
+            ['project' => $projectId, 'calendar' => $calendarId, 'now' => AiScanTime::sql($this->clock->now())],
         );
 
         $until = is_array($row) && is_string($row['expires_at']) ? AiScanTime::fromSql($row['expires_at']) : null;

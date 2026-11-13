@@ -816,6 +816,24 @@ To the requester only; none when the account is gone. The mail's button opens
 `AiScanUrls::scan()` — the route **`ai_scan_page`** (`projectId`, `scanId`),
 or the project's template list while that route does not exist.
 
+**The host of a link made outside a request.** This mail is rendered by the
+messenger consumer, the reminder by `app:ai-scan:purge` and the admins'
+alerts by `app:ai-scan:watch` — no request exists there, and without
+`framework.router.default_uri` every such link was `http://localhost/…`
+(found by the review of 2026-11-13). `config/packages/routing.php` now reads
+it from **`DEFAULT_URI`**: `https://wboost.cz` in `.env` and as the parameter
+default in `config/services.php` (so production needs nothing in its
+environment), `http://localhost:8080` in `.env.dev` (a remapped `WEB_PORT`
+goes to `.env.dev.local`), `http://localhost` in `.env.test`. Inside a
+request the request's own host still wins. No other mail of the application
+is rendered outside a request today — every other handler that builds an
+absolute URL runs in the web request that dispatched it — but one that
+moves to the consumer or a command is covered by the same setting.
+`AiScanMailLinksOutsideARequestTest` renders the ended-scan mail and an
+alert in a kernel that never handled a request and asserts the host. Check a
+running environment with `bin/console debug:container --env-var=DEFAULT_URI`
+or `bin/console debug:config framework router`.
+
 ## Access request (P3)
 
 `ai_access_request` (`AiAccessRequest`): user (set null) + copied e-mail and
@@ -1240,7 +1258,10 @@ scanned layout in step 3 keeps the marker.
 
 - `GET ai_scan_entry?kind=calendar&calendarId=` — the entry of ONE calendar:
   its scans only, and `applied {scanId, restoreUntil}` for its latest applied
-  scan whose snapshot is still there. Rows carry `calendarId`; calendar rows
+  scan whose snapshot is still there. Both are read **within the project of
+  the URL** (`project_id = … AND calendar_id = …`): the caller is checked
+  against the project only and the calendar id is a query parameter, so a
+  calendar of another project answers with nothing. Rows carry `calendarId`; calendar rows
   are named after the calendar and may offer `open_calendar` and `restore`.
 - `GET calendar_card` adds `scan`: `running | queued | ready | failed | null`
   (designers only) — the pill of ux.md C5.

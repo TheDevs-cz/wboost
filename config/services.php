@@ -38,6 +38,11 @@ return static function (ContainerConfigurator $container): void {
         // committed default is `0` (turning it on is a deployment decision now
         // that the consent screen exists).
         ->set('env(OAUTH2_DYNAMIC_CLIENT_REGISTRATION)', '0')
+        // The public address of the application, for links made outside a
+        // request (`framework.router.default_uri`). The default lives here as
+        // well as in `.env` for the same reason as above: production must
+        // link to itself even where the variable is not rendered.
+        ->set('env(DEFAULT_URI)', 'https://wboost.cz')
         // AI scan (docs/architecture/ai-scan.md). Same reason as above: prod's
         // `.env` is rendered from Infisical, so a deploy made before these
         // exist there must boot — and must boot INERT. An empty network or
