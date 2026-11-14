@@ -24,3 +24,11 @@ framework:
 
 sensiolabs_gotenberg:
     http_client: 'gotenberg.client'
+
+# Tests: the bundle asks Gotenberg for its version before it builds a request
+# ("was this option introduced yet?"). The default suite has no Gotenberg —
+# tests that read the page out of a built request (tests/RenderHtmlTesting.php)
+# must not need one. A fixed version (production's) answers without a call.
+when@test:
+    sensiolabs_gotenberg:
+        version: '8.34.0'
