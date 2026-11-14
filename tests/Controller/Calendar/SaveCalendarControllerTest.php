@@ -44,7 +44,8 @@ final class SaveCalendarControllerTest extends WebTestCase
         self::assertSelectorNotExists('header.head');
         self::assertSelectorExists('html.sb-rail[data-sb-forced="1"]');
         self::assertSelectorExists('.sb a[aria-current="page"][title="Kalendáře"]');
-        self::assertStringContainsString("font-family: 'Rubik (Rubik Bold)'", (string) $browser->getResponse()->getContent());
+        // CSS-escaped (a family name comes from an uploaded font file): the browser reads it back as `Rubik (Rubik Bold)`.
+        self::assertStringContainsString("font-family: 'Rubik\\20 \\28 Rubik\\20 Bold\\29 '", (string) $browser->getResponse()->getContent());
 
         self::assertSame('designer', $bootstrap['mode']);
         self::assertSame([], $bootstrap['assets']);

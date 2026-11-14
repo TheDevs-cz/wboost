@@ -45,7 +45,7 @@
                         {{ include('weekly_menu/_status_pill.html.twig', {status: menu.approvalStatus}) }}
                         {% if menu.approvalStatus.value in ['not_requested', 'denied'] %}
                             <form action="{{ path('request_weekly_menu_approval', {'menuId': menu.id}) }}" method="post">
-                                <button type="submit" class="btn btn-tertiary sm" onclick="return confirm('Odeslat žádost o schválení na {{ menu.approvalEmail }}?');">{{ icon('mail', 's16') }}Požádat o schválení</button>
+                                <button type="submit" class="btn btn-tertiary sm" onclick="return confirm('Odeslat žádost o schválení na {{ menu.approvalEmail|e('js') }}?');">{{ icon('mail', 's16') }}Požádat o schválení</button>
                             </form>
                         {% endif %}
                     </div>

@@ -26,8 +26,8 @@
         {% for manual_font in fonts %}
             {% for font_face in manual_font.font.faces %}
                 @font-face {
-                    font-family: '{{ manual_font.font.name }} ({{ font_face.name }})';
-                    src: url('{{ uploaded_asset(font_face.filePath) }}');
+                    font-family: '{{ (manual_font.font.name ~ ' (' ~ font_face.name ~ ')')|e('css') }}';
+                    src: url('{{ uploaded_asset(font_face.filePath)|e('css') }}');
                 }
             {% endfor %}
         {% endfor %}
@@ -587,7 +587,7 @@
                         <div class="row mt-1 gx-5 gy-5 pb-5">
                             {% for font_face in manual_font.font.faces %}
                                 {% if manual_font.faceEnabled(font_face.name) %}
-                                    <div class="col-4 manual-font" style="font-family: '{{ manual_font.font.name }} ({{ font_face.name }})', sans-serif;font-size: 16px;color: {{ '#' ~ (manual_font.color ?? '6c757d') }};">
+                                    <div class="col-4 manual-font" style="font-family: '{{ (manual_font.font.name ~ ' (' ~ font_face.name ~ ')')|e('css') }}', sans-serif;font-size: 16px;color: {{ '#' ~ (manual_font.color ?? '6c757d') }};">
                                         {{ font_face.name }}<br>
                                         <span style="display: inline-block;font-size: 82px;">Aa</span><br>
                                         aábcčdeéěfghiíjklmnopqrřsštuúůvwxyýzžAÁBCČDEÉĚFGHIÍJKLMNOPQRŘSŠTUÚŮVWXYÝZŽ1234567890?!&*

@@ -87,7 +87,7 @@
                         {% for group in ph.fontGroups %}
                             <optgroup label="{{ group.name }}">
                                 {% for face in group.faces %}
-                                    <option value="{{ face.family }}" style="font-family: '{{ face.family }}'">{{ face.faceName }}</option>
+                                    <option value="{{ face.family }}" style="font-family: '{{ face.family|e('css') }}'">{{ face.faceName }}</option>
                                 {% endfor %}
                             </optgroup>
                         {% endfor %}
@@ -131,7 +131,7 @@
                     role="textbox"
                     aria-multiline="true"
                     aria-labelledby="fill-text-label-{{ ph.inputId }}"
-                    {% if ph.designFontFamily %}style="font-family: '{{ ph.designFontFamily }}'"{% endif %}
+                    {% if ph.designFontFamily %}style="font-family: '{{ ph.designFontFamily|e('css') }}'"{% endif %}
                     data-rich-text-editor-target="editor"
                     data-action="input->rich-text-editor#input beforeinput->rich-text-editor#beforeInput keydown->rich-text-editor#keydown paste->rich-text-editor#paste compositionstart->rich-text-editor#compositionStart compositionend->rich-text-editor#compositionEnd click->rich-text-editor#editorClick"
                 ></div>
@@ -153,11 +153,11 @@
                         data-action="change->variant-fill-overlay#syncFont"
                         data-variant-fill-overlay-inputid-param="{{ ph.inputId }}"
                     >
-                        <option value=""{% if ph.fontValue == '' %} selected{% endif %}{% if ph.designFontFamily %} style="font-family: '{{ ph.designFontFamily }}'"{% endif %}>{{ ph.fontDefaultLabel }}</option>
+                        <option value=""{% if ph.fontValue == '' %} selected{% endif %}{% if ph.designFontFamily %} style="font-family: '{{ ph.designFontFamily|e('css') }}'"{% endif %}>{{ ph.fontDefaultLabel }}</option>
                         {% for group in ph.fontGroups %}
                             <optgroup label="{{ group.name }}">
                                 {% for face in group.faces %}
-                                    <option value="{{ face.family }}" style="font-family: '{{ face.family }}'"{% if ph.fontValue == face.family %} selected{% endif %}>{{ face.faceName }}</option>
+                                    <option value="{{ face.family }}" style="font-family: '{{ face.family|e('css') }}'"{% if ph.fontValue == face.family %} selected{% endif %}>{{ face.faceName }}</option>
                                 {% endfor %}
                             </optgroup>
                         {% endfor %}

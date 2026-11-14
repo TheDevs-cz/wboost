@@ -31,6 +31,10 @@ return static function (ContainerConfigurator $container): void {
         \WBoost\Web\Tests\Fakes\FakeTemplateVariantImageRenderer::class,
     );
 
+    // …and the real one stays reachable: tests read the page it would hand
+    // the headless renderer (tests/RenderHtmlTesting.php) without rendering.
+    $services->set(\WBoost\Web\Services\Editor\TemplateVariantImageRenderer::class);
+
     // Calendar PDF export: no node, no Gotenberg — a tiny fake file.
     $services->alias(
         \WBoost\Web\Services\Calendar\CalendarPdfProducerInterface::class,

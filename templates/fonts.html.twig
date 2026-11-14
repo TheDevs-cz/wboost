@@ -98,7 +98,7 @@
                 <section class="fn-fam" aria-labelledby="fnh-{{ font.id }}">
                     <div class="fn-fam-h">
                         <div class="fn-fam-t">
-                            <h2 id="fnh-{{ font.id }}" style="font-family: '{{ head_family }}', var(--font);">{{ font.name }}</h2>
+                            <h2 id="fnh-{{ font.id }}" style="font-family: '{{ head_family|e('css') }}', var(--font);">{{ font.name }}</h2>
                             <span class="cap">{{ font.faces|length }} {{ font.faces|length == 1 ? 'řez' : (font.faces|length < 5 ? 'řezy' : 'řezů') }} · {% if fontTemplates|length > 0 %}použito v {{ fontTemplates|length }} {{ fontTemplates|length == 1 ? 'šabloně' : 'šablonách' }}{% else %}zatím nepoužito v šablonách{% endif %}{% if fontCalendars|length > 0 %} · {{ fontCalendars|length }} {{ fontCalendars|length == 1 ? 'kalendář' : (fontCalendars|length < 5 ? 'kalendáře' : 'kalendářů') }}{% endif %}</span>
                         </div>
                         {% if can_edit %}
@@ -156,7 +156,7 @@
                                     <span class="dragula-handle fn-grip" title="Přetažením změníte pořadí">{{ icon('grip', 's16') }}</span>
                                 {% endif %}
                                 <div class="fn-cut-b">
-                                    <p class="fn-prev" style="font-family: '{{ family }}', sans-serif;" data-font-specimen-target="specimen" title="{{ font_face.name }}">Příliš žluťoučký kůň úpěl ďábelské ódy 0123456789</p>
+                                    <p class="fn-prev" style="font-family: '{{ family|e('css') }}', sans-serif;" data-font-specimen-target="specimen" title="{{ font_face.name }}">Příliš žluťoučký kůň úpěl ďábelské ódy 0123456789</p>
                                     <div class="fn-meta">
                                         <b>{{ font_face.name }}</b>
                                         <span class="fn-tag" title="Tloušťka (usWeightClass)">{{ font_face.weight }}</span>
@@ -244,7 +244,7 @@
                                             <span class="dragula-handle fn-grip" title="Přetažením změníte pořadí">{{ icon('grip', 's16') }}</span>
                                         {% endif %}
                                         <div class="fn-mrow-t">
-                                            <b style="font-family: '{{ mf_family }}', var(--font);">{{ mf_font.name }}</b>
+                                            <b style="font-family: '{{ mf_family|e('css') }}', var(--font);">{{ mf_font.name }}</b>
                                             <span class="pill{{ manual_font.secondary ? ' neutral' }}">{{ manual_font.primary ? 'Primární' : 'Sekundární' }}</span>
                                             <span class="fn-mrow-c" title="Barva ukázky v manuálu{{ manual_font.color is null ? ' (výchozí)' }}"><span class="fn-dot" style="background: #{{ mf_color }};"></span>#{{ mf_color }}</span>
                                         </div>
@@ -252,7 +252,7 @@
                                             {% for font_face in mf_font.faces %}
                                                 <label class="chip sm fn-mcut" title="{{ can_edit_mf ? 'Zobrazit řez v manuálu' : 'Řez ' ~ (manual_font.faceEnabled(font_face.name) ? 'se v manuálu ukáže' : 'se v manuálu neukáže') }}">
                                                     <input type="checkbox" class="sr" value="{{ font_face.name }}"{% if can_edit_mf %} data-manual-font-faces-toggle-target="checkbox"{% else %} disabled{% endif %}{% if manual_font.faceEnabled(font_face.name) %} checked{% endif %}>
-                                                    {{ icon('check', 's14') }}<span style="font-family: '{{ mf_font.faceFamily(font_face) }}', var(--font);">{{ font_face.name }}</span>
+                                                    {{ icon('check', 's14') }}<span style="font-family: '{{ mf_font.faceFamily(font_face)|e('css') }}', var(--font);">{{ font_face.name }}</span>
                                                 </label>
                                             {% else %}
                                                 <span class="cap">Písmo nemá žádný řez.</span>

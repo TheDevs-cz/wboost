@@ -860,7 +860,7 @@
                     {% for group in rich_toolbar.fontGroups %}
                         <optgroup label="{{ group.name }}">
                             {% for face in group.faces %}
-                                <option value="{{ face.family }}" style="font-family: '{{ face.family }}'">{{ face.faceName }}</option>
+                                <option value="{{ face.family }}" style="font-family: '{{ face.family|e('css') }}'">{{ face.faceName }}</option>
                             {% endfor %}
                         </optgroup>
                     {% endfor %}

@@ -63,7 +63,7 @@ readonly final class AddFontHandler
         $now = $this->clock->now();
 
         $parsedFont = self::parse($fontFile);
-        $stem = pathinfo($fontFile->getClientOriginalName(), PATHINFO_FILENAME);
+        $stem = self::nonEmpty(pathinfo($fontFile->getClientOriginalName(), PATHINFO_FILENAME)) ?? 'Font';
 
         // Name-table reads are best-effort: a sparse table falls back to the
         // file name rather than refusing a font Chromium renders fine.
@@ -149,14 +149,29 @@ readonly final class AddFontHandler
         return $parsedFont;
     }
 
-    private static function nonEmpty(mixed $value): null|string
+    /** The longest name kept from a font file (the rename form's bound). */
+    public const int MAX_NAME_LENGTH = 120;
+
+    /**
+     * A name read from the uploaded file (its name table, or the file name)
+     * as one line of visible text. The file is whatever somebody uploads, and
+     * the names end up in CSS (`@font-face`), in a route (`delete_font_face`)
+     * and in the storage key: control characters, line breaks, zero-width
+     * and text-direction characters become a space, `/` and `\` become `-`;
+     * at most {@see MAX_NAME_LENGTH} characters. A name without any of those
+     * is kept exactly as before (faces join an existing font by its name).
+     */
+    public static function nonEmpty(mixed $value): null|string
     {
         if (!is_string($value)) {
             return null;
         }
 
-        $trimmed = trim($value);
+        $name = mb_scrub($value, 'UTF-8');
+        $name = preg_replace('/[\x{00}-\x{1F}\x{7F}-\x{9F}\x{200B}-\x{200F}\x{2028}-\x{202E}\x{2060}-\x{2069}\x{FEFF}]+/u', ' ', $name) ?? '';
+        $name = str_replace(['/', '\\'], '-', $name);
+        $name = trim(mb_substr(trim($name), 0, self::MAX_NAME_LENGTH));
 
-        return $trimmed === '' ? null : $trimmed;
+        return $name === '' ? null : $name;
     }
 }

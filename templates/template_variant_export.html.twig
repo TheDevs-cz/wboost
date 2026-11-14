@@ -28,8 +28,8 @@
         <style>
             {% for face in font_faces %}
                 @font-face {
-                    font-family: '{{ face.family }}';
-                    src: url('{{ face.url }}');
+                    font-family: '{{ face.family|e('css') }}';
+                    src: url('{{ face.url|e('css') }}');
                 }
             {% endfor %}
         </style>

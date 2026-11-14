@@ -50,6 +50,15 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
     public array $offsetCalls = [];
 
     /**
+     * The objects of the last call, as handed over (the variant expanded) —
+     * what a test gives the REAL renderer to read the page it would build
+     * ({@see \WBoost\Web\Tests\RenderHtmlTesting}).
+     */
+    public null|TemplateVariant $lastVariant = null;
+
+    public null|ResolvedInputOverrides $lastOverrides = null;
+
+    /**
      * When set, every render call throws this — lets tests exercise the
      * container-overflow 400 contract without a real Gotenberg round-trip.
      */
@@ -114,6 +123,8 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
         // variant whatever it is handed — so does the fake, and the recorded
         // hides are the ones that would actually apply.
         $variant = \WBoost\Web\Services\Template\RepeatableRows::expand($variant);
+        $this->lastVariant = $variant;
+        $this->lastOverrides = $overrides;
 
         if ($this->throwContainerOverflow !== null && $strictContainerOverflow) {
             throw $this->throwContainerOverflow;

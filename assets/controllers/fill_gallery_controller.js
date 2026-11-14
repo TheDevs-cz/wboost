@@ -377,7 +377,7 @@ export default class extends Controller {
         row.innerHTML =
             '<div class="flex-grow-1 min-w-0">' +
             '<div class="text-truncate small">' + this.escape(item.file.name) + "</div>" +
-            '<div class="small ' + (item.status === "error" ? "text-danger" : item.status === "done" ? "text-success" : "text-muted") + '">' + message + "</div>" +
+            '<div class="small ' + (item.status === "error" ? "text-danger" : item.status === "done" ? "text-success" : "text-muted") + '">' + this.escape(message) + "</div>" +
             "</div>" +
             '<span>' + icon + "</span>";
 

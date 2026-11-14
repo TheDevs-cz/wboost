@@ -229,7 +229,7 @@ export default class extends Controller {
             thumb +
             '<div class="flex-grow-1 min-w-0">' +
             '<div class="text-truncate small">' + this.escape(item.file.name) + "</div>" +
-            '<div class="small ' + this.msgClass(item.status) + '">' + this.msgText(item) + "</div>" +
+            '<div class="small ' + this.msgClass(item.status) + '">' + this.escape(this.msgText(item)) + "</div>" +
             "</div>" +
             '<span class="gallery-upload-item__icon">' + this.iconHtml(item.status) + "</span>";
 

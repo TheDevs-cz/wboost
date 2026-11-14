@@ -28,7 +28,7 @@
     <script>
         (async () => {
             try {
-                await Promise.all({{ font_faces|map(f => f.alias)|json_encode|raw }}.map((alias) => document.fonts.load('16px "' + alias + '"')));
+                await Promise.all({{ font_faces|map(f => f.alias)|json_encode(constant('JSON_HEX_TAG') b-or constant('JSON_HEX_AMP') b-or constant('JSON_HEX_APOS') b-or constant('JSON_HEX_QUOT'))|raw }}.map((alias) => document.fonts.load('16px "' + alias + '"')));
                 await document.fonts.ready;
             } finally {
                 window.facesRendered = true;

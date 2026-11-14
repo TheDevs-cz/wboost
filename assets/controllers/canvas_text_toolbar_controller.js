@@ -270,7 +270,12 @@ export default class extends Controller {
         const el = this.maxLengthHintTarget;
         const box = this._getActiveTextbox();
 
-        if (!box || !box.maxLength) {
+        // The canvas JSON is whatever was saved — Fabric restores every key as
+        // given, so `maxLength` may be any string. Only a whole number reaches
+        // the markup below (2026-11-13: a string holding markup ran there).
+        const maxLength = box && /^[0-9]{1,9}$/.test(String(box.maxLength ?? '')) ? parseInt(String(box.maxLength), 10) : 0;
+
+        if (!box || !maxLength) {
             el.classList.add('d-none');
             el.textContent = '';
             return;
@@ -284,14 +289,14 @@ export default class extends Controller {
         }
 
         el.classList.remove('d-none');
-        if (box.maxLength > perLine) {
+        if (maxLength > perLine) {
             el.className = 'form-text small mt-1 text-warning';
             el.innerHTML = `<span class="i i-alert s14 me-1" aria-hidden="true"></span>`
                 + `Na řádek se při této velikosti vejde ~${perLine} znaků — delší text se zalomí na více řádků.`;
         } else {
             el.className = 'form-text small mt-1 text-muted';
             el.innerHTML = `<span class="i i-info s14 me-1" aria-hidden="true"></span>`
-                + `Limit ${box.maxLength} znaků se při této velikosti vejde na jeden řádek (~${perLine}).`;
+                + `Limit ${maxLength} znaků se při této velikosti vejde na jeden řádek (~${perLine}).`;
         }
     }
 

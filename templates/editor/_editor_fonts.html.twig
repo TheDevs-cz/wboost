@@ -4,8 +4,8 @@
     {% for font in fonts %}
         {% for font_face in font.faces %}
             @font-face {
-                font-family: '{{ font.name }} ({{ font_face.name }})';
-                src: url('{{ uploaded_asset(font_face.filePath) }}');
+                font-family: '{{ (font.name ~ ' (' ~ font_face.name ~ ')')|e('css') }}';
+                src: url('{{ uploaded_asset(font_face.filePath)|e('css') }}');
             }
         {% endfor %}
     {% endfor %}

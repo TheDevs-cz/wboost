@@ -16,6 +16,61 @@ Fabric UMD bundle is committed at
 `assets/fabric/fabric-7.3.1.min.js` and inlined as a `<script>` tag — the
 renderer no longer fetches Fabric from jsDelivr at render time.
 
+**Embedding rule — data in the render page stays data (security, 2026-11-13)**
+
+The render page puts server data inside a `<script>`: the canvas, the typed
+texts, font and container names. The HTML parser ends a script block at the
+first `</script` it sees — whatever JS string that sits in — so a text
+`a</script><script>…</script>` in a design (typed by any editor, or read off a
+picture by an AI scan) **ran as script in the renderer's Chromium**: it listed
+`file:///tmp/`, reached `http://minio:9000` and fetched an outside host. The
+canvas JSON was encoded with `JSON_UNESCAPED_SLASHES` and embedded `|raw`.
+
+The rule, for this template and every other page:
+
+- **Nothing is embedded raw in a `<script>` (of any type) unless it is JSON
+  encoded with `JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT`**
+  — `<`, `>`, `&`, `'`, `"` become `\uXXXX`, the parsed value is identical.
+  `buildCanvasJson()` and every `json_encode(…)|raw` of
+  `template_variant_render.html.twig` do; so do `font_faces_render.html.twig`,
+  `echo_golden_harness.html.twig` and the group editor's `variantsData` block
+  (Twig's bare `|json_encode` escapes `/`, which stops `</script>` but not
+  `<!--<script`, which makes the parser swallow the block's own end tag).
+  `CalendarDocument::encode()` and the calendar renderers' `font_faces` use
+  `JSON_HEX_TAG | JSON_HEX_AMP` in `type="application/json"` blocks, which is
+  enough there (no `<` survives, and the block is never executed).
+  The only other raw things are the inline script FILES of the repository.
+- **A value inside an inline handler is a JS string first**: `|e('js')`
+  (`onclick="return confirm('… {{ menu.approvalEmail|e('js') }}?')"`) — the
+  browser decodes the attribute's entities before the script runs, so HTML
+  escaping alone lets a `'` end the string.
+- **A value inside CSS is a CSS string**: `font-family: '{{ family|e('css') }}'`
+  in every `@font-face` block and `style` attribute. A font's names come from
+  the uploaded file's name table; a line break ends a CSS string and what
+  follows is read as CSS. Names are also cleaned at upload
+  (`AddFontHandler::nonEmpty()`: control, zero-width and direction characters
+  out, `/` and `\` → `-`, 120 characters; a slash in a face name made the
+  fonts page fail — the name is a route parameter).
+- `data-*` attributes carrying JSON (`{{ value|json_encode }}`, autoescaped)
+  are safe as they are.
+
+Tests: `TemplateRenderHtmlEscapingTest` (the page the REAL renderer builds for
+hostile texts in every string of a design and a fill; every variable of the
+template; a source check that no `|raw` lacks the flags),
+`ScannerRenderEscapingTest` (the same through scanner API `render` →
+`CandidateRenderer`), `EmbeddedDataEscapingTest` (group editor block, inline
+handler, CSS). `tests/RenderHtmlTesting.php` reads the page out of the request
+the renderer builds — no Chromium needed, so they run in the default suite.
+In the browser the same data is restored by Fabric from the stored canvas —
+**every custom property of a canvas object is whatever was saved**: a
+`maxLength` holding markup reached `innerHTML` in the editor's text toolbar
+(`canvas_text_toolbar_controller.js`, fixed 2026-11-14 by taking digits
+only). An editor controller that writes a canvas property into markup must
+coerce it to its type first, or use `textContent`.
+
+Defence in depth on the renderer itself (deny lists, network): the infra
+backlog (`lily.srv/docs/backlog.md`, "Gotenberg egress").
+
 **Output format — previews are WebP, exports are PNG (`Value/RenderImageFormat`)**
 
 `render()` / `renderToBytes()` take a trailing `RenderImageFormat` that
