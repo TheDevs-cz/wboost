@@ -166,6 +166,12 @@ return static function (ContainerConfigurator $container): void {
         \WBoost\Web\Services\Editor\TemplateVariantImageRenderer::class,
     );
 
+    // The renderer's probe is a Gotenberg call too — tests replace it.
+    $services->alias(
+        \WBoost\Web\Services\Editor\RendererProbeInterface::class,
+        \WBoost\Web\Services\Editor\RendererProbe::class,
+    );
+
     // AI scan: the font faces render talks to Gotenberg — tests replace it.
     $services->alias(
         \WBoost\Web\Services\AiScan\Template\FontFacesRendererInterface::class,

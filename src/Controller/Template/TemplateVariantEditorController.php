@@ -19,6 +19,7 @@ use WBoost\Web\FormType\TemplateVariantEditorFormType;
 use WBoost\Web\Message\Template\EditTemplateVariantCanvasEditor;
 use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Query\GetProjectPalette;
+use WBoost\Web\Services\Editor\CanvasStorageGuard;
 use WBoost\Web\Services\Editor\ResolveEditorFontDefaults;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Repository\FileDirectoryRepository;
@@ -80,6 +81,10 @@ final class TemplateVariantEditorController extends AbstractController
         if ($editorForm->isSubmitted() && $editorForm->isValid()) {
             assert(is_string($formData->canvas));
             assert(is_string($formData->textInputs));
+
+            if (!CanvasStorageGuard::storable($formData->canvas, $formData->textInputs, $formData->imageInputs ?? '[]')) {
+                return $this->json(['status' => 'error', 'message' => CanvasStorageGuard::MESSAGE], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
 
             $this->bus->dispatch(
                 new EditTemplateVariantCanvasEditor(

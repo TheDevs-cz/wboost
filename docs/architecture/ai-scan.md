@@ -244,7 +244,10 @@ and shown only while the scan is in progress (the status document's
   `owner_email`, `user_email`), so it stays readable. How the admin tab shows
   such rows: § "Admin tab" ("Smazaný projekt"). Never clean these rows up.
 - **Circuit breaker**: three scans in a row ending in the same failure class
-  set the mode to `paused` (`AiScanRuntimeState::scanEnded()`).
+  set the mode to `paused` (`AiScanRuntimeState::scanEnded()`). A run whose
+  candidate the app refused for the candidate's own content (beyond the
+  limits, or not drawable by a working renderer) is not counted — § "What a
+  hostile picture — or scanner — may send".
 
 ## Storage
 
@@ -630,7 +633,7 @@ tells the scanner what to do with the run:
 | `GET {id}/source?run=N` | — | bytes: the original (intake) or `working.webp` (build) |
 | `PUT {id}/artifact/{working\|preview}?run=N` | raw bytes, ≤ 25 MB; intake only | `{ok, bytes}` |
 | `POST {id}/beat` | `{run, seq, stage?, note?, noteParams?, round?, textBoxes?, usage, resources?}` — `textBoxes` (optional, additive): `{width, height, boxes: [[x, y, w, h], …]}`, the lines of text the reading found (§ "Stage log") | `{ok, cancel, mode, leaseExpiresAt}`; `cancel: true` (+ `status`) when the scan was cancelled or interrupted — stop. Extends the lease (build: 120 s). `seq` must grow; an older one changes nothing |
-| `POST {id}/render` | template: `{run, seq, design}` · calendar: `{run, seq, commands}` (§ "Calendar scans") | rendered: `{ok, candidate: n, issues, width, height, image: {contentType: "image/webp", base64}}` (+ for a calendar `view`, `page`, `preset`, `layout`, `features`); rejected by validation: `{ok, candidate: null, issues}` (nothing stored). Idempotent by `(run, seq)`. At most `caps.candidates` per run, then `candidate_limit` |
+| `POST {id}/render` | template: `{run, seq, design}` · calendar: `{run, seq, commands}` (§ "Calendar scans") | rendered: `{ok, candidate: n, issues, width, height, image: {contentType: "image/webp", base64}}` (+ for a calendar `view`, `page`, `preset`, `layout`, `features`); rejected: `{ok, candidate: null, issues}` (nothing stored) — by validation, by the limits of a scan's document (`stage: "limits"`), or because the working renderer could not draw it (`stage: "render"`, `code: "render_failed"`) — § "What a hostile picture — or scanner — may send". Idempotent by `(run, seq)`. At most `caps.candidates` per run, then `candidate_limit`. A body that cannot be read: `invalid_request` |
 | `POST {id}/faces` | `{run, seq, lines: [..≤ 8], faces?: [face strings], size?: px (8–400, default 64)}` | `{ok, width, height, cells: [{face, line, x, y, width, height, fontSize}], image}` — one row per `(face, line)`, black on white, row height `2 × size`, left padding 24 px. Stores nothing |
 | `POST {id}/finish` (intake) | `{run, outcome: "passed", preCheck?, sourceMeta?, usage}` · `{outcome: "stopped", reason, …}` · `{outcome: "failed", error: "provider_unavailable", …}` · `{outcome: "refused", …}` | `{ok, applied: true, status, code}`; `passed` needs the working copy stored first (`missing_artifact`) |
 | `POST {id}/finish` (build) | `{run, outcome: "proposed", candidate, report, boxes?, usage}` · `{outcome: "failed", error: "provider_unavailable"\|"renderer_unavailable"\|"timeout"\|"build", usage}` · `{outcome: "refused", usage}` | `{ok, applied: true, status, code}`. A report that does not fit the finish contract, or a `candidate` not rendered in this run, ends the scan as `failed build` (answered `status: "failed", code: "build"`) |
@@ -742,6 +745,87 @@ in-process.
 - **Metric fit.** `FitTextToWidth`: `size = sourceLineWidth ÷
   advanceWidth(face, text, 1 px)` from the font file's advance table — no
   pixels, no browser.
+
+## What a hostile picture — or scanner — may send (hardening, 2026-11-13)
+
+A candidate design is what a model read off somebody's picture: the picture
+can carry text written to steer the model, and the scanner itself is a
+separate machine. A red-team run against `POST {id}/render` found one HIGH
+(script in the renderer — `templates-render.md` § "Embedding rule") and the
+levers below; each is closed on the APP side, with tests.
+
+- **Caps on the scanner's document — `ScanDesignLimits`** (scan path only:
+  `TemplateProposal::candidate(…, fromScanner: true)`, i.e. scanner API
+  `render`; never the editor, MCP `set_design` or a review replay). Checked
+  before the preflight; a violation is a rejected candidate with issues of
+  `stage: "limits"` — `{ok: true, candidate: null, issues}`, nothing stored.
+
+  | Limit | Value | Real scans (45 stored candidates, 2026-11) |
+  |---|---|---|
+  | document, JSON-encoded | 256 kB | ≤ 13 kB |
+  | elements / picture places / containers | 300 / 60 / 50 | ≤ 53 / — / 0 |
+  | one text or sample value / all together | 5 000 / 30 000 characters | ≤ 234 |
+  | a name, a picture place's hint | 120 characters, one line of visible characters (no line break, control, zero-width or text-direction character) | ≤ 17 |
+  | any other string (id, colour, face string) | 200 characters, same character rule | |
+  | every number | finite, ±20 000 (4 × the longest canvas edge) | |
+  | `size` / `lineHeight` | ≤ 5 000 / ≤ 10 | |
+  | any list but `elements` | 200 items | |
+  | nesting | 8 levels | 6 |
+  | element ids | not `__proto__`, `constructor`, `prototype`; not `misto-<n>` (the id `ApplyFixes::addedPlaceId()` gives a place added in the review) | |
+
+  Raise a limit only with a measured reason: a 1 MB text and 2 000 text
+  elements each held the renderer until its time limit.
+- **Control characters — `DslParser`** (every path through the design DSL:
+  scan, `set_design`, `preview_design`): no string or key may hold C0 except
+  `\n`, `\r`, `\t`, nor DEL / C1 — `invalid_value`, naming the code point. A
+  NUL used to reach the JSONB write of the candidate: Postgres 22P05, a 500.
+  Zero-width and bidi characters stay legal in TEXTS (emoji sequences, Hebrew)
+  — the limits above refuse them in names. The **editors** store what the
+  browser posts; `CanvasStorageGuard` refuses only what JSONB cannot take
+  (U+0000, an unpaired surrogate, not-JSON) with a 422 and a message, because
+  other control characters arrive with pasted office text (a vertical tab).
+- **An unreadable body** (`ScannerApi::body()`: larger than 2 MB, not JSON,
+  nested deeper than 64, an unpaired surrogate) of a `render` is answered
+  `invalid_request` (200) — it used to fall through to 409 `lease_lost`,
+  "your run is over", for a run that was alive.
+- **A candidate that cannot be drawn is the candidate's problem.** When the
+  render does not come back (`TemplateRenderUnavailable`, or an error answer
+  of Gotenberg — formerly an uncaught 500), `render` asks `RendererProbe`:
+  one trivial screenshot with a 5 s limit. Gotenberg draws pages side by
+  side, so a working renderer answers in ~0.5 s even while a hung page is
+  still running (measured). Probe fails → `renderer_unavailable`, as before.
+  Probe answers → the candidate is refused with `stage: "render", code:
+  "render_failed"`, a history line is written, and the scanner's repeat of
+  the same `(run, seq)` gets the same answer WITHOUT another render (each
+  repeat used to cost the renderer its full time limit).
+- **Own content stays out of the circuit breaker.** `render` writes a line
+  `{event: "candidate_refused", run, seq, code: "limits" | "render"}` into
+  `events` (`AiScanTransitions::candidateRefused()` — a line of history, not
+  a transition). `finishFailed()` reads it: a `renderer_unavailable` reported
+  for a run with a `render` line is recorded as **`build`** (the app saw the
+  renderer working), and a failure that counts against the picture (`build`,
+  `timeout`) of a run with any such line neither feeds nor ends the breaker's
+  streak. Before: three such scans in a row paused AI scan for everybody. A
+  `build` without a line still counts — "three in a row of one class" is how
+  a broken deploy shows.
+- **Scanner side** (`scanner/src/engine/sdk.mjs`): the engine process gets an
+  ALLOWLIST of the scanner's environment (`ENGINE_PASS`), never the whole of
+  it — the provider credential (`ANTHROPIC_API_KEY` / `CLAUDE_CODE_OAUTH_TOKEN`,
+  with one of them `ANTHROPIC_AUTH_TOKEN`) and `ANTHROPIC_BASE_URL`, `PATH`,
+  `HOME` / `USER` / `LOGNAME` / `CLAUDE_CONFIG_DIR` (a developer's plan login;
+  with a credential the home and the config directory are the run's scratch),
+  `TMPDIR`, locale / `TZ`, proxy and CA variables, plus the request behaviour
+  the definition pins. The app token, other `CLAUDE_*` / `ANTHROPIC_*`
+  switches, `NODE_OPTIONS` and any unrelated secret of the machine never
+  reach it. A variable the engine newly needs is added to that list with a
+  test (`scanner/test/engine.test.mjs`); the list is in `scanner/README.md`.
+
+Tests: `ScanDesignLimitsTest` (the red-team run's own mutations),
+`DslParserControlCharactersTest`, `ScannerRenderHardeningTest` (limits, NUL,
+unreadable bodies, the probe both ways, the repeat, the breaker),
+`ScannerRenderEscapingTest`, `CanvasSaveControlCharactersTest` (editor, group
+editor, `set_design`). Not closed here: the renderer's own network reach —
+the infra backlog, "Gotenberg egress".
 
 ## Review state (P3)
 
@@ -1732,6 +1816,13 @@ docker compose exec web bin/console app:ai-scan:status --mode=off
 ## Traps
 
 - Do not change a scan through the ORM (see "The one rule").
+- `events` also holds lines that are not transitions (`candidate_refused`):
+  never map a line's `event` through `AiScanEvent::from()`.
+- A new free string in the scanner's contract is a new way in: bound it and
+  keep control characters out before it reaches a JSONB column (a NUL is a
+  500 there), and never answer `renderer_unavailable` for something the
+  request's own content caused — that code is retried by the scanner and
+  counted by the circuit breaker.
 - A new column that holds something read from the picture, typed into the
   review or named by the user goes into `AiScanTransitions::SCRUB` **and**
   `SCRUBBABLE` — otherwise it outlives the deletion the screens promise.

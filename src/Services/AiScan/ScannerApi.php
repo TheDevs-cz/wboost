@@ -9,6 +9,7 @@ use League\Flysystem\FilesystemException;
 use Psr\Clock\ClockInterface;
 use Psr\Log\LoggerInterface;
 use Ramsey\Uuid\Uuid;
+use Sensiolabs\GotenbergBundle\Exception\ClientException as GotenbergClientException;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -27,6 +28,7 @@ use WBoost\Web\Services\AiScan\Template\FontFacesRendererInterface;
 use WBoost\Web\Services\AiScan\Template\OmittedOnLayers;
 use WBoost\Web\Services\AiScan\Template\ScanRenderLimiter;
 use WBoost\Web\Services\AiScan\Template\TemplateProposal;
+use WBoost\Web\Services\Editor\RendererProbeInterface;
 use WBoost\Web\Value\AiScan\AiScanErrorCode;
 use WBoost\Web\Value\AiScan\AiScanKind;
 use WBoost\Web\Value\AiScan\AiScanLane;
@@ -80,6 +82,7 @@ final readonly class ScannerApi
         private TemplateProposal $templateProposal,
         private FontFacesRendererInterface $fontFaces,
         private ScanRenderLimiter $renderLimiter,
+        private RendererProbeInterface $rendererProbe,
         private ProjectRepository $projectRepository,
         private GetFonts $getFonts,
         private GetProjectPalette $getProjectPalette,
@@ -109,19 +112,32 @@ final readonly class ScannerApi
         return null;
     }
 
+    /** The largest JSON body a call may carry (a design is ≤ 256 kB, a report with its boxes well below 1 MB). */
+    public const int MAX_BODY_BYTES = 2_000_000;
+
+    /** Set in a body that could not be read: too large, not JSON, nested deeper than 64, an unpaired surrogate. */
+    public const string UNREADABLE = '__unreadable';
+
     /**
      * @return array<string, mixed>
      */
     public static function body(Request $request): array
     {
+        $content = $request->getContent();
+
+        if (strlen($content) > self::MAX_BODY_BYTES) {
+            return [self::UNREADABLE => true];
+        }
+
         try {
-            $body = json_decode($request->getContent(), true, 64, JSON_THROW_ON_ERROR);
+            $body = json_decode($content, true, 64, JSON_THROW_ON_ERROR);
         } catch (\JsonException) {
-            return [];
+            return [self::UNREADABLE => true];
         }
 
         /** @var array<string, mixed> $body */
         $body = is_array($body) ? $body : [];
+        unset($body[self::UNREADABLE]);
 
         return $body;
     }
@@ -496,6 +512,14 @@ final readonly class ScannerApi
      */
     public function render(string $id, array $body, null|string $lease): JsonResponse
     {
+        if (($body[self::UNREADABLE] ?? false) === true) {
+            // What a model wrote can be unreadable (nested too deep, an
+            // unpaired surrogate, enormous) while the run is perfectly
+            // alive: "this request is no good", not "your run is over" —
+            // the scanner then ends the scan as `build`.
+            return self::refuse(ScannerApiCode::InvalidRequest);
+        }
+
         $held = $this->held($id, $body['run'] ?? null, $lease);
 
         if ($held instanceof JsonResponse) {
@@ -536,6 +560,14 @@ final readonly class ScannerApi
             return self::refuse(ScannerApiCode::Gone);
         }
 
+        // A candidate the renderer could not draw is not drawn again: the
+        // scanner repeats a call that did not come back in time with the
+        // same `seq`, and every repeat would cost the renderer another full
+        // time limit.
+        if ($this->transitions->refusedForItsContent($id, $held['run'], ['seq' => $seq, 'code' => 'render'])) {
+            return self::notDrawn();
+        }
+
         $slot = $this->renderLimiter->acquire();
 
         if ($slot === null) {
@@ -550,10 +582,31 @@ final readonly class ScannerApi
                     $body['commands'],
                 );
             } else {
-                $result = $this->templateProposal->candidate($project, $body['design']) + ['design' => $body['design'], 'answer' => []];
+                $result = $this->templateProposal->candidate($project, $body['design'], fromScanner: true) + ['design' => $body['design'], 'answer' => []];
             }
-        } catch (TemplateRenderUnavailable|CalendarModelUnavailable) {
+        } catch (CalendarModelUnavailable) {
             return self::refuse(ScannerApiCode::RendererUnavailable);
+        } catch (TemplateRenderUnavailable|GotenbergClientException $failure) {
+            // The render did not come back (a timeout, a refusal of the
+            // renderer, a page it could not draw). Whose fault? One trivial
+            // page tells: a renderer that draws it at once is working, and
+            // THIS candidate is what it could not draw — an answer about the
+            // candidate (the model may send a simpler one; a run that ends
+            // without any fails as `build`, against the picture). Only a
+            // renderer that fails the trivial page too is "unavailable",
+            // which the scanner retries and the circuit breaker counts.
+            if (!$this->rendererProbe->responds()) {
+                return self::refuse(ScannerApiCode::RendererUnavailable);
+            }
+
+            $this->logger->warning('AI scan: a candidate could not be drawn although the renderer works.', [
+                'scanId' => $id,
+                'run' => $held['run'],
+                'failure' => $failure::class,
+            ]);
+            $this->transitions->candidateRefused($id, $held['run'], $held['hash'], 'render', $seq);
+
+            return self::notDrawn();
         } catch (CalendarNotFound|\InvalidArgumentException) {
             // The calendar the scan was made for is gone: nothing to build on.
             return self::refuse(ScannerApiCode::Gone);
@@ -562,6 +615,17 @@ final readonly class ScannerApi
         }
 
         if ($result['blocked'] || $result['bytes'] === null) {
+            // Beyond the limits of a scan's document: the candidate's own
+            // content — remembered, so a run that ends without a proposal
+            // stays out of the circuit breaker (AiScanTransitions).
+            foreach ($result['issues'] as $issue) {
+                if (($issue['stage'] ?? null) === 'limits') {
+                    $this->transitions->candidateRefused($id, $held['run'], $held['hash'], 'limits', $seq);
+
+                    break;
+                }
+            }
+
             // A rejected design is an answer, not an error: nothing rendered,
             // nothing stored, the issues say why.
             return new JsonResponse(['ok' => true, 'candidate' => null, 'issues' => $result['issues']]);
@@ -604,6 +668,22 @@ final readonly class ScannerApi
         }
 
         return self::rendered($entry, $result['bytes'], $result['answer']);
+    }
+
+    /**
+     * The answer for a candidate the working renderer could not draw: a
+     * rejected candidate (nothing stored), like a design the preflight
+     * refuses.
+     */
+    private static function notDrawn(): JsonResponse
+    {
+        return new JsonResponse(['ok' => true, 'candidate' => null, 'issues' => [[
+            'severity' => 'error',
+            'stage' => 'render',
+            'code' => 'render_failed',
+            'path' => '',
+            'message' => 'The design could not be drawn within the time limit although the renderer is working: it is too heavy. Send a simpler one - fewer elements, shorter texts, smaller sizes.',
+        ]]]);
     }
 
     /**

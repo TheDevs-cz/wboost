@@ -38,6 +38,9 @@ use WBoost\Web\Value\AiScan\AiUsageStep;
  */
 final readonly class AiScanTransitions
 {
+    /** The `event` of a history line written by {@see candidateRefused()} — no transition, so not an {@see AiScanEvent}. */
+    public const string CANDIDATE_REFUSED = 'candidate_refused';
+
     public function __construct(
         private Connection $connection,
         private ClockInterface $clock,
@@ -321,10 +324,68 @@ final readonly class AiScanTransitions
         });
     }
 
+    /**
+     * Not a transition — a line of history: the app refused a candidate of
+     * this run because of the candidate's OWN content (`limits`: beyond
+     * {@see \WBoost\Web\Services\AiScan\Template\ScanDesignLimits};
+     * `render`: it could not be drawn in time although the renderer works).
+     * {@see finishFailed()} reads it: such a run says something about the
+     * picture, nothing about the system, so it stays out of the circuit
+     * breaker.
+     */
+    public function candidateRefused(string $id, int $run, string $leaseTokenHash, string $code, int $seq): void
+    {
+        $this->connection->executeStatement(
+            sprintf(
+                "UPDATE ai_scan
+                    SET events = (CASE WHEN jsonb_array_length(events) >= %d THEN events - 0 ELSE events END) || CAST(:event AS JSONB)
+                  WHERE id = :id AND status = 'running' AND run = :run AND lease_token_hash = :hash",
+                AiScanLimits::EVENTS_MAX,
+            ),
+            [
+                'id' => $id,
+                'run' => $run,
+                'hash' => $leaseTokenHash,
+                'event' => self::json([[
+                    'at' => AiScanTime::sql($this->clock->now()),
+                    'event' => self::CANDIDATE_REFUSED,
+                    'run' => $run,
+                    'seq' => $seq,
+                    'code' => $code,
+                ]]),
+            ],
+        );
+    }
+
+    /**
+     * Whether the app refused a candidate of this run for its own content
+     * ({@see candidateRefused()}) — any (`$match` empty), or the one with
+     * these fields (`['seq' => 3, 'code' => 'render']`).
+     *
+     * @param array<string, int|string> $match
+     */
+    public function refusedForItsContent(string $id, int $run, array $match = []): bool
+    {
+        return $this->connection->fetchOne(
+            'SELECT 1 FROM ai_scan WHERE id = :id AND events @> CAST(:event AS JSONB)',
+            ['id' => $id, 'event' => self::json([['event' => self::CANDIDATE_REFUSED, 'run' => $run, ...$match]])],
+        ) !== false;
+    }
+
     /** Rule 6: the builder gave up for a system reason. */
     public function finishFailed(string $id, int $run, string $leaseTokenHash, AiScanErrorCode $error): bool
     {
         return $this->atomically(function () use ($id, $run, $leaseTokenHash, $error): bool {
+            // "The renderer was unavailable" is the scanner's reading of
+            // calls that did not come back. When the app itself found the
+            // renderer WORKING right after this run's candidate failed to
+            // draw (a `render` line of {@see candidateRefused()}), the
+            // candidate was the problem: a build dead end — against the
+            // picture, not against the renderer.
+            if ($error === AiScanErrorCode::RendererUnavailable && $this->refusedForItsContent($id, $run, ['code' => 'render'])) {
+                $error = AiScanErrorCode::Build;
+            }
+
             $set = $this->ended($error->value);
 
             if ($error->countsAgainstSource()) {
@@ -339,7 +400,17 @@ final readonly class AiScanTransitions
 
             $this->credits->refund($id, $try);
             $this->usage->close($id, $run, AiUsageStep::Builder, AiUsageOutcome::Failed, $error->value);
-            $this->runtime->scanEnded($error->value);
+
+            // The circuit breaker counts failures of the SYSTEM ("three in a
+            // row of the same non-input class"). A run that ends without a
+            // proposal after the app refused its candidate for the
+            // candidate's own content failed because of the picture: it
+            // counts against the picture above and neither feeds nor ends a
+            // streak here — otherwise three hostile pictures in a row pause
+            // AI scan for everybody.
+            if (!($error->countsAgainstSource() && $this->refusedForItsContent($id, $run))) {
+                $this->runtime->scanEnded($error->value);
+            }
 
             return true;
         });

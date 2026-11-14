@@ -18,6 +18,7 @@ use WBoost\Web\Entity\TemplateGroup;
 use WBoost\Web\Message\Template\EditTemplateVariantCanvasEditor;
 use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Query\GetProjectPalette;
+use WBoost\Web\Services\Editor\CanvasStorageGuard;
 use WBoost\Web\Services\Editor\ResolveEditorFontDefaults;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Query\GetTemplateGroupMembers;
@@ -153,6 +154,10 @@ final class TemplateGroupEditorController extends AbstractController
 
             $imageInputs = $payload['imageInputs'] ?? '[]';
             $imagePreview = $payload['imagePreview'] ?? '';
+
+            if (!CanvasStorageGuard::storable($payload['canvas'], $payload['textInputs'], is_string($imageInputs) ? $imageInputs : '[]')) {
+                return $this->json(['status' => 'error', 'message' => CanvasStorageGuard::MESSAGE], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
 
             $validated[] = [
                 'variant' => $variantsById[$variantId],

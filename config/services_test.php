@@ -35,6 +35,15 @@ return static function (ContainerConfigurator $container): void {
     // the headless renderer (tests/RenderHtmlTesting.php) without rendering.
     $services->set(\WBoost\Web\Services\Editor\TemplateVariantImageRenderer::class);
 
+    // "Is the renderer working?" is a Gotenberg call — the test decides.
+    $services->alias(
+        \WBoost\Web\Services\Editor\RendererProbeInterface::class,
+        \WBoost\Web\Tests\Fakes\FakeRendererProbe::class,
+    );
+
+    // …the real one stays reachable for the `gotenberg` group.
+    $services->set(\WBoost\Web\Services\Editor\RendererProbe::class);
+
     // Calendar PDF export: no node, no Gotenberg — a tiny fake file.
     $services->alias(
         \WBoost\Web\Services\Calendar\CalendarPdfProducerInterface::class,

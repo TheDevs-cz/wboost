@@ -37,10 +37,23 @@ final readonly class TemplateProposal
     /**
      * @return array{issues: list<array<string, mixed>>, blocked: bool, bytes: null|string, width: null|int, height: null|int}
      *
+     * @param bool $fromScanner the document is the scanner's own (scanner API `render`), not a review replay
+     *
      * @throws \WBoost\Web\Exceptions\TemplateRenderUnavailable when the renderer is overloaded / unreachable
      */
-    public function candidate(Project $project, mixed $design): array
+    public function candidate(Project $project, mixed $design, bool $fromScanner = false): array
     {
+        // What the scanner sends is measured first ({@see ScanDesignLimits});
+        // the document of a review replay is the accepted one plus the
+        // user's own fixes, which have their own bounds ({@see ApplyFixes}).
+        if ($fromScanner) {
+            $beyond = ScanDesignLimits::violations($design);
+
+            if ($beyond !== []) {
+                return self::blocked($beyond);
+            }
+        }
+
         $size = self::canvasSize($design);
 
         if ($size === null) {

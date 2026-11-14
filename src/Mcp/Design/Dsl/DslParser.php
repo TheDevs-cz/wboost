@@ -137,11 +137,27 @@ final class DslParser
 
     public const int MAX_SLUG_LENGTH = 64;
 
+    /**
+     * Control characters no string of a design may hold: C0 except tab, line
+     * feed and carriage return; DEL; C1. {@see checkControlCharacters()}.
+     */
+    public const string CONTROL_CHARACTER_PATTERN = '/[\x{00}-\x{08}\x{0B}\x{0C}\x{0E}-\x{1F}\x{7F}-\x{9F}]/u';
+
+    /** For messages: every control character, line breaks and tabs included. */
+    private const string CONTROL_CHARACTER_PATTERN_ALL = '/[\x{00}-\x{1F}\x{7F}-\x{9F}]/u';
+
+    /** The control-character walk stops below this depth; no grammar is deeper than 8. */
+    private const int MAX_WALK_DEPTH = 32;
+
+    private const int MAX_CONTROL_CHARACTER_VIOLATIONS = 10;
+
     /** @var list<DslViolation> */
     private array $violations = [];
 
     /** @var array<string, int> element id => the index that first claimed it */
     private array $seenIds = [];
+
+    private int $controlCharacterViolations = 0;
 
     private function __construct()
     {
@@ -188,6 +204,8 @@ final class DslParser
                 self::describe($payload),
             ));
         }
+
+        $this->checkControlCharacters('', $payload, 0);
 
         $this->checkKeys('', $payload, self::ROOT_KEYS, 'the design document');
 
@@ -2238,7 +2256,85 @@ final class DslParser
 
     private function violation(string $path, DslErrorCode $code, string $message): void
     {
-        $this->violations[] = new DslViolation($path, $code, $message);
+        // A message quotes what the document said — never its control
+        // characters (a NUL cannot be stored in a JSONB column).
+        $this->violations[] = new DslViolation(self::printable($path), $code, self::printable($message));
+    }
+
+    /**
+     * No string of a design — a text, a name, a font, a key — may hold a
+     * control character other than a line break (`\n`, `\r`) or a tab: C0
+     * (U+0000–U+001F), DEL and C1 (U+007F–U+009F). They draw nothing, and a
+     * NUL cannot be stored at all (Postgres 22P05 — 2026-11-13 a scan's
+     * candidate holding one was a 500). One walk over the whole payload, so
+     * the rule holds for every reader below and for keys nobody reads.
+     *
+     * Zero-width and bidi formatting characters (U+200B–U+200F, U+202A–U+202E,
+     * U+2060–U+2069, U+FEFF) are NOT refused here: they are legitimate in
+     * free text (emoji sequences, Arabic / Hebrew copy) and every place a
+     * text is embedded escapes it. Names are stricter on the scan path only
+     * ({@see \WBoost\Web\Services\AiScan\Template\ScanDesignLimits}).
+     */
+    private function checkControlCharacters(string $path, mixed $value, int $depth): void
+    {
+        if ($depth > self::MAX_WALK_DEPTH || $this->controlCharacterViolations >= self::MAX_CONTROL_CHARACTER_VIOLATIONS) {
+            return;
+        }
+
+        if (is_string($value)) {
+            $this->refuseControlCharacters($path, $value, 'must not contain');
+
+            return;
+        }
+
+        if (!is_array($value)) {
+            return;
+        }
+
+        foreach ($value as $key => $item) {
+            $itemPath = is_int($key) ? sprintf('%s[%d]', $path, $key) : self::join($path, self::printable($key));
+
+            if (is_string($key)) {
+                $this->refuseControlCharacters($itemPath, $key, 'is a key that must not contain');
+            }
+
+            $this->checkControlCharacters($itemPath, $item, $depth + 1);
+        }
+    }
+
+    private function refuseControlCharacters(string $path, string $value, string $verb): void
+    {
+        if (preg_match(self::CONTROL_CHARACTER_PATTERN, $value, $match) !== 1) {
+            // Not valid UTF-8 (preg_match fails) is refused as well: a decoded
+            // JSON document cannot hold it, a hand-built array can.
+            if (preg_last_error() === PREG_NO_ERROR) {
+                return;
+            }
+
+            $this->controlCharacterViolations++;
+            $this->violation($path, DslErrorCode::InvalidValue, sprintf('%s is not valid UTF-8.', $path === '' ? 'The design' : $path));
+
+            return;
+        }
+
+        $this->controlCharacterViolations++;
+        $this->violation($path, DslErrorCode::InvalidValue, sprintf(
+            '%s %s the control character U+%04X - only line breaks ("\\n") and tabs are allowed. Remove it.',
+            $path === '' ? 'The design' : $path,
+            $verb,
+            mb_ord($match[0], 'UTF-8'),
+        ));
+    }
+
+    /**
+     * A string as it may appear in a message or a path: control characters
+     * become spaces.
+     */
+    private static function printable(string $value): string
+    {
+        $clean = preg_replace(self::CONTROL_CHARACTER_PATTERN_ALL, ' ', $value);
+
+        return $clean ?? (string) mb_convert_encoding($value, 'UTF-8', 'UTF-8');
     }
 
     /**
