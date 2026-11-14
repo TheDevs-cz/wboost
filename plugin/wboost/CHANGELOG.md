@@ -5,6 +5,27 @@ every deploy. When the server is newer than your skill, Claude tells you once
 per session how to update (see the README). Versions follow `x.y.z`: a new or
 changed tool or parameter is at least a minor bump.
 
+## 0.5.4 — 2026-11-14
+
+**Control characters are refused** (no new tool or parameter).
+
+New parameters and behaviour
+- `preview_design` / `set_design`: no string or key of a design document may
+  hold a control character other than a line break or a tab (U+0000–U+001F,
+  U+007F–U+009F). The call answers `rendered` / `saved: false` with issues of
+  `stage: "parse"`, `code: "invalid_value"` naming the path and the character
+  (e.g. `U+000B`, the vertical tab of text pasted from an office document).
+  Such a design used to fail on save.
+- `render_variant` / `export_variant` / `export_document` (and
+  `document_history` "save_draft"): a fill value or key holding U+0000 is
+  refused with `invalid_value`, naming the path — before, the export was
+  delivered but missing from the export history. Other control characters in
+  a fill are still accepted.
+
+Skill
+- `references/design.md` (the DSL in brief) and `references/filling.md` (text
+  values, the refusal table) document both rules.
+
 ## 0.5.3 — 2026-11-13
 
 **AI scan of a calendar page — smaller pictures, restore order** (`scan_design`;

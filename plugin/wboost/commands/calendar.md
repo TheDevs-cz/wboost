@@ -8,7 +8,7 @@ Work on a wboost desk calendar from this brief: **$ARGUMENTS**
 Read `${CLAUDE_PLUGIN_ROOT}/skills/wboost/references/calendars.md` first (the
 wboost skill's calendar reference), then:
 
-1. `list_calendars` with `{"skillVersion": "0.5.3"}` (add `projectId` when you
+1. `list_calendars` with `{"skillVersion": "0.5.4"}` (add `projectId` when you
    already know the project — an account can hold many calendars). If the brief names an
    existing calendar, pick it (ask if several match); if it asks for a new one,
    find the project (ask the user when no calendar shows it yet).

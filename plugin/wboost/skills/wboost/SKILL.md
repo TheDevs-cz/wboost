@@ -3,7 +3,7 @@ name: wboost
 description: Works with a wboost account through the wboost MCP tools. Brand templates — find a template variant, fill its texts, pictures, shape colours and repeatable rows, preview it, export the PNG or a print PDF (bleed, crop marks), fill and export multi-page documents, author a design with the design DSL, upload pictures and fonts. Desk calendars (Kalendáře) — create one, set its layout and styles, upload photos and logos, fill events, waste collection days, name days, captions, cover / intro / contacts / back pages, render pages, export the print PDF, hand out the client link. Use whenever the user mentions wboost, a brand template or šablona, a social post, poster or leaflet from their brand, a multi-page document, or a desk / municipal calendar (stolní kalendář).
 license: MIT
 metadata:
-  version: "0.5.3"
+  version: "0.5.4"
 ---
 
 # wboost
@@ -11,15 +11,15 @@ metadata:
 wboost is a brand-manual platform. A **project** holds brand fonts and colours,
 a picture gallery, **templates** (designed canvases whose text, picture and
 colour slots are filled in and exported) and **desk calendars**. This skill
-(version 0.5.3) teaches the wboost MCP tools; their own descriptions carry the
+(version 0.5.4) teaches the wboost MCP tools; their own descriptions carry the
 field-level detail.
 
 ## First call of a session: the version check
 
 Pass this skill's version on your first wboost call:
 
-- templates: `get_context` with `{"skillVersion": "0.5.3"}`
-- a calendar-only connection (no `get_context`): `list_calendars` with `{"skillVersion": "0.5.3"}`
+- templates: `get_context` with `{"skillVersion": "0.5.4"}`
+- a calendar-only connection (no `get_context`): `list_calendars` with `{"skillVersion": "0.5.4"}`
 
 The answer carries `skill.status`. `current`: say nothing. `outdated`: do the
 user's task first, then tell them ONCE per session what is new

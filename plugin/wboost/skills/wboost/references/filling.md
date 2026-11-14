@@ -35,6 +35,12 @@ Rich text — **only** for an input `describe_variant` marks `richText: true`:
   flags say what the end user is allowed to change.
 - Sending `runs` to a non-rich input, or `ul` to a non-lists input, is a refusal
   naming exactly that.
+- A string or key holding the character U+0000 (JSON `"\u0000"`) — anywhere in
+  `inputs`, `images`, `shapeColors` or `rows` — is refused with `invalid_value`
+  before anything is drawn (the message names the path, e.g.
+  `inputs.<id>.runs[0].text`): it cannot be stored in the export history.
+  Strip it and call again. Other control characters in a fill (a vertical tab
+  from pasted office text) are accepted, unlike in a design document.
 
 Pictures (`images`, keyed by `imageInputs[].id`):
 
@@ -110,7 +116,7 @@ context as `key: value` pairs.
 | `unknown_element` | an `offsets` key that is no element of the variant |
 | `move_not_allowed` | `reason`: `not_allowed` (axis given: that axis only), `in_container` (move the container), `hidden` |
 | `offset_out_of_range` | past the `range` (`axis`, `min`, `max`, `value`) |
-| `invalid_value` | a malformed `rows` / `offsets` value |
+| `invalid_value` | a malformed `rows` / `offsets` value; a string or key holding U+0000 (see Text above) |
 
 
 ## A worked example

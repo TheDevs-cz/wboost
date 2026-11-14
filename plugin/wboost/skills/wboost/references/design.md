@@ -106,6 +106,17 @@ reported with the nearest valid key suggested, rather than silently applying a
 default and producing a design that is wrong in a way nobody can see. Every
 problem in the document is reported at once, so fix them as a batch.
 
+**No control characters.** No string or key of the document — a text, a
+`sampleValue`, a name, a font, an id — may hold a control character other than
+a line break (`\n`, `\r`) or a tab: U+0000–U+001F, U+007F and U+0080–U+009F
+are refused by `preview_design` and `set_design` alike (`stage: "parse"`,
+`code: "invalid_value"`, the `path` of the string, the message names the
+character as `U+000B`; at most ten are listed). They draw nothing and usually
+ride in with text copied from a PDF or an office document (a vertical tab is
+PowerPoint's soft line break) — replace them with `\n` or delete them, do not
+resend. Zero-width and bidi characters (emoji joiners, Arabic / Hebrew copy)
+are fine.
+
 Placement is either **semantic** (`at`, preferred — it adapts to any canvas size)
 or **absolute** (`x`, `y`, `width`, and `height` for images), in canvas pixels
 from the top-left. Semantic placement puts the element in a vertical `area`
