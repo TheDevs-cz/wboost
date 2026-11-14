@@ -18,7 +18,14 @@
 {% endblock %}
 
 {% block content %}
-    <div class="es-edit" data-controller="email-signature-export" data-email-signature-export-source-html-value="{{ email_template.code }}" data-email-signature-export-variant-name-value="{{ variant.name }}" data-email-signature-export-vcard-qr-url-value="{{ url('email_signature_variant_vcard_qr_code', {'variantId': variant.id}) }}">
+    {# The signature is HTML somebody typed (the template: the project's owner or an admin; a variant's
+       texts: anyone the project is shared with). It is shown in a frame of its own, sandboxed WITHOUT
+       allow-scripts, under a policy that allows no script, frame, request or form: nothing in it runs
+       in the app and its styles stay in the frame. `allow-same-origin` only lets this page size the
+       frame to its content — without allow-scripts the content cannot use it.
+       The rule and the mechanics: assets/controllers/email_signature_export_controller.js #}
+    {% set preview_policy = "default-src 'none'; img-src * data:; media-src *; style-src 'unsafe-inline' http: https:; font-src http: https: data:; form-action 'none'" %}
+    <div class="es-edit" data-controller="email-signature-export" data-email-signature-export-preview-policy-value="{{ preview_policy }}" data-email-signature-export-source-html-value="{{ email_template.code }}" data-email-signature-export-variant-name-value="{{ variant.name }}" data-email-signature-export-vcard-qr-url-value="{{ url('email_signature_variant_vcard_qr_code', {'variantId': variant.id}) }}">
         {{ form_start(form, {'attr': {'class': 'es-edit-grid'}}) }}
 
         <section class="pd-box es-fields" aria-labelledby="es-fields-h">
@@ -62,7 +69,7 @@
                     </div>
                 </div>
                 <div class="es-preview">
-                    <div data-email-signature-export-target="preview"></div>
+                    <iframe class="es-preview-frame" data-email-signature-export-target="preview" sandbox="allow-same-origin" referrerpolicy="no-referrer" scrolling="no" title="Náhled podpisu"></iframe>
                 </div>
             </section>
 
