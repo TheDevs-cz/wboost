@@ -1,68 +1,34 @@
-<!DOCTYPE html>
-<html lang="cs">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ subject }}</title>
-</head>
-<body style="margin: 0; padding: 0; background-color: #f4f5f7; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f5f7; padding: 40px 20px;">
-        <tr>
-            <td align="center">
-                <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
-                    <tr>
-                        <td style="background-color: #313a46; padding: 24px 32px;">
-                            <h1 style="margin: 0; color: #ffffff; font-size: 20px; font-weight: 600;">{{ subject }}</h1>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 32px;">
-                            <p style="margin: 0 0 16px; color: #333; font-size: 15px; line-height: 1.5;">
-                                {% if kind == 'ready' and calendar|default(false) %}
-                                    Z obrázku <strong>{{ file }}</strong> jsme v projektu <strong>{{ project }}</strong> připravili návrh rozvržení pro kalendář <strong>„{{ name }}“</strong>.
-                                {% elseif kind == 'ready' %}
-                                    Z obrázku <strong>{{ file }}</strong> jsme v projektu <strong>{{ project }}</strong> připravili návrh šablony <strong>„{{ name }}“</strong>.
-                                {% elseif kind == 'reminder' %}
-                                    Návrh z obrázku <strong>{{ file }}</strong> v projektu <strong>{{ project }}</strong> čeká na kontrolu.{% if expires %} {{ expires }} ho i původní obrázek smažeme.{% endif %}
-                                {% elseif kind == 'stopped' %}
-                                    Obrázek <strong>{{ file }}</strong> se k rozpoznání nehodí: {{ reason }} Nezapočítal se.
-                                {% else %}
-                                    Obrázek <strong>{{ file }}</strong> se nám nepodařilo zpracovat: {{ reason }} Nezapočítal se.
-                                {% endif %}
-                            </p>
+{% extends 'emails/_layout.html.twig' %}
+{% import 'emails/_ui.html.twig' as ui %}
 
-                            <table cellpadding="0" cellspacing="0" style="margin: 0 auto 24px;">
-                                <tr>
-                                    <td>
-                                        <a href="{{ url }}" style="display: inline-block; padding: 12px 28px; background-color: #3b82f6; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 15px; font-weight: 600;">
-                                            {% if kind == 'stopped' %}Nahrát jiný obrázek{% elseif kind == 'failed' %}Otevřít sken{% else %}Zkontrolovat návrh{% endif %}
-                                        </a>
-                                    </td>
-                                </tr>
-                            </table>
+{% block title %}{{ subject }}{% endblock %}
+{% block preheader %}{% if kind == 'ready' %}Návrh z obrázku {{ file }} je připravený ke kontrole.{% elseif kind == 'reminder' %}Návrh z obrázku {{ file }} pořád čeká na kontrolu.{% else %}Obrázek {{ file }} se nepodařilo zpracovat. Nezapočítal se.{% endif %}{% endblock %}
+{% block eyebrow %}AI sken{% endblock %}
 
-                            {% if kind == 'ready' %}
-                                <p style="margin: 0 0 16px; color: #333; font-size: 15px; line-height: 1.5;">
-                                    {% if calendar|default(false) %}Kalendář se nezmění, dokud rozvržení nepoužijete.{% else %}{% if toDecide %}{{ toDecide }} {% endif %}Šablona vznikne, až návrh potvrdíte.{% endif %}
-                                </p>
-                                {% if expires %}
-                                    <p style="margin: 0; color: #333; font-size: 15px; line-height: 1.5;">
-                                        <strong>Návrh i původní obrázek uchováme do {{ expires }}; potom je smažeme.</strong>
-                                    </p>
-                                {% endif %}
-                            {% endif %}
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 20px 32px; background-color: #f8f9fa; border-top: 1px solid #e9ecef;">
-                            <p style="margin: 0; color: #999; font-size: 12px;">
-                                Tento e-mail byl odeslán automaticky, protože jste v aplikaci WBoost spustili AI sken.
-                            </p>
-                        </td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-    </table>
-</body>
-</html>
+{% block content %}
+    <p {{ ui.a('p') }}>
+        {% if kind == 'ready' and calendar|default(false) %}
+            Z obrázku <strong {{ ui.a('strong') }}>{{ file }}</strong> jsme v projektu <strong {{ ui.a('strong') }}>{{ project }}</strong> připravili návrh rozvržení pro kalendář <strong {{ ui.a('strong') }}>„{{ name }}“</strong>.
+        {% elseif kind == 'ready' %}
+            Z obrázku <strong {{ ui.a('strong') }}>{{ file }}</strong> jsme v projektu <strong {{ ui.a('strong') }}>{{ project }}</strong> připravili návrh šablony <strong {{ ui.a('strong') }}>„{{ name }}“</strong>.
+        {% elseif kind == 'reminder' %}
+            Návrh z obrázku <strong {{ ui.a('strong') }}>{{ file }}</strong> v projektu <strong {{ ui.a('strong') }}>{{ project }}</strong> čeká na kontrolu.{% if expires %} {{ expires }} ho i původní obrázek smažeme.{% endif %}
+        {% elseif kind == 'stopped' %}
+            Obrázek <strong {{ ui.a('strong') }}>{{ file }}</strong> se k rozpoznání nehodí: {{ reason }} Nezapočítal se.
+        {% else %}
+            Obrázek <strong {{ ui.a('strong') }}>{{ file }}</strong> se nám nepodařilo zpracovat: {{ reason }} Nezapočítal se.
+        {% endif %}
+    </p>
+
+    {% if kind == 'ready' %}
+        <p {{ ui.a('p') }}>{% if calendar|default(false) %}Kalendář se nezmění, dokud rozvržení nepoužijete.{% else %}{% if toDecide %}{{ toDecide }} {% endif %}Šablona vznikne, až návrh potvrdíte.{% endif %}</p>
+    {% endif %}
+
+    {{ ui.button(url, kind == 'stopped' ? 'Nahrát jiný obrázek' : (kind == 'failed' ? 'Otevřít sken' : 'Zkontrolovat návrh')) }}
+
+    {% if kind == 'ready' and expires %}
+        {{ ui.callout('Návrh i původní obrázek uchováme do ' ~ expires ~ '; potom je smažeme.', 'pch', 'Do kdy návrh platí') }}
+    {% endif %}
+{% endblock %}
+
+{% block footer_note %}Tento e-mail jste dostali, protože jste v aplikaci WBoost spustili AI sken.{% endblock %}

@@ -1,0 +1,173 @@
+{#
+    The one layout every transactional e-mail extends (except
+    email_signature_demo, which must look like a plain message).
+
+    Skeleton adapted from Cerberus "fluid" (Ted Goas, MIT,
+    https://github.com/emailmonday/Cerberus): a 600px max-width column centred by
+    a <div>, re-fixed with a ghost table for classic Outlook, client resets,
+    preheader + spacing hack. Content pattern from Postmark's transactional
+    templates (ActiveCampaign, MIT): one action, fallback link, "not you?" line.
+
+    Branding = Nocturne (docs/redesign/design-system.md): Outfit, lavender
+    primary, app icon + wordmark text, light card on the light page colour; in
+    dark-mode clients that announce it the real Nocturne dark tokens take over.
+
+    Blocks:
+      title        <title> + default heading (required)
+      preheader    inbox preview text (keep under ~100 characters)
+      eyebrow      small uppercase label above the heading (optional)
+      heading      the visible <h1>, defaults to the title
+      content      the body — use the macros in emails/_ui.html.twig
+      footer_note  why the recipient got this mail
+#}
+{% import 'emails/_ui.html.twig' as ui %}
+{% set homeUrl = absolute_url('/') %}
+<!DOCTYPE html>
+<html lang="cs" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="x-apple-disable-message-reformatting">
+    <meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no">
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
+    <title>{% block title %}{% endblock %}</title>
+    <!--[if gte mso 9]>
+    <xml><o:OfficeDocumentSettings><o:AllowPNG/><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml>
+    <![endif]-->
+    <!--[if mso]>
+    <style>* { font-family: Arial, sans-serif !important; }</style>
+    <![endif]-->
+    <!--[if !mso]><!-->
+    {# Self-hosted (OFL) instead of Google Fonts: opening a mail must not hand the reader's IP to a third party. Gmail and Outlook ignore web fonts and use the system stack. #}
+    <style>
+        @font-face { font-family: Outfit; font-style: normal; font-weight: 400 700; font-display: swap; src: url('{{ absolute_url(asset('email/fonts/outfit-latin-ext.woff2')) }}') format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+20A0-20AB, U+20AD-20C4, U+2113, U+A720-A7FF; }
+        @font-face { font-family: Outfit; font-style: normal; font-weight: 400 700; font-display: swap; src: url('{{ absolute_url(asset('email/fonts/outfit-latin.woff2')) }}') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2212; }
+    </style>
+    <!--<![endif]-->
+    <style>
+        :root { color-scheme: light dark; supported-color-schemes: light dark; }
+        html, body { margin: 0 auto !important; padding: 0 !important; height: 100% !important; width: 100% !important; }
+        * { -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; }
+        div[style*="margin: 16px 0"] { margin: 0 !important; }
+        #MessageViewBody, #MessageWebViewDiv { width: 100% !important; }
+        table, td { mso-table-lspace: 0pt !important; mso-table-rspace: 0pt !important; }
+        table { border-spacing: 0 !important; border-collapse: collapse !important; table-layout: fixed !important; }
+        img { -ms-interpolation-mode: bicubic; }
+        a[x-apple-data-detectors], .unstyle-auto-detected-links a, .aBn { border-bottom: 0 !important; cursor: default !important; color: inherit !important; text-decoration: none !important; font-size: inherit !important; font-family: inherit !important; font-weight: inherit !important; line-height: inherit !important; }
+        .im { color: inherit !important; }
+        .a6S { display: none !important; opacity: 0.01 !important; }
+        img.g-img + div { display: none !important; }
+        u ~ div .e-container { min-width: 320px !important; }
+
+        .e-btn:hover, .e-btn-td:hover .e-btn { background-color: #D6C9F6 !important; border-color: #D6C9F6 !important; }
+
+        @media screen and (max-width: 600px) {
+            .e-outer { padding: 24px 12px !important; }
+            .e-card-td { padding: 28px 22px !important; }
+            .e-h1 { font-size: 23px !important; line-height: 29px !important; }
+            .e-btn-t { width: 100% !important; }
+            .e-btn { display: block !important; border-left-width: 16px !important; border-right-width: 16px !important; }
+            .e-fl, .e-fv { display: block !important; width: 100% !important; }
+            .e-fl { padding: 10px 0 0 !important; }
+            .e-fv { padding: 0 0 10px !important; }
+        }
+
+        /* Nocturne dark — Apple Mail, iOS Mail, Outlook for Mac, Thunderbird… */
+        @media (prefers-color-scheme: dark) {
+            .e-bg { background-color: #0B0A0D !important; }
+            .e-card { background-color: #141317 !important; border-color: #24222A !important; }
+            .e-h1, .e-strong, .e-brand, .e-fv { color: #F2EEF6 !important; }
+            .e-p, .e-callout-text { color: #C9C4D0 !important; }
+            .e-small, .e-fl, .e-foot { color: #9A95A3 !important; }
+            .e-eyebrow, .e-link, .e-foot a { color: #C7B6F2 !important; }
+            .e-facts { background-color: #1D1B21 !important; }
+            .e-divider { border-color: #2C2931 !important; }
+            .e-callout-lav { background-color: #2A2440 !important; border-color: #C7B6F2 !important; }
+            .e-callout-mnt { background-color: #1E3830 !important; border-color: #A6E3CC !important; }
+            .e-callout-rose { background-color: #3D2228 !important; border-color: #F2A7B4 !important; }
+            .e-callout-pch { background-color: #3A2A20 !important; border-color: #F4C09A !important; }
+            .e-callout-lav .e-callout-title { color: #C7B6F2 !important; }
+            .e-callout-mnt .e-callout-title { color: #A6E3CC !important; }
+            .e-callout-rose .e-callout-title { color: #F2A7B4 !important; }
+            .e-callout-pch .e-callout-title { color: #F4C09A !important; }
+        }
+        /* Outlook.com / Outlook apps in dark mode tag what they recolour. */
+        [data-ogsc] .e-h1, [data-ogsc] .e-strong, [data-ogsc] .e-brand, [data-ogsc] .e-fv { color: #F2EEF6 !important; }
+        [data-ogsc] .e-p, [data-ogsc] .e-callout-text { color: #C9C4D0 !important; }
+        [data-ogsc] .e-eyebrow, [data-ogsc] .e-link { color: #C7B6F2 !important; }
+        [data-ogsc] .e-btn { color: #141218 !important; }
+    </style>
+</head>
+{# The page colour is set on body, center (Gmail) and the mso table (Windows Mail). #}
+<body width="100%" class="e-bg" style="margin: 0; padding: 0 !important; mso-line-height-rule: exactly; background-color: #F6F4F8;">
+<center role="article" aria-roledescription="email" lang="cs" class="e-bg" style="width: 100%; background-color: #F6F4F8;">
+    <!--[if mso | IE]>
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #F6F4F8;"><tr><td>
+    <![endif]-->
+
+    {# Preheader: the inbox preview line; hidden in the mail itself. `data-skip-text` keeps it out of the plain-text part (it would read as a duplicate first line). #}
+    <div data-skip-text style="max-height: 0; overflow: hidden; mso-hide: all;" aria-hidden="true">{% block preheader %}{% endblock %}</div>
+    <div data-skip-text style="display: none; font-size: 1px; line-height: 1px; max-height: 0; max-width: 0; opacity: 0; overflow: hidden; mso-hide: all;">&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;</div>
+
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" class="e-bg" style="background-color: #F6F4F8;">
+        <tr>
+            <td class="e-outer" align="center" style="padding: 40px 16px;">
+                <div class="e-container" style="max-width: 600px; margin: 0 auto;">
+                    <!--[if mso]>
+                    <table align="center" role="presentation" cellspacing="0" cellpadding="0" border="0" width="600"><tr><td>
+                    <![endif]-->
+
+                    {# Brand row: the app icon (lavender tile, dark W — legible on any background, so it survives every client's dark mode) + the name as live text. #}
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                        <tr>
+                            <td style="padding: 0 4px 20px; text-align: left;">
+                                <a href="{{ homeUrl }}" target="_blank" style="text-decoration: none;">
+                                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin: 0 !important;">
+                                        <tr>
+                                            <td style="vertical-align: middle;"><img src="{{ absolute_url(asset('email/wboost-icon.png')) }}" width="36" height="36" alt="" border="0" style="display: block; width: 36px; height: 36px; border: 0; border-radius: 8px;"></td>
+                                            <td class="e-brand" style="{{ ui.font() }} vertical-align: middle; padding-left: 10px; font-size: 20px; line-height: 24px; font-weight: 700; letter-spacing: -0.02em; color: #29253E;">WBoost</td>
+                                        </tr>
+                                    </table>
+                                </a>
+                            </td>
+                        </tr>
+                    </table>
+
+                    {# The card #}
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" class="e-card" style="background-color: #FFFFFF; border: 1px solid #E6E2EC; border-radius: 20px; border-collapse: separate !important;">
+                        <tr>
+                            <td class="e-card-td" style="padding: 40px 40px 36px; text-align: left;">
+                                {% set eyebrow = block('eyebrow') is defined ? block('eyebrow')|trim : '' %}
+                                {% if eyebrow %}<p {{ ui.a('eyebrow') }}>{{ eyebrow }}</p>{% endif %}
+                                <h1 {{ ui.a('h1') }}>{% block heading %}{{ block('title') }}{% endblock %}</h1>
+                                {% block content %}{% endblock %}
+                            </td>
+                        </tr>
+                    </table>
+
+                    {# Footer #}
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                        <tr>
+                            <td class="e-foot" style="{{ ui.font() }} padding: 24px 24px 0; font-size: 12px; line-height: 19px; color: #6B6673; text-align: center;">
+                                {% block footer_note %}Tento e-mail vám automaticky poslala aplikace WBoost.{% endblock %}<br>
+                                <a href="{{ homeUrl }}" target="_blank" style="color: #6B6673; text-decoration: underline;">WBoost.cz</a>
+                            </td>
+                        </tr>
+                    </table>
+
+                    <!--[if mso]>
+                    </td></tr></table>
+                    <![endif]-->
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <!--[if mso | IE]>
+    </td></tr></table>
+    <![endif]-->
+</center>
+</body>
+</html>

@@ -12,7 +12,7 @@ return App::config([
                 'sender' => 'robot@wboost.cz',
             ],
             'headers' => [
-                'From' => 'robot@wboost.cz',
+                'From' => 'WBoost <robot@wboost.cz>',
             ],
         ],
     ],

@@ -1,0 +1,109 @@
+{#
+    Building blocks for the transactional e-mails (templates/emails/_layout.html.twig).
+
+    E-mail clients ignore most of a <style> block (Gmail on non-Google accounts,
+    classic Outlook's Word engine), so every look that matters is INLINE. `a(key)`
+    prints `class="e-KEY" style="…"`: the inline style is the light design, the
+    class is the hook the layout's dark-mode block (prefers-color-scheme / Outlook
+    `[data-ogsc]`) and the phone media query override with !important.
+
+    Colours are the Nocturne light tokens (assets/styles/nocturne/tokens.css);
+    the dark block in the layout uses the dark ones — never invent new values.
+#}
+
+{% macro font() %}font-family: Outfit, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;{% endmacro %}
+
+{% macro style(key) -%}
+    {%- set f = _self.font() -%}
+    {%- set styles = {
+        eyebrow: f ~ ' margin: 0 0 10px; font-size: 11px; line-height: 16px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: #5B47A8;',
+        h1: f ~ ' margin: 0 0 20px; font-size: 26px; line-height: 32px; font-weight: 600; letter-spacing: -0.02em; color: #17151B;',
+        p: f ~ ' margin: 0 0 16px; font-size: 16px; line-height: 26px; color: #3A3640;',
+        small: f ~ ' margin: 0 0 8px; font-size: 13px; line-height: 20px; color: #5E5966;',
+        link: 'color: #5B47A8; text-decoration: underline;',
+        strong: 'font-weight: 600; color: #17151B;',
+    } -%}
+    {{- styles[key] -}}
+{%- endmacro %}
+
+{# `<p {{ ui.a('p') }}>` — class hook + inline style in one go. #}
+{% macro a(key) %}class="e-{{ key }}" style="{{ _self.style(key) }}"{% endmacro %}
+
+{#
+    Bulletproof button (Postmark's border-based variant): the padding is drawn as
+    a border in the button colour, so classic Outlook — which ignores padding on
+    <a> — still shows a full-size, fully clickable button. Nocturne primary =
+    lavender fill + dark ink text, the same in both themes. Full width on phones.
+#}
+{% macro button(url, label) %}
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" class="e-btn-t" style="margin: 8px 0 24px;">
+        <tr>
+            <td class="e-btn-td" style="border-radius: 12px; background-color: #C7B6F2;">
+                <a href="{{ url }}" target="_blank" class="e-btn" style="{{ _self.font() }} display: inline-block; font-size: 16px; line-height: 20px; font-weight: 600; color: #141218; text-decoration: none; background-color: #C7B6F2; border-top: 14px solid #C7B6F2; border-bottom: 14px solid #C7B6F2; border-left: 28px solid #C7B6F2; border-right: 28px solid #C7B6F2; border-radius: 12px; text-align: center;">{{ label }}</a>
+            </td>
+        </tr>
+    </table>
+{% endmacro %}
+
+{# Postmark's "having trouble with the button?" line — some clients and security scanners break buttons; the raw URL always works. #}
+{% macro fallback_link(url) %}
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 28px 0 0;">
+        <tr>
+            <td class="e-divider" style="border-top: 1px solid #E6E2EC; padding-top: 20px;">
+                <p {{ _self.a('small') }}>Tlačítko nefunguje? Zkopírujte tento odkaz do prohlížeče:</p>
+                <p class="e-small" style="{{ _self.style('small') }} margin: 0; word-break: break-all;"><a href="{{ url }}" target="_blank" class="e-link" style="{{ _self.style('link') }}">{{ url }}</a></p>
+            </td>
+        </tr>
+    </table>
+{% endmacro %}
+
+{#
+    A box of label → value rows (the "summary card"). `rows` is a list of
+    [label, value] pairs; empty values are skipped. On phones the label sits
+    above its value.
+#}
+{% macro facts(rows, labelWidth = '38%') %}
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" class="e-facts" style="margin: 0 0 24px; background-color: #F1EEF5; border-radius: 14px;">
+        <tr><td style="padding: 8px 20px;">
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                {% for row in rows %}
+                    {% if row[1] is not same as(null) and row[1] is not same as('') %}
+                        <tr>
+                            <td class="e-fl" width="{{ labelWidth }}" valign="top" style="{{ _self.font() }} padding: 8px 12px 8px 0; font-size: 14px; line-height: 22px; color: #5E5966;">{{ row[0] }}</td>
+                            <td class="e-fv" valign="top" style="{{ _self.font() }} padding: 8px 0; font-size: 15px; line-height: 22px; font-weight: 600; color: #17151B; word-break: break-word;">{{ row[1] }}</td>
+                        </tr>
+                    {% endif %}
+                {% endfor %}
+            </table>
+        </td></tr>
+    </table>
+{% endmacro %}
+
+{#
+    A tinted note with an accent bar: tone = lav (info) | mnt (success) |
+    rose (negative) | pch (warning). `html` is trusted markup built by the caller
+    (escape user input before passing it, e.g. via {% set %}…{% endset %} with
+    {{ }} inside).
+#}
+{% macro callout(html, tone = 'lav', title = null) %}
+    {% set tones = {
+        lav: ['#EEE8FC', '#5B47A8'],
+        mnt: ['#E0F5EC', '#1D6E52'],
+        rose: ['#FCE4E8', '#A3334B'],
+        pch: ['#FDEBDD', '#93501F'],
+    } %}
+    {% set t = tones[tone] %}
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" class="e-callout e-callout-{{ tone }}" style="margin: 0 0 24px; background-color: {{ t[0] }}; border-left: 4px solid {{ t[1] }}; border-radius: 4px 12px 12px 4px;">
+        <tr>
+            <td style="padding: 14px 18px;">
+                {% if title %}<p class="e-callout-title" style="{{ _self.font() }} margin: 0 0 4px; font-size: 14px; line-height: 20px; font-weight: 600; color: {{ t[1] }};">{{ title }}</p>{% endif %}
+                <p class="e-callout-text" style="{{ _self.font() }} margin: 0; font-size: 15px; line-height: 23px; color: #3A3640;">{{ html }}</p>
+            </td>
+        </tr>
+    </table>
+{% endmacro %}
+
+{# The closing line of mails written to a person (not to admins). #}
+{% macro signoff() %}
+    <p class="e-p" style="{{ _self.style('p') }} margin: 8px 0 0;">S pozdravem<br><span class="e-strong" style="{{ _self.style('strong') }}">tým WBoost</span></p>
+{% endmacro %}

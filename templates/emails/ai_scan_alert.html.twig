@@ -1,77 +1,33 @@
-<!DOCTYPE html>
-<html lang="cs">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ subject }}</title>
-</head>
-<body style="margin: 0; padding: 0; background-color: #f4f5f7; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f5f7; padding: 40px 20px;">
-        <tr>
-            <td align="center">
-                <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
-                    <tr>
-                        <td style="background-color: #313a46; padding: 24px 32px;">
-                            <h1 style="margin: 0; color: #ffffff; font-size: 20px; font-weight: 600;">{{ subject }}</h1>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 32px;">
-                            <p style="margin: 0 0 16px; color: #333; font-size: 15px; line-height: 1.5;">{{ what }}</p>
+{% extends 'emails/_layout.html.twig' %}
+{% import 'emails/_ui.html.twig' as ui %}
 
-                            <table cellpadding="0" cellspacing="0" style="margin: 0 0 20px; width: 100%;">
-                                {# `rows` (label → value) replaces the "since" line: a mail about one project and one day. #}
-                                {% if rows is defined and rows %}
-                                    {% for label, value in rows %}
-                                        <tr>
-                                            <td style="padding: 6px 0; color: #777; font-size: 13px; width: 190px;">{{ label }}</td>
-                                            <td style="padding: 6px 0; color: #333; font-size: 14px;">{{ value }}</td>
-                                        </tr>
-                                    {% endfor %}
-                                {% else %}
-                                    <tr>
-                                        <td style="padding: 6px 0; color: #777; font-size: 13px; width: 150px;">{{ kind == 'cleared' ? 'Trvalo od' : 'Trvá od' }}</td>
-                                        <td style="padding: 6px 0; color: #333; font-size: 14px;">{{ since }}{% if until %} do {{ until }}{% endif %}</td>
-                                    </tr>
-                                {% endif %}
-                                <tr>
-                                    <td style="padding: 6px 0; color: #777; font-size: 13px;">Provozní režim</td>
-                                    <td style="padding: 6px 0; color: #333; font-size: 14px;">{{ mode }}</td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 6px 0; color: #777; font-size: 13px;">Kód</td>
-                                    <td style="padding: 6px 0; color: #333; font-size: 14px;">{{ code }}</td>
-                                </tr>
-                            </table>
+{% block title %}{{ subject }}{% endblock %}
+{% block preheader %}{{ what }}{% endblock %}
+{% block eyebrow %}Provoz · AI sken{% endblock %}
 
-                            {% if todo %}
-                                <p style="margin: 0 0 20px; color: #333; font-size: 15px; line-height: 1.5;"><strong>Co udělat:</strong> {{ todo }}</p>
-                            {% endif %}
-                            {% if kind == 'reminder' %}
-                                <p style="margin: 0 0 20px; color: #333; font-size: 15px; line-height: 1.5;">Připomínáme jednou denně, dokud stav trvá.</p>
-                            {% endif %}
+{% block content %}
+    {# `rows` (label → value) replaces the "since" line: a mail about one project and one day. #}
+    {% set factRows = [] %}
+    {% if rows is defined and rows %}
+        {% for label, value in rows %}{% set factRows = factRows|merge([[label, value]]) %}{% endfor %}
+    {% else %}
+        {% set factRows = factRows|merge([[kind == 'cleared' ? 'Trvalo od' : 'Trvá od', since ~ (until ? ' do ' ~ until : '')]]) %}
+    {% endif %}
+    {% set factRows = factRows|merge([['Provozní režim', mode], ['Kód', code]]) %}
 
-                            <table cellpadding="0" cellspacing="0" style="margin: 0 auto;">
-                                <tr>
-                                    <td>
-                                        <a href="{{ url }}" style="display: inline-block; padding: 12px 28px; background-color: #3b82f6; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 15px; font-weight: 600;">
-                                            {{ button|default('Otevřít AI skeny v administraci') }}
-                                        </a>
-                                    </td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 20px 32px; background-color: #f8f9fa; border-top: 1px solid #e9ecef;">
-                            <p style="margin: 0; color: #999; font-size: 12px;">
-                                Provozní zpráva aplikace WBoost pro administrátory.{% if footer is defined and footer %} {{ footer }}{% elseif kind != 'cleared' %} O konci tohoto stavu vám dáme vědět.{% endif %}
-                            </p>
-                        </td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-    </table>
-</body>
-</html>
+    <p {{ ui.a('p') }}>{{ what }}</p>
+
+    {{ ui.facts(factRows) }}
+
+    {% if todo %}
+        {% set todoHtml %}{{ todo }}{% endset %}
+        {{ ui.callout(todoHtml, kind == 'cleared' ? 'mnt' : 'pch', 'Co udělat:') }}
+    {% endif %}
+    {% if kind == 'reminder' %}
+        <p {{ ui.a('p') }}>Připomínáme jednou denně, dokud stav trvá.</p>
+    {% endif %}
+
+    {{ ui.button(url, button|default('Otevřít AI skeny v administraci')) }}
+{% endblock %}
+
+{% block footer_note %}Provozní zpráva aplikace WBoost pro administrátory.{% if footer is defined and footer %} {{ footer }}{% elseif kind != 'cleared' %} O konci tohoto stavu vám dáme vědět.{% endif %}{% endblock %}

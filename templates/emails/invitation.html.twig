@@ -1,56 +1,30 @@
-<!DOCTYPE html>
-<html lang="cs">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Pozvánka do aplikace WBoost</title>
-</head>
-<body style="margin: 0; padding: 0; background-color: #f4f5f7; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f5f7; padding: 40px 20px;">
-        <tr>
-            <td align="center">
-                <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
-                    <tr>
-                        <td style="background-color: #313a46; padding: 24px 32px;">
-                            <h1 style="margin: 0; color: #ffffff; font-size: 20px; font-weight: 600;">Vítejte ve WBoost</h1>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 32px;">
-                            <p style="margin: 0 0 16px; color: #333; font-size: 15px; line-height: 1.5;">
-                                {% if invitedByName is defined and invitedByName %}Pozvánku vám posílá <strong>{{ invitedByName }}</strong>. {% endif %}Byl vám vytvořen účet <strong>{{ user.email }}</strong> v aplikaci WBoost.
-                            </p>
-                            {% if projectNames is defined and projectNames is not empty %}
-                            <p style="margin: 0 0 16px; color: #333; font-size: 15px; line-height: 1.5;">
-                                {{ projectNames|length == 1 ? 'Čeká na vás projekt' : 'Čekají na vás projekty' }} <strong>{{ projectNames|join(', ') }}</strong> – po aktivaci účtu {{ projectNames|length == 1 ? 'ho' : 'je' }} najdete mezi svými projekty.
-                            </p>
-                            {% endif %}
+{% extends 'emails/_layout.html.twig' %}
+{% import 'emails/_ui.html.twig' as ui %}
 
-                            <p style="margin: 0 0 24px; color: #333; font-size: 15px; line-height: 1.5;">
-                                Pro aktivaci účtu si níže nastavte heslo. Po nastavení budete rovnou přihlášeni.
-                            </p>
+{% set inviter = invitedByName is defined and invitedByName ? invitedByName : null %}
+{% set projects = projectNames is defined ? projectNames : [] %}
 
-                            <table cellpadding="0" cellspacing="0" style="margin: 0 auto;">
-                                <tr>
-                                    <td>
-                                        <a href="{{ setPasswordUrl }}" style="display: inline-block; padding: 12px 28px; background-color: #3b82f6; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 15px; font-weight: 600;">
-                                            Nastavit heslo a aktivovat účet
-                                        </a>
-                                    </td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 20px 32px; background-color: #f8f9fa; border-top: 1px solid #e9ecef;">
-                            <p style="margin: 0; color: #999; font-size: 12px;">
-                                Tento e-mail byl odeslán automaticky. Odkaz je platný 7 dní a lze jej použít jen jednou.
-                            </p>
-                        </td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-    </table>
-</body>
-</html>
+{% block title %}Pozvánka do aplikace WBoost{% endblock %}
+{% block preheader %}{% if inviter %}{{ inviter }} vás zve do WBoostu.{% else %}Máte nový účet ve WBoostu.{% endif %} Nastavte si heslo a můžete začít.{% endblock %}
+{% block eyebrow %}Pozvánka{% endblock %}
+{% block heading %}Vítejte ve WBoostu{% endblock %}
+
+{% block content %}
+    <p {{ ui.a('p') }}>Dobrý den,</p>
+    <p {{ ui.a('p') }}>{% if inviter %}Pozvánku vám posílá <strong {{ ui.a('strong') }}>{{ inviter }}</strong>. {% endif %}Byl vám vytvořen účet <strong {{ ui.a('strong') }}>{{ user.email }}</strong> v aplikaci WBoost.</p>
+
+    {% if projects is not empty %}
+        {{ ui.facts([[projects|length == 1 ? 'Čeká na vás projekt' : 'Čekají na vás projekty', projects|join(', ')]], '45%') }}
+    {% endif %}
+
+    <p {{ ui.a('p') }}>Účet aktivujete tím, že si nastavíte heslo. Hned potom budete přihlášeni{% if projects is not empty %} a {{ projects|length == 1 ? 'projekt najdete' : 'projekty najdete' }} mezi svými projekty{% endif %}.</p>
+
+    {{ ui.button(setPasswordUrl, 'Nastavit heslo a aktivovat účet') }}
+
+    <p {{ ui.a('p') }}>Odkaz platí <strong {{ ui.a('strong') }}>7 dní</strong> a lze ho použít jen jednou. Když vyprší, požádejte o novou pozvánku toho, kdo vás pozval.</p>
+
+    {{ ui.signoff() }}
+    {{ ui.fallback_link(setPasswordUrl) }}
+{% endblock %}
+
+{% block footer_note %}Tento e-mail jste dostali, protože vás někdo pozval do aplikace WBoost. Pokud pozvánku nečekáte, můžete ji ignorovat.{% endblock %}
