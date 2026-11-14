@@ -146,7 +146,10 @@ jobs:
               run: |
                   php -r 'for ($i = 0; $i < 60; $i++) { if (@file_get_contents("http://gotenberg:3000/health") !== false) { exit(0); } sleep(1); } fwrite(STDERR, "Gotenberg did not answer on http://gotenberg:3000/health within 60 s\n"); exit(1);'
 
-          -   run: vendor/bin/phpunit --group gotenberg --filter CalendarRenderDocumentGotenbergTest
+          # …and the render-injection proof of concept against a real Chromium
+          # (tests/Services/Editor/RenderInjectionGotenbergTest.php): its page
+          # is self-contained too — a rectangle and a text, no picture, no font.
+          -   run: vendor/bin/phpunit --group gotenberg --filter 'CalendarRenderDocumentGotenbergTest|RenderInjectionGotenbergTest'
 
 
   # A released skill is immutable: once `wboost-plugin-v<version>` is tagged

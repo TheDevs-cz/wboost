@@ -61,6 +61,10 @@ template; a source check that no `|raw` lacks the flags),
 `CandidateRenderer`), `EmbeddedDataEscapingTest` (group editor block, inline
 handler, CSS). `tests/RenderHtmlTesting.php` reads the page out of the request
 the renderer builds — no Chromium needed, so they run in the default suite.
+`RenderInjectionGotenbergTest` (`gotenberg` group, run by CI's
+`calendar-render` job, which has a Gotenberg service) is the proof of concept
+itself against a real Chromium: the injected script would paint the picture
+magenta.
 In the browser the same data is restored by Fabric from the stored canvas —
 **every custom property of a canvas object is whatever was saved**: a
 `maxLength` holding markup reached `innerHTML` in the editor's text toolbar
