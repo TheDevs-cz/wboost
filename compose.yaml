@@ -104,8 +104,24 @@ services:
             interval: 10s
             retries: 2
 
+    # The headless renderer, as production runs it: the same build (digest pin —
+    # the restriction flags below are multi-value only from 8.3x on) and the same
+    # restriction, so a render that starts loading something by URL fails HERE,
+    # not on production (docs/architecture/templates-render.md, "Renderer
+    # isolation"; tests/Services/Editor/RendererIsolationGotenbergTest.php).
+    # `$$` is compose's escape for a literal `$`.
     gotenberg:
-        image: gotenberg/gotenberg:8
+        image: gotenberg/gotenberg:8.34.0@sha256:67097317623a503ba2a6a7e9ae8db6929a1f7e1bbd88077bacf2d325fbdab923
+        command:
+            - gotenberg
+            - --chromium-auto-start
+            # file: — only the conversion's own files, /tmp/<request>/<conversion>/<file>
+            - '--chromium-deny-list=^file:(?!///tmp/[0-9a-f-]{36}/[0-9a-f-]{36}/[^/]+$$).*'
+            # network — nothing, except the public picture host (a canvas picture
+            # that could not be read from storage keeps its public URL)
+            - '--chromium-deny-list=^(?!https://img\.wboost\.cz(:443)?(/|$$))(https?|wss?|ftp):'
+            # …and whatever the list lets through must not resolve to a private address
+            - --chromium-deny-private-ips
 
     minio_setup:
         image: minio/mc:latest

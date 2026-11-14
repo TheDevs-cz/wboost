@@ -438,6 +438,24 @@ trend. Read the same series again after a week of real use; a rising daily **min
 anonymous figure is the sign of a leak, and the remedy is a restart of Gotenberg in a quiet minute
 (`docker compose restart gotenberg` — exports fail for the few seconds it takes).
 
+## Gotenberg's restriction (renderer isolation)
+
+Since 2026-11-14 the stack's Gotenberg is pinned by digest (8.34.0) and started with a deny list and
+`--chromium-deny-private-ips` (infra `apps/wboost/compose.yaml`, D90; the rule and the flags:
+`docs/architecture/templates-render.md`, "Renderer isolation"). A render page gets its own file and
+`data:` URLs, plus `https://img.wboost.cz/` for a picture storage could not hand over — nothing else.
+
+- **What a refused request looks like.** Not an error: the export succeeds with a fallback face or
+  without the picture. Gotenberg logs it at `warn`:
+  `docker logs --since 1h wboost-gotenberg-1 2>&1 | grep 'denied list' | grep -v -E 'google(apis)?\.com'`
+  — every line left is a render page that asked for an address (the excluded ones are Chromium's own
+  background calls, `CONNECT blocked for 'www.google.com:443'` and the like, several per render; harmless).
+- **A new render page / a new kind of asset** must be embedded (`data:`), never linked. The dev stack
+  and CI run the same flags, so it shows there first.
+- **Rollback** (renders only; ~5 s without a renderer): in the infra repo put back
+  `image: gotenberg/gotenberg:8` and `command: ["gotenberg", "--chromium-auto-start"]`, push, then
+  `cd /srv/wboost && IMAGE_TAG=main REPLICAS=1 flock /run/lily-deploy-runner.lock docker compose up -d --no-deps gotenberg`.
+
 ## Rollback, per phase
 
 Everything is additive (migrations add tables and columns only) and inert while the mode is `off`.

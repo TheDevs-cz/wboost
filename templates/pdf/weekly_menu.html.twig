@@ -3,9 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <title>{{ menu.name }}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&subset=latin-ext&display=swap" rel="stylesheet">
     <script>document.fonts.ready.then(function() { window.fontsReady = true; });</script>
     <style>
+        {# Roboto embedded as data: URLs — the renderer has no network access
+           (WeeklyMenuPdfGenerator::fontFaces). Base64 and unicode ranges hold
+           no character the HTML escaper changes. #}
+        {% for face in font_faces %}
+        @font-face {
+            font-family: 'Roboto';
+            font-style: normal;
+            font-weight: 100 900;
+            font-stretch: 100%;
+            src: url({{ face.src }}) format('woff2');
+            unicode-range: {{ face.unicodeRange }};
+        }
+        {% endfor %}
+
         * {
             box-sizing: border-box;
         }

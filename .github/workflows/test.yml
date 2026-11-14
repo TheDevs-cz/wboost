@@ -115,8 +115,14 @@ jobs:
               options: --health-cmd pg_isready --health-interval 3s --health-timeout 3s --health-retries 5
               ports:
                   - 5432:5432
+          # Production's build and production's restriction (compose.yaml has
+          # the same as flags; a service container takes no command, Gotenberg
+          # reads every flag from the environment too — a list is comma-separated).
           gotenberg:
-              image: gotenberg/gotenberg:8
+              image: gotenberg/gotenberg:8.34.0@sha256:67097317623a503ba2a6a7e9ae8db6929a1f7e1bbd88077bacf2d325fbdab923
+              env:
+                  CHROMIUM_DENY_LIST: '^file:(?!///tmp/[0-9a-f-]{36}/[0-9a-f-]{36}/[^/]+$).*,^(?!https://img\.wboost\.cz(:443)?(/|$))(https?|wss?|ftp):'
+                  CHROMIUM_DENY_PRIVATE_IPS: 'true'
 
       steps:
           -   uses: actions/checkout@v6
@@ -149,7 +155,9 @@ jobs:
           # …and the render-injection proof of concept against a real Chromium
           # (tests/Services/Editor/RenderInjectionGotenbergTest.php): its page
           # is self-contained too — a rectangle and a text, no picture, no font.
-          -   run: vendor/bin/phpunit --group gotenberg --filter 'CalendarRenderDocumentGotenbergTest|RenderInjectionGotenbergTest'
+          # …and the renderer's isolation itself (RendererIsolationGotenbergTest):
+          # a render page reaches no private address and no outside host.
+          -   run: vendor/bin/phpunit --group gotenberg --filter 'CalendarRenderDocumentGotenbergTest|RenderInjectionGotenbergTest|RendererIsolationGotenbergTest'
 
 
   # A released skill is immutable: once `wboost-plugin-v<version>` is tagged

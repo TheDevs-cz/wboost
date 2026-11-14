@@ -72,8 +72,53 @@ In the browser the same data is restored by Fabric from the stored canvas —
 only). An editor controller that writes a canvas property into markup must
 coerce it to its type first, or use `textContent`.
 
-Defence in depth on the renderer itself (deny lists, network): the infra
-backlog (`lily.srv/docs/backlog.md`, "Gotenberg egress").
+**Renderer isolation — the page is everything the renderer gets (2026-11-14)**
+
+The second layer under the embedding rule: a script that did get into a render
+page finds nothing to talk to. Gotenberg runs **pinned by digest**
+(`gotenberg/gotenberg:8.34.0@sha256:67097317…`) with three flags — the same in
+production (`lily.srv/apps/wboost/compose.yaml`, decision D90), in the dev
+`compose.yaml` and in CI's `calendar-render` service (there as environment
+variables: a service container takes no command):
+
+| flag | effect |
+|---|---|
+| `--chromium-deny-list=^file:(?!///tmp/[0-9a-f-]{36}/[0-9a-f-]{36}/[^/]+$).*` | `file:` — only the conversion's own files (`/tmp/<request>/<conversion>/<file>`): no directory listing, no other path |
+| `--chromium-deny-list=^(?!https://img\.wboost\.cz(:443)?(/\|$))(https?\|wss?\|ftp):` | no network request at all, except the public picture host (below). Checked twice by Gotenberg: on the page's request (full URL) and on the connection (`https://host:443` — hence the `(:443)?(/\|$)`) |
+| `--chromium-deny-private-ips` | whatever the list lets through must not resolve to a loopback / private / link-local address (MinIO, the database, Redis, the app, Gotenberg's own API) |
+
+**The rule for every render page: embed everything.** Scripts inline, fonts,
+pictures and modules as `data:` URLs — a `<link>`, a `url(https://…)`, a
+`fetch()` or an `import` by address does not fail loudly, it comes back
+missing (a fallback face, a blank picture). Measured 2026-11-14 over every
+render path (template PNG / WebP / slices, print PDF passes, multi-page
+document, calendar page + vector PDF + CMYK, AI-scan candidate and font faces,
+weekly-menu PDF, the probe, PDF merge): the pages request only their own file
+and `data:` URLs, and 190 recorded renders replayed against the restricted
+renderer came back byte-identical. The one page that did link something — the
+weekly-menu PDF, Roboto from Google Fonts — now embeds the same nine subset
+files (`resources/fonts/roboto/`, `WeeklyMenuPdfGenerator::fontFaces()`); its
+PDF is byte-identical to the linked one.
+
+The one exception, `https://img.wboost.cz/`: a canvas picture whose file could
+not be read from storage keeps its public `src` (`resolveAssetPath()` /
+`inlineImage()` returning null) and Chromium fetches it — a transient storage
+error then still yields the picture. The host serves the public-read bucket
+only; it is not a way in or out. In dev the same picture has a
+`http://localhost:…` address the renderer never could reach.
+
+Guards: `RendererIsolationGotenbergTest` (`gotenberg` group, in CI's
+`calendar-render` job) — a render page asks for the loopback API, the renderer
+by its service name and an outside host, and none answers; it fails against a
+Gotenberg without the flags. `RenderPagesLinkNothingTest` (default suite) —
+no render template names an address; the weekly-menu page carries its font as
+data.
+
+Changing the Gotenberg version: the flags are multi-value only in recent 8.x
+(8.27 took one value), and the `file:` expression encodes Gotenberg's working
+directory layout — after a bump run the whole `gotenberg` group and the proof
+of concept in the infra journal (2026-11-14) before production gets it, and
+move the digest in all three places together.
 
 **Output format — previews are WebP, exports are PNG (`Value/RenderImageFormat`)**
 
