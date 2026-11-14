@@ -28,7 +28,13 @@ version.
   dropdown was the only surface). No unique constraint on purpose — a lost
   race merely duplicates a history row, a violation would abort the export's
   transaction. An all-defaults export still records (dedup collapses the
-  repeats).
+  repeats). **What the JSONB column refuses** (U+0000, bytes that are not
+  UTF-8 — a hand-made form post can hold both) is cleaned out of every key
+  and value in the `ExportFillValues` constructor
+  (`Services/Template/FillValueGuard::clean()`, 2026-11-14): before, the
+  download answered 200 with NO version (swallowed 22P05) and a draft save
+  was a 500. The API and MCP refuse such a request instead — see
+  api-templates.md "Values a version cannot store".
 - **Drafts — "Uložit rozpracované" (2026-10-12, the "an overflowing text
   blocks the export, so I can't save and must start over" report).** A
   version can be a DRAFT (`draft` bool, additive migration; `exportCount` 0,

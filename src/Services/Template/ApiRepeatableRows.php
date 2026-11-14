@@ -157,6 +157,10 @@ final readonly class ApiRepeatableRows
      */
     public static function apply(TemplateVariant $variant, mixed $rows, array $inputs, array $images, array $shapeColors, bool $groupMember = false): AppliedApiRows
     {
+        // First, in one walk over the whole body: what a version cannot
+        // store (U+0000) is refused before anything is resolved or drawn.
+        FillValueGuard::assertStorable(['rows' => $rows, 'inputs' => $inputs, 'images' => $images, 'shapeColors' => $shapeColors]);
+
         $inputs = self::stringKeyed($inputs);
         $images = self::stringKeyed($images);
         $shapeColors = self::stringKeyed($shapeColors);

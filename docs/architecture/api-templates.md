@@ -43,6 +43,36 @@ resolver collects the request, the renderer expands it. Versions record it
 in `hidden` like any input hide, so `fill.inputs[<containerId>]` comes back
 `{hide: true}` with no extra plumbing.
 
+**Values a version cannot store (2026-11-14).** `fill_values` is JSONB, and
+JSONB takes neither the character U+0000 nor bytes that are not UTF-8. Such
+an export used to answer 200 with the picture while its version was silently
+NOT recorded (`RecordExportVersion` swallows; a draft save was a 500).
+`Services/Template/FillValueGuard` holds both policies:
+
+- **Strict (REST + MCP):** `assertStorable()` is the first line of
+  `ApiRepeatableRows::apply()` — the one function every strict render passes
+  its maps through (variant / group / document, preview and export, MCP
+  `VariantFill::rows()`): one walk over `rows` + `inputs` + `images` +
+  `shapeColors`, keys included → `InvalidExportValue` `invalid_value` whose
+  message names the path (`inputs.<id>.runs[0].text`), i.e. a structured 400 /
+  an MCP tool error `… (invalid_value)`, before anything is resolved or drawn.
+  Only U+0000 can arrive in a decoded JSON body. `offsets` / `placements`
+  need no walk: their keys are validated or dropped, their values are numbers.
+- **Lenient (web fill pages):** `ExportFillValues` cleans whatever it is
+  built from (`FillValueGuard::clean()` in its constructor — NUL dropped,
+  broken byte sequences → `?`), so the download / draft records its version
+  without the character and no surface can store what the column refuses. A
+  clean fill is untouched (hashes hold).
+- **Not ours:** an unpaired surrogate escape (`"\ud800"`), a raw control
+  character or non-UTF-8 bytes make the body not-JSON — the request decoder
+  answers API Platform's generic 400 (no `code`) before any processor runs.
+- Other control characters (a pasted vertical tab, C1) are stored and kept on
+  purpose — the `CanvasStorageGuard` line, not the stricter design DSL's.
+- Tests: `tests/Api/FillUnstorableCharactersApiTest.php`,
+  `tests/Mcp/Tool/FillUnstorableCharactersTest.php`,
+  `tests/Controller/Template/FillUnstorableCharactersTest.php`,
+  `tests/Services/Template/FillValueGuardTest.php`.
+
 ### Template groups + export history over the API (2026-09-29)
 
 - **Listing:** `TemplateResponse::$group` (`{id, name}` | null) and

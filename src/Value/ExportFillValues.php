@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Value;
 
+use WBoost\Web\Services\Template\FillValueGuard;
+
 /**
  * The canonical snapshot of one fill — everything a user provided for an
  * export, in the WEB WIRE SHAPE (the fill form's field values), so a stored
@@ -48,7 +50,37 @@ final readonly class ExportFillValues
 {
     private const array IMAGE_FLOAT_FIELDS = ['scale', 'offsetX', 'offsetY', 'offsetXRatio', 'offsetYRatio', 'rotation'];
 
+    /** @var array<string, string> */
+    public array $texts;
+
+    /** @var list<string> */
+    public array $hidden;
+
+    /** @var array<string, array<string, mixed>> */
+    public array $images;
+
+    /** @var array<string, array<string, array<string, float>>> */
+    public array $placements;
+
+    /** @var array<string, string> */
+    public array $fonts;
+
+    /** @var array<string, string> */
+    public array $shapeColors;
+
+    /** @var array<string, int> */
+    public array $rows;
+
+    /** @var array<string, array<string, array{x: float, y: float}>> */
+    public array $offsets;
+
     /**
+     * Whatever a fill is built from, it holds only what its JSONB column
+     * takes: U+0000 and bytes that are not UTF-8 are cleaned out of every
+     * key and value ({@see FillValueGuard::clean()}). The strict surfaces
+     * (API, MCP) refuse such a request before it gets here; the lenient web
+     * forms rely on this — the version is recorded, without the character.
+     *
      * @param array<string, string> $texts
      * @param list<string> $hidden
      * @param array<string, array<string, mixed>> $images
@@ -59,15 +91,41 @@ final readonly class ExportFillValues
      * @param array<string, array<string, array{x: float, y: float}>> $offsets
      */
     private function __construct(
-        public array $texts,
-        public array $hidden,
-        public array $images,
-        public array $placements,
-        public array $fonts = [],
-        public array $shapeColors = [],
-        public array $rows = [],
-        public array $offsets = [],
+        array $texts,
+        array $hidden,
+        array $images,
+        array $placements,
+        array $fonts = [],
+        array $shapeColors = [],
+        array $rows = [],
+        array $offsets = [],
     ) {
+        // The shapes hold: cleaning changes characters, never a type.
+        /** @var array<string, string> $texts */
+        $texts = FillValueGuard::clean($texts);
+        /** @var list<string> $hidden */
+        $hidden = FillValueGuard::clean($hidden);
+        /** @var array<string, array<string, mixed>> $images */
+        $images = FillValueGuard::clean($images);
+        /** @var array<string, array<string, array<string, float>>> $placements */
+        $placements = FillValueGuard::clean($placements);
+        /** @var array<string, string> $fonts */
+        $fonts = FillValueGuard::clean($fonts);
+        /** @var array<string, string> $shapeColors */
+        $shapeColors = FillValueGuard::clean($shapeColors);
+        /** @var array<string, int> $rows */
+        $rows = FillValueGuard::clean($rows);
+        /** @var array<string, array<string, array{x: float, y: float}>> $offsets */
+        $offsets = FillValueGuard::clean($offsets);
+
+        $this->texts = $texts;
+        $this->hidden = $hidden;
+        $this->images = $images;
+        $this->placements = $placements;
+        $this->fonts = $fonts;
+        $this->shapeColors = $shapeColors;
+        $this->rows = $rows;
+        $this->offsets = $offsets;
     }
 
     /**

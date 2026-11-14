@@ -17,6 +17,8 @@ use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
  * Codes:
  * - `value_too_long` — a text exceeds the input's `maxLength` (context: `maxLength`)
  * - `invalid_value` — a text value of the wrong type / shape
+ *   or a string / key of the body holding what a version cannot store
+ *   (U+0000 — {@see \WBoost\Web\Services\Template\FillValueGuard})
  * - `invalid_image_value` — an image value of the wrong type / shape (incl. a
  *   transform without an `imageId`, or a pan sent in both px and ratio form)
  * - `image_transform_not_allowed` — a move / resize / rotate the slot does

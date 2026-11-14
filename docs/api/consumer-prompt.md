@@ -518,6 +518,7 @@ retry) · `500` render backend failure.
 |---|---|---|
 | `value_too_long` | A text exceeds the input's `maxLength`. | `inputId`, `maxLength` |
 | `invalid_value` | A text value of the wrong type / shape. | `inputId` |
+| `invalid_value` (unstorable character) | A string or key anywhere in `inputs` / `images` / `shapeColors` / `rows` holds the character U+0000 (`"\u0000"`), which cannot be stored. Checked first, on previews too; `error` names the path (`inputs.<id>.runs[0].text`). Strip the character and resend. Other control characters (a pasted vertical tab, …) are accepted. | — |
 | `invalid_image_value` | An image value of the wrong type / shape (a transform without `imageId`, px + ratio pan on one axis, non-numeric transform). | `imageInputId` |
 | `image_transform_not_allowed` | A move / resize / rotate the slot forbids. | `imageInputId`, `transform` (`scale` / `offset` / `rotation`) |
 | `image_not_allowed` | The image does not exist, is trashed, belongs to another project or sits outside the slot's folders. | `imageInputId` |
@@ -539,6 +540,13 @@ retry) · `500` render backend failure.
 
 Group renders (see "Template groups") add the `variantId` of the dimension
 that failed.
+
+**A body that is not JSON** is refused before any of the above, with the
+framework's generic `400` problem body (`{title, detail, status, type}` — no
+`code`): besides a syntax error that is an unpaired surrogate escape
+(`"\ud800"` — what `JSON.stringify` emits for a lone surrogate, e.g. half of
+an emoji cut by `slice()`), a raw control character inside a string, or bytes
+that are not UTF-8. Send well-formed text (`String.prototype.toWellFormed()`).
 
 **Container overflow 400.** When the filled texts of a container (see
 "Containers" below) cannot fit its `maxHeight` even after reflow, the export

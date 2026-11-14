@@ -243,4 +243,36 @@ final class ExportFillValuesTest extends TestCase
         self::assertSame($moved->toArray(), $roundTrip->toArray());
         self::assertSame($moved->hash(), $roundTrip->hash());
     }
+
+    /**
+     * A JSONB column takes neither U+0000 nor bytes that are not UTF-8: a
+     * fill never holds them, whatever it was built from — and a fill that
+     * holds neither is untouched (its hash is what deduplication rests on).
+     */
+    public function testWhatTheColumnRefusesIsCleanedOutOfKeysAndValues(): void
+    {
+        $dirty = ExportFillValues::fromVariantWebForm(
+            ["in\0put-a" => "Hel\0lo \xff", 'input-b' => "tab\tline\n\u{0B}"],
+            ["hide\0-a" => '1'],
+            ['img-a' => ['imageId' => "file\0-1", 'scale' => '1.5']],
+            ['input-a' => "Out\0fit"],
+            ['shape-a' => "#ff\x000000"],
+        )->withRows(["row\0" => '2'])->withOffsets(['variant' => ["el\0" => ['x' => '5']]]);
+
+        $clean = ExportFillValues::fromVariantWebForm(
+            ['input-a' => 'Hello ?', 'input-b' => "tab\tline\n\u{0B}"],
+            ['hide-a' => '1'],
+            ['img-a' => ['imageId' => 'file-1', 'scale' => '1.5']],
+            ['input-a' => 'Outfit'],
+            ['shape-a' => '#ff0000'],
+        )->withRows(['row' => '2'])->withOffsets(['variant' => ['el' => ['x' => '5']]]);
+
+        self::assertSame($clean->toArray(), $dirty->toArray());
+        self::assertSame($clean->hash(), $dirty->hash());
+        self::assertSame($clean->toArray(), ExportFillValues::fromArray($dirty->toArray())->toArray());
+
+        $json = json_encode($dirty->toArray());
+        self::assertIsString($json, 'encodable');
+        self::assertStringNotContainsString('\\u0000', $json);
+    }
 }
