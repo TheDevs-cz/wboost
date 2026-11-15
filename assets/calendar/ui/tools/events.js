@@ -160,7 +160,8 @@ export function mountEventsTool(root, ctx) {
         input.addEventListener('change', async () => {
             const file = input.files && input.files[0];
             input.value = '';
-            if (!file) return;
+            // one upload at a time per icon (the keyboard reaches the input past the busy label's pointer-events)
+            if (!file || label.classList.contains('busy')) return;
             label.classList.add('busy');
             try {
                 const info = await ctx.api.upload(file, 'icon');

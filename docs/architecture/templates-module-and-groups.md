@@ -314,12 +314,13 @@ of them failed (the server side of that is in `gallery-and-uploads.md`,
 `canvas_editor_controller#submitForm` (single variant, also "Uložit a
 exportovat") and `group_editor_controller#submitForm` ("Uložit vše"):
 
-- `SaveRunner`: never two saves at once. A click during a save queues ONE
-  follow-up (further clicks join it) that serializes the editor when it
-  STARTS, so the newest state lands last. The save button (`saveButton`
-  target in both templates) reads „Ukládám… 42 %“ (XHR upload progress),
-  „Ukládám…“ while the server works, „(pak znovu)“ appended while a
-  follow-up waits; `beforeunload` asks while anything runs.
+- `SaveRunner`: never two saves at once. The save button (`saveButton`
+  target in both templates) is busy for the whole save — the site-wide look
+  of `assets/busy_button.js` (design-system §7 #23): spinner, not clickable,
+  „Ukládám… 42 %“ (XHR upload progress), „Ukládám…“ while the server works.
+  A save asked for programmatically meanwhile ("Uložit a exportovat") queues
+  ONE follow-up that serializes the editor when it STARTS („(pak znovu)“ is
+  appended then); `beforeunload` asks while anything runs.
 - `postEditorSave`: XHR (fetch has no upload progress), resolves only on the
   JSON `{status: "success"}`; anything else is a `SaveError` of a kind —
   `too_large` (413 / `code: request_too_large`), `session` (`code: csrf`,
@@ -347,7 +348,8 @@ are empty. The single editor answers a refused JSON save (invalid form —
 expired CSRF, dropped body) with `400 {status: "error", code: "csrf", …}`
 instead of re-rendering the page with 200; the group save's CSRF error carries
 `code: "csrf"` too. Browser-verified (puppeteer, throttled to 60 KB/s up):
-triple click → exactly two uploads, progress + queued label, leave prompt,
+triple click → exactly one upload, progress label, a second save of the
+unchanged group without thumbnails, leave prompt,
 offline → toast, binary thumbnail in both editors. Tests:
 `TemplateGroupEditorControllerTest`, `TemplateVariantEditorControllerTest`.
 

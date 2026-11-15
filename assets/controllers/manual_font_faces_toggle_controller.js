@@ -13,7 +13,17 @@ export default class extends Controller {
         });
     }
 
+    // Autosave on every tick. Each post carries the WHOLE set, so two in
+    // flight could land out of order and store the older one: one post at a
+    // time, and a change meanwhile sends the newest set once more after it.
     submit() {
+        if (this.inFlight) {
+            this.again = true;
+            return;
+        }
+        this.inFlight = true;
+        this.again = false;
+
         // Gather all checked checkboxes
         const checkedCheckboxes = this.checkboxTargets
             .filter(checkbox => checkbox.checked)
@@ -39,6 +49,12 @@ export default class extends Controller {
             })
             .catch(error => {
                 console.error('Error:', error);
+            })
+            .finally(() => {
+                this.inFlight = false;
+                if (this.again) {
+                    this.submit();
+                }
             });
     }
 }

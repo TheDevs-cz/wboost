@@ -258,7 +258,8 @@ export function mountSpecialPanel(root, ctx) {
             parts.file.addEventListener('change', async () => {
                 const file = parts.file.files[0];
                 parts.file.value = '';
-                if (!file) return;
+                // one upload at a time per page (the keyboard reaches the input past the busy label's pointer-events)
+                if (!file || parts.fileLabel.classList.contains('busy')) return;
                 parts.fileLabel.classList.add('busy');
                 const fields = await readPageFile(ctx, file);
                 parts.fileLabel.classList.remove('busy');

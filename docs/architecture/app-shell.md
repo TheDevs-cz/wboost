@@ -42,6 +42,25 @@ Nocturne shell from `docs/redesign/prototype/body.html`; partials live in
   MDI icon or a Hyper class to the preview partials means adding its rule
   there.
 
+**Form guard + busy buttons (2026-11-15).** `assets/app.js` imports
+`submit_guard.js` before Stimulus starts: every native POST form (not one a
+handler `preventDefault()`s — fetch saves, Turbo, Live guard themselves) is
+blocked from a second submit while it sends (capture-phase `submit`), and its
+clicked button gets the busy look of `busy_button.js` (spinner + „Ukládám…“
+derived from the label's verb, `data-busy-label` overrides). A post that
+answers with a DOWNLOAD leaves the page in place: the guard adds a random
+`_submit_token` to that submission only (`formdata` event — never a DOM field,
+or `new FormData(form)` fetches like the fill previews would carry it) and
+`Services/Http/SubmitTokenCookieListener` echoes it as the cookie
+`wbsubmit_<token>` (2 min, page-readable); the guard polls for it and gives the
+button back when the file arrives (fallback 10 min; reset on bfcache restore).
+`data-submit-guard="off"` opts a form out, `"self"` keeps the guard but lets
+the form's controller paint (`submit-guard:start` / `submit-guard:settled` —
+the group / document fill pages' "Generuji ZIP…"). Rule: design-system §7 #23.
+Browser-verified: a triple-clicked login posts once („Přihlašuji…“), the
+single and group fill exports post once and release exactly when the file
+arrives.
+
 ### Theme
 
 `<html data-theme="dark|light" data-bs-theme="…">`, set before paint by the

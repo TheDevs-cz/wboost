@@ -38,7 +38,7 @@
     data-live-*-param, `.gallery-asset[data-storage-path]` and the caption
     partial are unchanged.
 #}
-<div {{ attributes.defaults({'data-controller': 'image-gallery'}) }}>
+<div {{ attributes.defaults({'data-controller': 'image-gallery live-busy'}) }}>
     {#
         Hidden trigger for the LiveAction that re-fetches the asset list. The
         image-gallery Stimulus controller programmatically clicks this button
@@ -90,6 +90,7 @@
                         class="btn btn-tertiary sm"
                         data-action="live#action"
                         data-live-action-param="createDirectory"
+                        data-loading="action(createDirectory)|addAttribute(disabled) action(createDirectory)|addClass(is-busy)"
                     >{{ icon('plus', 's16') }}Nová složka</button>
                 </div>
             {% endif %}
@@ -219,6 +220,7 @@
                                 aria-label="Uložit název"
                                 data-action="live#action"
                                 data-live-action-param="renameDirectory"
+                                data-loading="action(renameDirectory)|addAttribute(disabled) action(renameDirectory)|addClass(is-busy)"
                             >{{ icon('check', 's16') }}</button>
                             <button
                                 type="button"
@@ -269,6 +271,7 @@
                                             data-confirm-message-value="Opravdu smazat složku „{{ directory.name }}“? Smazat lze jen prázdnou složku."
                                             data-action="confirm#confirm live#action"
                                             data-live-action-param="deleteDirectory"
+                                            data-loading="action(deleteDirectory)|addAttribute(disabled) action(deleteDirectory)|addClass(is-busy)"
                                             data-live-directoryid-param="{{ directory.id }}"
                                         >{{ icon('trash', 's16') }}Smazat</button>
                                     </li>
@@ -383,7 +386,7 @@
                                     {% endif %}
                                 </div>
                                 <div class="gal-rename-a">
-                                    <button type="submit" class="btn btn-primary btn-sm" title="Uložit název">{{ icon('check', 's16') }}Uložit</button>
+                                    <button type="submit" class="btn btn-primary btn-sm" title="Uložit název" data-loading="action(renameFile)|addAttribute(disabled) action(renameFile)|addClass(is-busy)">{{ icon('check', 's16') }}Uložit</button>
                                     <button
                                         type="button"
                                         class="btn btn-ghost btn-sm"
@@ -455,6 +458,7 @@
                                                         class="dropdown-item"
                                                         data-action="live#action"
                                                         data-live-action-param="moveFile"
+                                                        data-loading="action(moveFile)|addAttribute(disabled) action(moveFile)|addClass(is-busy)"
                                                         data-live-fileid-param="{{ asset.id }}"
                                                         data-live-directoryid-param="{{ target.id }}"
                                                     >{{ icon('folder', 's16') }}{{ target.label }}</button>
@@ -473,6 +477,7 @@
                                             title="Přesunout do koše"
                                             data-action="live#action"
                                             data-live-action-param="deleteFile"
+                                            data-loading="action(deleteFile)|addAttribute(disabled) action(deleteFile)|addClass(is-busy)"
                                             data-live-fileid-param="{{ asset.id }}"
                                         >{{ icon('trash', 's16') }}Přesunout do koše</button>
                                     </li>
@@ -543,6 +548,7 @@
                                 class="btn btn-tertiary btn-sm"
                                 data-action="live#action"
                                 data-live-action-param="restoreFile"
+                                data-loading="action(restoreFile)|addAttribute(disabled) action(restoreFile)|addClass(is-busy)"
                                 data-live-fileid-param="{{ asset.id }}"
                             >{{ icon('undo', 's16') }}Obnovit</button>
                             {% set used_names = asset.usedIn|map(site => site.name)|join(', ') %}
@@ -558,6 +564,7 @@
                                     : 'Trvale smazat tento obrázek? Akce je nevratná.' }}"
                                 data-action="confirm#confirm live#action"
                                 data-live-action-param="purgeFile"
+                                data-loading="action(purgeFile)|addAttribute(disabled) action(purgeFile)|addClass(is-busy)"
                                 data-live-fileid-param="{{ asset.id }}"
                             >{{ icon('trash', 's16') }}</button>
                             {% endif %}

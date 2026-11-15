@@ -98,7 +98,8 @@
                  field values alone would be wiped. #}
               data-group-fill-seed-value="{{ {'pictures': seed.images, 'placements': seed.placements}|json_encode }}"
               data-variant-fill-overlay-fonts-value="{{ font_faces|map(face => face.family)|json_encode }}"
-              data-action="keydown->group-fill#blockEnter submit->group-fill#exportStarted rich-text-editor:changed->variant-fill-overlay#richTextChanged checklist-editor:changed->variant-fill-overlay#richTextChanged">
+              data-submit-guard="self"
+              data-action="keydown->group-fill#blockEnter submit-guard:start->group-fill#exportStarted submit-guard:settled->group-fill#exportFinished rich-text-editor:changed->variant-fill-overlay#richTextChanged checklist-editor:changed->variant-fill-overlay#richTextChanged">
 
             <header class="head fi-head">
                 <div class="fi-title">

@@ -1,4 +1,4 @@
-<div {{ attributes }}>
+<div {{ attributes.defaults({'data-controller': 'live-busy'}) }}>
     {% import 'admin/_macros.html.twig' as adm %}
     {% set collaborators = this.collaborators() %}
     {% set candidates = this.candidateUsers() %}
@@ -39,6 +39,7 @@
                                     class="btn btn-primary xs"
                                     data-action="live#action"
                                     data-live-action-param="invite"
+                                    data-loading="action(invite)|addAttribute(disabled) action(invite)|addClass(is-busy)"
                                 >{{ icon('mail', 's14') }}Pozvat</button>
                             </li>
                             {% for candidate in candidates %}
@@ -50,6 +51,7 @@
                                         class="btn btn-tertiary xs"
                                         data-action="live#action"
                                         data-live-action-param="share"
+                                        data-loading="action(share)|addAttribute(disabled) action(share)|addClass(is-busy)"
                                         data-live-userid-param="{{ candidate.id }}"
                                     >{{ icon('plus', 's14') }}Přidat</button>
                                 </li>
@@ -80,6 +82,7 @@
                                             aria-label="Znovu poslat pozvánku: {{ collaborator.email }}"
                                             data-action="live#action"
                                             data-live-action-param="resend"
+                                            data-loading="action(resend)|addAttribute(disabled) action(resend)|addClass(is-busy)"
                                             data-live-userid-param="{{ collaborator.id }}"
                                         >{{ icon('refresh', 's16') }}</button>
                                     {% else %}
@@ -93,6 +96,7 @@
                                         aria-label="Odebrat přístup: {{ collaborator.name }}"
                                         data-action="live#action"
                                         data-live-action-param="unshare"
+                                        data-loading="action(unshare)|addAttribute(disabled) action(unshare)|addClass(is-busy)"
                                         data-live-userid-param="{{ collaborator.id }}"
                                     >{{ icon('x', 's16') }}</button>
                                 </li>

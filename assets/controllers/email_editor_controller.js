@@ -1,6 +1,7 @@
 import { Controller } from '@hotwired/stimulus';
 import grapesjs from 'grapesjs';
 import grapesjsPresetNewsletter from 'grapesjs-preset-newsletter';
+import { clearBusy, isBusy, setBusy } from '../busy_button.js';
 
 export default class extends Controller {
     static targets = ['container', 'codeInput', 'textPlaceholdersInput', 'successMsg'];
@@ -79,7 +80,13 @@ export default class extends Controller {
         }));
     }
 
-    exportTemplate() {
+    exportTemplate(event) {
+        // One save at a time: the button is busy (spinner + „Ukládám…“) until
+        // the server answered — a second click cannot post the same edit twice.
+        const button = event?.currentTarget ?? null;
+        if (isBusy(button)) return;
+        setBusy(button, { label: 'Ukládám…' });
+
         const html = this.editor.runCommand('gjs-get-inlined-html');
         const form = this.containerTarget.closest('form');
 
@@ -103,6 +110,7 @@ export default class extends Controller {
             return response.json();
         })
         .then(data => {
+            clearBusy(button);
             if (data.status !== 'success') {
                 console.error('Ukládání se nepovedlo:', data.message);
                 alert('Ukládání se nepovedlo. Prosím zkuste to znovu později.');
@@ -115,7 +123,9 @@ export default class extends Controller {
             }, 3000);
         })
         .catch(error => {
+            // A redirect navigates away: the button stays busy until the page goes.
             if (error === 'redirect') return;
+            clearBusy(button);
             console.error('Error during autosave:', error);
             alert('Ukládání se nepovedlo. Prosím zkuste to znovu později.');
         });

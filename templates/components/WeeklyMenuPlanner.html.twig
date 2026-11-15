@@ -9,7 +9,7 @@
 #}
 <div {{ attributes.defaults({
     'class': 'wm-planner',
-    'data-controller': 'planner-collapsible-opener',
+    'data-controller': 'planner-collapsible-opener live-busy',
     'data-planner-collapsible-opener-ids-value': openCollapsibles|json_encode
 }) }}>
     {% if lastSaved %}
@@ -62,6 +62,7 @@
                         data-confirm-message-value="Opravdu smazat celý den včetně všech jídel?"
                         data-action="click->confirm#confirm click->live#action"
                         data-live-action-param="removeDay"
+                        data-loading="action(removeDay)|addAttribute(disabled) action(removeDay)|addClass(is-busy)"
                         data-live-dayid-param="{{ day.id }}"
                         onclick="event.stopPropagation();">{{ icon('trash', 's16') }}</button>
                 </summary>
@@ -87,6 +88,7 @@
                                                         <button type="button" class="dropdown-item wm-mi"
                                                                 data-action="live#action"
                                                                 data-live-action-param="addCourse"
+                                                                data-loading="action(addCourse)|addAttribute(disabled) action(addCourse)|addClass(is-busy)"
                                                                 data-live-mealtypeid-param="{{ mealType.id }}"
                                                                 data-live-singlevariantmode-param="true">
                                                             {{ icon('utensils', 's16') }}
@@ -113,6 +115,7 @@
                                                 data-confirm-message-value="Opravdu smazat toto jídlo dne?"
                                                 data-action="click->confirm#confirm click->live#action"
                                                 data-live-action-param="removeMealType"
+                                                data-loading="action(removeMealType)|addAttribute(disabled) action(removeMealType)|addClass(is-busy)"
                                                 data-live-mealtypeid-param="{{ mealType.id }}"
                                                 onclick="event.stopPropagation();">{{ icon('trash', 's16') }}</button>
                                         </span>
@@ -146,6 +149,7 @@
                                                                     data-confirm-message-value="Opravdu smazat tento chod?"
                                                                     data-action="click->confirm#confirm click->live#action"
                                                                     data-live-action-param="removeCourse"
+                                                                    data-loading="action(removeCourse)|addAttribute(disabled) action(removeCourse)|addClass(is-busy)"
                                                                     data-live-courseid-param="{{ course.id }}"
                                                                     onclick="event.stopPropagation();">{{ icon('trash', 's14') }}</button>
                                                             </summary>
@@ -182,6 +186,7 @@
                                                                                                 data-confirm-message-value="Opravdu smazat tuto variantu?"
                                                                                                 data-action="click->confirm#confirm click->live#action"
                                                                                                 data-live-action-param="removeVariant"
+                                                                                                data-loading="action(removeVariant)|addAttribute(disabled) action(removeVariant)|addClass(is-busy)"
                                                                                                 data-live-variantid-param="{{ variant.id }}">{{ icon('trash', 's14') }}</button>
                                                                                             <span class="cap wm-variant-help">Jídla, mezi kterými si zákazník vybírá (např. A, B, C nebo 1, 2, 3).</span>
                                                                                         </div>
@@ -239,6 +244,7 @@
                                                                                     class="btn btn-tertiary btn-sm wm-add-variant"
                                                                                     data-action="live#action"
                                                                                     data-live-action-param="addVariant"
+                                                                                    data-loading="action(addVariant)|addAttribute(disabled) action(addVariant)|addClass(is-busy)"
                                                                                     data-live-courseid-param="{{ course.id }}"
                                                                                     data-live-name-param="">{{ icon('plus', 's14') }}Varianta</button>
                                                                             {% endif %}
@@ -269,6 +275,7 @@
                                                     class="dropdown-item d-flex align-items-center"
                                                     data-action="live#action"
                                                     data-live-action-param="addMealType"
+                                                    data-loading="action(addMealType)|addAttribute(disabled) action(addMealType)|addClass(is-busy)"
                                                     data-live-dayid-param="{{ day.id }}"
                                                     data-live-mealtype-param="{{ mealTypeOption.value }}">
                                                     <span class="meal-type-dot" style="--mt: {{ mealTypeOption.cssColor }};" aria-hidden="true"></span>

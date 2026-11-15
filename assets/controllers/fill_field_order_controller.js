@@ -57,7 +57,16 @@ export default class extends Controller {
             .map((element) => element.dataset.inputid);
     }
 
+    // One post at a time (two in flight could land out of order and store
+    // the older order); a drop meanwhile sends the newest order once more
+    // after the running post.
     async save() {
+        if (this._saving) {
+            this._saveAgain = true;
+            return;
+        }
+        this._saving = true;
+        this._saveAgain = false;
         this.showStatus("Ukládám…", "text-muted");
 
         try {
@@ -74,6 +83,12 @@ export default class extends Controller {
             this.showStatus("Pořadí uloženo", "text-success", 2500);
         } catch (error) {
             this.showStatus("Pořadí se nepodařilo uložit", "text-danger");
+        } finally {
+            this._saving = false;
+        }
+
+        if (this._saveAgain) {
+            this.save();
         }
     }
 

@@ -496,22 +496,31 @@ export const actions = {
         app.fix({ type: 'set_name', name });
     },
     rerender: async (app) => {
+        if (app.rerendering) return; // one preview render at a time
+        app.rerendering = true;
         app.saving += 1;
         app.render();
         const answer = await api.post(urlFor(app.urls.preview, app.scan.id));
         app.saving -= 1;
+        app.rerendering = false;
         app.fixed(answer);
     },
     rate: async (app, el) => {
+        if (app.rating) return; // one rating post at a time
         const rating = Number(el.dataset.v);
         if (rating === -1) { app.feedback = 'down'; app.render(); const input = app.root.querySelector('[data-k="fbt"]'); if (input) input.focus(); }
+        app.rating = true;
         const answer = await api.post(urlFor(app.urls.rating, app.scan.id), { rating });
+        app.rating = false;
         if (answer.ok) { app.proposal.rating = rating; if (rating === 1) { app.feedback = 'sent'; toast('Díky za hodnocení'); } app.render(); }
     },
     sendFeedback: async (app) => {
+        if (app.rating) return; // a second click / Enter must not send the note twice
         const input = app.root.querySelector('[data-k="fbt"]');
         const note = input ? input.value.trim() : '';
+        app.rating = true;
         await api.post(urlFor(app.urls.rating, app.scan.id), note ? { rating: -1, note } : { rating: -1 });
+        app.rating = false;
         app.proposal.rating = -1;
         app.feedback = 'sent';
         app.render();

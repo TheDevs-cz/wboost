@@ -2,6 +2,7 @@
 import { Controller } from "@hotwired/stimulus";
 import Sortable from "sortablejs";
 import { withMoveCursor } from "./sort_drag_cursor.js";
+import { clearBusy, setBusy } from "../busy_button.js";
 import {
     Schema,
     EditorState,
@@ -1361,8 +1362,7 @@ export default class extends Controller {
         }
 
         this.saving = true;
-        this.saveButtonTarget.classList.add("is-loading");
-        this.saveButtonTarget.disabled = true;
+        setBusy(this.saveButtonTarget, { label: "Ukládám…" });
 
         try {
             const body = new FormData();
@@ -1384,8 +1384,7 @@ export default class extends Controller {
             this.flash(error.message, true);
         } finally {
             this.saving = false;
-            this.saveButtonTarget.classList.remove("is-loading");
-            this.saveButtonTarget.disabled = false;
+            clearBusy(this.saveButtonTarget);
         }
     }
 

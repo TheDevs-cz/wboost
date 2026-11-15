@@ -11,9 +11,10 @@
  *
  * - shows the upload on the save button ("Ukládám… 42 %"), via XHR — fetch()
  *   still has no upload progress;
- * - never runs two saves at once: a click during a save queues ONE follow-up
- *   save, which serializes the editor afresh when it starts, so the newest
- *   state is what lands last (SaveRunner);
+ * - never runs two saves at once: the button is busy (busy_button.js — the
+ *   site-wide look: spinner, not clickable) for the whole save; a save asked
+ *   for programmatically meanwhile (saveAndExport) queues ONE follow-up that
+ *   serializes the editor afresh when it starts (SaveRunner);
  * - keeps the page from being left while an upload is in flight;
  * - tells the designer what went wrong in words (too large / connection /
  *   server / expired page) in a toast, instead of one generic alert.
@@ -24,6 +25,8 @@
 
 /** Generous: Traefik bounds a request body at 180 s and PHP the handling. */
 const SAVE_TIMEOUT_MS = 10 * 60 * 1000;
+
+import { clearBusy, setBusy, setBusyLabel } from '../busy_button.js';
 
 const PROGRESS_LABEL = 'Ukládám…';
 
@@ -223,7 +226,6 @@ export class SaveRunner {
         this._queued = null;
         this._running = false;
         this._fraction = null;
-        this._idleLabel = button ? button.textContent : '';
         this._onBeforeUnload = (event) => {
             if (!this.busy) {
                 return;
@@ -294,18 +296,17 @@ export class SaveRunner {
         if (!this.button) {
             return;
         }
-        this.button.classList.toggle('is-saving', busy);
-        this.button.setAttribute('aria-busy', String(busy));
         if (busy) {
+            setBusy(this.button, { label: PROGRESS_LABEL });
             this._render();
         } else {
-            this.button.textContent = this._idleLabel;
+            clearBusy(this.button);
         }
     }
 
     /**
-     * "Ukládám… 42 %" while the bytes go up, "Ukládám…" while the server
-     * works, and " (pak znovu)" when a click queued a follow-up save.
+     * „Ukládám… 42 %“ while the bytes go up, „Ukládám…“ while the server
+     * works, and „ (pak znovu)“ when a follow-up save is queued.
      */
     _render() {
         if (!this.button || !this._running) {
@@ -322,6 +323,6 @@ export class SaveRunner {
             text += ' (pak znovu)';
         }
 
-        this.button.textContent = text;
+        setBusyLabel(this.button, text);
     }
 }

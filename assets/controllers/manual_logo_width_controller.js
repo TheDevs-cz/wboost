@@ -1,4 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
+import { clearBusy, setBusy } from '../busy_button.js';
 
 /**
  * The bar that sizes ONE logo card of the manual preview (the top of the
@@ -199,8 +200,11 @@ export default class extends Controller {
 
     setSaving(saving) {
         this.saving = saving;
-        this.saveTarget.disabled = saving;
-        this.saveTarget.textContent = saving ? 'Ukládám…' : 'Uložit';
+        if (saving) {
+            setBusy(this.saveTarget, { label: 'Ukládám…' });
+        } else {
+            clearBusy(this.saveTarget);
+        }
     }
 
     /**

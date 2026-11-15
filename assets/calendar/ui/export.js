@@ -32,6 +32,7 @@
 
 import { fetchCurrentExports, fetchExport, requestExport } from '../state/api.js';
 import { h, icon, openModal } from './dom.js';
+import { clearBusy, setBusy } from '../../busy_button.js';
 
 const POLL_MS = 1500;
 /** Consecutive failed status reads after which the dialog gives up (the job itself may still finish). */
@@ -225,8 +226,7 @@ export function openExport({ name, url, csrf, toast, unsaved = null }) {
         busy = true;
         failures = 0;
         if (saveFirst && unsaved) {
-            saveStart.classList.add('is-loading');
-            saveStart.disabled = true;
+            setBusy(saveStart, { label: 'Ukládám…' });
             start.disabled = true;
             let saved = null;
             try {
@@ -234,8 +234,7 @@ export function openExport({ name, url, csrf, toast, unsaved = null }) {
             } catch (e) {
                 saved = null;
             }
-            saveStart.classList.remove('is-loading');
-            saveStart.disabled = false;
+            clearBusy(saveStart);
             start.disabled = false;
             if (closed) return;
             if (!saved || !saved.ok) {

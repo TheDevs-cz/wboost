@@ -94,7 +94,8 @@
               data-group-fill-variants-value="{{ fill.placement_variants|json_encode }}"
               data-group-fill-fonts-value="{{ font_faces|map(face => face.family)|json_encode }}"
               data-variant-fill-overlay-fonts-value="{{ font_faces|map(face => face.family)|json_encode }}"
-              data-action="keydown->group-fill#blockEnter submit->group-fill#exportStarted rich-text-editor:changed->variant-fill-overlay#richTextChanged checklist-editor:changed->variant-fill-overlay#richTextChanged">
+              data-submit-guard="self"
+              data-action="keydown->group-fill#blockEnter submit-guard:start->group-fill#exportStarted submit-guard:settled->group-fill#exportFinished rich-text-editor:changed->variant-fill-overlay#richTextChanged checklist-editor:changed->variant-fill-overlay#richTextChanged">
 
             {# The page's draft: the loaded version (the server only ever
                updates it when it IS a draft of this document); an export with

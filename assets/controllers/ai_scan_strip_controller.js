@@ -3,6 +3,7 @@ import { Controller } from '@hotwired/stimulus';
 import { api, esc, mmss, minutesRange, dateCz, pl, urlFor } from '../ai-scan/kit.js';
 import { pill, STAGES, failureShort } from '../ai-scan/copy.js';
 import { retryScan, discardScan } from '../ai-scan/lists.js';
+import { clearBusy, isBusy, setBusy } from '../busy_button.js';
 
 /*
  * T5 — the strip of scan cards above the template categories
@@ -149,15 +150,17 @@ export default class extends Controller {
 
     async retry(event) {
         const button = event.currentTarget;
-        button.disabled = true;
+        if (isBusy(button)) return;
+        setBusy(button, { label: 'Spouštím…' });
         const started = await retryScan({ actionUrl: this.actionUrlValue, pageUrl: this.pageUrlValue, id: button.dataset.id });
-        if (!started) button.disabled = false;
+        if (!started) clearBusy(button);
     }
 
     async discard(event) {
-        const id = event.currentTarget.dataset.id;
+        const button = event.currentTarget;
+        const id = button.dataset.id;
         const row = this.rows.find((r) => r.id === id);
-        if (!(await discardScan({ actionUrl: this.actionUrlValue, id, proposal: Boolean(row && row.status === 'ready') }))) return;
+        if (!(await discardScan({ actionUrl: this.actionUrlValue, id, proposal: Boolean(row && row.status === 'ready'), button }))) return;
         this.rows = this.rows.filter((r) => r.id !== id);
         this.render();
     }

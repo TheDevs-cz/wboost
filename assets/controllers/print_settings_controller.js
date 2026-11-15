@@ -1,5 +1,6 @@
 import { Controller } from '@hotwired/stimulus';
 import { clampBleed, formatMm, infoParts, isValidSize, previewSvg } from './print_settings_geometry.js';
+import { clearBusy, setBusy } from '../busy_button.js';
 
 /**
  * "Nastavení tisku": the print setup modal of an existing variant / document
@@ -27,7 +28,11 @@ export default class extends Controller {
 
     connect() {
         this.uid = ++instances;
-        this.onShow = () => this.loadDraft();
+        this.onShow = () => {
+            // Back from the saved page (bfcache): the button is usable again.
+            clearBusy(this.saveButton());
+            this.loadDraft();
+        };
         this.onHidden = () => this.loadDraft();
         this.modalTarget.addEventListener('show.bs.modal', this.onShow);
         this.modalTarget.addEventListener('hidden.bs.modal', this.onHidden);
@@ -112,7 +117,23 @@ export default class extends Controller {
 
         this.bleedFieldTarget.value = setup.bleed;
         this.writeMarks(setup.marks);
+
+        // A native post: the site-wide form guard (submit_guard.js) refuses a
+        // second one, but „Uložit“ is not a submit button, so it is painted
+        // here — only when the post really left (the submit event fired: the
+        // form was valid and not already sending).
+        let submitted = false;
+        const onSubmit = () => { submitted = true; };
+        this.formTarget.addEventListener('submit', onSubmit);
         this.formTarget.requestSubmit();
+        this.formTarget.removeEventListener('submit', onSubmit);
+        if (submitted) {
+            setBusy(this.saveButton(), { label: 'Ukládám…' });
+        }
+    }
+
+    saveButton() {
+        return this.formTarget.querySelector('[data-action~="print-settings#save"]');
     }
 
     render() {

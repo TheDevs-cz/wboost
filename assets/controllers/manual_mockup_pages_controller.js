@@ -189,13 +189,32 @@ export default class extends Controller {
         });
     }
 
+    // One order post at a time (two in flight could land out of order); a
+    // drop meanwhile sends only the newest order once the running one ends.
     persist(sorted) {
+        this.pendingOrder = sorted;
+        if (this.persisting) return;
+        this.persisting = true;
+        this.persistPending();
+    }
+
+    persistPending() {
+        const sorted = this.pendingOrder;
+        this.pendingOrder = null;
+
         fetch(this.sortUrlValue, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
             body: JSON.stringify({ sorted }),
         })
             .then((response) => { if (!response.ok) throw new Error(`HTTP ${response.status}`); })
-            .catch((error) => console.error('Error updating mockup page order:', error));
+            .catch((error) => console.error('Error updating mockup page order:', error))
+            .finally(() => {
+                if (this.pendingOrder) {
+                    this.persistPending();
+                } else {
+                    this.persisting = false;
+                }
+            });
     }
 }

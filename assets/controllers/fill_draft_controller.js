@@ -1,5 +1,6 @@
 import { Controller } from '@hotwired/stimulus';
 import { renderStreamMessage } from '@hotwired/turbo';
+import { clearBusy, setBusy } from '../busy_button.js';
 
 /**
  * "Uložit rozpracované" on both fill pages: work in progress must be savable
@@ -142,7 +143,8 @@ export default class extends Controller {
             // `allowUnfilled` is the export question's answer (AI scan, ai_scan_export_guard):
             // it rides along with ONE submit and is gone again — never the user's work. With it
             // in the baseline, every confirmed export left the page "unsaved".
-            if (key === '_fill_draft_token' || key === 'draftVersionId' || key === 'allowUnfilled') {
+            // `_submit_token`: the site-wide form guard's per-post token (submit_guard.js), not the user's work.
+            if (key === '_fill_draft_token' || key === 'draftVersionId' || key === 'allowUnfilled' || key === '_submit_token') {
                 continue;
             }
             parts.push(`${key}=${typeof value === 'string' ? value : ''}`);
@@ -168,10 +170,14 @@ export default class extends Controller {
         });
     }
 
+    /** The site-wide busy look (busy_button.js): spinner + „Ukládám…“, not clickable. */
     _setBusy(busy) {
         this.buttonTargets.forEach((button) => {
-            button.disabled = busy;
-            button.classList.toggle('is-saving', busy);
+            if (busy) {
+                setBusy(button, { label: 'Ukládám…' });
+            } else {
+                clearBusy(button);
+            }
         });
     }
 

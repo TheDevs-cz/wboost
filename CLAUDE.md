@@ -68,7 +68,7 @@ commit when you change a contract described there — not this file.
 
 The UI is the **Nocturne** design (dark default + light, lavender accent, Outfit,
 mask icons). Spec + rules: `docs/redesign/design-system.md` (§3 components,
-§7 the 22 design-language rules: `.head` page header, one lavender primary,
+§7 the 23 design-language rules: `.head` page header, one lavender primary,
 cards for objects / rows for people, boxes for settings, pills, Czech voice).
 Prototype + reference screenshots: `docs/redesign/prototype/`,
 `docs/redesign/reference/screenshots/`. History/decisions: `docs/redesign/JOURNAL.md`.
@@ -116,6 +116,11 @@ design DSL), `docs/plans/` (historical plans, not current truth).
   scripts; any change is a three-way contract.
 - **`<script>` inserted by a Live Component morph never executes** — window
   globals the fill component needs load from the page template.
+- **No double submits, visible busy state** (design-system §7 rule 23): native
+  POST forms are guarded site-wide by `assets/submit_guard.js` (also downloads,
+  via the echoed `_submit_token` cookie); every fetch/XHR save wraps its
+  request in `withBusy(button, …)` from `assets/busy_button.js`; Live action
+  buttons use `data-loading`. Opt a form out with `data-submit-guard="off"`.
 - **Never nest `<form>` tags** (browsers drop the inner start tag and its
   `</form>` closes the outer form) — use `form="…"` attributes + anchors.
 - **Twig empty hash encodes as `[]`**, which Stimulus `Object` values throw on —

@@ -49,6 +49,10 @@ import './styles/nocturne/editor.css';
 // Hex colour picker popover (color_picker_controller) — editor + fill pages.
 import './styles/nocturne/color-picker.css';
 
+// A form that is sending cannot be sent again; its button shows the work
+// (site-wide, native posts — docs/redesign/design-system.md §7).
+import './submit_guard.js';
+
 // window.bootstrap before Stimulus starts.
 import './bootstrap_global.js';
 

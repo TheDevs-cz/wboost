@@ -1,5 +1,6 @@
 // AI sken — what the lists around a scan share (T5 strip, §8 history): the row actions.
 import { api, confirmDialog, urlFor } from './kit.js';
+import { clearBusy, isBusy, setBusy } from '../busy_button.js';
 import { startHint } from './copy.js';
 import { toast } from '../shell/toast.js';
 
@@ -20,16 +21,21 @@ export async function retryScan({ actionUrl, pageUrl, id }) {
 }
 
 /**
- * "Zahodit" from a list — asks first (never a native confirm).
+ * "Zahodit" from a list — asks first (never a native confirm). `button` (optional) is busy from the
+ * confirmation until the answer (busy_button.js) and refuses a second discard meanwhile; it stays
+ * busy on success — the caller reloads or removes the row.
  * @returns {Promise<boolean>} whether the scan was discarded
  */
-export async function discardScan({ actionUrl, id, proposal = false }) {
+export async function discardScan({ actionUrl, id, proposal = false, button = null }) {
+    if (isBusy(button)) return false;
     const yes = await confirmDialog(proposal
         ? { title: 'Zahodit návrh?', text: 'Návrh se smaže a sken zůstane započítaný. Obrázky, které jste k němu nahráli, přesuneme do Koše v galerii.', confirm: 'Zahodit' }
         : { title: 'Zahodit sken?', text: 'Sken zmizí ze seznamů a jeho obrázek smažeme.', confirm: 'Zahodit' });
-    if (!yes) return false;
+    if (!yes || isBusy(button)) return false;
+    setBusy(button, { label: 'Mažu…' });
     const answer = await api.post(urlFor(actionUrl, id).replace(/\/(cancel|discard|retry|continue)$/, '/discard'));
     if (!answer.ok) {
+        clearBusy(button);
         toast(answer.code === 'wrong_state' ? 'Sken už je v jiném stavu — obnovte stránku.' : 'Sken se nepodařilo zahodit. Zkuste to za chvíli.', { error: true });
         return false;
     }

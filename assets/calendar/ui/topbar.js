@@ -9,6 +9,7 @@
 // primary of its own, Pokračovat is drawn tertiary (one primary per view).
 
 import { h, icon } from './dom.js';
+import { clearBusy, setBusy } from '../../busy_button.js';
 
 export const STEPS = Object.freeze(['Typ', 'Rozvržení', 'Úpravy prvků', 'Obsah', 'Náhled']);
 
@@ -132,7 +133,9 @@ export function mountTopBar(root, ctx) {
         const value = store.getState().status;
         status.dataset.calStatus = value;
         status.replaceChildren(...(value === 'clean' ? [icon('check-circle', 's14')] : []), STATUS_TEXT[value] || '');
-        save.classList.toggle('is-loading', value === 'saving');
+        // the site-wide busy look (spinner + „Ukládám…“, not clickable); Ctrl+S meanwhile still queues one follow-up save
+        if (value === 'saving') setBusy(save, { label: 'Ukládám…' });
+        else clearBusy(save);
     }
 
     function syncName() {

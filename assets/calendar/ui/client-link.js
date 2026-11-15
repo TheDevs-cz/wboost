@@ -9,6 +9,7 @@
 // `[data-cal-link-confirm]` with `[data-cal-choice="confirm" | "cancel"]`.
 
 import { h, icon, openModal } from './dom.js';
+import { clearBusy, setBusy } from '../../busy_button.js';
 
 /** Clipboard API first; the selection + `execCommand` path covers plain-http hosts and old browsers. */
 async function copyText(field) {
@@ -81,8 +82,7 @@ export function openClientLink(ctx) {
     async function regenerate() {
         if (busy) return;
         busy = true;
-        confirm.classList.add('is-loading');
-        confirm.disabled = true;
+        setBusy(confirm, { label: 'Vytvářím…' });
         cancel.disabled = true;
         try {
             const answer = await api.clientLink('regenerate');
@@ -95,8 +95,7 @@ export function openClientLink(ctx) {
             ctx.toast((error && error.message) || 'Odkaz se nepodařilo vytvořit', true);
         } finally {
             busy = false;
-            confirm.classList.remove('is-loading');
-            confirm.disabled = false;
+            clearBusy(confirm);
             cancel.disabled = false;
             confirming(false);
         }

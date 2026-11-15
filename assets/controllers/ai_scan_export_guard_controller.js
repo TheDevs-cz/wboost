@@ -1,5 +1,6 @@
 import { Controller } from '@hotwired/stimulus';
 import { askUnfilled, attachmentName, saveBlob, UNFILLED, CONFIRM_FIELD } from '../ai-scan/export-guard.js';
+import { clearBusy, setBusy } from '../busy_button.js';
 
 /*
  * Asks before an export that would show grey stand-in pictures (ux.md T4).
@@ -45,38 +46,54 @@ export default class extends Controller {
         const form = this.element;
         const submitter = event.submitter || null;
         const url = submitter && submitter.hasAttribute('formaction') ? submitter.formAction : form.action;
+        // The probe can take as long as the export itself (with nothing
+        // unfilled the file comes straight back): the clicked button shows
+        // the work (busy_button.js) until the answer is handled.
+        // The body first: a disabled submitter is left out of the form data.
+        const body = submitter ? new FormData(form, submitter) : new FormData(form);
+        const button = submitter || form.querySelector('button[type="submit"]');
         this.busy = true;
-        if (submitter) submitter.setAttribute('aria-busy', 'true');
+        setBusy(button);
 
         let response = null;
         try {
             response = await fetch(url, {
                 method: 'POST',
                 credentials: 'same-origin',
-                body: submitter ? new FormData(form, submitter) : new FormData(form),
+                body,
                 headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
             });
         } catch (e) {
             response = null;
         }
-        this.busy = false;
-        if (submitter) submitter.removeAttribute('aria-busy');
 
-        if (response && response.status === 409) {
-            const answer = await response.json().catch(() => null);
-            if (answer && answer.code === UNFILLED) {
-                if (await askUnfilled(answer)) this.submitNatively(submitter, true);
+        try {
+            if (response && response.status === 409) {
+                const answer = await response.json().catch(() => null);
+                if (answer && answer.code === UNFILLED) {
+                    this.release(button);
+                    if (await askUnfilled(answer)) this.submitNatively(submitter, true);
+                    return;
+                }
+            }
+
+            const disposition = response ? response.headers.get('Content-Disposition') || '' : '';
+            if (response && response.ok && /attachment/i.test(disposition)) {
+                saveBlob(await response.blob(), attachmentName(disposition));
                 return;
             }
-        }
-
-        const disposition = response ? response.headers.get('Content-Disposition') || '' : '';
-        if (response && response.ok && /attachment/i.test(disposition)) {
-            saveBlob(await response.blob(), attachmentName(disposition));
-            return;
+        } finally {
+            // Before the native submit below: it needs the submitter enabled
+            // (a disabled one is left out of the post).
+            this.release(button);
         }
 
         this.submitNatively(submitter, false);
+    }
+
+    release(button) {
+        this.busy = false;
+        clearBusy(button);
     }
 
     submitNatively(submitter, confirmed) {

@@ -9,6 +9,7 @@ export default class extends Controller {
             const mealTypeId = button.getAttribute('data-meal-type-id');
             this.mealTypeIdTarget.value = mealTypeId;
             this.variantCountTarget.value = '2';
+            this.confirmed = false;
         });
     }
 
@@ -16,9 +17,12 @@ export default class extends Controller {
         const mealTypeId = this.mealTypeIdTarget.value;
         const variantCount = parseInt(this.variantCountTarget.value, 10) || 2;
 
-        if (!mealTypeId) {
+        // One course per opening: a double click while the dialog fades out
+        // would queue addCourse twice (Live runs queued actions).
+        if (!mealTypeId || this.confirmed) {
             return;
         }
+        this.confirmed = true;
 
         const liveComponent = document.querySelector('[data-controller*="live"]');
         if (liveComponent && liveComponent.__component) {

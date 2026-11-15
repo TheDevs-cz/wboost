@@ -26,6 +26,7 @@
             aria-label="Odebrat jídlo {{ meal.internalName }}"
             data-action="{{ closeButtonAction }}"
             data-live-action-param="removeMeal"
+            data-loading="action(removeMeal)|addAttribute(disabled) action(removeMeal)|addClass(is-busy)"
             data-live-variantmealid-param="{{ closeButtonParam }}">{{ icon('x', 's14') }}</button>
     {% endif %}
 </div>

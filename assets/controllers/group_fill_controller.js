@@ -3,6 +3,7 @@ import * as fabric from 'fabric';
 import { ADJUST_SCALE_MIN, NEUTRAL_PLACEMENT, adjustScaleMax, clamp, frameBox, ghostStyle } from './image_placement.js';
 import { unusedRowMemberIds } from './fill_rows.js';
 import { ImageAdjustToolbar } from './image_adjust_toolbar.js';
+import { clearBusy, setBusy } from '../busy_button.js';
 
 /**
  * Keyboard nudge step in CANVAS px (arrow keys on a focused picture) — the
@@ -122,8 +123,7 @@ export default class extends Controller {
 
     initialize() {
         this.refreshTimer = null;
-        this.exportTimer = null;
-        this.exportButtonHtml = null;
+        this._busyExportButton = null;
         // Which dimension the debounced refresh is queued for: undefined = none
         // queued, null = all of them, otherwise one variantId.
         this._pendingScope = undefined;
@@ -311,7 +311,6 @@ export default class extends Controller {
         this._moveDrafts.clear();
         this._selected = null;
         clearTimeout(this.refreshTimer);
-        clearTimeout(this.exportTimer);
         this._renderQueue.clear();
         this._dirty.clear();
         this.aborters.forEach((aborter) => aborter.abort());
@@ -545,26 +544,21 @@ export default class extends Controller {
     // upload auto-picks by clicking its own thumb.
 
     // The download itself is handled natively by the browser (Content-
-    // Disposition: attachment), which gives no completion event — show
-    // progress optimistically and re-enable after a generous window.
+    // Disposition: attachment). The site-wide form guard (submit_guard.js,
+    // this form is `data-submit-guard="self"`) refuses a second post while
+    // one runs and tells us exactly when the download arrived
+    // (`submit-guard:settled`, via the echoed submit token) — no guessing
+    // timer, so a long ZIP / print-PDF export can't be started twice.
     exportStarted(event) {
         // A per-variant PNG button submits the SAME form through its
         // formaction — the busy state belongs to the clicked button, not to
-        // the ZIP button (whose label must not flip to "Generuji ZIP…").
-        // Both mutations are deferred a tick so the form submission leaves
-        // with the submitter still enabled (a disabled submitter is dropped
-        // from the POST and its formaction would be ignored).
-        const submitter = event ? event.submitter : null;
+        // the ZIP button (whose label must not flip to "Generuji ZIP…"). The
+        // guard fires this after the browser built the form data, so the
+        // submitter may be disabled now.
+        const submitter = event?.detail?.submitter ?? null;
         if (submitter && submitter.hasAttribute('data-group-fill-variant-download')) {
-            const originalHtml = submitter.innerHTML;
-            setTimeout(() => {
-                submitter.disabled = true;
-                submitter.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span>';
-            }, 0);
-            setTimeout(() => {
-                submitter.disabled = false;
-                submitter.innerHTML = originalHtml;
-            }, 20000);
+            setBusy(submitter, { label: '' });
+            this._busyExportButton = submitter;
             return;
         }
 
@@ -577,26 +571,15 @@ export default class extends Controller {
         const label = submitter && (submitter.dataset.groupFillZipFormat || '').startsWith('pdf')
             ? 'Generuji PDF…'
             : 'Generuji ZIP…';
-        const button = this.exportButtonTarget;
-        this.exportButtonHtml ??= button.innerHTML;
-
-        setTimeout(() => {
-            button.disabled = true;
-            button.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> ' + label;
-        }, 0);
-
-        clearTimeout(this.exportTimer);
-        this.exportTimer = setTimeout(() => this.exportFinished(), 20000);
+        setBusy(this.exportButtonTarget, { label });
+        this._busyExportButton = this.exportButtonTarget;
     }
 
     exportFinished() {
-        if (!this.hasExportButtonTarget || this.exportButtonHtml === null) {
-            return;
+        if (this._busyExportButton) {
+            clearBusy(this._busyExportButton);
+            this._busyExportButton = null;
         }
-
-        clearTimeout(this.exportTimer);
-        this.exportButtonTarget.disabled = false;
-        this.exportButtonTarget.innerHTML = this.exportButtonHtml;
     }
 
     refreshAll(previews = null) {

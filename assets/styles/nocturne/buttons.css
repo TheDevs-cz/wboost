@@ -254,3 +254,23 @@
    --bs-btn-focus-box-shadow, which our resting glows (primary/danger/success)
    override — buttons had no visible focus at all. Same ring as base.css. */
 .btn:focus-visible, .btn-close:focus-visible { outline: 2px solid var(--lav); outline-offset: 2px; }
+
+/* Busy (assets/busy_button.js) — a button that started work on the server:
+   spinner + „Ukládám…“, not clickable, width kept. Readable, not faded like
+   :disabled (Bootstrap's .4) — it is working, not unavailable. */
+.btn.is-busy, button.is-busy { cursor: progress; pointer-events: none; }
+.btn.is-busy:disabled, .btn.is-busy.disabled { opacity: 1; }
+button.is-busy:not(.btn) { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.busy-spinner { display: inline-block; flex: none; width: 1em; height: 1em; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -.15em; }
+.busy-label { white-space: nowrap; font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { .busy-spinner { animation-duration: 1.8s; } }
+
+/* Live Components (live_busy_controller.js): a write action's buttons carry
+   data-loading="action(x)|addAttribute(disabled) action(x)|addClass(is-busy)"
+   — all of them stop being clickable while it runs, and the one pressed
+   (data-live-pressed) draws the spinner in place of its icon. CSS only: Live
+   re-renders the DOM, so no busy_button.js nodes here. */
+[data-loading].is-busy[data-live-pressed] { cursor: progress; }
+[data-loading].is-busy[data-live-pressed] > .i { display: none; }
+[data-loading].is-busy[data-live-pressed]::before { content: ""; display: inline-block; flex: none; width: 1em; height: 1em; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -.15em; }
+@media (prefers-reduced-motion: reduce) { [data-loading].is-busy[data-live-pressed]::before { animation-duration: 1.8s; } }

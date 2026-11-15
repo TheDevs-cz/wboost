@@ -10,6 +10,7 @@ export default class extends Controller {
             const button = event.relatedTarget;
             const variantId = button.getAttribute('data-variant-id');
             this.variantIdTarget.value = variantId;
+            this.picked = false;
         });
     }
 
@@ -94,9 +95,12 @@ export default class extends Controller {
         const mealId = event.currentTarget.getAttribute('data-meal-id');
         const variantId = this.variantIdTarget.value;
 
-        if (!variantId || !mealId) {
+        // One meal per opening: a double click while the dialog fades out
+        // would queue addMeal twice (Live runs queued actions) — two meals.
+        if (!variantId || !mealId || this.picked) {
             return;
         }
+        this.picked = true;
 
         // Find the Live Component and trigger the action
         const liveComponent = document.querySelector('[data-controller*="live"]');

@@ -96,6 +96,18 @@ export default class extends Controller {
         order.push(...queue);
         this.categoryOrderValue = order;
 
+        // One order post at a time (two in flight could land out of order);
+        // a drop meanwhile sends only the newest order after the running one.
+        this.pendingOrder = order;
+        if (this.sendingOrder) return;
+        this.sendingOrder = true;
+        this.sendPendingOrder();
+    }
+
+    sendPendingOrder() {
+        const order = this.pendingOrder;
+        this.pendingOrder = null;
+
         fetch(this.sortUrlValue, {
             method: "POST",
             headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
@@ -104,7 +116,11 @@ export default class extends Controller {
             .then((response) => {
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
             })
-            .catch((error) => console.error("Saving the category order failed:", error));
+            .catch((error) => console.error("Saving the category order failed:", error))
+            .finally(() => {
+                if (this.pendingOrder) this.sendPendingOrder();
+                else this.sendingOrder = false;
+            });
     }
 
     toggle(event) {

@@ -1,6 +1,7 @@
 /* stimulusFetch: 'lazy' */
 import { Controller } from '@hotwired/stimulus';
 import { retryScan, discardScan, restoreCalendarLayout } from '../ai-scan/lists.js';
+import { clearBusy, isBusy, setBusy } from '../busy_button.js';
 
 /*
  * "Historie skenů" (templates/ai_scan/history.html.twig, docs/ai-scan/ux.md
@@ -37,21 +38,23 @@ export default class extends Controller {
 
     async retry(event) {
         const button = event.currentTarget;
-        button.disabled = true;
+        if (isBusy(button)) return;
+        setBusy(button, { label: 'Spouštím…' });
         const started = await retryScan({ actionUrl: this.actionUrlValue, pageUrl: button.dataset.pageUrl || this.pageUrlValue, id: button.dataset.id });
-        if (!started) button.disabled = false;
+        if (!started) clearBusy(button);
     }
 
     async restore(event) {
         const button = event.currentTarget;
-        button.disabled = true;
+        if (isBusy(button)) return;
+        setBusy(button, { label: 'Vracím…' });
         if (await restoreCalendarLayout({ url: button.dataset.url })) window.location.reload();
-        else button.disabled = false;
+        else clearBusy(button);
     }
 
     async discard(event) {
         const button = event.currentTarget;
-        if (await discardScan({ actionUrl: this.actionUrlValue, id: button.dataset.id, proposal: button.dataset.proposal === '1' })) {
+        if (await discardScan({ actionUrl: this.actionUrlValue, id: button.dataset.id, proposal: button.dataset.proposal === '1', button })) {
             window.location.reload();
         }
     }

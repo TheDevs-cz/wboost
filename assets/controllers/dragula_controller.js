@@ -51,7 +51,20 @@ export default class extends Controller {
         this.sendOrderToBackend(sorted);
     }
 
+    // One order post at a time: two in flight could land out of order and
+    // store the older order. A drop meanwhile is remembered and only the
+    // newest order is sent once the running post has finished.
     sendOrderToBackend(sorted) {
+        this.pendingOrder = sorted;
+        if (this.sending) return;
+        this.sending = true;
+        this.sendPendingOrder();
+    }
+
+    sendPendingOrder() {
+        const sorted = this.pendingOrder;
+        this.pendingOrder = null;
+
         fetch(this.sortUrlValue, {
             method: 'POST',
             headers: {
@@ -71,6 +84,13 @@ export default class extends Controller {
             })
             .catch(error => {
                 console.error('Error updating order:', error);
+            })
+            .finally(() => {
+                if (this.pendingOrder) {
+                    this.sendPendingOrder();
+                } else {
+                    this.sending = false;
+                }
             });
     }
 }

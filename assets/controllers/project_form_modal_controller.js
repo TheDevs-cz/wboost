@@ -1,4 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
+import { clearBusy, setBusy } from '../busy_button.js';
 
 /*
  * Shared "Nový projekt" / "Změnit název a logo" dialog (#project-form-modal,
@@ -66,9 +67,13 @@ export default class extends Controller {
         const form = e.target;
         if (!(form instanceof HTMLFormElement) || !this.contentTarget.contains(form)) return;
         e.preventDefault();
+        // One post at a time (Enter in a field submits too, not only the
+        // button): a second one would create the project twice.
+        if (this.submitting === form) return;
+        this.submitting = form;
 
         const button = form.querySelector('button[type="submit"]');
-        if (button) button.classList.add('is-loading');
+        setBusy(button);
         const seq = this.seq;
 
         try {
@@ -86,14 +91,16 @@ export default class extends Controller {
                 return;
             }
             if ((response.status === 422 || response.ok) && !response.redirected && type.includes('text/html')) {
+                this.submitting = null;
                 this.contentTarget.innerHTML = await response.text();
                 this.focusField(true);
                 return;
             }
             throw new Error(String(response.status));
         } catch (err) {
+            if (this.submitting === form) this.submitting = null;
             if (seq !== this.seq) return;
-            if (button) button.classList.remove('is-loading');
+            clearBusy(button);
             this.showError(form);
         }
     }

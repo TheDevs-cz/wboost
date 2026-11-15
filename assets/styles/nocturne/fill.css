@@ -32,7 +32,6 @@
 .fi-draft[data-saved] .fi-draft-dirty { display: none; }
 .fi-draft[data-saved] .fi-draft-saved { display: inline-flex; }
 .fi-draft[data-saved] .i { color: var(--mnt-ink); }
-.fi-draft.is-saving { opacity: .6; }
 
 /* ---------- Historie exportů (prototype `.fi-hpop`) ---------- */
 .fi-hw { position: relative; display: inline-flex; }

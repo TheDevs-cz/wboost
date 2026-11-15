@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus";
+import { clearBusy, setBusy } from "../busy_button.js";
 import { askUnfilled, UNFILLED, CONFIRM_FIELD } from "../ai-scan/export-guard.js";
 
 /**
@@ -99,7 +100,7 @@ export default class extends Controller {
         let again = false;
 
         this.publishing = true;
-        this.submitTarget.disabled = true;
+        setBusy(this.submitTarget, { label: "Publikuji…" });
         this._setStatus("Publikuji…", "busy");
 
         try {
@@ -128,6 +129,7 @@ export default class extends Controller {
             this._setStatus("Publikování se nepovedlo. Zkuste to prosím znovu.", "error");
         } finally {
             this.publishing = false;
+            clearBusy(this.submitTarget);
             this.submitTarget.disabled = false;
         }
 
