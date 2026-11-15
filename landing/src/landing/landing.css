@@ -7998,3 +7998,55 @@ input[type="range"]::-moz-range-thumb {
     font-size: 0.875rem;
   }
 }
+/* Phones + tablets: the text login gives way to an icon next to the burger,
+   and below 700px the "Ukázka naživo" CTA moves to the bottom of the menu. */
+.nav-login-icon,
+.nav-links .nav-menu-cta {
+  display: none;
+}
+.nav-login-icon {
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  margin-left: auto;
+  border: 1px solid var(--line-3);
+  border-radius: 999px;
+  color: var(--text);
+  transition: border-color 0.2s var(--ease);
+}
+.nav-login-icon:hover {
+  border-color: var(--text-2);
+}
+.nav-login-icon svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.nav-login-icon + .menu-btn {
+  margin-left: 0;
+}
+@media (max-width: 1000px) {
+  .nav-login-icon {
+    display: inline-flex;
+  }
+  .nav .wrap {
+    gap: 10px;
+  }
+}
+@media (max-width: 700px) {
+  .nav-links a.nav-menu-cta {
+    display: inline-flex;
+    font-weight: 700;
+    margin-top: 18px;
+    padding: 0 24px;
+    border-bottom: 1px solid transparent;
+    color: var(--on-accent);
+    font-size: 1.0625rem;
+  }
+}
