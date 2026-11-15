@@ -236,9 +236,88 @@ the request with no form behind them, so the cap lives in
 `PlaceholderImageUploader::upload()` — the single chokepoint they all share —
 and surfaces as a `400`. Documented in `docs/api/consumer-prompt.md`.
 
-PHP/Caddy allow 50 MB (`upload_max_filesize`/`post_max_size` come from the
-`ghcr.io/thedevs-cz/php` base image, not this repo), so the app-level limit is
-the only thing in play.
+PHP itself allows 50 MB per file (`upload_max_filesize`), so the app-level
+limit is the only per-file cap in play — see "Request size limits" below for
+the whole-request ceiling.
+
+### Request size limits (`post_max_size`, 413) — 2026-11-15
+
+PHP limits live in `.docker/php/wboost.ini` (conf.d/`zz-wboost.ini`, every
+environment; it overrides the base image's 50M defaults):
+
+- **`post_max_size = 256M`** (BINARY: 268 435 456 bytes) — the whole request
+  body. Sized for the biggest legitimate request, the manual mockup page form:
+  6 images × 10 MB + 6 per-image downloads × 20 MB + a 20 MB page download =
+  **200 MB in one POST** (decimal), plus headroom for fields and multipart
+  framing. Past the limit PHP does not fail: it SILENTLY empties all of
+  `$_POST` and `$_FILES` and runs the request, which used to surface as
+  "Invalid CSRF token" / a blank re-rendered form / nothing saved.
+- **`upload_max_filesize = 50M`**, **`max_file_uploads = 20`** (the mockup
+  form carries up to 13 files). The real per-file caps (10 MB images, 20 MB
+  mockup downloads, both decimal) are the Symfony `File`/`Image` constraints,
+  which answer with a form error — PHP's per-file limit is only a backstop.
+
+**The 413 contract.** `Services/Http/RejectOversizedRequestBodyListener`
+(`kernel.request`, priority 512 — after Sentry's scope push, before session,
+router, firewall, CSRF and forms) rejects a POST / PUT / PATCH whose
+`Content-Length` exceeds the LIVE `post_max_size` (ini shorthand parsed by
+`RequestBodyLimit::parseIniSize`; 0 / unset / unparsable = unlimited → no
+check). It answers:
+
+- **JSON** `413 {"status": "error", "code": "request_too_large", "message":
+  "<Czech>", "maxBytes": <int>}` when the caller is a program: path under
+  `/api`, `/_mcp`, `/internal/` (the scanner API), `/_components` (Live
+  Components), or `X-Requested-With: XMLHttpRequest`, or an `Accept` /
+  `Content-Type` naming JSON;
+- otherwise an **HTML** page: `HttpException(413)` rendered by
+  `templates/bundles/TwigBundle/Exception/error.html.twig` (the 413 entry shows
+  the exception message — „Nahrávaná data jsou příliš velká (max. 256 MB
+  najednou). Nahrajte prosím soubory po částech.“).
+
+The MB in the copy is binary (`RequestBodyLimit::megabytes`), the same number
+as the ini file. `RequestBodyLimit::POST_MAX_SIZE_BYTES` is the ONE PHP mirror
+of the ini value (`RequestBodyLimitTest` pins it to the file AND to the running
+PHP); the listener itself always reads the live ini value. Note that the web
+container must be restarted to pick up an ini change (resident FrankenPHP).
+
+**Mockup total guard.** `mockup_page_editor_controller.js` gets
+`maxRequestSize` from that constant (`_mockup_page_form_editor.html.twig`) and,
+on submit, sums every file input of the form (slots beyond the chosen layout
+upload too); over the limit minus 1 MB it blocks the submit and shows the
+`requestSizeError` alert above the save bar. Per-file checks are unchanged.
+
+**Slow uploads (`max_input_time = 300`, Sentry WEB-4X).** FrankenPHP (worker
+mode, ≤ 1.13.5) reads a `multipart/form-data` body AFTER it armed the request
+timer — and with the base image's `max_input_time = -1` that timer is
+`max_execution_time` (30 s). A body trickling in over a slow uplink for > 30 s
+therefore died with "Maximum execution time of 30 seconds exceeded" at
+`FrankenPhpWorkerRunner.php` line 51 (the handler closure's first opcode), as
+the upload completed and before any app code ran: a 500/504, the worker thread
+restarted, the save lost. (urlencoded / JSON bodies are read earlier, untimed.)
+With `max_input_time` set, FrankenPHP arms THAT limit for the input phase and
+resets to `max_execution_time` before the app starts. Reproduced and verified
+against the prod image; the editor saves that hit it are in
+`templates-module-and-groups.md` ("Save").
+
+**Misattribution.** Such a fatal is booked with the PREVIOUS request on that
+worker thread (Sentry request, user, Monolog `fingers_crossed` buffer — all
+reset only by the next `kernel.request`): WEB-4X showed `/internal/scanner/claim`
+and health checks while the victims were group-editor saves.
+`Services/SentryBeforeSend` (the `before_send`, after the AI-scan scrubber)
+drops request/user of a timeout whose deepest frame is the worker runner, tags
+`request_context: unknown_before_app` and fingerprints it
+`frankenphp-timeout-before-app`. Find the real request in the edge access log
+(lily `/srv/traefik/logs/access.log`): a POST ending at the event's timestamp.
+
+**Edge.** Traefik in front of the app buffers wboost POST / PUT / PATCH bodies
+(router `wboost-web-body`, `buffering` middleware: everything above 1 MiB goes
+to disk, cap `maxRequestBodyBytes` = 268 435 456 = `post_max_size`; bigger is a
+Traefik 413) and allows 32 such requests in flight per client IP — so a slow
+upload costs no PHP thread and PHP receives the whole body at LAN speed. The
+cap must stay ≥ `post_max_size`. The edge still bounds a whole request (body
+included) at its `readTimeout` of 180 s. Config + decision: lily.srv
+`apps/wboost/compose.yaml`, `docs/decisions.md`.
+Tests: `tests/Services/Http/`, `tests/Services/SentryBeforeSendTest.php`.
 
 ### Gallery uploads are format-normalized (`NormalizeImageFormat`)
 

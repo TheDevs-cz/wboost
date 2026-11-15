@@ -15,7 +15,15 @@ readonly final class EditTemplateVariantCanvasEditor
      * @param array<EditorImageInput> $imageInputs
      * @param string $previewImageDataUri Base64 PNG data URI captured client-side
      *                                    by `canvas.toDataURL()`. The handler
-     *                                    decodes and uploads it to Minio.
+     *                                    decodes and uploads it to Minio. The
+     *                                    legacy transport — still accepted
+     *                                    from editor tabs opened before the
+     *                                    binary upload shipped.
+     * @param string $previewImageBytes The same thumbnail as raw PNG bytes
+     *                                  (the editors upload it as a file since
+     *                                  2026-11-15 — a third less to send than
+     *                                  base64). Wins over the data URI; both
+     *                                  empty = keep the stored thumbnail.
      */
     public function __construct(
         public UuidInterface $variantId,
@@ -23,6 +31,7 @@ readonly final class EditTemplateVariantCanvasEditor
         public array $inputs,
         public array $imageInputs,
         public string $previewImageDataUri,
+        public string $previewImageBytes = '',
     ) {
     }
 }

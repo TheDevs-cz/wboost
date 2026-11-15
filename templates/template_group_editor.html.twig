@@ -164,7 +164,7 @@
 
                 <a href="{{ path('template_group_fill', {'groupId': group.id}) }}" class="btn btn-tertiary sm ed-fill" data-action="editor-chrome#navigate" title="Vyplnit a exportovat">{{ icon('download', 's16') }}<span class="ed-lbl">Vyplnit a exportovat</span></a>
 
-                <button class="btn btn-success sm ed-save" type="button" data-action="group-editor#submitForm">Uložit vše</button>
+                <button class="btn btn-success sm ed-save" type="button" data-group-editor-target="saveButton" data-action="group-editor#submitForm">Uložit vše</button>
             </header>
 
             {# Format tabs = the variant rail: one tab per dimension — switching,

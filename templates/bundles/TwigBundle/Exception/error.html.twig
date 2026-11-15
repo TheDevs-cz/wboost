@@ -1,9 +1,12 @@
 {% extends 'base_auth.html.twig' %}
 
 {% set error_code = status_code|default(null) %}
+{# 413 comes from RejectOversizedRequestBodyListener, whose message names the
+   real post_max_size; the fallback text only covers a 413 thrown elsewhere. #}
 {% set error_copy = {
     403: {title: 'Sem nemáte přístup', text: 'Na tuto stránku nemáte oprávnění. Pokud si myslíte, že jde o omyl, požádejte správce projektu o přístup.', icon_name: 'lock'},
     410: {title: 'Stránka už neexistuje', text: 'Obsah, který hledáte, byl odstraněn.', icon_name: 'search'},
+    413: {title: 'Příliš velký požadavek', text: exception.message|default('Nahrávaná data jsou příliš velká. Nahrajte prosím soubory po částech.'), icon_name: 'upload'},
     429: {title: 'Příliš mnoho požadavků', text: 'Chvíli počkejte a zkuste to znovu.', icon_name: 'history'},
     503: {title: 'Probíhá údržba', text: 'WBoost je na chvíli nedostupný. Zkuste to prosím za pár minut.', icon_name: 'refresh'},
 } %}

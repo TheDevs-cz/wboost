@@ -26,6 +26,7 @@ export default class extends Controller {
         'downloadInput', 'downloadRemoveFlag',
         'pageDownloadInput', 'pageDownloadRemoveFlag',
         'pageFileState', 'pageFilePick', 'pageFileRemove', 'pageFileRestore', 'pageFileError',
+        'requestSizeError',
     ];
 
     static values = {
@@ -40,6 +41,9 @@ export default class extends Controller {
         fixedLayout: String,
         maxFileSize: Number,
         maxDownloadSize: Number,
+        // PHP's `post_max_size` in bytes (RequestBodyLimit::POST_MAX_SIZE_BYTES,
+        // BINARY: 256M = 256 × 1024²). Past it PHP drops the WHOLE body.
+        maxRequestSize: Number,
         galleryModal: { type: String, default: '#manualGalleryModal' },
     };
 
@@ -940,10 +944,67 @@ export default class extends Controller {
         if (this.hasDirtyBadgeTarget) {
             this.dirtyBadgeTarget.classList.remove('d-none');
         }
+
+        // The selection changed — the total is re-checked on the next submit.
+        this.showRequestSizeError(null);
     }
 
-    formSubmitted() {
+    formSubmitted(event) {
+        const message = this.requestSizeProblem();
+
+        if (message !== null) {
+            event.preventDefault();
+            this.showRequestSizeError(message);
+            return;
+        }
+
         this.submitting = true;
+    }
+
+    /**
+     * The per-file caps hold, but the whole form is ONE request and PHP
+     * silently empties it past `post_max_size` (the server would answer 413).
+     * Counts every file input of the form — also slots beyond the chosen
+     * layout, because the browser uploads those too. 1 MB stays reserved for
+     * the text fields and the multipart framing. Units are BINARY MB here,
+     * like the server's 413 message, so both name the same limit.
+     */
+    requestSizeProblem() {
+        if (!this.hasMaxRequestSizeValue || this.maxRequestSizeValue <= 0) {
+            return null;
+        }
+
+        let total = 0;
+        this.element.querySelectorAll('input[type="file"]').forEach((input) => {
+            for (const file of input.files ?? []) {
+                total += file.size;
+            }
+        });
+
+        const mib = 1024 * 1024;
+
+        if (total <= this.maxRequestSizeValue - mib) {
+            return null;
+        }
+
+        // Czech decimal comma.
+        const totalMb = (total / mib).toFixed(1).replace('.', ',');
+        const limitMb = Math.floor(this.maxRequestSizeValue / mib);
+
+        return `Vybrané soubory mají dohromady ${totalMb} MB — najednou jde nahrát nejvýš ${limitMb} MB. Odeberte část souborů, stránku uložte a zbytek přidejte v dalším kroku.`;
+    }
+
+    showRequestSizeError(message) {
+        if (!this.hasRequestSizeErrorTarget) {
+            return;
+        }
+
+        this.requestSizeErrorTarget.textContent = message ?? '';
+        this.requestSizeErrorTarget.classList.toggle('d-none', message === null);
+
+        if (message !== null) {
+            this.requestSizeErrorTarget.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
     }
 
     truncate(text, length) {

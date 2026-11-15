@@ -302,6 +302,55 @@ as **deprecated aliases** over the very same providers/processors/controllers
 `*_legacy_social` route names on the thumbnail + upload controllers). mfkfm is
 already ported to the canonical paths.
 
+### Save — both canvas editors (2026-11-15, Sentry WEB-4X)
+
+Trigger: a designer on a slow uplink clicked "Uložit vše" repeatedly while
+nothing visibly happened; each click started another 1–2 MB multipart upload,
+the parallel uploads shared the uplink, each outlived PHP's 30 s timer and all
+of them failed (the server side of that is in `gallery-and-uploads.md`,
+"Request size limits": `max_input_time`, edge buffering, Sentry attribution).
+
+**Client** — `assets/controllers/editor_save.js`, used by
+`canvas_editor_controller#submitForm` (single variant, also "Uložit a
+exportovat") and `group_editor_controller#submitForm` ("Uložit vše"):
+
+- `SaveRunner`: never two saves at once. A click during a save queues ONE
+  follow-up (further clicks join it) that serializes the editor when it
+  STARTS, so the newest state lands last. The save button (`saveButton`
+  target in both templates) reads „Ukládám… 42 %“ (XHR upload progress),
+  „Ukládám…“ while the server works, „(pak znovu)“ appended while a
+  follow-up waits; `beforeunload` asks while anything runs.
+- `postEditorSave`: XHR (fetch has no upload progress), resolves only on the
+  JSON `{status: "success"}`; anything else is a `SaveError` of a kind —
+  `too_large` (413 / `code: request_too_large`), `session` (`code: csrf`,
+  401/403), `rejected` (422 with a message, e.g. `CanvasStorageGuard`),
+  `network`, `timeout`, `server` (5xx, no answer, or a 2xx that is not the
+  contract — a PHP fatal rendered as a page). One Czech toast per failed save
+  (`gallery-toast` kit); the work always stays in the editor.
+- "Saved" is claimed only when nothing was edited while the upload ran
+  (`canvas_editor.mutationSeq`, bumped by `markUnsaved`).
+- **Thumbnails are binary PNG files**, not base64 text (a third less):
+  `imagePreviewFile` next to the single editor's form,
+  `variants[<id>][imagePreviewFile]` in the group save. The group editor only
+  renders + sends a variant's thumbnail when its payload (canvas + text +
+  image inputs) differs from what its last successful save in this page sent
+  (`variant.savedSnapshot`): a 3-variant group measured 3.37 MB on the first
+  save and 80 KB on an unchanged follow-up.
+
+**Server** — `TemplateVariantEditorController` / `TemplateGroupEditorController`
+read the file through `Services/Editor/UploadedPreviewImage::bytes()` (valid
+upload, ≤ 10 MB, PNG signature — anything else reads as "no thumbnail") into
+`EditTemplateVariantCanvasEditor::$previewImageBytes`; the handler prefers the
+bytes, falls back to the legacy `previewImageDataUri` (editor tabs opened
+before the release still send it), and keeps the stored thumbnail when both
+are empty. The single editor answers a refused JSON save (invalid form —
+expired CSRF, dropped body) with `400 {status: "error", code: "csrf", …}`
+instead of re-rendering the page with 200; the group save's CSRF error carries
+`code: "csrf"` too. Browser-verified (puppeteer, throttled to 60 KB/s up):
+triple click → exactly two uploads, progress + queued label, leave prompt,
+offline → toast, binary thumbnail in both editors. Tests:
+`TemplateGroupEditorControllerTest`, `TemplateVariantEditorControllerTest`.
+
 ### "Šablona z obrázku" — AI scan in the template list (2026-11-12)
 
 The fourth card of "Nová šablona" is live (it replaced the "Brzy" teaser);

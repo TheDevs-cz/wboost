@@ -507,8 +507,11 @@ value is not allowed in HTTP headers.
 
 **Status codes:** `200` image · `400` structured error (see the code table
 below) · `401` bad token · `403` variant not visible to this client's user ·
-`404` variant not found · `503` `render_unavailable` (renderer overloaded —
-retry) · `500` render backend failure.
+`404` variant not found · `413` request body over 256 MB (binary; JSON
+`{status: "error", code: "request_too_large", message, maxBytes}` from the
+app, or a plain-text 413 from the edge — treat both as "too large", don't
+retry) · `503` `render_unavailable` (renderer overloaded — retry) · `500`
+render backend failure.
 
 **Every 400 is structured** — `{ "error": "<human message>", "code": "<code>",
 ...context }` — and value errors name the offending field (`inputId` or

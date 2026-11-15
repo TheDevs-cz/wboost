@@ -19,6 +19,7 @@ use WBoost\Web\Message\Template\EditTemplateVariantCanvasEditor;
 use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Query\GetProjectPalette;
 use WBoost\Web\Services\Editor\CanvasStorageGuard;
+use WBoost\Web\Services\Editor\UploadedPreviewImage;
 use WBoost\Web\Services\Editor\ResolveEditorFontDefaults;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Query\GetTemplateGroupMembers;
@@ -98,9 +99,14 @@ final class TemplateGroupEditorController extends AbstractController
     }
 
     /**
-     * Save contract: `variants[<variantUuid>][canvas|textInputs|imageInputs|imagePreview]`,
-     * one entry per included variant, same field semantics as the single-variant
-     * editor form. Validates ALL entries before dispatching anything.
+     * Save contract: `variants[<variantUuid>][canvas|textInputs|imageInputs]`
+     * plus the thumbnail as the PNG file `variants[<variantUuid>][imagePreviewFile]`
+     * (or, from editor tabs opened before 2026-11-15, the base64 text field
+     * `imagePreview`; neither = keep the stored thumbnail), one entry per
+     * included variant, same field semantics as the single-variant editor
+     * form. Validates ALL entries before dispatching anything. Errors are
+     * JSON `{status: "error", code?, message}` — `code: "csrf"` for an
+     * expired page.
      *
      * @param list<TemplateVariant> $memberVariants
      */
@@ -111,6 +117,7 @@ final class TemplateGroupEditorController extends AbstractController
         if (!$this->isCsrfTokenValid('template_group_editor', $token)) {
             return $this->json([
                 'status' => 'error',
+                'code' => 'csrf',
                 'message' => 'Invalid CSRF token.',
             ], Response::HTTP_BAD_REQUEST);
         }
@@ -129,6 +136,12 @@ final class TemplateGroupEditorController extends AbstractController
         foreach ($memberVariants as $variant) {
             $variantsById[$variant->id->toString()] = $variant;
         }
+
+        // The thumbnails arrive as binary files under the same keys
+        // (`variants[<id>][imagePreviewFile]`); a variant without one keeps
+        // its stored thumbnail (the editor skips unchanged variants).
+        /** @var mixed $rawPreviewFiles */
+        $rawPreviewFiles = $request->files->all()['variants'] ?? [];
 
         $validated = [];
 
@@ -165,6 +178,11 @@ final class TemplateGroupEditorController extends AbstractController
                 'textInputs' => $payload['textInputs'],
                 'imageInputs' => is_string($imageInputs) ? $imageInputs : '[]',
                 'imagePreview' => is_string($imagePreview) ? $imagePreview : '',
+                'imagePreviewBytes' => UploadedPreviewImage::bytes(
+                    is_array($rawPreviewFiles) && is_array($rawPreviewFiles[$variantId] ?? null)
+                        ? ($rawPreviewFiles[$variantId]['imagePreviewFile'] ?? null)
+                        : null,
+                ),
             ];
         }
 
@@ -175,6 +193,7 @@ final class TemplateGroupEditorController extends AbstractController
                 EditorTextInput::createCollectionFromJson($entry['textInputs']),
                 EditorImageInput::createCollectionFromJson($entry['imageInputs']),
                 previewImageDataUri: $entry['imagePreview'],
+                previewImageBytes: $entry['imagePreviewBytes'],
             ));
         }
 

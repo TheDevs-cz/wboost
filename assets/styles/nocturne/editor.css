@@ -48,6 +48,8 @@ a.ed-sync:hover { color: var(--text); }
 .ed-top:has(.ed-state--dirty:not(.d-none)) .ed-state--saved { display: none; }
 
 .ed .ed-save { min-width: 84px; }
+/* Saving (editor_save.js): "Ukládám… 42 %" — digits stay put while they count. */
+.ed .ed-save.is-saving { cursor: progress; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ed .ed-fill { text-decoration: none; }
 
 /* "Zobrazení" — prototype check menu (screen 21) */

@@ -4,6 +4,7 @@ import { FabricImage, StaticCanvas } from "fabric";
 import { PREVIEW_MAX_WIDTH, buildVariantPayload, coverForDimensions, restoreCustomProperties } from './canvas_payload.js';
 import { loadCanvasDocument, reportMissingImages, withStandInsHidden } from './canvas_missing_images.js';
 import { GroupSync, isSyncable } from './group_sync.js';
+import { SaveRunner, dataUriToBlob, describeSaveFailure, postEditorSave, showSaveToast } from './editor_save.js';
 
 const SYNC_DEBOUNCE = 150;
 const HISTORY_DEBOUNCE = 400;
@@ -31,7 +32,7 @@ export default class extends Controller {
 
     static targets = [
         "variantsData", "rail", "railCard", "multiEditButton", "card", "includeToggle",
-        "dirtyDot", "badge", "undoButton", "redoButton",
+        "dirtyDot", "badge", "undoButton", "redoButton", "saveButton",
     ];
 
     static values = {
@@ -66,6 +67,16 @@ export default class extends Controller {
         this._shadowsReady = new Promise((resolve) => {
             this._resolveShadowsReady = resolve;
         });
+    }
+
+    connect() {
+        // One save at a time, progress on the button, leave guard while an
+        // upload is in flight — editor_save.js (Sentry WEB-4X).
+        this._saveRunner = new SaveRunner({ button: this.hasSaveButtonTarget ? this.saveButtonTarget : null });
+    }
+
+    disconnect() {
+        this._saveRunner?.disconnect();
     }
 
     canvasEditorOutletConnected(outlet) {
@@ -1200,7 +1211,26 @@ export default class extends Controller {
 
     // ------------------------------------------------------------------ save
 
-    async submitForm() {
+    /**
+     * "Uložit vše". Resolves to whether the save landed. Saves never overlap:
+     * a click while one is uploading queues ONE follow-up that serializes the
+     * editor afresh when it starts (SaveRunner, editor_save.js). A failure is
+     * told once per save, in a toast — the work stays in the editor.
+     */
+    submitForm() {
+        return this._saveRunner.run(async (onProgress) => {
+            try {
+                await this._save(onProgress);
+                return true;
+            } catch (error) {
+                console.error('Error during save:', error);
+                showSaveToast(describeSaveFailure(error), 'warning');
+                return false;
+            }
+        });
+    }
+
+    async _save(onProgress) {
         const editor = this.canvasEditorOutlet;
 
         this._flushPendingSync();
@@ -1213,7 +1243,7 @@ export default class extends Controller {
             await this._enqueueStructural(() => this.sync.reconcileStructure(), { pushHistory: false });
             // Ops enqueued WHILE the reconcile ran (an add fired mid-await)
             // must land in the shadows before they are serialized below —
-            // everything from here to the fetch is synchronous, so a drained
+            // everything from here to the upload is synchronous, so a drained
             // chain means a consistent snapshot.
             await this._drainStructuralOps();
 
@@ -1233,10 +1263,14 @@ export default class extends Controller {
             }
         }
 
+        // Edits made while the upload runs are NOT in this save: the "saved"
+        // state is only claimed afterwards when nothing changed meanwhile.
+        const mutationSeq = editor.mutationSeq;
+
         const formData = new FormData();
         formData.append('_token', this.csrfValue);
 
-        const savedIds = [];
+        const saved = [];
 
         for (const variant of this.variants) {
             // Included variants always save; excluded ones save too when
@@ -1247,70 +1281,70 @@ export default class extends Controller {
                 continue;
             }
 
-            let payload;
-            let preview = '';
+            const isActive = variant.id === this.activeId;
 
-            if (variant.id === this.activeId) {
-                payload = editor.collectEditorPayload();
-                try {
-                    preview = editor.getScaledCanvasDataURI(400);
-                } catch (err) {
-                    console.warn('Preview generation skipped (tainted canvas):', err);
-                }
-            } else {
-                if (!variant.shadow) {
-                    continue;
-                }
-                payload = buildVariantPayload(variant.shadow);
-                try {
-                    // toDataURL RE-RENDERS at multiplier × zoom rather than
-                    // upscaling the 400px bitmap, so the thumbnail is as sharp
-                    // as the design allows — text re-rasterizes, pictures
-                    // re-sample from their originals.
-                    // Stand-ins for gone pictures are editor chrome, not
-                    // design — the thumbnail shows the design as it exports.
-                    preview = withStandInsHidden(variant.shadow, () => variant.shadow.toDataURL({
-                        format: 'png',
-                        multiplier: Math.min(PREVIEW_MAX_WIDTH, variant.width) / SHADOW_WIDTH,
-                    }));
-                } catch (err) {
-                    console.warn('Preview generation skipped (tainted canvas):', err);
-                }
+            if (!isActive && !variant.shadow) {
+                continue;
             }
+
+            const payload = isActive ? editor.collectEditorPayload() : buildVariantPayload(variant.shadow);
+            const snapshot = `${payload.canvas}\u0000${payload.textInputs}\u0000${payload.imageInputs}`;
 
             formData.append(`variants[${variant.id}][canvas]`, payload.canvas);
             formData.append(`variants[${variant.id}][textInputs]`, payload.textInputs);
             formData.append(`variants[${variant.id}][imageInputs]`, payload.imageInputs);
-            formData.append(`variants[${variant.id}][imagePreview]`, preview);
-            savedIds.push(variant.id);
-        }
 
-        try {
-            const response = await fetch(this.saveUrlValue, {
-                method: 'POST',
-                body: formData,
-                headers: { 'Accept': 'application/json' },
-            });
-            const data = await response.json();
-
-            if (data.status === 'success') {
-                editor.markSaved();
-                this.variants.forEach((variant) => {
-                    if (savedIds.includes(variant.id)) {
-                        variant.dirty = false;
-                    }
-                });
-                this._refreshDirtyDots();
-                return true;
+            // The thumbnail only travels when the design changed since this
+            // variant's last successful save in this session: the server
+            // keeps the stored one when none arrives. Thumbnails are the bulk
+            // of the upload (a PNG per variant), so an unchanged group saves
+            // in a fraction of the bytes. Binary, not base64 text.
+            if (variant.savedSnapshot !== snapshot) {
+                const preview = this._variantPreview(variant, isActive, editor);
+                const blob = preview === '' ? null : dataUriToBlob(preview);
+                if (blob) {
+                    formData.append(`variants[${variant.id}][imagePreviewFile]`, blob, 'preview.png');
+                }
             }
 
-            console.error('Ukládání se nepovedlo:', data.message);
-            alert('Ukládání se nepovedlo. Prosím zkuste to znovu později.');
-            return false;
-        } catch (error) {
-            console.error('Error during save:', error);
-            alert('Ukládání se nepovedlo. Prosím zkuste to znovu později.');
-            return false;
+            saved.push({ variant, snapshot });
+        }
+
+        await postEditorSave(this.saveUrlValue, formData, { onProgress });
+
+        saved.forEach(({ variant, snapshot }) => {
+            variant.savedSnapshot = snapshot;
+        });
+
+        if (editor.mutationSeq === mutationSeq) {
+            editor.markSaved();
+            saved.forEach(({ variant }) => {
+                variant.dirty = false;
+            });
+            this._refreshDirtyDots();
+        }
+    }
+
+    /** A variant's thumbnail as a PNG data URI, or '' when the canvas is tainted. */
+    _variantPreview(variant, isActive, editor) {
+        try {
+            if (isActive) {
+                return editor.getScaledCanvasDataURI(400);
+            }
+
+            // toDataURL RE-RENDERS at multiplier × zoom rather than
+            // upscaling the 400px bitmap, so the thumbnail is as sharp
+            // as the design allows — text re-rasterizes, pictures
+            // re-sample from their originals.
+            // Stand-ins for gone pictures are editor chrome, not
+            // design — the thumbnail shows the design as it exports.
+            return withStandInsHidden(variant.shadow, () => variant.shadow.toDataURL({
+                format: 'png',
+                multiplier: Math.min(PREVIEW_MAX_WIDTH, variant.width) / SHADOW_WIDTH,
+            }));
+        } catch (err) {
+            console.warn('Preview generation skipped (tainted canvas):', err);
+            return '';
         }
     }
 

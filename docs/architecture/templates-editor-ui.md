@@ -519,7 +519,10 @@ outlines and zones keep their colours).
   (`editor-chrome#toggleClean` → `.ed-is-clean` on the shell hides outlines,
   zones, rulers, guides, bleed guide via CSS; nothing persisted), save state
   ("Vše uloženo" is the CSS complement of canvas-editor's
-  `unsavedChangesMessage` badge), "Zobrazení", "Vyplnit a exportovat", Save.
+  `unsavedChangesMessage` badge), "Zobrazení", "Vyplnit a exportovat", Save
+  (`saveButton` target: upload progress, one save at a time, leave prompt
+  while saving — `editor_save.js`, see `templates-module-and-groups.md`
+  "Save").
 - **Format tabs** `.ed-vars`: single editor = the template's ungrouped
   variants as links (+ "Přidat rozměr" → add_template_variant), or the
   document page strip (`document-page-strip`) on a document page; group

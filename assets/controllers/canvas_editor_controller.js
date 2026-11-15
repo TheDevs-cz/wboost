@@ -13,6 +13,7 @@ import { syncChecklistSample, syncTextSample, sweepChecklistSamples } from './ca
 import { applySampleStyles, sweepSampleStyles } from './canvas_sample_styles.js';
 import { collectAllowedFonts } from './canvas_font_choice.js';
 import { DEFAULT_LINE_HEIGHT } from './canvas_text_toolbar_controller.js';
+import { SaveRunner, dataUriToBlob, describeSaveFailure, postEditorSave, showSaveToast } from './editor_save.js';
 
 /**
  * Where a freshly added image lands when it comfortably fits — offset from the
@@ -31,7 +32,7 @@ const IMAGE_DROP_OFFSET = 100;
  */
 export default class extends Controller {
     static targets = [
-        "canvas", "textInputs", "imageInputs", "previewImage", "unsavedChangesMessage",
+        "canvas", "textInputs", "imageInputs", "previewImage", "unsavedChangesMessage", "saveButton",
     ];
 
     static values = {
@@ -231,6 +232,7 @@ export default class extends Controller {
     }
 
     disconnect() {
+        this._saveRunner?.disconnect();
         if (this._boundHandleKeydown) {
             window.removeEventListener('keydown', this._boundHandleKeydown);
         }
@@ -451,6 +453,9 @@ export default class extends Controller {
     }
 
     markUnsaved() {
+        // Counts mutations so a save can tell whether the canvas changed
+        // while its upload ran (then it must not claim "saved").
+        this.mutationSeq = (this.mutationSeq ?? 0) + 1;
         this.unsavedChangesMessageTarget.classList.remove('d-none');
         // Universal "something mutated the canvas" signal: every toolbar /
         // properties / container mutation funnels through markUnsaved, so the
@@ -1309,54 +1314,65 @@ export default class extends Controller {
         return buildVariantPayload(this.canvas);
     }
 
+    /**
+     * Save the variant. Resolves to whether the save landed, so callers
+     * (saveAndExport) can chain navigation on success. Saves never overlap: a
+     * click while one is uploading queues ONE follow-up that serializes the
+     * canvas afresh when it starts (SaveRunner, editor_save.js — Sentry
+     * WEB-4X); progress shows on the save button, a failure in a toast.
+     */
     submitForm() {
+        this._saveRunner ??= new SaveRunner({ button: this.hasSaveButtonTarget ? this.saveButtonTarget : null });
+
+        return this._saveRunner.run(async (onProgress) => {
+            try {
+                await this._save(onProgress);
+                return true;
+            } catch (error) {
+                console.error('Error during save:', error);
+                showSaveToast(describeSaveFailure(error), 'warning');
+                return false;
+            }
+        });
+    }
+
+    async _save(onProgress) {
         const form = this.canvasTarget.closest('form');
+        // Edits made while the upload runs are NOT in this save.
+        const mutationSeq = this.mutationSeq;
 
         const payload = this.collectEditorPayload();
         this.canvasTarget.value = payload.canvas;
         this.textInputsTarget.value = payload.textInputs;
         this.imageInputsTarget.value = payload.imageInputs;
+        // The thumbnail travels as a binary file next to the form (below);
+        // the legacy base64 field stays empty.
+        this.previewImageTarget.value = '';
+
+        const formData = new FormData(form);
 
         // Preview thumbnail via canvas.toDataURL(). A cross-origin image can
         // taint the canvas (SecurityError "operation is insecure"), which must
         // never block the save — persist the canvas + inputs without a fresh
-        // preview (the thumbnail falls back to the background server-side).
+        // preview (the server keeps the stored thumbnail).
         // Gallery images are loaded crossorigin="anonymous" so this normally
         // succeeds; this guard only catches the tainted-canvas edge cases.
         try {
             // Stand-ins for gone pictures are editor chrome, not design — the
             // thumbnail shows the design as it exports.
-            this.previewImageTarget.value = withStandInsHidden(this.canvas, () => this.getScaledCanvasDataURI(PREVIEW_MAX_WIDTH));
+            const preview = dataUriToBlob(withStandInsHidden(this.canvas, () => this.getScaledCanvasDataURI(PREVIEW_MAX_WIDTH)));
+            if (preview) {
+                formData.append('imagePreviewFile', preview, 'preview.png');
+            }
         } catch (err) {
             console.warn('Preview generation skipped (tainted canvas):', err);
-            this.previewImageTarget.value = '';
         }
 
-        // Returns a Promise<boolean> resolving to whether the save succeeded,
-        // so callers (e.g. saveAndExport) can chain navigation on success.
-        return fetch(form.action, {
-            method: form.method,
-            body: new FormData(form),
-            headers: {
-                'Accept': 'application/json',
-            },
-        })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    this.markSaved();
-                    return true;
-                }
+        await postEditorSave(form.action, formData, { onProgress });
 
-                console.error('Ukládání se nepovedlo:', data.message);
-                alert('Ukládání se nepovedlo. Prosím zkuste to znovu později.');
-                return false;
-            })
-            .catch(error => {
-                console.error('Error during save:', error);
-                alert('Ukládání se nepovedlo. Prosím zkuste to znovu později.');
-                return false;
-            });
+        if (this.mutationSeq === mutationSeq) {
+            this.markSaved();
+        }
     }
 
     /**

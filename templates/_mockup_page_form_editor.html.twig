@@ -20,7 +20,9 @@
 {% set fixed_layout = fixed_layout|default(null) %}
 
 {# The two size caps mirror ManualMockupPageFormType — Symfony reads the `m`
-   suffix as DECIMAL MB, so these are the very same byte counts. #}
+   suffix as DECIMAL MB, so these are the very same byte counts. The request
+   cap is PHP's `post_max_size` (BINARY, 256M) via its one PHP mirror —
+   the editor refuses to submit a form whose files add up to more. #}
 {{ form_start(form, {'attr': {
     'data-controller': 'mockup-page-editor',
     'data-mockup-page-editor-geometry-value': layouts_geometry|json_encode,
@@ -31,6 +33,7 @@
     'data-mockup-page-editor-fixed-layout-value': fixed_layout ? fixed_layout.value : '',
     'data-mockup-page-editor-max-file-size-value': 10000000,
     'data-mockup-page-editor-max-download-size-value': 20000000,
+    'data-mockup-page-editor-max-request-size-value': constant('WBoost\\Web\\Services\\Http\\RequestBodyLimit::POST_MAX_SIZE_BYTES'),
     'data-action': 'submit->mockup-page-editor#formSubmitted',
 }}) }}
 
@@ -202,6 +205,10 @@
                     }}) }}
                 {% endfor %}
             </div>
+
+        {# Filled by the controller when the picked files together exceed the
+           request cap (PHP post_max_size) — the submit is blocked. #}
+        <div class="alert alert-danger d-none" role="alert" data-mockup-page-editor-target="requestSizeError"></div>
 
         <div class="mockup-editor-savebar man-savebar" data-mockup-page-editor-target="saveBar">
             <span class="cap" data-mockup-page-editor-target="fillSummary"></span>

@@ -37,11 +37,16 @@ readonly final class EditTemplateVariantCanvasHandler
     {
         $variant = $this->variantRepository->get($message->variantId);
 
-        // An empty preview (the client couldn't export a tainted canvas) must
-        // not wipe the existing thumbnail — keep whatever is already stored.
-        $previewImagePath = $message->previewImageDataUri === ''
+        // An empty preview (the client couldn't export a tainted canvas, or
+        // the group editor skipped an unchanged variant's thumbnail) must not
+        // wipe the existing thumbnail — keep whatever is already stored.
+        $previewImageBytes = $message->previewImageBytes !== ''
+            ? $message->previewImageBytes
+            : self::decodeDataUri($message->previewImageDataUri);
+
+        $previewImagePath = $previewImageBytes === ''
             ? $variant->previewImagePath
-            : $this->persistPreviewImage($message->variantId, $message->previewImageDataUri);
+            : $this->persistPreviewImage($message->variantId, $previewImageBytes);
 
         $variant->editCanvas($message->canvas, $message->inputs, $previewImagePath, $message->imageInputs);
 
@@ -62,32 +67,32 @@ readonly final class EditTemplateVariantCanvasHandler
     }
 
     /**
-     * Decodes a `data:image/png;base64,...` URI and writes it as an object in
-     * the upload (Minio) filesystem. Returns the storage path, or null if the
-     * client supplied no preview (or an unrecognized payload).
+     * The bytes of a `data:image/png;base64,...` URI, or '' for an empty or
+     * unrecognized payload (the handler then keeps the stored thumbnail).
      */
-    private function persistPreviewImage(UuidInterface $variantId, string $dataUri): null|string
+    private static function decodeDataUri(string $dataUri): string
     {
-        if ($dataUri === '') {
-            return null;
-        }
-
         // Expect: data:image/png;base64,XXXXX (we only ever produce PNG client-side).
         if (!str_starts_with($dataUri, 'data:')) {
-            return null;
+            return '';
         }
 
         $commaPosition = strpos($dataUri, ',');
         if ($commaPosition === false) {
-            return null;
+            return '';
         }
 
-        $payload = substr($dataUri, $commaPosition + 1);
-        $binary = base64_decode($payload, true);
-        if ($binary === false) {
-            return null;
-        }
+        $binary = base64_decode(substr($dataUri, $commaPosition + 1), true);
 
+        return $binary === false ? '' : $binary;
+    }
+
+    /**
+     * Writes the thumbnail as an object in the upload (Minio) filesystem and
+     * returns its storage path.
+     */
+    private function persistPreviewImage(UuidInterface $variantId, string $binary): string
+    {
         // The key is spelled once, on the message that also exists to write it
         // server-side — two `sprintf()`s of one storage key would drift, and a
         // variant with two thumbnails would keep pointing at the stale one.

@@ -33,6 +33,15 @@ NOT images, so the cap is `ManualMockupPageFormType::DOWNLOAD_MAX_SIZE` =
 columns are enumerated in `BuildStorageReferenceIndex` — without that the
 files read as orphans.
 
+**The whole form is one request.** Worst case 6 images × 10 MB + 6 per-image
+downloads × 20 MB + the 20 MB page download = 200 MB in one POST, so PHP's
+`post_max_size` ships as 256M (binary); past it PHP silently drops the whole
+body. The editor sums all attached files before submit against
+`RequestBodyLimit::POST_MAX_SIZE_BYTES` (Stimulus value `maxRequestSize`) and
+blocks with the `requestSizeError` alert; the server answers 413 via
+`RejectOversizedRequestBodyListener`. Details: `gallery-and-uploads.md`
+("Request size limits").
+
 **Editor UX: the per-image attachment lives ON the image.** A bar along the
 bottom of each stage slot (`.mockup-editor-slot-file`) picks / shows / clears
 the file that rides with THAT picture; the file for the whole page is a

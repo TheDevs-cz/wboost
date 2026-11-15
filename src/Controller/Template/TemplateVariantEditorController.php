@@ -20,6 +20,7 @@ use WBoost\Web\Message\Template\EditTemplateVariantCanvasEditor;
 use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Query\GetProjectPalette;
 use WBoost\Web\Services\Editor\CanvasStorageGuard;
+use WBoost\Web\Services\Editor\UploadedPreviewImage;
 use WBoost\Web\Services\Editor\ResolveEditorFontDefaults;
 use WBoost\Web\Services\SocialNetwork\ResolveRichTextOptions;
 use WBoost\Web\Repository\FileDirectoryRepository;
@@ -78,6 +79,18 @@ final class TemplateVariantEditorController extends AbstractController
 
         $editorForm->handleRequest($request);
 
+        // The editor saves over XHR expecting JSON. A save the form refuses
+        // (expired CSRF token, a body PHP dropped) used to fall through to
+        // the full HTML page with 200, which the editor could only report as
+        // "Ukládání se nepovedlo" — answer in the save contract instead.
+        if ($request->isMethod('POST') && self::wantsJson($request) && !($editorForm->isSubmitted() && $editorForm->isValid())) {
+            return $this->json([
+                'status' => 'error',
+                'code' => 'csrf',
+                'message' => 'Formulář editoru se nepodařilo zpracovat (platnost stránky nejspíš vypršela).',
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
         if ($editorForm->isSubmitted() && $editorForm->isValid()) {
             assert(is_string($formData->canvas));
             assert(is_string($formData->textInputs));
@@ -92,13 +105,18 @@ final class TemplateVariantEditorController extends AbstractController
                     $formData->canvas,
                     EditorTextInput::createCollectionFromJson($formData->textInputs),
                     EditorImageInput::createCollectionFromJson($formData->imageInputs ?? '[]'),
-                    // Empty when the client couldn't render a preview (e.g. a
-                    // tainted canvas); the handler keeps the existing thumbnail.
+                    // The editor uploads the thumbnail as a PNG file next to
+                    // the form (`imagePreviewFile`); the base64 text field is
+                    // what editor tabs opened before 2026-11-15 still send.
+                    // Both empty when the client couldn't render a preview
+                    // (e.g. a tainted canvas): the handler keeps the existing
+                    // thumbnail.
                     previewImageDataUri: $formData->imagePreview ?? '',
+                    previewImageBytes: UploadedPreviewImage::bytes($request->files->get('imagePreviewFile')),
                 ),
             );
 
-            if ($request->headers->get('accept') === 'application/json') {
+            if (self::wantsJson($request)) {
                 return $this->json([
                     'status' => 'success',
                     'message' => 'Autosave successful!',
@@ -159,5 +177,10 @@ final class TemplateVariantEditorController extends AbstractController
             'document_page' => $documentPage,
             'document_pages' => $documentPage?->document->pages() ?? [],
         ]);
+    }
+
+    private static function wantsJson(Request $request): bool
+    {
+        return $request->headers->get('accept') === 'application/json';
     }
 }

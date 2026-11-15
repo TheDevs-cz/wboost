@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace WBoost\Web\Tests\Controller\TemplateGroup;
 
 use Doctrine\ORM\EntityManagerInterface;
+use League\Flysystem\Filesystem;
 use Ramsey\Uuid\Uuid;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use WBoost\Web\Repository\TemplateVariantRepository;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Tests\TestingLogin;
@@ -170,6 +172,90 @@ final class TemplateGroupEditorControllerTest extends WebTestCase
         $client->request('GET', $this->editorUrl());
 
         self::assertResponseStatusCodeSame(403);
+    }
+
+    /**
+     * The editor uploads each thumbnail as a binary PNG file
+     * (`variants[<id>][imagePreviewFile]`, Sentry WEB-4X) and skips the
+     * thumbnail of a variant whose design did not change — that variant
+     * keeps the one it has. A file that is not a PNG is ignored the same way.
+     */
+    public function testSaveStoresBinaryPreviewFilesAndKeepsThumbnailsWithoutOne(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::ADMIN_USER_EMAIL);
+
+        $repository = self::getContainer()->get(TemplateVariantRepository::class);
+        $freeformBefore = $repository->get(Uuid::fromString(TestDataFixture::GROUPED_FREEFORM_VARIANT_ID))->previewImagePath;
+
+        $client->request('POST', $this->editorUrl(), [
+            '_token' => $this->csrfToken($client),
+            'variants' => [
+                TestDataFixture::GROUPED_PRESET_VARIANT_ID => [
+                    'canvas' => '{"version":"5.2.4","objects":[]}',
+                    'textInputs' => '[]',
+                    'imageInputs' => '[]',
+                ],
+                TestDataFixture::GROUPED_FREEFORM_VARIANT_ID => [
+                    'canvas' => '{"version":"5.2.4","objects":[]}',
+                    'textInputs' => '[]',
+                    'imageInputs' => '[]',
+                ],
+            ],
+        ], [
+            'variants' => [
+                TestDataFixture::GROUPED_PRESET_VARIANT_ID => ['imagePreviewFile' => self::upload(self::onePixelPng())],
+                TestDataFixture::GROUPED_FREEFORM_VARIANT_ID => ['imagePreviewFile' => self::upload('GIF89a not a png')],
+            ],
+        ], ['HTTP_ACCEPT' => 'application/json']);
+
+        self::assertResponseIsSuccessful();
+
+        self::getContainer()->get(EntityManagerInterface::class)->clear();
+
+        $path = 'custom-templates/preview/' . TestDataFixture::GROUPED_PRESET_VARIANT_ID . '.png';
+        self::assertSame($path, $repository->get(Uuid::fromString(TestDataFixture::GROUPED_PRESET_VARIANT_ID))->previewImagePath);
+        self::assertSame(self::onePixelPng(), self::getContainer()->get(Filesystem::class)->read($path));
+
+        self::assertSame(
+            $freeformBefore,
+            $repository->get(Uuid::fromString(TestDataFixture::GROUPED_FREEFORM_VARIANT_ID))->previewImagePath,
+            'a non-PNG upload must leave the stored thumbnail alone',
+        );
+    }
+
+    /** The editor tells an expired page apart from a failed save by `code`. */
+    public function testSaveWithInvalidTokenAnswersCsrfCode(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::ADMIN_USER_EMAIL);
+
+        $client->request('POST', $this->editorUrl(), [
+            '_token' => 'expired',
+            'variants' => [],
+        ], [], ['HTTP_ACCEPT' => 'application/json']);
+
+        self::assertResponseStatusCodeSame(400);
+        $payload = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertIsArray($payload);
+        self::assertSame('csrf', $payload['code']);
+    }
+
+    private static function onePixelPng(): string
+    {
+        $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII=', true);
+        self::assertIsString($png);
+
+        return $png;
+    }
+
+    private static function upload(string $bytes): UploadedFile
+    {
+        $path = tempnam(sys_get_temp_dir(), 'preview');
+        self::assertIsString($path);
+        file_put_contents($path, $bytes);
+
+        return new UploadedFile($path, 'preview.png', 'image/png', null, true);
     }
 
     private function csrfToken(KernelBrowser $client): string

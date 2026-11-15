@@ -96,8 +96,12 @@ final class ManualMockupPageFormType extends AbstractType
         // Downloadable attachments are any file type on purpose — the point is
         // handing the reader the source behind a mockup (print PDF, packaged
         // ZIP, vector original). The cap is bigger than the 10 MB images take
-        // because those are what such files weigh, and it is still far inside
-        // the 50 MB `post_max_size` the whole form has to fit in.
+        // because those are what such files weigh. The WHOLE form is one POST:
+        // 6 images x 10 MB + 6 per-image downloads x 20 MB + this 20 MB file =
+        // 200 MB worst case, which is why `post_max_size` ships as 256M
+        // (.docker/php/wboost.ini, RequestBodyLimit::POST_MAX_SIZE_BYTES).
+        // Past it PHP drops the whole body: the editor sums the files before
+        // submit and RejectOversizedRequestBodyListener answers 413.
         $builder->add('downloadFile', FileType::class, [
             'label' => false,
             'required' => false,

@@ -8,6 +8,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Ramsey\Uuid\Uuid;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\UX\LiveComponent\Test\InteractsWithLiveComponents;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Repository\TemplateVariantRepository;
@@ -186,6 +187,86 @@ final class TemplateVariantEditorControllerTest extends WebTestCase
         self::assertSame($inputId, $variant->inputs[0]->inputId);
         self::assertSame(40, $variant->inputs[0]->maxLength);
         self::assertSame('custom-templates/preview/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '.png', $variant->previewImagePath);
+    }
+
+    /**
+     * The editor uploads the thumbnail as a binary PNG file next to the form
+     * (`imagePreviewFile`, Sentry WEB-4X); the legacy base64 field is empty.
+     */
+    public function testSubmitStoresBinaryPreviewFile(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
+
+        [$prefix, $token] = $this->formPrefixAndToken($client);
+
+        $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII=', true);
+        self::assertIsString($png);
+        $path = tempnam(sys_get_temp_dir(), 'preview');
+        self::assertIsString($path);
+        file_put_contents($path, $png);
+
+        $client->request('POST', $this->editorUrl(), [
+            $prefix => [
+                'canvas' => '{"version":"5.2.4","objects":[]}',
+                'textInputs' => '[]',
+                'imageInputs' => '[]',
+                'imagePreview' => '',
+                '_token' => $token,
+            ],
+        ], [
+            'imagePreviewFile' => new UploadedFile($path, 'preview.png', 'image/png', null, true),
+        ], ['HTTP_ACCEPT' => 'application/json']);
+
+        self::assertResponseIsSuccessful();
+
+        self::getContainer()->get(EntityManagerInterface::class)->clear();
+        self::assertSame('custom-templates/preview/' . TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID . '.png', $this->loadVariant()->previewImagePath);
+    }
+
+    /**
+     * A save the form refuses (here: an expired CSRF token) is answered in
+     * the save contract — not with the editor page and 200, which the editor
+     * could only report as a generic failure.
+     */
+    public function testRefusedJsonSaveAnswersJsonError(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
+
+        [$prefix] = $this->formPrefixAndToken($client);
+
+        $client->request('POST', $this->editorUrl(), [
+            $prefix => [
+                'canvas' => '{"version":"5.2.4","objects":[]}',
+                'textInputs' => '[]',
+                'imageInputs' => '[]',
+                '_token' => 'expired',
+            ],
+        ], [], ['HTTP_ACCEPT' => 'application/json']);
+
+        self::assertResponseStatusCodeSame(400);
+        $payload = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertIsArray($payload);
+        self::assertSame('error', $payload['status']);
+        self::assertSame('csrf', $payload['code']);
+    }
+
+    /**
+     * @return array{string, string}
+     */
+    private function formPrefixAndToken(\Symfony\Bundle\FrameworkBundle\KernelBrowser $client): array
+    {
+        $crawler = $client->request('GET', $this->editorUrl());
+        self::assertResponseIsSuccessful();
+
+        $imageInputsName = $crawler->filter('[data-canvas-editor-target="imageInputs"]')->attr('name');
+        self::assertIsString($imageInputsName);
+        $prefix = substr($imageInputsName, 0, (int) strpos($imageInputsName, '['));
+        $token = $crawler->filter('input[name="' . $prefix . '[_token]"]')->attr('value');
+        self::assertIsString($token);
+
+        return [$prefix, $token];
     }
 
     /**
