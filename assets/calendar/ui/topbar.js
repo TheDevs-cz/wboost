@@ -7,11 +7,20 @@
 // AI scan (`ctx.scan`, ui/scan.js): while a scan of this calendar is unfinished — or its proposal
 // waits — step 2 carries a peach dot (`.as-stepdot`); while the scan panel shows a lavender
 // primary of its own, Pokračovat is drawn tertiary (one primary per view).
+//
+// Moving between steps never dead-ends (feedback K8): with unsaved changes Pokračovat, Zpět and a
+// step of the stepper SAVE first and then move, in one click (the button shows „Ukládám…“ and takes
+// no second click; a failed save stays on the step and says why). Steps 3–5 need a layout: without
+// one the buttons are not `disabled` but `aria-disabled` + `.blocked`, with the reason as tooltip,
+// and a click says it in a toast („Nejdřív vyberte rozvržení…“) — never a silent grey button.
 
 import { h, icon } from './dom.js';
-import { clearBusy, setBusy } from '../../busy_button.js';
+import { clearBusy, isBusy, setBusy } from '../../busy_button.js';
 
 export const STEPS = Object.freeze(['Typ', 'Rozvržení', 'Úpravy prvků', 'Obsah', 'Náhled']);
+
+/** Why steps 3–5 cannot be opened yet (tooltip + the toast of a click). */
+export const NEEDS_LAYOUT = 'Nejdřív vyberte rozvržení — jednu z karet v kroku Rozvržení, nebo použijte naskenovaný návrh.';
 
 const STATUS_TEXT = { clean: 'Vše uloženo', dirty: 'Neuložené změny', saving: 'Ukládám…', error: 'Uložení se nepovedlo' };
 
@@ -53,6 +62,34 @@ export function mountTopBar(root, ctx) {
 
     const title = h('div', { class: 'cal-title' }, h('span', { class: 'lbl' }, `${env.projectName} · Kalendáře${designer ? ' · vzhled' : ''}`), name);
 
+    /**
+     * To step `n` from a button: the reason when it needs a layout, otherwise save first when
+     * anything is unsaved (busy button, no double click), then move. A failed save stays.
+     */
+    async function goTo(n, button) {
+        const d = design();
+        if (n === d.step) return;
+        if (n >= 3 && !d.layout) {
+            if (d.step !== 2) store.setStep(2);
+            ctx.toast(NEEDS_LAYOUT, true);
+            return;
+        }
+        if (store.isDirty()) {
+            if (button && isBusy(button)) return;
+            // a field being typed in is committed first (its `change` writes into the store)
+            const active = document.activeElement;
+            if (active && active.closest && active.closest('.cal-ws') && active.matches('input, textarea')) active.dispatchEvent(new Event('change', { bubbles: true }));
+            if (button) setBusy(button, { label: 'Ukládám…' });
+            const result = await store.save();
+            if (button) clearBusy(button);
+            if (!result.ok) {
+                ctx.toast(`${result.error || 'Uložení se nepovedlo'} — zůstáváme v tomto kroku. Zkuste to znovu.`, true);
+                return;
+            }
+        }
+        store.setStep(n);
+    }
+
     const stepButtons = [];
     let steps = null;
     if (designer) {
@@ -60,7 +97,7 @@ export function mountTopBar(root, ctx) {
         STEPS.forEach((label, index) => {
             const n = index + 1;
             const number = h('span', { class: 'cal-stn', 'aria-hidden': 'true' }, String(n));
-            const button = h('button', { type: 'button', class: 'cal-step', 'data-cal-step': String(n), title: label, onClick: () => store.setStep(n) }, number, h('span', { class: 'cal-stl' }, label));
+            const button = h('button', { type: 'button', class: 'cal-step', 'data-cal-step': String(n), title: label, onClick: () => goTo(n, null) }, number, h('span', { class: 'cal-stl' }, label));
             if (n === 2) button.append(h('span', { class: 'as-stepdot', role: 'img', hidden: true, 'data-cal-scan-dot': '' }));
             stepButtons.push({ n, button, number });
             steps.append(h('li', null, button));
@@ -73,15 +110,15 @@ export function mountTopBar(root, ctx) {
 
     const status = h('span', { class: 'cal-status', 'data-cal-status': 'clean', role: 'status' });
     const save = h('button', { type: 'button', class: 'btn sm btn-tertiary', title: 'Uložit (Ctrl+S)', 'data-cal-action': 'save', onClick: () => ctx.actions.save() }, 'Uložit');
-    const prev = designer ? h('button', { type: 'button', class: 'btn sm btn-tertiary cal-prev', 'data-cal-action': 'prev-step', onClick: () => store.setStep(design().step - 1) }, 'Zpět') : null;
+    const prev = designer ? h('button', { type: 'button', class: 'btn sm btn-tertiary cal-prev', 'data-cal-action': 'prev-step', onClick: (event) => goTo(design().step - 1, event.currentTarget) }, 'Zpět') : null;
     const next = designer
         ? h('button', {
             type: 'button',
             class: 'btn sm btn-primary cal-next',
             'data-cal-action': 'next-step',
-            onClick: () => {
+            onClick: (event) => {
                 if (design().step === 5) ctx.actions.finish();
-                else store.setStep(design().step + 1);
+                else goTo(design().step + 1, event.currentTarget);
             },
         })
         : null;
@@ -98,13 +135,26 @@ export function mountTopBar(root, ctx) {
             button.className = `cal-step${on ? ' on' : ''}${done ? ' done' : ''}`;
             if (on) button.setAttribute('aria-current', 'step');
             else button.removeAttribute('aria-current');
-            button.disabled = n >= 3 && !d.layout;
+            blocked(button, n >= 3 && !d.layout, STEPS[n - 1]);
             number.replaceChildren(done ? icon('check', 's12') : String(n));
         }
         prev.hidden = d.step <= 1;
-        next.disabled = d.step >= 2 && !d.layout;
+        blocked(next, d.step >= 2 && !d.layout, null);
         if (d.step === 5) next.replaceChildren(d.finished ? 'Uložit vzhled' : 'Dokončit');
         else next.replaceChildren('Pokračovat', icon('arrow-right', 's16'));
+    }
+
+    /** Not `disabled` (that would say nothing): aria-disabled, dimmed, the reason as tooltip. */
+    function blocked(button, on, title) {
+        button.classList.toggle('blocked', on);
+        if (on) {
+            button.setAttribute('aria-disabled', 'true');
+            button.title = NEEDS_LAYOUT;
+        } else {
+            button.removeAttribute('aria-disabled');
+            if (title) button.title = title;
+            else button.removeAttribute('title');
+        }
     }
 
     function syncScan() {

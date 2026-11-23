@@ -30,6 +30,7 @@ import { labelled, note, pair, panelHead, panelRoot, section, setShown } from '.
 import { positionSection } from '../controls/position.js';
 import { textProps } from '../controls/text.js';
 import { uploadTile } from '../controls/upload.js';
+import { pictureSize } from '../picture-size.js';
 import { mountKalProps } from './props-kal.js';
 
 const ALL_PAGES = 'Platí pro všechny strany kalendáře';
@@ -62,6 +63,20 @@ function createKit(ctx, refresher) {
         text: (path) => bound(path, (b) => textProps({ value: b.get(), fonts: env.fonts, path, onChange: b.patch })),
         fill: (path, options = {}) => bound(path, (b) => fillPanel({ value: b.get(), ctx, path, ...options, onStart: b.onStart, onChange: b.onChange, onCommit: b.onCommit })),
         upload: (path, options) => bound(path, (b) => uploadTile({ value: b.get(), ctx, attrs: b.attrs, onChange: b.onChange, ...options })),
+        /**
+         * The size the place's picture should have (K7, `ui/picture-size.js`): mm with the bleed and
+         * px for print — follows the box while it is moved or resized.
+         */
+        size(place, prefix = '') {
+            const text = () => {
+                const { design } = store.getState().doc;
+                const size = design.layout ? pictureSize({ boxes: design.layout.boxes, page: design.page, print: design.print, place }) : null;
+                return size ? `${prefix}${size.text}` : '';
+            };
+            const el = h('p', { class: 'cal-psize', 'data-picture-size': place }, text());
+            refresher.track(text, (value) => { el.textContent = value; });
+            return el;
+        },
         /** Shows `node` only while `test(styles)` holds. */
         when(node, test) {
             const check = () => test(stylesOf(store)) === true;
@@ -129,6 +144,7 @@ const PANELS = {
             section(
                 'Logo',
                 kit.upload('logo.asset', { kind: 'logo', accept: 'image/svg+xml,image/png,image/jpeg', tip: 'Nahrát logo (SVG, PNG)', captionEmpty: 'Nahrajte logo (SVG, PNG)', captionSet: 'Nahrané logo' }),
+                kit.size('logo'),
                 kit.when(
                     kit.side('logo.fit', 'Umístění loga', [
                         { value: 'contain', label: 'Přizpůsobit' },
@@ -177,6 +193,7 @@ const PANELS = {
                     fitLabel: 'Umístění obrázku',
                 },
             }),
+            kit.size('head', 'Obrázek do hlavičky: '),
         ];
     },
 
@@ -200,7 +217,7 @@ const PANELS = {
     },
 
     bg(kit) {
-        return [kit.fill('bg', { label: null, image: { captionSet: 'Výchozí fotka — u jednotlivých stran ji lze vyměnit' } })];
+        return [kit.fill('bg', { label: null, image: { captionSet: 'Výchozí fotka — u jednotlivých stran ji lze vyměnit' } }), kit.when(kit.size('bg', 'Obrázek na pozadí: '), (styles) => Boolean(styles.bg.imageOn))];
     },
 };
 

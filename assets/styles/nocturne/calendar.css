@@ -70,6 +70,8 @@
 .cal-step { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px 0 6px; border: 0; border-radius: 999px; background: none; color: var(--muted); font: inherit; font-size: 13px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: background var(--dur-2), color var(--dur-2); }
 .cal-step:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
 .cal-step:disabled { opacity: .45; cursor: not-allowed; }
+/* steps 3–5 / Pokračovat without a layout: clickable, dimmed — the click says why (topbar.js, K8) */
+.cal-step.blocked, .cal-top .btn.blocked { opacity: .45; cursor: help; }
 .cal-stn { display: grid; place-items: center; width: 24px; height: 24px; flex: none; border-radius: 50%; background: var(--surface-3); color: var(--text-2); font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .cal-step.on { background: var(--lav-deep); color: var(--lav-ink); }
 .cal-step.on .cal-stn { background: var(--lav); color: var(--on-accent); }

@@ -28,6 +28,8 @@
 .cal-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-items: end; }
 .cal-ml { display: flex; flex-direction: column; gap: 6px; min-width: 0; font-size: 12px; font-weight: 600; color: var(--subtle); }
 .cal-note { margin: 0; line-height: 1.5; }
+/* the size a place's picture should have — mm with the bleed, px for print (ui/picture-size.js, K7) */
+.cal-psize { margin: 0; font-size: 12px; line-height: 1.5; color: var(--muted); }
 
 /* steppers and selects fill their column */
 .cal-props .cal-num { width: 100%; justify-content: space-between; }

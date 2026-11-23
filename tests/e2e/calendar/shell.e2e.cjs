@@ -56,9 +56,14 @@ module.exports = {
         });
         if (!id) return;
 
-        await check('steps 3–5 are disabled without a layout', async () => {
-            for (const n of [3, 4, 5]) assert.equal(await page.$eval(`[data-cal-step="${n}"]`, (el) => el.disabled), true, `step ${n}`);
-            for (const n of [1, 2]) assert.equal(await page.$eval(`[data-cal-step="${n}"]`, (el) => el.disabled), false, `step ${n}`);
+        await check('steps 3–5 are blocked without a layout — with the reason, never a silent disabled button (K8)', async () => {
+            for (const n of [3, 4, 5]) assert.equal(await page.$eval(`[data-cal-step="${n}"]`, (el) => el.getAttribute('aria-disabled')), 'true', `step ${n}`);
+            for (const n of [3, 4, 5]) assert.match(await page.$eval(`[data-cal-step="${n}"]`, (el) => el.title), /^Nejdřív vyberte rozvržení/);
+            for (const n of [1, 2]) assert.equal(await page.$eval(`[data-cal-step="${n}"]`, (el) => el.getAttribute('aria-disabled')), null, `step ${n}`);
+            await page.click('[data-cal-step="4"]');
+            await h.waitToast(page, /Nejdřív vyberte rozvržení/);
+            assert.equal((await h.state(page)).design.step, 2, 'a click on a blocked step goes to Rozvržení');
+            await h.gotoStep(page, 1);
             assert.equal(await exists(page, '[data-cal-action="undo"]:not([hidden])') && !(await page.$eval('.cal-hist', (el) => el.hidden)), false, 'no undo / redo outside the editor');
         });
 
@@ -83,7 +88,7 @@ module.exports = {
             assert.equal(s.design.step, 2, 'the step is not skipped');
             assert.ok(s.design.layout.boxes.cal2, 'second frame exists');
             assert.doesNotMatch(await text(page, '.cal-ws'), /Naskenovat|AI|Premium/);
-            for (const n of [3, 4, 5]) assert.equal(await page.$eval(`[data-cal-step="${n}"]`, (el) => el.disabled), false);
+            for (const n of [3, 4, 5]) assert.equal(await page.$eval(`[data-cal-step="${n}"]`, (el) => el.getAttribute('aria-disabled')), null);
         });
 
         await check('type switch with a layout asks first; cancelling keeps the type', async () => {

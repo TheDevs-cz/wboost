@@ -604,6 +604,17 @@ The exact contract of each `ui/` file is the comment block at its top.
   survive. One request at a time. Saving is **explicit** for both roles
   (`beforeunload` + leave dialog); only the step number is stored silently when
   nothing else is unsaved, and the store never toasts — the caller does.
+  **Moving between steps saves** (`ui/topbar.js`, feedback K8, 2026-11-23):
+  Pokračovat, Zpět and a step of the stepper with unsaved changes call
+  `store.save()` first (the button shows „Ukládám…“ and takes no second
+  click) and then `setStep`; a failed save stays on the step and toasts why.
+  Steps 3–5 without a layout are **never a silent `disabled`**: the step
+  buttons and Pokračovat carry `aria-disabled="true"` + `.blocked` with the
+  reason as tooltip (`NEEDS_LAYOUT`), and a click goes to step 2 and toasts
+  „Nejdřív vyberte rozvržení — …“. (The K8 report — „Pokračovat“ grey in
+  step 2 — was this: no layout yet, a scan proposal not applied; the
+  „Neuložené změny“ beside it were step-1 edits — prod history shows a design
+  save 3 s before the accept — which a step change did not save.)
 - **`Ctx`** — what every `mountX(root, ctx)` gets from the workspace
   controller: `{ store, env, api, measurer, toast, confirm, openTool,
   setStageProbe, actions: { save, leave, finish } }`. Modules return
@@ -829,8 +840,13 @@ targets the calendar's own type), designers only.
   (not an SVG) under 200 dpi in its place (cover: `photoDpi`; contain:
   fitted inside) gets the editor's hint „Nízká kvalita obrázku — 48 dpi (pro
   tisk aspoň 300 dpi)“. The 200 / 300 are MIRRORS of `render/warnings.js`
-  (kept in `views.js`: a constant moved into `render/` would change the
-  export fingerprint).
+  (kept in `ui/picture-size.js`: a constant moved into `render/` would change
+  the export fingerprint). **Step 3 says the same where the picture is
+  actually chosen** (K7): `pictureSize()` of `ui/picture-size.js` under the
+  logo upload, under the header's fill and — while its picture is on — under
+  the page background (`kit.size()` of `ui/editor/props.js`,
+  `p.cal-psize[data-picture-size="logo|head|bg"]`, follows the box while it
+  is moved or resized).
 - **Upload checks**: `inspectFiles(files, {minShortSide: 280, minLongSide:
   640, goodShortSide: 600})` — a calendar page is taken from 640 × 280 px,
   longer × shorter side (a page 640 px wide is 299 px high; the template
