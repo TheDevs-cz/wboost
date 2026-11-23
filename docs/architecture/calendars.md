@@ -93,7 +93,9 @@ are `K` and the control ranges `LIMITS`, both in `model/defaults.js`.
 - `styles`: everything the step-3 editor changes — text styles per part
   (`num numSat numSun numHol day name hol ev time shift placeText`), `cal`
   (number side, icon grid, cell sizes, `bg` and `numBg` — „Pozadí čísel“, see the row
-  layout below…), fills (`head.bg`, `month.bg`, `bg`),
+  layout below…), fills (`head.bg`, `month.bg`, `bg`), the layer effects of the
+  pictures (`photo.effects`, `logo.effects`, `head.bg.effects`, `bg.effects`,
+  `specialPhoto.effects` — § "Image effects"),
   `icons.order`, `moon`, `waste.kinds[id]` (colour / icon overrides — the
   icon of a kind, built-in or own, is set in step 3 › Ikony › Odpady and in
   the step-4 tool Odpady („Nahrát ikonu“ / „Původní“, designer only: it is
@@ -177,7 +179,7 @@ waste kinds to the JS table.
 | `wasteKinds` | `{builtin, name, on, place, mode: rule\|dates, weekdays[0–6], interval: w\|2e\|2o\|4w\|4w2\|m, from, to, dates[], pos}` | yes |
 | `wasteExtras` | `{kind, date}` — single collections added in step 5 | yes |
 | `comments` | `{date, text ≤500, author, at}` | yes (insert only) |
-| `pagePhotos` | `{asset, zoom 1–3, px, py 0–1}` | yes |
+| `pagePhotos` | `{asset, zoom 1–5, px, py 0–1, rotate?, flip?}` — the crop, § "Photo crop" | yes |
 | `pageCaptions` | `{text ≤80}` | yes |
 | `pageImages` | `{head, bg}` | no |
 | `pageQr` | `{asset}` | no |
@@ -233,7 +235,7 @@ them**:
 
 | Collection | Key → item | Writer |
 |---|---|---|
-| `pageContent` | `cover` `{title, subtitle, note ≤120, photo}` · `sp:intro` `{heading, salutation, body ≤4000, signName, signRole, photo}` · `sp:contacts` `{heading, notesHeading ≤40, photo}` · `sp:year` / `sp:waste` `{heading, note ≤200}` · `sp:notes` `{heading}` · `back` `{heading, footer ≤200, name, address ≤300 in ≤ 6 lines, phone ≤60, email, web, imprint ≤200}` — one-line texts ≤ 80 unless noted; `photo` = `null \| {asset, zoom 1–3, px, py}` (the crop model of `pagePhotos`) | designer + client |
+| `pageContent` | `cover` `{title, subtitle, note ≤120, photo}` · `sp:intro` `{heading, salutation, body ≤4000, signName, signRole, photo}` · `sp:contacts` `{heading, notesHeading ≤40, photo}` · `sp:year` / `sp:waste` `{heading, note ≤200}` · `sp:notes` `{heading}` · `back` `{heading, footer ≤200, name, address ≤300 in ≤ 6 lines, phone ≤60, email, web, imprint ≤200}` — one-line texts ≤ 80 unless noted; `photo` = `null \| {asset, zoom 1–5, px, py, rotate?, flip?}` (the crop model of `pagePhotos`) | designer + client |
 | `pageGroups` | random id → `{page, heading, lines[{label, value}], highlight, pos}` — a group of the contacts page, or of the texts beside the waste grid | designer + client |
 | `pageSetup` | `cover` `{layout 0–3, logo: none\|tl\|tc\|tr\|title, logoSize: s\|m\|l}` · `sp:intro` `{align: left\|justify}` · `sp:contacts` `{clubLegend, wasteLegend, notes}` · `back` `{logo}` | designer |
 
@@ -343,7 +345,162 @@ surfaces.
 - Groups: collapsible cards, SortableJS (`forceFallback`) for groups and for
   the lines of a group, Enter in the last line adds a line, caps disable the
   add buttons. The photo field: upload tile (kind `photo`, so a client may
-  use it), a crop preview dragged with the pointer, a zoom slider.
+  use it), a crop preview dragged with the pointer, a zoom slider and
+  „Upravit výřez“ — the photo editor inline under the field (§ "Photo crop").
+
+### Image effects („Efekty“, 2026-11-24)
+
+Photoshop-like layer effects on the calendar's pictures (K2; plan and the
+measurements behind it: `docs/calendar/effects-plan.md`). Model
+`model/effects.js`, renderer `render/effects.js`, control
+`ui/controls/effects.js`.
+
+- **Where**: an effect LIST in the layout styles = all pages, designer only,
+  undoable, part of the design patch and of layout files:
+  `photo.effects` (the week photo, also its empty frame on screen),
+  `logo.effects` (the logo on week pages, the cover and the back),
+  `head.bg.effects` / `bg.effects` (the header / background picture — the
+  style's or a page's own `pageImages` one; not the colour or gradient layers
+  of the fill), `specialPhoto.effects` (the photos of the cover, the intro and
+  the contacts page; edited in the photo field of `ui/pagecontent.js`,
+  designer only). QR codes and event icons have none, on purpose.
+- **Effects**: `{kind: 'dropShadow', on, blend, opacity, color, angle, distance,
+  spread, size}` (Vržený stín; `angle` is Photoshop's LIGHT angle — 120° casts
+  down right, offset = (−cos a, sin a) × distance; σ = size × (1 − spread) / 2,
+  the shape grown by spread × size) and `{kind: 'gradient', on, blend, opacity,
+  type: linear | radial | reflected, angle, scale 10–150 %, x, y (centre in %
+  of the picture), stops[2–8]}` (Překrytí přechodem, several allowed; real-mm
+  `userSpaceOnUse` geometry — 45° is a real 45°, radial is a circle of
+  scale × half the longer side; unlike the fills' unit-square gradients).
+  Ranges: `LIMITS.fx*` + `percent`; `normalizeEffects` clamps, drops unknown
+  kinds, caps the list at 10. Stacking is by kind as in Photoshop (shadows
+  under the picture, overlays over it); within a kind the first effect is the
+  top one; the panel lists overlays first and moves an effect only within its
+  kind.
+- **Blend modes**: only the 16 a PDF has natively (`BLEND_MODES`, Czech
+  Photoshop names, Photoshop's groups); dissolve, linear burn / dodge, darker /
+  lighter colour, vivid / linear / pin light, hard mix, subtract and divide are
+  not offered — Chromium writes `plus-lighter` / `plus-darker` as `/BM /Normal`
+  and the rest has no CSS / PDF form.
+- **Print rules — load-bearing** (measured through Gotenberg + the CMYK pass):
+  the picture itself never gets a `filter` (Chromium would rasterise the whole
+  photo at 300 ppi, losslessly, and drop the uploaded JPEG) and never a `mask`
+  (Skia writes a soft mask with a PostScript transfer function — the CMYK pass
+  refuses it). Every effect is an element of its own: a JPEG picture's effects
+  are drawn from its rectangle (a vector gradient rect, a blurred rect); a
+  picture that may be transparent (`mayBeTransparent`: not a JPEG — the logo,
+  PNG / WebP / SVG pictures) is painted once more inside a filter
+  (`SourceAlpha` → morphology / blur / offset / flood, or a gradient
+  `feImage` with a **data URI** — an `href="#id"` is misplaced by Chromium's
+  print). The picture and its overlays are one `isolation:isolate` group, so
+  an overlay blends with the picture only. In the PDF a filter's output is a
+  300 ppi picture + soft mask; a gradient over a rectangle stays vector.
+  `effects` node suite asserts "no `filter` / `mask` on any `<image>`".
+- **Migration**: a layout stored before 2026-11-24 has `photo.shadow {on, blur,
+  opacity, dx, dy, color}` and no `photo.effects`: `normalizeLayout` turns an
+  ON shadow into the first drop shadow with `blend: normal` (draws what it
+  drew), the key disappears; MCP `photo.shadow` is refused with a pointer to
+  `effects`.
+- **Mirroring** (Fotka vlevo ↔ vpravo, `mirrorLayout`): angles flip
+  (`180 − a`), gradient centres `x → 100 − x` — a darkened corner stays with
+  the logo.
+- MCP: `set_calendar_layout` styles take the lists (validated in
+  `resources/calendar/model.mjs` `checkEffects`: kinds, keys, blends, types,
+  stops — `invalid_effect`; ranges clamped with a note).
+- Performance (dev stack, 2026-11-24, e2e `effects`): a slider step on the
+  stage redraws within the same two frames with or without effects (median
+  16.7 ms); step 4 with 55 thumbnails mounts in < 0.1 s (thumbnails are lazy).
+
+### Page list — adding and arranging pages (feedback K13, 2026-11-23)
+
+The designer adds, moves and removes special pages right in the page list of
+steps 4 and 5 (`opts.arrange` of `ui/pagelist.js`; never a client — the same
+rule as `specialPages` on the server). The Speciální stránky panel and the
+plus menu at the top of step 4 stay; all three edit the same items.
+
+- **Insertion points** (`.cal-thins[data-slot="front:<n>|back:<n>"]`, „+“ =
+  `[data-cal-action="page-insert"]`): after the cover, after every front
+  special page, after the last week page, after every back special page —
+  never between week pages (generated by date). The „+“ opens the chooser of
+  the top plus menu (generated kinds not in the calendar yet, Nahrát grafiku,
+  Text z Wordu); the page is switched on / created **at that slot** and
+  selected (step 4: its page panel; step 5: the large page).
+- **Placement is pure** — `generate/special-slots.js`: a slot is `{ position,
+  index }`, `index` counting the *shown* special pages of that section;
+  `placeSpecial(doc, id, slot, item?)` puts the page next to its shown
+  neighbour in the one `pos` order of every special page (front / back, on /
+  off) and renumbers with `reorder()`, returning only the changed items (`{}`
+  when the page already sits there); `slotInSequence(tokens, id)` reads a drop
+  from the list order (after any week page = back). Suite `special-slots`.
+  `placeSpecialPage(ctx, id, slot, item?)` (`ui/tools/special.js`) switches
+  the feature on and writes the ops in one `applyOps` — one save like any
+  content edit, never undoable.
+- **Moving**: a special page's thumbnail sits in `.cal-thw[data-special-thumb]`
+  with a drag handle `.cal-grip` (SortableJS, `forceFallback`; the insertion
+  points are drop targets too — the only way into an empty section) and a menu
+  `[data-cal-action="page-menu"]`: Posunout výš / níž (`[data-page-move="up|down"]`,
+  inside the section), Přesunout za titulní stranu / před zadní stranu
+  (`front|back`), Odebrat stránku (`[data-page-remove]`, `confirmDialog`; a
+  generated page goes `on: false` and keeps its texts, an uploaded one is
+  deleted). Cover, week pages and the back have no handle and no menu.
+- The **shown page stays shown** (by page key) when pages are added, moved or
+  removed before it — the views select by index; a removed shown page hands
+  over to the page that took its place.
+- History (`DescribeCalendarChange::specialPage`): `Přidal stránku „…“` /
+  `Odebral stránku „…“` when a page is switched on / off (generated kinds by
+  their kind name), `Přesunul stránku „…“ za titulní stranu` / `před zadní
+  stranu` on a section change, `Upravil speciální stránky` (once per save) for
+  order and layout.
+- Not built: a special page **between week pages** (e.g. mid-year). It would
+  need an anchor in the item (`position: 'week'` + the week page key it
+  follows, valid across year / type changes like the page keys), a third
+  section in `buildPages` + `special-slots.js`, a mirror in
+  `CalendarContentRules`, and slots between week pages.
+
+### Photo crop and „Upravit fotku“ (feedback K14, 2026-11-24)
+
+One crop model for every photo — `pagePhotos[pageKey]` and
+`pageContent.{cover|sp:intro|sp:contacts}.photo` — and one module for its
+maths, `model/photo-crop.js` (pure; suite `photo-crop`). Plan and decisions:
+`docs/calendar/photo-editor-plan.md`.
+
+- `{ asset, zoom, px, py, rotate?, flip? }`: `zoom` 1–5 (`LIMITS.photoZoom`;
+  PHP `CalendarContentRules::PHOTO_ZOOM_MAX`) × the cover scale; `px` / `py`
+  the share of the free travel along the picture's own axes (0.5 = centred);
+  `rotate` −180…180°; `flip: true` = mirrored horizontally about the
+  picture's centre. **The optional keys are written only when not default**
+  (`cropItem`), and the server refuses `flip: false` — so an unedited photo
+  keeps the pre-K14 item, old tabs / MCP callers sending four keys stay valid,
+  and an unedited photo renders byte-identical markup.
+- Geometry: `E` = the frame's extents along the picture's axes
+  (`w·|cos θ| + h·|sin θ|`, `w·|sin θ| + h·|cos θ|`), cover scale
+  `k0 = max(Ex / width, Ey / height)`, drawn size = pixels × `k0 · zoom`, centre
+  offset `((0.5 − px)(dw − Ex), (0.5 − py)(dh − Ey))` in the picture's axes,
+  turned by θ onto the page. **The frame is always covered** at any angle /
+  zoom / pan (a turned photo is drawn larger, and its dpi drops — `photoDpi`
+  and the `dpi` warning include the turn; `portrait` reads the orientation as
+  turned). For θ = 0 the expressions are literally the pre-K14 ones.
+- Render (`render/svg.js` `photoParts`): the same `<image>` inside the frame's
+  clip, plus `transform="translate(cx cy) rotate(θ) scale(-1 1)"` when turned
+  or mirrored. **Never a filter**: a transform keeps the uploaded JPEG byte
+  for byte in the print PDF (§ "PDF export"); colour adjustments are
+  deliberately not offered.
+- UI: `ui/photo-editor.js` — the stage shows the whole picture with the frame
+  as a window (outside dimmed, the trim dashed where the frame runs into the
+  bleed), zoom 100–500 % (about the frame centre; wheel / pinch about the
+  pointer), „Otočit o 90°“ left / right, „Narovnat“ ±45°, „Zrcadlit“, „Na
+  střed“, „Obnovit“, pixels · dpi (rose under `PHOTO_MIN_DPI`). **A draft**:
+  nothing is written until „Hotovo“ (ONE `putItem` → one History line „Upravil
+  fotku“ when the turn or the mirror changed, else „Posunul fotku“), Esc /
+  „Zrušit“ / ✕ discard. Keys: arrows 0.3 / 3 mm, + / −, [ / ]. Surfaces:
+  step 5 toolbar „Upravit fotku“ (`[data-photo-edit]`, a floating panel; the
+  page behind previews the draft through `previewCrop`), step 4 page panel
+  „Upravit“ (`[data-page-edit="photo"]`), „Fotky a popisky“ (a pencil per row,
+  the editor INLINE under the row — a floating panel would sit under the
+  Bootstrap modal and outside its focus trap), the content photo field
+  („Upravit výřez“, inline). Designer and client alike (the crop is content).
+  The quick zoom slider of step 5 / the content field and the drag on the page
+  keep the turn and the mirror (`zoomTo`, `panBy`).
 
 ## Server
 
@@ -683,6 +840,9 @@ The exact contract of each `ui/` file is the comment block at its top.
   switch `[data-prop="cal.frame|month.frame|wk.frame"]` on 14 days; in the page
   SVG `[data-el="cal|month|wk"][data-frame="0|1"]`), `[data-tool]`,
   `[data-page-thumb]`, `[data-day-plus]` / `[data-day-row]`,
+  warning badges `[data-photo-warning]` / `[data-day-warning="<date>"]` /
+  `[data-page-warn="<index>"]` (buttons; popover `[data-cal-popover="warning"]`),
+  `.cal-warn[data-warning-kind]` + `[data-warning-action="<id>"]`,
   `.cal-pop[data-cal-popover]`, `.cal-dialog` + `[data-cal-choice]`,
   `.toast-n`. The full table is `docs/calendar/architecture.md` §D.10; each
   file's header lists its own.
@@ -763,7 +923,27 @@ Waste rhythms follow ISO week parity (so they shift across a 53-week year).
 - **Warnings** (`render/warnings.js`): portrait photo, dpi < 200, icons that do
   not fit the grid, event overflow — and, on the cover / back / special pages,
   a text that does not fit (`overflow`) — all derived from geometry + the
-  asset map, nothing stored, never blocking.
+  asset map, nothing stored, never blocking. Each carries `facts` (pixels,
+  dpi, frame mm, zoom, date, counts, the special page's sentence); the WORDING
+  is one pure function, `describeWarning(warning, { designer })` in
+  `render/warning-text.js` → `{ title, text, hint, actions: [{ id, label }] }`
+  (numbers the Czech way: `1 200 × 800 px`, `37 %`, nbsp). `warning.message`
+  (= `warningMessage`: title. facts. fix — designer wording) is what MCP's
+  `render_calendar_page` returns and the step-4 panel's change signature.
+  Every surface renders the same card (`ui/warnings.js` `warningCard`): the
+  badge on the step-5 photo / day row, the thumbnail badge (a button BESIDE
+  the thumbnail button, in `.cal-thw`), the Upozornění list (cards under a
+  „Přejít na stranu“ head) and the step-4 page panel. Badges open a
+  `ui/popover.js` popover on mouse hover (no focus taken) and on click / tap /
+  Enter (pinned, focus on the first action, outside click or Esc closes).
+  Actions: `photo-replace` (file picker → `setPagePhoto`), `photo-zoom-reset`,
+  `events` (Akce a spolky on the warning's month, only when the role has the
+  tool), `element` (designer: step 3 with `{ el: 'cal', part: 'icon' | 'ev' }`
+  selected) are built in; `photo-crop`, `day` (the day's plus menu, its
+  collections / events removable) and `page-content` come from the step
+  (step 5 shows the page first; step 4 sends crop / day to step 5 and keeps
+  page content in its panel). A client never gets `element`. Colour: peach
+  (`--pch`) — design-system §7 rule 3; rose would read as an error (K12).
 
 ### Calendar scan — UI (P5)
 
@@ -812,8 +992,14 @@ targets the calendar's own type), designers only.
 - **The proposal is drawn live**, never from the candidate picture:
   `proposal.layout` on the sample week `proposal.page`, the ticked switches
   on, a held picture as a temporary asset entry (`scan-preview-{slot}`) and
-  the photo region of the upload (`photoBox`, cut by a canvas into a blob URL)
-  as the page's photo. Nothing of it enters the store or a save. The SVG is
+  the photo region of the upload (cut by a canvas into a blob URL) as the
+  page's photo. The cut is the WHOLE proposed photo box, bleed included
+  (`photoCutBox`: layout mm → source px through `pageBox`; the bleed part
+  filled with the picture's stretched edge pixels), at the box's mm ratio —
+  so the cover fit places it 1:1. The scanner's `photoBox` is clipped to the
+  picture; laid into a box that runs into the bleed it was stretched ~4.5 %
+  and shifted, and the source's own caption plate showed beside the proposed
+  one (K16). Nothing of it enters the store or a save. The SVG is
   put into `[data-proposal]` after each render (outside the patched markup)
   and redrawn only when its signature changes.
 - **Boxes over the pictures** are percent boxes computed from the proposed
@@ -826,6 +1012,19 @@ targets the calendar's own type), designers only.
   page's own pixels dimmed, `sourceBox()` = layout mm → pixels of the working
   copy through `pageBox`). Hover or focus of a row of „Co jsme rozpoznali“
   or of a picture card (`data-hl`) lights the box with the same `data-box`.
+- **Pictures are optional, not a stop** (feedback K7 / K8, 2026-11-23). From
+  the review the primary is „Použít rozvržení · n obrázků doplníte později“;
+  „Doplnit obrázky teď“ (tertiary, `[data-cal-action="scan-pictures"]`) opens
+  the pictures step for whoever wants it — everything below still works there.
+  After an apply with places left empty the toast says „Rozvržení převzato ze
+  skenu · 1 obrázek doplníte v Úpravách prvků“ and step 3 opens with the
+  first empty place selected (`logo` / `head` / `bg`, `placeOfSlot()`), whose
+  panel holds the upload and the size line (§ K6 below). When every place
+  has a picture the multi-drop zone gives way to the note
+  `[data-cal-scan-full]` („Všechna místa mají obrázek. Obrázek vyměníte
+  tlačítkem Změnit…“); a file dropped on one card replaces that card's
+  picture; files that find no empty place toast `CAL.picturesNoneEmpty`
+  (it used to say „Žádné prázdné místo — obrázky jsme nepřiřadili“).
 - **Pictures for the places** (`holdPicture(slot, File | {fileId})`): a file
   input, a file dropped on a card (`data-dropzone="slot"`), several files on
   the multi-drop zone or on a card (`holdMany` — the places without a
@@ -913,9 +1112,10 @@ targets the calendar's own type), designers only.
 - **`store.load(response)`** takes a document saved through another door (the
   answer of accept / restore: `{ calendar, assets, layoutOrigin }`): replaces
   doc and server copy, clears dirty marks and the undo stack, emits
-  `replace`. Callers make sure the store is clean first — apply is disabled
-  with „Nejdřív uložte rozpracované změny.“ + `Uložit`, restore says so in a
-  toast.
+  `replace`. Callers make sure the store is clean first — apply SAVES first
+  (`scan.apply()`: the button reads „Uložit a použít rozvržení…“ while the
+  calendar is dirty, a failed save does not apply and says why — K8),
+  restore says so in a toast.
 - **„Použít rozvržení“ changes the step in one piece.** The accepted document
   comes back at step 3 (the model's `replace_layout` advances it), so the
   `replace` event of `store.load()` is what swaps step 2's module for the
@@ -1177,11 +1377,15 @@ embedded (subset, Identity-H, with ToUnicode — the text can be selected and
 searched), shapes, gradients, clip paths, opacity and dashes as vector
 operators, and every `<image>` as an image object with the pixels of its
 file; **a JPEG is copied in with its own data** (`pdfimages -list` shows
-`3600 × 2400 jpeg` for a 3600 px upload). Measured on a page using everything
+`3600 × 2400 jpeg` for a 3600 px upload — also under the `transform` of a turned or
+mirrored photo: a 3816 × 5400 JPEG under `rotate(7)` / `rotate(90)` / `scale(-1 1)` /
+all three came out with the identical md5, while a CSS `filter: brightness()` on it
+rasterised it to 1892 × 1184 at 300 ppi, K14 spike). Measured on a page using everything
 the renderer can draw at once: the only thing Chromium rasterises is the
-element under an SVG **filter** — the photo shadow (`feGaussianBlur`) becomes
+element under an SVG **filter** — a drop shadow (`feGaussianBlur`) becomes
 one 300 ppi RGB image + soft mask of the blurred rectangle; the photo above
-it, the texts and every other shape stay as they are.
+it, the texts and every other shape stay as they are. That is why the layer
+effects never filter a picture itself (§ "Image effects").
 
 Print gets `placeholders: 'none'` (nothing invented goes on paper — an empty
 photo frame stays empty), approval `'frames'` (the grey "a photo is missing"
@@ -1336,7 +1540,7 @@ it** — found by dumping a page that uses every feature at once
 | `/Pattern CS/Pattern cs/P8 SCN/P8 scn` + shading pattern (`PatternType 2`, `ShadingType 2` axial / `3` radial, `/ColorSpace /DeviceRGB`, `FunctionType 2` with `C0` / `C1`, or `FunctionType 3` stitching for more stops) | gradients (header, background, month, SVG logos) | space → DeviceCMYK, every stop converted like a colour; between stops the inks interpolate linearly |
 | tiling pattern (`PatternType 1`, `PaintType 1`) wrapping `gs` + a shading pattern | a gradient with **stop opacity** | content rewritten, resources walked |
 | ExtGState `/SMask << /S /Luminosity /G form >>`, the form a transparency group `/CS /DeviceRGB` painted with a GREY gradient (`C0 [1 1 1]`, `C1 [.6 .6 .6]`) | the opacity of those stops | the group becomes `/CS /DeviceGray`, its colours the PDF luminosity of the RGB ones (0.30 R + 0.59 G + 0.11 B) — the mask's opacity is exact |
-| ExtGState `/ca`, `/CA`, `/BM /Normal`, `/LW /LC /LJ /ML /SA` | opacity (kalendárium, caption, month backgrounds, pictures), line styles | copied; an unknown key or blend mode fails |
+| ExtGState `/ca`, `/CA`, `/BM /<mode>`, `/LW /LC /LJ /ML /SA` | opacity (kalendárium, caption, month backgrounds, pictures), line styles, the blend mode of a layer effect (all 16 PDF modes: Normal … Luminosity — measured 2026-11-23) | copied; an unknown key or a blend mode outside the 16 fails |
 | Form XObject, `/Group << /S /Transparency /I true >>` | a picture with opacity, clipped groups | content rewritten; a group `/CS` → DeviceCMYK |
 | Image `/DCTDecode`, `/ColorSpace [/ICCBased n]` (N 3), `/ColorTransform 0` | a JPEG upload, bytes untouched | CMYK JPEG, see above; the RGB profile object is dropped |
 | Image `/FlateDecode` `/DeviceRGB` + `/SMask` (DeviceGray) | the filter-rasterised photo shadow (300 ppi), PNG uploads | DeviceGray if all-neutral, else DeviceCMYK; the mask untouched |
@@ -1411,7 +1615,11 @@ files with ONE leftover each.
 TrimBox on every page; `/Trapped`; XMP with `pdfxid:GTS_PDFXVersion`
 matching Info; trailer `/ID`; no encryption, JavaScript, annotations,
 transfer functions, halftones, OPI, alternates, LZW; live transparency
-(allowed in X-4) with normal blend mode only. **Not validated by a preflight
+(allowed in X-4) with the 16 standard PDF blend modes (the layer effects'
+`mix-blend-mode`; a transparency group blends in DeviceCMYK, so the
+non-separable modes Hue / Saturation / Color / Luminosity and Difference /
+Exclusion follow the PDF rules for CMYK and a RIP may differ slightly from
+the screen — proof before a run that relies on them). **Not validated by a preflight
 tool** — none of the free ones checks X-4 (veraPDF: PDF/A and UA only;
 Ghostscript only *writes* X; qpdf checks syntax). Checked instead: `qpdf
 --check` clean, Ghostscript renders every page without a warning, poppler
@@ -1672,6 +1880,13 @@ zoom, snap and link behaviour (interaction, not data).
 | Node suites (every pure rule) | `tests/Fixtures/calendar/suites/*.mjs` + `harness.mjs`, `helpers.mjs` | in CI through `tests/Calendar/CalendarJsTest.php` (data provider globs the suites; a new suite file needs no PHP edit, a suite without a test fails); by hand `node tests/Fixtures/calendar/harness.mjs --all` or `… <suite>` |
 | Contract | `tests/Calendar/CalendarSeedContractTest.php` (PHP seed vs `BUILTIN_WASTE` via `dump-defaults.mjs`) | CI |
 | e2e (real pointer, asserts in mm) | `tests/e2e/calendar/*.e2e.cjs`, `lib/harness.cjs`, `lib/editor.cjs` | `node tests/e2e/calendar/run.cjs [filter]` — **not in CI** |
+
+Image effects: node suite `effects` (normalising, migration of the old
+„Stín“, geometry, the print rules — no `filter` / `mask` on any picture —,
+ids), `CalendarDesignToolsTest::testPicturesTakeLayerEffects`, the CMYK
+export `CalendarCmykExportGotenbergTest` (effects in multiply / color /
+screen on the photo and a transparent logo; the photo stays the uploaded
+JPEG) and its chunk fixture for `ChromiumChunkCmykTest`, e2e `effects`.
 
 Content of the cover / back / special pages: node suite `special` (every kind ×
 layout × empty / typical / overflowing content at three page sizes, markup
