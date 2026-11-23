@@ -261,7 +261,13 @@ module.exports = {
             await input.uploadFile(photoFile);
             await client.waitForFunction((key) => Boolean(window.__calendar.state().content.pagePhotos[key]), { timeout: 20000 }, week.key);
             await client.waitForSelector(`${row} .cal-ft.has img`, { timeout: 5000 });
-            await client.click(`${row} [data-photo-caption]`);
+            // K11: the client's row names the file, and the empty caption starts from the file name
+            assert.equal(await client.$eval(`${row} [data-photo-name]`, (el) => el.textContent), 'masopust.png2700 × 1800 px');
+            assert.deepEqual((await h.state(client)).content.pageCaptions[week.key], { text: 'masopust' });
+            await client.$eval(`${row} [data-photo-caption]`, (el) => {
+                el.focus();
+                el.select();
+            });
             await client.keyboard.type(CAPTION);
             await client.keyboard.press('Enter');
             const s = await h.state(client);

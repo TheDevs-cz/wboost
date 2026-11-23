@@ -2,6 +2,14 @@
 //
 // One row per week page: photo, caption, remove; a counter; and „Nahrát všechny fotky najednou“,
 // which assigns the chosen files to the weeks in file-name order, starting with the first week.
+// A filled row says which file it holds (feedback K11): the original file name (`asset.name`,
+// ellipsised in the middle so the number and extension stay visible, full name in `title`), the
+// pixel size, and — under `PHOTO_MIN_DPI` for the photo box — the „Nízká kvalita“ dpi hint of the
+// page warnings (`render/warnings.js` `lowPhotoDpi`, the one threshold). The line sits under the
+// caption field (or in its column when captions are off); at ≤ 600 px it wraps under the row.
+// An upload here (single or bulk) into a week WITHOUT a caption and without an embedded picture
+// description starts the caption from the file name (`model/photo-caption.js`; camera names like
+// `IMG_1234` give none) — an ordinary content edit the user sees in the field and can change.
 //
 // Contract: `ui/tools/index.js` opens the modal and calls `mountPhotosTool(root, ctx)` with the
 // modal body as `root`; the tool edits `pagePhotos` / `pageCaptions` through the store (labels =
@@ -10,15 +18,19 @@
 // Also exported for the other step-4 modules (page panel, QR tool, special pages):
 //   `fileTile(options)`            the dashed upload tile with a hidden file input
 //   `uploadAsset(ctx, file, kind)` `api.upload` → `store.addAsset`, error toast on failure
-//   `setPagePhoto(ctx, page, info)` photo of a week page: crop reset to centred / 100 %, caption
-//                                   from the picture's embedded description
+//   `setPagePhoto(ctx, page, info, { nameCaption })` photo of a week page: crop reset to centred /
+//                                   100 %, caption from the picture's embedded description; with
+//                                   `nameCaption` (this tool only) an empty caption falls back to
+//                                   the file name
 //   `sortedImageFiles(files)`      images only, in Czech numeric file-name order
 //
 // DOM hooks: `[data-photo-bulk]` (the multi-file input), `[data-photo-row="<pageKey>"]`,
 // `[data-photo-file]`, `[data-photo-caption]`, `[data-photo-remove]`, `[data-photo-count]`,
-// `[data-photo-progress]`.
+// `[data-photo-progress]`, `[data-photo-name]` (the file line; `data-photo-dpi` when too small).
 
 import { weekPages } from '../../generate/pages.js';
+import { captionFromFileName } from '../../model/photo-caption.js';
+import { lowPhotoDpi } from '../../render/warnings.js';
 import { h, icon } from '../dom.js';
 
 export const CAPTION_MAX = 80;
@@ -97,11 +109,15 @@ export async function uploadAsset(ctx, file, kind) {
  * Puts an uploaded photo on a week page. A new photo always starts centred at 100 % (handoff §8);
  * a description embedded in the picture becomes the caption, an existing caption is kept otherwise.
  */
-export function setPagePhoto(ctx, page, info) {
+export function setPagePhoto(ctx, page, info, { nameCaption = false } = {}) {
     const ops = [{ c: 'pagePhotos', id: page.key, v: { asset: info.id, zoom: 1, px: 0.5, py: 0.5 }, label: page.title }];
+    const { doc } = ctx.store.getState();
     const description = typeof info.description === 'string' ? info.description.trim() : '';
-    if (description && ctx.store.getState().doc.design.features.captions) {
-        ops.push({ c: 'pageCaptions', id: page.key, v: { text: description.slice(0, CAPTION_MAX) }, label: page.title });
+    if (doc.design.features.captions) {
+        const current = doc.content.pageCaptions[page.key];
+        const fromName = nameCaption && !description && !(current && current.text.trim()) ? captionFromFileName(info.name, CAPTION_MAX) : null;
+        const text = description ? description.slice(0, CAPTION_MAX) : fromName;
+        if (text) ops.push({ c: 'pageCaptions', id: page.key, v: { text }, label: page.title });
     }
     ctx.store.applyOps(ops);
 }
@@ -154,7 +170,7 @@ export function mountPhotosTool(root, ctx) {
             'span',
             null,
             h('b', null, 'Nahrát všechny fotky najednou'),
-            h('span', { class: 'cap' }, 'Vyberte všechny fotky ze složky — přiřadí se k týdnům podle pořadí názvů souborů. Mají-li fotky vyplněný popisek, doplní se i popisky.'),
+            h('span', { class: 'cap' }, 'Vyberte všechny fotky ze složky — přiřadí se k týdnům podle pořadí názvů souborů. Popisky se doplní z popisků uložených ve fotkách, jinak z názvů souborů.'),
             progress,
         ),
     );
@@ -189,7 +205,7 @@ export function mountPhotosTool(root, ctx) {
                     const info = await ctx.api.upload(job.file, 'photo');
                     store.addAsset(info);
                     // the page list may have changed meanwhile (never for a week key that still exists)
-                    setPagePhoto(ctx, job.page, info);
+                    setPagePhoto(ctx, job.page, info, { nameCaption: true });
                 } catch (error) {
                     failed += 1;
                     if (!firstError) firstError = (error && error.message) || 'Soubor se nepodařilo nahrát';
@@ -232,7 +248,7 @@ export function mountPhotosTool(root, ctx) {
             attrs: { 'data-photo-file': '' },
             onFiles: async ([file]) => {
                 const info = await uploadAsset(ctx, file, 'photo');
-                if (info) setPagePhoto(ctx, page, info);
+                if (info) setPagePhoto(ctx, page, info, { nameCaption: true });
             },
         });
         const caption = captions
@@ -254,21 +270,54 @@ export function mountPhotosTool(root, ctx) {
             { type: 'button', class: 'btn icon xs btn-ghost', 'aria-label': 'Odebrat fotku', title: 'Odebrat fotku', 'data-photo-remove': '', onClick: () => store.removeItem('pagePhotos', page.key, page.title) },
             icon('trash', 's16'),
         );
+        const meta = h('span', { class: 'cap cal-phm', 'data-photo-name': '', hidden: true });
+        const cell = h('span', { class: 'cal-phc' }, captions ? h('span', { class: 'inp sm' }, caption) : null, meta);
         const el = h(
             'div',
             { class: `cal-phr${captions ? '' : ' np'}`, 'data-photo-row': page.key },
             tile,
             h('span', { class: 'cal-pht' }, h('b', null, page.title), h('span', { class: 'cap' }, page.subtitle)),
-            captions ? h('span', { class: 'inp sm' }, caption) : null,
+            cell,
             h('span', { class: 'cal-phx' }, remove),
         );
-        return { key: page.key, el, tile, caption, remove };
+        return { key: page.key, el, tile, caption, remove, meta, cell, captions };
+    }
+
+    /** The file line of a filled row: name (middle ellipsis) · pixel size · low-dpi hint. */
+    function paintMeta(row, asset) {
+        const { meta } = row;
+        const photo = state().doc.content.pagePhotos[row.key];
+        if (!photo || !asset) {
+            meta.hidden = true;
+            meta.replaceChildren();
+            delete meta.dataset.photoDpi;
+            row.cell.hidden = !row.captions;
+            return;
+        }
+        const name = String(asset.name || '').normalize('NFC');
+        // the tail keeps the last characters before the extension and the extension itself
+        const dot = name.lastIndexOf('.');
+        const cut = Math.max(0, (dot > 0 ? dot : name.length) - 6);
+        const parts = [];
+        if (name) parts.push(h('span', { class: 'cal-phf' }, h('span', { class: 'cal-phf1' }, name.slice(0, cut)), h('span', { class: 'cal-phf2' }, name.slice(cut))));
+        const sized = asset.width > 0 && asset.height > 0;
+        if (sized) parts.push(h('span', { class: 'cal-phs' }, `${asset.width} × ${asset.height} px`));
+        const dpi = lowPhotoDpi(state().doc.design, photo, asset);
+        if (dpi !== null) {
+            parts.push(h('span', { class: 'cal-phd', title: `Nízká kvalita fotky — ${dpi} dpi (pro tisk aspoň 300 dpi)` }, `Nízká kvalita — ${dpi} dpi`));
+            meta.dataset.photoDpi = String(dpi);
+        } else delete meta.dataset.photoDpi;
+        meta.replaceChildren(...parts);
+        meta.title = [name, sized ? `${asset.width} × ${asset.height} px` : ''].filter(Boolean).join(' · ');
+        meta.hidden = parts.length === 0;
+        row.cell.hidden = !row.captions && meta.hidden;
     }
 
     function syncRow(row) {
         const content = state().doc.content;
         const asset = assetOf(row.key);
         row.tile.setAsset(asset);
+        paintMeta(row, asset);
         row.remove.hidden = !content.pagePhotos[row.key];
         row.el.classList.toggle('has', Boolean(content.pagePhotos[row.key]));
         if (row.caption && document.activeElement !== row.caption) {
@@ -308,7 +357,7 @@ export function mountPhotosTool(root, ctx) {
             const row = rows.find((r) => r.key === event.id);
             if (row) syncRow(row);
             syncCount();
-        } else if (event.type === 'replace') {
+        } else if (event.type === 'replace' || event.type === 'layout' || event.type === 'design') {
             rows.forEach(syncRow);
             syncCount();
         }

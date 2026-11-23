@@ -333,7 +333,7 @@ module.exports = {
         await check('C1 bulk upload: 01, 02, 10 land on weeks 1, 2, 3 in file-name order; counter 3 of N; caption from the description; pixel sizes recorded', async () => {
             await openTool(page, h, 'photos');
             assert.equal(await text(page, '.cal-dpx b'), 'Nahrát všechny fotky najednou');
-            assert.equal(await text(page, '.cal-dpx .cap'), 'Vyberte všechny fotky ze složky — přiřadí se k týdnům podle pořadí názvů souborů. Mají-li fotky vyplněný popisek, doplní se i popisky.');
+            assert.equal(await text(page, '.cal-dpx .cap'), 'Vyberte všechny fotky ze složky — přiřadí se k týdnům podle pořadí názvů souborů. Popisky se doplní z popisků uložených ve fotkách, jinak z názvů souborů.');
             assert.equal(await page.$$eval('[data-photo-row]', (nodes) => nodes.length), weeks.length, 'one row per week');
             assert.equal(await text(page, '[data-photo-count]'), `Fotky: 0 z ${weeks.length}`);
             assert.equal(await page.$eval(`[data-photo-row="${weeks[0].key}"] [data-photo-file]`, (el) => el.getAttribute('aria-label')), `Fotka: ${weeks[0].title}`);
@@ -352,6 +352,13 @@ module.exports = {
             assert.equal(await page.$$eval('[data-photo-row] .cal-ft.has img', (nodes) => nodes.length), 3);
             assert.deepEqual(state.content.pageCaptions, { [weeks[1].key]: { text: 'Rybník za humny, foto: Jana Nová' } }, 'the caption comes from the description embedded in 02');
             assert.equal(await page.$eval(`[data-photo-row="${weeks[1].key}"] [data-photo-caption]`, (el) => el.value), 'Rybník za humny, foto: Jana Nová');
+            // K11: every filled row names its file and pixel size; `01` / `02` / `10` give no caption
+            assert.deepEqual(
+                await page.$$eval('[data-photo-row] [data-photo-name]:not([hidden])', (nodes) => nodes.map((n) => n.textContent)),
+                ['01.png2600 × 1700 px', '02.png2640 × 1700 px', '10.png2680 × 1700 px'],
+            );
+            assert.equal(await page.$eval(`[data-photo-row="${weeks[0].key}"] [data-photo-name]`, (el) => el.title), '01.png · 2600 × 1700 px');
+            assert.equal(await exists(page, '[data-photo-name][data-photo-dpi]'), false, 'no low-resolution hint at 2600 px');
             await h.shot(page, 'tool-photos');
             await closeTool(page, h);
 
@@ -377,6 +384,26 @@ module.exports = {
             await waitCal(page, (c, k, old) => c.state().content.pagePhotos[k].asset !== old, key, first);
             const photo = (await h.state(page)).content.pagePhotos[key];
             assert.deepEqual([photo.zoom, photo.px, photo.py], [1, 0.5, 0.5]);
+            // K11: an empty caption starts from the file name; the row names the new file
+            assert.deepEqual((await h.state(page)).content.pageCaptions[key], { text: 'tisk' });
+            assert.equal(await page.$eval(`[data-photo-row="${key}"] [data-photo-caption]`, (el) => el.value), 'tisk');
+            assert.equal(await page.$eval(`[data-photo-row="${key}"] [data-photo-name]`, (el) => el.textContent), 'tisk.png3661 × 2440 px');
+            // a small photo: the row carries the warnings' low-resolution hint; a typed caption is kept
+            const six = weeks[6].key;
+            await page.type(`[data-photo-row="${six}"] [data-photo-caption]`, 'Náves');
+            await upload(page, `[data-photo-row="${six}"] [data-photo-file]`, files.small);
+            await waitCal(page, (c, k) => Boolean(c.state().content.pagePhotos[k]), six);
+            await page.waitForSelector(`[data-photo-row="${six}"] [data-photo-name][data-photo-dpi]`);
+            assert.match(await page.$eval(`[data-photo-row="${six}"] [data-photo-name]`, (el) => el.textContent), /^mala\.png600 × 400 pxNízká kvalita — \d+ dpi$/);
+            assert.deepEqual((await h.state(page)).content.pageCaptions[six], { text: 'Náves' }, 'a typed caption is never replaced by the file name');
+            await page.click(`[data-photo-row="${six}"] [data-photo-remove]`);
+            assert.equal(await visible(page, `[data-photo-row="${six}"] [data-photo-name]`), false);
+            await page.$eval(`[data-photo-row="${six}"] [data-photo-caption]`, (el) => {
+                el.focus();
+                el.select();
+            });
+            await page.keyboard.press('Backspace');
+            assert.equal((await h.state(page)).content.pageCaptions[six], undefined);
             // caption typed in the row
             await page.type(`[data-photo-row="${weeks[5].key}"] [data-photo-caption]`, 'Hasičská zbrojnice');
             assert.deepEqual((await h.state(page)).content.pageCaptions[weeks[5].key], { text: 'Hasičská zbrojnice' });

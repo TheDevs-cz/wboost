@@ -432,6 +432,13 @@ WebP preview (WebP, not JPEG, so a logo
 keeps its transparency); the full file is used only on the large step-5 page
 and for the dpi warning. Uploading never changes the calendar document — the
 client references the id and saves.
+A week photo uploaded in „Fotky a popisky“ (single or bulk) sets the caption
+from the embedded description; failing that, a week with no caption gets one
+from the cleaned file name (`model/photo-caption.js`: extension, `_`/`-` and
+an ordering prefix go; camera / generated names such as `IMG_1234`, `PXL_…`,
+`Snímek obrazovky…` give none) — feedback K11. Its rows name the file
+(`asset.name`), the pixel size and the low-dpi hint (`render/warnings.js`
+`lowPhotoDpi` / `PHOTO_MIN_DPI`, shared with the page warnings).
 Assets are never deleted individually (replaced photos stay until the calendar
 goes — they count as *referenced* in the storage report).
 

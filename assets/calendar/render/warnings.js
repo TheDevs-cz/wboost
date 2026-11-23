@@ -12,6 +12,19 @@ export function photoDpi(assetInfo, frameBox, zoom) {
     return Math.round(25.4 / mmPerPx);
 }
 
+/** Below this effective resolution a week photo gets the „Nízká kvalita fotky“ warning. */
+export const PHOTO_MIN_DPI = 200;
+
+/**
+ * The effective dpi of a week page's photo when it is under `PHOTO_MIN_DPI`, else `null` (also for
+ * an unknown pixel size or a hidden photo element). Shared by the page warnings and „Fotky a popisky“.
+ */
+export function lowPhotoDpi(design, photo, assetInfo) {
+    if (!design.layout || !photo || !assetInfo || !(assetInfo.width > 0 && assetInfo.height > 0) || !isElementVisible(design, 'photo')) return null;
+    const dpi = photoDpi(assetInfo, design.layout.boxes.photo, photo.zoom);
+    return dpi < PHOTO_MIN_DPI ? dpi : null;
+}
+
 export function pageWarnings(doc, page, opts) {
     const out = [];
     const design = doc.design;
@@ -29,8 +42,8 @@ export function pageWarnings(doc, page, opts) {
         if (asset.height > asset.width && box.w > box.h) {
             out.push({ pageIndex: page.index, kind: 'portrait', target: { el: 'photo' }, message: 'Fotka je na výšku — do rámečku na šířku se ořízne' });
         }
-        const dpi = photoDpi(asset, box, photo.zoom);
-        if (dpi < 200) {
+        const dpi = lowPhotoDpi(design, photo, asset);
+        if (dpi !== null) {
             out.push({ pageIndex: page.index, kind: 'dpi', target: { el: 'photo' }, message: `Nízká kvalita fotky — ${dpi} dpi (pro tisk aspoň 300 dpi)` });
         }
     }
