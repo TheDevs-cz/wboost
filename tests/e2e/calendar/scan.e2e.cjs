@@ -564,6 +564,9 @@ module.exports = {
                 await page.click('[data-cal-action="scan-pictures"]');
                 await waitPanel('pictures');
                 assert.match(await text('[data-cal-action="scan-apply"]'), /^Použít rozvržení · 2 obrázky doplníte později$/);
+                // K6: every place says the size its picture should have — the header reaches into the bleed
+                assert.match(await text('[data-place-size="logo"]'), /^Místo pro logo [\d,]+ × [\d,]+ mm.* · SVG, nebo PNG s průhledností \(ideálně \d+ × \d+ px\)$/);
+                assert.match(await text('[data-place-size="header"]'), /^Rozměr [\d,]+ × [\d,]+ mm včetně spadávky 5 mm · ideálně \d+ × \d+ px, nejméně \d+ × \d+ px$/);
                 const [chooser] = await Promise.all([page.waitForFileChooser(), page.click('[data-k="piclogo"]')]);
                 await chooser.accept([logo]);
                 await page.waitForFunction(() => /logo\.png/.test(document.querySelector('[data-slot="logo"]').textContent), { timeout: 15000 });

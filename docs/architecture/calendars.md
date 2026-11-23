@@ -817,6 +817,20 @@ targets the calendar's own type), designers only.
   screen shows, because the links (`Nahrát písma` → `env.scan.urls.fonts`,
   `Otevřít paletu` → `env.scan.urls.palette`) open a new tab — the workspace
   guards unsaved changes.
+- **Every place says its size** (feedback K6, 2026-11-23; `views.placeSize()`):
+  the place's box in the PROPOSED layout, cut at the bleed edge, in mm — a
+  box that reaches over the trim holds the bleed and says „včetně spadávky
+  5 mm“ (`bleedOf(design.print)`); with the bleed off a box at the page edge
+  says „(spadávka je vypnutá)“; the background place is the whole page plus
+  bleed. Then the pixels at 300 dpi (ideal) and 200 dpi (minimum) —
+  „Rozměr 320 × 32 mm včetně spadávky 5 mm · ideálně 3780 × 378 px, nejméně
+  2520 × 252 px“. The logo is fitted inside its box: „Místo pro logo 34 × 11
+  mm · SVG, nebo PNG s průhledností (ideálně 402 × 130 px)“. A held picture
+  (not an SVG) under 200 dpi in its place (cover: `photoDpi`; contain:
+  fitted inside) gets the editor's hint „Nízká kvalita obrázku — 48 dpi (pro
+  tisk aspoň 300 dpi)“. The 200 / 300 are MIRRORS of `render/warnings.js`
+  (kept in `views.js`: a constant moved into `render/` would change the
+  export fingerprint).
 - **Upload checks**: `inspectFiles(files, {minShortSide: 280, minLongSide:
   640, goodShortSide: 600})` — a calendar page is taken from 640 × 280 px,
   longer × shorter side (a page 640 px wide is 299 px high; the template
@@ -902,6 +916,7 @@ targets the calendar's own type), designers only.
   scan-start|scan-pictures|scan-apply|scan-restore|scan-discard|scan-rescan"]`,
   `[data-preset="scan"]`, `[data-cal-scan-dot]`, `[data-proposal]`,
   `[data-cal-scan-prep]` with `[data-prep="logo|fonts|palette|page"][data-state="info|ok|todo"]`,
+  `[data-place-size="logo|header|background"]` / `[data-place-dpi]` on a picture card,
   `[data-cal-scan-fonts="ok|warn|bad"]` (`#calScanFonts`) with rows `[data-font-state]` and pills
   `[data-font-count]`, `[data-cal-scan-attn="fonts"]` in the summary,
   `#calScanFile`, `#calScanPic`, `#calScanPics` (always in the panel's markup), `[data-slot]`
