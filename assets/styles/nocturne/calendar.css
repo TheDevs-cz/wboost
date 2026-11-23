@@ -300,7 +300,13 @@ img.cal-scan-orig { object-fit: fill; }
 .as-rec b { font-weight: 600; }
 .as-rec span.f { color: var(--muted); text-align: right; overflow-wrap: anywhere; }
 .as-cantl { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: var(--text-2); }
-.as-cantl li { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 12px; align-items: center; }
+.as-cantl li { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 12px; align-items: start; }
+/* K15a: a code found several times keeps its crops together; name + one sentence beside them */
+.cal-cantcs { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.cal-cant-b { display: flex; flex-direction: column; gap: 2px; line-height: 1.5; }
+.cal-cant-b b { font-weight: 600; color: var(--text); }
+.cal-cant-n { font-weight: 500; color: var(--muted); }
+@media (max-width: 480px) { .as-cantl li { grid-template-columns: 88px minmax(0, 1fr); } }
 .as-cantc { display: block; border-radius: 6px; background-repeat: no-repeat; box-shadow: inset 0 0 0 1px var(--line-2); }
 .cal-scan-nopic { display: grid !important; place-items: center; color: var(--subtle); }
 .cal-scan-warn { color: var(--pch-ink); font-weight: 600; }

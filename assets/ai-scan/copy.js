@@ -190,10 +190,26 @@ export const CAL = {
     absent: 'na stránce jsme nenašli',
     kept: 'na stránce jsme nenašli — zůstane jako dosud',
     features: { weekNumbers: 'Zapnout čísla týdnů', captions: 'Zapnout popisek fotky', moon: 'Zapnout fáze měsíce', qr: 'Zapnout QR kód', events: 'Zapnout akce', waste: 'Zapnout svoz odpadů', timeChange: 'Zapnout změnu času', seasons: 'Zapnout roční období', shifts: 'Zapnout směny' },
+    /**
+     * „Co kalendář nepřevezme“ of the review (K15a): per code of the report's `notExpressible` a
+     * name and one sentence — what it is on the picture and what to do with it. Information, never
+     * an error: the proposal is usable without them.
+     */
     notExpressible: {
-        ornament: 'Ozdobný pruh / rámeček / ornament', header_text: 'Text v hlavičce', second_photo: 'Druhá fotografie', more_logos: 'Další loga',
-        days_in_grid: 'Dny v mřížce', rotated_text: 'Svislý nebo otočený text', month_colours: 'Jiné barvy pro každý měsíc', multilingual_names: 'Vícejazyčné názvy',
+        ornament: { title: 'Ozdobný pruh, rámeček nebo ornament', text: 'Dekoraci mimo prvky kalendáře — pruh přes stránku, rámeček kolem fotky, dělicí čáru — kalendář nevykreslí. Chcete-li ji mít, udělejte ji součástí obrázku v hlavičce nebo na pozadí (Úpravy prvků › Hlavička / Pozadí).' },
+        header_text: { title: 'Vlastní text v hlavičce', text: 'Volný text (slogan, název obce…) kalendář do hlavičky nepíše. Může být součástí obrázku v hlavičce, nebo ho napište do popisku fotky.' },
+        second_photo: { title: 'Druhá fotografie', text: 'Stránka kalendáře má jednu fotografii týdne. Dvě fotky spojte do jednoho obrázku, nebo druhou dejte do obrázku v hlavičce.' },
+        more_logos: { title: 'Další loga', text: 'Kalendář má jedno místo pro logo. Víc log (třeba partnerů) spojte do jednoho obrázku loga, nebo je dejte do obrázku v hlavičce.' },
+        days_in_grid: { title: 'Dny v mřížce', text: 'Kalendář řadí dny pod sebe do řádků — návrh je postavený s řádky. Mřížku dnů vedle sebe kalendář neumí.' },
+        rotated_text: { title: 'Svislý nebo otočený text', text: 'Kalendář píše texty jen vodorovně; otočený text z obrázku nevykreslí.' },
+        month_colours: { title: 'Jiné barvy pro každý měsíc', text: 'Barvy platí pro celý rok — převzali jsme je z naskenované stránky. Jinou barvu pro jednotlivé měsíce kalendář nemá.' },
+        // ONE place for the language wording — changes when „Jazyky názvů“ (K15b) ships
+        multilingual_names: { title: 'Názvy ve více jazycích', text: 'Kalendář tiskne názvy měsíců, dnů a týdnů česky; další jazyky ze stránky nepřevezme.' },
     },
+    notExpressibleHead: 'Co kalendář nepřevezme',
+    notExpressibleLead: 'Pro informaci — návrh je i bez toho použitelný. U každé položky je, co s ní můžete udělat.',
+    /** `· 3 místa` beside a code found more than once. */
+    notExpressiblePlaces: (n) => `${n} ${n >= 2 && n <= 4 ? 'místa' : 'míst'}`,
     notes: {
         fortnight_left_half: () => 'Na obrázku jsou dva týdny, kalendář je týdenní — převzali jsme levý týden.',
         week_page_on_fortnight: () => 'Na obrázku je jeden týden, kalendář je čtrnáctidenní — druhý týden jsme doplnili zrcadlově.',

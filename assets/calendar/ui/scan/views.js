@@ -578,16 +578,30 @@ function fontsAttention(scan) {
     return `<p class="cal-scan-attn ${bad ? 'bad' : 'warn'}" data-cal-scan-attn="fonts">${ic(bad ? 'alert-circle' : 'alert', 's14')}<span>${CAL.fontsAttention}: ${FONT_PILLS.slice(0, 2).filter(([k]) => counts[k] > 0).map(([k]) => CAL.fontCounts[k](counts[k])).join(', ')}. <button type="button" class="as-link" data-act="toFonts" data-k="tofonts">Zobrazit písma</button></span></p>`;
 }
 
+/**
+ * „Co kalendář nepřevezme“ (K15a): one row per CODE — its crops (every place it was found), a name,
+ * „· 3 místa“ when repeated, and one sentence what it is and what to do. Information, not an error
+ * (no warning colours); unknown codes are left out. Then the switches the page shows and the
+ * calendar has off.
+ */
 function cantCard(scan) {
     const p = scan.proposal;
     const source = p.source && p.source.width ? p.source : null;
-    const cant = (p.notExpressible || []).map((item) => {
-        const crop = source && item.box ? `<span class="as-cantc" role="img" aria-label="Výřez původní stránky" style="${cropStyle(scan.image('working'), item.box, source, { pad: 0.15, minRatio: 1.6, maxRatio: 5 })}"></span>` : '<span></span>';
-        return `<li>${crop}<span>${CAL.notExpressible[item.code] || ''}</span></li>`;
+    const groups = new Map();
+    for (const item of p.notExpressible || []) {
+        if (!CAL.notExpressible[item.code]) continue;
+        if (!groups.has(item.code)) groups.set(item.code, []);
+        groups.get(item.code).push(item);
+    }
+    const cant = [...groups].map(([code, items]) => {
+        const copy = CAL.notExpressible[code];
+        const crops = source ? items.filter((item) => item.box).slice(0, 3).map((item) => `<span class="as-cantc" role="img" aria-label="Výřez původní stránky" style="${cropStyle(scan.image('working'), item.box, source, { pad: 0.15, minRatio: 1.6, maxRatio: 5 })}"></span>`).join('') : '';
+        const count = items.length > 1 ? ` <span class="cal-cant-n">· ${CAL.notExpressiblePlaces(items.length)}</span>` : '';
+        return `<li data-cant="${esc(code)}"><span class="cal-cantcs">${crops}</span><span class="cal-cant-b"><b>${copy.title}${count}</b><span>${copy.text}</span></span></li>`;
     }).join('');
     const features = (p.features || []).filter((f) => CAL.features[f.key]).map((f) => `<label class="as-check"><input type="checkbox" class="sr" data-chg="feature" data-key="${esc(f.key)}" data-k="feat${esc(f.key)}"${scan.ticked.has(f.key) ? ' checked' : ''}><span class="cb" aria-hidden="true">${ic('check', 's14')}</span><span>${CAL.features[f.key]}</span></label>`).join('');
     if (!cant && !features) return '';
-    return `<div class="as-card" data-region="cant">${cant ? `<h3>Tohle kalendář neumí</h3><ul class="as-cantl">${cant}</ul>` : ''}${features ? `<h3>Co stránka ukazuje a kalendář má vypnuté</h3>${features}<p class="cap" style="margin:0">Bez zaškrtnutí převezmeme jen polohy, písma a barvy.</p>` : ''}</div>`;
+    return `<div class="as-card" data-region="cant">${cant ? `<h3>${CAL.notExpressibleHead}</h3><p class="cap" style="margin:0">${CAL.notExpressibleLead}</p><ul class="as-cantl">${cant}</ul>` : ''}${features ? `<h3>Co stránka ukazuje a kalendář má vypnuté</h3>${features}<p class="cap" style="margin:0">Bez zaškrtnutí převezmeme jen polohy, písma a barvy.</p>` : ''}</div>`;
 }
 
 function infoCard(scan) {

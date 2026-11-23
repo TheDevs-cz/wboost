@@ -496,7 +496,7 @@ module.exports = {
                 const rough = await page.$$eval('[data-cal-scan-panel] .as-rec li.ap', (els) => els.map((el) => el.textContent.replace(/\s+/g, ' ').trim()));
                 assert.ok(rough.length >= 1 && rough.every((row) => (row.match(/přibližně/g) || []).length === 1), rough.join(' | '));
                 assert.match(rough[0], /^Popisek fotky\s*přibližně/);
-                assert.match(body, /Tohle kalendář neumí.*Ozdobný pruh/);
+                assert.match(body, /Co kalendář nepřevezme.*Pro informaci.*Ozdobný pruh, rámeček nebo ornament.*součástí obrázku v hlavičce nebo na pozadí/);
                 assert.match(body, /Písmo čísel dnů: nejbližší dostupné/);
                 // K3: the fonts card is flagged — a rose row for „nepodařilo se určit“, a peach one for the stand-in, counts as pills, a line in the summary
                 assert.equal(await page.$eval('[data-cal-scan-fonts]', (el) => el.dataset.calScanFonts), 'bad');
