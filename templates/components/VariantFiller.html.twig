@@ -429,6 +429,11 @@
                             class="fill-preview-img{{ variant.backgroundMode.value == 'layer' ? ' fill-preview-img--transparent' }}"
                             data-variant-fill-overlay-target="preview"
                             src="{{ previewSources.src }}"
+                            {# The render may carry more pixels than the design
+                               (previewPixelRatio, HiDPI) — lay it out at the
+                               design size. #}
+                            width="{{ variant.dimension.width }}"
+                            height="{{ variant.dimension.height }}"
                             alt=""
                         >
                         {% if echoPayload %}

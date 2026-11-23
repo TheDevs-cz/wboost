@@ -48,6 +48,12 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
     private const int PREVIEW_CACHE_MAX_BYTES = 1_048_576;
 
     /**
+     * Upper bound for a preview's supersampling (`$pixelRatio`): a HiDPI
+     * screen shows the preview at up to 2 device px per CSS px.
+     */
+    public const float MAX_PIXEL_RATIO = 2.0;
+
+    /**
      * Cached inline-script contents by path — read once per request from disk
      * and inlined into every Gotenberg HTML payload so the headless render is
      * self-contained (no outbound network) and pinned to the versions
@@ -99,6 +105,29 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
      * the variant's design changes (canvas save), so a stale overlay can never
      * outlive an edit even though the key already includes a canvas hash.
      */
+    /**
+     * The output size of a supersampled render, in pixels — the template sizes
+     * its canvas element with the same expression.
+     */
+    public static function scaledPixels(int $pixels, float $pixelRatio): int
+    {
+        return (int) round($pixels * $pixelRatio);
+    }
+
+    /**
+     * Previews may be rendered with more pixels than the design has (1…{@see MAX_PIXEL_RATIO});
+     * anything else falls back to 1:1. Rounded to two decimals so the cache
+     * key does not split on float noise.
+     */
+    private static function normalizePixelRatio(float $pixelRatio): float
+    {
+        if (!is_finite($pixelRatio) || $pixelRatio <= 1.0) {
+            return 1.0;
+        }
+
+        return round(min($pixelRatio, self::MAX_PIXEL_RATIO), 2);
+    }
+
     public static function variantCacheTag(UuidInterface $variantId): string
     {
         return 'template_variant_render_' . $variantId->toString();
@@ -140,7 +169,12 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         RenderImageFormat $format = RenderImageFormat::Png,
         array $transparentTextInputIds = [],
         null|PrintLayer $printLayer = null,
+        float $pixelRatio = 1.0,
     ): string {
+        // A print pass is the deliverable raster at its own resolution; a
+        // pixel ratio is for on-screen previews only.
+        $pixelRatio = $printLayer === null ? self::normalizePixelRatio($pixelRatio) : 1.0;
+
         // Repeatable rows (container-rows P2): every caller SHOULD hand over
         // the expanded variant already (it resolved its overrides against
         // it); expanding here too is the belt for a forgotten entry point —
@@ -148,19 +182,19 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         $variant = RepeatableRows::expand($variant);
 
         $cacheKey = $printLayer === null
-            ? $this->overrideIndependentCacheKey($variant, $imageOverrides, $strictContainerOverflow, $slice, $format, $transparentTextInputIds, $overrides->offsets)
+            ? $this->overrideIndependentCacheKey($variant, $imageOverrides, $strictContainerOverflow, $slice, $format, $transparentTextInputIds, $overrides->offsets, $pixelRatio)
             : null;
 
         if ($cacheKey === null) {
-            return $this->renderBytesUncached($variant, $overrides, $imageOverrides, $strictContainerOverflow, $slice, $format, $transparentTextInputIds, $printLayer);
+            return $this->renderBytesUncached($variant, $overrides, $imageOverrides, $strictContainerOverflow, $slice, $format, $transparentTextInputIds, $printLayer, $pixelRatio);
         }
 
         return $this->previewCache->get(
             $cacheKey,
-            function (ItemInterface $item) use ($variant, $overrides, $imageOverrides, $strictContainerOverflow, $slice, $format, $transparentTextInputIds): string {
+            function (ItemInterface $item) use ($variant, $overrides, $imageOverrides, $strictContainerOverflow, $slice, $format, $transparentTextInputIds, $pixelRatio): string {
                 $item->tag([self::variantCacheTag($variant->id)]);
 
-                $bytes = $this->renderBytesUncached($variant, $overrides, $imageOverrides, $strictContainerOverflow, $slice, $format, $transparentTextInputIds);
+                $bytes = $this->renderBytesUncached($variant, $overrides, $imageOverrides, $strictContainerOverflow, $slice, $format, $transparentTextInputIds, null, $pixelRatio);
 
                 // Never let one pathological variant dominate the pool. The
                 // canvas cap allows 10000x10000, which can render far larger
@@ -187,6 +221,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         RenderImageFormat $format,
         array $transparentTextInputIds = [],
         null|PrintLayer $printLayer = null,
+        float $pixelRatio = 1.0,
     ): string {
         // Under FrankenPHP max_execution_time counts WALL time, so seconds
         // spent waiting on Gotenberg burn the request's budget — and several
@@ -208,7 +243,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         // flush(), so it does not interfere with the outer HTTP response that
         // is still being assembled (headers, cookies, content-type).
         try {
-            $bytes = $this->buildScreenshot($variant, $overrides, $imageOverrides, $strictContainerOverflow, $slice, $format, $transparentTextInputIds, $printLayer)
+            $bytes = $this->buildScreenshot($variant, $overrides, $imageOverrides, $strictContainerOverflow, $slice, $format, $transparentTextInputIds, $printLayer, $pixelRatio)
                 ->generate()
                 ->processor(new InMemoryProcessor())
                 ->process();
@@ -307,6 +342,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         RenderImageFormat $format,
         array $transparentTextInputIds = [],
         array $offsets = [],
+        float $pixelRatio = 1.0,
     ): null|string {
         if (!self::renderIsOverrideIndependent($variant->canvas, $slice, $transparentTextInputIds)) {
             return null;
@@ -342,6 +378,11 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         if ($offsets !== []) {
             ksort($offsets, SORT_STRING);
             $key['offsets'] = $offsets;
+        }
+
+        // Only when supersampled, so every 1:1 key stays what it was.
+        if ($pixelRatio !== 1.0) {
+            $key['pixelRatio'] = $pixelRatio;
         }
 
         return 'gotenberg_slice_' . hash('xxh128', serialize($key));
@@ -481,6 +522,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         RenderImageFormat $format = RenderImageFormat::Png,
         array $transparentTextInputIds = [],
         null|PrintLayer $printLayer = null,
+        float $pixelRatio = 1.0,
     ): BuilderFileInterface {
         $project = $variant->template->project;
 
@@ -611,12 +653,15 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
                 'rich_text_runs_inline_script' => $this->getInlineScript($this->richTextRunsScriptPath),
                 'rich_text_blocks_inline_script' => $this->getInlineScript($this->richTextBlocksScriptPath),
                 'bleed_px' => $bleedPx,
+                'pixel_ratio' => $pixelRatio,
             ])
             // A print pass renders the BLEED BOX: the template widens the
             // canvas by the bleed and shifts the viewport so canvas
-            // coordinates stay trim-relative.
-            ->width($variant->dimension->width() + 2 * $bleedPx)
-            ->height($variant->dimension->height() + 2 * $bleedPx)
+            // coordinates stay trim-relative. A preview pixel ratio scales
+            // the whole page (the template zooms the viewport by it), so the
+            // design comes out with more pixels, never more design.
+            ->width(self::scaledPixels($variant->dimension->width() + 2 * $bleedPx, $pixelRatio))
+            ->height(self::scaledPixels($variant->dimension->height() + 2 * $bleedPx, $pixelRatio))
             ->clip(true)
             // No `->quality()`: Gotenberg only honours it for JPEG (verified
             // 2026-08-05 — q50/q85/unset produce byte-identical WebP), and JPEG

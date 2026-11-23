@@ -3,6 +3,7 @@ import { Canvas, FabricImage, Point, Rect } from "fabric";
 import { ImageAdjustToolbar } from "./image_adjust_toolbar.js";
 import { ImageAdjustHandles } from "./image_adjust_handles.js";
 import { ADJUST_SCALE_MIN, adjustScaleMax, clamp } from "./image_placement.js";
+import { intrinsicSizedImageUrl } from "./svg_intrinsic_size.js";
 
 const HISTORY_FIELDS = ['imageId', 'scale', 'offsetX', 'offsetY', 'rotation', 'hide'];
 
@@ -166,6 +167,16 @@ export default class extends Controller {
         this.canvas.requestRenderAll();
     }
 
+    /** The server renders the backdrop + overlay slices with MORE pixels than
+     *  the design on small designs (AbstractVariantFiller::previewPixelRatio —
+     *  crisp on HiDPI screens and when zoomed in); drawn back at the design
+     *  size, whatever their pixel size. */
+    _designScale(img) {
+        const width = img.width || this.widthValue;
+        const height = img.height || this.heightValue;
+        return { scaleX: this.widthValue / width, scaleY: this.heightValue / height };
+    }
+
     _backdropElement() {
         return document.getElementById(this.backdropIdValue);
     }
@@ -192,7 +203,7 @@ export default class extends Controller {
         }
 
         FabricImage.fromURL(src, { crossOrigin: 'anonymous' }).then((img) => {
-            img.set({ left: 0, top: 0, originX: 'left', originY: 'top', selectable: false, evented: false });
+            img.set({ left: 0, top: 0, originX: 'left', originY: 'top', selectable: false, evented: false, ...this._designScale(img) });
             // Bound the cache: only the freshest settle + base pair matters.
             if (this._backdropImages.size > 4) this._backdropImages.clear();
             this._backdropImages.set(src, img);
@@ -271,7 +282,7 @@ export default class extends Controller {
         FabricImage.fromURL(src, { crossOrigin: 'anonymous' }).then((img) => {
             const current = this.overlayObjects[aboveId];
             if (!current || current[srcKey] !== src) return;
-            img.set({ left: 0, top: 0, originX: 'left', originY: 'top', selectable: false, evented: false });
+            img.set({ left: 0, top: 0, originX: 'left', originY: 'top', selectable: false, evented: false, ...this._designScale(img) });
             if (current.shown === current[objKey] && current[objKey]) {
                 this.canvas.remove(current[objKey]);
                 current.shown = null;
@@ -338,7 +349,12 @@ export default class extends Controller {
     async _addStandIn(placeholder) {
         if (!placeholder.frame || !placeholder.defaultImageUrl) return;
         try {
-            const img = await FabricImage.fromURL(placeholder.defaultImageUrl, { crossOrigin: 'anonymous' });
+            // A viewBox-only SVG stand-in (a QR code from Illustrator) gets its
+            // width/height pinned first, as the server render does — without
+            // it the browser's guess of its size and Fabric's disagree and the
+            // picture is drawn shrunk into a corner of its frame.
+            const src = await intrinsicSizedImageUrl(placeholder.defaultImageUrl);
+            const img = await FabricImage.fromURL(src, { crossOrigin: 'anonymous' });
             const frame = this._frame(placeholder.inputId);
             const naturalWidth = img.width || 1;
             const naturalHeight = img.height || 1;

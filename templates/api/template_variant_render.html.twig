@@ -40,9 +40,14 @@
     {# A print pass (PrintLayer) renders the BLEED BOX: the element grows by
        the bleed on every side and the viewport shifts by it, so canvas
        coordinates stay trim-relative and whatever the design draws past the
-       trim edge lands in the bleed. bleed_px is 0 for every other render. #}
+       trim edge lands in the bleed. bleed_px is 0 for every other render.
+       A preview pixel ratio (pixel_ratio > 1, fill-page previews only) grows
+       the element by that factor and zooms the viewport by it: the same
+       design, drawn with more pixels for HiDPI screens. Same rounding as
+       TemplateVariantImageRenderer::scaledPixels(). #}
     {% set bleed_px = bleed_px|default(0) %}
-    <canvas id="c" width="{{ variant.dimension.width + 2 * bleed_px }}" height="{{ variant.dimension.height + 2 * bleed_px }}"></canvas>
+    {% set pixel_ratio = pixel_ratio|default(1) %}
+    <canvas id="c" width="{{ ((variant.dimension.width + 2 * bleed_px) * pixel_ratio)|round }}" height="{{ ((variant.dimension.height + 2 * bleed_px) * pixel_ratio)|round }}"></canvas>
 
     <script>
         (async () => {
@@ -98,10 +103,11 @@
                 const designWidth = {{ variant.dimension.width }};
                 const designHeight = {{ variant.dimension.height }};
                 const bleed = {{ bleed_px }};
+                const pixelRatio = {{ pixel_ratio }};
 
                 const canvas = new fabric.StaticCanvas('c', {
-                    width: designWidth + 2 * bleed,
-                    height: designHeight + 2 * bleed,
+                    width: Math.round((designWidth + 2 * bleed) * pixelRatio),
+                    height: Math.round((designHeight + 2 * bleed) * pixelRatio),
                     enableRetinaScaling: false,
                 });
 
@@ -109,8 +115,11 @@
                 // form was removed. Await the load, then apply overrides.
                 await canvas.loadFromJSON(canvasJson);
 
-                if (bleed > 0) {
-                    canvas.setViewportTransform([1, 0, 0, 1, bleed, bleed]);
+                // Scene coordinates stay design px; the viewport maps them to
+                // the (bleed-widened, supersampled) element — the editor's
+                // zoom, so every shared script already draws correctly here.
+                if (bleed > 0 || pixelRatio !== 1) {
+                    canvas.setViewportTransform([pixelRatio, 0, 0, pixelRatio, bleed * pixelRatio, bleed * pixelRatio]);
                 }
 
                 // Normalize the background to object-fit: cover / center center,

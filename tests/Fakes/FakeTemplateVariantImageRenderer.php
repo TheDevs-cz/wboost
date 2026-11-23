@@ -50,6 +50,14 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
     public array $offsetCalls = [];
 
     /**
+     * The preview pixel ratio each call asked for, index-aligned with $calls
+     * (1.0 = the design's own pixel size, what every deliverable must use).
+     *
+     * @var list<float>
+     */
+    public array $pixelRatioCalls = [];
+
+    /**
      * The objects of the last call, as handed over (the variant expanded) —
      * what a test gives the REAL renderer to read the page it would build
      * ({@see \WBoost\Web\Tests\RenderHtmlTesting}).
@@ -82,6 +90,7 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
         array $transparentTextInputIds = [],
     ): Response {
         $this->record($variant, $overrides, $imageOverrides, 'render', $strictContainerOverflow, $slice, $format, $transparentTextInputIds);
+        $this->pixelRatioCalls[] = 1.0;
 
         return new Response($this->bytes($format), Response::HTTP_OK, ['Content-Type' => $format->contentType()]);
     }
@@ -95,8 +104,10 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
         RenderImageFormat $format = RenderImageFormat::Png,
         array $transparentTextInputIds = [],
         null|PrintLayer $printLayer = null,
+        float $pixelRatio = 1.0,
     ): string {
         $this->record($variant, $overrides, $imageOverrides, $printLayer === null ? 'renderToBytes' : 'printLayer', $strictContainerOverflow, $slice, $format, $transparentTextInputIds, $printLayer);
+        $this->pixelRatioCalls[] = $pixelRatio;
 
         return $this->bytes($format);
     }

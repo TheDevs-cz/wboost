@@ -11,6 +11,7 @@ use Symfony\UX\LiveComponent\Test\InteractsWithLiveComponents;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Repository\TemplateVariantRepository;
 use WBoost\Web\Repository\UserRepository;
+use WBoost\Web\Services\Editor\TemplateVariantImageRenderer;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Tests\Fakes\FakeTemplateVariantImageRenderer;
@@ -178,6 +179,25 @@ final class TemplateVariantExportControllerTest extends WebTestCase
         $formats = array_column($this->getRendererFake()->calls, 'format');
         self::assertNotEmpty($formats);
         self::assertContains('webp', $formats, 'the backdrop must have been rendered as WebP');
+
+        // HiDPI: the preview images carry more pixels than a small design
+        // (the fill controller draws them back at the design size).
+        $expectedRatio = VariantFiller::previewPixelRatio($variant->dimension->width(), $variant->dimension->height());
+        self::assertGreaterThan(1.0, $expectedRatio, 'fixture must be small enough to be supersampled');
+        foreach ($this->getRendererFake()->pixelRatioCalls as $ratio) {
+            self::assertSame($expectedRatio, $ratio, 'every fill-page preview render is supersampled alike');
+        }
+    }
+
+    public function testPreviewPixelRatioSupersamplesSmallDesignsOnly(): void
+    {
+        // 90 x 50 mm business card at 300 ppi — the reported soft preview.
+        self::assertSame(1.88, VariantFiller::previewPixelRatio(1063, 591));
+        self::assertSame(2.0, VariantFiller::previewPixelRatio(800, 600));
+        self::assertSame(1.85, VariantFiller::previewPixelRatio(1080, 1080));
+        // A4 at 300 ppi already has the pixels.
+        self::assertSame(1.0, VariantFiller::previewPixelRatio(2480, 3508));
+        self::assertSame(1.0, VariantFiller::previewPixelRatio(0, 0));
     }
 
     /**
@@ -568,6 +588,40 @@ final class TemplateVariantExportControllerTest extends WebTestCase
         self::assertStringContainsString('source[prop]', $rendered);
     }
 
+    public function testRenderTemplateSupersamplesTheCanvasByThePixelRatio(): void
+    {
+        $twig = self::getContainer()->get('twig');
+        $variant = $this->loadVariant(TestDataFixture::SOCIAL_NETWORK_TEMPLATE_VARIANT_1_ID);
+
+        $rendered = $twig->render('api/template_variant_render.html.twig', [
+            'variant' => $variant,
+            'canvas_json' => '{"version":"5.2.4","objects":[],"backgroundImage":null}',
+            'font_faces' => [],
+            'text_overrides' => [],
+            'rich_text_overrides' => [],
+            'list_configs' => [],
+            'hidden_overrides' => [],
+            'containers' => [],
+            'strict_container_overflow' => false,
+            'fabric_inline_script' => '/* fabric stub */',
+            'break_word_inline_script' => '/* break-word stub */',
+            'container_layout_inline_script' => '/* container-layout stub */',
+            'rich_text_runs_inline_script' => '/* rich-text-runs stub */',
+            'rich_text_blocks_inline_script' => '/* rich-text-blocks stub */',
+            'pixel_ratio' => 1.5,
+        ]);
+
+        // The element is the screenshot size the renderer asks Gotenberg for;
+        // the viewport zoom keeps scene coordinates in design px.
+        self::assertStringContainsString(sprintf(
+            '<canvas id="c" width="%d" height="%d">',
+            TemplateVariantImageRenderer::scaledPixels($variant->dimension->width(), 1.5),
+            TemplateVariantImageRenderer::scaledPixels($variant->dimension->height(), 1.5),
+        ), $rendered);
+        self::assertStringContainsString('const pixelRatio = 1.5;', $rendered);
+        self::assertStringContainsString('canvas.setViewportTransform([pixelRatio, 0, 0, pixelRatio, bleed * pixelRatio, bleed * pixelRatio])', $rendered);
+    }
+
     /**
      * Regression for the iteration-7 production bug. When applying overrides,
      * the render template MUST use `obj.set({ text: ... })` — direct property
@@ -725,6 +779,8 @@ final class TemplateVariantExportControllerTest extends WebTestCase
 
         $fake = $this->getRendererFake();
         $lastCall = $fake->calls[count($fake->calls) - 1];
+
+        self::assertSame(1.0, $fake->pixelRatioCalls[count($fake->pixelRatioCalls) - 1], 'a download is the design\'s own pixel size, never supersampled');
 
         self::assertSame(
             'xx',

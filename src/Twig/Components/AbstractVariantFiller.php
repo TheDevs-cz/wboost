@@ -18,6 +18,7 @@ use WBoost\Web\Exceptions\TemplateRenderUnavailable;
 use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Repository\FileUploadRepository;
 use WBoost\Web\Services\Editor\EchoCapableTextInputs;
+use WBoost\Web\Services\Editor\TemplateVariantImageRenderer;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Services\Image\FileUploadPixelSizeBackfill;
 use WBoost\Web\Services\Image\GalleryImageCaption;
@@ -72,6 +73,9 @@ use WBoost\Web\Value\PlaceholderFrame;
 abstract class AbstractVariantFiller extends AbstractController
 {
     use DefaultActionTrait;
+
+    /** Longer edge, in px, a supersampled preview aims for ({@see previewPixelRatio()}). */
+    private const int PREVIEW_TARGET_LONG_EDGE = 2000;
 
     /**
      * Set when a render was skipped because the renderer is overloaded (see
@@ -1135,6 +1139,27 @@ abstract class AbstractVariantFiller extends AbstractController
     }
 
     /**
+     * Pixels per design px for the preview images (backdrop, overlay slices,
+     * the text-only preview). The page shows the artwork fitted to the screen
+     * and lets the user zoom in, so a 1:1 render of a small design — a 90 × 50
+     * mm business card is 1063 px wide — is stretched on a HiDPI screen and
+     * its vector text and logos look soft. Supersampled up to 2×, until the
+     * longer edge reaches {@see PREVIEW_TARGET_LONG_EDGE} px; big designs
+     * (A4 at 300 ppi is 3508 px) already have the pixels and stay 1:1. The
+     * fill controller draws every image back at the design size, whatever
+     * its pixel size. Exports never use it.
+     */
+    public static function previewPixelRatio(int $width, int $height): float
+    {
+        $longEdge = max($width, $height);
+        if ($longEdge <= 0) {
+            return 1.0;
+        }
+
+        return round(max(1.0, min(TemplateVariantImageRenderer::MAX_PIXEL_RATIO, self::PREVIEW_TARGET_LONG_EDGE / $longEdge)), 2);
+    }
+
+    /**
      * @param list<string> $transparentTextInputIds
      */
     private function renderToDataUri(ResolvedImageOverrides $imageOverrides, null|CanvasSlice $slice = null, array $transparentTextInputIds = []): string
@@ -1189,6 +1214,7 @@ abstract class AbstractVariantFiller extends AbstractController
                 slice: $slice,
                 format: $format,
                 transparentTextInputIds: $transparentTextInputIds,
+                pixelRatio: self::previewPixelRatio($variant->dimension->width(), $variant->dimension->height()),
             );
         } catch (TemplateRenderUnavailable) {
             // The renderer is overloaded. A fill page draws 2-3 renders (backdrop

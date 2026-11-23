@@ -149,6 +149,33 @@ The tests lock both halves: export/download/ZIP/publish assert
 `format === 'png'`, and `FakeTemplateVariantImageRenderer` emits *format-matching*
 bytes so a PNG magic-byte assertion cannot pass while WebP was requested.
 
+**Preview pixel ratio — HiDPI fill previews (2026-11-23)**
+
+The fill page shows the artwork fitted to the screen and lets the user zoom
+in, so a 1:1 render of a SMALL design is stretched: a 90 × 50 mm business card
+is 1063 px wide, shown ~1600 device px wide on a Retina screen, and its vector
+logo and text looked soft ("rasterized") next to the editor, which draws
+vectors live. `renderToBytes(..., pixelRatio:)` (1…`MAX_PIXEL_RATIO` = 2,
+ignored with a `PrintLayer`) renders the SAME design with more pixels: the
+render template grows its `<canvas>` by the ratio and zooms the Fabric viewport
+by it (`[r, 0, 0, r, bleed·r, bleed·r]` — the editor's zoom, so every shared
+script draws correctly), and Gotenberg's screenshot size is
+`scaledPixels(width, r)` (same rounding as the Twig). The ratio is in the slice
+cache key (only when ≠ 1, so 1:1 keys are unchanged).
+
+Only the single fill page opts in: `AbstractVariantFiller::previewPixelRatio()`
+= `min(2, 2000 / longer edge)`, never below 1 (card 1.88, 1080² post 1.85, A4
+at 300 ppi 1.0), for the backdrop, the overlay slices and the text-only
+preview. The page draws them back at the design size whatever their pixel
+size: `variant_image_fill_controller._designScale()` (Fabric images scaled by
+`width / img.width`), and the text-only `<img>` carries `width` / `height` =
+the design size (the move ghost already reads `naturalWidth / canvasWidth`).
+**Deliverables never pass it** — download, API export/preview, group ZIP,
+Meta publish and the print passes are the design's own pixels
+(`FakeTemplateVariantImageRenderer::$pixelRatioCalls`, asserted 1.0 on the
+download). The group / document fill pages and the API `/preview` are still
+1:1.
+
 **Slice cache — only renders that provably cannot change (`cache.gotenberg_preview`)**
 
 The fill page renders 2–3 times per keystroke, and the transparent overlay slices

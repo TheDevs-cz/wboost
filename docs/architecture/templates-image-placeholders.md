@@ -152,6 +152,14 @@ response's `directoryId` is null for root uploads.
   Live-updated elements via `MutationObserver`. The export is **always** the full
   (un-sliced) server render, so the PNG is authoritative regardless of the live
   preview.
+- **SVG stand-ins (2026-11-23)**: a viewBox-only SVG (Illustrator QR code) has
+  no definite intrinsic size, and browsers disagree about it — on the fill
+  page the stand-in was drawn at ~42 % of its frame in the top-left corner
+  while the export (whose `AssetInliner::ensureSvgIntrinsicSize()` pins
+  width/height from the viewBox) was right. `_addStandIn` now loads the
+  stand-in through `svg_intrinsic_size.js` (`intrinsicSizedImageUrl()`: fetch,
+  the JS twin of `ensureSvgIntrinsicSize`, data URI; any failure falls back to
+  the plain URL). Picked pictures are rasters (SVG is not a placeholder fill).
 
 ### Image slots inside containers (2026-11-09, container-rows plan P2a)
 

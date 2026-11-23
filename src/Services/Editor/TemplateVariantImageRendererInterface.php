@@ -98,6 +98,12 @@ interface TemplateVariantImageRendererInterface
      * `$printLayer` turns the call into one raster pass of the print PDF
      * ({@see PrintLayer}): bleed box, object suppression, never cached.
      *
+     * `$pixelRatio` (1…2, ignored with a print layer) renders the same design
+     * with that many pixels per design px — for on-screen previews shown on
+     * HiDPI screens, which draw the image back at the design size. The bytes
+     * are then NOT the design's pixel size, so a deliverable (download, API,
+     * ZIP, publish) never passes it.
+     *
      * @throws \WBoost\Web\Exceptions\ContainerOverflow
      * @throws \WBoost\Web\Exceptions\TemplateRenderUnavailable when the renderer is overloaded / unreachable
      */
@@ -110,5 +116,6 @@ interface TemplateVariantImageRendererInterface
         RenderImageFormat $format = RenderImageFormat::Png,
         array $transparentTextInputIds = [],
         null|PrintLayer $printLayer = null,
+        float $pixelRatio = 1.0,
     ): string;
 }
