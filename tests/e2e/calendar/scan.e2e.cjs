@@ -181,6 +181,7 @@ module.exports = {
 
         let calendarId = null;
         let fortnightId = null; // the 14-day calendar of the last checks
+        let unsavedId = null; // K4: 14 days chosen in step 1 and not saved before the scan
         try {
             calendarId = await h.createCalendar(page);
             await h.gotoStep(page, 2);
@@ -1039,6 +1040,54 @@ module.exports = {
                 await h.waitToast(page, 'Návrh zahozen');
             });
 
+            // ---- K4 (production 2026-11-16): 14 days chosen in step 1 and NOT saved, then a scan
+            await check('14 days chosen but not saved: the scan saves the calendar first, builds the two-sided layout, and it applies', async () => {
+                unsavedId = await h.createCalendar(page);
+                await page.click('[data-type="fortnight"]');
+                await h.gotoStep(page, 2);
+                assert.notEqual((await state()).status, 'clean', 'the type switch is still unsaved');
+                assert.equal(psql(`SELECT type FROM calendar WHERE id = ${quote(unsavedId)}`), 'week');
+                await page.waitForSelector('[data-cal-scan-card] [data-cal-action="scan-open"]', { timeout: 20000 });
+                await startScan(await picture('stranka-14-neulozeno.png'));
+                // the start saved first: the scan is built for the 14-day calendar the user sees
+                assert.equal(psql(`SELECT type FROM calendar WHERE id = ${quote(unsavedId)}`), 'fortnight');
+                assert.equal((await state()).status, 'clean');
+                await waitPanel('review', 60000);
+                assert.equal(await page.$('[data-cal-scan-type-changed]'), null);
+                assert.equal(await page.$eval('[data-cal-action="scan-apply"]', (el) => el.disabled), false);
+                await shot('scan-19-unsaved-fortnight-review');
+                await page.click('[data-cal-action="scan-apply"]');
+                await page.waitForSelector('.cal-ws[data-cal-shown-step="3"]', { timeout: 20000 });
+                await h.waitToast(page, 'Rozvržení převzato ze skenu');
+                assert.equal(psql(`SELECT layout_origin || ':' || layout_preset || ':' || type FROM calendar WHERE id = ${quote(unsavedId)}`), 'scan:twoSided:fortnight');
+            });
+
+            await check('A proposal built for 14 days on a calendar that is 7 days now says so and offers no apply (no „Návrh už není k dispozici“)', async () => {
+                await h.gotoStep(page, 2);
+                await page.waitForSelector('[data-cal-scan-card] [data-cal-action="scan-open"], [data-cal-scan-panel]');
+                await startScan(await picture('stranka-14-pak-7.png'));
+                await waitPanel('review', 60000);
+                const scanId = await page.evaluate(() => window.__calendarScan.scan().id);
+                // the calendar became a 7-day one since (as another tab's save would leave it)
+                psql(`UPDATE calendar SET type = 'week', layout = NULL, layout_preset = NULL, layout_origin = NULL, step = 2, revision = revision + 1 WHERE id = ${quote(unsavedId)}`);
+                await page.goto(`${h.config.base}/calendar/${unsavedId}?sken=${scanId}`, { waitUntil: 'networkidle2' });
+                await waitPanel('review', 30000);
+                assert.equal(await page.$eval('[data-cal-scan-type-changed]', (el) => el.dataset.calScanTypeChanged), 'fortnight');
+                assert.match(await text('[data-cal-scan-type-changed]'), /Návrh je pro čtrnáctidenní kalendář, tento kalendář je teď týdenní.*Naskenovat znovu/);
+                assert.equal(await page.$('[data-cal-scan-fortnight]'), null, 'the page-vs-calendar note is not said beside it');
+                assert.equal(await page.$eval('[data-cal-action="scan-apply"]', (el) => el.disabled), true);
+                assert.match(await text('#calScanApplyHint'), /Návrh je pro jiný typ kalendáře — naskenujte obrázek znovu\./);
+                await shot('scan-20-type-changed');
+                // the server says the same, with its reason
+                const answer = await page.evaluate(async (url) => {
+                    const token = (document.querySelector('meta[name="csrf-token"]') || {}).content || 'csrf-token';
+                    const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token }, body: JSON.stringify({ _token: token }) });
+                    return response.json();
+                }, `${h.config.base}/calendar/${unsavedId}/scan/${scanId}/accept`);
+                assert.equal(`${answer.code}:${answer.reason}`, 'wrong_state:calendar_type', JSON.stringify(answer));
+                page.problems = (page.problems || []).filter((problem) => !/409 \(Conflict\)/.test(problem));
+            });
+
             await check('Nothing the pages asked for was missing (no 404)', async () => {
                 assert.deepEqual(missing, []);
             });
@@ -1052,6 +1101,10 @@ module.exports = {
                 // scans keep a calendar from being forgotten by the list only through their rows: drop them with it
                 psql(`DELETE FROM ai_scan WHERE calendar_id = ${quote(calendarId)}; DELETE FROM ai_usage_event WHERE project_id = ${quote(h.config.projectId)}; DELETE FROM ai_credit_ledger WHERE project_id = ${quote(h.config.projectId)};`);
                 await h.deleteCalendar(page, calendarId).catch(() => null);
+            }
+            if (unsavedId) {
+                psql(`DELETE FROM ai_scan WHERE calendar_id = ${quote(unsavedId)};`);
+                await h.deleteCalendar(page, unsavedId).catch(() => null);
             }
             if (fortnightId) {
                 psql(`DELETE FROM ai_scan WHERE calendar_id = ${quote(fortnightId)};`);

@@ -619,9 +619,22 @@ function feedback(scan) {
 /** How many places for a picture stay empty when the layout is applied now. */
 const emptyPictures = (p) => p.pictures.filter((item) => !item.picture && !item.current).length;
 
+/**
+ * The proposal was built for the other calendar type (the scan started while the calendar was stored
+ * as 7 days and it is 14 now, or back): it cannot be applied — the server refuses `wrong_state` with
+ * `reason: calendar_type`. Compared with the type on screen, so an unsaved switch says it too.
+ */
+export function typeChanged(scan) {
+    const p = scan.proposal;
+    return Boolean(p && p.builtFor) && p.builtFor !== scan.store.getState().doc.design.type;
+}
+
 function applyButton(scan) {
     const p = scan.proposal;
     const label = `${p.hasLayout ? 'Nahradit rozvržení' : 'Použít rozvržení'}${picturesLater(emptyPictures(p))}`;
+    if (typeChanged(scan)) {
+        return `<button type="button" class="btn sm btn-primary" disabled aria-describedby="calScanApplyHint" data-cal-action="scan-apply" data-k="apply">${label}${ic('arrow-right')}</button>`;
+    }
     if (scan.store.isDirty()) {
         return `<button type="button" class="btn sm btn-tertiary" data-act="save" data-k="scansave">Uložit</button><button type="button" class="btn sm btn-primary" disabled aria-describedby="calScanApplyHint" data-cal-action="scan-apply" data-k="apply">${label}${ic('arrow-right')}</button>`;
     }
@@ -630,7 +643,9 @@ function applyButton(scan) {
 
 function foot(scan, primary, { back = '', apply = false } = {}) {
     const until = dateCz(scan.proposal.expiresAt);
-    const sub = !apply ? '' : scan.store.isDirty()
+    const sub = !apply ? '' : typeChanged(scan)
+        ? `<p class="as-sub"><span id="calScanApplyHint" class="cal-scan-warn">${CAL.typeChanged.hint}</span></p>`
+        : scan.store.isDirty()
         ? '<p class="as-sub"><span id="calScanApplyHint" class="cal-scan-warn">Nejdřív uložte rozpracované změny.</span></p>'
         : `<p class="as-sub">Uloží se hned. Původní rozvržení vrátíte tlačítkem Vrátit původní${until ? ` — do ${until}` : ''}.</p>`;
     return `<div class="as-foot" data-region="foot"><div class="as-foot-l">${ic('info')}<span>Kalendář se nezmění, dokud rozvržení nepoužijete.${until ? ` Návrh uchováme do ${until}.` : ''}</span></div><div class="as-foot-r">${back}<button type="button" class="btn sm ghost danger" data-act="discard" data-cal-action="scan-discard" data-k="discard"${scan.busy === 'discard' ? ' disabled' : ''}>Zahodit</button><button type="button" class="btn sm btn-tertiary" data-act="rescan" data-cal-action="scan-rescan" data-k="rescan">${ic('refresh')}Naskenovat znovu</button><span class="as-sp"></span>${primary}</div>${sub}</div>`;
@@ -643,6 +658,10 @@ function foot(scan, primary, { back = '', apply = false } = {}) {
  * its calendar — 7 days on a 7-day one, 14 on a 14-day one — shows nothing here.
  */
 function mismatchAlert(scan) {
+    if (typeChanged(scan)) {
+        const copy = CAL.typeChanged[scan.proposal.builtFor] || CAL.typeChanged.week;
+        return `<div class="alert c-warning" role="status" data-region="typechanged" data-cal-scan-type-changed="${esc(scan.proposal.builtFor)}">${ic('alert', '')}<div><div class="alert-t">${copy.title}</div><div class="alert-d">${CAL.typeChanged.text}</div></div></div>`;
+    }
     const note = (scan.proposal.notes || []).find((n) => CAL.mismatch[n.code]);
     if (!note) return '';
     const copy = CAL.mismatch[note.code];
@@ -767,7 +786,7 @@ function picturesView(scan) {
     const formats = 'JPG, PNG, WebP nebo SVG, nejvýše 10 MB';
     const multi = p.pictures.length > 1
         ? `<button type="button" class="gal-drop gal-drop-compact as-drop as-multi" data-act="picturesPick" data-k="bulk" data-dropzone="pictures"${scan.busy ? ' disabled' : ''}>${ic('upload', '')}<b><span class="dt-only">Přetáhněte sem víc obrázků najednou</span><span class="ph-only">Klepněte a vyberte víc obrázků</span></b><span class="cap">Přiřadíme je prázdným místům popořadě · ${formats}</span></button>` : '';
-    return `<div class="as-cgrid" data-region="pictures" data-deep>
+    return `${typeChanged(scan) ? mismatchAlert(scan) : ''}<div class="as-cgrid" data-region="pictures" data-deep>
 <div class="as-main" data-region="prop"><span class="lbl">Návrh rozvržení</span><div class="as-frame" style="aspect-ratio:${page.width} / ${page.height}"><span class="cal-scan-prop" data-proposal role="img" aria-label="Návrh rozvržení s očíslovanými místy pro obrázky"></span>${numberedPlaces(scan)}</div><p class="as-cap">Čísla ukazují, kam který obrázek patří. V prázdných místech je vidět původní obrázek. Fotografii týdne nevybíráte — je to obsah každé stránky.</p></div>
 <div class="as-main" data-region="list" data-deep><input type="file" class="sr" id="calScanPic" tabindex="-1" aria-hidden="true" accept="${PICTURE_ACCEPT}" data-chg="pictureInput"><input type="file" class="sr" id="calScanPics" tabindex="-1" aria-hidden="true" multiple accept="${PICTURE_ACCEPT}" data-chg="picturesInput"><div class="as-row" data-region="count"><h3 style="margin:0;font-size:15px">Fotky a loga</h3><span class="as-sp"></span><span class="as-ph-count" aria-label="Doplněno ${done} ${zz(p.pictures.length)} ${p.pictures.length}">${done} ${zz(p.pictures.length)} ${p.pictures.length}</span></div>${multi ? `<div data-region="multi">${multi}</div>` : ''}<div class="as-ph-list" data-region="cards" data-deep>${p.pictures.map((item, i) => pictureCard(scan, item, i + 1)).join('')}</div><p class="cap" style="margin:0" data-region="note">Vybraný obrázek zůstane u skenu — z galerie si bereme jeho kopii. Obrázkem kalendáře se stane, až rozvržení použijete. ${formats}. Obrázek můžete na místo také přetáhnout.</p></div></div>
 ${foot(scan, applyButton(scan), { back, apply: true })}`;

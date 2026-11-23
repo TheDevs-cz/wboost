@@ -521,6 +521,17 @@ class CalendarScan {
         if (!picked || this.starting || views.blocked(this)) return;
         this.starting = true;
         this.render();
+        // The scan is built for the calendar AS STORED (type, page, switches): unsaved changes — a type
+        // switched in step 1 — are saved first, or the proposal is for the old type and cannot be applied.
+        if (this.store.isDirty()) {
+            const saved = await this.store.save();
+            if (!saved.ok) {
+                this.starting = false;
+                this.render();
+                this.ctx.toast(saved.error || 'Kalendář se nepodařilo uložit, a sken proto nezačal. Zkuste to znovu.', true);
+                return;
+            }
+        }
         const answer = await api.upload(this.urls.start, {
             picture: picked.file,
             kind: 'calendar',
@@ -788,13 +799,13 @@ class CalendarScan {
     // ---- apply / restore ------------------------------------------------------------------------
 
     async apply() {
-        if (this.busy || this.store.isDirty()) return;
+        if (this.busy || this.store.isDirty() || views.typeChanged(this)) return;
         this.busy = 'apply';
         this.render();
         const answer = await api.post(urlFor(this.urls.accept, this.scan.id), { features: [...this.ticked] });
         this.busy = null;
         if (!answer.ok || !answer.document) {
-            if (answer.code === 'wrong_state') { await this.resync(); this.ctx.toast('Návrh už není k dispozici.', true); return; }
+            if (answer.code === 'wrong_state') { await this.resync(); this.ctx.toast(answer.reason === 'calendar_type' ? CAL.typeChanged.toast : 'Návrh už není k dispozici.', true); return; }
             this.render();
             this.ctx.toast(answer.code === 'invalid_fix' && answer.field === 'pictures' ? 'Některý z vybraných obrázků se nepodařilo použít. Vyberte jiný a zkuste to znovu.'
                 : answer.code === 'temporarily_unavailable' ? 'Rozvržení se teď nepodařilo použít. Zkuste to za chvíli.'

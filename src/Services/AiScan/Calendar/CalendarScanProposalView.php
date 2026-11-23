@@ -27,6 +27,8 @@ use WBoost\Web\Value\AiScan\AiScanStatus;
  * - `fonts[]`, `notExpressible[]` (code + source-pixel box), `notes[]`;
  * - `pageBox` / `photoBox` — where the page and its photo are in the
  *   uploaded picture (source pixels), for the browser's preview only;
+ * - `builtFor` (`week` | `fortnight`), `typeChanged` — the calendar was
+ *   switched between 7 and 14 days since the scan: not applicable;
  * - `applied` — after the accept: until when and whether „Vrátit původní“
  *   can be used, and whether it would overwrite later edits.
  */
@@ -118,6 +120,11 @@ final readonly class CalendarScanProposalView
             'page' => is_string($document['page'] ?? null) ? $document['page'] : CalendarCandidate::SAMPLE_PAGE,
             'view' => $document['view'] ?? null,
             'hasLayout' => $calendar->layout !== null,
+            // The calendar was switched between 7 and 14 days since the scan
+            // started: the proposal cannot be applied (accept refuses
+            // `wrong_state`, `reason: calendar_type`) — scan again.
+            'builtFor' => CalendarScanProposal::builtFor($scan)->value,
+            'typeChanged' => !CalendarScanProposal::fits($scan, $calendar),
             'preset' => $plan['preset'],
             'layout' => $plan['layout'],
             'recognised' => $recognised,

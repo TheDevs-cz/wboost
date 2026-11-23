@@ -71,7 +71,7 @@ readonly final class AcceptCalendarScanHandler
      * @return array{calendarId: string, revision: int, features: list<string>, pictures: int, unfilledPictures: int, restoreUntil: null|string, created: bool}
      *
      * @throws AiScanNotFound
-     * @throws AiScanRefused `wrong_state`, `invalid_fix` (a held picture the calendar does not take, a layout the calendar refuses), `temporarily_unavailable`
+     * @throws AiScanRefused `wrong_state` (`reason: calendar_type` when the calendar was switched between 7 and 14 days since the scan), `invalid_fix` (a held picture the calendar does not take, a layout the calendar refuses), `temporarily_unavailable`
      */
     public function __invoke(AcceptCalendarScan $message): array
     {
@@ -103,8 +103,8 @@ readonly final class AcceptCalendarScanHandler
 
         // The proposal was built for the type the calendar had: a calendar
         // switched between 7 and 14 days since cannot take it.
-        if (!in_array(CalendarScanProposal::preset($scan), $calendar->type->presets(), true)) {
-            throw new AiScanRefused(AiScanRefusal::WrongState);
+        if (!CalendarScanProposal::fits($scan, $calendar)) {
+            throw new AiScanRefused(AiScanRefusal::WrongState, ['reason' => 'calendar_type']);
         }
 
         $actor = CalendarActor::designer($message->userId);

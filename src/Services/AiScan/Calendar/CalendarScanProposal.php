@@ -11,6 +11,7 @@ use WBoost\Web\Services\Calendar\CalendarLayoutAssets;
 use WBoost\Web\Value\AiScan\AiScanKind;
 use WBoost\Web\Value\AiScan\AiScanStatus;
 use WBoost\Web\Value\Calendar\CalendarAssetKind;
+use WBoost\Web\Value\Calendar\CalendarType;
 
 /**
  * The proposal of a calendar scan (docs/architecture/ai-scan.md § "Calendar
@@ -113,6 +114,25 @@ final readonly class CalendarScanProposal
         $preset = self::document($scan)['preset'] ?? null;
 
         return is_string($preset) && in_array($preset, CalendarDesignRules::PRESETS, true) ? $preset : 'photoLeft';
+    }
+
+    /**
+     * The calendar type the proposal was built for — the type the calendar
+     * had (as stored) when the scan was started.
+     */
+    public static function builtFor(AiScan $scan): CalendarType
+    {
+        return in_array(self::preset($scan), CalendarType::Fortnight->presets(), true) ? CalendarType::Fortnight : CalendarType::Week;
+    }
+
+    /**
+     * The proposal fits the calendar as it is NOW: a calendar switched
+     * between 7 and 14 days since the scan started cannot take it (accept
+     * refuses `wrong_state` with `reason: calendar_type`).
+     */
+    public static function fits(AiScan $scan, Calendar $calendar): bool
+    {
+        return in_array(self::preset($scan), $calendar->type->presets(), true);
     }
 
     /**

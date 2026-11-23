@@ -1479,9 +1479,20 @@ Built 2026-11-13; measurements `scanner/eval/RESULTS.md` §11.
 - **Proposal / accept / restore.** `CalendarScanProposal::preset()` knows
   `twoSided`; an element the report calls `absent` keeps the calendar's
   current box **and its second frame** (`month2`, `wk2`). Accept refuses
-  (`wrong_state`) a proposal whose preset does not fit the calendar's type
-  NOW (the type was changed after the scan). The snapshot and restore are
-  type-agnostic. Tests: `CalendarFortnightScanTest`.
+  (`wrong_state`, `reason: calendar_type`) a proposal whose preset does not
+  fit the calendar's type NOW (`CalendarScanProposal::fits()` — the type was
+  changed after the scan); the proposal view says so beforehand:
+  `builtFor` (`week` | `fortnight`, from the stored preset) and
+  `typeChanged`. The snapshot and restore are type-agnostic. Tests:
+  `CalendarFortnightScanTest`.
+- **A scan is built for the calendar AS STORED** (type, page, switches —
+  `CalendarCandidate::context()`). Production 2026-11-16 (K4): 14 days were
+  chosen in step 1 and not saved (a step change then did not save the
+  rest), the scan was built for the stored 7-day calendar,
+  and after the user saved, the accept refused with a bare `wrong_state` —
+  the panel said „Návrh už není k dispozici.“ about the proposal it showed.
+  Since then the browser saves unsaved changes before it starts a scan, and
+  a type-changed proposal is said in the panel with no apply offered.
 - **Browser.** The step-2 card is offered on 14-day calendars; the review's
   alert is `mismatchAlert` (`CAL.mismatch[code]`) and appears only for the two
   notes above — `calendars.md` § "Calendar scan — UI".
@@ -1561,7 +1572,9 @@ scan's row lock and the calendar's row lock, in the bus transaction:
 
 Answer: `{calendarId, revision, features, pictures, unfilledPictures,
 restoreUntil, created, document (a save answer: calendar, assets, savedAt,
-layoutOrigin), scan, applied}`. Refusals: `wrong_state`, `invalid_fix`
+layoutOrigin), scan, applied}`. Refusals: `wrong_state` (+ `reason:
+calendar_type` when the calendar was switched between 7 and 14 days since the
+scan), `invalid_fix`
 (`field: pictures | layout`), `temporarily_unavailable` (node).
 `expires_at` does not move.
 

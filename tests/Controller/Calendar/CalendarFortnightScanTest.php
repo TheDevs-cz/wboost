@@ -203,6 +203,42 @@ final class CalendarFortnightScanTest extends WebTestCase
         self::assertSame('ready', self::text($scanId, 'status'));
     }
 
+    /**
+     * Production 2026-11-16 (K4): a new calendar was switched to 14 days in
+     * step 1 but not saved, so the scan was built for the STORED 7-day
+     * calendar. The user then saved (now 14 days) and pressed „Nahradit
+     * rozvržení“ — the accept refused with a bare `wrong_state` and the
+     * panel said „Návrh už není k dispozici.“ about a proposal it still showed.
+     * The proposal now says it was built for the other type, and the refusal
+     * says why.
+     */
+    public function testAProposalBuiltForSevenDaysSaysSoOnceTheCalendarIsAFourteenDayOne(): void
+    {
+        $scanId = self::calendarReady($this->client, self::WEEK, report: ['notes' => [['code' => 'fortnight_left_half']]]);
+        TestingLogin::logInAsUser($this->client, TestDataFixture::USER_1_EMAIL);
+
+        $this->client->request('GET', '/ai-scan/' . $scanId . '/proposal');
+        $before = self::dig(self::answer($this->client), 'proposal');
+        self::assertFalse(self::dig($before, 'typeChanged'));
+        self::assertSame('week', self::dig($before, 'builtFor'));
+
+        self::connection()->executeStatement("UPDATE calendar SET type = 'fortnight', layout = NULL, layout_preset = NULL WHERE id = :id", ['id' => self::WEEK]);
+
+        $this->client->request('GET', '/ai-scan/' . $scanId . '/proposal');
+        $after = self::dig(self::answer($this->client), 'proposal');
+        self::assertTrue(self::dig($after, 'typeChanged'));
+        self::assertSame('week', self::dig($after, 'builtFor'));
+
+        $this->client->request('POST', sprintf('/calendar/%s/scan/%s/accept', self::WEEK, $scanId), ['_token' => 'csrf-token'], server: ['HTTP_ORIGIN' => 'http://localhost']);
+        $answer = self::answer($this->client);
+
+        self::assertSame(409, $this->client->getResponse()->getStatusCode());
+        self::assertSame('wrong_state', $answer['code']);
+        self::assertSame('calendar_type', $answer['reason'] ?? null);
+        self::assertSame('ready', self::text($scanId, 'status'));
+        self::assertNull(self::connection()->fetchOne('SELECT layout FROM calendar WHERE id = :id', ['id' => self::WEEK]));
+    }
+
     // ---- helpers ------------------------------------------------------------------
 
     /**

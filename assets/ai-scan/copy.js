@@ -206,6 +206,14 @@ export const CAL = {
      * 7-day calendar (only the left week was taken), or a one-week picture scanned for a 14-day
      * calendar (the second week column mirrors the first). A page that fits its calendar has neither.
      */
+    /** The calendar was switched between 7 and 14 days after the scan started: the proposal cannot be applied (K4). */
+    typeChanged: {
+        week: { title: 'Návrh je pro týdenní kalendář, tento kalendář je teď čtrnáctidenní' },
+        fortnight: { title: 'Návrh je pro čtrnáctidenní kalendář, tento kalendář je teď týdenní' },
+        text: 'Sken proběhl, když měl kalendář ještě jiný počet dní, a takové rozvržení sem použít nejde. Klikněte na Naskenovat znovu — sken poběží pro kalendář, jak je teď.',
+        hint: 'Návrh je pro jiný typ kalendáře — naskenujte obrázek znovu.',
+        toast: 'Návrh je pro jiný typ kalendáře (7 / 14 dní). Naskenujte obrázek znovu.',
+    },
     mismatch: {
         fortnight_left_half: {
             title: 'Na obrázku jsou dva týdny, tento kalendář je týdenní',
