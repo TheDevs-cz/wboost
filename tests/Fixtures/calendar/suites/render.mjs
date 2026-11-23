@@ -77,6 +77,7 @@ export default async function (t, load) {
             l.styles.month.bg.gradient.type = 'radial';
             l.styles.logo.asset = 'small';
             l.styles.cal.bg = { color: '#FFFFFF', opacity: 60 };
+            l.styles.cal.numBg = { color: '#E4E4E4', opacity: 80 };
             l.styles.cal.placeLabels = true;
             l.styles.lines.style = 'dot';
             l.styles.icons.order = ['waste', 'moon', 'ev', 'time', 'season'];
@@ -230,7 +231,7 @@ export default async function (t, load) {
             assert.ok(!/data-(evbox|icgrid|handle|cp|guide)|cal-ovl|#E0708A|#D9486A|#e5484d|#8d7fd6/i.test(svg), 'no handles, guides, event boxes or bleed hatch');
             assert.ok(!/\son[a-z]+="/.test(svg), 'no event handlers');
             const dataAttrs = new Set([...svg.matchAll(/\s(data-[\w-]+)="/g)].map((m) => m[1]));
-            assert.deepEqual([...dataAttrs].sort(), ['data-date', 'data-el', 'data-frame', 'data-page', 'data-part']);
+            assert.deepEqual([...dataAttrs].sort(), ['data-band', 'data-date', 'data-el', 'data-frame', 'data-page', 'data-part']);
         }
     });
 
@@ -312,6 +313,22 @@ export default async function (t, load) {
         assert.ok(!/<g data-el="month"[^>]*>.*?letter-spacing/.test(s2.slice(s2.indexOf('data-el="month"'), s2.indexOf('data-el="month"') + 400)));
         assert.equal((svg.match(/data-el="month"/g) || []).length, 1, 'one frame on a 7-day page');
         assert.equal((svg.match(/data-el="wk"/g) || []).length, 1);
+    });
+
+    t.test('Pozadí čísel: one band per Kalendárium frame under the rows, only when it has a colour', async () => {
+        const bands = (svg) => [...svg.matchAll(/<rect x="([-\d.]+)" y="([-\d.]+)" width="([\d.]+)" height="([\d.]+)"[^>]*data-band="numbers"/g)].map((m) => m.slice(1).map(Number));
+        const plain = await makeDoc(load, { type: 'fortnight' });
+        assert.equal(bands(renderPage(plain, first(plain), opts())).length, 0, 'off by default');
+        const doc = await makeDoc(load, { type: 'fortnight', styles: (l) => { l.styles.cal.numBg = { color: '#E4E4E4', opacity: 80 }; } });
+        const svg = renderPage(doc, first(doc), opts({ bleed: true }));
+        checkXml(svg);
+        const [b1, b2] = bands(svg);
+        assert.equal(b1[0], -5, 'frame 1 band starts on the left bleed edge');
+        assert.equal(Math.round((b2[0] + b2[2]) * 10) / 10, 315, 'frame 2 band ends on the right bleed edge');
+        assert.ok(svg.includes('fill="#E4E4E4" fill-opacity="0.8" data-band="numbers"'));
+        // painted below the rows of its frame
+        const frame = svg.slice(svg.indexOf('<g data-el="cal" data-frame="0">'));
+        assert.ok(frame.indexOf('data-band="numbers"') < frame.indexOf('<g data-date='));
     });
 
     t.test('14 dní: month and week number once per column, the second frame mirrored', async () => {

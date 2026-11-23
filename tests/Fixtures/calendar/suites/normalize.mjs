@@ -70,6 +70,7 @@ export default async function (t, load) {
         layout.styles.moon.size = 50;
         layout.styles.moon.phases = [false, true];
         layout.styles.month.pad = -3;
+        layout.styles.cal.numBg = { color: '#EEEEEE', opacity: 140 };
         layout.styles.bg.gradient.stops = [{ color: '#000000', opacity: 100, pos: 0 }];
         layout.styles.offsets = { name: { x: 1.26, y: 0 }, num: { x: 0, y: 0 }, bad: 'x' };
         layout.styles.ev.box = { x: 1.04, y: 2, w: 1, h: 0.2 };
@@ -86,6 +87,8 @@ export default async function (t, load) {
         assert.equal(out.styles.moon.size, 9);
         assert.deepEqual(out.styles.moon.phases, [false, true, true, true]);
         assert.equal(out.styles.month.pad, 0);
+        assert.deepEqual(out.styles.cal.numBg, { color: '#EEEEEE', opacity: 100 });
+        assert.deepEqual(defaults.cal.numBg, { color: null, opacity: 100 }, 'Pozadí čísel is off by default');
         assert.equal(out.styles.bg.gradient.stops.length, 2);
         assert.deepEqual(out.styles.offsets, { name: { x: 1.3, y: 0 } });
         assert.deepEqual(out.styles.ev.box, { x: 1, y: 2, w: D.K.EVBOX_MIN_W, h: D.K.EVBOX_MIN_H });

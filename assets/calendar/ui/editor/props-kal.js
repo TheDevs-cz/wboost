@@ -594,6 +594,17 @@ export function mountKalProps(root, ctx) {
 
     // ---- panels -------------------------------------------------------------------------------
 
+    /** „Pozadí čísel“ — the band behind the number column (`cal.numBg`, `numberBandOf`). */
+    function numberBand(kit) {
+        const on = (st) => Boolean(st.cal.numBg.color);
+        return section(
+            'Pozadí čísel',
+            kit.color('cal.numBg.color', 'Pozadí čísel', true),
+            kit.when(kit.slider('cal.numBg.opacity', 'percent', '%', 'Krytí'), on),
+            kit.when(note('Pruh za čísly vede přes celou výšku kalendária. U okraje stránky sahá až do spadávky.'), on),
+        );
+    }
+
     function blockPanel(kit) {
         const features = getDesign().features;
         position = positionSection(ctx, 'cal');
@@ -633,13 +644,14 @@ export function mountKalProps(root, ctx) {
                 ),
             ),
             section('Číslo dne', kit.side('cal.numberSide', 'Číslo dne', SIDES)),
+            numberBand(kit),
             section('Pozadí kalendária', kit.color('cal.bg.color', 'Pozadí kalendária', true), kit.when(kit.slider('cal.bg.opacity', 'percent', '%', 'Krytí'), (s) => Boolean(s.cal.bg.color))),
             section('Velikosti', h('div', { class: 'cal-szl' }, ...sliders), note('Barvy a písma jednotlivých částí upravíte ve Vrstvách › Kalendárium.')),
         ];
     }
 
     const PART_PANELS = {
-        number: (kit) => [section('Zarovnání (všechna čísla)', kit.align('cal.numAlign', 'Zarovnání (všechna čísla)', () => styles().cal.numAlign || numberSide())), ...kit.textBlock(part)],
+        number: (kit) => [section('Zarovnání (všechna čísla)', kit.align('cal.numAlign', 'Zarovnání (všechna čísla)', () => styles().cal.numAlign || numberSide())), ...kit.textBlock(part), numberBand(kit)],
 
         day: (kit) => [...kit.textBlock('day', 'Barva — všední dny'), section('Sobota', kit.color('cal.satColor', 'Sobota')), section('Neděle a státní svátky', kit.color('cal.sunColor', 'Neděle a státní svátky'))],
 

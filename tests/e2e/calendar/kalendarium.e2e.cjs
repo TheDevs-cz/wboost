@@ -263,7 +263,7 @@ module.exports = {
         await check('whole block: Názvy dnů, Den v týdnu (+ its alignment), Číslo dne, background with Bez barvy + opacity', async () => {
             await e.restore(page, h, week.design);
             await selectBlock();
-            assert.deepEqual(await page.$$eval('.cal-props-kal .cal-psec > .lbl', (n) => n.map((x) => x.textContent)), ['Pozice a velikost', 'Názvy dnů', 'Den v týdnu', 'Číslo dne', 'Pozadí kalendária', 'Velikosti']);
+            assert.deepEqual(await page.$$eval('.cal-props-kal .cal-psec > .lbl', (n) => n.map((x) => x.textContent)), ['Pozice a velikost', 'Názvy dnů', 'Den v týdnu', 'Číslo dne', 'Pozadí čísel', 'Pozadí kalendária', 'Velikosti']);
 
             await click(`${prop('cal.dayFormat')} [data-value="short"]`);
             assert.equal((await styles()).cal.dayFormat, 'short');
@@ -304,6 +304,34 @@ module.exports = {
             await click(`${prop('cal.bg.color')} [data-color=""]`);
             assert.equal((await styles()).cal.bg.color, null);
             assert.equal(await shown(prop('cal.bg.opacity')), false);
+        });
+
+        await check('K5 Pozadí čísel: a band behind the numbers over the frame height, into the bleed at the outer page edge; off by default; saved', async () => {
+            await e.restore(page, h, week.design);
+            await selectBlock();
+            const bands = () => page.$$eval('.cal-cv svg[data-page] [data-el="cal"] rect[data-band="numbers"]', (n) => n.map((r) => ['x', 'y', 'width', 'height', 'fill', 'fill-opacity'].map((a) => r.getAttribute(a))));
+            assert.deepEqual(await bands(), [], 'off by default');
+            assert.equal(await shown(prop('cal.numBg.opacity')), false, 'no opacity without a colour');
+            await click(`${prop('cal.numBg.color')} [data-color="#CBC7D1"]`);
+            assert.equal((await styles()).cal.numBg.color, '#CBC7D1');
+            assert.equal(await shown(prop('cal.numBg.opacity')), true);
+            const g = await geometry();
+            const f = g.frames[0];
+            const d = await h.state(page);
+            const B = d.design.print.bleed ? d.design.print.bleedMm : 0;
+            const [band] = await bands();
+            assert.ok(band, 'drawn');
+            assert.ok(near(Number(band[0]), f.numberColumn.x - 2, 0.05), 'starts 2 mm before the number column');
+            assert.ok(near(Number(band[0]) + Number(band[2]), d.design.page.width + B, 0.05), 'runs into the bleed on the right');
+            assert.ok(near(Number(band[1]), f.box.y, 0.05) && near(Number(band[3]), f.box.h, 0.05), 'the whole frame height');
+            assert.equal(band[4], '#CBC7D1');
+            await h.shot(page, 'kal-05-number-band');
+            // the same band from the number part panel
+            await selectPart('num');
+            assert.ok(await exists(prop('cal.numBg.color')), 'also under Číslo dne');
+            await h.save(page);
+            await h.reload(page);
+            assert.equal((await styles()).cal.numBg.color, '#CBC7D1', 'saved');
         });
 
         await check('Velikosti: one slider per enabled text kind; the Čísla slider sets all four number styles and is ONE undo step', async () => {
@@ -1075,6 +1103,21 @@ module.exports = {
             for (const d of Object.keys(n1)) assert.ok(near(m1[d].x, n1[d].x + 4), `frame 2 ${d}`);
             await undo();
             assert.deepEqual((await styles()).offsets, {});
+        });
+
+        await check('K5 14 days: Pozadí čísel runs into the bleed at BOTH outer page edges (left for week 1, right for week 2)', async () => {
+            await e.restore(page, h, fort.design);
+            await selectBlock();
+            await click(`${prop('cal.numBg.color')} [data-color="#CBC7D1"]`);
+            const d = await h.state(page);
+            const W = d.design.page.width;
+            const B = d.design.print.bleed ? d.design.print.bleedMm : 0;
+            const bands = await page.$$eval('.cal-cv svg[data-page] [data-el="cal"] rect[data-band="numbers"]', (n) => n.map((r) => ['x', 'width'].map((a) => Number(r.getAttribute(a)))));
+            assert.equal(bands.length, 2, 'one band per frame');
+            assert.ok(near(bands[0][0], -B, 0.05), 'week 1 → left bleed edge');
+            assert.ok(near(bands[1][0] + bands[1][1], W + B, 0.05), 'week 2 → right bleed edge');
+            assert.ok(near(bands[1][0], W - (bands[0][0] + bands[0][1]), 0.1), 'mirrored');
+            await h.shot(page, 'kal-14-number-band-fortnight');
         });
 
         await check('step 4 › Styl stránek: the same panels and part chrome (same module, same undo stack)', async () => {

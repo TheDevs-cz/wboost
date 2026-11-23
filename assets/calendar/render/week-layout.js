@@ -1,7 +1,7 @@
 // Geometry of a week page (architecture §E.6). Pure: the renderer serialises what this computes and
 // the editor overlay positions its chrome from the same object.
 
-import { K, ptToMm } from '../model/defaults.js';
+import { K, bleedOf, ptToMm } from '../model/defaults.js';
 import { visibleBoxKeys } from '../model/elements.js';
 import { flipRowStyles } from '../model/layouts.js';
 import { createDayContext, dayInfo } from '../generate/day.js';
@@ -34,6 +34,24 @@ function union(a, b) {
     const x = Math.min(a.x, b.x);
     const y = Math.min(a.y, b.y);
     return { x, y, w: Math.max(a.x + a.w, b.x + b.w) - x, h: Math.max(a.y + a.h, b.y + b.h) - y };
+}
+
+/**
+ * „Pozadí čísel“: the band behind the number column, over the whole height of the frame. It runs
+ * from `K.NUM_BAND_PAD` before the column to the frame edge on the number side — and, when that edge
+ * lies on the trim (or in the bleed), on to the bleed edge, so the band runs off the printed page.
+ * Numbers in the middle: the column plus the pad on both sides. `side` is the drawn (flipped) side.
+ */
+export function numberBandOf(box, numCol, side, W, B) {
+    let x0 = numCol.x - K.NUM_BAND_PAD;
+    let x1 = numCol.x + numCol.w + K.NUM_BAND_PAD;
+    if (side === 'end') {
+        const edge = box.x + box.w;
+        x1 = edge >= W - K.LINK_TOL ? W + B : edge;
+    } else if (side === 'start') {
+        x0 = box.x <= K.LINK_TOL ? 0 - B : box.x;
+    }
+    return { x: x0, y: box.y, w: Math.max(0, x1 - x0), h: box.h };
 }
 
 const anchorX = (col, anchor) => (anchor === 'start' ? col.x : anchor === 'end' ? col.x + col.w : col.x + col.w / 2);
@@ -522,6 +540,7 @@ function layoutFrame(c, f) {
         holWrap,
         iconZone: keys.length ? { x: zoneSpan.x + iconOffset.x, w: iconsW, cols, cellW } : null,
         numberColumn: { x: numCol.x, w: numCol.w },
+        numberBand: numberBandOf(box, numCol, side, W, bleedOf(design.print)),
         evOffset: { ...offsetOf('ev') },
         textWidest,
         namesWidest,

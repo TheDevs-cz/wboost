@@ -42,6 +42,8 @@ function renderCal(doc, geometry, opts) {
         const bg = frame.styles.cal.bg;
         out += `<g data-el="cal" data-frame="${frame.index}">`;
         if (bg.color) out += rect(frame.box, { fill: bg.color, 'fill-opacity': bg.opacity < 100 ? bg.opacity / 100 : null });
+        const band = frame.styles.cal.numBg;
+        if (band.color) out += rect(frame.numberBand, { fill: band.color, 'fill-opacity': band.opacity < 100 ? band.opacity / 100 : null, 'data-band': 'numbers' });
         for (const row of frame.rows) {
             out += `<g data-date="${row.date}">`;
             for (const item of row.items) out += renderItem(item, frame, row.date, opts);

@@ -563,6 +563,39 @@ export default async function (t, load) {
         assert.equal(itemsOf(rowOf(geo(short, '2027-01-22'), '2027-01-22'), 'day')[0].text, 'Pá');
     });
 
+    t.test('Pozadí čísel: the band behind the number column runs off the outer page edge into the bleed', async () => {
+        const band = (o) => async () => geo(await makeDoc(load, o)).frames;
+        const colour = (l) => { l.styles.cal.numBg = { color: '#EEEEEE', opacity: 100 }; };
+        // Fotka vlevo, bleed 5 mm: numbers right, the frame reaches into the bleed → band to W + B
+        const [f] = await band({ styles: colour })();
+        assert.deepEqual(f.numberBand, { x: f.numberColumn.x - K.NUM_BAND_PAD, y: 27, w: 315 - (f.numberColumn.x - K.NUM_BAND_PAD), h: 112 });
+        // no bleed: the frame ends on the trim → the band ends on the trim
+        const [fn] = await band({ print: { bleed: false } })();
+        near(assert, fn.numberBand.x + fn.numberBand.w, 310, 'band ends on the trim', 1e-9);
+        // Fotka vpravo: numbers left, band from −B
+        const [fr] = await band({ preset: 'photoRight' })();
+        near(assert, fr.numberBand.x, -5, 'band from the left bleed edge', 1e-9);
+        near(assert, fr.numberBand.x + fr.numberBand.w, fr.numberColumn.x + fr.numberColumn.w + K.NUM_BAND_PAD, 'inner edge', 1e-9);
+        // a frame that does not touch the page edge: the band stops at the frame edge
+        const [fi] = await band({ styles: (l) => { l.boxes.cal = { ...l.boxes.cal, w: l.boxes.cal.w - 20 }; } })();
+        near(assert, fi.numberBand.x + fi.numberBand.w, fi.box.x + fi.box.w, 'band ends at the frame edge', 1e-9);
+        // numbers in the middle: only the column and its pad
+        const [fm] = await band({ styles: (l) => { l.styles.cal.numberSide = 'middle'; } })();
+        near(assert, fm.numberBand.x, fm.numberColumn.x - K.NUM_BAND_PAD, 'middle left', 1e-9);
+        near(assert, fm.numberBand.w, fm.numberColumn.w + 2 * K.NUM_BAND_PAD, 'middle width', 1e-9);
+        // 14 days: each frame's band goes to its own outer page edge
+        const [f1, f2] = await band({ type: 'fortnight' })();
+        near(assert, f1.numberBand.x, -5, 'frame 1 → left bleed edge', 1e-9);
+        near(assert, f2.numberBand.x + f2.numberBand.w, 315, 'frame 2 → right bleed edge', 1e-9);
+        near(assert, f2.numberBand.x, 310 - (f1.numberBand.x + f1.numberBand.w), 'the bands mirror', 1e-6);
+        const [g1, g2] = await band({ type: 'fortnight', print: { bleed: false } })();
+        assert.deepEqual([g1.numberBand.x, g2.numberBand.x + g2.numberBand.w], [0, 310]);
+        // compact rows keep the band
+        const [fc] = await band({ styles: (l) => { l.boxes.cal = { ...l.boxes.cal, h: 60 }; } })();
+        assert.equal(fc.compact, true);
+        assert.deepEqual([fc.numberBand.y, fc.numberBand.h], [27, 60]);
+    });
+
     t.test('weekday colours, time texts with the text or on their own', async () => {
         const doc = await makeDoc(load, { features: { timeChange: true, seasons: true } });
         const g = geo(doc, '2027-03-28');

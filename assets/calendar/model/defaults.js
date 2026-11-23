@@ -43,6 +43,7 @@ export const K = Object.freeze({
     DRAG_PX: 3,
     ROW_PAD: 5,
     NUM_GAP: 3,
+    NUM_BAND_PAD: 2,
     ROW_SLACK: 2,
     COMPACT_BELOW: 11.8,
     COMPACT_BASE: 9.3,

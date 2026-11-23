@@ -106,7 +106,9 @@ readonly final class SetCalendarLayoutTool
      *   head.text.
      * - cal: numberSide "start"|"end" (day number left / right of the row),
      *   numAlign, dayFormat "full"|"short", dayPosition "side"|"above",
-     *   dayAlign, satColor, sunColor, bg {color|null, opacity}, iconSize (mm
+     *   dayAlign, satColor, sunColor, bg {color|null, opacity}, numBg
+     *   {color|null, opacity} (a band behind the day numbers over the frame
+     *   height; at a frame edge on the trim it runs into the bleed), iconSize (mm
      *   1.5–12), iconGrid "4"|"2x2"|"1+2"|"2+1", iconCellW (mm|null),
      *   iconCells (per grid, per cell), placeLabels, emptyIconSlot.
      * - lines: {on, width (pt 0.1–5), style "solid"|"dash"|"dot", color} —

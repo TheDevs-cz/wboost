@@ -92,7 +92,8 @@ are `K` and the control ranges `LIMITS`, both in `model/defaults.js`.
   `cal`.
 - `styles`: everything the step-3 editor changes — text styles per part
   (`num numSat numSun numHol day name hol ev time shift placeText`), `cal`
-  (number side, icon grid, cell sizes…), fills (`head.bg`, `month.bg`, `bg`),
+  (number side, icon grid, cell sizes, `bg` and `numBg` — „Pozadí čísel“, see the row
+  layout below…), fills (`head.bg`, `month.bg`, `bg`),
   `icons.order`, `moon`, `waste.kinds[id]` (colour / icon overrides),
   `offsets[part]` (part nudges, mm), `ev.box` (the event box, **flow-anchored**:
   `x` from the text column's zone-side edge — so it needs no change when the
@@ -690,6 +691,18 @@ Waste rhythms follow ISO week parity (so they shift across a 53-week year).
   labels). Coordinates are computed on a **flow axis** from the zone edge, so
   the mirrored frame is the same code. Holiday names are **never truncated** —
   they wrap; a compact row first drops the name day, then widens the wrap.
+- **Pozadí čísel** (`cal.numBg {color|null, opacity}`, `numberBandOf` →
+  `frame.numberBand`, drawn first in the frame as `rect[data-band="numbers"]`,
+  above `cal.bg`, below the rows; off = `color: null`, the default). A band over the
+  whole frame height (`box.y … box.y + box.h`) from `K.NUM_BAND_PAD` (2 mm)
+  before the number column to the frame edge on the number side; when that
+  edge lies on the trim or in the bleed (≤ `K.LINK_TOL` from the trim) it runs
+  on to the bleed edge (`−B` / `W + B`), so the printed band goes off the page.
+  Numbers in the middle: the column ± the pad, never extended. The side is the
+  DRAWN one, so the mirrored 14-day frame (`flipRowStyles`) gets its band at
+  the other outer edge with no extra code. A flat fill (+ fill-opacity, Normal
+  blend) — the CMYK pass handles it like `cal.bg`. Panel: block panel under
+  „Číslo dne“ and the number part panel (same control).
 - **Event box**: default = one page-wide box in the free area beside the widest
   *weekday / name-day line* of the page (both 14-day frames share it, so they
   mirror exactly; `frame.evDefault`). A row whose holiday or time text is wider
@@ -774,6 +787,16 @@ targets the calendar's own type), designers only.
   event `asset-selected`, and the server copies the gallery file's bytes to
   the scan (`fileId`). JPG, PNG, WebP or SVG. The upload zone and the
   chosen-file card take a dropped page the same way (`data-dropzone="page"`).
+- **The scan is built for the calendar as stored** (feedback K4, 2026-11-23):
+  `start()` saves unsaved changes first (`store.save()`; a failed save does
+  not start the scan) — a type switched in step 1 and not saved used to give
+  a 7-day proposal for a calendar that became 14-day on the next save. A
+  proposal whose `builtFor` is not the type on screen (`views.typeChanged()`)
+  shows the alert `[data-cal-scan-type-changed]` (`CAL.typeChanged`) above
+  the review and the pictures step instead of the page-vs-calendar note,
+  „Použít / Nahradit rozvržení“ is disabled with a hint, and an accept that
+  still answers `wrong_state` + `reason: calendar_type` toasts that, never
+  „Návrh už není k dispozici.“ e2e: `scan.e2e.cjs` (the K4 checks).
 - **„Nejprve si připravte“** (feedback K1, 2026-11-23) — the upload screen
   opens with a card of four things to have ready (`views.prepare()`, copy
   `CAL.prepare`, `.cal-prep*` in `calendar.css`): the logo as SVG or PNG (the

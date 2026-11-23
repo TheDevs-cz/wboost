@@ -66,6 +66,7 @@ export function defaultStyles(env = {}) {
         bg: fill({ colorOn: true, color: COLORS.paper, stops: [COLORS.paper, COLORS.band] }),
         cal: {
             bg: { color: null, opacity: 100 },
+            numBg: { color: null, opacity: 100 },
             satColor: sat,
             sunColor: red,
             numberSide: 'end',

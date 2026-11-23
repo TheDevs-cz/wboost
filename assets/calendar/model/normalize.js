@@ -62,6 +62,7 @@ function clampStyles(styles, defaults) {
     styles.cal.iconSize = clampLimit('iconSize', styles.cal.iconSize);
     if (styles.cal.iconCellW !== null) styles.cal.iconCellW = Math.max(K.ICON_CELL_MIN, clampLimit('iconCellSize', styles.cal.iconCellW));
     styles.cal.bg.opacity = clampLimit('percent', styles.cal.bg.opacity);
+    styles.cal.numBg.opacity = clampLimit('percent', styles.cal.numBg.opacity);
     styles.cal.numberSide = oneOf(styles.cal.numberSide, ALIGNS, defaults.cal.numberSide);
     styles.cal.iconGrid = oneOf(styles.cal.iconGrid, ['4', '2x2', '1+2', '2+1'], defaults.cal.iconGrid);
     styles.moon.size = clampLimit('moonSize', styles.moon.size);
