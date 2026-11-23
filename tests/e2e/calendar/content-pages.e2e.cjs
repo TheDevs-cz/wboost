@@ -438,7 +438,10 @@ module.exports = {
             assert.ok(warnings.some((w) => w.pageIndex === 4 && w.kind === 'dpi'));
             assert.ok(warnings.some((w) => w.pageIndex === 7 && w.kind === 'portrait'));
             await page.waitForSelector('[data-page-thumb="4"][data-warn]');
-            assert.equal(await page.$eval('[data-page-thumb="4"] .cal-wb', (el) => `${el.textContent}|${el.getAttribute('aria-label')}|${el.hidden}`), `!|${warnings.filter((w) => w.pageIndex === 4).length} upozornění|false`);
+            // the badge is a button beside the thumbnail, labelled with the warning title(s)
+            const four = warnings.filter((w) => w.pageIndex === 4);
+            assert.equal(await page.$eval('[data-page-warn="4"]', (el) => `${el.tagName}|${el.hidden}`), 'BUTTON|false');
+            assert.match(await page.$eval('[data-page-warn="4"]', (el) => el.getAttribute('aria-label')), four.length === 1 ? /^Upozornění: Fotka má na tisk malé rozlišení$/ : new RegExp(`^${four.length} upozornění: `));
             assert.equal(await exists(page, '[data-page-thumb="2"][data-warn]'), false);
             await page.waitForFunction(() => !document.querySelector('[data-cal-action="warnings"]').hidden);
             assert.equal(await text(page, '[data-cal-action="warnings"]'), `${warnings.length} upozornění`);
@@ -453,8 +456,10 @@ module.exports = {
             }
             assert.deepEqual(seen, [...pagesWithWarnings, pagesWithWarnings[0]]);
             await showPage(page, 4);
-            const listed = await page.$$eval('[data-page-warning]', (nodes) => nodes.map((n) => n.textContent.replace(/^!/, '').trim()));
-            assert.deepEqual(listed, warnings.filter((w) => w.pageIndex === 4).map((w) => w.message));
+            // one card per warning: title, facts, fix, actions (K12)
+            const listed = await page.$$eval('[data-page-warning]', (nodes) => nodes.map((n) => [n.dataset.pageWarning, n.querySelector('.cal-warn-t').textContent, [...n.querySelectorAll('[data-warning-action]')].map((b) => b.dataset.warningAction)]));
+            assert.deepEqual(listed.map((row) => row[0]), four.map((w) => w.kind));
+            assert.ok(listed.some((row) => row[0] === 'dpi' && row[1] === 'Fotka má na tisk malé rozlišení' && row[2][0] === 'photo-replace'), JSON.stringify(listed));
             assert.equal(await text(page, '.cal-pw .lbl'), 'Upozornění');
             await h.shot(page, 'step4-warnings');
             // warnings never block saving

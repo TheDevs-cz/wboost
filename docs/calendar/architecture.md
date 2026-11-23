@@ -1814,6 +1814,10 @@ week page having any `timeTexts` on any day (fallback: the first week page).
 
 All come from `layoutWeekPage` + the asset map — there is no render side effect and nothing is stored.
 
+Since K12 (2026-11) the Message column is history: a warning carries `facts`, and its title, facts,
+fix and actions come from `describeWarning` in `render/warning-text.js` (`warning.message` = title +
+facts + fix) — see `docs/architecture/calendars.md` § Warnings.
+
 ### E.13 Zoom
 
 `fitScale = clamp(min((stageW − 64) / (W + 2B), (stageH − 120) / (H + 2B)), FIT_MIN, FIT_MAX)` px per

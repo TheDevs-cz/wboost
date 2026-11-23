@@ -14,7 +14,11 @@
 // photo, contact groups, layout of the cover (`ui/pagecontent.js`, shared with step 5); that is
 // content of the page, not an override, so „Vrátit na styl“ and the „Upraveno“ pill ignore it.
 //
-// Contract: `mountPagePanel(root, ctx, opts: { pageIndex: number }): { destroy() }` — one mount per
+// Warnings: one `warningCard` per warning (`ui/warnings.js`) — title, facts, fix and its actions;
+// `opts.warningHandlers?(index)` adds the step's actions, the panel does 'page-content' itself
+// (moves to the content fields above the rest).
+//
+// Contract: `mountPagePanel(root, ctx, opts: { pageIndex: number, warningHandlers? }): { destroy() }` — one mount per
 // shown page; `ui/step4.js` destroys and re-mounts it when the page changes. All edits are content
 // items keyed by the page key, labelled with the page title for Historie.
 //
@@ -27,7 +31,7 @@ import { h, icon } from './dom.js';
 import { hasPageContent, mountPageContent } from './pagecontent.js';
 import { CAPTION_MAX, fileTile, setPageCaption, setPagePhoto, uploadAsset } from './tools/photos.js';
 import { QR_ACCEPT } from './tools/qr.js';
-import { pageWarnings } from './warnings.js';
+import { pageWarnings, warningCard } from './warnings.js';
 
 export function mountPagePanel(root, ctx, opts = {}) {
     const { store } = ctx;
@@ -44,6 +48,14 @@ export function mountPagePanel(root, ctx, opts = {}) {
 
     const state = () => store.getState();
     const page = () => store.pages()[opts.pageIndex] || null;
+    const warningHandlers = (index) => ({
+        ...(opts.warningHandlers ? opts.warningHandlers(index) : {}),
+        'page-content': () => {
+            const field = contentHost.querySelector('input:not([type="file"]), textarea, select');
+            contentHost.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            if (field) field.focus({ preventScroll: true });
+        },
+    });
     const assetOf = (id) => (id ? ctx.env.assets[id] || null : null);
 
     /** Which fields the page has — the structure of the panel. */
@@ -114,7 +126,11 @@ export function mountPagePanel(root, ctx, opts = {}) {
                   'div',
                   { class: 'cal-p4s cal-pw' },
                   h('span', { class: 'lbl' }, 'Upozornění'),
-                  ...warnings.map((warning) => h('span', { class: 'cal-pwi', 'data-page-warning': warning.kind }, h('span', { class: 'cal-wb', 'aria-hidden': 'true' }, '!'), warning.message)),
+                  ...warnings.map((warning) => {
+                      const card = warningCard(ctx, warning, { handlers: warningHandlers(current.index) });
+                      card.dataset.pageWarning = warning.kind;
+                      return card;
+                  }),
               )
             : null;
 

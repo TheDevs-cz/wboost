@@ -4,32 +4,51 @@
    Loads after calendar.css (whose basic P3 versions of these are gone).
    ========================================================================== */
 
-/* ---------- Warning marks: the "!" badge (thumbnails, page, lists) and the chip ----------
-   Handoff §4.8: a red exclamation mark. Rose is Nocturne's danger hue in both themes. */
-.cal-wb { display: inline-grid; place-items: center; flex: none; width: 18px; height: 18px; border-radius: 50%; background: var(--rose); color: var(--on-accent); font-size: 12px; font-weight: 800; line-height: 1; font-style: normal; }
+/* ---------- Warnings: badges, chip, cards, popover, list (ui/warnings.js) ----------
+   Warnings never block anything, so they are peach (design-system §7 rule 3: peach = warning,
+   rose = destructive / error) — K12: the old rose "!" read as an error. The badge is a button
+   with the alert icon; its hit area is grown to a touch size by ::before. */
+.cal-wb { position: relative; display: inline-grid; place-items: center; flex: none; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: var(--pch); color: var(--on-accent); font: inherit; font-size: 12px; font-weight: 800; line-height: 1; font-style: normal; }
+.cal-wb .i { width: 12px; height: 12px; }
+button.cal-wb { cursor: pointer; transition: transform var(--dur-1); }
+button.cal-wb::before { content: ""; position: absolute; inset: -12px; border-radius: 50%; }
+button.cal-wb:hover, button.cal-wb[aria-expanded="true"] { transform: scale(1.12); }
+button.cal-wb:focus-visible { outline: 2px solid var(--lav); outline-offset: 2px; }
 .cal-wb[hidden] { display: none; }
-.cal-th > .cal-wb { position: absolute; top: 8px; right: 8px; box-shadow: 0 0 0 2px var(--surface); }
-.cal-wchip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid transparent; border-radius: 999px; background: var(--rose-deep); color: var(--rose-ink); font: inherit; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: border-color var(--dur-2); }
-.cal-wchip:hover { border-color: var(--rose-line); }
+/* thumbnail: the badge lies beside the thumbnail button (a button cannot hold one) */
+.cal-thw { position: relative; display: flex; flex-direction: column; flex: none; min-width: 0; }
+.cal-thw > .cal-wb { position: absolute; top: 8px; right: 8px; box-shadow: 0 0 0 2px var(--surface); }
+.cal-wchip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid transparent; border-radius: 999px; background: var(--pch-deep); color: var(--pch-ink); font: inherit; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: border-color var(--dur-2); }
+.cal-wchip:hover { border-color: var(--pch-line); }
 .cal-wchip[hidden] { display: none; }
 .cal-wchip .i { flex: none; }
 
-/* messages as a list — the step-4 page panel and anywhere else `warningNotes()` lands */
-.cal-wnotes { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 10px 12px; list-style: none; border-radius: 12px; background: var(--rose-deep); }
-.cal-wrow { display: flex; align-items: flex-start; gap: 8px; min-width: 0; font-size: 13px; line-height: 1.4; color: var(--text-2); }
-.cal-wrow > span:last-child { min-width: 0; overflow-wrap: anywhere; }
-.cal-wrow > .cal-wb { position: static; margin-top: 1px; box-shadow: none; }
-.cal-wnotes .cal-wrow { color: var(--rose-ink); }
+/* one warning: title · facts · fix · actions — popover, Upozornění list, step-4 page panel */
+.cal-warn { display: flex; flex-direction: column; gap: 6px; min-width: 0; font-size: 13px; line-height: 1.5; color: var(--text-2); }
+.cal-warn + .cal-warn { padding-top: 10px; border-top: 1px solid var(--line); }
+.cal-warn-t { display: flex; align-items: flex-start; gap: 6px; font-weight: 600; color: var(--text); }
+.cal-warn-t .i { flex: none; margin-top: 3px; color: var(--pch-ink); }
+.cal-warn-x, .cal-warn-h { margin: 0; overflow-wrap: anywhere; }
+.cal-warn-h { color: var(--text); }
+.cal-warn-a { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+@media (pointer: coarse) { .cal-warn-a .btn { min-height: 44px; } }
+.cal-wpop { display: flex; flex-direction: column; gap: 10px; }
+.cal-pop.cal-pop-warn .cal-pop-t { display: flex; align-items: center; gap: 6px; }
+/* step-4 page panel: the warnings box (overrides the rose box of calendar-content.css) */
+.cal-pw { display: flex; flex-direction: column; gap: 10px; background: var(--pch-deep); }
+.cal-pw .lbl { color: var(--pch-ink); }
+.cal-pw .cal-warn + .cal-warn { border-top-color: var(--pch-line); }
 
 /* ---------- Upozornění dialog ---------- */
 .cal-wlist { display: flex; flex-direction: column; gap: 8px; }
 .cal-wlead { margin: 0 0 4px; }
-.cal-wpage { display: flex; flex-direction: column; align-items: stretch; gap: 6px; width: 100%; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--text); font: inherit; font-size: 13px; text-align: left; cursor: pointer; transition: border-color var(--dur-2), background var(--dur-2); }
-.cal-wpage:hover { border-color: var(--line-3); background: var(--surface-2); }
-.cal-wpage-h { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.cal-wpage { display: flex; flex-direction: column; align-items: stretch; gap: 10px; width: 100%; padding: 12px 14px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--text); font-size: 13px; }
+.cal-wpage-h { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; min-width: 0; min-height: 32px; margin: -4px -6px 0; padding: 4px 6px; border: 0; border-radius: 10px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; transition: background var(--dur-2); }
+.cal-wpage-h:hover { background: var(--surface-2); }
+.cal-wpage-h:focus-visible { outline: 2px solid var(--lav); outline-offset: 1px; }
 .cal-wpage-h b { font-weight: 600; }
-.cal-wpage-go { margin-left: auto; align-self: center; display: inline-flex; color: var(--subtle); }
-.cal-wpage:hover .cal-wpage-go { color: var(--text); }
+.cal-wpage-go { display: inline-flex; align-items: center; gap: 2px; margin-left: auto; font-size: 12px; color: var(--subtle); }
+.cal-wpage-h:hover .cal-wpage-go { color: var(--text); }
 
 /* ---------- Historie dialog ---------- */
 .cal-hist-list { display: flex; flex-direction: column; gap: 12px; min-height: 120px; }

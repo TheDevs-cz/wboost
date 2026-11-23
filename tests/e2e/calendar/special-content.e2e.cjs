@@ -754,7 +754,7 @@ module.exports = {
             await openStep4(page, h, id);
             await showPage(page, index);
             drawn = await stage(page);
-            const warnings = await h.cal(page, (c, i) => c.warnings().filter((w) => w.pageIndex === i).map((w) => [w.kind, w.message]), index);
+            const warnings = await h.cal(page, (c, i) => c.warnings().filter((w) => w.pageIndex === i).map((w) => [w.kind, w.facts.issue]), index);
             assert.deepEqual(warnings, [['overflow', 'Kontakty se na stránku nevejdou — uberte řádky, nebo zvolte rozvržení s více sloupci']]);
             assert.ok(Number(/data-el="groups" data-size="([\d.]+)"/.exec(drawn.markup)[1]) < sizeBefore, 'the type shrank to its smallest size before the page gave up');
             const { width, height } = (await h.state(page)).design.page;

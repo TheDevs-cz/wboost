@@ -72,9 +72,21 @@ export function mountStep4(root, ctx) {
     row.append(h('span', { class: 'cal-top-sp' }), exportButton, chip.el);
 
     // ---- left list ---------------------------------------------------------------------------
+    // a warning's action that needs the page: step 4 shows the page (its panel holds the content
+    // fields); the crop and the day menu live on step 5's page
+    const onStep5 = (index) => {
+        store.setUi({ previewPage: index });
+        store.setStep(5);
+    };
+    const warningHandlers = (index) => ({
+        'page-content': () => store.setUi({ contentView: index }),
+        'photo-crop': () => onStep5(index),
+        day: () => onStep5(index),
+    });
     const list = mountPageList(side, ctx, {
         selected: pageIndex,
         onSelect: (index) => store.setUi({ contentView: index }),
+        warningHandlers,
         views: { current: view, onPick: (next) => store.setUi({ contentView: next }) },
     });
 
@@ -224,7 +236,7 @@ export function mountStep4(root, ctx) {
         if (kind === 'page' && sameFrame) {
             // another page: only the panel on the right is per page
             mounted.pop().destroy();
-            mounted.push(mountPagePanel(right, ctx, { pageIndex: next }));
+            mounted.push(mountPagePanel(right, ctx, { pageIndex: next, warningHandlers }));
             draw();
             return;
         }
@@ -248,7 +260,7 @@ export function mountStep4(root, ctx) {
         right.replaceChildren();
         ctx.setStageProbe(probe);
         mounted.push({ destroy: () => ctx.setStageProbe(null) });
-        mounted.push(kind === 'special' ? mountSpecialPanel(right, ctx) : mountPagePanel(right, ctx, { pageIndex: next }));
+        mounted.push(kind === 'special' ? mountSpecialPanel(right, ctx) : mountPagePanel(right, ctx, { pageIndex: next, warningHandlers }));
         draw();
     }
 

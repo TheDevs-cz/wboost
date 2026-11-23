@@ -5,14 +5,19 @@
 //   `mountPageList(root, ctx, opts): { refresh(), destroy() }`
 //     opts.selected(): number | null   index of the page shown as current (`aria-current="true"`)
 //     opts.onSelect(index)             a thumbnail was clicked
+//     opts.warningHandlers?(index)     actions of the step for a page's warnings (`ui/warnings.js`
+//                                      Handlers) — offered in the badge's popover
 //     opts.views?: { current(): 'style' | 'special' | number, onPick(view: 'style' | 'special') }
 //                                      step 4 only — adds, above the thumbnails, the entries
 //                                      „Styl stránek“ and „Speciální stránky“ and the plus menu
 //                                      that adds a special page
 //   - renders `button[data-page-thumb="<index>"]` per page, in page order, inside
-//     `div.cal-thl[aria-label="Strany kalendáře"]`, with `data-warn="<n>"` when the page has
-//     warnings (badge `!`, aria `{n} upozornění`) and `data-overridden` when the page has its own
-//     overrides (dot); every thumbnail carries its page number (`.cal-thno`), title and range
+//     `div.cal-thl[aria-label="Strany kalendáře"]` (each in a `div.cal-thw[role=listitem]`), with
+//     `data-warn="<n>"` when the page has warnings and `data-overridden` when the page has its own
+//     overrides (dot); every thumbnail carries its page number (`.cal-thno`), title and range.
+//     The warning badge `button.cal-wb[data-page-warn="<index>"]` lies beside the thumbnail button
+//     (a button cannot hold a button): aria-label = the warning title(s); hover or click / tap
+//     opens the explanation with its fixes (`bindWarningBadge`)
 //   - thumbnails are lazy (`mountLazyThumb`) and refresh by themselves, debounced 150 ms, on
 //     `layout` (non-live) / `design` / `content` / `replace`; the list is rebuilt when the page
 //     list changes (the scroll position is kept)
@@ -27,7 +32,7 @@ import { pageHasOverrides } from '../model/content.js';
 import { samplePage } from '../generate/pages.js';
 import { debounce, h, icon, onOutside } from './dom.js';
 import { mountLazyThumb, renderThumb } from './thumb.js';
-import { pageWarnings } from './warnings.js';
+import { badgeLabel, bindWarningBadge, pageWarnings } from './warnings.js';
 import { GRAPHIC_ACCEPT, TEXT_ACCEPT, addGraphicPage, addTextPage, previewedSpecial, specialEntries, switchOnSpecial } from './tools/special.js';
 
 export function mountPageList(root, ctx, opts = {}) {
@@ -185,21 +190,20 @@ export function mountPageList(root, ctx, opts = {}) {
         signature = signatureOf(pages);
         items = pages.map((page) => {
             const picture = h('span', { class: 'cal-thp' });
-            const badge = h('span', { class: 'cal-wb', hidden: true }, '!');
+            const badge = h('button', { type: 'button', class: 'cal-wb', 'data-page-warn': String(page.index), hidden: true }, icon('alert', 's12'));
+            bindWarningBadge(badge, ctx, () => pageWarnings(ctx, page.index), opts.warningHandlers ? () => opts.warningHandlers(page.index) : null);
             const dot = h('span', { class: 'cal-thd', hidden: true, title: 'Upraveno' });
             const button = h(
                 'button',
                 {
                     type: 'button',
                     class: 'cal-th',
-                    role: 'listitem',
                     'data-page-thumb': String(page.index),
                     'data-page-key': page.key,
                     'aria-label': page.kind === 'week' ? `${page.title}, ${page.subtitle}` : page.title,
                     onClick: () => opts.onSelect && opts.onSelect(page.index),
                 },
                 picture,
-                badge,
                 dot,
                 h('span', { class: 'cal-thn' }, h('b', null, h('span', { class: 'cal-thno' }, String(page.index + 1)), page.title), page.subtitle ? h('span', { class: 'cap' }, page.subtitle) : null),
             );
@@ -207,9 +211,10 @@ export function mountPageList(root, ctx, opts = {}) {
                 const current = store.pages()[page.index];
                 return current ? thumbOf(current) : '';
             });
-            return { index: page.index, key: page.key, button, badge, dot, thumb };
+            const wrap = h('div', { class: 'cal-thw', role: 'listitem' }, button, badge);
+            return { index: page.index, key: page.key, wrap, button, badge, dot, thumb };
         });
-        list.replaceChildren(...items.map((item) => item.button));
+        list.replaceChildren(...items.map((item) => item.wrap));
         scroller.scrollTop = scroll.top;
         list.scrollLeft = scroll.left;
         marks();
@@ -223,7 +228,7 @@ export function mountPageList(root, ctx, opts = {}) {
             if (count) item.button.dataset.warn = String(count);
             else delete item.button.dataset.warn;
             item.badge.hidden = count === 0;
-            if (count) item.badge.setAttribute('aria-label', `${count} upozornění`);
+            if (count) item.badge.setAttribute('aria-label', badgeLabel(pageWarnings(ctx, item.index)));
             const overridden = pageHasOverrides(content, item.key);
             item.button.toggleAttribute('data-overridden', overridden);
             item.dot.hidden = !overridden;

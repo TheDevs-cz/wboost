@@ -104,7 +104,23 @@ export function mountStep5(root, ctx) {
     root.replaceChildren(frame);
 
     const toolbar = mountToolbar(row, ctx, { step: 5 });
-    const chip = warningChip(ctx, { onClick: () => openWarnings(ctx, { onPick: (index) => store.setUi({ previewPage: index }) }) });
+    // actions of a warning that need the page on screen: show it first (the draw is synchronous)
+    const show = (index) => store.setUi({ previewPage: index });
+    const warningHandlers = (index) => ({
+        'photo-crop': () => {
+            show(index);
+            overlay.focusCrop();
+        },
+        day: (action, warning) => {
+            show(index);
+            overlay.openDay(warning.target.date);
+        },
+        'page-content': () => {
+            show(index);
+            openContent();
+        },
+    });
+    const chip = warningChip(ctx, { onClick: () => openWarnings(ctx, { onPick: show, handlers: warningHandlers }) });
     // h() skips the `null` of the client (Element.append would print it)
     row.append(
         h(
@@ -128,8 +144,8 @@ export function mountStep5(root, ctx) {
         ),
     );
 
-    const list = mountPageList(side, ctx, { selected: () => store.getState().ui.previewPage, onSelect: (index) => store.setUi({ previewPage: index }) });
-    const overlay = mountStep5Overlay(overlayRoot, ctx, { controls: controlsSlot, picture: () => picture.querySelector('svg') });
+    const list = mountPageList(side, ctx, { selected: () => store.getState().ui.previewPage, onSelect: show, warningHandlers });
+    const overlay = mountStep5Overlay(overlayRoot, ctx, { controls: controlsSlot, picture: () => picture.querySelector('svg'), warningHandlers: () => ({ 'page-content': () => openContent() }) });
 
     const current = () => store.pages()[store.getState().ui.previewPage] || null;
 

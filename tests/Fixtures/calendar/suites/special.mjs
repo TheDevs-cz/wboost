@@ -453,7 +453,7 @@ export default async function (t, load) {
             assert.ok(/…<\/text>/.test(svg), 'the cut is visible');
             assert.deepEqual(special.specialPageIssues(doc, pageOf(doc, 'sp:intro'), opts()), [special.OVERFLOW.intro]);
             const warnings = pageWarnings(doc, pageOf(doc, 'sp:intro'), opts());
-            assert.deepEqual(warnings.map((w) => [w.kind, w.pageIndex, w.message]), [['overflow', pageOf(doc, 'sp:intro').index, special.OVERFLOW.intro]]);
+            assert.deepEqual(warnings.map((w) => [w.kind, w.pageIndex, w.facts.issue]), [['overflow', pageOf(doc, 'sp:intro').index, special.OVERFLOW.intro]]);
             assert.ok(allWarnings(doc, buildPages(doc), opts()).has(pageOf(doc, 'sp:intro').index));
         }
         const fine = await make(3, 1);

@@ -1,10 +1,18 @@
 // Page warnings (architecture §E.12). Derived from the layout and the asset map only.
+// `Warning = { pageIndex, kind, target, facts, message }` — the wording lives in `warning-text.js`.
 
-import { parts } from '../generate/dates.js';
 import { createDayContext } from '../generate/day.js';
 import { isElementVisible } from '../model/elements.js';
 import { layoutWeekPage } from './week-layout.js';
 import { specialPageIssues } from './special.js';
+import { warningMessage } from './warning-text.js';
+
+/** A warning with its facts; `message` is the full text of `render/warning-text.js` (MCP, tooltips). */
+const warn = (page, kind, target, facts) => {
+    const warning = { pageIndex: page.index, kind, target, facts };
+    warning.message = warningMessage(warning);
+    return warning;
+};
 
 /** Effective dpi of a photo placed with cover scale × zoom into a frame (mm, bleed part included). */
 export function photoDpi(assetInfo, frameBox, zoom) {
@@ -31,7 +39,7 @@ export function pageWarnings(doc, page, opts) {
     if (!design.layout) return out;
     if (page.kind !== 'week') {
         // cover, back and special pages: a text that does not fit even at its smallest size
-        for (const message of specialPageIssues(doc, page, opts)) out.push({ pageIndex: page.index, kind: 'overflow', target: { el: 'page' }, message });
+        for (const issue of specialPageIssues(doc, page, opts)) out.push(warn(page, 'overflow', { el: 'page' }, { issue }));
         return out;
     }
     const assets = (opts.env && opts.env.assets) || {};
@@ -40,23 +48,24 @@ export function pageWarnings(doc, page, opts) {
     const box = design.layout.boxes.photo;
     if (asset && asset.width > 0 && asset.height > 0 && isElementVisible(design, 'photo')) {
         if (asset.height > asset.width && box.w > box.h) {
-            out.push({ pageIndex: page.index, kind: 'portrait', target: { el: 'photo' }, message: 'Fotka je na výšku — do rámečku na šířku se ořízne' });
+            // the visible share of the photo's height: the frame's height over the drawn height (cover × zoom)
+            const drawnH = Math.max(box.w * (asset.height / asset.width), box.h) * Math.max(1, photo.zoom || 1);
+            out.push(warn(page, 'portrait', { el: 'photo' }, { width: asset.width, height: asset.height, keep: Math.min(1, box.h / drawnH) }));
         }
         const dpi = lowPhotoDpi(design, photo, asset);
         if (dpi !== null) {
-            out.push({ pageIndex: page.index, kind: 'dpi', target: { el: 'photo' }, message: `Nízká kvalita fotky — ${dpi} dpi (pro tisk aspoň 300 dpi)` });
+            const zoom = photo.zoom || 1;
+            out.push(warn(page, 'dpi', { el: 'photo' }, { dpi, width: asset.width, height: asset.height, zoom, frameW: box.w, frameH: box.h, dpiAt100: photoDpi(asset, box, 1) }));
         }
     }
     const geometry = layoutWeekPage(doc, page, opts);
     for (const frame of geometry.frames) {
         for (const row of frame.rows) {
-            const p = parts(row.date);
             if (!frame.compact && row.iconsDrawn < row.iconsTotal) {
-                out.push({ pageIndex: page.index, kind: 'icons', target: { date: row.date }, message: `${p.d}. ${p.m}. — ${row.iconsTotal} ikony, vejdou se ${row.iconsDrawn}` });
+                out.push(warn(page, 'icons', { date: row.date }, { date: row.date, total: row.iconsTotal, drawn: row.iconsDrawn }));
             }
             if (row.eventOverflow) {
-                const k = row.info.events.length + row.info.eventsDropped;
-                out.push({ pageIndex: page.index, kind: 'event', target: { date: row.date }, message: `${p.d}. ${p.m}. — ${k > 1 ? `${k} akce` : 'text akce'} se nevejde do pole pro akce` });
+                out.push(warn(page, 'event', { date: row.date }, { date: row.date, count: row.info.events.length + row.info.eventsDropped }));
             }
         }
     }

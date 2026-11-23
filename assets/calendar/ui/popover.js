@@ -18,6 +18,9 @@
 //                          centred under the anchor
 //   options.closeLabel     aria-label / tooltip of the close button (default „Zavřít bez uložení“;
 //                          a popover whose fields write as you type says „Zavřít“)
+//   options.focus          false = opens without moving focus (a warning popover shown on hover)
+//   options.dismissOutside true = a pointer press outside the popover closes it (read-only popovers
+//                          such as a warning; editors keep the explicit close)
 //
 // Behaviour: `position: fixed`, always clamped into the viewport (on open, on content change, after
 // a drag, on window resize); draggable by its grip (`makeDraggable` of the shared
@@ -115,6 +118,13 @@ export function openPopover(options) {
     };
     const onResize = () => clamp();
     const onModal = () => api.close();
+    const onOutside = (event) => {
+        if (el.contains(event.target)) return;
+        const a = options.anchor && typeof options.anchor.contains === 'function' ? options.anchor : null;
+        // the anchor toggles the popover itself
+        if (a && a.contains(event.target)) return;
+        api.close();
+    };
     // `makeDraggable` moves the popover by raw pointer deltas; bring it back inside afterwards
     const onGripDown = () => document.addEventListener('pointerup', () => !closed && clamp(), { once: true });
 
@@ -127,6 +137,7 @@ export function openPopover(options) {
             const hadFocus = el.contains(document.activeElement);
             document.removeEventListener('keydown', onKeyDown, true);
             document.removeEventListener('show.bs.modal', onModal);
+            document.removeEventListener('pointerdown', onOutside, true);
             window.removeEventListener('resize', onResize);
             el.remove();
             if (current === api) current = null;
@@ -151,7 +162,8 @@ export function openPopover(options) {
     document.addEventListener('keydown', onKeyDown, true);
     document.addEventListener('show.bs.modal', onModal);
     window.addEventListener('resize', onResize);
+    if (options.dismissOutside) document.addEventListener('pointerdown', onOutside, true);
     current = api;
-    focusFirst();
+    if (options.focus !== false) focusFirst();
     return api;
 }

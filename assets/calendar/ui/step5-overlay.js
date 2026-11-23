@@ -1,7 +1,7 @@
 // Everything a user can do ON the large step-5 page (handoff §4.7, §10.14; architecture §D.7
 // "Step 5"). Owner: phase P7a; used only by `step5.js`. CSS: calendar-preview.css.
 //
-// `mountStep5Overlay(overlayRoot, ctx, opts): { update(geometry, scale, page, view), outerSides(geometry), isCompact(geometry, scale), destroy() }`
+// `mountStep5Overlay(overlayRoot, ctx, opts): { update(geometry, scale, page, view), focusCrop(), openDay(date), outerSides(geometry), isCompact(geometry, scale), destroy() }`
 //   overlayRoot    element lying exactly over the page picture (its origin = the SVG's top-left)
 //   opts.controls  element that receives the photo controls row (`.cal-5ph`)
 //   opts.picture   `() => SVGElement | null` — the page SVG; used ONLY to move the photo's
@@ -27,7 +27,13 @@
 //   [data-day-plus="<date>"]          plus per day row, on the OUTER side of its frame
 //   [data-day-row="<date>"]           compact mode only: the day row as the button of the plus menu
 //   [data-day-comments="<date>"]      bubble with the number of comments → the thread
-//   [data-day-warning="<date>"], [data-photo-warning]   warning marks (title = the messages)
+//   [data-day-warning="<date>"], [data-photo-warning]   warning badges — buttons (aria-label =
+//                                     the title(s)); hover or click / tap opens the explanation
+//                                     with its fixes (`bindWarningBadge`, `[data-cal-popover="warning"]`)
+//   opts.warningHandlers?()           extra warning actions of the step (`ui/warnings.js` Handlers);
+//                                     the overlay itself does 'photo-crop' and 'day'
+//   API: `focusCrop()` — points at the crop (drag surface pulse, zoom slider focused);
+//        `openDay(date)` — the plus menu of a day row (its collections and events, removable)
 // Popovers carry `data-cal-popover="plus | waste | event | comment | caption"`; inside:
 //   [data-plus-option="waste|event|comment"], [data-day-remove="<collection>/<id>"],
 //   [data-field="kind|name|club|text|caption"], [data-counter]
@@ -41,7 +47,7 @@ import { newId, sorted } from '../model/content.js';
 import { isElementVisible } from '../model/elements.js';
 import { h, icon, relativeTime } from './dom.js';
 import { closePopover, openPopover } from './popover.js';
-import { dayWarnings, photoWarnings, warningTip } from './warnings.js';
+import { badgeLabel, bindWarningBadge, dayWarnings, photoWarnings } from './warnings.js';
 
 const CAPTION_MAX = 80;
 const EVENT_MAX = 80;
@@ -389,6 +395,43 @@ export function mountStep5Overlay(overlayRoot, ctx, opts = {}) {
         pop = openPopover({ ...plusContent(date, () => pop), anchor, returnFocus: refocus(`[data-day-plus="${date}"], [data-day-row="${date}"]`) });
     }
 
+    /** The day's plus menu, anchored at its button (or row in compact mode). */
+    function openDay(date) {
+        const anchor = overlayRoot.querySelector(`[data-day-plus="${date}"], [data-day-row="${date}"], [data-day-warning="${date}"]`);
+        if (anchor) openPlus(date, anchor);
+    }
+
+    /** Shows where the crop is changed: the drag surface pulses, the zoom slider takes focus. */
+    let cropPulse = 0;
+    function focusCrop() {
+        if (surface.hidden) return;
+        surface.classList.remove('pulse');
+        // restart the animation
+        void surface.offsetWidth;
+        surface.classList.add('pulse');
+        hint.classList.add('hl');
+        clearTimeout(cropPulse);
+        cropPulse = setTimeout(() => {
+            surface.classList.remove('pulse');
+            hint.classList.remove('hl');
+        }, 2400);
+        if (!zoomWrap.hidden) zoomInput.focus({ preventScroll: true });
+        surface.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+
+    const warningHandlers = () => ({
+        'photo-crop': () => focusCrop(),
+        day: (action, warning) => openDay(warning.target.date),
+        ...(opts.warningHandlers ? opts.warningHandlers() : {}),
+    });
+
+    /** A warning badge: a button with the alert icon that explains itself (`bindWarningBadge`). */
+    function warningBadge(attrs, getList) {
+        const el = h('button', { type: 'button', class: 'cal-5b wr', ...attrs }, icon('alert', 's14'));
+        bindWarningBadge(el, ctx, getList, warningHandlers);
+        return el;
+    }
+
     function openComments(date, anchor) {
         openPopover({ ...commentContent(date), anchor, returnFocus: refocus(`[data-day-comments="${date}"], [data-day-plus="${date}"], [data-day-row="${date}"]`) });
     }
@@ -487,9 +530,8 @@ export function mountStep5Overlay(overlayRoot, ctx, opts = {}) {
             const ofPhoto = photoWarnings(ctx, page.index);
             if (photoOn && ofPhoto.length) {
                 const box = d.layout.boxes.photo;
-                const mark = node('warn:photo', seen, () => h('span', { class: 'cal-5b wr', 'data-photo-warning': true, role: 'img' }, '!'));
-                mark.title = warningTip(ofPhoto);
-                mark.setAttribute('aria-label', mark.title);
+                const mark = node('warn:photo', seen, () => warningBadge({ 'data-photo-warning': true }, () => (last.page ? photoWarnings(ctx, last.page.index) : [])));
+                mark.setAttribute('aria-label', badgeLabel(ofPhoto));
                 put(mark, X(Math.max(box.x, view.area.x0)) + 8, Y(Math.max(box.y, view.area.y0)) + 8);
             }
 
@@ -531,9 +573,8 @@ export function mountStep5Overlay(overlayRoot, ctx, opts = {}) {
                     }
                     const rowWarnings = warningsByDate.get(date);
                     if (rowWarnings) {
-                        const mark = node(`warn:${date}`, seen, () => h('span', { class: 'cal-5b wr', 'data-day-warning': date, role: 'img' }, '!'));
-                        mark.title = warningTip(rowWarnings);
-                        mark.setAttribute('aria-label', mark.title);
+                        const mark = node(`warn:${date}`, seen, () => warningBadge({ 'data-day-warning': date }, () => (last.page ? dayWarnings(ctx, last.page.index).get(date) || [] : [])));
+                        mark.setAttribute('aria-label', badgeLabel(rowWarnings));
                         put(mark, edge + dir * step * slot, y);
                         slot += 1;
                     }
@@ -559,9 +600,12 @@ export function mountStep5Overlay(overlayRoot, ctx, opts = {}) {
 
     return {
         update,
+        focusCrop,
+        openDay,
         outerSides: (geometry) => outerSides(geometry, design().page.width),
         isCompact: (geometry, scale) => Boolean(geometry) && geometry.frames.some((frame) => frame.rowHeight * scale < COMPACT_ROW),
         destroy() {
+            clearTimeout(cropPulse);
             closePopover();
             controls.remove();
             surface.remove();

@@ -68,13 +68,31 @@ async function closeList(page) {
 }
 
 const listRows = (page) =>
-    page.$$eval('[data-cal-dialog="warnings"] [data-warning-page]', (nodes) =>
+    page.$$eval('[data-cal-dialog="warnings"] .cal-wpage', (nodes) =>
         nodes.map((node) => ({
-            page: Number(node.dataset.warningPage),
-            title: node.querySelector('b').textContent,
-            rows: [...node.querySelectorAll('[data-warning-kind]')].map((row) => ({ kind: row.dataset.warningKind, text: row.textContent.replace(/^!/, '').trim() })),
+            page: Number(node.querySelector('[data-warning-page]').dataset.warningPage),
+            title: node.querySelector('[data-warning-page] b').textContent,
+            rows: [...node.querySelectorAll('.cal-warn')].map((row) => ({
+                kind: row.dataset.warningKind,
+                title: (row.querySelector('.cal-warn-t') || { textContent: '' }).textContent.trim(),
+                text: row.querySelector('.cal-warn-x').textContent,
+                hint: row.querySelector('.cal-warn-h').textContent,
+                actions: [...row.querySelectorAll('[data-warning-action]')].map((b) => b.dataset.warningAction),
+            })),
         })),
     );
+
+/** The warning popover of a badge: title, cards, action ids. */
+const popoverOf = (page) =>
+    page.$eval('[data-cal-popover="warning"]', (el) => ({
+        title: el.querySelector('.cal-pop-t').textContent,
+        texts: [...el.querySelectorAll('.cal-warn-x')].map((n) => n.textContent),
+        hints: [...el.querySelectorAll('.cal-warn-h')].map((n) => n.textContent),
+        actions: [...el.querySelectorAll('[data-warning-action]')].map((b) => b.dataset.warningAction),
+        focused: el.contains(document.activeElement),
+    }));
+const popoverGone = (page) => page.waitForFunction(() => !document.querySelector('[data-cal-popover="warning"]'), { timeout: 3000 });
+const NB = '\u00a0';
 
 module.exports = {
     name: 'warnings',
@@ -112,11 +130,12 @@ module.exports = {
             const target = P().portrait;
             await h.seed(page, { content: [{ c: 'pagePhotos', id: target.key, v: { asset: assets.portrait.id, zoom: 1, px: 0.5, py: 0.5 }, label: target.title }] });
             const list = await warningsOf(page, h, target.index);
-            assert.deepEqual(list.map((w) => [w.kind, w.message]), [['portrait', 'Fotka je na výšku — do rámečku na šířku se ořízne']]);
+            assert.deepEqual(list.map((w) => [w.kind, w.facts.width, w.facts.height]), [['portrait', 2400, 3200]]);
+            assert.match(list[0].message, /^Fotka na výšku v rámečku na šířku\. Fotka má 2\s400\s×\s3\s200\spx a stojí na výšku, rámeček je na šířku — vytiskne se jen \d+\s% její výšky/);
             assert.deepEqual(list[0].target, { el: 'photo' });
             assert.equal(await thumbWarn(page, target.index), 1, 'badge on the thumbnail');
-            assert.equal(await page.$eval(`[data-page-thumb="${target.index}"] .cal-wb`, (el) => el.hidden), false);
-            assert.equal(await page.$eval(`[data-page-thumb="${target.index}"] .cal-wb`, (el) => el.getAttribute('aria-label')), '1 upozornění');
+            assert.equal(await page.$eval(`[data-page-warn="${target.index}"]`, (el) => el.hidden), false);
+            assert.equal(await page.$eval(`[data-page-warn="${target.index}"]`, (el) => `${el.tagName}|${el.getAttribute('aria-label')}`), 'BUTTON|Upozornění: Fotka na výšku v rámečku na šířku');
             assert.equal(await chipCount(page), 1);
             assert.equal(await page.$eval('[data-cal-action="warnings"]', (el) => el.textContent.trim()), '1 upozornění');
         });
@@ -129,7 +148,13 @@ module.exports = {
             const expected = Math.round(25.4 / Math.max(photoBox.w / 600, photoBox.h / 400));
             assert.ok(expected < 200, `fixture must be below 200 dpi, is ${expected}`);
             const list = await warningsOf(page, h, target.index);
-            assert.deepEqual(list.map((w) => [w.kind, w.message]), [['dpi', `Nízká kvalita fotky — ${expected} dpi (pro tisk aspoň 300 dpi)`]]);
+            assert.deepEqual(list.map((w) => [w.kind, w.facts.dpi, w.facts.width, w.facts.height]), [['dpi', expected, 600, 400]]);
+            const need = (dpi) => `${Math.ceil((photoBox.w * dpi) / 25.4)}|${Math.ceil((photoBox.h * dpi) / 25.4)}`;
+            const shown = /aspoň ([\d\s]+)\s×\s([\d\s]+)\spx \(200\sdpi\), ideálně ([\d\s]+)\s×\s([\d\s]+)\spx \(300\sdpi\)/.exec(list[0].message);
+            assert.ok(shown, list[0].message);
+            const n = (t) => t.replace(/\s/g, '');
+            assert.deepEqual([`${n(shown[1])}|${n(shown[2])}`, `${n(shown[3])}|${n(shown[4])}`], [need(200), need(300)]);
+            assert.match(list[0].message, new RegExp(`jen na ${expected}\\sdpi`));
             assert.equal(await thumbWarn(page, target.index), 1);
             assert.equal(await chipCount(page), 2);
         });
@@ -146,8 +171,10 @@ module.exports = {
             const list = await warningsOf(page, h, target.index);
             assert.equal(list.length, 1);
             assert.equal(list[0].kind, 'dpi');
-            const dpi = Number(/— (\d+) dpi/.exec(list[0].message)[1]);
+            const dpi = list[0].facts.dpi;
             assert.ok(dpi >= 120 && dpi <= 130, `half of ~250 dpi, got ${dpi}`);
+            assert.ok(list[0].facts.dpiAt100 >= 245, String(list[0].facts.dpiAt100));
+            assert.match(list[0].message, /Přiblížení na 200\s% rozlišení ještě snižuje/);
             await h.seed(page, { content: [{ c: 'pagePhotos', id: target.key, v: { asset: assets.zoom.id, zoom: 1, px: 0.5, py: 0.5 }, label: target.title }] });
             assert.deepEqual(await warningsOf(page, h, target.index), []);
         });
@@ -169,9 +196,9 @@ module.exports = {
             const icons = all.filter((w) => w.kind === 'icons');
             assert.ok(icons.length >= 50, `every Monday of the year has too many icons, got ${icons.length}`);
             for (const w of icons.slice(0, 5)) {
-                const m = /^(\d+)\. (\d+)\. — (\d+) ikony, vejdou se (\d+)$/.exec(w.message);
-                assert.ok(m, w.message);
-                assert.ok(Number(m[3]) > Number(m[4]), w.message);
+                assert.match(w.message, /^Ikony se do řádku nevejdou\. Ve dni \d+\.\s\d+\. (je|jsou) \d+ ikon/);
+                assert.ok(w.facts.total > w.facts.drawn, w.message);
+                assert.equal(w.facts.date, w.target.date);
                 assert.match(w.target.date, /^\d{4}-\d\d-\d\d$/);
                 assert.equal(new Date(`${w.target.date}T00:00:00Z`).getUTCDay(), 1, 'a Monday');
             }
@@ -180,7 +207,8 @@ module.exports = {
             assert.equal(events[0].pageIndex, march.index);
             assert.equal(events[0].target.date, day);
             const [, m, d] = day.split('-').map(Number);
-            assert.equal(events[0].message, `${d}. ${m}. — 4 akce se nevejde do pole pro akce`);
+            assert.deepEqual(events[0].facts, { date: day, count: 4 });
+            assert.ok(events[0].message.startsWith(`Akce se do pole nevejdou. 4 akce ze dne ${d}.${NB}${m}. se do pole pro akce nevejdou`), events[0].message);
             // the chip counts every warning of the calendar
             assert.equal(await chipCount(page), all.length);
             assert.equal(await thumbWarn(page, march.index), all.filter((w) => w.pageIndex === march.index).length);
@@ -189,13 +217,75 @@ module.exports = {
         await check('C3: the marks on the step-5 page name the problems of the photo and of the day', async () => {
             await showPage(page, P().portrait.index);
             await page.waitForSelector('[data-photo-warning]', { timeout: 5000 });
-            const tip = await page.$eval('[data-photo-warning]', (el) => el.getAttribute('title') || el.getAttribute('aria-label') || '');
-            assert.match(tip, /Fotka je na výšku/);
+            const tip = await page.$eval('[data-photo-warning]', (el) => `${el.tagName}|${el.getAttribute('aria-label')}`);
+            assert.equal(tip, 'BUTTON|Upozornění: Fotka na výšku v rámečku na šířku');
             const march = weeks.find((w) => w.key === 'w10');
             await showPage(page, march.index);
-            const dayMarks = await page.$$eval('[data-day-warning]', (nodes) => nodes.map((n) => ({ date: n.dataset.dayWarning, tip: n.getAttribute('title') || n.getAttribute('aria-label') || '' })));
-            assert.ok(dayMarks.some((mark) => /se nevejde do pole pro akce/.test(mark.tip)), JSON.stringify(dayMarks));
-            assert.ok(dayMarks.some((mark) => /ikony, vejdou se/.test(mark.tip)), JSON.stringify(dayMarks));
+            const dayMarks = await page.$$eval('[data-day-warning]', (nodes) => nodes.map((n) => ({ date: n.dataset.dayWarning, tip: n.getAttribute('aria-label') || '' })));
+            assert.ok(dayMarks.some((mark) => /Akce se do pole nevejdou/.test(mark.tip)), JSON.stringify(dayMarks));
+            assert.ok(dayMarks.some((mark) => /Ikony se do řádku nevejdou/.test(mark.tip)), JSON.stringify(dayMarks));
+        });
+
+        await check('K12: a badge explains itself — hover opens the popover without focus, a click pins it, actions do the fix', async () => {
+            const march = weeks.find((w) => w.key === 'w10');
+            // the events mark of the March day: title, facts, hint, actions (designer)
+            const date = await h.cal(page, (c, i) => c.warnings().find((w) => w.pageIndex === i && w.kind === 'event').target.date, march.index);
+            const mark = await page.$(`[data-day-warning="${date}"]`);
+            await mark.hover();
+            await page.waitForSelector('[data-cal-popover="warning"]', { timeout: 3000 });
+            let pop = await popoverOf(page);
+            assert.equal(pop.focused, false, 'hovering does not take the focus');
+            assert.ok(pop.texts.some((t) => /4 akce ze dne/.test(t)), JSON.stringify(pop));
+            assert.ok(pop.actions.includes('events') && pop.actions.includes('element'), JSON.stringify(pop.actions));
+            // leaving closes it
+            await page.mouse.move(5, 5);
+            await popoverGone(page);
+            // a click (tap) opens it pinned with the focus on the first action; Esc closes it
+            await page.$eval(`[data-day-warning="${date}"]`, (el) => el.click());
+            await page.waitForSelector('[data-cal-popover="warning"]', { timeout: 3000 });
+            pop = await popoverOf(page);
+            assert.equal(pop.focused, true);
+            await page.keyboard.press('Escape');
+            await popoverGone(page);
+            // „Upravit akce“ opens Akce a spolky on the warning's month
+            await page.$eval(`[data-day-warning="${date}"]`, (el) => el.click());
+            await page.waitForSelector('[data-cal-popover="warning"] [data-warning-action="events"]');
+            await page.click('[data-cal-popover="warning"] [data-warning-action="events"]');
+            await page.waitForSelector('.cal-tool-modal.show[data-tool-modal="events"]', { timeout: 8000 });
+            await sleep(400);
+            const month = await page.$eval('[data-tool-body="events"] [data-month][aria-pressed="true"]', (el) => Number(el.dataset.month));
+            assert.equal(month, Number(date.slice(5, 7)), 'the tool shows the month of the warning');
+            await page.click('.cal-tool-modal.show [data-cal-action="modal-done"]');
+            await page.waitForFunction(() => !document.querySelector('.cal-tool-modal'), { timeout: 8000 });
+            await sleep(300);
+            // the thumbnail badge is a button beside the thumbnail: a click opens the popover, does not select the page
+            const before = await shownPage(page);
+            const small = P().small.index;
+            await page.$eval(`[data-page-warn="${small}"]`, (el) => el.click());
+            await page.waitForSelector('[data-cal-popover="warning"]', { timeout: 3000 });
+            pop = await popoverOf(page);
+            // the page has the photo warning and a Monday with too many icons (waste is on since above)
+            const count = (await warningsOf(page, h, small)).length;
+            assert.equal(pop.title, count === 1 ? 'Fotka má na tisk malé rozlišení' : `${count} upozornění`);
+            assert.ok(pop.actions.includes('photo-replace'), JSON.stringify(pop.actions));
+            assert.ok(pop.hints.some((t) => /^Pro ostrý tisk nahrajte fotku aspoň/.test(t)), JSON.stringify(pop.hints));
+            assert.equal(await shownPage(page), before);
+            // an outside click closes it
+            await page.mouse.click(5, 300);
+            await popoverGone(page);
+        });
+
+        await check('K12: „Zrušit přiblížení“ on a zoomed photo puts it back to 100 % and the warning goes', async () => {
+            const target = P().zoom;
+            await h.seed(page, { content: [{ c: 'pagePhotos', id: target.key, v: { asset: assets.zoom.id, zoom: 2, px: 0.5, py: 0.5 }, label: target.title }] });
+            await showPage(page, target.index);
+            await page.waitForSelector('[data-photo-warning]', { timeout: 5000 });
+            await page.$eval('[data-photo-warning]', (el) => el.click());
+            await page.waitForSelector('[data-cal-popover="warning"] [data-warning-action="photo-zoom-reset"]', { timeout: 3000 });
+            await page.click('[data-cal-popover="warning"] [data-warning-action="photo-zoom-reset"]');
+            await page.waitForFunction(() => !document.querySelector('[data-photo-warning]'), { timeout: 5000 });
+            assert.equal((await h.state(page)).content.pagePhotos[target.key].zoom, 1);
+            assert.deepEqual((await warningsOf(page, h, target.index)).filter((w) => w.target.el === 'photo'), []);
         });
 
         await check('C3: Upozornění lists every warning grouped by page, in page order', async () => {
@@ -207,9 +297,12 @@ module.exports = {
             assert.deepEqual(groups.map((g) => g.page), indexes);
             const portrait = groups.find((g) => g.page === P().portrait.index);
             assert.equal(portrait.title, P().portrait.title);
-            assert.ok(portrait.rows.some((r) => r.kind === 'portrait' && r.text === 'Fotka je na výšku — do rámečku na šířku se ořízne'));
+            const row = portrait.rows.find((r) => r.kind === 'portrait');
+            assert.equal(row.title, 'Fotka na výšku v rámečku na šířku');
+            assert.match(row.text, /stojí na výšku, rámeček je na šířku/);
+            assert.deepEqual(row.actions, ['photo-crop', 'photo-replace']);
             const small = groups.find((g) => g.page === P().small.index);
-            assert.ok(small.rows.some((r) => r.kind === 'dpi' && /^Nízká kvalita fotky — \d+ dpi \(pro tisk aspoň 300 dpi\)$/.test(r.text)));
+            assert.ok(small.rows.some((r) => r.kind === 'dpi' && /vychází jen na \d+\sdpi/.test(r.text) && /^Pro ostrý tisk/.test(r.hint)));
             assert.equal(groups.reduce((sum, g) => sum + g.rows.length, 0), all.length);
             await h.shot(page, 'warnings-list');
             await closeList(page);
