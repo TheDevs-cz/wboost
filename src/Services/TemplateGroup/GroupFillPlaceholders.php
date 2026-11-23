@@ -393,6 +393,16 @@ readonly final class GroupFillPlaceholders
         $frames = [];
 
         foreach ($this->placeholderGeometry->placeholderObjectsByInputId($canvas) as $inputId => $object) {
+            // A slot hidden by the layers-panel eye in THIS dimension (the
+            // per-dimension "not shown here" — the same element may be
+            // visible in a sibling, so it still sits in the unified
+            // imageInputs) has no frame here: no overlay box, no placement
+            // toolbar, no client-drawn picture. The server render already
+            // skips it (the slot is not among this variant's imageInputs).
+            if (($object['visible'] ?? true) === false) {
+                continue;
+            }
+
             $frame = $this->placeholderGeometry->frameFromObject($object);
 
             if ($frame === null) {

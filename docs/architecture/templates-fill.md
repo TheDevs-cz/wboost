@@ -70,7 +70,10 @@ Vrstvy panel and the API `layerIndex` are unaffected. Contracts:
 - **Group image placement opens FROM THE PICTURE (2026-10-11)**, not from
   the panel: each dimension's `.fill-surface` carries one hidden
   `.group-fill-placement-toolbar` (target `placementToolbar`) per adjustable
-  slot whose frame exists in THAT dimension — zoom / rotation ranges (only
+  slot whose frame exists in THAT dimension (`GroupFillPlaceholders::imageFrames()`
+  skips a slot the layers-panel eye hid in that dimension — no box, toolbar
+  or client-drawn picture there, while sizes that show it keep the slot;
+  2026-11-24 fix) — zoom / rotation ranges (only
   what the slot allows), "Vycentrovat", ×. Selecting the picture's stand-in
   (`.group-fill-ghost`, pointerdown or focus) opens that one toolbar,
   anchored under the frame (flips above) by `_positionToolbars`, which every `renderGhosts` re-runs; a press

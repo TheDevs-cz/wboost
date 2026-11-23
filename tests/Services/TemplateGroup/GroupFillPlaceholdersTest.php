@@ -101,6 +101,34 @@ final class GroupFillPlaceholdersTest extends KernelTestCase
         self::assertArrayNotHasKey(TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_INPUT_HEADLINE_ID, $layoutInputs);
     }
 
+    /**
+     * Prod report 2026-11-21 ("Věděli jste 2 rozměry"): the arrow image slot
+     * was hidden by the layers-panel eye in 9:16 only, yet the group fill
+     * page still drew its picker + eye there — the frames carried it. A
+     * dimension's frames must skip slots hidden in THAT dimension, while the
+     * unified inputs keep the slot for the dimensions that show it.
+     */
+    public function testImageFramesSkipSlotsHiddenInThatDimension(): void
+    {
+        self::bootKernel();
+        $service = self::getContainer()->get(GroupFillPlaceholders::class);
+
+        $shown = $this->variant(TestDataFixture::GROUPED_PRESET_VARIANT_ID);
+        self::assertArrayHasKey(TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID, $service->imageFrames($shown));
+
+        $hidden = $this->variant(TestDataFixture::GROUPED_PRESET_VARIANT_ID);
+        /** @var array{objects: list<array<string, mixed>>} $canvas */
+        $canvas = json_decode($hidden->canvas, true, flags: JSON_THROW_ON_ERROR);
+        foreach ($canvas['objects'] as $i => $object) {
+            if (($object['inputId'] ?? null) === TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID) {
+                $canvas['objects'][$i]['visible'] = false;
+            }
+        }
+        $hidden->editCanvas(json_encode($canvas, JSON_THROW_ON_ERROR), $hidden->inputs, $hidden->previewImagePath, $hidden->imageInputs);
+
+        self::assertArrayNotHasKey(TestDataFixture::GROUP_SHARED_IMAGE_INPUT_ID, $service->imageFrames($hidden));
+    }
+
     private function variant(string $id): TemplateVariant
     {
         return self::getContainer()->get(TemplateVariantRepository::class)->get(Uuid::fromString($id));
