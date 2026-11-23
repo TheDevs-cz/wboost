@@ -40,6 +40,20 @@ final readonly class PrintPdfRenderer
 {
     private const string PURE_BLACK = '#000000';
 
+    /**
+     * Raster pixels one print pass may have (per pass; a page draws up to two
+     * plus one full-size mask per used brand colour in the conversion). A3 at
+     * 300 ppi (~35 MP) and A2 (~70 MP, ~19 s, ~640 MB capped) are the
+     * measured ceiling of the existing pipeline; small formats stay well below.
+     */
+    public const int MAX_RASTER_PIXELS = 20_000_000;
+
+    /** A document with more pages prints at most at 600 ppi ({@see renderDocument()}). */
+    public const int FULL_RESOLUTION_MAX_PAGES = 3;
+
+    /** Raster pixels per design px, best first: 1200, 600, 300 ppi. */
+    private const array PIXEL_RATIOS = [4, 2, 1];
+
     public function __construct(
         private TemplateVariantImageRendererInterface $renderer,
         private BrandCmykPalette $brandCmykPalette,
@@ -92,9 +106,15 @@ final readonly class PrintPdfRenderer
 
         $palette = $this->brandCmykPalette->forProject($pages[0][0]->template->project->id);
 
+        // Pages render sequentially in ONE request: past a few pages 1200 ppi
+        // (~5.5 s for a card) would add up to minutes, so longer documents
+        // print at most at 600 ppi (~1.8 s per card page).
+        $maxRatio = count($pages) > self::FULL_RESOLUTION_MAX_PAGES ? 2 : null;
+
         $printPages = [];
         foreach ($pages as [$variant, $overrides, $imageOverrides]) {
-            $printPages[] = $this->renderPage($variant, $overrides, $imageOverrides, $strictContainerOverflow, $palette);
+            $ratio = $maxRatio === null ? null : min($maxRatio, self::pixelRatioFor($variant->dimension->width(), $variant->dimension->height(), $variant->dimension->bleedPixels()));
+            $printPages[] = $this->renderPage($variant, $overrides, $imageOverrides, $strictContainerOverflow, $palette, $ratio);
         }
 
         return $this->writer->write(
@@ -122,6 +142,7 @@ final readonly class PrintPdfRenderer
         null|ResolvedImageOverrides $imageOverrides,
         bool $strictContainerOverflow = false,
         null|array $palette = null,
+        null|int $pixelRatio = null,
     ): PrintPage {
         // Repeatable rows: the black-ink scan must see the materialised rows
         // the renderer draws (idempotent; the callers already expanded).
@@ -146,6 +167,8 @@ final readonly class PrintPdfRenderer
         sort($allBlackInk);
 
         $bleedPx = $variant->dimension->bleedPixels();
+        // Chosen ONCE: the composite and the K mask must match pixel for pixel.
+        $pixelRatio ??= self::pixelRatioFor($variant->dimension->width(), $variant->dimension->height(), $bleedPx);
 
         $composite = $this->renderer->renderToBytes(
             $variant,
@@ -153,7 +176,7 @@ final readonly class PrintPdfRenderer
             $imageOverrides,
             $strictContainerOverflow,
             format: RenderImageFormat::Png,
-            printLayer: new PrintLayer($bleedPx, suppressIndexes: $blackInk['overprint'], whitenIndexes: $blackInk['knockout']),
+            printLayer: new PrintLayer($bleedPx, suppressIndexes: $blackInk['overprint'], whitenIndexes: $blackInk['knockout'], pixelRatio: $pixelRatio),
         );
 
         $mask = $allBlackInk === [] ? null : $this->renderer->renderToBytes(
@@ -162,7 +185,7 @@ final readonly class PrintPdfRenderer
             $imageOverrides,
             $strictContainerOverflow,
             format: RenderImageFormat::Png,
-            printLayer: new PrintLayer($bleedPx, onlyIndexes: $allBlackInk),
+            printLayer: new PrintLayer($bleedPx, onlyIndexes: $allBlackInk, pixelRatio: $pixelRatio),
         );
 
         $raster = $this->colorConverter->toCmykJpeg(
@@ -172,6 +195,28 @@ final readonly class PrintPdfRenderer
         );
 
         return new PrintPage($raster, PrintPageGeometry::fromDimension($variant->dimension));
+    }
+
+    /**
+     * The print raster's resolution for a design of `$width` × `$height` px
+     * (300 ppi) with `$bleedPx` per side: 1200 ppi (4) when the bleed box
+     * fits {@see MAX_RASTER_PIXELS}, else 600 (2), else 300 (1). The 300 ppi
+     * raster made small type and logo edges on a business card visibly
+     * stepped; 1200 ppi is the usual line-art resolution, so text and vector
+     * logos print sharp while the file stays a single flattened PDF/X-1a
+     * raster (photos keep their own pixels, upsampled).
+     */
+    public static function pixelRatioFor(int $width, int $height, int $bleedPx): int
+    {
+        $pixels = ($width + 2 * $bleedPx) * ($height + 2 * $bleedPx);
+
+        foreach (self::PIXEL_RATIOS as $ratio) {
+            if ($pixels * $ratio * $ratio <= self::MAX_RASTER_PIXELS) {
+                return $ratio;
+            }
+        }
+
+        return 1;
     }
 
     /**

@@ -98,7 +98,7 @@ interface TemplateVariantImageRendererInterface
      * `$printLayer` turns the call into one raster pass of the print PDF
      * ({@see PrintLayer}): bleed box, object suppression, never cached.
      *
-     * `$pixelRatio` (1…2, ignored with a print layer) renders the same design
+     * `$pixelRatio` (1…2; a print layer brings its own, {@see PrintLayer::$pixelRatio}) renders the same design
      * with that many pixels per design px — for on-screen previews shown on
      * HiDPI screens, which draw the image back at the design size. The bytes
      * are then NOT the design's pixel size, so a deliverable (download, API,

@@ -171,9 +171,9 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         null|PrintLayer $printLayer = null,
         float $pixelRatio = 1.0,
     ): string {
-        // A print pass is the deliverable raster at its own resolution; a
-        // pixel ratio is for on-screen previews only.
-        $pixelRatio = $printLayer === null ? self::normalizePixelRatio($pixelRatio) : 1.0;
+        // A print pass carries its own (integer) ratio — the print PDF's
+        // resolution; the argument is the on-screen previews' supersampling.
+        $pixelRatio = $printLayer === null ? self::normalizePixelRatio($pixelRatio) : (float) $printLayer->pixelRatio;
 
         // Repeatable rows (container-rows P2): every caller SHOULD hand over
         // the expanded variant already (it resolved its overrides against

@@ -173,8 +173,9 @@ the design size (the move ghost already reads `naturalWidth / canvasWidth`).
 **Deliverables never pass it** — download, API export/preview, group ZIP,
 Meta publish and the print passes are the design's own pixels
 (`FakeTemplateVariantImageRenderer::$pixelRatioCalls`, asserted 1.0 on the
-download). The group / document fill pages and the API `/preview` are still
-1:1.
+download); a print pass ignores the argument and uses its `PrintLayer`'s own
+integer ratio (print PDF resolution, below). The group / document fill pages
+and the API `/preview` are still 1:1.
 
 **Slice cache — only renders that provably cannot change (`cache.gotenberg_preview`)**
 
@@ -274,8 +275,8 @@ whose ZIP holds the print members only; the pressed submit button posts
 `format=pdf` to the SAME download routes, `Value/ExportFormat`, a px variant
 answers 400, and the format is recorded on `export_event.format`). Target: what the studio's printers take —
 **PDF/X-1a:2001** (PDF 1.3), output intent **Coated FOGRA39 (ISO 12647-2:2004)**,
-one flattened **300 ppi CMYK raster** + vector crop marks, exactly the
-structure of the Illustrator-exported reference file.
+one flattened **CMYK raster** (1200 / 600 / 300 ppi by size, below) + vector
+crop marks, exactly the structure of the Illustrator-exported reference file.
 
 - **Print setup lives on `TemplateDimension`**: `bleedMm` + `cropMarks`. Chosen
   on the **add forms inline** ("Tisk" row: Spadávka toggle + − n mm + stepper
@@ -312,6 +313,23 @@ structure of the Illustrator-exported reference file.
   convention (`opacity: 0`, stub image src) so every pass lays out
   identically — and the rich-text **list block stack now inherits the
   replaced object's opacity** (it used to leak through any suppression).
+- **Raster resolution (2026-11-23)**: `PrintPdfRenderer::pixelRatioFor()`
+  picks an INTEGER `PrintLayer::$pixelRatio` once per page (both passes —
+  the K mask is composited pixel for pixel): 4 (1200 ppi) when the bleed box
+  fits `MAX_RASTER_PIXELS` (20 MP per pass), else 2 (600 ppi), else 1 (300 ppi).
+  Business card → 1200, A6 / A5 → 600, A4 and up → 300 as before. The renderer
+  zooms the viewport by it like a preview pixel ratio (bleed scaled too); the
+  writer places the image on the bleed box whatever its pixel count, so
+  nothing else changes. Why: a Sagena card's 6.5 pt text and SVG logo edges
+  were visibly stepped + JPEG-specked at 300 ppi when rasterised at press
+  resolution (`pdftoppm -r 2400`), clean at 1200 — the usual line-art
+  resolution. Measured: card 1.1 s / 693 KB at 300 → 5.5 s / 1.7 MB at 1200,
+  ~195 MB peak. Still a raster, not vector text (the vector route below stays
+  out); some prepress RIPs downsample contone images above ~450 ppi, which
+  would undo it — a test print with the studio's printer is the confirmation.
+  `renderPage(..., pixelRatio:)` overrides it; `renderDocument` caps a
+  document of more than `FULL_RESOLUTION_MAX_PAGES` (3) pages at 600 ppi —
+  its pages render sequentially in one request.
 - **`PrintPdfRenderer`**: pass 1 = composite WITHOUT the black-ink objects,
   pass 2 = ONLY them, background-less (its alpha is the K mask; skipped when
   there are none). Every black object prints K100 (the studio's call —

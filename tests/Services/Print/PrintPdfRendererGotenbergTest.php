@@ -54,6 +54,11 @@ final class PrintPdfRendererGotenbergTest extends KernelTestCase
         self::assertStringContainsString('/ColorSpace /DeviceCMYK', $pdf);
         self::assertStringNotContainsString('/DeviceRGB', $pdf);
 
+        // A5 + 3 mm bleed fits the pixel budget at 600 ppi (ratio 2): the
+        // bleed box (1748 + 2 × 35) × (2480 + 2 × 35) px, doubled.
+        self::assertSame(2, PrintPdfRenderer::pixelRatioFor($variant->dimension->width(), $variant->dimension->height(), $variant->dimension->bleedPixels()));
+        self::assertStringContainsString('/Width 3636 /Height 5100', $pdf);
+
         // A5 = 419.528 × 595.276 pt, bleed 3 mm = 8.504 pt, + the fixed 5 mm
         // (14.173 pt) crop-mark margin outside it.
         self::assertMatchesRegularExpression('#/TrimBox \[ 22\.6772 22\.6772 442\.2047 617\.9528 \]#', $pdf);

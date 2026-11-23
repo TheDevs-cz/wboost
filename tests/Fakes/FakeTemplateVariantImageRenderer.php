@@ -35,7 +35,7 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
     /** Real, decodable 1×1 VP8 WebP (44 bytes): `RIFF` + `WEBP` + `VP8 `. */
     private const string FIXED_WEBP_BASE64 = 'UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoBAAEAAwA0JaQAA3AA/vuUAAA=';
 
-    /** @var array<int, array{variantId: string, canvas: string, inputIds: list<string>, imageInputIds: list<string>, backgroundImage: null|string, slice: null|array{int, null|int, bool}, texts: array<string, string>, transparentTextInputIds: list<string>, richTexts: array<string, list<array{text: string, fontFamily: null|string, color: null|string, underline: bool}>>, fonts: array<string, string>, shapeColors: array<string, string>, hidden: array<string, bool>, images: array<string, array{scale: float, offsetX: float, offsetY: float, offsetXRatio: null|float, offsetYRatio: null|float, rotation: float, naturalWidth: int, naturalHeight: int}>, imagesHidden: list<string>, mode: string, strictContainerOverflow: bool, format: string, printLayer: null|array{bleedPx: int, suppressIndexes: list<int>, onlyIndexes: null|list<int>, whitenIndexes: list<int>}}> */
+    /** @var array<int, array{variantId: string, canvas: string, inputIds: list<string>, imageInputIds: list<string>, backgroundImage: null|string, slice: null|array{int, null|int, bool}, texts: array<string, string>, transparentTextInputIds: list<string>, richTexts: array<string, list<array{text: string, fontFamily: null|string, color: null|string, underline: bool}>>, fonts: array<string, string>, shapeColors: array<string, string>, hidden: array<string, bool>, images: array<string, array{scale: float, offsetX: float, offsetY: float, offsetXRatio: null|float, offsetYRatio: null|float, rotation: float, naturalWidth: int, naturalHeight: int}>, imagesHidden: list<string>, mode: string, strictContainerOverflow: bool, format: string, printLayer: null|array{bleedPx: int, suppressIndexes: list<int>, onlyIndexes: null|list<int>, whitenIndexes: list<int>, pixelRatio: int}}> */
     public array $calls = [];
 
     /** @var list<array{hiddenContainerIds: list<string>, rowCounts: array<string, int>, effectiveHidden: array<string, bool>}> */
@@ -215,6 +215,7 @@ final class FakeTemplateVariantImageRenderer implements TemplateVariantImageRend
                 'suppressIndexes' => $printLayer->suppressIndexes,
                 'onlyIndexes' => $printLayer->onlyIndexes,
                 'whitenIndexes' => $printLayer->whitenIndexes,
+                'pixelRatio' => $printLayer->pixelRatio,
             ],
         ];
     }

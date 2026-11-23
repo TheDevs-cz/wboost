@@ -25,13 +25,21 @@ final readonly class PrintLayer
      * @param list<int> $suppressIndexes
      * @param null|list<int> $onlyIndexes
      * @param list<int> $whitenIndexes
+     * @param int $pixelRatio raster pixels per design px (1 = 300 ppi, 2 =
+     *   600, 4 = 1200). An integer so the trim and bleed edges stay on whole
+     *   pixels; both passes of one page must use the same one (the K mask is
+     *   composited pixel for pixel) — {@see \WBoost\Web\Services\Print\PrintPdfRenderer::pixelRatioFor()}.
      */
     public function __construct(
         public int $bleedPx,
         public array $suppressIndexes = [],
         public null|array $onlyIndexes = null,
         public array $whitenIndexes = [],
+        public int $pixelRatio = 1,
     ) {
+        if ($pixelRatio < 1) {
+            throw new \InvalidArgumentException('A print pixel ratio is at least 1.');
+        }
     }
 
     public function isBackgroundless(): bool
