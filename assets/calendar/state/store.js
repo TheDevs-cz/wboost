@@ -27,6 +27,7 @@ import { availableParts, isElementVisible } from '../model/elements.js';
 import { defaultLayout, mirrorLayout, presetsForType, rebaseLayoutForType } from '../model/layouts.js';
 import { normalizeDocument, normalizeLayout } from '../model/normalize.js';
 import { buildPages } from '../generate/pages.js';
+import { normalizeLanguages } from '../generate/languages.js';
 import { createDayContext } from '../generate/day.js';
 import { layoutWeekPage } from '../render/week-layout.js';
 import { allWarnings } from '../render/warnings.js';
@@ -312,6 +313,23 @@ export function createStore({ doc, env, api, measurer }) {
         const all = {};
         for (const key of Object.keys(state.doc.design.features)) all[key] = on === true;
         applyFeatures(all);
+    }
+
+    /**
+     * The extra languages of the printed names (K15b): any of `EXTRA_LANGUAGES`, kept in their fixed
+     * print order. Longer month texts can grow the Měsíc frames, so the layout is re-grown.
+     */
+    function setLanguages(list) {
+        assertDesigner();
+        const { design } = state.doc;
+        const next = normalizeLanguages(list);
+        if (same(next, design.languages)) return;
+        const layout = grown(design.layout, { ...design, languages: next });
+        writeDesign({ languages: next, layout });
+        markDesign('languages', 'layout');
+        if (layout !== design.layout) emit({ type: 'layout', live: false });
+        emit({ type: 'design', keys: ['languages'] });
+        touched();
     }
 
     function setPrint(patch) {
@@ -748,6 +766,7 @@ export function createStore({ doc, env, api, measurer }) {
         openStep,
         setFeature,
         setAllFeatures,
+        setLanguages,
         setPrint,
         changeYear,
         changeType,

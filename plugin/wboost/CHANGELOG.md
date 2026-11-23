@@ -5,6 +5,22 @@ every deploy. When the server is newer than your skill, Claude tells you once
 per session how to update (see the README). Versions follow `x.y.z`: a new or
 changed tool or parameter is at least a minor bump.
 
+## 0.9.0 — 2026-11-24
+
+**Multilingual calendars.**
+
+New parameters and behaviour
+- `manage_calendar` `create` / `configure` take `languages`: the extra languages
+  of the printed month / weekday / week-number names — any of `sk`, `pl`, `de`,
+  `en`; Czech is always printed first; `[]` = Czech only. Printed in the fixed
+  order cs, sk, pl, de, en („LEDEN / STYCZEŃ / JANUARY 2027“); a week across two
+  months gets a two-line month header. `get_calendar` and every
+  `manage_calendar` answer return `languages`. Reason code `unknown_language`.
+- `set_calendar_layout` `styles.cal.dayFormat` takes `auto` (the default of new
+  layouts): full weekday names where they fit the row, else short ones.
+- New page warnings `dayNames` (the weekday names do not fit the row) and
+  `month` (a multilingual month header needs more room than its frame).
+
 ## 0.8.0 — 2026-11-24
 
 **Inner shadow and glows for calendar pictures** (no new tool or parameter).

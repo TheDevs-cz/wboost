@@ -166,6 +166,24 @@ final class CalendarDesignToolsTest extends WebTestCase
         self::assertSame($revision + 1, $this->calendar(TestDataFixture::CALENDAR_2_ID)->revision);
     }
 
+    public function testConfigureSetsTheLanguagesOfThePrintedNamesInPrintOrder(): void
+    {
+        $configured = $this->ok('manage_calendar', ['action' => 'configure', 'calendarId' => TestDataFixture::CALENDAR_2_ID, 'languages' => ['en', 'pl']]);
+
+        self::assertSame(['pl', 'en'], $configured['languages']);
+        self::assertContains('languages', self::arr($configured['changed']));
+        self::assertStringContainsString('cs / pl / en', self::text($configured['notes']));
+        self::assertSame(['pl', 'en'], $this->calendar(TestDataFixture::CALENDAR_2_ID)->languages);
+        self::assertSame(['pl', 'en'], $this->ok('get_calendar', ['calendarId' => TestDataFixture::CALENDAR_2_ID])['languages']);
+
+        self::assertStringEndsWith('(unknown_language)', $this->refused('manage_calendar', ['action' => 'configure', 'calendarId' => TestDataFixture::CALENDAR_2_ID, 'languages' => ['cs']]));
+
+        // [] = back to Czech only
+        $czech = $this->ok('manage_calendar', ['action' => 'configure', 'calendarId' => TestDataFixture::CALENDAR_2_ID, 'languages' => []]);
+        self::assertSame([], $czech['languages']);
+        self::assertSame([], $this->calendar(TestDataFixture::CALENDAR_2_ID)->languages);
+    }
+
     public function testChangingTheTypeRebasesTheLayoutToTheTwoSidedPreset(): void
     {
         $configured = $this->ok('manage_calendar', ['action' => 'configure', 'calendarId' => TestDataFixture::CALENDAR_2_ID, 'type' => 'fortnight']);

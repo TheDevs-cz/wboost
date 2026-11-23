@@ -155,6 +155,7 @@ readonly final class GetCalendarTool
             writableCollections: $actor->isDesigner() ? CalendarContentRules::COLLECTIONS : CalendarContentRules::CLIENT_WRITABLE,
             preset: $calendar->layoutPreset,
             features: self::materialised($design, 'features') ?? (object) $calendar->features,
+            languages: $calendar->languages,
             print: self::materialised($design, 'print') ?? (object) $calendar->print,
             page: self::materialised($design, 'page') ?? (object) $calendar->page,
             layout: $calendar->layout === null ? null : (self::materialised($design, 'layout') ?? $calendar->layout),

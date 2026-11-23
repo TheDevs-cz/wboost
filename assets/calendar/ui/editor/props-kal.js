@@ -622,10 +622,13 @@ export function mountKalProps(root, ctx) {
             position.el,
             section(
                 'Názvy dnů',
+                // auto: the full names where they fit the row, else the short ones (week-layout E.6.3a)
                 kit.side('cal.dayFormat', 'Názvy dnů', [
                     { value: 'full', label: 'Celé' },
-                    { value: 'short', label: 'Zkratky' },
+                    { value: 'short', label: 'Zkrácené' },
+                    { value: 'auto', label: 'Automaticky' },
                 ]),
+                kit.when(note('Celé názvy, kde se do řádku vejdou, jinak zkrácené.'), (st) => st.cal.dayFormat === 'auto'),
             ),
             section(
                 'Den v týdnu',

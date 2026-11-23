@@ -44,6 +44,13 @@ readonly final class GetCalendarResponse
         public null|string $preset,
         /** The ten feature switches of step 1. Content of a switched-off feature is stored but not printed. */
         public \stdClass $features,
+        /**
+         * The extra languages of the printed month / weekday / week-number names, in print order
+         * ("sk", "pl", "de", "en"); Czech is always first and not listed. [] = Czech only.
+         *
+         * @var list<string>
+         */
+        public array $languages,
         /** {bleed, bleedMm, marks}. */
         public \stdClass $print,
         /** Trim size in mm {width, height, bandHeight, holes}. */

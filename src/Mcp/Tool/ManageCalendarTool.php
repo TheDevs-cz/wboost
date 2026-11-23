@@ -90,13 +90,13 @@ readonly final class ManageCalendarTool
      * Calendars cannot be deleted from an AI client.
      *
      * Actions:
-     * - "create": projectId (+ optionally name, year, type, features, print,
-     *   preset — applied at once). Without them the calendar is what the web
+     * - "create": projectId (+ optionally name, year, type, features,
+     *   languages, print, preset — applied at once). Without them the calendar is what the web
      *   creates: "Stolní kalendář <next year>", next year, type "week", no
      *   layout. Pass preset to give it a layout in the same call. The answer's
      *   calendarId is the new calendar.
-     * - "configure": calendarId and any of name, year, type, features, print,
-     *   linkElements. Omitted settings stay.
+     * - "configure": calendarId and any of name, year, type, features,
+     *   languages, print, linkElements. Omitted settings stay.
      * - "finish": calendarId — "Dokončit": marks the look as done (finished:
      *   true), the web then opens the calendar in step 5 (Náhled) and the
      *   client can start filling it in. Needs a layout (no_layout otherwise).
@@ -154,6 +154,17 @@ readonly final class ManageCalendarTool
      *   A new calendar has captions, weekNumbers and moon on. Content of a
      *   switched-off feature is kept but not printed — switch the feature ON
      *   before (or after) filling its content.
+     * - languages: the extra languages of the printed month / weekday /
+     *   week-number names (step 1 „Jazyky názvů“) — any of "sk", "pl", "de",
+     *   "en"; Czech is always printed first and is not listed; [] = Czech
+     *   only (the default). The names print joined by " / " in the fixed
+     *   order cs, sk, pl, de, en, whatever order you pass: „LEDEN / STYCZEŃ /
+     *   JANUARY 2027“, „Pondělí / Poniedziałek / Monday“, „3. týden /
+     *   tydzień / week“; a week across two months gets a two-line month
+     *   header. Name days, holidays, time / season texts, special pages and
+     *   all content stay Czech. Long names may not fit: the weekday falls
+     *   back to short names when styles.cal.dayFormat is "auto" (the
+     *   default of new layouts), and the page warnings say what overflows.
      * - print: {bleed: bool, bleedMm: 0–10 in 0.5 steps, marks: bool} — the
      *   bleed ("spadávka") around the trim and the crop marks; default 5 mm
      *   with marks. Changing the bleed moves every element edge that sits on
@@ -170,7 +181,7 @@ readonly final class ManageCalendarTool
      * with a reason code in parentheses: invalid_action, missing_argument,
      * nothing_to_do, invalid_project_id, project_not_found,
      * invalid_calendar_id, calendar_not_found, designer_only, invalid_name,
-     * invalid_year, invalid_type, unknown_feature, invalid_print,
+     * invalid_year, invalid_type, unknown_feature, unknown_language, invalid_print,
      * unknown_preset, preset_type_mismatch, no_layout, not_a_sibling,
      * layout_type_mismatch, source_has_no_layout, invalid_variant,
      * export_not_found, invalid_design (the server's own rule, quoted in
@@ -187,6 +198,7 @@ readonly final class ManageCalendarTool
      * @param null|int $year For "create" / "configure": the calendar year, 2000–2100.
      * @param null|string $type For "create" / "configure": "week" (7 days per page) or "fortnight" (14 days per page).
      * @param null|array<array-key, mixed> $features For "create" / "configure": feature switches to change, e.g. {"events": true, "waste": true}.
+     * @param null|list<string> $languages For "create" / "configure": the extra languages of the printed names, e.g. ["pl", "en"] — any of "sk", "pl", "de", "en"; [] = Czech only.
      * @param null|array<array-key, mixed> $print For "create" / "configure": {bleed?, bleedMm?, marks?}.
      * @param null|string $preset For "create" only: "photoLeft" | "photoRight" (type week) or "twoSided" (type fortnight) — gives the new calendar its default layout. Later: set_calendar_layout.
      * @param null|bool $linkElements For "configure": the editor's "Propojit prvky" switch.
@@ -207,6 +219,8 @@ readonly final class ManageCalendarTool
         null|string $type = null,
         #[Schema(type: 'object', additionalProperties: true)]
         null|array $features = null,
+        #[Schema(type: 'array', items: ['type' => 'string'])]
+        null|array $languages = null,
         #[Schema(type: 'object', additionalProperties: true)]
         null|array $print = null,
         #[Schema(enum: ['photoLeft', 'photoRight', 'twoSided'])]
@@ -218,7 +232,7 @@ readonly final class ManageCalendarTool
         null|string $variant = null,
         null|string $exportId = null,
     ): CalendarDesignResponse {
-        $configure = self::configureCommand($name, $year, $type, $features, $print, $linkElements);
+        $configure = self::configureCommand($name, $year, $type, $features, $languages, $print, $linkElements);
 
         return match ($action) {
             'create' => $this->create(self::required($projectId, 'projectId', $action), $configure, $preset),
@@ -282,7 +296,7 @@ readonly final class ManageCalendarTool
     private function configure(string $calendarId, null|array $configure): CalendarDesignResponse
     {
         if ($configure === null) {
-            throw new ToolCallException('"configure" needs at least one of name, year, type, features, print, linkElements. (nothing_to_do)');
+            throw new ToolCallException('"configure" needs at least one of name, year, type, features, languages, print, linkElements. (nothing_to_do)');
         }
 
         $calendar = $this->loader->viewable($calendarId);
@@ -483,6 +497,7 @@ readonly final class ManageCalendarTool
             'page' => new \stdClass(),
             'print' => new \stdClass(),
             'features' => new \stdClass(),
+            'languages' => [],
             'preset' => null,
             'layout' => null,
             'linkElements' => true,
@@ -497,10 +512,11 @@ readonly final class ManageCalendarTool
 
     /**
      * @param null|array<array-key, mixed> $features
+     * @param null|array<array-key, mixed> $languages
      * @param null|array<array-key, mixed> $print
      * @return null|array<string, mixed> the model's `configure` command; null when nothing was asked for
      */
-    private static function configureCommand(null|string $name, null|int $year, null|string $type, null|array $features, null|array $print, null|bool $linkElements): null|array
+    private static function configureCommand(null|string $name, null|int $year, null|string $type, null|array $features, null|array $languages, null|array $print, null|bool $linkElements): null|array
     {
         $command = ['op' => 'configure'];
 
@@ -518,6 +534,11 @@ readonly final class ManageCalendarTool
 
         if ($features !== null && $features !== []) {
             $command['features'] = array_is_list($features) ? $features : (object) $features;
+        }
+
+        if ($languages !== null) {
+            // [] is meaningful: back to Czech only
+            $command['languages'] = array_values($languages);
         }
 
         if ($print !== null && $print !== []) {

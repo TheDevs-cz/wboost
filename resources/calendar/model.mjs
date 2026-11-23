@@ -14,7 +14,7 @@
 //       | { ok: false, code, message }
 //
 // Commands (all designer actions of the store):
-//   { op: 'configure', name?, year?, type?, features?: {…}, print?: {…}, linkElements? }
+//   { op: 'configure', name?, year?, type?, features?: {…}, languages?: [...], print?: {…}, linkElements? }
 //   { op: 'preset', preset, reset? }
 //   { op: 'layout', boxes?: {…}, order?: [...], styles?: {…} }
 //   { op: 'replace_layout', layout, assets? }
@@ -53,7 +53,7 @@ const ENUMS = {
     fit: ['contain', 'cover'],
     source: ['client', 'self'],
     form: ['a', 'b', 'c'],
-    dayFormat: ['full', 'short'],
+    dayFormat: ['full', 'short', 'auto'],
     dayPosition: ['side', 'above'],
     iconGrid: ['4', '2x2', '1+2', '2+1'],
     style: ['solid', 'dash', 'dot'],
@@ -155,6 +155,17 @@ async function main(input) {
                 if (typeof on !== 'boolean') refuse('unknown_feature', `features.${key} must be true or false.`);
             }
             for (const [key, on] of Object.entries(cmd.features)) store.setFeature(key, on);
+        }
+        if (cmd.languages !== undefined && cmd.languages !== null) {
+            const extra = ['sk', 'pl', 'de', 'en'];
+            if (!Array.isArray(cmd.languages)) refuse('unknown_language', `languages must be a list of the extra languages, e.g. ["pl", "en"] — any of ${quote(extra)}; [] = Czech only.`);
+            for (const code of cmd.languages) {
+                if (code === 'cs') refuse('unknown_language', 'Czech is always printed first — list only the extra languages (any of ' + quote(extra) + ').');
+                if (!extra.includes(code)) refuse('unknown_language', `${JSON.stringify(code)} is not a language of the printed names. Languages: ${quote(extra)} (Czech is always printed and not listed).`);
+            }
+            store.setLanguages(cmd.languages);
+            const order = design().languages;
+            if (order.join() !== [...new Set(cmd.languages)].join()) notes.push(`languages print in the fixed order cs, sk, pl, de, en: ${['cs', ...order].join(' / ')}.`);
         }
         if (cmd.name !== undefined && cmd.name !== null) {
             const name = typeof cmd.name === 'string' ? cmd.name.replace(/\s+/g, ' ').trim() : '';

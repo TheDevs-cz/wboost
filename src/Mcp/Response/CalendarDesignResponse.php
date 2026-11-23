@@ -37,6 +37,13 @@ readonly final class CalendarDesignResponse
         public null|string $preset,
         /** The ten feature switches, all present. */
         public \stdClass $features,
+        /**
+         * The extra languages of the printed month / weekday / week-number names, in print order
+         * ("sk", "pl", "de", "en"); Czech is always first and not listed. [] = Czech only.
+         *
+         * @var list<string>
+         */
+        public array $languages,
         /** {bleed, bleedMm, marks}. */
         public \stdClass $print,
         /** Trim size in mm {width, height, bandHeight, holes}. */

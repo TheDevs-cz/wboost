@@ -876,8 +876,14 @@ The exact contract of each `ui/` file is the comment block at its top.
 words, any of `sk pl de en` (`generate/languages.js` `EXTRA_LANGUAGES`, PHP
 `CalendarDesignRules::LANGUAGES`), Czech always first and implied; `[]` = Czech
 only (column default, `Version20261124120000`, so every stored calendar is
-unchanged). Set in step 1 „Jazyky názvů“ (checkboxes, no cap) and by MCP
-`manage_calendar` `languages` (both K15b P2). Rules — load-bearing:
+unchanged). Set in step 1 „Jazyky názvů“ (`ui/step1.js`: Čeština checked and
+disabled, then the four extras as checkboxes, no cap; `store.setLanguages` —
+design patch `languages` + `layout`, re-runs the auto-grow, no undo step like
+the feature switches) and by MCP `manage_calendar` `languages` (`model.mjs`
+refuses `cs` / unknown codes with `unknown_language`, notes a reordering);
+`get_calendar` / `manage_calendar` answer `languages`. Step 3 › Kalendárium
+„Názvy dnů“: Celé · Zkrácené · Automaticky (+ a note under Automaticky).
+Rules — load-bearing:
 
 - **Fixed print order cs → sk → pl → de → en**, joined by ` / `, nominative
   forms (`grudzień`, not `grudnia`); identical words repeat (`Sobota / Sobota`).

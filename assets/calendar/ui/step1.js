@@ -1,4 +1,5 @@
-// Step 1 — Typ (handoff §4.3, map §8.5): type, year, print settings, feature checklist.
+// Step 1 — Typ (handoff §4.3, map §8.5): type, year, print settings, languages of the printed names
+// (K15b, `design.languages`), feature checklist.
 //
 // Built once; store events update the controls in place (checkboxes keep keyboard focus).
 
@@ -6,6 +7,7 @@ import { LIMITS } from '../model/defaults.js';
 import { PAGE_COLLECTIONS } from '../model/content.js';
 import { buildPages } from '../generate/pages.js';
 import { pluralPages } from '../generate/czech.js';
+import { EXTRA_LANGUAGES, LANGUAGES } from '../generate/languages.js';
 import { checkRow, h, numberField } from './dom.js';
 
 const TYPES = [
@@ -136,6 +138,22 @@ export function mountStep1(root, ctx) {
     });
     const marks = checkRow({ label: 'Ořezové značky', checked: false, attrs: { 'data-print': 'marks' }, onChange: (on) => store.setPrint({ marks: on }) });
 
+    // ---- languages of the printed names (Czech always, the extras in their fixed print order) --
+    const czech = checkRow({ label: LANGUAGES.cs.label, checked: true, attrs: { 'data-language': 'cs', disabled: '' } });
+    czech.classList.add('is-fixed');
+    const languageRows = EXTRA_LANGUAGES.map((code) => ({
+        code,
+        row: checkRow({
+            label: LANGUAGES[code].label,
+            checked: false,
+            attrs: { 'data-language': code },
+            onChange: (on) => {
+                const current = doc().design.languages;
+                store.setLanguages(on ? [...current, code] : current.filter((c) => c !== code));
+            },
+        }),
+    }));
+
     // ---- features --------------------------------------------------------------------------
     const all = checkRow({ label: 'Označit vše', checked: false, attrs: { 'data-feature-all': '' }, onChange: () => toggleAll() });
     all.classList.add('cal-all');
@@ -165,6 +183,7 @@ export function mountStep1(root, ctx) {
         bleedMm.setValue(design.print.bleedMm);
         bleedMm.hidden = !design.print.bleed;
         marks.setChecked(design.print.marks);
+        for (const { code, row } of languageRows) row.setChecked(design.languages.includes(code));
         const on = FEATURES.filter(([key]) => design.features[key]).length;
         all.setChecked(on === FEATURES.length, on > 0 && on < FEATURES.length);
         for (const { key, row } of featureRows) row.setChecked(design.features[key]);
@@ -182,6 +201,11 @@ export function mountStep1(root, ctx) {
                 section('Typ kalendáře', h('div', { class: 'cal-types', role: 'radiogroup', 'aria-label': 'Typ kalendáře' }, ...typeCards.map((c) => c.button))),
                 section('Rok', years),
                 section('Tisk', h('div', { class: 'cal-pr' }, bleed, bleedMm, marks)),
+                section(
+                    'Jazyky názvů',
+                    h('p', { class: 'cal-note cal-langs-note' }, 'Názvy měsíců, dnů v týdnu a týdnů se vytisknou ve všech zaškrtnutých jazycích. Jmeniny, svátky a vaše texty zůstávají česky.'),
+                    h('div', { class: 'cal-pr cal-langs', role: 'group', 'aria-label': 'Jazyky názvů' }, czech, ...languageRows.map((l) => l.row)),
+                ),
                 section(h('div', { class: 'cal-allh' }, h('h3', null, 'Co bude kalendář zobrazovat?'), all), h('div', { class: 'cal-acc' }, ...featureRows.map((f) => f.row))),
             ),
         ),

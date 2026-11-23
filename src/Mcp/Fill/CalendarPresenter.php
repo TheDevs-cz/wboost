@@ -45,6 +45,7 @@ readonly final class CalendarPresenter
             updatedAt: $calendar->updatedAt->format(\DATE_ATOM),
             preset: $calendar->layoutPreset,
             features: self::map($design->features ?? null),
+            languages: $calendar->languages,
             print: self::map($design->print ?? null),
             page: self::map($design->page ?? null),
             layout: ($design->layout ?? null) instanceof \stdClass ? $design->layout : null,

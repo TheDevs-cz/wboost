@@ -6,7 +6,7 @@ Read this before any calendar work. Contents:
 - [Design rules](#design-rules) · [Content rules](#content-rules) · [Examples](#examples)
 - Tool reference: [`list_calendars`](#list_calendarsprojectid-skillversion) ·
   [`get_calendar`](#get_calendarcalendarid-historylimit) ·
-  [`manage_calendar`](#manage_calendaraction-projectid-calendarid-name-year-type-features-print-preset-linkelements-fromcalendarid-regenerate-variant-exportid) ·
+  [`manage_calendar`](#manage_calendaraction-projectid-calendarid-name-year-type-features-languages-print-preset-linkelements-fromcalendarid-regenerate-variant-exportid) ·
   [`set_calendar_layout`](#set_calendar_layoutcalendarid-preset-reset-boxes-order-styles) ·
   [`upload_calendar_asset`](#upload_calendar_assetcalendarid-kind-filebase64-filename) ·
   [`render_calendar_page`](#render_calendar_pagecalendarid-page-bleed-marks-sampletexts) ·
@@ -39,7 +39,7 @@ days and public holidays. It has two halves:
 list_calendars                → every calendar this account can reach (or one project's)
 manage_calendar "create"      → a new calendar (settings + optionally a preset in one call)
   └ get_calendar              → settings, layout + styles, pages, ALL content, assets, fonts
-      ├ manage_calendar "configure"  → name, year, type, feature switches, print
+      ├ manage_calendar "configure"  → name, year, type, feature switches, languages, print
       ├ set_calendar_layout          → preset, then boxes / order / styles patches
       ├ upload_calendar_asset        → a file → assetId (then reference it)
       ├ update_calendar_content      → add / replace / delete content items
@@ -227,6 +227,7 @@ filled in by the calendar model.
   "preset",                             // "photoLeft" | "photoRight" | "twoSided" | null
   "features": { "captions", "weekNumbers", "moon", "timeChange", "seasons",
                 "waste", "events", "shifts", "specialPages", "qr" },   // all ten, booleans
+  "languages": ["pl", "en"],            // extra languages of the printed names, print order; [] = Czech only
   "print": { "bleed", "bleedMm", "marks" },
   "page":  { "width", "height", "bandHeight", "holes" },             // mm
   "layout": { "v": 1,
@@ -248,7 +249,7 @@ client link is never returned here (`manage_calendar` `client_link`).
 `pages[].kind` is `cover` | `special` | `week` | `back`; `pages[].key` is the
 page key content and `render_calendar_page` use.
 
-## `manage_calendar(action, projectId?, calendarId?, name?, year?, type?, features?, print?, preset?, linkElements?, fromCalendarId?, regenerate?, variant?, exportId?)`
+## `manage_calendar(action, projectId?, calendarId?, name?, year?, type?, features?, languages?, print?, preset?, linkElements?, fromCalendarId?, regenerate?, variant?, exportId?)`
 
 Scope `calendars:write`, **designer role** (the two export actions: any
 role). Every action is the web's own message; the answer is the design as
@@ -256,8 +257,8 @@ stored now.
 
 | action | arguments | does |
 |---|---|---|
-| `create` | `projectId` + optional `name`, `year`, `type`, `features`, `print`, `preset` | a new calendar ("Stolní kalendář ‹next year›", `week`, no layout) with the given settings applied; `preset` gives it a layout at once. Settings are checked first — a refused call creates nothing |
-| `configure` | `calendarId` + any of `name`, `year`, `type`, `features`, `print`, `linkElements` | changes only what is named |
+| `create` | `projectId` + optional `name`, `year`, `type`, `features`, `languages`, `print`, `preset` | a new calendar ("Stolní kalendář ‹next year›", `week`, no layout) with the given settings applied; `preset` gives it a layout at once. Settings are checked first — a refused call creates nothing |
+| `configure` | `calendarId` + any of `name`, `year`, `type`, `features`, `languages`, `print`, `linkElements` | changes only what is named |
 | `finish` | `calendarId` | "Dokončit": `finished: true`, the web opens it in step 5; needs a layout |
 | `client_link` | `calendarId`, `regenerate?` | answers `clientUrl` (anonymous write access to the content — a secret); `regenerate: true` kills the old link |
 | `import_layout` | `calendarId`, `fromCalendarId` | replaces the layout by that of another calendar of the same project and type; its pictures are copied |
@@ -277,13 +278,22 @@ exports of a calendar are kept (`export_not_found` afterwards).
   A change resets element positions to the new type's default; styles stay.
 - `features`: any of the ten switches. Content of an off feature is stored,
   not printed.
+- `languages`: the extra languages of the printed month / weekday / week-number
+  names (step 1 „Jazyky názvů“) — any of `sk`, `pl`, `de`, `en`; Czech is always
+  printed first and never listed; `[]` = Czech only (default). They print in the
+  fixed order cs, sk, pl, de, en joined by ` / ` („LEDEN / STYCZEŃ / JANUARY
+  2027“, „Pondělí / Poniedziałek / Monday“, „3. týden / tydzień / week“); a week
+  across two months gets a two-line month header that grows its frame. Name
+  days, holidays, special pages and all content stay Czech. Long names may not
+  fit: with `styles.cal.dayFormat` `auto` the weekday falls back to short names,
+  and `get_calendar` warnings (`dayNames`, `month`) say what overflows.
 - `print`: `{bleed?, bleedMm? 0–10, marks?}`.
 - The page size has no setting.
 
 ```jsonc
 {
   "calendarId", "projectId", "name", "year", "type", "finished", "step", "revision", "updatedAt",
-  "preset", "features", "print", "page", "layout",   // as in get_calendar
+  "preset", "features", "languages", "print", "page", "layout",   // as in get_calendar
   "changed": ["created", "name", "layout", "…"],     // [] = nothing changed, nothing saved
   "notes": ["…"],                                    // clamped values, a reset / mirrored layout, dropped items — read them
   "recorded": [{ "who", "what", "at" }],
@@ -295,7 +305,7 @@ exports of a calendar are kept (`export_not_found` afterwards).
 Reason codes: `invalid_action`, `missing_argument`, `nothing_to_do`,
 `invalid_project_id`, `project_not_found`, `invalid_calendar_id`,
 `calendar_not_found`, `designer_only`, `invalid_name`, `invalid_year`,
-`invalid_type`, `unknown_feature`, `invalid_print`, `unknown_preset`,
+`invalid_type`, `unknown_feature`, `unknown_language`, `invalid_print`, `unknown_preset`,
 `preset_type_mismatch`, `no_layout`, `not_a_sibling`, `layout_type_mismatch`,
 `source_has_no_layout`, `invalid_variant`, `export_not_found`,
 `invalid_design`, `model_unavailable`.
@@ -335,7 +345,7 @@ Arguments are applied in this order; the call is atomic.
 | `waste.kinds`, `offsets` | maps keyed by waste kind id / part name: an entry merges one level, `null` removes it |
 
 Enumerations: `align` `start`\|`middle`\|`end`; `valign` `top`\|`middle`\|`bottom`;
-`numberSide` `start`\|`end`; `dayFormat` `full`\|`short`; `dayPosition`
+`numberSide` `start`\|`end`; `dayFormat` `full`\|`short`\|`auto` (full where they fit, else short; new layouts); `dayPosition`
 `side`\|`above`; `iconGrid` `4`\|`2x2`\|`1+2`\|`2+1`; `lines.style`
 `solid`\|`dash`\|`dot`; `wk.form` `a`\|`b`\|`c`; `time.position` `text`\|`sep`;
 `shift.bgMode` `alt`\|`all`\|`none`; `fit` `cover`\|`contain`; `photo.source`

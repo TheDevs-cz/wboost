@@ -142,6 +142,9 @@
 .cal-yrs button { height: 36px; padding: 0 18px; font-variant-numeric: tabular-nums; }
 .cal-pr { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; min-height: 36px; }
 .cal-pr .cal-num { margin-left: -12px; }
+/* Jazyky názvů: Czech always printed, the extra languages as checkboxes */
+.cal-langs-note { margin: -4px 0 10px; font-size: 13px; color: var(--text-2); }
+.cal-check.is-fixed { cursor: default; opacity: 0.7; }
 .cal-allh { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
 .cal-all .cal-check-t { font-size: 14px; font-weight: 500; color: var(--text-2); }
 .cal-acc { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 6px 0; border-radius: 18px; border: 1px solid var(--line-2); background: var(--surface); }

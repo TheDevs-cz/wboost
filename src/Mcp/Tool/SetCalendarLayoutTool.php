@@ -105,7 +105,7 @@ readonly final class SetCalendarLayoutTool
      *   "b" = "Týden 1" | "c" = "T1"), cap (+ align, valign, pad, bg fill),
      *   head.text.
      * - cal: numberSide "start"|"end" (day number left / right of the row),
-     *   numAlign, dayFormat "full"|"short", dayPosition "side"|"above",
+     *   numAlign, dayFormat "full"|"short"|"auto" (auto = full where they fit, else short), dayPosition "side"|"above",
      *   dayAlign, satColor, sunColor, bg {color|null, opacity}, numBg
      *   {color|null, opacity} (a band behind the day numbers over the frame
      *   height; at a frame edge on the trim it runs into the bleed), iconSize (mm
