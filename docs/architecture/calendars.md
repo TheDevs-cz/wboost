@@ -1086,16 +1086,6 @@ targets the calendar's own type), designers only.
   the multi-drop zone or on a card (`holdMany` — the places without a
   picture in order; shown when the proposal has more than one place), or the
   project's gallery: the `Project:ImageGallery` modal `#calScanGalleryModal`
-- **„Co kalendář nepřevezme“** (feedback K15a, 2026-11-24; was „Tohle
-  kalendář neumí“): the report's `notExpressible` grouped by CODE — one row
-  per code with all its crops (≤ 3), the name, „· 3 místa“ when repeated,
-  and one sentence what it is and what to do (`CAL.notExpressible[code] =
-  {title, text}`: ornament / header_text / second_photo / more_logos → part
-  of the header or background picture (or the caption, the logo picture);
-  days_in_grid, rotated_text, month_colours → what the calendar does
-  instead; multilingual_names → „tiskne … česky“ — the ONE place to change
-  when „Jazyky názvů“ (K15b) ships). A lead says it is information; no
-  warning colours. Unknown codes are left out. `li[data-cant="<code>"]`.
   of `workspace.html.twig` — rendered only for whoever may START a scan
   (`ai_scan_start`), outside the workspace's root — answers with the window
   event `asset-selected`, and the server copies the gallery file's bytes to
@@ -1112,6 +1102,16 @@ targets the calendar's own type), designers only.
   still answers `wrong_state` + `reason: calendar_type` toasts that, never
   „Návrh už není k dispozici.“ e2e: `scan.e2e.cjs` (the K4 checks).
 - **„Nejprve si připravte“** (feedback K1, 2026-11-23) — the upload screen
+- **„Co kalendář nepřevezme“** (feedback K15a, 2026-11-24; was „Tohle
+  kalendář neumí“): the report's `notExpressible` grouped by CODE — one row
+  per code with all its crops (≤ 3), the name, „· 3 místa“ when repeated,
+  and one sentence what it is and what to do (`CAL.notExpressible[code] =
+  {title, text}`: ornament / header_text / second_photo / more_logos → part
+  of the header or background picture (or the caption, the logo picture);
+  days_in_grid, rotated_text, month_colours → what the calendar does
+  instead; multilingual_names → „tiskne … česky“ — the ONE place to change
+  when „Jazyky názvů“ (K15b) ships). A lead says it is information; no
+  warning colours. Unknown codes are left out. `li[data-cant="<code>"]`.
   opens with a card of four things to have ready (`views.prepare()`, copy
   `CAL.prepare`, `.cal-prep*` in `calendar.css`): the logo as SVG or PNG (the
   scan never cuts the logo out of the picture — it marks its place, the file
