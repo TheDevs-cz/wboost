@@ -28,7 +28,7 @@ final class CalendarDesignRulesTest extends TestCase
     public function testAFullPatchIsNormalised(): void
     {
         $design = self::validate(sprintf(
-            '{"name": "  Obecní \n kalendář ", "year": 2028, "type": "fortnight", "page": %s, "print": %s, "features": %s, "preset": "twoSided", "layout": %s, "linkElements": false, "step": 4, "finished": true}',
+            '{"name": "  Obecní \n kalendář ", "year": 2028, "type": "fortnight", "page": %s, "print": %s, "features": %s, "languages": ["pl", "en"], "preset": "twoSided", "layout": %s, "linkElements": false, "step": 4, "finished": true}',
             self::PAGE,
             self::PRINT,
             self::FEATURES,
@@ -42,6 +42,7 @@ final class CalendarDesignRulesTest extends TestCase
         self::assertSame(['width' => 310, 'height' => 145, 'bandHeight' => 12.5, 'holes' => ['size' => 4.3, 'radius' => 0.6, 'pitch' => 8, 'top' => 4, 'margin' => 4.5]], $design['page'] ?? null);
         self::assertSame(['bleed' => true, 'bleedMm' => 5, 'marks' => false], $design['print'] ?? null);
         self::assertSame(CalendarDesignRules::FEATURES, array_keys($design['features'] ?? []));
+        self::assertSame(['pl', 'en'], $design['languages'] ?? null);
         self::assertSame('twoSided', $design['preset'] ?? null);
         self::assertFalse($design['linkElements'] ?? null);
         self::assertSame(4, $design['step'] ?? null);
@@ -55,6 +56,12 @@ final class CalendarDesignRulesTest extends TestCase
         self::assertSame([], self::validate('{}'));
         self::assertSame(['step' => 2], self::validate('{"step": 2}'));
         self::assertSame(['preset' => null, 'layout' => null], self::validate('{"preset": null, "layout": null}', CalendarType::Week, 'photoLeft'));
+    }
+
+    public function testLanguagesAreAListOfExtraCodesInPrintOrder(): void
+    {
+        self::assertSame(['languages' => []], self::validate('{"languages": []}'));
+        self::assertSame(['languages' => ['sk', 'pl', 'de', 'en']], self::validate('{"languages": ["sk", "pl", "de", "en"]}'));
     }
 
     public function testThePresetMustFitTheTypeAfterThePatch(): void
@@ -95,6 +102,11 @@ final class CalendarDesignRulesTest extends TestCase
         yield 'step 6' => ['{"step": 6}'];
         yield 'step string' => ['{"step": "3"}'];
         yield 'linkElements' => ['{"linkElements": 1}'];
+        yield 'languages not a list' => ['{"languages": {"pl": true}}'];
+        yield 'languages unknown code' => ['{"languages": ["pl", "fr"]}'];
+        yield 'languages Czech is implied' => ['{"languages": ["cs"]}'];
+        yield 'languages twice' => ['{"languages": ["pl", "pl"]}'];
+        yield 'languages out of print order' => ['{"languages": ["en", "pl"]}'];
         yield 'finished' => ['{"finished": "yes"}'];
         yield 'page not an object' => ['{"page": [310, 145]}'];
         yield 'page empty' => ['{"page": {}}'];
@@ -254,7 +266,7 @@ final class CalendarDesignRulesTest extends TestCase
     }
 
     /**
-     * @return array{name?: string, year?: int, type?: CalendarType, page?: array<string, mixed>, print?: array<string, mixed>, features?: array<string, bool>, preset?: null|string, layout?: null|\stdClass, linkElements?: bool, step?: int, finished?: bool}
+     * @return array{name?: string, year?: int, type?: CalendarType, page?: array<string, mixed>, print?: array<string, mixed>, features?: array<string, bool>, languages?: list<string>, preset?: null|string, layout?: null|\stdClass, linkElements?: bool, step?: int, finished?: bool}
      */
     private static function validate(string $json, CalendarType $type = CalendarType::Week, null|string $preset = null): array
     {

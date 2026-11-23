@@ -1,7 +1,8 @@
 // Everything a day row prints (architecture §D.2 DayInfo, §E.11).
 
 import { parts, weekday } from './dates.js';
-import { MOON_PHASES, WEEKDAYS, WEEKDAYS_SHORT, holidayName, nameDay } from './czech.js';
+import { MOON_PHASES, holidayName, nameDay } from './czech.js';
+import { printLanguages, weekdayNames, weekdayShortNames } from './languages.js';
 import { effectivePhases } from './moon.js';
 import { DST_TEXTS, SEASON_TEXTS, dstChange, seasonStart, timeTexts } from './time.js';
 import { wasteKindsOn } from './waste.js';
@@ -54,6 +55,8 @@ export function createDayContext(doc) {
         shiftOps: features.shifts ? sorted(content.shiftOps || {}, 'pos') : [],
         clubs: content.clubs || {},
         iconCategories: categories,
+        /** Czech + the extra languages of the weekday names (`design.languages`). */
+        langs: printLanguages(doc.design),
         /** Active icon keys of the calendar: categories in order, 'waste' expanded to `waste:<kindId>`. */
         iconKeys,
     };
@@ -123,8 +126,8 @@ export function dayInfo(doc, isoDate, ctx) {
         d: p.d,
         wd,
         numberKind: holiday ? 'numHol' : wd === 6 ? 'numSun' : wd === 5 ? 'numSat' : 'num',
-        weekday: WEEKDAYS[wd],
-        weekdayShort: WEEKDAYS_SHORT[wd],
+        weekday: weekdayNames(wd, context.langs || ['cs']),
+        weekdayShort: weekdayShortNames(wd, context.langs || ['cs']),
         names,
         holiday,
         events,

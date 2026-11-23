@@ -29,7 +29,7 @@ Four tables (`Version20261111131800`; `calendar_export` came with
 
 | Table / entity | Holds |
 |---|---|
-| `calendar` / `Entity/Calendar` | one row = one calendar: the **design** (`name`, `year`, `type` week\|fortnight, `page`, `print`, `features` JSONB, `layout_preset`, `layout` JSONB, `link_elements`, `step`, `finished`) + the **content** JSONB + `client_token` (64 hex, unique) + `revision` (+1 per save) + `layout_origin` (`scan` when the layout was taken from an AI scan, else null — NOT part of the design, § "Scanned layouts") |
+| `calendar` / `Entity/Calendar` | one row = one calendar: the **design** (`name`, `year`, `type` week\|fortnight, `page`, `print`, `features` JSONB, `languages` JSONB list, `layout_preset`, `layout` JSONB, `link_elements`, `step`, `finished`) + the **content** JSONB + `client_token` (64 hex, unique) + `revision` (+1 per save) + `layout_origin` (`scan` when the layout was taken from an AI scan, else null — NOT part of the design, § "Scanned layouts") |
 | `calendar_asset` / `CalendarAsset` | every uploaded file: `kind` (`photo logo icon qr image page`), `path` = `calendars/{calendarId}/{assetId}.{ext}`, optional `preview_path` (`…-preview.webp`, only when the long edge > 1600 px), pixel `width`/`height` (null for SVG), embedded `description` (EXIF / XMP caption), uploader kind + user |
 | `calendar_history` / `CalendarHistoryEntry` | "Historie": `author_kind` (designer\|client), `user_id` (SET NULL), a ready Czech sentence, `created_at` |
 | `calendar_export` / `CalendarExport` | one PDF export job and its file: `variant` (print\|approval), `status` (queued\|running\|done\|failed), `progress_done` / `progress_total` (pages), `path` = `calendars/{calendarId}/exports/{40 hex}.pdf`, `size_bytes`, `error` (a Czech sentence), `calendar_revision` + `renderer_hash` (what the file was made from), requester kind + user, `created_at` / `updated_at` (heartbeat) / `finished_at` — § "PDF export" |
@@ -847,6 +847,40 @@ The exact contract of each `ui/` file is the comment block at its top.
   `.toast-n`. The full table is `docs/calendar/architecture.md` §D.10; each
   file's header lists its own.
 
+### Languages of the printed names (K15b, 2026-11-24)
+
+`design.languages` — the **extra** languages of the month / weekday / week-number
+words, any of `sk pl de en` (`generate/languages.js` `EXTRA_LANGUAGES`, PHP
+`CalendarDesignRules::LANGUAGES`), Czech always first and implied; `[]` = Czech
+only (column default, `Version20261124120000`, so every stored calendar is
+unchanged). Set in step 1 „Jazyky názvů“ (checkboxes, no cap) and by MCP
+`manage_calendar` `languages` (both K15b P2). Rules — load-bearing:
+
+- **Fixed print order cs → sk → pl → de → en**, joined by ` / `, nominative
+  forms (`grudzień`, not `grudnia`); identical words repeat (`Sobota / Sobota`).
+  The server refuses a list out of that order / with unknown or repeated codes;
+  `normalize` repairs.
+- **Only three texts**: `monthText` (`LEDEN / STYCZEŃ / JANUARY 2027`; a week
+  across months is **two lines** joined by `\n`, the year on line 1 only when
+  the years differ), `weekText` forms a / b (`3. týden / tydzień / week`,
+  `Týden / Tydzień / Week 3`; `T3` has no word) and `DayInfo.weekday /
+  weekdayShort` (`Pondělí / Poniedziałek / Monday`, `Po / Pn / Mo`). Name days,
+  holidays, DST / season texts, special pages, the editor UI and all content
+  stay Czech. A Czech-only calendar produces byte-identical texts.
+- **Měsíc of several lines** (`week-layout.js` `placeMonthText`): a line per
+  month, and with extra languages a line wider than the frame breaks after a
+  ` / ` (a name is never broken; a Czech-only text never wraps); one line sits
+  exactly where it always did, more lines are a centred block of
+  `MONTH_LINE_HEIGHT` × size. Auto-grow (below) grows the frame's height.
+  Whatever still does not fit is drawn anyway (never clipped) → page warning.
+- **„Názvy dnů“** `styles.cal.dayFormat` full | short | **auto** (new layouts;
+  stored ones keep their value): judged once per frame (E.6.3a) — beside the
+  number / on compact rows the widest label must fit the text column the full
+  icon zone leaves, above the number it may widen the number column to half
+  the row at most. auto = full when they fit, else short; **a Czech-only
+  calendar keeps full under auto** (exactly its old output). A form that does
+  not fit → `frame.dayOverflow` → page warning.
+
 ### Generation in one paragraph
 
 `buildPages(doc)`: cover → front special pages → week pages from the Monday of
@@ -893,6 +927,12 @@ Waste rhythms follow ISO week parity (so they shift across a 53-week year).
   causing undo step. On 14 days each frame grows on its own — to the widest
   text of ITS column, away from its own (mirrored) anchor; `maxTextWidths` and
   `WeekGeometry.textWidths` are keyed by box key (`month month2 wk wk2`).
+  With extra languages a Měsíc of several lines also grows in **height**
+  (`maxTextWidths().monthLines(key, room)`), towards the page middle but never
+  over the Kalendárium / photo below it; it is never shifted (it only grows away
+  from its anchor and wraps instead), and on 14 days each Měsíc frame stays on
+  its own half of the page (`K.SECOND_FRAME_GAP` short of the centre line).
+  Czech-only calendars: unchanged (width only, shift-then-shrink).
 - **Kalendárium row layout** (`week-layout.js`): rows share the frame height;
   under `K.COMPACT_BELOW` the row is *compact* (one baseline, row-mode icons,
   no event box). A row has a number column, a text column anchored towards the

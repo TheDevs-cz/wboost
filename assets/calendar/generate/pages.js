@@ -2,6 +2,7 @@
 
 import { addDays, compare, iso, isoWeek, mondayOf, parts } from './dates.js';
 import { MONTHS } from './czech.js';
+import { monthNames, printLanguages, weekWords } from './languages.js';
 import { timeTexts } from './time.js';
 import { GENERATED_SPECIAL_IDS, sorted, specialPageItem } from '../model/content.js';
 
@@ -25,22 +26,36 @@ export function pageKeyOfWeek(mondayIso, year) {
 /**
  * Upper-case month text of one week column: `LEDEN 2027`, `LEDEN / ÚNOR 2027`,
  * `PROSINEC 2026 / LEDEN 2027` (first and last day of that week).
+ *
+ * With extra languages (`langs` = `['cs', 'pl', 'en']`) every month is named in all of them:
+ * `LEDEN / STYCZEŃ / JANUARY 2027`, and a week across two months is TWO lines (joined by `\n`):
+ * `PROSINEC / GRUDZIEŃ / DECEMBER 2026` ⏎ `LEDEN / STYCZEŃ / JANUARY 2027` — the year on the first
+ * line only when the years differ.
  */
-export function monthText(firstIso, lastIso) {
+export function monthText(firstIso, lastIso, langs = ['cs']) {
     const a = parts(firstIso);
     const b = parts(lastIso);
     let text;
-    if (a.y === b.y && a.m === b.m) text = `${MONTHS[a.m - 1]} ${a.y}`;
+    if (langs.length > 1) {
+        const first = monthNames(a.m, langs);
+        if (a.y === b.y && a.m === b.m) text = `${first} ${a.y}`;
+        else text = `${first}${a.y === b.y ? '' : ` ${a.y}`}\n${monthNames(b.m, langs)} ${b.y}`;
+    } else if (a.y === b.y && a.m === b.m) text = `${MONTHS[a.m - 1]} ${a.y}`;
     else text = `${MONTHS[a.m - 1]} ${a.y === b.y ? '' : `${a.y} `}/ ${MONTHS[b.m - 1]} ${b.y}`;
     return text.toUpperCase();
 }
 
-export function weekText(form, weeks) {
+/**
+ * Číslo týdne in its „Tvar“: a `1. týden`, b `Týden 1`, c `T1`. With extra languages the word is
+ * named in all of them, the number once: `1. týden / tydzień / week`, `Týden / Tydzień / Week 1`;
+ * `T1` has no word. Two weeks (the page title of a 14-day page in the app) stay Czech.
+ */
+export function weekText(form, weeks, langs = ['cs']) {
     const [w1, w2] = weeks;
     const two = weeks.length > 1;
-    if (form === 'b') return two ? `Týdny ${w1}–${w2}` : `Týden ${w1}`;
+    if (form === 'b') return two ? `Týdny ${w1}–${w2}` : `${weekWords(langs, true)} ${w1}`;
     if (form === 'c') return two ? `T${w1}–${w2}` : `T${w1}`;
-    return two ? `${w1}. a ${w2}. týden` : `${w1}. týden`;
+    return two ? `${w1}. a ${w2}. týden` : `${w1}. ${weekWords(langs, false)}`;
 }
 
 function rangeText(firstIso, lastIso) {
@@ -66,6 +81,7 @@ export function buildPages(doc) {
     const { design, content } = doc;
     const year = design.year;
     const form = (design.layout && design.layout.styles && design.layout.styles.wk && design.layout.styles.wk.form) || 'a';
+    const langs = printLanguages(design);
     const pages = [];
     const push = (page) => pages.push({ index: pages.length, ...page });
 
@@ -101,8 +117,8 @@ export function buildPages(doc) {
                 weeks,
                 // one text per week column (frame), as on the printed calendars: each column's
                 // Měsíc describes its own seven days, each column carries its own week number
-                monthTexts: frames.map((f) => monthText(f[0], f[f.length - 1])),
-                weekTexts: weeks.map((w) => weekText(form, [w])),
+                monthTexts: frames.map((f) => monthText(f[0], f[f.length - 1], langs)),
+                weekTexts: weeks.map((w) => weekText(form, [w], langs)),
             },
         });
     }

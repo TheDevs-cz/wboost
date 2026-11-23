@@ -17,7 +17,7 @@ use WBoost\Web\Value\Calendar\CalendarType;
  */
 readonly final class CalendarDesignRules
 {
-    public const array KEYS = ['name', 'year', 'type', 'page', 'print', 'features', 'preset', 'layout', 'linkElements', 'step', 'finished'];
+    public const array KEYS = ['name', 'year', 'type', 'page', 'print', 'features', 'languages', 'preset', 'layout', 'linkElements', 'step', 'finished'];
     public const array PRESETS = ['photoLeft', 'photoRight', 'twoSided'];
     public const array BOX_KEYS = ['photo', 'cap', 'logo', 'head', 'month', 'month2', 'cal', 'cal2', 'wk', 'wk2', 'qr'];
     /**
@@ -31,6 +31,12 @@ readonly final class CalendarDesignRules
     public const array ELEMENT_KEYS = ['photo', 'cap', 'logo', 'head', 'month', 'cal', 'wk', 'qr'];
     public const array FEATURES = ['captions', 'weekNumbers', 'moon', 'timeChange', 'seasons', 'waste', 'events', 'shifts', 'specialPages', 'qr'];
     public const array HOLE_KEYS = ['size', 'radius', 'pitch', 'top', 'margin'];
+    /**
+     * The extra languages of the printed names, in print order (Czech is
+     * always first and implied) — `assets/calendar/generate/languages.js`
+     * EXTRA_LANGUAGES.
+     */
+    public const array LANGUAGES = ['sk', 'pl', 'de', 'en'];
 
     public const int MIN_YEAR = 2000;
     public const int MAX_YEAR = 2100;
@@ -39,7 +45,7 @@ readonly final class CalendarDesignRules
     public const int MAX_STRING_LENGTH = 255;
 
     /**
-     * @return array{name?: string, year?: int, type?: CalendarType, page?: array<string, mixed>, print?: array<string, mixed>, features?: array<string, bool>, preset?: null|string, layout?: null|\stdClass, linkElements?: bool, step?: int, finished?: bool}
+     * @return array{name?: string, year?: int, type?: CalendarType, page?: array<string, mixed>, print?: array<string, mixed>, features?: array<string, bool>, languages?: list<string>, preset?: null|string, layout?: null|\stdClass, linkElements?: bool, step?: int, finished?: bool}
      *
      * @throws InvalidCalendarChange
      */
@@ -89,6 +95,10 @@ readonly final class CalendarDesignRules
 
         if (array_key_exists('features', $raw)) {
             $design['features'] = self::features($raw['features']);
+        }
+
+        if (array_key_exists('languages', $raw)) {
+            $design['languages'] = self::languages($raw['languages']);
         }
 
         if (array_key_exists('preset', $raw)) {
@@ -298,6 +308,35 @@ readonly final class CalendarDesignRules
         }
 
         return $normalized;
+    }
+
+    /**
+     * A list of known extra language codes, each once, in the print order of
+     * {@see self::LANGUAGES} — anything else is refused, not repaired.
+     *
+     * @return list<string>
+     *
+     * @throws InvalidCalendarChange
+     */
+    private static function languages(mixed $languages): array
+    {
+        if (!is_array($languages) || !array_is_list($languages)) {
+            throw self::invalid('languages');
+        }
+
+        foreach ($languages as $code) {
+            if (!is_string($code) || !in_array($code, self::LANGUAGES, true)) {
+                throw self::invalid('languages');
+            }
+        }
+
+        $ordered = array_values(array_filter(self::LANGUAGES, static fn (string $code): bool => in_array($code, $languages, true)));
+
+        if ($ordered !== $languages) {
+            throw self::invalid('languages');
+        }
+
+        return $ordered;
     }
 
     /**

@@ -6,7 +6,8 @@ import { attrs, fillLayers, fontSpec, num, imageIn, photoWithEffects, pictureSha
 import { drawnRect, withEffects } from './effects.js';
 import { iconFragment } from './icons.js';
 import { wrapText } from './measure.js';
-import { fillIsOn, monthTextSpec } from './week-layout.js';
+import { fillIsOn, placeMonthText } from './week-layout.js';
+import { printLanguages } from '../generate/languages.js';
 
 const SAMPLE_CAPTION = 'Popisek fotografie, autor';
 
@@ -95,15 +96,18 @@ const frameKey = (key, f) => (f === 1 ? `${key}2` : key);
 function renderMonth(doc, page, opts) {
     const layout = doc.design.layout;
     const s = layout.styles.month;
+    const multilingual = printLanguages(doc.design).length > 1;
     let out = '';
     page.week.monthTexts.forEach((value, f) => {
         const key = frameKey('month', f);
         const box = layout.boxes[key];
         if (!box) return;
-        const spec = monthTextSpec(layout.styles, opts.env.fonts, value);
+        // one line on the vertical centre; a multilingual week across months is a block of lines
+        const placed = placeMonthText(layout.styles, opts.env.fonts, value, box, frameAlign(s.align, f), opts.measurer, multilingual);
         out += `<g data-el="month" data-frame="${f}">`;
         out += fillLayers(box, s.bg, assetOf(opts, s.bg.asset), opts, `${opts.idPrefix}-${key}`);
-        out += singleLine(box, spec.text, spec.font, frameAlign(s.align, f), spec.pad, s.color);
+        const anchor = placed.anchor === 'start' ? null : placed.anchor;
+        for (const line of placed.lines) out += textEl(line.x, line.y, line.text, placed.font, { 'text-anchor': anchor, fill: s.color });
         out += '</g>';
     });
     return out;

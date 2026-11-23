@@ -7,16 +7,19 @@ import { flipRowStyles } from '../model/layouts.js';
 import { createDayContext, dayInfo } from '../generate/day.js';
 import { fontSpec } from './svg.js';
 import { wrapText } from './measure.js';
+import { LANGUAGE_SEPARATOR } from '../generate/languages.js';
 
 const NUMBER_KINDS = ['num', 'numSat', 'numSun', 'numHol'];
 export const MONTH_LETTER_SPACING = 0.09;
+/** Line height of a Měsíc text of several lines (a multilingual week across months), × the size. */
+export const MONTH_LINE_HEIGHT = 1.15;
 
-/** Month text as drawn: upper case, or lower case with the first letter of each month capitalised. */
+/** Month text as drawn: upper case, or lower case with the first letter of each month (and line) capitalised. */
 export function monthLabel(text, upper) {
     if (upper) return String(text).toUpperCase();
     return String(text)
         .toLowerCase()
-        .replace(/(^|\/ )(\p{L})/gu, (m, lead, ch) => lead + ch.toUpperCase());
+        .replace(/(^|\/ )(\p{L})/gmu, (m, lead, ch) => lead + ch.toUpperCase());
 }
 
 export function fillIsOn(fill) {
@@ -27,6 +30,54 @@ export function fillIsOn(fill) {
 export function monthTextSpec(styles, fonts, text) {
     const s = styles.month;
     return { text: monthLabel(text, s.upper), font: fontSpec(s, fonts, ptToMm(s.size), s.upper ? MONTH_LETTER_SPACING : 0), pad: fillIsOn(s.bg) ? s.pad : 0 };
+}
+
+/**
+ * Lines of a Měsíc text in a text area `room` mm wide: one per `\n` (a multilingual week across
+ * two months), and with `wrap` (the calendar prints extra languages) a line wider than the room
+ * breaks after a ` / ` — a single name is never broken. A Czech-only text is never wrapped.
+ */
+export function monthLines(text, font, room, measurer, wrap) {
+    const out = [];
+    for (const line of String(text).split('\n')) {
+        if (!wrap || measurer.width(line, font) <= room + 1e-6) {
+            out.push(line);
+            continue;
+        }
+        let current = '';
+        for (const part of line.split(LANGUAGE_SEPARATOR)) {
+            const next = current ? current + LANGUAGE_SEPARATOR + part : part;
+            if (current && measurer.width(next, font) > room + 1e-6) {
+                out.push(current);
+                current = part;
+            } else current = next;
+        }
+        out.push(current);
+    }
+    return out;
+}
+
+/**
+ * The Měsíc text placed in its frame: `{ lines: [{ text, x, y }], font, anchor, widest, overflow }`.
+ * One line sits on the vertical centre exactly as it always has; several lines are a block of
+ * MONTH_LINE_HEIGHT centred in the frame. `overflow`: a line wider than the room or a block taller
+ * than the frame — drawn anyway (never clipped), warned about.
+ */
+export function placeMonthText(styles, fonts, text, box, align, measurer, wrap) {
+    const spec = monthTextSpec(styles, fonts, text);
+    const room = Math.max(0, box.w - 2 * spec.pad);
+    const texts = monthLines(spec.text, spec.font, room, measurer, wrap);
+    const size = spec.font.sizeMm;
+    const lh = MONTH_LINE_HEIGHT * size;
+    const top = box.y + box.h / 2 - (texts.length * lh) / 2;
+    const x = align === 'start' ? box.x + spec.pad : align === 'end' ? box.x + box.w - spec.pad : box.x + box.w / 2;
+    let widest = 0;
+    const lines = texts.map((line, i) => {
+        widest = Math.max(widest, measurer.width(line, spec.font));
+        return { text: line, x, y: texts.length === 1 ? box.y + box.h / 2 + 0.36 * size : top + i * lh + lh / 2 + 0.36 * size };
+    });
+    const overflow = widest > room + 0.05 || (texts.length > 1 && texts.length * lh > box.h + 0.05);
+    return { lines, font: spec.font, anchor: align, widest, overflow, pad: spec.pad };
 }
 
 function union(a, b) {
@@ -119,21 +170,13 @@ function layoutFrame(c, f) {
     const span = (a, b) => ({ x: Math.min(X(a), X(b)), w: Math.max(0, b - a) });
 
     const infos = days.map((d) => dayInfo(doc, d, dc));
-    const dayLabel = (info) => (S.cal.dayFormat === 'short' ? info.weekdayShort : info.weekday);
 
-    // E.6.3 number column
+    // E.6.3 number column (its width before the weekday labels above the numbers count)
     const nCap = rh * (compact ? 0.78 : 0.74);
     const nSz = (k) => Math.min(ptToMm(S[k].size), nCap);
     const nMax = Math.min(Math.max(...NUMBER_KINDS.map((k) => ptToMm(S[k].size))), nCap);
     const above = S.cal.dayPosition === 'above' && !compact;
-    let numW = nMax * 1.3;
-    if (above) {
-        const dayFont = font('day');
-        for (const info of infos) numW = Math.max(numW, width(dayLabel(info), dayFont));
-    }
-    const numFlow = side !== 'middle' ? [w - K.ROW_PAD - numW, w - K.ROW_PAD] : [w / 2 - numW / 2, w / 2 + numW / 2];
-    const numCol = span(numFlow[0], numFlow[1]);
-    const numAlign = S.cal.numAlign || side;
+    const baseNumW = nMax * 1.3;
 
     // E.6.4 zone
     const ops = features.shifts ? dc.shiftOps : [];
@@ -163,6 +206,37 @@ function layoutFrame(c, f) {
         }
         if (labelsW > 0) labelsW += 2.5;
     }
+
+    // E.6.3a „Názvy dnů“: full / short / auto. The fit is judged once per frame (the same on every
+    // page): beside the number (and on compact rows) the widest label must fit the text column the
+    // full icon zone leaves; above the number it may widen the number column to half the row at
+    // most. `auto` takes the full names when they fit, else the short ones; a form that does not
+    // fit is drawn anyway (never cut) and warned about („Názvy dnů se nevejdou“). A Czech-only
+    // calendar keeps its full names under `auto` — exactly what it printed before the setting existed.
+    const dayFont = font('day');
+    const zoneFull = zone0 + iconsW + labelsW + (iconsW > 0 ? K.ZONE_END_GAP : 0);
+    const roomBeside = (numWidth) => (side !== 'middle' ? w - K.ROW_PAD - numWidth - K.NUM_GAP - zoneFull : w / 2 - numWidth / 2 - K.NUM_GAP - K.ROW_PAD);
+    const widestLabel = (key) => infos.reduce((m, info) => Math.max(m, width(info[key], dayFont)), 0);
+    const labelsFit = (key) => {
+        const widest = widestLabel(key);
+        if (above) return widest <= (w - 2 * K.ROW_PAD) / 2;
+        return widest <= roomBeside(baseNumW);
+    };
+    const wanted = S.cal.dayFormat;
+    const multilingual = Boolean(dc.langs && dc.langs.length > 1);
+    const dayFormat = wanted === 'short' || (wanted === 'auto' && multilingual && infos.length > 0 && !labelsFit('weekday')) ? 'short' : 'full';
+    const dayKey = dayFormat === 'short' ? 'weekdayShort' : 'weekday';
+    const dayOverflow = infos.length > 0 && !labelsFit(dayKey);
+    const dayLabel = (info) => info[dayKey];
+
+    let numW = baseNumW;
+    if (above) {
+        for (const info of infos) numW = Math.max(numW, width(dayLabel(info), dayFont));
+    }
+    const numFlow = side !== 'middle' ? [w - K.ROW_PAD - numW, w - K.ROW_PAD] : [w / 2 - numW / 2, w / 2 + numW / 2];
+    const numCol = span(numFlow[0], numFlow[1]);
+    const numAlign = S.cal.numAlign || side;
+
     if (!grid && keys.length && side !== 'middle') {
         // row mode reserves a slot per active icon key; when that would squeeze the text column under
         // COMPACT_TEXT_MIN, only the slots the fullest day of this frame needs are kept
@@ -544,6 +618,8 @@ function layoutFrame(c, f) {
         evOffset: { ...offsetOf('ev') },
         textWidest,
         namesWidest,
+        dayFormat,
+        dayOverflow,
         evDefault,
         styles: S,
         rows,
@@ -591,7 +667,8 @@ export function layoutWeekPage(doc, page, opts) {
     page.week.frames.forEach((days, f) => {
         const suffix = f === 1 ? '2' : '';
         const month = monthTextSpec(layout.styles, fonts, page.week.monthTexts[f]);
-        textWidths[`month${suffix}`] = measurer.width(month.text, month.font) + 2 * month.pad;
+        // the widest line of a Měsíc of several lines (a multilingual week across months)
+        textWidths[`month${suffix}`] = Math.max(...month.text.split('\n').map((line) => measurer.width(line, month.font))) + 2 * month.pad;
         textWidths[`wk${suffix}`] = measurer.width(page.week.weekTexts[f], wkFont);
     });
     return { boxes, frames, textWidths };

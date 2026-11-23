@@ -272,6 +272,7 @@ readonly final class CalendarDocument
             'page' => (object) $calendar->page,
             'print' => (object) $calendar->print,
             'features' => (object) $calendar->features,
+            'languages' => $calendar->languages,
             'preset' => $calendar->layoutPreset,
             'layout' => $calendar->layout,
             'linkElements' => $calendar->linkElements,

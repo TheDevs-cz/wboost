@@ -58,6 +58,17 @@ class Calendar
     #[Column(type: Types::JSON, options: ['jsonb' => true, 'default' => '{}'])]
     public array $features = [];
 
+    /**
+     * The extra languages of the printed month / weekday / week-number names
+     * (`sk`, `pl`, `de`, `en` — {@see \WBoost\Web\Services\Calendar\CalendarDesignRules::LANGUAGES}),
+     * in print order; Czech is always first and implied. `[]` = Czech only.
+     *
+     * @var list<string>
+     */
+    #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
+    #[Column(type: Types::JSON, options: ['jsonb' => true, 'default' => '[]'])]
+    public array $languages = [];
+
     /** `photoLeft` / `photoRight` / `twoSided`, null until step 2. */
     #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
     #[Column(length: 16, nullable: true)]
@@ -151,7 +162,7 @@ class Calendar
      * ({@see \WBoost\Web\Services\Calendar\CalendarDesignRules::validate()}):
      * each present key replaces the stored value whole.
      *
-     * @param array{name?: string, year?: int, type?: CalendarType, page?: array<string, mixed>, print?: array<string, mixed>, features?: array<string, bool>, preset?: null|string, layout?: null|\stdClass, linkElements?: bool, step?: int, finished?: bool} $patch
+     * @param array{name?: string, year?: int, type?: CalendarType, page?: array<string, mixed>, print?: array<string, mixed>, features?: array<string, bool>, languages?: list<string>, preset?: null|string, layout?: null|\stdClass, linkElements?: bool, step?: int, finished?: bool} $patch
      * @return list<string> the design keys whose value really changed
      */
     public function applyDesign(array $patch): array
@@ -186,6 +197,11 @@ class Calendar
         if (array_key_exists('features', $patch) && !self::same($patch['features'], $this->features)) {
             $this->features = $patch['features'];
             $changed[] = 'features';
+        }
+
+        if (array_key_exists('languages', $patch) && $patch['languages'] !== $this->languages) {
+            $this->languages = $patch['languages'];
+            $changed[] = 'languages';
         }
 
         if (array_key_exists('preset', $patch) && $patch['preset'] !== $this->layoutPreset) {

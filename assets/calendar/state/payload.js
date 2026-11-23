@@ -6,7 +6,7 @@
 
 import { normalizeDocument } from '../model/normalize.js';
 
-export const DESIGN_KEYS = Object.freeze(['name', 'year', 'type', 'page', 'print', 'features', 'preset', 'layout', 'linkElements', 'step', 'finished']);
+export const DESIGN_KEYS = Object.freeze(['name', 'year', 'type', 'page', 'print', 'features', 'languages', 'preset', 'layout', 'linkElements', 'step', 'finished']);
 
 /** Canonical JSON (object keys sorted) — equality that ignores key order. */
 export function stable(value) {

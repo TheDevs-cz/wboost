@@ -17,9 +17,10 @@ export default async function (t, load) {
         assert.equal(doc.design.layout, null);
         assert.equal(doc.design.preset, null);
         assert.equal(doc.design.linkElements, true);
+        assert.deepEqual(doc.design.languages, [], 'Czech only');
         assert.equal(doc.content.v, 1);
         assert.deepEqual(doc.content.events, {});
-        assert.deepEqual(Object.keys(doc.design).sort(), ['features', 'finished', 'layout', 'linkElements', 'name', 'page', 'preset', 'print', 'step', 'type', 'year']);
+        assert.deepEqual(Object.keys(doc.design).sort(), ['features', 'finished', 'languages', 'layout', 'linkElements', 'name', 'page', 'preset', 'print', 'step', 'type', 'year']);
     });
 
     t.test('garbage in, a usable document out', () => {

@@ -73,7 +73,8 @@ export function defaultStyles(env = {}) {
             sunColor: red,
             numberSide: 'end',
             numAlign: null,
-            dayFormat: 'full',
+            // „Názvy dnů“: full | short | auto (full where they fit, else short — week-layout E.6.3a)
+            dayFormat: 'auto',
             dayPosition: 'side',
             dayAlign: null,
             iconSize: 6,

@@ -5,6 +5,7 @@ import { BOX_KEYS, DEFAULT_ORDER, HIDEABLE_BOXES, SECOND_FRAMES, frameAlign } fr
 import { COLLECTIONS } from './content.js';
 import { EFFECT_PATHS, normalizeEffects, shadowToEffects } from './effects.js';
 import { defaultBoxes, defaultStyles, presetsForType } from './layouts.js';
+import { normalizeLanguages } from '../generate/languages.js';
 import { adaptBoxesToBleed, clampBoxesToBounds } from '../editor/bleed.js';
 
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -66,6 +67,7 @@ function clampStyles(styles, defaults) {
     styles.cal.numBg.opacity = clampLimit('percent', styles.cal.numBg.opacity);
     styles.cal.numberSide = oneOf(styles.cal.numberSide, ALIGNS, defaults.cal.numberSide);
     styles.cal.iconGrid = oneOf(styles.cal.iconGrid, ['4', '2x2', '1+2', '2+1'], defaults.cal.iconGrid);
+    styles.cal.dayFormat = oneOf(styles.cal.dayFormat, ['full', 'short', 'auto'], defaults.cal.dayFormat);
     styles.moon.size = clampLimit('moonSize', styles.moon.size);
     styles.photo.border.width = clampLimit('photoBorder', styles.photo.border.width);
     styles.photo.radius = clampLimit('generic', styles.photo.radius);
@@ -268,6 +270,8 @@ export function normalizeDocument(rawCalendar, env) {
             page,
             print: normalizePrint(d.print),
             features: normalizeFeatures(d.features),
+            // the extra languages of the printed names (generate/languages.js), Czech implied
+            languages: normalizeLanguages(d.languages),
             preset,
             layout: hasLayout ? normalizeLayout(d.layout, type, page, env) : null,
             linkElements: typeof d.linkElements === 'boolean' ? d.linkElements : true,

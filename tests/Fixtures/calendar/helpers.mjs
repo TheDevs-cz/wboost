@@ -9,7 +9,7 @@ export async function makeDoc(load, o = {}) {
     const { bleedOf } = await load('model/defaults.js');
     const type = o.type || 'week';
     const preset = o.preset === undefined ? (type === 'fortnight' ? 'twoSided' : 'photoLeft') : o.preset;
-    const base = normalizeDocument({ id: 'cal-1', revision: 1, name: o.name || 'Stolní kalendář 2027', year: o.year || 2027, type, page: o.page || {}, print: o.print || {}, features: o.features || {}, content: o.content || {} }, ENV);
+    const base = normalizeDocument({ id: 'cal-1', revision: 1, name: o.name || 'Stolní kalendář 2027', year: o.year || 2027, type, page: o.page || {}, print: o.print || {}, features: o.features || {}, languages: o.languages || [], content: o.content || {} }, ENV);
     if (preset === null) return base;
     const layout = defaultLayout(preset, base.design.page, bleedOf(base.design.print), ENV);
     const styled = o.styles ? o.styles(layout) || layout : layout;

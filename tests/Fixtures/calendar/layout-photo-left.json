@@ -236,7 +236,7 @@
             "sunColor": "#BE3A2E",
             "numberSide": "end",
             "numAlign": null,
-            "dayFormat": "full",
+            "dayFormat": "auto",
             "dayPosition": "side",
             "dayAlign": null,
             "iconSize": 6,
