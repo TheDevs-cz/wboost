@@ -11,15 +11,13 @@
 //             (ideálně 402 × 130 px)“
 //   pictureDpi(picture {width, height, name?}, box, fit) → effective dpi in the place, null for an SVG
 //
-// MIN_PRINT_DPI / PRINT_DPI mirror the editor's dpi warning (render/warnings.js: under 200 dpi →
-// „… (pro tisk aspoň 300 dpi)“). Mirrored, not imported from there: a constant moved into render/
-// would change the export fingerprint and invalidate every stored PDF export.
+// MIN_PRINT_DPI / PRINT_DPI are the editor's dpi warning thresholds (render/warnings.js
+// `PHOTO_MIN_DPI` / `PHOTO_IDEAL_DPI`: under 200 dpi → „… (pro tisk aspoň 300 dpi)“), re-exported.
 
 import { bleedOf } from '../model/defaults.js';
-import { photoDpi } from '../render/warnings.js';
+import { PHOTO_IDEAL_DPI as PRINT_DPI, PHOTO_MIN_DPI as MIN_PRINT_DPI, photoDpi } from '../render/warnings.js';
 
-export const MIN_PRINT_DPI = 200;
-export const PRINT_DPI = 300;
+export { MIN_PRINT_DPI, PRINT_DPI };
 
 const SLOT_PLACE = { header: 'head', background: 'bg' };
 /** The scan's slot name → the layout's element key. */

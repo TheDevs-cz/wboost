@@ -29,9 +29,10 @@
 //   dayNames  { format, multilingual }           „Názvy dnů“ wider than the row allows (full | short)
 //   month     { lines }                          a multilingual Měsíc taller / wider than its frame
 
-/** The dpi under which a photo is flagged, and the dpi a print photo should ideally have. */
-export const MIN_DPI = 200;
-export const IDEAL_DPI = 300;
+/** The dpi under which a photo is flagged, and the dpi a print photo should ideally have (`warnings.js`). */
+import { PHOTO_IDEAL_DPI as IDEAL_DPI, PHOTO_MIN_DPI as MIN_DPI } from './warnings.js';
+
+export { IDEAL_DPI, MIN_DPI };
 
 const NBSP = ' ';
 

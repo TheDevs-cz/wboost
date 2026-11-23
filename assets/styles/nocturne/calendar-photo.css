@@ -1,0 +1,50 @@
+/* ==========================================================================
+   Nocturne — Kalendáře: „Upravit fotku“, the photo editor (feedback K14,
+   assets/calendar/ui/photo-editor.js). Inline (photo field of a content page,
+   a row of „Fotky a popisky“) and floating (`.cal-pop.wide.cal-pe-pop` —
+   the chrome of calendar-preview.css; a bottom sheet under 700 px). Tokens only.
+   ========================================================================== */
+
+.cal-pe { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+
+/* The stage: the frame as a window, the whole picture faint around it. */
+.cal-pe-stage { --cal-pe-h: 46vh; position: relative; width: min(100%, calc(var(--cal-pe-h) * var(--cal-pe-r, 1.5))); margin: 0 auto; overflow: hidden; border-radius: 12px; background: repeating-conic-gradient(var(--surface-2) 0% 25%, var(--surface-3, var(--line)) 0% 50%) 50% / 14px 14px; box-shadow: 0 0 0 1px var(--line-2); cursor: grab; touch-action: none; user-select: none; outline: none; }
+.cal-pe-stage:focus-visible { box-shadow: 0 0 0 1px var(--line-2), 0 0 0 3px var(--lav-glow); }
+.cal-pe-stage.drag { cursor: grabbing; }
+.cal-pe-img { position: absolute; display: block; max-width: none; pointer-events: none; transform-origin: 50% 50%; }
+/* everything outside the window is dimmed — the part that is cut away */
+.cal-pe-win { position: absolute; box-shadow: 0 0 0 9999px color-mix(in srgb, var(--bg) 62%, transparent); outline: 1.5px solid var(--lav); pointer-events: none; }
+.cal-pe-thirds { position: absolute; inset: 0; opacity: 0; transition: opacity .15s; background:
+    linear-gradient(to right, transparent calc(33.333% - .5px), rgba(255, 255, 255, .55) calc(33.333% - .5px), rgba(255, 255, 255, .55) calc(33.333% + .5px), transparent calc(33.333% + .5px), transparent calc(66.666% - .5px), rgba(255, 255, 255, .55) calc(66.666% - .5px), rgba(255, 255, 255, .55) calc(66.666% + .5px), transparent calc(66.666% + .5px)),
+    linear-gradient(to bottom, transparent calc(33.333% - .5px), rgba(255, 255, 255, .55) calc(33.333% - .5px), rgba(255, 255, 255, .55) calc(33.333% + .5px), transparent calc(33.333% + .5px), transparent calc(66.666% - .5px), rgba(255, 255, 255, .55) calc(66.666% - .5px), rgba(255, 255, 255, .55) calc(66.666% + .5px), transparent calc(66.666% + .5px)); }
+.cal-pe-stage.drag .cal-pe-thirds { opacity: 1; }
+/* where the frame runs into the bleed: the cut of the page */
+.cal-pe-trim { position: absolute; border: 1px dashed rgba(255, 255, 255, .85); box-shadow: 0 0 0 1px rgba(0, 0, 0, .25); pointer-events: none; }
+.cal-pe-trim[hidden] { display: none; }
+
+/* Controls */
+.cal-pe-ctl { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.cal-pe-row { display: grid; grid-template-columns: 76px minmax(0, 1fr) auto; align-items: center; gap: 8px; margin: 0; }
+.cal-pe-row .lbl { font-size: 12px; color: var(--muted); }
+.cal-pe-row .cal-5z { min-width: 0; }
+.cal-pe-row .cal-5z input[type="range"] { flex: 1; width: auto; min-width: 40px; }
+.cal-pe-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+.cal-pe-btns .btn.on { background: var(--lav-deep); border-color: transparent; color: var(--lav-ink); }
+.cal-pe-ccw .i { transform: scaleX(-1); }
+.cal-pe-info { font-variant-numeric: tabular-nums; }
+.cal-pe-info[data-low] { color: var(--rose); }
+.cal-pe-foot { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* Floating: a little wider than the other wide popovers — the stage is the point */
+.cal-pop.wide.cal-pe-pop { width: min(520px, calc(100vw - 24px)); max-height: min(90vh, calc(100vh - 24px)); }
+@media (max-width: 700px) {
+    .cal-pop.wide.cal-pe-pop { max-height: 72vh; }
+    .cal-pe-stage { --cal-pe-h: 30vh; }
+    .cal-pe-btns .btn span { display: none; }
+}
+
+/* Inline: inside a panel field or a tool row */
+.cal-pe-inline { padding: 10px; border-radius: 12px; background: var(--surface-2); box-shadow: 0 0 0 1px var(--line); }
+/* „Fotky a popisky“: the pencil above the bin in the last column; the editor under its row */
+.cal-phr .cal-phx { height: auto; gap: 2px; }
+.cal-phl > .cal-pe-inline { margin: -2px 0 4px; }

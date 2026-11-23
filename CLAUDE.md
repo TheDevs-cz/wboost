@@ -80,7 +80,7 @@ Prototype + reference screenshots: `docs/redesign/prototype/`,
 | `buttons.css`, `forms.css`, `chips.css`, `cards.css`, `dialogs.css`, `menus.css`, `tables.css`, `feedback.css`, `page.css` | shared kit + Bootstrap class restyles (`.btn-*`, `.form-control`, `.modal`, `.dropdown-menu`, `.table`, `.alert`, `.head`, tabs) |
 | `shell.css` | sidebar / rail / phone drawer + top bar (`templates/_shell/`) |
 | `auth.css`, `projects.css`, `manual.css`, `gallery.css`, `fonts.css`, `templates.css`, `admin.css`, `email.css`, `weekly-menu.css` | one file per screen area |
-| `calendar.css`, `calendar-editor.css`, `calendar-controls.css`, `calendar-content.css`, `calendar-tools.css`, `calendar-preview.css`, `calendar-dialogs.css` | Kalendáře: list + shell + steps 1–2 / step-3 editor / property panels / step 4 / content tools / step 5 / warnings, history, client link |
+| `calendar.css`, `calendar-editor.css`, `calendar-controls.css`, `calendar-content.css`, `calendar-tools.css`, `calendar-preview.css`, `calendar-dialogs.css`, `calendar-photo.css` | Kalendáře: list + shell + steps 1–2 / step-3 editor / property panels / step 4 / content tools / step 5 / warnings, history, client link / the photo editor „Upravit fotku“ |
 | `ai-scan.css` | AI sken (`as-*`): the wizard's page „Šablona z obrázku“ (upload, status card, compare viewer, report, picture cards, action bar), the card states in „Nová šablona“, scan cards, history, shell signals + toast, export dialog, admin rows — `docs/architecture/ai-scan.md` § "UI" |
 | `fill.css`, `editor.css` | fill pages + canvas editors — imported AFTER `app.css` on purpose |
 

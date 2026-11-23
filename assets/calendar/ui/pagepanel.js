@@ -25,11 +25,13 @@
 //
 // DOM hooks: `[data-page-panel="<pageKey>"]`, `[data-page-pill]` (Upraveno), `[data-page-warning]`,
 // `[data-page-field="photo|caption|head|bg|qr"]` (the file input or the text input),
-// `[data-page-remove="photo|head|bg|qr"]`, `[data-cal-action="page-reset"]`.
+// `[data-page-remove="photo|head|bg|qr"]`, `[data-page-edit="photo"]` („Upravit“ → the photo editor,
+// `ui/photo-editor.js`; closed with the panel), `[data-cal-action="page-reset"]`.
 
 import { clearPageOverrides, pageHasOverrides } from '../model/content.js';
 import { h, icon } from './dom.js';
 import { hasPageContent, mountPageContent } from './pagecontent.js';
+import { closePhotoEditor, openPhotoEditor, weekPhotoEditing } from './photo-editor.js';
 import { mountPageEffects } from './page-effects.js';
 import { CAPTION_MAX, fileTile, setPageCaption, setPagePhoto, uploadAsset } from './tools/photos.js';
 import { QR_ACCEPT } from './tools/qr.js';
@@ -96,7 +98,9 @@ export function mountPagePanel(root, ctx, opts = {}) {
         const tile = fileTile({ asset: null, label, tip: 'Nahrát', accept: o.accept, fit: o.fit, attrs: { 'data-page-field': name }, onFiles: ([file]) => o.upload(file) });
         const hint = h('span', { class: 'cap' });
         const remove = h('button', { type: 'button', class: 'btn xs btn-ghost', 'data-page-remove': name, onClick: o.remove }, icon('trash', 's14'), 'Odebrat');
-        const el = h('div', { class: 'cal-p4s' }, h('span', { class: 'lbl' }, label), h('div', { class: 'cal-ftr' }, tile, h('div', { class: 'cal-ftb' }, hint, remove)));
+        // „Upravit“ — the photo editor (feedback K14), for a field that has one
+        const edit = o.edit ? h('button', { type: 'button', class: 'btn xs btn-ghost', 'data-page-edit': name, title: 'Výřez, otočení a zrcadlení', onClick: (event) => o.edit(event.currentTarget) }, icon('image-edit', 's14'), 'Upravit') : null;
+        const el = h('div', { class: 'cal-p4s' }, h('span', { class: 'lbl' }, label), h('div', { class: 'cal-ftr' }, tile, h('div', { class: 'cal-ftb' }, hint, edit, remove)));
         return {
             el,
             sync() {
@@ -106,6 +110,7 @@ export function mountPagePanel(root, ctx, opts = {}) {
                 hint.textContent = own ? 'Jen pro tuto stranu' : o.fallback;
                 hint.hidden = hint.textContent === '';
                 remove.hidden = !own;
+                if (edit) edit.hidden = !(o.editable ? o.editable() : own);
             },
         };
     }
@@ -154,6 +159,12 @@ export function mountPagePanel(root, ctx, opts = {}) {
                         if (info) setPagePhoto(ctx, current, info, { nameCaption: true });
                     },
                     remove: () => store.removeItem('pagePhotos', key, current.title),
+                    editable: () => Boolean(weekPhotoEditing(ctx, current)),
+                    edit: (anchor) => {
+                        const editing = weekPhotoEditing(ctx, current);
+                        if (!editing) return;
+                        openPhotoEditor({ ...editing, title: `Upravit fotku — ${current.title}`, anchor, returnFocus: () => body.querySelector('[data-page-edit="photo"]'), onDone: (next) => editing.save(next) });
+                    },
                 });
                 sections.push(f.el);
                 syncs.push(f.sync);
@@ -254,6 +265,7 @@ export function mountPagePanel(root, ctx, opts = {}) {
 
     return {
         destroy() {
+            closePhotoEditor();
             unsubscribe();
             contentEditor.destroy();
             effectsEditor.destroy();

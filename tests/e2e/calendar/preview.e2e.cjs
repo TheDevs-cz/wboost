@@ -118,7 +118,8 @@ module.exports = {
         async function setZoom(percent) {
             // a real click on the track, then arrow keys to the exact value
             const box = await (await page.$('[data-photo-zoom]')).boundingBox();
-            await page.mouse.click(box.x + (box.width * (percent - 100)) / 200, box.y + box.height / 2);
+            const [min, max] = await page.$eval('[data-photo-zoom]', (el) => [Number(el.min), Number(el.max)]);
+            await page.mouse.click(box.x + (box.width * (percent - min)) / (max - min), box.y + box.height / 2);
             for (let i = 0; i < 80; i++) {
                 const value = Number(await page.$eval('[data-photo-zoom]', (el) => el.value));
                 if (value === percent) break;

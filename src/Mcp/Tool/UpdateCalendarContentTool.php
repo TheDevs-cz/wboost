@@ -131,13 +131,17 @@ readonly final class UpdateCalendarContentTool
      *   only: a comment cannot be edited or deleted, and the server sets its
      *   author and time itself.
      * - pageCaptions {text ≤80} — the photo caption of a week page (id = page key).
-     * - pagePhotos {asset, zoom 1–3, px 0–1, py 0–1} — the photo of a week page
-     *   and its crop (zoom 1, px 0.5, py 0.5 = centred).
+     * - pagePhotos {asset, zoom 1–5, px 0–1, py 0–1, rotate?, flip?} — the photo
+     *   of a week page and its crop: zoom × "just covers the frame" (1 = 100 %),
+     *   px / py the share of the free travel (0.5, 0.5 = centred), optional
+     *   rotate −180…180 degrees (the photo always still covers its frame — a
+     *   turned photo is drawn larger) and flip: true (mirrored horizontally).
+     *   Omit rotate / flip when 0 / not mirrored (never send flip: false).
      * - pageContent — the texts and the photo of the cover, the back page and
      *   the generated special pages. The id is one of seven fixed page keys and
      *   decides the item (all keys required; "" = empty, and an empty title /
      *   heading prints the default one; a photo is null or
-     *   {asset, zoom 1–3, px 0–1, py 0–1} like pagePhotos):
+     *   {asset, zoom 1–5, px 0–1, py 0–1, rotate?, flip?} like pagePhotos):
      *   "cover"       {title ≤80 (default "Kalendář <year>"), subtitle ≤80,
      *                  note ≤120 (a small line, e.g. the web address), photo}
      *   "sp:intro"    {heading ≤80, salutation ≤80, body ≤4000, signName ≤80,

@@ -40,6 +40,10 @@ final class DescribeCalendarChangeTest extends TestCase
         yield ['Nahrál fotku — 5. týden', 'pagePhotos', null, $photo, '5. týden'];
         yield ['Vyměnil fotku — 5. týden', 'pagePhotos', $photo, [...$photo, 'asset' => 'b'], '5. týden'];
         yield ['Posunul fotku — 1. a 2. týden', 'pagePhotos', $photo, [...$photo, 'zoom' => 1.5], '1. a 2. týden'];
+        yield ['Upravil fotku — 5. týden', 'pagePhotos', $photo, [...$photo, 'rotate' => 90], '5. týden'];
+        yield ['Upravil fotku — 5. týden', 'pagePhotos', [...$photo, 'rotate' => 90], $photo, '5. týden'];
+        yield ['Upravil fotku — 5. týden', 'pagePhotos', $photo, [...$photo, 'flip' => true, 'px' => 0.4], '5. týden'];
+        yield ['Posunul fotku — 5. týden', 'pagePhotos', [...$photo, 'rotate' => 90], [...$photo, 'rotate' => 90, 'px' => 0.2], '5. týden'];
         yield ['Odebral fotku — 5. týden', 'pagePhotos', $photo, null, '5. týden'];
         yield ['Nahrál fotku', 'pagePhotos', null, $photo];
 
@@ -68,6 +72,7 @@ final class DescribeCalendarChangeTest extends TestCase
         yield ['Nahrál fotku — Titulní strana', 'pageContent', null, ['title' => '', 'subtitle' => '', 'note' => '', 'photo' => $coverPhoto], 'Titulní strana'];
         yield ['Vyměnil fotku — Titulní strana', 'pageContent', [...$cover, 'photo' => $coverPhoto], [...$cover, 'photo' => [...$coverPhoto, 'asset' => 'b']], 'Titulní strana'];
         yield ['Posunul fotku — Titulní strana', 'pageContent', [...$cover, 'photo' => $coverPhoto], [...$cover, 'photo' => [...$coverPhoto, 'px' => 0.1]], 'Titulní strana'];
+        yield ['Upravil fotku — Titulní strana', 'pageContent', [...$cover, 'photo' => $coverPhoto], [...$cover, 'photo' => [...$coverPhoto, 'rotate' => -2.5]], 'Titulní strana'];
         yield ['Odebral fotku — Titulní strana', 'pageContent', [...$cover, 'photo' => $coverPhoto], $cover, 'Titulní strana'];
         yield ['Upravil texty strany — Titulní strana', 'pageContent', $cover, [...$cover, 'title' => 'Jiný', 'photo' => $coverPhoto], 'Titulní strana'];
         yield ['Smazal obsah strany — Zadní strana', 'pageContent', $cover, null, 'Zadní strana'];

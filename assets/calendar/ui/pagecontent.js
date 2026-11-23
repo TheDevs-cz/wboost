@@ -31,18 +31,17 @@
 
 import Sortable from 'sortablejs';
 import { CONTENT_LIMITS, newId, nextPos, pageContentOf, pageGroupsOf, pageSetupOf, reorder } from '../model/content.js';
-import { LIMITS } from '../model/defaults.js';
+import { ZOOM_MAX, ZOOM_MIN, cropItem, normalizeCrop, panBy, photoPlacement, zoomTo } from '../model/photo-crop.js';
 import { COVER_LAYOUTS, specialPhotoBox } from '../render/special.js';
 import { checkRow, h, icon, segmented } from './dom.js';
 import { styleBinding } from './controls/bind.js';
 import { colorPalette } from './controls/color.js';
 import { effectsEditor } from './controls/effects.js';
 import { renderThumb } from './thumb.js';
+import { mountPhotoEditor } from './photo-editor.js';
 import { fileTile, uploadAsset } from './tools/photos.js';
 
 const PHOTO_ACCEPT = 'image/jpeg,image/png,image/webp';
-const clamp01 = (v) => Math.min(1, Math.max(0, v));
-const round4 = (v) => Math.round(v * 10000) / 10000;
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 /** The content key of a page, `null` for pages without editable content. */
@@ -176,13 +175,19 @@ export function mountPageContent(root, ctx, opts) {
         return field.el;
     }
 
-    /** Photo with its crop: upload tile, a preview to drag the crop in, zoom, remove. */
+    /**
+     * Photo with its crop: upload tile, a preview to drag the crop in, the quick zoom, „Upravit
+     * výřez“ (the photo editor of `ui/photo-editor.js`, inline under the field — zoom, pan, quarter
+     * turns, straightening, mirror; written once on „Hotovo“), remove. The preview places the
+     * picture with `model/photo-crop.js`, the renderer's own maths.
+     */
     function photoField(label, slotLabel) {
         const p = page();
         const box = specialPhotoBox(store.getState().doc, p);
         if (!box) return null;
         const ratio = box.w / box.h;
         const assetOf = (photo) => (photo && env.assets[photo.asset]) || null;
+        const sized = (asset) => Boolean(asset && asset.width > 0 && asset.height > 0);
         const tile = fileTile({
             asset: null,
             label,
@@ -191,59 +196,108 @@ export function mountPageContent(root, ctx, opts) {
             attrs: { 'data-content-photo': '' },
             onFiles: async ([file]) => {
                 const info = await uploadAsset(ctx, file, 'photo');
-                if (info) writeContent({ photo: { asset: info.id, zoom: 1, px: 0.5, py: 0.5 } });
+                if (info) {
+                    closeEditor();
+                    writeContent({ photo: cropItem(info.id, null) });
+                }
             },
         });
         const image = h('img', { alt: '', draggable: 'false' });
         const surface = h('div', { class: 'cal-crop', 'data-photo-crop': '', title: 'Výřez posunete tažením', style: `aspect-ratio: ${ratio}; width: min(100%, ${Math.round(150 * ratio)}px)` }, image);
-        const zoom = h('input', { type: 'range', min: String(LIMITS.photoZoom.min * 100), max: String(LIMITS.photoZoom.max * 100), step: '1', value: '100', 'aria-label': 'Zvětšení fotky', 'data-photo-zoom': '' });
+        const zoom = h('input', { type: 'range', min: String(ZOOM_MIN * 100), max: String(ZOOM_MAX * 100), step: '1', value: '100', 'aria-label': 'Zvětšení fotky', 'data-photo-zoom': '' });
         const zoomValue = h('output', { class: 'cal-5zv' }, '100 %');
-        const remove = h('button', { type: 'button', class: 'btn xs btn-ghost', 'data-photo-remove': '', onClick: () => writeContent({ photo: null }) }, icon('trash', 's14'), 'Odebrat');
+        const edit = h('button', { type: 'button', class: 'btn xs btn-ghost', 'data-photo-edit': '', 'aria-expanded': 'false', title: 'Výřez, otočení a zrcadlení fotky', onClick: () => toggleEditor() }, icon('image-edit', 's14'), 'Upravit výřez');
+        const remove = h('button', { type: 'button', class: 'btn xs btn-ghost', 'data-photo-remove': '', onClick: () => { closeEditor(); writeContent({ photo: null }); } }, icon('trash', 's14'), 'Odebrat');
         const hint = h('span', { class: 'cap' });
-        const controls = h('div', { class: 'cal-cropc' }, h('span', { class: 'cal-5z' }, icon('minus', 's14'), zoom, icon('plus', 's14'), zoomValue), remove);
+        const controls = h('div', { class: 'cal-cropc' }, h('span', { class: 'cal-5z' }, icon('minus', 's14'), zoom, icon('plus', 's14'), zoomValue), edit, remove);
 
-        /** Size of the drawn picture relative to the frame — the maths of `photoIn`. */
-        const drawn = (asset, z) => {
-            const r = asset.width > 0 && asset.height > 0 ? asset.width / asset.height : ratio;
-            const hRel = Math.max(ratio / r, 1) * Math.max(1, z || 1);
-            return { wRel: (hRel * r) / ratio, hRel };
-        };
+        // „Upravit výřez“ — one inline editor under the controls
+        let editing = null;
+        function closeEditor() {
+            if (!editing) return;
+            const { editor, host } = editing;
+            editing = null;
+            editor.destroy();
+            host.remove();
+            edit.setAttribute('aria-expanded', 'false');
+        }
+        function toggleEditor() {
+            if (editing) {
+                closeEditor();
+                return;
+            }
+            const photo = item().photo;
+            const asset = assetOf(photo);
+            if (!photo || !sized(asset)) return;
+            const host = h('div', { class: 'cal-pe-inline', 'data-photo-editing': key() });
+            controls.after(host);
+            const back = () => edit.focus({ preventScroll: true });
+            const editor = mountPhotoEditor(host, {
+                frame: box,
+                trim: { x0: 0, y0: 0, x1: store.getState().doc.design.page.width, y1: store.getState().doc.design.page.height },
+                asset: { ...asset, id: photo.asset },
+                crop: photo,
+                onDone: (next) => {
+                    closeEditor();
+                    const now = item().photo;
+                    if (next && now && now.asset === next.asset) writeContent({ photo: next });
+                    back();
+                },
+                onCancel: () => {
+                    closeEditor();
+                    back();
+                },
+            });
+            editing = { editor, host, asset: photo.asset };
+            edit.setAttribute('aria-expanded', 'true');
+            editor.focus();
+        }
+
         const paint = (photo) => {
             const asset = assetOf(photo);
             tile.setAsset(asset);
             surface.hidden = !asset;
             controls.hidden = !asset;
             hint.textContent = asset ? 'Výřez posunete tažením v náhledu.' : slotLabel;
+            // the photo went away or was replaced under an open editor
+            if (editing && (!photo || photo.asset !== editing.asset)) closeEditor();
             if (!asset) return;
+            edit.hidden = !sized(asset);
             const url = asset.previewUrl || asset.url;
             if (image.getAttribute('src') !== url) image.src = url;
-            const { wRel, hRel } = drawn(asset, photo.zoom);
-            image.style.width = `${wRel * 100}%`;
-            image.style.height = `${hRel * 100}%`;
-            image.style.left = `${(1 - wRel) * photo.px * 100}%`;
-            image.style.top = `${(1 - hRel) * photo.py * 100}%`;
-            if (document.activeElement !== zoom) zoom.value = String(Math.round(photo.zoom * 100));
-            zoomValue.textContent = `${Math.round(photo.zoom * 100)} %`;
+            const placed = sized(asset) ? photoPlacement(box, asset, photo) : null;
+            if (placed) {
+                // in % of the frame: the centre, the size, then the turn and the mirror
+                const cx = placed.transform ? placed.transform.cx : placed.x + placed.w / 2;
+                const cy = placed.transform ? placed.transform.cy : placed.y + placed.h / 2;
+                image.style.width = `${(placed.w / box.w) * 100}%`;
+                image.style.height = `${(placed.h / box.h) * 100}%`;
+                image.style.left = `${((cx - placed.w / 2 - box.x) / box.w) * 100}%`;
+                image.style.top = `${((cy - placed.h / 2 - box.y) / box.h) * 100}%`;
+                image.style.transform = placed.transform ? `rotate(${placed.transform.rotate}deg)${placed.transform.flip ? ' scaleX(-1)' : ''}` : '';
+            }
+            const z = Math.round(normalizeCrop(photo).zoom * 100);
+            if (document.activeElement !== zoom) zoom.value = String(z);
+            zoomValue.textContent = `${z} %`;
         };
         zoom.addEventListener('input', () => {
             const photo = item().photo;
-            if (photo) writeContent({ photo: { ...photo, zoom: Math.min(LIMITS.photoZoom.max, Math.max(LIMITS.photoZoom.min, Number(zoom.value) / 100)) } });
+            const asset = assetOf(photo);
+            if (!photo) return;
+            const next = sized(asset) ? zoomTo(box, asset, photo, Number(zoom.value) / 100) : { ...photo, zoom: Number(zoom.value) / 100 };
+            writeContent({ photo: cropItem(photo.asset, next) });
         });
         surface.addEventListener('pointerdown', (event) => {
             const photo = item().photo;
             const asset = assetOf(photo);
-            if (!asset || event.button > 0) return;
+            if (!sized(asset) || event.button > 0) return;
             event.preventDefault();
             surface.setPointerCapture(event.pointerId);
-            const rect = surface.getBoundingClientRect();
-            const { wRel, hRel } = drawn(asset, photo.zoom);
-            const start = { x: event.clientX, y: event.clientY, px: photo.px, py: photo.py };
+            const mmPerPx = box.w / surface.getBoundingClientRect().width;
+            const start = { x: event.clientX, y: event.clientY };
             const move = (e) => {
-                const freeX = (1 - wRel) * rect.width;
-                const freeY = (1 - hRel) * rect.height;
-                const px = Math.abs(freeX) < 0.5 ? start.px : clamp01(start.px + (e.clientX - start.x) / freeX);
-                const py = Math.abs(freeY) < 0.5 ? start.py : clamp01(start.py + (e.clientY - start.y) / freeY);
-                writeContent({ photo: { ...photo, px: round4(px), py: round4(py) } });
+                const next = panBy(box, asset, photo, (e.clientX - start.x) * mmPerPx, (e.clientY - start.y) * mmPerPx);
+                writeContent({ photo: cropItem(photo.asset, next) });
             };
             const up = () => {
                 surface.removeEventListener('pointermove', move);

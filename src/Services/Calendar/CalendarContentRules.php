@@ -38,6 +38,12 @@ readonly final class CalendarContentRules
      */
     public const array CLIENT_WRITABLE = ['pagePhotos', 'pageCaptions', 'wasteKinds', 'wasteExtras', 'events', 'clubs', 'names', 'comments', 'pageContent', 'pageGroups'];
 
+    /** The largest zoom of a photo crop — the mirror of `ZOOM_MAX` in `assets/calendar/model/photo-crop.js`. */
+    public const int PHOTO_ZOOM_MAX = 5;
+
+    /** Keys of a photo crop that may be absent (absent = not rotated / not mirrored). */
+    private const array CROP_OPTIONAL_KEYS = ['rotate', 'flip'];
+
     public const array PAGE_KEYED = ['pagePhotos', 'pageCaptions', 'pageImages', 'pageQr', 'pageEffects'];
 
     public const string ID_PATTERN = '/^[A-Za-z0-9_-]{1,40}$/';
@@ -222,12 +228,7 @@ readonly final class CalendarContentRules
                     'pos' => self::int($v['pos'], 0, 100_000, $collection, 'pos'),
                 ],
             ),
-            'pagePhotos' => self::item($v, $collection, ['asset', 'zoom', 'px', 'py'], static fn (array $v): array => [
-                'asset' => self::asset($v['asset'], $existingAssets, false, $collection, 'asset'),
-                'zoom' => self::number($v['zoom'], 1, 3, $collection, 'zoom'),
-                'px' => self::number($v['px'], 0, 1, $collection, 'px'),
-                'py' => self::number($v['py'], 0, 1, $collection, 'py'),
-            ]),
+            'pagePhotos' => self::crop($v, $existingAssets, $collection, 'asset'),
             'pageCaptions' => self::item($v, $collection, ['text'], static fn (array $v): array => [
                 'text' => self::text($v['text'], 80, $collection, 'text'),
             ]),
@@ -532,12 +533,53 @@ readonly final class CalendarContentRules
             throw self::invalid($collection, 'photo');
         }
 
-        return self::item($value, $collection, ['asset', 'zoom', 'px', 'py'], static fn (array $v): array => [
-            'asset' => self::asset($v['asset'], $existingAssets, false, $collection, 'photo'),
-            'zoom' => self::number($v['zoom'], 1, 3, $collection, 'zoom'),
-            'px' => self::number($v['px'], 0, 1, $collection, 'px'),
-            'py' => self::number($v['py'], 0, 1, $collection, 'py'),
-        ]);
+        return self::crop($value, $existingAssets, $collection, 'photo');
+    }
+
+    /**
+     * A photo and its crop in the frame — `{asset, zoom 1–5, px 0–1, py 0–1}` plus the optional
+     * `rotate` (−180…180°) and `flip` (only `true`; absent = not mirrored). The JS writes the
+     * optional keys only when they are not default (`model/photo-crop.js` `cropItem`), so an
+     * unedited photo keeps the pre-K14 item. Stored as sent.
+     *
+     * @param array<mixed> $value
+     * @param array<string, true> $existingAssets
+     * @return array<string, mixed>
+     *
+     * @throws InvalidCalendarChange
+     */
+    private static function crop(array $value, array $existingAssets, string $collection, string $assetField): array
+    {
+        $keys = ['asset', 'zoom', 'px', 'py'];
+
+        foreach (self::CROP_OPTIONAL_KEYS as $optional) {
+            if (array_key_exists($optional, $value)) {
+                $keys[] = $optional;
+            }
+        }
+
+        return self::item($value, $collection, $keys, static function (array $v) use ($existingAssets, $collection, $assetField): array {
+            $crop = [
+                'asset' => self::asset($v['asset'], $existingAssets, false, $collection, $assetField),
+                'zoom' => self::number($v['zoom'], 1, self::PHOTO_ZOOM_MAX, $collection, 'zoom'),
+                'px' => self::number($v['px'], 0, 1, $collection, 'px'),
+                'py' => self::number($v['py'], 0, 1, $collection, 'py'),
+            ];
+
+            if (array_key_exists('rotate', $v)) {
+                $crop['rotate'] = self::number($v['rotate'], -180, 180, $collection, 'rotate');
+            }
+
+            if (array_key_exists('flip', $v)) {
+                if ($v['flip'] !== true) {
+                    throw self::invalid($collection, 'flip');
+                }
+
+                $crop['flip'] = true;
+            }
+
+            return $crop;
+        });
     }
 
     /**

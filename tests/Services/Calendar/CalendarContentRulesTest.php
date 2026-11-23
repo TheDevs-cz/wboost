@@ -283,7 +283,12 @@ final class CalendarContentRulesTest extends TestCase
         yield ['specialPages', ['layout' => 1.5]];
         yield ['pagePhotos', ['asset' => null]];
         yield ['pagePhotos', ['zoom' => 0.9]];
-        yield ['pagePhotos', ['zoom' => 3.1]];
+        yield ['pagePhotos', ['zoom' => 5.1]];
+        yield ['pagePhotos', ['rotate' => 180.5]];
+        yield ['pagePhotos', ['rotate' => -181]];
+        yield ['pagePhotos', ['rotate' => '90']];
+        yield ['pagePhotos', ['flip' => false]];
+        yield ['pagePhotos', ['flip' => 'yes']];
         yield ['pagePhotos', ['px' => 1.01]];
         yield ['pagePhotos', ['py' => '0.5']];
         yield ['pageCaptions', ['text' => str_repeat('a', 81)]];
@@ -302,7 +307,9 @@ final class CalendarContentRulesTest extends TestCase
         yield ['pageContent', ['photo' => self::ASSET]];
         yield ['pageContent', ['photo' => ['asset' => self::ASSET]]];
         yield ['pageContent', ['photo' => ['asset' => '0196f000-0000-7000-8000-00000000dead', 'zoom' => 1, 'px' => 0.5, 'py' => 0.5]]];
-        yield ['pageContent', ['photo' => ['asset' => self::ASSET, 'zoom' => 3.5, 'px' => 0.5, 'py' => 0.5]]];
+        yield ['pageContent', ['photo' => ['asset' => self::ASSET, 'zoom' => 5.5, 'px' => 0.5, 'py' => 0.5]]];
+        yield ['pageContent', ['photo' => ['asset' => self::ASSET, 'zoom' => 1, 'px' => 0.5, 'py' => 0.5, 'flip' => false]]];
+        yield ['pageContent', ['photo' => ['asset' => self::ASSET, 'zoom' => 1, 'px' => 0.5, 'py' => 0.5, 'rotate' => 200]]];
         yield ['pageContent', ['photo' => ['asset' => self::ASSET, 'zoom' => 1, 'px' => 0.5, 'py' => 0.5, 'url' => 'https://example.com/x.jpg']]];
         yield ['pageGroups', ['page' => 'cover']];
         yield ['pageGroups', ['page' => 'sp:intro']];
@@ -316,6 +323,28 @@ final class CalendarContentRulesTest extends TestCase
         yield ['pageGroups', ['lines' => ['a' => ['label' => 'a', 'value' => 'b']]]];
         yield ['pageGroups', ['highlight' => 'yes']];
         yield ['pageGroups', ['pos' => -1]];
+    }
+
+    /**
+     * The crop of a photo (feedback K14): `rotate` and `flip` are optional — an item without them is
+     * the pre-K14 shape and stays valid — and are stored only as sent; `flip` has one spelling (true).
+     */
+    public function testPhotoCropTakesOptionalRotationAndMirror(): void
+    {
+        $plain = ['asset' => self::ASSET, 'zoom' => 1, 'px' => 0.5, 'py' => 0.5];
+        $turned = [...$plain, 'zoom' => 5, 'rotate' => -92.5, 'flip' => true];
+
+        self::assertSame($plain, self::validate(new CalendarContentOp('pagePhotos', 'w05', $plain)));
+        self::assertSame($turned, self::validate(new CalendarContentOp('pagePhotos', 'w05', $turned)));
+        self::assertSame([...$plain, 'rotate' => 180], self::validate(new CalendarContentOp('pagePhotos', 'w05', [...$plain, 'rotate' => 180])));
+        self::assertSame([...$plain, 'flip' => true], self::validate(new CalendarContentOp('pagePhotos', 'w05', [...$plain, 'flip' => true])));
+
+        $intro = self::pageItems()['pageContent']['sp:intro'];
+        $stored = self::validate(new CalendarContentOp('pageContent', 'sp:intro', [...$intro, 'photo' => $turned]));
+        self::assertSame($turned, $stored['photo'] ?? null);
+
+        self::assertInvalid(new CalendarContentOp('pagePhotos', 'w05', [...$turned, 'flipY' => true]), 'unknown crop key');
+        self::assertInvalid(new CalendarContentOp('pagePhotos', 'w05', ['asset' => self::ASSET, 'zoom' => 1, 'px' => 0.5, 'rotate' => 0]), 'missing py');
     }
 
     public function testIdsAndPageKeys(): void

@@ -76,7 +76,7 @@ readonly final class DescribeCalendarChange
                 $removed => 'Odebral fotku',
                 $isNew => 'Nahrál fotku',
                 ($old['asset'] ?? null) !== ($new['asset'] ?? null) => 'Vyměnil fotku',
-                default => 'Posunul fotku',
+                default => self::cropChange($old, $new),
             }, $label),
             'pageCaptions' => self::labelled($removed ? 'Odebral popisek' : 'Upravil popisek', $label),
             'pageImages' => self::labelled($removed ? 'Odebral obrázky strany' : 'Upravil obrázky strany', $label),
@@ -169,8 +169,22 @@ readonly final class DescribeCalendarChange
             $newPhoto === null => 'Odebral fotku',
             $oldPhoto === null => 'Nahrál fotku',
             ($oldPhoto['asset'] ?? null) !== ($newPhoto['asset'] ?? null) => 'Vyměnil fotku',
-            default => 'Posunul fotku',
+            default => self::cropChange($oldPhoto, $newPhoto),
         }, $label);
+    }
+
+    /**
+     * A new crop of the same photo: a pan or a zoom „posunul“, a quarter turn, the
+     * straightening or the mirror of the photo editor (feedback K14) „upravil“.
+     *
+     * @param array<mixed> $old
+     * @param array<mixed> $new
+     */
+    private static function cropChange(array $old, array $new): string
+    {
+        $turned = ($old['rotate'] ?? 0) != ($new['rotate'] ?? 0) || ($old['flip'] ?? false) !== ($new['flip'] ?? false);
+
+        return $turned ? 'Upravil fotku' : 'Posunul fotku';
     }
 
     /**

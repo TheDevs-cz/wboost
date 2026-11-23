@@ -1,6 +1,7 @@
 // Content collections (architecture §B.6, §E.7).
 
 import { daysInMonth, iso, parts } from '../generate/dates.js';
+import { cropItem } from './photo-crop.js';
 
 const def = (o) => Object.freeze({ clientWritable: false, ordered: false, dated: false, pageKeyed: false, ...o });
 
@@ -107,7 +108,8 @@ export function pageContentOf(content, pageKey) {
     for (const key of Object.keys(defaults)) {
         if (key === 'photo') {
             const p = stored.photo;
-            out.photo = p && typeof p === 'object' && typeof p.asset === 'string' ? { asset: p.asset, zoom: Number(p.zoom) || 1, px: Number.isFinite(p.px) ? p.px : 0.5, py: Number.isFinite(p.py) ? p.py : 0.5 } : null;
+            // the crop model of `pagePhotos` (model/photo-crop.js): rotate / flip only when not default
+            out.photo = p && typeof p === 'object' && typeof p.asset === 'string' ? cropItem(p.asset, p) : null;
         } else {
             out[key] = typeof stored[key] === 'string' ? stored[key] : '';
         }

@@ -2,6 +2,7 @@
 
 import { COLORS, ptToMm } from '../model/defaults.js';
 import { cssFont } from '../model/fonts.js';
+import { photoPlacement, transformAttr } from '../model/photo-crop.js';
 // (effects.js imports the string helpers of this file back — a cycle of call-time uses only)
 import { drawnRect, mayBeTransparent, withEffects } from './effects.js';
 
@@ -152,15 +153,13 @@ function photoParts(box, asset, crop, radius, opts, idPrefix) {
     const href = assetUrl(asset, opts && opts.quality);
     if (!href) return null;
     const id = `${idPrefix}-p`;
-    const zoom = Math.max(1, Number(crop && crop.zoom) || 1);
-    const px = crop && Number.isFinite(crop.px) ? crop.px : 0.5;
-    const py = crop && Number.isFinite(crop.py) ? crop.py : 0.5;
+    // the crop (model/photo-crop.js): zoom × cover, pan, rotation, mirror — only a transform, never
+    // a filter, so the uploaded JPEG stays byte for byte in the print PDF
+    const placed = photoPlacement(box, asset, crop);
     let image;
-    if (asset.width > 0 && asset.height > 0) {
-        const ratio = asset.width / asset.height;
-        const dh = Math.max(box.w / ratio, box.h) * zoom;
-        const dw = dh * ratio;
-        image = `<image href="${esc(href)}" x="${num(box.x + (box.w - dw) * px)}" y="${num(box.y + (box.h - dh) * py)}" width="${num(dw)}" height="${num(dh)}" preserveAspectRatio="none"/>`;
+    if (placed) {
+        const transform = transformAttr(placed, num);
+        image = `<image href="${esc(href)}" x="${num(placed.x)}" y="${num(placed.y)}" width="${num(placed.w)}" height="${num(placed.h)}" preserveAspectRatio="none"${transform ? ` transform="${transform}"` : ''}/>`;
     } else {
         image = `<image href="${esc(href)}" x="${num(box.x)}" y="${num(box.y)}" width="${num(box.w)}" height="${num(box.h)}" preserveAspectRatio="xMidYMid slice"/>`;
     }

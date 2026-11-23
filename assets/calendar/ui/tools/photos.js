@@ -27,13 +27,17 @@
 //
 // DOM hooks: `[data-photo-bulk]` (the multi-file input), `[data-photo-row="<pageKey>"]`,
 // `[data-photo-file]`, `[data-photo-caption]`, `[data-photo-remove]`, `[data-photo-count]`,
-// `[data-photo-progress]`, `[data-photo-name]` (the file line; `data-photo-dpi` when too small).
+// `[data-photo-progress]`, `[data-photo-name]` (the file line; `data-photo-dpi` when too small),
+// `[data-photo-edit]` („Upravit fotku“ — the photo editor of `ui/photo-editor.js` opens INLINE under
+// the row, `.cal-pe-inline[data-photo-editing="<pageKey>"]`: a floating panel would sit under this
+// Bootstrap modal and outside its focus trap; one at a time, a rebuild of the list discards it).
 
 import { weekPages } from '../../generate/pages.js';
 import { captionFromFileName } from '../../model/photo-caption.js';
 import { describeWarning } from '../../render/warning-text.js';
 import { lowPhotoDpi, photoDpi } from '../../render/warnings.js';
 import { h, icon } from '../dom.js';
+import { mountPhotoEditor, weekPhotoEditing } from '../photo-editor.js';
 
 export const CAPTION_MAX = 80;
 const PARALLEL_UPLOADS = 3;
@@ -272,6 +276,11 @@ export function mountPhotosTool(root, ctx) {
             { type: 'button', class: 'btn icon xs btn-ghost', 'aria-label': 'Odebrat fotku', title: 'Odebrat fotku', 'data-photo-remove': '', onClick: () => store.removeItem('pagePhotos', page.key, page.title) },
             icon('trash', 's16'),
         );
+        const edit = h(
+            'button',
+            { type: 'button', class: 'btn icon xs btn-ghost', 'aria-label': `Upravit fotku: ${page.title}`, title: 'Upravit fotku — výřez, otočení, zrcadlení', 'data-photo-edit': '', onClick: () => toggleEditor(page) },
+            icon('image-edit', 's16'),
+        );
         const meta = h('span', { class: 'cap cal-phm', 'data-photo-name': '', hidden: true });
         const cell = h('span', { class: 'cal-phc' }, captions ? h('span', { class: 'inp sm' }, caption) : null, meta);
         const el = h(
@@ -280,9 +289,9 @@ export function mountPhotosTool(root, ctx) {
             tile,
             h('span', { class: 'cal-pht' }, h('b', null, page.title), h('span', { class: 'cap' }, page.subtitle)),
             cell,
-            h('span', { class: 'cal-phx' }, remove),
+            h('span', { class: 'cal-phx' }, edit, remove),
         );
-        return { key: page.key, el, tile, caption, remove, meta, cell, captions };
+        return { key: page.key, page, el, tile, caption, remove, edit, meta, cell, captions };
     }
 
     /** The file line of a filled row: name (middle ellipsis) · pixel size · low-dpi hint. */
@@ -325,6 +334,11 @@ export function mountPhotosTool(root, ctx) {
         row.tile.setAsset(asset);
         paintMeta(row, asset);
         row.remove.hidden = !content.pagePhotos[row.key];
+        const editable = weekPhotoEditing(ctx, row.page);
+        row.edit.hidden = !editable;
+        // the photo went away (or was replaced) under an open editor: it edits nothing any more
+        if (editing && editing.key === row.key && (!editable || editable.asset.id !== editing.asset)) closeEditor();
+        row.edit.setAttribute('aria-expanded', String(Boolean(editing && editing.key === row.key)));
         row.el.classList.toggle('has', Boolean(content.pagePhotos[row.key]));
         if (row.caption && document.activeElement !== row.caption) {
             const item = content.pageCaptions[row.key];
@@ -339,7 +353,48 @@ export function mountPhotosTool(root, ctx) {
         count.dataset.photoCount = `${filled}/${rows.length}`;
     }
 
+    // ---- „Upravit fotku“ inline under its row ------------------------------------------------
+
+    let editing = null; // { key, host, editor }
+    function closeEditor() {
+        if (!editing) return;
+        const { host, editor, key } = editing;
+        editing = null;
+        editor.destroy();
+        host.remove();
+        const row = rows.find((r) => r.key === key);
+        if (row) row.edit.setAttribute('aria-expanded', 'false');
+    }
+    function toggleEditor(page) {
+        const again = editing && editing.key === page.key;
+        closeEditor();
+        if (again) return;
+        const row = rows.find((r) => r.key === page.key);
+        const options = weekPhotoEditing(ctx, row ? row.page : page);
+        if (!row || !options) return;
+        const host = h('div', { class: 'cal-pe-inline', 'data-photo-editing': page.key });
+        row.el.after(host);
+        const back = () => row.edit.focus({ preventScroll: true });
+        const editor = mountPhotoEditor(host, {
+            ...options,
+            onDone: (next) => {
+                closeEditor();
+                options.save(next);
+                back();
+            },
+            onCancel: () => {
+                closeEditor();
+                back();
+            },
+        });
+        editing = { key: page.key, asset: options.asset.id, host, editor };
+        row.edit.setAttribute('aria-expanded', 'true');
+        host.scrollIntoView({ block: 'nearest' });
+        editor.focus();
+    }
+
     function build() {
+        closeEditor();
         signature = signatureOf();
         rows = weeks().map(buildRow);
         list.replaceChildren(...rows.map((row) => row.el));
@@ -371,6 +426,7 @@ export function mountPhotosTool(root, ctx) {
 
     return {
         destroy() {
+            closeEditor();
             unsubscribe();
             root.replaceChildren();
         },

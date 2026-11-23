@@ -38,6 +38,7 @@ import './styles/nocturne/calendar-content.css';
 import './styles/nocturne/calendar-tools.css';
 import './styles/nocturne/calendar-preview.css';
 import './styles/nocturne/calendar-dialogs.css';
+import './styles/nocturne/calendar-photo.css';
 // AI sken (docs/architecture/ai-scan.md § "UI").
 import './styles/nocturne/ai-scan.css';
 

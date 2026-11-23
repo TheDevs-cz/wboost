@@ -3,6 +3,7 @@
 
 import { createDayContext } from '../generate/day.js';
 import { frameAlign, isElementVisible } from '../model/elements.js';
+import { photoDpi as cropDpi, isPortraitAsPlaced } from '../model/photo-crop.js';
 import { layoutWeekPage, placeMonthText } from './week-layout.js';
 import { printLanguages } from '../generate/languages.js';
 import { specialPageIssues } from './special.js';
@@ -15,14 +16,23 @@ const warn = (page, kind, target, facts) => {
     return warning;
 };
 
-/** Effective dpi of a photo placed with cover scale × zoom into a frame (mm, bleed part included). */
-export function photoDpi(assetInfo, frameBox, zoom) {
-    const mmPerPx = Math.max(frameBox.w / assetInfo.width, frameBox.h / assetInfo.height) * (zoom || 1);
-    return Math.round(25.4 / mmPerPx);
+/**
+ * Effective dpi of a photo placed into a frame (mm, bleed part included) — `crop` is the stored crop
+ * (`model/photo-crop.js`: cover scale × zoom, and a turned picture needs a larger cover scale) or
+ * just a zoom.
+ */
+export function photoDpi(assetInfo, frameBox, crop) {
+    return cropDpi(frameBox, assetInfo, typeof crop === 'object' && crop ? crop : { zoom: crop || 1 });
 }
 
-/** Below this effective resolution a week photo gets the „Nízká kvalita fotky“ warning. */
+/**
+ * Below this effective resolution a week photo gets the „Nízká kvalita fotky“ warning; a print
+ * photo should ideally have `PHOTO_IDEAL_DPI`. The ONE source of both numbers — the warning texts
+ * (`warning-text.js`), the picture sizes of a scan (`ui/picture-size.js`) and the photo editor's
+ * readout (`ui/photo-editor.js`) import them.
+ */
 export const PHOTO_MIN_DPI = 200;
+export const PHOTO_IDEAL_DPI = 300;
 
 /**
  * The effective dpi of a week page's photo when it is under `PHOTO_MIN_DPI`, else `null` (also for
@@ -30,7 +40,7 @@ export const PHOTO_MIN_DPI = 200;
  */
 export function lowPhotoDpi(design, photo, assetInfo) {
     if (!design.layout || !photo || !assetInfo || !(assetInfo.width > 0 && assetInfo.height > 0) || !isElementVisible(design, 'photo')) return null;
-    const dpi = photoDpi(assetInfo, design.layout.boxes.photo, photo.zoom);
+    const dpi = photoDpi(assetInfo, design.layout.boxes.photo, photo);
     return dpi < PHOTO_MIN_DPI ? dpi : null;
 }
 
@@ -48,7 +58,8 @@ export function pageWarnings(doc, page, opts) {
     const asset = photo ? assets[photo.asset] : null;
     const box = design.layout.boxes.photo;
     if (asset && asset.width > 0 && asset.height > 0 && isElementVisible(design, 'photo')) {
-        if (asset.height > asset.width && box.w > box.h) {
+        // as turned: a portrait picture rotated by 90° fills a landscape frame
+        if (isPortraitAsPlaced(asset, photo) && box.w > box.h) {
             // the visible share of the photo's height: the frame's height over the drawn height (cover × zoom)
             const drawnH = Math.max(box.w * (asset.height / asset.width), box.h) * Math.max(1, photo.zoom || 1);
             out.push(warn(page, 'portrait', { el: 'photo' }, { width: asset.width, height: asset.height, keep: Math.min(1, box.h / drawnH) }));

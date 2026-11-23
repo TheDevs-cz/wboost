@@ -88,7 +88,8 @@ export const LIMITS = Object.freeze({
     percent: { min: 0, max: 100, step: 5 },
     generic: { min: 0, max: 30, step: 0.5 },
     bleedMm: { min: 0, max: 10, step: 0.5 },
-    photoZoom: { min: 1, max: 3, step: 0.01 },
+    // the crop of a photo (model/photo-crop.js): × the cover scale; mirror CalendarContentRules::PHOTO_ZOOM_MAX
+    photoZoom: { min: 1, max: 5, step: 0.01 },
     // layer effects of the pictures (model/effects.js)
     fxSize: { min: 0, max: 30, step: 0.1 },
     fxDistance: { min: 0, max: 30, step: 0.1 },

@@ -22,7 +22,9 @@
 //
 // What it draws (elements are reused between updates, so focus survives a re-render):
 //   .cal-5ps[data-photo-surface]      drag surface over the photo frame: dragging pans the crop
-//   [data-photo-upload] (file input), [data-photo-zoom] (range 100–300), [data-photo-remove]
+//   [data-photo-upload] (file input), [data-photo-zoom] (range 100–500), [data-photo-remove],
+//   [data-photo-edit] („Upravit fotku“ → the photo editor of `ui/photo-editor.js` in a floating panel;
+//                     its draft is previewed on the page and re-applied after every re-render)
 //   [data-caption-edit]               pencil at the caption → caption editor (`n / 80 znaků`)
 //   [data-day-plus="<date>"]          plus per day row, on the OUTER side of its frame
 //   [data-day-row="<date>"]           compact mode only: the day row as the button of the plus menu
@@ -32,7 +34,8 @@
 //                                     with its fixes (`bindWarningBadge`, `[data-cal-popover="warning"]`)
 //   opts.warningHandlers?()           extra warning actions of the step (`ui/warnings.js` Handlers);
 //                                     the overlay itself does 'photo-crop' and 'day'
-//   API: `focusCrop()` — points at the crop (drag surface pulse, zoom slider focused);
+//   API: `focusCrop()` — opens the photo editor (K14); for a photo without a pixel size it points
+//        at the crop (drag surface pulse, zoom slider focused);
 //        `openDay(date)` — the plus menu of a day row (its collections and events, removable)
 // Popovers carry `data-cal-popover="plus | waste | event | comment | caption"`; inside:
 //   [data-plus-option="waste|event|comment"], [data-day-remove="<collection>/<id>"],
@@ -42,10 +45,11 @@
 // item-wise and the server lists it in Historie. Nothing here touches the layout.
 
 import { parts } from '../generate/dates.js';
-import { LIMITS } from '../model/defaults.js';
 import { newId, sorted } from '../model/content.js';
 import { isElementVisible } from '../model/elements.js';
+import { ZOOM_MAX, ZOOM_MIN, cropItem, normalizeCrop, panBy, photoPlacement, transformAttr, zoomTo } from '../model/photo-crop.js';
 import { h, icon, relativeTime } from './dom.js';
+import { closePhotoEditor, openPhotoEditor, weekPhotoEditing } from './photo-editor.js';
 import { closePopover, openPopover } from './popover.js';
 import { badgeLabel, bindWarningBadge, dayWarnings, photoWarnings } from './warnings.js';
 
@@ -58,8 +62,6 @@ const GAP = 6;
 export const COMPACT_ROW = 20;
 const DRAG_PX = 3;
 
-const clamp01 = (v) => Math.min(1, Math.max(0, v));
-const round4 = (v) => Math.round(v * 10000) / 10000;
 const dayLabel = (date) => {
     const p = parts(date);
     return `${p.d}. ${p.m}.`;
@@ -68,13 +70,6 @@ const dayTitle = (date) => {
     const p = parts(date);
     return `${p.d}. ${p.m}. ${p.y}`;
 };
-
-/** Drawn size (mm) of a photo in its frame: cover scale × zoom — the maths of `photoIn`. */
-function drawnSize(box, asset, zoom) {
-    const ratio = asset.width / asset.height;
-    const dh = Math.max(box.w / ratio, box.h) * Math.max(1, zoom || 1);
-    return { dw: dh * ratio, dh };
-}
 
 /** Which page sides carry day buttons: a frame's outer side is the one nearer to its page edge. */
 export function outerSides(geometry, pageWidth) {
@@ -105,12 +100,14 @@ export function mountStep5Overlay(overlayRoot, ctx, opts = {}) {
     const fileInput = h('input', { type: 'file', class: 'sr', accept: PHOTO_TYPES.join(','), 'data-photo-upload': true });
     const uploadText = h('span', null, 'Nahrát fotku');
     const uploadLabel = h('label', { class: 'btn sm btn-tertiary cal-5up' }, fileInput, icon('image', 's16'), uploadText);
-    const zoomInput = h('input', { type: 'range', min: String(LIMITS.photoZoom.min * 100), max: String(LIMITS.photoZoom.max * 100), step: '1', value: '100', 'aria-label': 'Zvětšení fotky', 'data-photo-zoom': true });
+    // „Upravit fotku“ (feedback K14): the whole crop — zoom, pan, quarter turns, straightening, mirror
+    const editButton = h('button', { type: 'button', class: 'btn sm btn-tertiary', 'data-photo-edit': true, title: 'Výřez, otočení a zrcadlení fotky' }, icon('image-edit', 's16'), h('span', null, 'Upravit fotku'));
+    const zoomInput = h('input', { type: 'range', min: String(ZOOM_MIN * 100), max: String(ZOOM_MAX * 100), step: '1', value: '100', 'aria-label': 'Zvětšení fotky', 'data-photo-zoom': true });
     const zoomValue = h('output', { class: 'cal-5zv' }, '100 %');
     const zoomWrap = h('span', { class: 'cal-5z' }, icon('minus', 's14'), zoomInput, icon('plus', 's14'), zoomValue);
     const hint = h('span', { class: 'cap cal-5hint' }, 'Fotku posunete tažením');
     const removeButton = h('button', { type: 'button', class: 'btn icon sm btn-ghost', 'data-photo-remove': true, 'aria-label': 'Odebrat fotku', title: 'Odebrat fotku' }, icon('trash', 's16'));
-    const controls = h('div', { class: 'cal-5ph', hidden: true }, uploadLabel, zoomWrap, hint, removeButton);
+    const controls = h('div', { class: 'cal-5ph', hidden: true }, uploadLabel, editButton, zoomWrap, hint, removeButton);
     if (opts.controls) opts.controls.append(controls);
 
     const photoImage = () => {
@@ -118,24 +115,56 @@ export function mountStep5Overlay(overlayRoot, ctx, opts = {}) {
         return svg ? svg.querySelector('g[data-el="photo"] image') : null;
     };
 
-    /** Moves the photo's `<image>` without a re-render (live feedback of a pan or a zoom). */
+    /**
+     * Moves the photo's `<image>` without a re-render (live feedback of a pan, a zoom or the photo
+     * editor's draft) — `photoPlacement` is what the renderer places it with.
+     */
     function previewCrop(crop) {
         const image = photoImage();
         const asset = assetOf(photoItem());
-        if (!image || !asset || !(asset.width > 0) || !(asset.height > 0)) return;
-        const box = photoBox();
-        const { dw, dh } = drawnSize(box, asset, crop.zoom);
-        image.setAttribute('x', String(box.x + (box.w - dw) * crop.px));
-        image.setAttribute('y', String(box.y + (box.h - dh) * crop.py));
-        image.setAttribute('width', String(dw));
-        image.setAttribute('height', String(dh));
+        const p = image && asset ? photoPlacement(photoBox(), asset, crop) : null;
+        if (!p) return;
+        image.setAttribute('x', String(p.x));
+        image.setAttribute('y', String(p.y));
+        image.setAttribute('width', String(p.w));
+        image.setAttribute('height', String(p.h));
+        const transform = transformAttr(p);
+        if (transform) image.setAttribute('transform', transform);
+        else image.removeAttribute('transform');
     }
 
+    /** Stores the crop of the shown page's photo (rotate / flip kept; written only when not default). */
     function writeCrop(patch) {
         const item = photoItem();
         if (!item || !last.page) return;
-        store.putItem('pagePhotos', last.page.key, { asset: item.asset, zoom: item.zoom, px: item.px, py: item.py, ...patch }, last.page.title);
+        store.putItem('pagePhotos', last.page.key, cropItem(item.asset, { ...item, ...patch }), last.page.title);
     }
+
+    // the photo editor's draft while it is open: re-applied after every re-render of the page
+    let editDraft = null;
+    function openEditor() {
+        const page = last.page;
+        const editing = weekPhotoEditing(ctx, page);
+        if (!editing) return;
+        openPhotoEditor({
+            ...editing,
+            title: `Upravit fotku — ${page.title}`,
+            anchor: editButton,
+            returnFocus: () => editButton,
+            onPreview: (crop) => {
+                editDraft = crop;
+                previewCrop(crop);
+            },
+            onDone: (next) => {
+                editDraft = null;
+                editing.save(next);
+            },
+            onCancel: () => {
+                editDraft = null;
+            },
+        });
+    }
+    editButton.addEventListener('click', openEditor);
 
     async function upload(file) {
         const page = last.page;
@@ -170,17 +199,23 @@ export function mountStep5Overlay(overlayRoot, ctx, opts = {}) {
         fileInput.value = '';
         upload(file);
     });
+    // the quick zoom keeps the picture point at the frame centre where it is (as the editor does)
+    const zoomedCrop = (item) => {
+        const asset = assetOf(item);
+        const zoom = Number(zoomInput.value) / 100;
+        return asset && asset.width > 0 && asset.height > 0 ? zoomTo(photoBox(), asset, item, zoom) : { ...normalizeCrop(item), zoom };
+    };
     zoomInput.addEventListener('input', () => {
         const item = photoItem();
         if (!item) return;
-        const zoom = Number(zoomInput.value) / 100;
         zoomValue.textContent = `${zoomInput.value} %`;
-        previewCrop({ zoom, px: item.px, py: item.py });
+        previewCrop(zoomedCrop(item));
     });
     zoomInput.addEventListener('change', () => {
-        const zoom = Math.min(LIMITS.photoZoom.max, Math.max(LIMITS.photoZoom.min, Number(zoomInput.value) / 100));
         const item = photoItem();
-        if (item && zoom !== item.zoom) writeCrop({ zoom });
+        if (!item) return;
+        const next = zoomedCrop(item);
+        if (next.zoom !== normalizeCrop(item).zoom) writeCrop(next);
     });
     removeButton.addEventListener('click', () => {
         if (photoItem() && last.page) store.removeItem('pagePhotos', last.page.key, last.page.title);
@@ -197,14 +232,13 @@ export function mountStep5Overlay(overlayRoot, ctx, opts = {}) {
         const asset = assetOf(item);
         if (!item || !asset || !(asset.width > 0) || !(asset.height > 0)) return;
         const box = photoBox();
-        const { dw, dh } = drawnSize(box, asset, item.zoom);
-        const freeX = dw - box.w > 0.01;
-        const freeY = dh - box.h > 0.01;
-        if (!freeX && !freeY) return;
+        const p = photoPlacement(box, asset, item);
+        if (!p || (p.w - p.ex < 0.01 && p.h - p.ey < 0.01)) return;
         event.preventDefault();
         closePopover();
+        closePhotoEditor();
         const scale = last.scale;
-        const start = { x: event.clientX, y: event.clientY, px: item.px, py: item.py };
+        const start = { x: event.clientX, y: event.clientY };
         let crop = null;
         surface.setPointerCapture(event.pointerId);
         surface.classList.add('drag');
@@ -212,12 +246,8 @@ export function mountStep5Overlay(overlayRoot, ctx, opts = {}) {
             const dx = e.clientX - start.x;
             const dy = e.clientY - start.y;
             if (!crop && Math.hypot(dx, dy) < DRAG_PX) return;
-            // the image moves with the pointer: x = box.x + (box.w − dw) · px
-            crop = {
-                zoom: item.zoom,
-                px: freeX ? clamp01(start.px + dx / scale / (box.w - dw)) : start.px,
-                py: freeY ? clamp01(start.py + dy / scale / (box.h - dh)) : start.py,
-            };
+            // the picture moves with the pointer, at any angle (model/photo-crop.js `panBy`)
+            crop = panBy(box, asset, item, dx / scale, dy / scale);
             previewCrop(crop);
         };
         const up = () => {
@@ -225,7 +255,7 @@ export function mountStep5Overlay(overlayRoot, ctx, opts = {}) {
             surface.removeEventListener('pointerup', up);
             surface.removeEventListener('pointercancel', up);
             surface.classList.remove('drag');
-            if (crop) writeCrop({ px: round4(crop.px), py: round4(crop.py) });
+            if (crop) writeCrop({ px: crop.px, py: crop.py });
         };
         surface.addEventListener('pointermove', move);
         surface.addEventListener('pointerup', up);
@@ -405,6 +435,11 @@ export function mountStep5Overlay(overlayRoot, ctx, opts = {}) {
     let cropPulse = 0;
     function focusCrop() {
         if (surface.hidden) return;
+        // „Posunout výřez“ (K14): the photo editor, when the photo has a known pixel size
+        if (!editButton.hidden) {
+            openEditor();
+            return;
+        }
         surface.classList.remove('pulse');
         // restart the animation
         void surface.offsetWidth;
@@ -480,6 +515,7 @@ export function mountStep5Overlay(overlayRoot, ctx, opts = {}) {
         if (pageKey !== (page ? page.key : null)) {
             pageKey = page ? page.key : null;
             closePopover();
+            closePhotoEditor();
         }
         last = { geometry, scale, page, view };
         const seen = new Set();
@@ -495,6 +531,8 @@ export function mountStep5Overlay(overlayRoot, ctx, opts = {}) {
         controls.hidden = !photoOn;
         uploadText.textContent = item ? 'Vyměnit fotku' : 'Nahrát fotku';
         zoomWrap.hidden = !item;
+        editButton.hidden = !(asset && asset.width > 0 && asset.height > 0);
+        if (editDraft && item) previewCrop(editDraft);
         hint.hidden = !item;
         removeButton.hidden = !item;
         if (item && document.activeElement !== zoomInput) {
@@ -607,6 +645,7 @@ export function mountStep5Overlay(overlayRoot, ctx, opts = {}) {
         destroy() {
             clearTimeout(cropPulse);
             closePopover();
+            closePhotoEditor();
             controls.remove();
             surface.remove();
             for (const el of nodes.values()) el.remove();
