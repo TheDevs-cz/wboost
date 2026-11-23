@@ -3386,6 +3386,10 @@
              "color": null,
              "opacity": 100
             },
+            "numBg": {
+             "color": null,
+             "opacity": 100
+            },
             "satColor": "#2F78B7",
             "sunColor": "#BE3A2E",
             "numberSide": "end",
@@ -3872,6 +3876,10 @@
        },
        "cal": {
         "bg": {
+         "color": null,
+         "opacity": 100
+        },
+        "numBg": {
          "color": null,
          "opacity": 100
         },
