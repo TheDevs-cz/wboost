@@ -37,7 +37,7 @@ import { MIN_LONG_SIDE_CALENDAR, MIN_SHORT_SIDE_CALENDAR, inspectFiles } from '.
 import { morph } from '../../ai-scan/page/app.js';
 import { observe, needsRender } from '../../ai-scan/page/wait.js';
 import * as views from './scan/views.js';
-import { cropPicture, previewMarkup } from './scan/preview.js';
+import { cropPicture, photoCutBox, previewMarkup } from './scan/preview.js';
 
 const IN_PROGRESS = ['checking', 'queued', 'running'];
 const ENDED_BADLY = ['stopped', 'failed', 'refused'];
@@ -326,7 +326,10 @@ class CalendarScan {
         const key = p && p.photoBox ? `${this.scan.id}:${p.photoBox.join(',')}` : null;
         if (!key || (this.photo && this.photo.key === key) || this.photoLoading === key) return;
         this.photoLoading = key;
-        const cut = await cropPicture(this.image('working'), p.photoBox);
+        // the whole photo box, bleed included — the trim-only photoBox would be stretched over it (K16)
+        const page = this.store.getState().doc.design.page;
+        const box = p.layout && p.layout.boxes ? p.layout.boxes.photo : null;
+        const cut = await cropPicture(this.image('working'), photoCutBox(p, page), box && box.h > 0 ? box.w / box.h : null);
         this.photoLoading = null;
         if (!cut || this.destroyed || !this.proposal || !this.scan || `${this.scan.id}:${(this.proposal.photoBox || []).join(',')}` !== key) {
             if (cut) URL.revokeObjectURL(cut.url);

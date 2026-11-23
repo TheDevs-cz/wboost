@@ -72,10 +72,36 @@ export function sampleWeekLabel(doc, proposal) {
 }
 
 /**
- * Cuts `box` (`[x, y, w, h]` in source pixels) out of a same-origin picture → `{ url, width, height }`
- * (a blob URL the caller revokes), or null when the picture cannot be read.
+ * The part of the uploaded picture the preview puts into the photo box: `[x, y, w, h]` in source
+ * pixels — the WHOLE proposed photo box, bleed included, so its ratio is the box's and the
+ * renderer's cover fit places it 1:1. The scanner's `photoBox` is clipped to the picture: a box
+ * running 5 mm into the bleed got the trim-only cut stretched over it (~4.5 % larger, shifted), and
+ * what is printed in the photo — the source's caption plate — showed beside the proposed one (K16).
+ * Falls back to `photoBox` when the layout or the page box is missing.
+ *
+ * @param proposal  `{ pageBox, photoBox, layout }` of `GET proposal`
+ * @param page      `design.page` (`{ width, height }` mm)
  */
-export async function cropPicture(src, box) {
+export function photoCutBox(proposal, page) {
+    const box = proposal && proposal.layout && proposal.layout.boxes ? proposal.layout.boxes.photo : null;
+    const pb = proposal ? proposal.pageBox : null;
+    const fallback = (proposal && proposal.photoBox) || null;
+    if (!box || !Array.isArray(pb) || pb.length !== 4 || !page || !(page.width > 0) || !(page.height > 0)) return fallback;
+    if (![box.x, box.y, box.w, box.h].every(Number.isFinite) || box.w <= 0 || box.h <= 0) return fallback;
+    const sx = pb[2] / page.width;
+    const sy = pb[3] / page.height;
+    return [pb[0] + box.x * sx, pb[1] + box.y * sy, box.w * sx, box.h * sy];
+}
+
+/**
+ * Cuts `box` (`[x, y, w, h]` in source pixels) out of a same-origin picture → `{ url, width, height }`
+ * (a blob URL the caller revokes), or null when the picture cannot be read. A box reaching past the
+ * picture (the bleed of `photoCutBox`) is filled by stretching the picture's edge pixels — only the
+ * trimmed page is shown, the filler just keeps the cut's ratio. `ratio` (w / h, optional) is the
+ * ratio of the box in page mm: a picture of another ratio than the page is stretched onto the page,
+ * as the scanner reads it, so the cut is too.
+ */
+export async function cropPicture(src, box, ratio = null) {
     if (!box || box[2] < 2 || box[3] < 2) return null;
     try {
         const img = new Image();
@@ -86,8 +112,26 @@ export async function cropPicture(src, box) {
         const scale = Math.min(1, 1600 / Math.max(w, h));
         const canvas = document.createElement('canvas');
         canvas.width = Math.max(1, Math.round(w * scale));
-        canvas.height = Math.max(1, Math.round(h * scale));
-        canvas.getContext('2d').drawImage(img, x, y, w, h, 0, 0, canvas.width, canvas.height);
+        canvas.height = Math.max(1, Math.round(ratio > 0 ? canvas.width / ratio : h * scale));
+        const sy = canvas.height / h;
+        const g = canvas.getContext('2d');
+        const W = img.naturalWidth;
+        const H = img.naturalHeight;
+        // the part of the box inside the picture, in source px, and where it goes on the canvas
+        const ix0 = Math.max(0, x), iy0 = Math.max(0, y);
+        const ix1 = Math.min(W, x + w), iy1 = Math.min(H, y + h);
+        if (ix1 - ix0 < 1 || iy1 - iy0 < 1) return null;
+        const cx = (v) => (v - x) * scale, cy = (v) => (v - y) * sy;
+        // edges first (stretched 1 px strips), the picture over them
+        const cols = [[x, ix0, ix0, 1], [ix0, ix1, ix0, ix1 - ix0], [ix1, x + w, ix1 - 1, 1]];
+        const rows = [[y, iy0, iy0, 1], [iy0, iy1, iy0, iy1 - iy0], [iy1, y + h, iy1 - 1, 1]];
+        for (const [dx0, dx1, sxp, sw] of cols) {
+            if (dx1 - dx0 <= 0) continue;
+            for (const [dy0, dy1, syp, sh] of rows) {
+                if (dy1 - dy0 <= 0) continue;
+                g.drawImage(img, sxp, syp, sw, sh, cx(dx0), cy(dy0), cx(dx1) - cx(dx0), cy(dy1) - cy(dy0));
+            }
+        }
         const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.86));
         return blob ? { url: URL.createObjectURL(blob), width: canvas.width, height: canvas.height } : null;
     } catch (e) {
