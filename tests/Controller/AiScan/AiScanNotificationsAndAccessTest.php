@@ -336,14 +336,14 @@ final class AiScanNotificationsAndAccessTest extends WebTestCase
     }
 
     /**
-     * @return array{state: string, requestSentAt: null|string, credits: array<string, null|int>, historyCount: int, queue: array{position: null|int}, fonts: array{faces: int}}
+     * @return array{state: string, requestSentAt: null|string, credits: array<string, null|int>, historyCount: int, queue: array{position: null|int}, fonts: array{faces: int, families: int}, palette: array{colours: int}}
      */
     private function entry(): array
     {
         $this->client->request('GET', sprintf('/project/%s/ai-scan/entry', self::PROJECT));
         self::assertResponseIsSuccessful();
 
-        /** @var array{entry: array{state: string, requestSentAt: null|string, credits: array<string, null|int>, historyCount: int, queue: array{position: null|int}, fonts: array{faces: int}}} $answer */
+        /** @var array{entry: array{state: string, requestSentAt: null|string, credits: array<string, null|int>, historyCount: int, queue: array{position: null|int}, fonts: array{faces: int, families: int}, palette: array{colours: int}}} $answer */
         $answer = self::decoded((string) $this->client->getResponse()->getContent());
 
         return $answer['entry'];
