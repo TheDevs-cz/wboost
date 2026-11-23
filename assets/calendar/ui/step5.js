@@ -144,7 +144,7 @@ export function mountStep5(root, ctx) {
         ),
     );
 
-    const list = mountPageList(side, ctx, { selected: () => store.getState().ui.previewPage, onSelect: show, warningHandlers });
+    const list = mountPageList(side, ctx, { selected: () => store.getState().ui.previewPage, onSelect: show, warningHandlers, arrange: designer });
     const overlay = mountStep5Overlay(overlayRoot, ctx, { controls: controlsSlot, picture: () => picture.querySelector('svg'), warningHandlers: () => ({ 'page-content': () => openContent() }) });
 
     const current = () => store.pages()[store.getState().ui.previewPage] || null;

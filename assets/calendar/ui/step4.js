@@ -88,6 +88,8 @@ export function mountStep4(root, ctx) {
         onSelect: (index) => store.setUi({ contentView: index }),
         warningHandlers,
         views: { current: view, onPick: (next) => store.setUi({ contentView: next }) },
+        // step 4 is the designer's: „+“ between the pages, drag and the page menu (K13)
+        arrange: true,
     });
 
     // ---- the page in the middle (page and special views) -------------------------------------

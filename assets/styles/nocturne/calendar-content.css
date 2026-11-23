@@ -54,6 +54,34 @@
 .cal-spam > * > .i { flex: none; margin-top: 2px; color: var(--muted); }
 .cal-spam > * > span:last-child { display: flex; flex-direction: column; min-width: 0; }
 .cal-spam .cap { font-weight: 400; }
+.cal-spam > button[disabled] { opacity: .45; cursor: default; background: none; }
+.cal-spam > .danger, .cal-spam > .danger > .i { color: var(--rose-ink); }
+.cal-spam > .cal-spam-sep { height: 1px; margin: 3px 8px; padding: 0; background: var(--line); cursor: default; }
+
+/* ---- Pages added / moved / removed right in the list (feedback K13) ------------
+   .cal-thins = an insertion point (dotted divider + round „+“); a special page's
+   list item .cal-thw[data-special-thumb] carries .cal-thx (drag handle, „⋯“ menu)
+   over the right end of its second line. */
+.cal-thw[data-special-thumb] { position: relative; }
+.cal-thw[data-special-thumb] > .cal-th .cal-thn .cap { padding-right: 50px; }
+.cal-thx { position: absolute; right: 6px; bottom: 4px; display: flex; align-items: center; gap: 1px; }
+.cal-thx > .cal-grip, .cal-thm { display: grid; place-items: center; width: 24px; height: 22px; padding: 0; border: 0; border-radius: 7px; background: none; color: var(--muted); }
+.cal-thx > .cal-grip { cursor: grab; touch-action: none; }
+.cal-thm { cursor: pointer; }
+.cal-thx > .cal-grip:hover, .cal-thm:hover, .cal-thm[aria-expanded="true"] { background: var(--surface-3); color: var(--text); }
+.cal-thm:focus-visible { outline: 2px solid var(--lav-ink); outline-offset: 1px; }
+.cal-thw.drag > .cal-th { border-color: var(--lav); }
+.cal-thw-ghost { opacity: .92; border-radius: 12px; background: var(--surface); box-shadow: var(--shadow-3); }
+.cal-thw-ghost .cal-thx { display: none; }
+.cal-thins { position: relative; display: flex; align-items: center; justify-content: center; flex: none; height: 22px; margin: -1px 0; }
+.cal-thins::before { content: ""; position: absolute; left: 8px; right: 8px; top: 50%; border-top: 2px dotted var(--line-3); }
+.cal-thinsb { position: relative; display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 1px solid var(--line-3); background: var(--surface); color: var(--text-2); cursor: pointer; transition: background var(--dur-2), border-color var(--dur-2), color var(--dur-2); }
+.cal-thinsb:hover, .cal-thinsb[aria-expanded="true"] { border-color: var(--lav); background: var(--lav-deep); color: var(--lav-ink); }
+.cal-thinsb:focus-visible { outline: 2px solid var(--lav-ink); outline-offset: 2px; }
+.cal-thinsb.busy { cursor: progress; }
+.cal-thinsb.busy .i { animation: cal-content-spin 900ms linear infinite; }
+.cal-thl.dragging .cal-thinsb { visibility: hidden; }
+.cal-thl.dragging .cal-thins::before { border-top-color: var(--lav); }
 
 /* ---- The page in the middle --------------------------------------------- */
 .cal-m4 { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
@@ -224,6 +252,10 @@
     .cal-s4 > .cal-b5-side { order: 3; grid-column: 1 / -1; overflow: visible; border-left: 0; border-top: 1px solid var(--line); }
     .cal-s4 .cal-thh, .cal-s4 .cal-thl { flex-direction: row; align-items: flex-start; flex: none; }
     .cal-s4 .cal-th { flex: none; width: 124px; }
+    /* the list runs sideways: the insertion points stand upright */
+    .cal-s4 .cal-thins, .cal-b6 .cal-b6-list .cal-thins { align-self: stretch; width: 22px; height: auto; margin: 0 -1px; }
+    .cal-s4 .cal-thins::before, .cal-b6 .cal-b6-list .cal-thins::before { left: 50%; right: auto; top: 8px; bottom: 8px; border-top: 0; border-left: 2px dotted var(--line-3); }
+    .cal-s4 .cal-thl.dragging .cal-thins::before, .cal-b6 .cal-b6-list .cal-thl.dragging .cal-thins::before { border-left-color: var(--lav); }
     .cal-s4 .cal-thaddw { align-self: center; padding: 0 2px; }
     .cal-s4 .cal-thsep { align-self: stretch; width: 1px; height: auto; margin: 4px 2px; }
     .cal-m4p { padding: 16px; overflow-x: auto; overflow-y: visible; }
@@ -234,5 +266,5 @@
     .cal-phr > .cal-phc { grid-column: 1 / -1; grid-row: 2; }
 }
 @media (prefers-reduced-motion: reduce) {
-    .cal-ft.busy::after, .cal-thadd.busy .i { animation: none; }
+    .cal-ft.busy::after, .cal-thadd.busy .i, .cal-thinsb.busy .i { animation: none; }
 }

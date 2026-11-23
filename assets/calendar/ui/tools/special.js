@@ -9,11 +9,15 @@
 // `store.setFeature('specialPages', true)`. The page shown in the middle of step 4 is
 // `ui.toolState.specialPreview` (a special page id) — `previewedSpecial(ctx)` resolves it.
 //
-// Also exported for the plus menu of the page list (`ui/pagelist.js`):
+// Also exported for the plus menus of the page list (`ui/pagelist.js`, `ui/pageadd.js`):
 //   `specialEntries(ctx)`            every special page in order: `[{ id, item, label, generated }]`
 //   `switchOnSpecial(ctx, id)`       a generated kind: feature on, page on, shown as the preview
-//   `addGraphicPage(ctx, file)`      Nahrát grafiku — a finished page as PDF or picture
-//   `addTextPage(ctx, file)`         Text z Wordu — `.docx` / `.txt`, typeset in the calendar style
+//   `placeSpecialPage(ctx, id, slot, item?)`  feature on, page on and placed at a slot of the page
+//                                    list (`state/special-slots.js`) — one content write, no view change
+//   `addGraphicPage(ctx, file, slot?)`  Nahrát grafiku — a finished page as PDF or picture
+//   `addTextPage(ctx, file, slot?)`     Text z Wordu — `.docx` / `.txt`, typeset in the calendar style
+//                                    (with a slot: placed there and NOT shown as the preview — the
+//                                    caller selects the page; both resolve to the new id or null)
 //
 // DOM hooks: `[data-special="<id>"]` (+ class `on` / `sel`), `[data-special-on]` (native checkbox —
 // click its label), `[data-special-preview]`, `[data-special-position] [data-value]`,
@@ -25,6 +29,7 @@
 import Sortable from 'sortablejs';
 import { newId, reorder } from '../../model/content.js';
 import { SPECIAL_KIND_LABELS, orderedSpecialPages, specialPageName } from '../../generate/pages.js';
+import { placeSpecial } from '../../state/special-slots.js';
 import { SPECIAL_LAYOUTS } from '../../render/special.js';
 import { checkRow, debounce, h, icon, segmented } from '../dom.js';
 import { renderThumb } from '../thumb.js';
@@ -74,6 +79,15 @@ export function switchOnSpecial(ctx, id) {
     showSpecial(ctx, id);
 }
 
+/** Feature on, then page `id` on at `slot` (`item` = the fields of a page being created). `true` when something was written. */
+export function placeSpecialPage(ctx, id, slot, item = null) {
+    ensureFeature(ctx);
+    const changed = placeSpecial(ctx.store.getState().doc, id, slot, item);
+    const ops = Object.entries(changed).map(([key, value]) => ({ c: 'specialPages', id: key, v: value, label: specialPageName(value) }));
+    if (ops.length) ctx.store.applyOps(ops);
+    return ops.length > 0;
+}
+
 /** Reads an uploaded file into the fields of a special page item; `null` after an error toast. */
 async function readPageFile(ctx, file) {
     const fileName = String(file.name).slice(0, FILE_NAME_MAX);
@@ -91,31 +105,36 @@ async function readPageFile(ctx, file) {
     }
 }
 
-async function addUploadedPage(ctx, file) {
+async function addUploadedPage(ctx, file, slot) {
     const fields = await readPageFile(ctx, file);
     if (!fields) return null;
     const id = newId();
     const name = baseName(file.name);
+    const item = { on: true, layout: 0, position: 'front', nextYear: false, name, pos: nextPosition(ctx), ...fields };
+    if (slot) {
+        placeSpecialPage(ctx, id, slot, item);
+        return id;
+    }
     ensureFeature(ctx);
-    ctx.store.putItem('specialPages', id, { on: true, layout: 0, position: 'front', nextYear: false, name, pos: nextPosition(ctx), ...fields }, name);
+    ctx.store.putItem('specialPages', id, item, name);
     showSpecial(ctx, id);
     return id;
 }
 
-export function addGraphicPage(ctx, file) {
+export function addGraphicPage(ctx, file, slot = null) {
     if (isTextFile(file)) {
         ctx.toast('Nahrajte stránku jako PDF nebo obrázek.', true);
         return Promise.resolve(null);
     }
-    return addUploadedPage(ctx, file);
+    return addUploadedPage(ctx, file, slot);
 }
 
-export function addTextPage(ctx, file) {
+export function addTextPage(ctx, file, slot = null) {
     if (!isTextFile(file)) {
         ctx.toast('Nahrajte dokument ve formátu DOCX nebo TXT.', true);
         return Promise.resolve(null);
     }
-    return addUploadedPage(ctx, file);
+    return addUploadedPage(ctx, file, slot);
 }
 
 export function mountSpecialPanel(root, ctx) {

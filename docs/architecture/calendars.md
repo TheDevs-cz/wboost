@@ -448,7 +448,7 @@ plus menu at the top of step 4 stay; all three edit the same items.
   the top plus menu (generated kinds not in the calendar yet, Nahrát grafiku,
   Text z Wordu); the page is switched on / created **at that slot** and
   selected (step 4: its page panel; step 5: the large page).
-- **Placement is pure** — `generate/special-slots.js`: a slot is `{ position,
+- **Placement is pure** — `state/special-slots.js`: a slot is `{ position,
   index }`, `index` counting the *shown* special pages of that section;
   `placeSpecial(doc, id, slot, item?)` puts the page next to its shown
   neighbour in the one `pos` order of every special page (front / back, on /

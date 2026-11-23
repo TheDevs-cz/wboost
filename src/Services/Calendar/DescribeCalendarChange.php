@@ -111,7 +111,7 @@ readonly final class DescribeCalendarChange
                 $isNew => 'Přidal provoz ' . $name,
                 default => self::labelled('Upravil šichtovnici', self::plainName($new)),
             },
-            'specialPages' => self::specialPage($old, $new),
+            'specialPages' => self::specialPage($old, $new, $label),
             'pageSetup' => self::labelled('Upravil vzhled strany', $label),
             'pageContent' => self::pageContent($old, $new, $label),
             'pageGroups' => self::pageGroup($old, $new),
@@ -123,7 +123,7 @@ readonly final class DescribeCalendarChange
      * @param null|array<mixed> $old
      * @param null|array<mixed> $new
      */
-    private static function specialPage(null|array $old, null|array $new): string
+    private static function specialPage(null|array $old, null|array $new, string $label): string
     {
         if ($new === null) {
             return 'Smazal stránku ' . self::quoted($old);
@@ -131,19 +131,57 @@ readonly final class DescribeCalendarChange
 
         $uploaded = in_array($new['kind'] ?? null, ['image', 'text'], true);
 
-        if (!$uploaded) {
-            return self::SPECIAL_PAGES_CHANGED;
-        }
-
-        if ($old === null) {
+        if ($uploaded && $old === null) {
             return 'Přidal vlastní stránku ' . self::quoted($new);
         }
 
-        if (($old['asset'] ?? null) !== ($new['asset'] ?? null) || ($old['text'] ?? null) !== ($new['text'] ?? null)) {
+        if ($uploaded && (($old['asset'] ?? null) !== ($new['asset'] ?? null) || ($old['text'] ?? null) !== ($new['text'] ?? null))) {
             return 'Vyměnil vlastní stránku ' . self::quoted($new);
         }
 
+        $wasOn = ($old['on'] ?? false) === true;
+        $isOn = ($new['on'] ?? false) === true;
+        $name = sprintf('„%s“', self::specialPageName($new, $label));
+
+        if (!$wasOn && $isOn) {
+            return 'Přidal stránku ' . $name;
+        }
+
+        if ($wasOn && !$isOn) {
+            return 'Odebral stránku ' . $name;
+        }
+
+        $position = ($new['position'] ?? 'front') === 'back' ? 'back' : 'front';
+
+        if ($isOn && $old !== null && (($old['position'] ?? 'front') === 'back' ? 'back' : 'front') !== $position) {
+            return 'Přesunul stránku ' . $name . ($position === 'back' ? ' před zadní stranu' : ' za titulní stranu');
+        }
+
         return self::SPECIAL_PAGES_CHANGED;
+    }
+
+    /**
+     * Name of a special page: its own, else the name of its kind (mirror of `SPECIAL_KIND_LABELS`
+     * in assets/calendar/generate/pages.js), else the label the change came with.
+     *
+     * @param array<mixed> $item
+     */
+    private static function specialPageName(array $item, string $label): string
+    {
+        $own = self::plainName($item);
+
+        if ($own !== '') {
+            return $own;
+        }
+
+        return match ($item['kind'] ?? null) {
+            'intro' => 'Úvodní slovo',
+            'contacts' => 'Důležité kontakty',
+            'year' => 'Roční kalendárium',
+            'waste' => 'Plánovací kalendář svozu odpadů',
+            'notes' => 'Poznámky',
+            default => $label !== '' ? self::cut($label, 80) : 'Vlastní strana',
+        };
     }
 
     /**

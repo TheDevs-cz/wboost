@@ -122,10 +122,24 @@ final class DescribeCalendarChangeTest extends TestCase
         yield ['Přidal vlastní stránku „Mapa obce“', 'specialPages', null, $custom];
         yield ['Vyměnil vlastní stránku „Mapa obce“', 'specialPages', $custom, [...$custom, 'asset' => 'b']];
         yield ['Vyměnil vlastní stránku „Slovo“', 'specialPages', ['kind' => 'text', 'name' => 'Slovo', 'asset' => null, 'text' => 'a'], ['kind' => 'text', 'name' => 'Slovo', 'asset' => null, 'text' => 'b']];
-        yield ['Upravil speciální stránky', 'specialPages', $custom, [...$custom, 'on' => false]];
-        yield ['Upravil speciální stránky', 'specialPages', null, ['kind' => 'intro', 'name' => '', 'asset' => null, 'text' => null, 'on' => true]];
-        yield ['Upravil speciální stránky', 'specialPages', ['kind' => 'year', 'on' => true], ['kind' => 'year', 'on' => false]];
         yield ['Smazal stránku „Mapa obce“', 'specialPages', $custom, null];
+
+        // K13: pages added, removed and moved from the page list say which page
+        $intro = ['kind' => 'intro', 'name' => '', 'asset' => null, 'text' => null, 'on' => true, 'position' => 'front', 'pos' => 0, 'layout' => 0];
+        yield ['Přidal stránku „Úvodní slovo“', 'specialPages', null, $intro, 'Úvodní slovo'];
+        yield ['Přidal stránku „Úvodní slovo“', 'specialPages', [...$intro, 'on' => false], $intro];
+        yield ['Přidal stránku „Roční kalendárium“', 'specialPages', ['kind' => 'year', 'on' => false], ['kind' => 'year', 'on' => true]];
+        yield ['Odebral stránku „Roční kalendárium“', 'specialPages', ['kind' => 'year', 'on' => true], ['kind' => 'year', 'on' => false]];
+        yield ['Odebral stránku „Mapa obce“', 'specialPages', $custom, [...$custom, 'on' => false]];
+        yield ['Přesunul stránku „Úvodní slovo“ před zadní stranu', 'specialPages', $intro, [...$intro, 'position' => 'back', 'pos' => 7]];
+        yield ['Přesunul stránku „Mapa obce“ za titulní stranu', 'specialPages', [...$custom, 'position' => 'back'], [...$custom, 'position' => 'front']];
+        // the order alone, the layout or a switched-off page that moves along: one line per save
+        yield ['Upravil speciální stránky', 'specialPages', $intro, [...$intro, 'pos' => 3]];
+        yield ['Upravil speciální stránky', 'specialPages', $intro, [...$intro, 'layout' => 1]];
+        yield ['Upravil speciální stránky', 'specialPages', [...$intro, 'on' => false], [...$intro, 'on' => false, 'pos' => 3]];
+        yield ['Upravil speciální stránky', 'specialPages', null, [...$intro, 'on' => false, 'pos' => 3]];
+        // a custom name wins over the kind
+        yield ['Přidal stránku „Slovo starosty“', 'specialPages', [...$intro, 'on' => false], [...$intro, 'name' => 'Slovo starosty']];
 
         yield [null, 'unknown', null, ['a' => 1]];
     }

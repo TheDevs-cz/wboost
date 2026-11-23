@@ -818,7 +818,7 @@ its dash when empty). "new" = id did not exist; "changed" = existed; "removed" =
 | `comments` | `Komentář k {l}: {text}` (text cut to 160 characters) | — | — |
 | `moonEdits` | `Upravil fáze měsíce` (coalesced: once per request) | | |
 | `shiftOps` | `Přidal provoz „{name}“` | `Upravil šichtovnici — {name}` | `Odebral provoz „{old name}“` |
-| `specialPages` | uploaded: `Přidal vlastní stránku „{name}“`; generated: `Upravil speciální stránky` | uploaded with a new asset/text: `Vyměnil vlastní stránku „{name}“`; else `Upravil speciální stránky` (coalesced) | `Smazal stránku „{old name}“` |
+| `specialPages` | uploaded: `Přidal vlastní stránku „{name}“`; generated, switched on: `Přidal stránku „{name or kind}“`; generated, off: `Upravil speciální stránky` | switched on / off: `Přidal stránku „…“` / `Odebral stránku „…“`; front ↔ back: `Přesunul stránku „…“ za titulní stranu` / `před zadní stranu`; uploaded with a new asset/text: `Vyměnil vlastní stránku „{name}“`; else (order, layout) `Upravil speciální stránky` (coalesced) | `Smazal stránku „{old name}“` |
 
 Labels the client sends: page-keyed collections → the page title (`5. týden`, `1. a 2. týden`,
 `Titulní strana` …); dated collections → `{d}. {m}.`. Author = the actor's kind; the list shows

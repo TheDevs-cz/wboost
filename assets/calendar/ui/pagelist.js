@@ -21,19 +21,34 @@
 //   - thumbnails are lazy (`mountLazyThumb`) and refresh by themselves, debounced 150 ms, on
 //     `layout` (non-live) / `design` / `content` / `replace`; the list is rebuilt when the page
 //     list changes (the scroll position is kept)
+//     opts.arrange?: boolean           the designer (steps 4 and 5; never a client — `specialPages`
+//                                      is designer-only on the server too) adds, moves and removes
+//                                      special pages right in the list (feedback K13, `ui/pageadd.js`)
 //   - `refresh()` only re-reads `opts.selected()` / `opts.views.current()` (call it when the
 //     selection changes) and scrolls the current thumbnail into view
 //
 // DOM hooks with `opts.views`: `[data-content-view="style|special"]` (`aria-current`),
 // `[data-cal-action="special-add"]` (`aria-expanded`), menu `.cal-spam[role=menu]` with
 // `[data-special-add="<id>"]`, `[data-special-upload="image|text"]` (file inputs).
+//
+// With `opts.arrange` (K13): an insertion point `.cal-thins[data-slot="front:<n>|back:<n>"]` with
+// its „+“ `[data-cal-action="page-insert"]` (`aria-expanded`; opens the same chooser, the page is
+// placed there and selected) after the cover, after every front special page, after the last week
+// page and after every back special page — never between week pages (they follow the dates). A
+// special page's thumbnail sits in `.cal-thw[data-special-thumb="<id>"]` (the list item) with a
+// drag handle `.cal-grip` (SortableJS, `forceFallback`; dropped after a week page = back section)
+// and a menu `[data-cal-action="page-menu"]` (`[data-page-move]`, `[data-page-remove]`). The
+// selected page stays selected (by its key) when pages are added, moved or removed before it.
 
+import Sortable from 'sortablejs';
 import { pageHasOverrides } from '../model/content.js';
 import { samplePage } from '../generate/pages.js';
-import { debounce, h, icon, onOutside } from './dom.js';
+import { slotInSequence, specialSlots } from '../state/special-slots.js';
+import { debounce, h, icon } from './dom.js';
+import { addMenuItems, openListMenu, pageMenuItems } from './pageadd.js';
 import { mountLazyThumb, renderThumb } from './thumb.js';
 import { badgeLabel, bindWarningBadge, pageWarnings } from './warnings.js';
-import { GRAPHIC_ACCEPT, TEXT_ACCEPT, addGraphicPage, addTextPage, previewedSpecial, specialEntries, switchOnSpecial } from './tools/special.js';
+import { placeSpecialPage, previewedSpecial } from './tools/special.js';
 
 export function mountPageList(root, ctx, opts = {}) {
     const { store } = ctx;
@@ -46,110 +61,59 @@ export function mountPageList(root, ctx, opts = {}) {
     const signatureOf = (pages) => pages.map((p) => `${p.key}|${p.title}|${p.subtitle}`).join('\n');
     const thumbOf = (page, extra) => renderThumb(store.getState().doc, page, ctx, { dayContext: store.dayContext(), ...(extra || {}) });
 
-    // ---- step 4: Styl stránek · Speciální stránky · plus menu --------------------------------
+    // ---- menus (the plus menu of step 4, the „+“ of a slot, the „⋯“ of a special page) --------
+    const arrange = opts.arrange === true;
     let head = null;
     let entries = [];
     let menu = null;
+    let sortable = null;
 
     function closeMenu(focus = false) {
         if (!menu) return;
-        menu.off();
-        menu.el.remove();
+        const open = menu;
         menu = null;
-        if (head) {
-            head.add.setAttribute('aria-expanded', 'false');
-            if (focus) head.add.focus();
-        }
+        open.close(focus);
     }
 
-    function openMenu() {
-        const add = head.add;
-        const el = h('div', { class: 'cal-spam', role: 'menu', 'aria-label': 'Přidat speciální stránku' });
-        const featureOn = store.getState().doc.design.features.specialPages;
-        const generated = specialEntries(ctx).filter((entry) => entry.generated && !(featureOn && entry.item.on));
-        for (const entry of generated) {
-            el.append(
-                h(
-                    'button',
-                    {
-                        type: 'button',
-                        role: 'menuitem',
-                        'data-special-add': entry.id,
-                        onClick: () => {
-                            closeMenu();
-                            switchOnSpecial(ctx, entry.id);
-                        },
-                    },
-                    icon('layers', 's16'),
-                    h('span', null, entry.label, h('span', { class: 'cap' }, 'Vygeneruje se automaticky')),
-                ),
-            );
-        }
-        const upload = (kind, glyph, title, note, accept, run) => {
-            const input = h('input', { type: 'file', class: 'sr', accept, 'data-special-upload': kind });
-            const label = h('label', { role: 'menuitem' }, input, icon(glyph, 's16'), h('span', null, title, h('span', { class: 'cap' }, note)));
-            input.addEventListener('change', async () => {
-                const file = input.files[0];
-                input.value = '';
-                if (!file) return;
-                closeMenu();
-                head.add.classList.add('busy');
-                try {
-                    await run(ctx, file);
-                } finally {
-                    head.add.classList.remove('busy');
-                }
-            });
-            return label;
-        };
-        el.append(
-            upload('image', 'image', 'Nahrát grafiku', 'Hotová strana jako PDF nebo obrázek', GRAPHIC_ACCEPT, addGraphicPage),
-            upload('text', 'file', 'Text z Wordu', 'Vysází se do stylu kalendáře', TEXT_ACCEPT, addTextPage),
-        );
-        document.body.append(el);
-        // fixed to the button: the list scrolls and would clip an absolutely placed menu
-        const place = () => {
-            const rect = add.getBoundingClientRect();
-            const bounds = root.getBoundingClientRect();
-            // the button left the visible part of the list: the menu has nothing to hang on
-            if (rect.bottom < bounds.top || rect.top > bounds.bottom || rect.right < bounds.left || rect.left > bounds.right) return false;
-            el.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - el.offsetWidth - 8))}px`;
-            el.style.top = `${Math.max(8, Math.min(rect.bottom + 6, window.innerHeight - el.offsetHeight - 8))}px`;
-            return true;
-        };
-        place();
-        add.setAttribute('aria-expanded', 'true');
-        const onKey = (event) => {
-            if (event.key === 'Escape') {
-                event.stopPropagation();
-                closeMenu(true);
-            }
-        };
-        const onMove = () => {
-            if (!place()) closeMenu();
-        };
-        const offOutside = onOutside(el, (event) => {
-            if (!add.contains(event.target)) closeMenu();
-        });
-        document.addEventListener('keydown', onKey, true);
-        window.addEventListener('resize', onMove);
-        root.addEventListener('scroll', onMove, { passive: true });
-        window.addEventListener('scroll', onMove, { passive: true });
-        menu = {
-            el,
-            off() {
-                offOutside();
-                document.removeEventListener('keydown', onKey, true);
-                window.removeEventListener('resize', onMove);
-                root.removeEventListener('scroll', onMove);
-                window.removeEventListener('scroll', onMove);
+    function toggleMenu(anchor, label, build, containers = [root, list]) {
+        const same = menu && menu.anchor === anchor;
+        closeMenu();
+        if (same) return;
+        const entry = { anchor, close: () => {} };
+        menu = entry;
+        const opened = openListMenu({
+            anchor,
+            containers,
+            label,
+            build,
+            onClose: () => {
+                if (menu === entry) menu = null;
             },
-        };
-        const first = el.querySelector('button, input');
-        if (first) first.focus({ preventScroll: true });
+        });
+        entry.close = opened.close;
     }
 
-    if (views) {
+    /**
+     * Runs a change of the page list and keeps the shown page (by key), or selects `select(pages)`;
+     * rebuilds the list when the pages changed (or always, with `force`).
+     */
+    function arranged(change, select = null, force = false) {
+        const selected = opts.selected ? opts.selected() : null;
+        const before = selected === null ? null : store.pages()[selected] || null;
+        change();
+        const pages = store.pages();
+        let index = select ? select(pages) : -1;
+        if (index < 0 && before) {
+            index = pages.findIndex((p) => p.key === before.key);
+            // the shown page itself went away: the page that took its place
+            if (index < 0) index = Math.min(selected, pages.length - 1);
+        }
+        if (index >= 0 && index !== selected && opts.onSelect) opts.onSelect(index);
+        if (force || signatureOf(pages) !== signature) build();
+    }
+    const indexOfSpecial = (id) => (pages) => pages.findIndex((p) => p.key === `sp:${id}`);
+
+        if (views) {
         const entry = (view, glyph, label, getMarkup) => {
             const picture = h('span', { class: 'cal-thp' });
             const button = h('button', { type: 'button', class: 'cal-th sty', 'data-content-view': view, onClick: () => views.onPick(view) }, picture, h('span', { class: 'cal-thn' }, h('b', null, icon(glyph, 's14'), label)));
@@ -170,7 +134,17 @@ export function mountPageList(root, ctx, opts = {}) {
         ];
         const add = h(
             'button',
-            { type: 'button', class: 'cal-thadd', 'data-cal-action': 'special-add', 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'aria-label': 'Přidat speciální stránku', title: 'Přidat speciální stránku', onClick: () => (menu ? closeMenu() : openMenu()) },
+            {
+                type: 'button',
+                class: 'cal-thadd',
+                'data-cal-action': 'special-add',
+                'aria-haspopup': 'menu',
+                'aria-expanded': 'false',
+                'aria-label': 'Přidat speciální stránku',
+                title: 'Přidat speciální stránku',
+                // the plus of the head sits above the list: only the list's frame can scroll it away
+                onClick: () => toggleMenu(add, 'Přidat speciální stránku', (close) => addMenuItems(ctx, { slot: null, anchor: add, close }), [root]),
+            },
             icon('plus', 's14'),
         );
         head = { el: h('div', { class: 'cal-thh' }, ...entries.map((e) => e.button), h('div', { class: 'cal-thaddw' }, add), h('span', { class: 'cal-thsep', 'aria-hidden': 'true' })), add };
@@ -180,6 +154,8 @@ export function mountPageList(root, ctx, opts = {}) {
 
     // ---- thumbnails ---------------------------------------------------------------------------
     function build() {
+        // the list is rebuilt when its own drag ends
+        if (list.classList.contains('dragging')) return;
         for (const item of items) item.thumb.destroy();
         const pages = store.pages();
         // empty (not yet rendered) thumbnails already have the shape of the page
@@ -212,13 +188,104 @@ export function mountPageList(root, ctx, opts = {}) {
                 return current ? thumbOf(current) : '';
             });
             const wrap = h('div', { class: 'cal-thw', role: 'listitem' }, button, badge);
-            return { index: page.index, key: page.key, wrap, button, badge, dot, thumb };
+            const item = { index: page.index, key: page.key, kind: page.kind, wrap, button, badge, dot, thumb };
+            if (arrange && page.kind === 'special') makeMovable(item, page.special.id);
+            return item;
         });
-        list.replaceChildren(...items.map((item) => item.wrap));
+        list.replaceChildren(...(arrange ? withSlots(items) : items.map((item) => item.wrap)));
+        // one Sortable for the list's lifetime: destroying one ends the drag of EVERY Sortable on
+        // the page (its drag state is module-wide) — a rebuild while the Speciální stránky panel
+        // is being dragged used to freeze that drag
+        if (arrange && !sortable) sortable = sortableList();
         scroller.scrollTop = scroll.top;
         list.scrollLeft = scroll.left;
         marks();
         refresh(false);
+    }
+
+    /** A special page's list item gets a drag handle and its menu. */
+    function makeMovable(item, id) {
+        const more = h('button', { type: 'button', class: 'cal-thm', 'data-cal-action': 'page-menu', 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'aria-label': `Možnosti stránky ${item.button.getAttribute('aria-label')}`, title: 'Možnosti stránky' }, icon('more', 's14'));
+        more.addEventListener('click', () =>
+            toggleMenu(more, 'Možnosti stránky', (close) =>
+                pageMenuItems(ctx, id, { close, run: arranged }),
+            ),
+        );
+        const grip = h('span', { class: 'cal-grip', title: 'Přetáhněte pro změnu pořadí', 'aria-hidden': 'true' }, icon('grip', 's14'));
+        item.wrap.dataset.specialThumb = id;
+        item.wrap.append(h('span', { class: 'cal-thx' }, grip, more));
+    }
+
+    /** The thumbnails with an insertion point after the cover, the last week page and every special page. */
+    function withSlots(list) {
+        const slots = specialSlots(store.getState().doc);
+        const lastWeek = list.reduce((last, item, i) => (item.kind === 'week' ? i : last), -1);
+        const out = [];
+        list.forEach((item, i) => {
+            out.push(item.wrap);
+            const after = i === lastWeek ? 'weeks' : item.key;
+            for (const slot of slots.filter((s) => s.after === after)) out.push(slotElement(slot));
+        });
+        return out;
+    }
+
+    function slotElement(slot) {
+        const where = slot.position === 'front' ? 'mezi titulní stranu a týdny' : 'mezi týdny a zadní stranu';
+        const plus = h('button', { type: 'button', class: 'cal-thinsb', 'data-cal-action': 'page-insert', 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'aria-label': `Vložit stránku sem (${where})`, title: 'Vložit stránku sem' }, icon('plus', 's14'));
+        plus.addEventListener('click', () =>
+            toggleMenu(plus, 'Vložit stránku', (close) =>
+                addMenuItems(ctx, {
+                    slot: { position: slot.position, index: slot.index },
+                    anchor: plus,
+                    close,
+                    onAdded: (id) => arranged(() => {}, indexOfSpecial(id)),
+                }),
+            ),
+        );
+        return h('div', { class: 'cal-thins', role: 'listitem', 'data-slot': `${slot.position}:${slot.index}` }, plus);
+    }
+
+    function sortableList() {
+        return Sortable.create(list, {
+            handle: '.cal-grip',
+            // insertion points are drop targets too — the only way into an empty back section
+            draggable: '.cal-thw[data-special-thumb], .cal-thins',
+            animation: 120,
+            // the HTML5 drag ghost cannot be driven by synthetic pointers and looks wrong on a dark theme
+            forceFallback: true,
+            fallbackOnBody: true,
+            fallbackClass: 'cal-thw-ghost',
+            chosenClass: 'drag',
+            scroll: true,
+            bubbleScroll: true,
+            onStart: () => {
+                closeMenu();
+                list.classList.add('dragging');
+            },
+            onEnd: (event) => {
+                list.classList.remove('dragging');
+                const id = event.item.dataset.specialThumb;
+                const sequence = [...list.children].map((el) => {
+                    if (el.dataset.specialThumb) return el.dataset.specialThumb;
+                    const thumb = el.querySelector('[data-page-thumb]');
+                    if (!thumb) return null;
+                    const page = store.pages()[Number(thumb.dataset.pageThumb)];
+                    return page ? page.kind : null;
+                });
+                const slot = id ? slotInSequence(sequence, id) : null;
+                // after Sortable has finished its drop; Sortable moved the node, so the list is
+                // rebuilt the way the pages are even when nothing changed
+                queueMicrotask(() =>
+                    arranged(
+                        () => {
+                            if (slot) placeSpecialPage(ctx, id, slot);
+                        },
+                        null,
+                        true,
+                    ),
+                );
+            },
+        });
     }
 
     function marks() {
@@ -280,6 +347,7 @@ export function mountPageList(root, ctx, opts = {}) {
             unsubscribe();
             update.cancel();
             closeMenu();
+            if (sortable) sortable.destroy();
             for (const item of items) item.thumb.destroy();
             for (const e of entries) e.thumb.destroy();
             list.remove();

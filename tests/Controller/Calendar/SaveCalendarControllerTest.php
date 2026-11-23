@@ -150,7 +150,7 @@ final class SaveCalendarControllerTest extends WebTestCase
 
         self::assertSame([
             ['Grafik', 'Dokončil kalendář'],
-            ['Grafik', 'Upravil speciální stránky'],
+            ['Grafik', 'Přidal stránku „Úvodní slovo“'],
             ['Grafik', 'Přidal akci „Den dětí“ — 1. 6.'],
             ['Grafik', 'Vytvořil kalendář'],
         ], self::history(TestDataFixture::CALENDAR_1_ID));
