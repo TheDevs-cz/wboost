@@ -20,7 +20,8 @@ orchestrator dispatches on Fabric's selection lifecycle:
 | `canvas_input_properties_controller` | Editor-side input metadata (name, description, locked, hidable, uppercase). Persists onto the canvas object as custom properties via `CANVAS_CUSTOM_PROPERTIES`. Exposes `toggleLocked` for the mini-toolbar. |
 | `canvas_image_properties_controller` | Image-placeholder metadata (placeholder flag, name/description, allowMove/Resize/Rotate, hidable, allowedDirectoryIds). Exposes `togglePlaceholder` for the mini-toolbar. Also the popover's **"Velikost a poloha"** section (see below). |
 | `canvas_shape_properties_controller` | Vector-shape styling — fill (solid or gradient), stroke, corner radius, opacity, editor lock. See the dedicated section below. |
-| `canvas_opacity_controller` | Admin-set **opacity** ("Průhlednost", 0–100 %) for texts and images (placeholders included) plus a compact slider in the **multi-select bar** that writes every selected member (shapes too). See "Element opacity" below. |
+| `canvas_opacity_controller` | Admin-set **opacity** ("Průhlednost", 0–100 %) for texts and images (placeholders and the background layer included) plus a compact slider in the **multi-select bar** that writes every selected member (shapes too). See "Element opacity" below. |
+| `canvas_layer_style_controller` | **"Styl vrstvy"** — Photoshop-style layer settings in the text, image and shape popovers (`_layer_style_section.html.twig`). See "Styl vrstvy" below. |
 | `canvas_alignment_controller` | Multi-object align ops, z-order, delete. `updateButtonStates` is `has*Target`-guarded since its buttons live in the floating chrome. |
 | `canvas_layers_controller` | Photoshop-style layers panel ("Vrstvy"): topmost-first rows, hover outline, click-select, SortableJS restack, and a per-layer **visibility eye**. Row label = the object's `name` (every popover — text, image, shape — has a "Název" field; the image one is offered for EVERY image since 2026-09-03, not just placeholders, and doubles as the fill-page field tag once the image becomes one), else a per-type fallback **numbered in stack order, bottom = 1** ("Obrázek 1", "Obrázek 2 (placeholder)", "Obdélník 1"; a text falls back to its first line, the single "Pozadí" is never numbered) — `canvas_layer_labels.js`, pure and node-testable. The ordinal is display-only: blank names stay blank in the canvas JSON, so nothing reaches `imageInputs[].name` or the API. The eye is PERSISTED (`visible: false` rides the canvas JSON): hidden layers vanish from renders/exports/thumbnails, are **excluded from fillable inputs** (`buildVariantPayload` + `TextInputObjectBinder` skip invisible objects — the positional textbox↔input contract counts only VISIBLE textboxes), drop out of container membership at layout time (`collectMembers` skips them; fill-time `hide` still collapses), are filtered from API `containers[].memberInputIds`, and propagate through group sync (`visible` ∈ META_KEYS). Also a per-layer **padlock**, which is the element's OWN popover lock and therefore means two different things (each row's title says which): an image — the background included — flips `editorLocked` (editor lock: click-through, immovable), a text flips `locked` (fill-time: the user can't overwrite it). When the row is the active object it delegates to `canvas-input-properties#toggleLocked` / `canvas-image-properties#toggleEditorLock` (+ `refreshContextToggle`) so the popover checkbox and mini-toolbar stay in step; otherwise it flips the flag directly. Selecting a row opens the popover WITHOUT focusing a field (`openPopoverKeepFocus`) — a focused input makes `handleKeydown` bail, which used to swallow Delete for anything selected from the panel. The eye and the padlock are `filter`ed OUT of the row's SortableJS drag (`preventOnFilter: false`) and the list has `fallbackTolerance: 4`: in `forceFallback` mode Sortable owns the pointer from pointerdown and its default 0 px tolerance turned any sub-pixel wobble of a click into a drag whose onEnd rebuild replaced the row before the click landed (2026-09-03, "the eye sometimes does nothing"). |
 | `canvas_floating_toolbar_controller` | The element-anchored floating UX (see below). |
@@ -43,8 +44,13 @@ orchestrator dispatches on Fabric's selection lifecycle:
   `ObjectOpacityRenderTest` (group `gotenberg`) pins text + filled placeholder.
 - **Admin-only design property**: no fill-page control, no API field. Offered
   on text + image (shapes have had their own slider in the shape popover since
-  2026-08-11); NEVER on the background layer (`isBackground` — the row hides,
-  the multi bar skips it) and not on containers.
+  2026-08-11) and — since 2026-11-24 ("Styl vrstvy") — on the background layer
+  too (a photo faded / blended over a colour layer the designer stacked under
+  it; what shows through at the bottom is transparency, i.e. a transparent
+  PNG). Not on containers. In the group editor the background's opacity +
+  blend fan out by `BACKGROUND_STYLE_KEYS` (`group_sync.js`
+  `_syncBackgroundStyle`) — the background itself stays out of `isSyncable`
+  because its cover geometry is per-dimension.
 - **UI**: `canvas-opacity` targets `row` / `slider` / `value`, one set per
   surface (text popover, image popover, multi bar). `input` repaints live,
   `change` fires the synthetic `object:modified` = ONE undo step. In a
@@ -59,10 +65,48 @@ orchestrator dispatches on Fabric's selection lifecycle:
   PDF/X-1a file holds no live transparency. A TRANSLUCENT black shape
   overprints (K tint over the picture) instead of knocking out — see
   `BlackInkObjects` in `templates-render.md`.
-- **MCP**: `text` and `image` elements take `opacity` (fraction, default 1);
-  the compiler emits the key only when < 1 so older designs recompile
-  byte-identically, the decompiler reads it back loss-free (only a background's
-  opacity is still a `style_dropped` loss).
+- **MCP**: `text`, `image` and (since 2026-11-24) `background` elements take
+  `opacity` (fraction, default 1); the compiler emits the key only when < 1 so
+  older designs recompile byte-identically, the decompiler reads it back
+  loss-free.
+
+**Styl vrstvy — Režim prolnutí (2026-11-24, phase 1 of the PS layer styles)**
+
+- **Carrier = Fabric's NATIVE `globalCompositeOperation`** — serialized by
+  Fabric's own `toObject`, so payload, undo, copy/paste and the headless render
+  need no teaching. Offered for every text, image (placeholders + background
+  included) and shape; `canvas_layer_style_controller` + the partial
+  `templates/editor/_layer_style_section.html.twig` (one per popover). A select
+  change = one synthetic `object:modified` = one undo step.
+- **Only the 16 modes a canvas draws** (Jan's call, same as the calendar,
+  `docs/calendar/effects-plan.md` §4), Photoshop order and Czech names:
+  `canvas_blend_modes.js` ↔ `Value/CanvasBlendMode` (`CanvasBlendModeTest`
+  parses the JS). Unknown operators read as Normální.
+- **Group sync**: `globalCompositeOperation` ∈ `STYLE_KEYS` (absolute copy);
+  the background's via `BACKGROUND_STYLE_KEYS` (above). The PHP projector
+  copies it verbatim.
+- **Every surface that composites layers SEPARATELY had to learn it**, because
+  a blended object painted on its own transparent layer just shows flat
+  colours:
+  - fill page overlay slices — `CanvasSlice::overlayGapsAbovePlaceholders`
+    splits a gap around every blended object into its own `part` tagged with
+    its `blendMode`; `variant_image_fill_controller` keys overlays
+    `placeholderId#part` and draws that slice image with the mode, so it
+    blends with the client's picture on the fill canvas exactly as in the
+    export (templates-image-placeholders.md);
+  - the client's picture in a slot — `imagePlaceholders()` → `blendMode`,
+    applied in `_replaceObject` next to `opacity` (the server keeps the object
+    key through `ImagePlacement`'s merge);
+  - the text echo — a blended text is never echo-capable
+    (`EchoCapableTextInputs`), it settles server-side;
+  - print — `BlackInkObjects` skips blended objects (flattened in pass 1,
+    never pure K);
+  - the render template's rich-text block stack — its children inherit the
+    replaced textbox's blend like its opacity.
+- **MCP**: `blend` (CSS `mix-blend-mode` names, `normal` …) on text / image /
+  shape / background, emitted only when not normal, read back loss-free.
+- `LayerBlendRenderTest` (group `gotenberg`) pins a multiplied shape and a
+  multiplied filled placeholder against their normal twins.
 
 **User-movable elements — "Uživatel může posunout" (2026-11-09, M1 of the axis-move plan)**
 

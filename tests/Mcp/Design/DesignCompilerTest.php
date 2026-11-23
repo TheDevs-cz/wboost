@@ -101,6 +101,8 @@ final class DesignCompilerTest extends TestCase
         // exactly why a shape needs no custom property for any of them.
         'opacity', 'stroke', 'strokeWidth', 'strokeUniform', 'strokeDashArray', 'strokeLineCap',
         'rx', 'ry', 'radius', 'points',
+        // "Styl vrstvy" › Režim prolnutí — native, emitted only when not Normal.
+        'globalCompositeOperation',
     ];
 
     // =================================================================
@@ -532,6 +534,39 @@ final class DesignCompilerTest extends TestCase
         self::assertArrayNotHasKey('opacity', $byName['Solid']);
         self::assertSame(0.25, $byName['Foto']['opacity']);
         self::assertArrayNotHasKey('opacity', $byName['logo']);
+    }
+
+    /**
+     * "Styl vrstvy" › Režim prolnutí compiles to Fabric's native
+     * `globalCompositeOperation` on every kind incl. the background, and a
+     * `normal` element emits no key (byte-identical to older compiles).
+     */
+    public function testBlendCompilesToTheNativeCompositeOperationOnlyWhenNotNormal(): void
+    {
+        $compiled = $this->compile([
+            'canvas' => ['width' => 1080, 'height' => 1080],
+            'elements' => [
+                ['kind' => 'background', 'id' => 'pozadi', 'fill' => '#1d4ed8', 'opacity' => 0.8, 'blend' => 'multiply'],
+                ['kind' => 'text', 'id' => 'tint', 'text' => 'Tint', 'font' => self::FONT, 'size' => 40, 'x' => 80, 'y' => 80, 'width' => 900, 'blend' => 'soft-light'],
+                ['kind' => 'text', 'id' => 'plain', 'text' => 'Plain', 'font' => self::FONT, 'size' => 40, 'x' => 80, 'y' => 300, 'width' => 900, 'blend' => 'normal'],
+                ['kind' => 'image', 'id' => 'photo', 'asset' => self::ASSET_PHOTO, 'x' => 80, 'y' => 500, 'width' => 400, 'height' => 300, 'blend' => 'luminosity', 'input' => ['name' => 'Foto', 'placeholder' => true]],
+                ['kind' => 'shape', 'id' => 'overlay', 'shape' => 'rectangle', 'name' => 'Overlay', 'x' => 0, 'y' => 0, 'width' => 1080, 'height' => 1080, 'fill' => '#ff0000', 'blend' => 'screen'],
+            ],
+        ]);
+
+        $byName = [];
+        foreach ($compiled->objects() as $object) {
+            $key = ($object['isBackground'] ?? false) === true ? 'background' : ($object['text'] ?? $object['name'] ?? '?');
+            self::assertIsString($key);
+            $byName[$key] = $object;
+        }
+
+        self::assertSame('multiply', $byName['background']['globalCompositeOperation']);
+        self::assertSame(0.8, $byName['background']['opacity']);
+        self::assertSame('soft-light', $byName['Tint']['globalCompositeOperation']);
+        self::assertArrayNotHasKey('globalCompositeOperation', $byName['Plain']);
+        self::assertSame('luminosity', $byName['Foto']['globalCompositeOperation']);
+        self::assertSame('screen', $byName['Overlay']['globalCompositeOperation']);
     }
 
     public function testADottedStrokeScalesItsDashPatternWithTheStrokeWidth(): void

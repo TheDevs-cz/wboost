@@ -246,19 +246,29 @@ export default class extends Controller {
         const wrapper = this._overlaysElement();
         if (!wrapper) return;
         wrapper.querySelectorAll('[data-overlay-above]').forEach((span) => {
-            const aboveId = span.getAttribute('data-overlay-above');
+            const placeholderId = span.getAttribute('data-overlay-above');
             const settleSrc = span.getAttribute('data-src') || '';
-            if (!aboveId || !settleSrc) return;
+            if (!placeholderId || !settleSrc) return;
+            // A gap is split into parts around every object with a Režim
+            // prolnutí (CanvasSlice::overlayGapsAbovePlaceholders): the slice
+            // of such an object holds its flat colours and only blends with
+            // the client's picture when THIS canvas draws it with its mode.
+            const part = Number(span.getAttribute('data-overlay-part') || 0);
+            const aboveId = `${placeholderId}#${part}`;
+            const blend = span.getAttribute('data-blend') || 'source-over';
             const baseAttr = span.getAttribute('data-base-src') || '';
             // Equal strings = the slice holds no echoed text; one object serves
             // both modes.
             const baseSrc = baseAttr !== '' && baseAttr !== settleSrc ? baseAttr : null;
 
             const entry = (this.overlayObjects[aboveId] ??= {
+                placeholderId, part, blend,
                 settleSrc: null, settleObject: null,
                 baseSrc: null, baseObject: null,
                 shown: null,
             });
+            entry.blend = blend;
+            [entry.settleObject, entry.baseObject].forEach((obj) => obj && obj.set('globalCompositeOperation', blend));
 
             this._loadOverlayVariant(entry, 'settle', settleSrc, aboveId);
             if (baseSrc !== null) {
@@ -282,7 +292,11 @@ export default class extends Controller {
         FabricImage.fromURL(src, { crossOrigin: 'anonymous' }).then((img) => {
             const current = this.overlayObjects[aboveId];
             if (!current || current[srcKey] !== src) return;
-            img.set({ left: 0, top: 0, originX: 'left', originY: 'top', selectable: false, evented: false, ...this._designScale(img) });
+            img.set({
+                left: 0, top: 0, originX: 'left', originY: 'top', selectable: false, evented: false,
+                globalCompositeOperation: current.blend || 'source-over',
+                ...this._designScale(img),
+            });
             if (current.shown === current[objKey] && current[objKey]) {
                 this.canvas.remove(current[objKey]);
                 current.shown = null;
@@ -338,8 +352,10 @@ export default class extends Controller {
         ranked.forEach((ph) => {
             const slot = this.objects[ph.inputId];
             if (slot && slot.object) this.canvas.moveObjectTo(slot.object, index++);
-            const overlay = this.overlayObjects[ph.inputId];
-            if (overlay && overlay.shown) this.canvas.moveObjectTo(overlay.shown, index++);
+            Object.values(this.overlayObjects)
+                .filter((overlay) => overlay.placeholderId === ph.inputId && overlay.shown)
+                .sort((a, b) => a.part - b.part)
+                .forEach((overlay) => this.canvas.moveObjectTo(overlay.shown, index++));
         });
         this.canvas.requestRenderAll();
     }
@@ -400,6 +416,9 @@ export default class extends Controller {
             // way: ImagePlacement swaps src + placement, never opacity).
             const slot = this.placeholdersById && this.placeholdersById[inputId];
             fabricObject.set('opacity', slot && typeof slot.opacity === 'number' ? slot.opacity : 1);
+            // Režim prolnutí likewise: the picture blends with the backdrop
+            // (this canvas' backgroundImage) and the lower overlay parts.
+            fabricObject.set('globalCompositeOperation', slot && typeof slot.blendMode === 'string' ? slot.blendMode : 'source-over');
             this.canvas.add(fabricObject);
         }
         // Every slot change repaints in the designed z-order (this also puts

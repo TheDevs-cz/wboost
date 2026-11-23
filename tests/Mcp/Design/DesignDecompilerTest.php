@@ -13,6 +13,7 @@ use WBoost\Web\Mcp\Design\DesignDecompiler;
 use WBoost\Web\Mcp\Design\DesignIdentity;
 use WBoost\Web\Mcp\Design\DesignLoss;
 use WBoost\Web\Mcp\Design\DesignLossCode;
+use WBoost\Web\Mcp\Design\Dsl\BackgroundElement;
 use WBoost\Web\Mcp\Design\Dsl\CanvasSpec;
 use WBoost\Web\Mcp\Design\Dsl\DslParser;
 use WBoost\Web\Mcp\Design\Dsl\ImageElement;
@@ -24,6 +25,7 @@ use WBoost\Web\Mcp\Design\Dsl\TextElement;
 use WBoost\Web\Mcp\Design\Geometry\GridResolver;
 use WBoost\Web\Services\Editor\BackgroundLayer;
 use WBoost\Web\Value\BackgroundMode;
+use WBoost\Web\Value\CanvasBlendMode;
 use WBoost\Web\Value\CanvasShapeGradient;
 use WBoost\Web\Value\CanvasShapeKind;
 use WBoost\Web\Value\CanvasShapeStroke;
@@ -248,8 +250,7 @@ final class DesignDecompilerTest extends TestCase
 
     /**
      * Texts and images word their own opacity (2026-11-08), so it reads back
-     * without a loss; the BACKGROUND has no opacity in the editor or the DSL
-     * and keeps reporting one.
+     * without a loss (the background has had one too since 2026-11-24).
      */
     public function testTextAndImageOpacityReadBackLosslessly(): void
     {
@@ -269,6 +270,53 @@ final class DesignDecompilerTest extends TestCase
         ));
         self::assertCount(1, $images);
         self::assertSame(0.25, $images[0]->opacity);
+    }
+
+    /**
+     * Režim prolnutí ("Styl vrstvy") reads back as `blend` on texts, images
+     * and shapes — and the background's opacity + blend too (2026-11-24) —
+     * with no loss.
+     */
+    public function testBlendAndBackgroundOpacityReadBackLosslessly(): void
+    {
+        $canvas = ['objects' => [
+            [
+                'type' => 'Rect', 'left' => 0, 'top' => 0, 'width' => self::CANVAS, 'height' => self::CANVAS,
+                'scaleX' => 1, 'scaleY' => 1, 'fill' => '#1d4ed8', 'shapeKind' => 'rectangle',
+                'isBackground' => true, 'editorLocked' => true, 'inputId' => 'bg',
+                'opacity' => 0.6, 'globalCompositeOperation' => 'multiply',
+            ],
+            self::textbox(['globalCompositeOperation' => 'soft-light']),
+            self::image(['globalCompositeOperation' => 'screen', 'top' => 600.0, 'assetPath' => 'gallery/logo.png', 'name' => 'Logo']),
+            [
+                'type' => 'Rect', 'shapeKind' => 'rectangle', 'left' => 0, 'top' => 0, 'width' => 300, 'height' => 300,
+                'scaleX' => 1, 'scaleY' => 1, 'fill' => '#ff0000', 'name' => 'Tón',
+                'globalCompositeOperation' => 'color',
+            ],
+        ]];
+
+        $decompiled = self::decompile($canvas, [self::textInput('t1', 'Nadpis')], [], self::context());
+
+        self::assertSame([], $decompiled->losses, 'Blend modes and the background opacity have a DSL word; nothing is lost.');
+
+        $byKind = [];
+        foreach ($decompiled->document->elements as $element) {
+            $byKind[$element->kind()->value] = $element;
+        }
+
+        $background = $byKind['background'] ?? null;
+        self::assertInstanceOf(BackgroundElement::class, $background);
+        self::assertSame(0.6, $background->opacity);
+        self::assertSame(CanvasBlendMode::Multiply, $background->blend);
+        self::assertSame('multiply', $background->toArray()['blend']);
+
+        self::assertInstanceOf(TextElement::class, $byKind['text'] ?? null);
+        self::assertSame(CanvasBlendMode::SoftLight, $byKind['text']->blend);
+        self::assertInstanceOf(ImageElement::class, $byKind['image'] ?? null);
+        self::assertSame(CanvasBlendMode::Screen, $byKind['image']->blend);
+        self::assertInstanceOf(ShapeElement::class, $byKind['shape'] ?? null);
+        self::assertSame(CanvasBlendMode::Color, $byKind['shape']->blend);
+        self::assertSame('color', $byKind['shape']->toArray()['blend']);
     }
 
     public function testAVectorShapeSurvivesWithItsKindFillAndBorder(): void

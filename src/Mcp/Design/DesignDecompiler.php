@@ -25,6 +25,7 @@ use WBoost\Web\Mcp\Design\Dsl\TextInputSpec;
 use WBoost\Web\Mcp\Design\Geometry\GridResolver;
 use WBoost\Web\Services\Editor\BackgroundLayer;
 use WBoost\Web\Value\BackgroundMode;
+use WBoost\Web\Value\CanvasBlendMode;
 use WBoost\Web\Value\CanvasContainer;
 use WBoost\Web\Value\CanvasShape;
 use WBoost\Web\Value\CanvasShapeGradient;
@@ -712,7 +713,7 @@ readonly final class DesignDecompiler
                 allowFlipX: $slot['kind'] === 'image' && ($object['imagePlaceholder'] ?? false) !== true,
             );
             // A shape words its own opacity, stroke and editor lock; texts
-            // and images word their opacity (the background never has one).
+            // and images word their opacity (and the background its own).
             $isShape = $slot['kind'] === 'shape';
             self::reportSharedStyles(
                 $path,
@@ -817,7 +818,7 @@ readonly final class DesignDecompiler
         array &$losses,
     ): BackgroundElement {
         self::reportSharedTransforms($path, $object, $losses);
-        self::reportSharedStyles($path, $object, $losses, allowEditorLock: true);
+        self::reportSharedStyles($path, $object, $losses, allowEditorLock: true, allowOpacity: true);
 
         if (BackgroundLayer::isColorLayer($object)) {
             return self::colorBackgroundElement($slug, $object, $path, $canvas, $context->bleed, $losses);
@@ -865,7 +866,7 @@ readonly final class DesignDecompiler
             ));
         }
 
-        return new BackgroundElement($slug, $assetId, $fillable);
+        return new BackgroundElement($slug, $assetId, $fillable, null, self::opacity($object), CanvasBlendMode::fromObject($object));
     }
 
     /**
@@ -912,7 +913,7 @@ readonly final class DesignDecompiler
             ));
         }
 
-        return new BackgroundElement($slug, null, false, $fill);
+        return new BackgroundElement($slug, null, false, $fill, self::opacity($object), CanvasBlendMode::fromObject($object));
     }
 
     /**
@@ -981,6 +982,7 @@ readonly final class DesignDecompiler
             self::opacity($object),
             ElementMoveAllowance::fromCanvasObject($object),
             max((float) TextElement::MIN_LETTER_SPACING, min((float) TextElement::MAX_LETTER_SPACING, self::number($object, 'charSpacing') ?? 0.0)),
+            CanvasBlendMode::fromObject($object),
         );
     }
 
@@ -1043,6 +1045,7 @@ readonly final class DesignDecompiler
             mirror: !$placeholder && ($object['flipX'] ?? false) === true,
             opacity: self::opacity($object),
             userMove: self::imageUserMove($object, $placeholder, $path, $losses),
+            blend: CanvasBlendMode::fromObject($object),
         );
     }
 
@@ -1149,6 +1152,7 @@ readonly final class DesignDecompiler
             ),
             userColor: self::shapeUserColor($object),
             userMove: ElementMoveAllowance::fromCanvasObject($object),
+            blend: CanvasBlendMode::fromObject($object),
         );
     }
 

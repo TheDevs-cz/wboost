@@ -14,8 +14,9 @@ import { isShapeObject } from "./canvas_shapes.js";
  * with no further teaching. It is a DESIGN property: nothing on the fill page
  * or in the API can override it.
  *
- * Never offered for the background layer (`isBackground`), and the multi bar
- * skips a background inside a selection. In a multi-selection the value is
+ * The background layer takes it too (2026-11-24, "Styl vrstvy": a photo
+ * background faded or blended over a colour layer the designer put under
+ * it). In a multi-selection the value is
  * written to each MEMBER — never to the ActiveSelection itself, whose own
  * opacity would only tint the transient group and never reach the JSON.
  *
@@ -80,9 +81,9 @@ function eligibleObjects(active) {
     const type = (active.type || '').toLowerCase();
     if (type === 'activeselection') {
         return (typeof active.getObjects === 'function' ? active.getObjects() : [])
-            .filter((obj) => obj.isBackground !== true && (isTextOrImage(obj) || isShapeObject(obj)));
+            .filter((obj) => isTextOrImage(obj) || isShapeObject(obj));
     }
-    return isTextOrImage(active) && active.isBackground !== true ? [active] : [];
+    return isTextOrImage(active) ? [active] : [];
 }
 
 function isTextOrImage(obj) {

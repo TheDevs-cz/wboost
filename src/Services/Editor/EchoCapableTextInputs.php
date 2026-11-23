@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace WBoost\Web\Services\Editor;
 
 use WBoost\Web\Services\SocialNetwork\TextInputObjectBinder;
+use WBoost\Web\Value\CanvasBlendMode;
 use WBoost\Web\Value\CanvasContainer;
 use WBoost\Web\Value\EditorTextInput;
 
@@ -25,6 +26,9 @@ use WBoost\Web\Value\EditorTextInput;
  *    stack anyway (the replacement children would not inherit the opacity).
  *  - inputs whose textbox the positional binding cannot locate have nothing
  *    to draw.
+ *  - a text with a Režim prolnutí ({@see CanvasBlendMode}) blends with what
+ *    lies under it; the separate echo canvas has nothing under it, so it
+ *    would paint flat colours — settle-rendered instead.
  *  - **z-guard**: the echo canvas paints ABOVE everything, so an input with
  *    any visible non-echo content stacked above AND overlapping it would have
  *    its text wrongly drawn over that content. Overlap is tested on rotated
@@ -73,6 +77,10 @@ final readonly class EchoCapableTextInputs
                 continue;
             }
             if (!isset($indexByInputId[$input->inputId])) {
+                continue;
+            }
+            $object = $objects[$indexByInputId[$input->inputId]] ?? null;
+            if (is_array($object) && CanvasBlendMode::blends($object)) {
                 continue;
             }
             $candidates[$input->inputId] = true;

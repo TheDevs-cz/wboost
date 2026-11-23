@@ -1,0 +1,13 @@
+{# "Styl vrstvy" — Photoshop-style layer settings (canvas-layer-style).
+   Included once per element popover (text, image, shape), so ids carry the
+   `surface` suffix. Režim prolnutí = Fabric's native
+   `globalCompositeOperation`; the options are filled by the controller from
+   canvas_blend_modes.js (the 16 modes a canvas draws). #}
+{% set s = surface %}
+<div class="ed-lstyle d-none" data-canvas-layer-style-target="section">
+    <h3 class="ed-sec-h">Styl vrstvy</h3>
+    <div class="mb-2">
+        <label for="layer-blend-{{ s }}" class="form-label small mb-1">Režim prolnutí <i class="i i-info s12 ed-tip" title="Jak se vrstva mísí s tím, co leží pod ní — jako ve Photoshopu. Nabízíme režimy, které umí prohlížeč i export."></i></label>
+        <select id="layer-blend-{{ s }}" class="form-select form-select-sm" data-canvas-layer-style-target="blend" data-action="change->canvas-layer-style#updateBlend"></select>
+    </div>
+</div>

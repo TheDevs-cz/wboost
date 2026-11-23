@@ -34,6 +34,8 @@ const STYLE_KEYS = [
     'text', 'fontFamily', 'fill', 'textAlign', 'underline', 'linethrough',
     'overline', 'lineHeight', 'charSpacing',
     'stroke', 'strokeDashArray', 'strokeLineCap', 'rx', 'ry', 'opacity',
+    // "Styl vrstvy" — Režim prolnutí (Fabric-native), an absolute copy.
+    'globalCompositeOperation',
     // Mirror (decorative images): orientation, not geometry — Fabric flips
     // around the centre, so it copies absolutely in every dimension.
     'flipX',
@@ -132,6 +134,27 @@ function projectedSpacing(value, ry) {
  */
 export function isSyncable(obj) {
     return !!obj.inputId && obj.isBackground !== true;
+}
+
+/**
+ * The background layer's STYLE (not its cover geometry) is shared by every
+ * dimension like any other element's: Průhlednost and Režim prolnutí
+ * ("Styl vrstvy", 2026-11-24). Copied absolutely to each target's own
+ * background by {@see GroupSync#syncPass}; the per-dimension cover fit is
+ * untouched, which is why backgrounds stay out of {@see isSyncable}.
+ */
+export const BACKGROUND_STYLE_KEYS = ['opacity', 'globalCompositeOperation'];
+
+function backgroundOf(canvas) {
+    return canvas.getObjects().find((o) => o.isBackground === true) || null;
+}
+
+function backgroundStyleSnapshot(canvas) {
+    const background = backgroundOf(canvas);
+    if (!background) return null;
+    const snapshot = {};
+    BACKGROUND_STYLE_KEYS.forEach((key) => { snapshot[key] = clonePaintValue(background[key]); });
+    return snapshot;
 }
 
 // One retry for per-target projections whose clone re-fetches an image src —
@@ -297,6 +320,25 @@ export class GroupSync {
         this.baselineContainers = [];
     }
 
+    /**
+     * Fan a change of the background layer's style out to every target's own
+     * background (absolute copy — opacity and blend mode have no geometry).
+     */
+    _syncBackgroundStyle(canvas, targets, touched) {
+        const current = backgroundStyleSnapshot(canvas);
+        const base = this.baselineBackgroundStyle;
+        if (!current || !base) return;
+        const changed = BACKGROUND_STYLE_KEYS.filter((key) => !propsEqual(base[key], current[key]));
+        if (changed.length === 0) return;
+
+        targets.forEach((target) => {
+            const match = backgroundOf(target.shadow);
+            if (!match) return;
+            changed.forEach((key) => match.set(key, clonePaintValue(current[key])));
+            touched.add(target.id);
+        });
+    }
+
     rebaseline() {
         const canvas = this.activeCanvas();
         this.baseline = new Map();
@@ -316,6 +358,7 @@ export class GroupSync {
         this.baselineContainers = Array.isArray(canvas.wboostContainers)
             ? JSON.parse(JSON.stringify(canvas.wboostContainers))
             : [];
+        this.baselineBackgroundStyle = backgroundStyleSnapshot(canvas);
     }
 
     /**
@@ -388,6 +431,7 @@ export class GroupSync {
             });
         });
 
+        this._syncBackgroundStyle(canvas, targets, touched);
         this._syncZOrder(targets, touched);
         this._syncContainers(activeDims, targets, touched);
         this._syncRepeat(touched);

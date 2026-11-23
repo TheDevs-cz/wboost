@@ -313,10 +313,11 @@
                   hidden></span>
             {# Overlay slices: design content stacked ABOVE an image placeholder
                (transparent PNGs). The fill controller paints each directly over
-               its placeholder's live object so the designed z-order holds. #}
+               its placeholder's live object so the designed z-order holds; a
+               blended object comes as its own part, drawn with its data-blend. #}
             <span id="variant-overlay-sources" hidden>
                 {% for slice in this.overlaySlices() %}
-                    <span data-overlay-above="{{ slice.aboveInputId }}" data-src="{{ slice.dataUri }}" data-base-src="{{ slice.baseDataUri }}"></span>
+                    <span data-overlay-above="{{ slice.aboveInputId }}" data-overlay-part="{{ slice.part }}" data-blend="{{ slice.blendMode }}" data-src="{{ slice.dataUri }}" data-base-src="{{ slice.baseDataUri }}"></span>
                 {% endfor %}
             </span>
         {% else %}

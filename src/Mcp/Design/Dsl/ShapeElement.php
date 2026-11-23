@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Mcp\Design\Dsl;
 
+use WBoost\Web\Value\CanvasBlendMode;
 use WBoost\Web\Value\CanvasShapeGradient;
 use WBoost\Web\Value\CanvasShapeKind;
 use WBoost\Web\Value\CanvasShapeStroke;
@@ -75,6 +76,11 @@ readonly final class ShapeElement implements DesignElement
          * (px, null = anywhere on the artwork). Null = fixed in place.
          */
         public null|ElementMoveAllowance $userMove = null,
+        /**
+         * "Styl vrstvy" — Režim prolnutí (Fabric's native
+         * `globalCompositeOperation`); Normal = not emitted.
+         */
+        public CanvasBlendMode $blend = CanvasBlendMode::Normal,
     ) {
     }
 
@@ -124,6 +130,10 @@ readonly final class ShapeElement implements DesignElement
 
         if ($this->userMove !== null) {
             $data['userMove'] = $this->userMove->toArray();
+        }
+
+        if ($this->blend !== CanvasBlendMode::Normal) {
+            $data['blend'] = $this->blend->dslName();
         }
 
         return $data;

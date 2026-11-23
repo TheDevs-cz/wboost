@@ -14,6 +14,7 @@ use WBoost\Web\Mcp\Design\Dsl\ShapeElement;
 use WBoost\Web\Mcp\Design\Dsl\TextElement;
 use WBoost\Web\Mcp\Design\Geometry\GridResolver;
 use WBoost\Web\Services\Editor\BackgroundLayer;
+use WBoost\Web\Value\CanvasBlendMode;
 use WBoost\Web\Value\CanvasShape;
 use WBoost\Web\Value\CanvasShapeGradient;
 use WBoost\Web\Value\EditorImageInput;
@@ -227,6 +228,14 @@ readonly final class DesignCompiler
         // FIRST regardless of where the element sits in `elements[]`, because
         // the stack position of a background is not the author's to choose.
         $background = $this->compileBackground($document, $context, $inputIds, $indexById, $violations);
+        $backgroundElement = $document->backgroundElement();
+
+        if ($background !== null && $backgroundElement !== null) {
+            $background['object'] = self::withBlend(
+                self::withOpacity($background['object'], $backgroundElement->opacity),
+                $backgroundElement->blend,
+            );
+        }
 
         if ($background !== null) {
             $objects[] = $background['object'];
@@ -591,7 +600,24 @@ readonly final class DesignCompiler
             'allowedColors' => $element->input->allowedColors,
         ];
 
-        return self::withUserMove(self::withOpacity($object, $element->opacity), $element->userMove);
+        return self::withUserMove(self::withBlend(self::withOpacity($object, $element->opacity), $element->blend), $element->userMove);
+    }
+
+    /**
+     * "Styl vrstvy" › Režim prolnutí = Fabric's native
+     * `globalCompositeOperation`, emitted ONLY when it is not Normal, so a
+     * normal element compiles to exactly the object it did before.
+     *
+     * @param array<string, mixed> $object
+     * @return array<string, mixed>
+     */
+    private static function withBlend(array $object, CanvasBlendMode $blend): array
+    {
+        if ($blend !== CanvasBlendMode::Normal) {
+            $object['globalCompositeOperation'] = $blend->value;
+        }
+
+        return $object;
     }
 
     /**
@@ -765,7 +791,7 @@ readonly final class DesignCompiler
             $object['allowedDirectoryIds'] = $element->input->allowedDirectories;
         }
 
-        return self::withUserMove(self::withOpacity($object, $element->opacity), $element->userMove);
+        return self::withUserMove(self::withBlend(self::withOpacity($object, $element->opacity), $element->blend), $element->userMove);
     }
 
     /**
@@ -825,7 +851,7 @@ readonly final class DesignCompiler
             $object['colorFree'] = $element->userColor->free;
         }
 
-        $object = self::withUserMove($object, $element->userMove);
+        $object = self::withUserMove(self::withBlend($object, $element->blend), $element->userMove);
 
         return match ($element->shape->fabricType()) {
             'Rect' => $object + ['rx' => $element->cornerRadius, 'ry' => $element->cornerRadius],

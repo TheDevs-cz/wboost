@@ -34,6 +34,42 @@ final class CanvasSliceTest extends TestCase
         self::assertFalse($gaps[0]['slice']->withBackground);
     }
 
+    /**
+     * An object with a Režim prolnutí becomes a part of its own, tagged with
+     * its mode, so the fill canvas can blend that slice over the client's
+     * picture; the normal runs around it keep sharing one part each.
+     */
+    public function testABlendedObjectSplitsTheGapIntoItsOwnTaggedPart(): void
+    {
+        $objects = [
+            ['type' => 'image', 'imagePlaceholder' => true],                     // 0: the slot
+            ['type' => 'textbox'],                                               // 1: normal
+            ['type' => 'Rect', 'globalCompositeOperation' => 'source-over'],     // 2: explicit normal
+            ['type' => 'Rect', 'globalCompositeOperation' => 'multiply'],        // 3: blended
+            ['type' => 'Rect', 'globalCompositeOperation' => 'screen', 'visible' => false], // 4: hidden
+            ['type' => 'textbox'],                                               // 5: normal
+            ['type' => 'image', 'imagePlaceholder' => true],                     // 6: second slot
+            ['type' => 'Rect', 'globalCompositeOperation' => 'soft-light'],      // 7: blended, top
+        ];
+
+        $gaps = CanvasSlice::overlayGapsAbovePlaceholders($objects, ['a' => 0, 'b' => 6]);
+
+        $summary = array_map(static fn (array $gap): array => [
+            $gap['aboveInputId'],
+            $gap['part'],
+            $gap['slice']->fromIndex,
+            $gap['slice']->toIndex,
+            $gap['blendMode']->value,
+        ], $gaps);
+
+        self::assertSame([
+            ['a', 0, 1, 3, 'source-over'],
+            ['a', 1, 3, 4, 'multiply'],
+            ['a', 2, 4, 6, 'source-over'],
+            ['b', 0, 7, null, 'soft-light'],
+        ], $summary);
+    }
+
     public function testNothingAbovePlaceholdersYieldsNoGaps(): void
     {
         $objects = [

@@ -1078,13 +1078,13 @@ final class DslParserTest extends TestCase
             self::documentWith(self::imageElement(['src' => 'x.png'])),
             'elements[0].src',
             DslErrorCode::UnknownKey,
-            'Allowed keys: kind, id, asset, at, x, y, width, height, input, mirror, opacity, userMove.',
+            'Allowed keys: kind, id, asset, at, x, y, width, height, input, mirror, opacity, blend, userMove.',
         ];
         yield 'unknown background key' => [
             self::documentWith(['kind' => 'background', 'id' => 'bg', 'cover' => true]),
             'elements[0].cover',
             DslErrorCode::UnknownKey,
-            'Allowed keys: kind, id, asset, fill, fillable.',
+            'Allowed keys: kind, id, asset, fill, fillable, opacity, blend.',
         ];
         yield 'unknown container key' => [
             self::documentWith(['kind' => 'container', 'id' => 'body', 'padding' => 4]),

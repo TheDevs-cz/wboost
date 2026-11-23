@@ -62,6 +62,24 @@ final class BlackInkObjectsTest extends TestCase
         );
     }
 
+    /**
+     * A Režim prolnutí makes the colour depend on what lies beneath, so a
+     * blended black object is never pure K — it is flattened in pass 1.
+     */
+    public function testBlendedBlackIsFlattenedNotPrintedInK(): void
+    {
+        $canvas = ['objects' => [
+            ['type' => 'Textbox', 'fill' => '#000000', 'text' => 'Multiply', 'globalCompositeOperation' => 'multiply'],
+            ['type' => 'Rect', 'width' => 1000, 'height' => 1000, 'fill' => '#000000', 'globalCompositeOperation' => 'soft-light'],
+            ['type' => 'Textbox', 'fill' => '#000000', 'text' => 'Normal', 'globalCompositeOperation' => 'source-over'],
+        ]];
+
+        self::assertSame(
+            ['overprint' => [2], 'knockout' => []],
+            BlackInkObjects::classify($canvas, new ResolvedInputOverrides([], []), self::BLACK, 24),
+        );
+    }
+
     public function testDesignedStylesAndUserRunsDecide(): void
     {
         $canvas = ['objects' => [

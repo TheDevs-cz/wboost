@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Mcp\Design\Dsl;
 
+use WBoost\Web\Value\CanvasBlendMode;
 use WBoost\Web\Value\CanvasShapeGradient;
 
 /**
@@ -41,6 +42,13 @@ readonly final class BackgroundElement implements DesignElement
         public bool $fillable,
         /** Lowercase `#rrggbb`, a gradient, or null = not a colour background. */
         public null|string|CanvasShapeGradient $fill = null,
+        /** Admin-set opacity, a 0…1 fraction (Fabric's native `opacity`). */
+        public float $opacity = 1.0,
+        /**
+         * "Styl vrstvy" — Režim prolnutí (Fabric's native
+         * `globalCompositeOperation`); Normal = not emitted.
+         */
+        public CanvasBlendMode $blend = CanvasBlendMode::Normal,
     ) {
     }
 
@@ -54,12 +62,22 @@ readonly final class BackgroundElement implements DesignElement
      */
     public function toArray(): array
     {
-        return [
+        $data = [
             'kind' => ElementKind::Background->value,
             'id' => $this->id,
             'asset' => $this->assetId,
             'fill' => $this->fill instanceof CanvasShapeGradient ? $this->fill->toArray() : $this->fill,
             'fillable' => $this->fillable,
         ];
+
+        if ($this->opacity < 1.0) {
+            $data['opacity'] = $this->opacity;
+        }
+
+        if ($this->blend !== CanvasBlendMode::Normal) {
+            $data['blend'] = $this->blend->dslName();
+        }
+
+        return $data;
     }
 }

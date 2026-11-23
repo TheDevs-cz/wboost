@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Mcp\Design\Dsl;
 
+use WBoost\Web\Value\CanvasBlendMode;
 use WBoost\Web\Value\ElementMoveAllowance;
 
 /**
@@ -64,6 +65,11 @@ readonly final class TextElement implements DesignElement
          * it survives a change of `size`.
          */
         public float $letterSpacing = 0.0,
+        /**
+         * "Styl vrstvy" — Režim prolnutí (Fabric's native
+         * `globalCompositeOperation`); Normal = not emitted.
+         */
+        public CanvasBlendMode $blend = CanvasBlendMode::Normal,
     ) {
     }
 
@@ -103,6 +109,10 @@ readonly final class TextElement implements DesignElement
         // Only when set: a design without tracking reads exactly as before.
         if ($this->letterSpacing !== 0.0) {
             $data['letterSpacing'] = $this->letterSpacing;
+        }
+
+        if ($this->blend !== CanvasBlendMode::Normal) {
+            $data['blend'] = $this->blend->dslName();
         }
 
         return $data;

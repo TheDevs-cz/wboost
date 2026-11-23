@@ -137,7 +137,12 @@ response's `directoryId` is null for root uploads.
   (`AbstractVariantFiller::overlaySlices()` → `CanvasSlice` → the renderer's
   `sliceCanvas`) — that the controller paints directly over that placeholder's live
   object; `_restack()` keeps placeholders + overlays in designed stack order
-  (`layerIndex` in the placeholder payload). Slicing suppresses out-of-range objects
+  (`layerIndex` in the placeholder payload). A gap holding an object with a
+  Režim prolnutí is split into `part`s, the blended object alone in its part
+  with its `blendMode`, which the controller sets on that slice image (overlays
+  keyed `placeholderId#part`) — a flat slice cannot blend by itself (2026-11-24,
+  templates-editor-ui.md "Styl vrstvy"); the slot's own `blendMode` rides the
+  payload like `opacity`. Slicing suppresses out-of-range objects
   via `opacity: 0`, NEVER `visible: false` (invisible objects fall out of the
   positional textbox binding and container membership → per-slice reflow drift), and
   stubs sliced-out image srcs (headless Chromium can't reach Minio). The

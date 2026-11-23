@@ -231,15 +231,15 @@ within the document. Slugs carry input identity across saves.
 | `canvas` | `width`, `height`, `background` |
 | `canvas.background` | `image`, `fill` |
 | `at` | `area`, `col`, `marginX`, `marginY`, `offsetX`, `offsetY` |
-| `text` element | `kind`, `id`, `text`, `font`, `size`, `color`, `align`, `lineHeight`, `letterSpacing`, `opacity`, `at`, `x`, `y`, `width`, `input`, `userMove` |
+| `text` element | `kind`, `id`, `text`, `font`, `size`, `color`, `align`, `lineHeight`, `letterSpacing`, `opacity`, `blend`, `at`, `x`, `y`, `width`, `input`, `userMove` |
 | `text` input block | `name`, `maxLength`, `uppercase`, `hidable`, `locked`, `richText`, `sampleValue`, `allowedFonts`, `fontChoice`, `allowedColors` |
-| `image` element | `kind`, `id`, `asset`, `at`, `x`, `y`, `width`, `height`, `input`, `mirror`, `opacity`, `userMove` |
+| `image` element | `kind`, `id`, `asset`, `at`, `x`, `y`, `width`, `height`, `input`, `mirror`, `opacity`, `blend`, `userMove` |
 | `image` input block | `name`, `placeholder`, `allowMove`, `allowResize`, `allowRotate`, `hidable`, `allowedDirectories` |
-| `shape` element | `kind`, `id`, `shape`, `fill`, `stroke`, `strokeWidth`, `strokeStyle`, `cornerRadius`, `opacity`, `name`, `locked`, `userColor`, `at`, `x`, `y`, `width`, `height`, `userMove` |
+| `shape` element | `kind`, `id`, `shape`, `fill`, `stroke`, `strokeWidth`, `strokeStyle`, `cornerRadius`, `opacity`, `blend`, `name`, `locked`, `userColor`, `at`, `x`, `y`, `width`, `height`, `userMove` |
 | `shape` gradient fill | `type`, `angle`, `from`, `to`, `stops` |
 | `shape` gradient stop | `at`, `color`, `opacity` |
 | `shape` userColor block | `target`, `colors`, `free` |
-| `background` element | `kind`, `id`, `asset`, `fill`, `fillable` |
+| `background` element | `kind`, `id`, `asset`, `fill`, `fillable`, `opacity`, `blend` |
 | `container` element | `kind`, `id`, `members`, `children`, `maxHeight`, `gap`, `spaceAfter`, `hidable`, `name`, `userMove`, `repeat` |
 | `repeat` block | `max`, `min`, `default`, `slots` |
 | `userMove` block | `vertical`, `horizontal`, `maxUp`, `maxDown`, `maxLeft`, `maxRight` |
@@ -255,6 +255,7 @@ within the document. Slugs carry input identity across saves.
 | `strokeStyle` | `solid`, `dashed`, `dotted` |
 | `userColor.target` | `fill`, `stroke`, `both` |
 | gradient `fill.type` | `linear`, `radial` |
+| `blend` | `normal`, `darken`, `multiply`, `color-burn`, `lighten`, `screen`, `color-dodge`, `overlay`, `soft-light`, `hard-light`, `difference`, `exclusion`, `hue`, `saturation`, `color`, `luminosity` |
 
 ### Required, and defaults
 
@@ -315,7 +316,16 @@ within the document. Slugs carry input identity across saves.
 - **`image` `opacity`**: a fraction 0…1 (default `1`), decorative or
   fillable. A filled placeholder keeps it: the user's picture renders at the
   designed opacity. Opacity is a design property only — nobody filling the
-  template can change it. The `background` has none.
+  template can change it. The `background` takes one too (it then lets
+  whatever is under it — nothing, i.e. a transparent export — show through).
+- **`blend`** ("Režim prolnutí", Photoshop's blend mode) on a `text`, `image`,
+  `shape` or `background`: how the element mixes with everything under it —
+  `multiply` darkens (a colour tint over a photo), `screen` lightens,
+  `soft-light` / `overlay` add contrast, `color` / `luminosity` recolour. Default
+  `normal`. Only the 16 modes listed above exist (no dissolve, linear burn,
+  vivid light, …). A filled placeholder keeps it for the user's picture. Like
+  opacity it is design-only, and a blended object prints flattened (never as
+  pure-K black).
 - **`image` `mirror`**: `true` flips a **decorative** image horizontally (default
   `false`). Rejected on a fillable placeholder — filling re-places the picture
   and resets any mirroring.

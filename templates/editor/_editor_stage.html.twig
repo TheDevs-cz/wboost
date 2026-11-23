@@ -230,6 +230,8 @@
                     <input type="range" id="text-opacity-control" class="form-range" min="0" max="100" step="1" data-canvas-opacity-target="slider" data-action="input->canvas-opacity#update change->canvas-opacity#update">
                 </div>
 
+                <div class="col-12">{{ include('editor/_layer_style_section.html.twig', {surface: 'text'}) }}</div>
+
                 <div class="col-12"><h3 class="ed-sec-h">Vyplňování</h3></div>
 
                 <!-- Max Length Control -->
@@ -483,14 +485,16 @@
                 <label for="image-editor-locked-control" class="form-check-label small">Zamknout v editoru <span class="text-muted">(chrání před náhodným posunutím — kliknutí prochází skrz, prvek pak vyberete v panelu Vrstvy; neovlivní export)</span></label>
             </div>
 
-            {# Design opacity — decorative images AND placeholders (the user's
-               picture keeps it); hidden for the background layer. #}
+            {# Design opacity — decorative images, placeholders (the user's
+               picture keeps it) and the background layer. #}
             <div class="mb-2" data-canvas-opacity-target="row">
                 <label for="image-opacity-control" class="form-label small mb-1">
                     Průhlednost <span class="text-muted" data-canvas-opacity-target="value">100 %</span>
                 </label>
                 <input type="range" id="image-opacity-control" class="form-range" min="0" max="100" step="1" data-canvas-opacity-target="slider" data-action="input->canvas-opacity#update change->canvas-opacity#update">
             </div>
+
+            {{ include('editor/_layer_style_section.html.twig', {surface: 'image'}) }}
 
 
             <div data-canvas-image-properties-target="details" style="display: none;">
@@ -733,6 +737,8 @@
                     </div>
                 </div>
             </div>
+
+            {{ include('editor/_layer_style_section.html.twig', {surface: 'shape'}) }}
 
             {{ include('editor/_user_move_section.html.twig', {surface: 'shape'}) }}
 

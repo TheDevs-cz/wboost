@@ -83,6 +83,22 @@ final class EchoCapableTextInputsTest extends TestCase
         self::assertSame([self::ID_3], $result, 'locked = design, lists = block stack; plain rich stays capable');
     }
 
+    /**
+     * The echo canvas has nothing under it, so a text with a Režim prolnutí
+     * would paint flat colours there — it stays settle-rendered.
+     */
+    public function testABlendedTextIsNever(): void
+    {
+        $canvas = ['objects' => [
+            $this->textbox(0, 0, 100, 40, ['globalCompositeOperation' => 'multiply']),
+            $this->textbox(0, 100, 100, 40, ['globalCompositeOperation' => 'source-over']),
+        ]];
+
+        $result = $this->resolver()->resolve($canvas, [$this->input(self::ID_1), $this->input(self::ID_2)]);
+
+        self::assertSame([self::ID_2], $result);
+    }
+
     public function testInputWithoutALocatableTextboxIsNever(): void
     {
         $canvas = ['objects' => [$this->textbox(0, 0, 100, 40)]];

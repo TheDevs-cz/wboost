@@ -478,7 +478,13 @@
                     // Opacity too: a suppressed object (slice / print pass,
                     // opacity 0) must stay suppressed as its block stack.
                     const designOpacity = typeof obj.opacity === 'number' ? obj.opacity : 1;
-                    children.forEach((child) => { child.visible = designVisible; child.opacity = designOpacity; });
+                    // "Styl vrstvy": the stack blends like the text it replaced.
+                    const designBlend = obj.globalCompositeOperation || 'source-over';
+                    children.forEach((child) => {
+                        child.visible = designVisible;
+                        child.opacity = designOpacity;
+                        child.globalCompositeOperation = designBlend;
+                    });
 
                     const index = canvas.getObjects().indexOf(obj);
                     canvas.remove(obj);

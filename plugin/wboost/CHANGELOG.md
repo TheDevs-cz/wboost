@@ -5,6 +5,19 @@ every deploy. When the server is newer than your skill, Claude tells you once
 per session how to update (see the README). Versions follow `x.y.z`: a new or
 changed tool or parameter is at least a minor bump.
 
+## 0.11.0 — 2026-11-24
+
+**Blend modes in designs (Styl vrstvy).**
+
+New parameters and behaviour
+- `set_design` `text`, `image`, `shape` and `background` elements take `blend`:
+  Photoshop's Režim prolnutí as a CSS `mix-blend-mode` name — `normal`,
+  `darken`, `multiply`, `color-burn`, `lighten`, `screen`, `color-dodge`,
+  `overlay`, `soft-light`, `hard-light`, `difference`, `exclusion`, `hue`,
+  `saturation`, `color`, `luminosity`. A filled placeholder keeps it for the
+  user's picture. `get_design` reads it back.
+- The `background` element takes `opacity` (a fraction 0…1), like the others.
+
 ## 0.10.0 — 2026-11-24
 
 **Turned and mirrored calendar photos** (no new tool or parameter; the crop of a

@@ -342,7 +342,9 @@ crop marks, exactly the structure of the Illustrator-exported reference file.
   OPACITY (2026-11-08): a translucent black shape (opacity < 1) OVERPRINTS
   instead — pass 2 paints its alpha as a K tint over the picture, which is
   the see-through the designer asked for (a knockout would blank the photo
-  and print flat grey); opacity 0 objects take no ink. Everything else that is
+  and print flat grey); opacity 0 objects take no ink, and an object with a
+  Režim prolnutí (2026-11-24) is never classified — its colour depends on what
+  is beneath, so it is flattened like a colour. Everything else that is
   translucent is simply flattened in pass 1's browser composite, so the
   PDF/X-1a file never carries live transparency (X-1a forbids it). "Black" =
   `#000000` + every brand colour whose palette CMYK is 0/0/0/100.

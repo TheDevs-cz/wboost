@@ -6,6 +6,7 @@ namespace WBoost\Web\Mcp\Design\Dsl;
 
 use Ramsey\Uuid\Uuid;
 use WBoost\Web\Exceptions\InvalidDesignDocument;
+use WBoost\Web\Value\CanvasBlendMode;
 use WBoost\Web\Value\CanvasShapeGradient;
 use WBoost\Web\Value\CanvasShapeGradientStop;
 use WBoost\Web\Value\CanvasShapeKind;
@@ -72,19 +73,19 @@ final class DslParser
     public const array AT_KEYS = ['area', 'col', 'marginX', 'marginY', 'offsetX', 'offsetY'];
 
     /** @var list<string> */
-    public const array TEXT_KEYS = ['kind', 'id', 'text', 'font', 'size', 'color', 'align', 'lineHeight', 'letterSpacing', 'opacity', 'at', 'x', 'y', 'width', 'input', 'userMove'];
+    public const array TEXT_KEYS = ['kind', 'id', 'text', 'font', 'size', 'color', 'align', 'lineHeight', 'letterSpacing', 'opacity', 'blend', 'at', 'x', 'y', 'width', 'input', 'userMove'];
 
     /** @var list<string> */
     public const array TEXT_INPUT_KEYS = ['name', 'maxLength', 'uppercase', 'hidable', 'locked', 'richText', 'sampleValue', 'allowedFonts', 'fontChoice', 'allowedColors'];
 
     /** @var list<string> */
-    public const array IMAGE_KEYS = ['kind', 'id', 'asset', 'at', 'x', 'y', 'width', 'height', 'input', 'mirror', 'opacity', 'userMove'];
+    public const array IMAGE_KEYS = ['kind', 'id', 'asset', 'at', 'x', 'y', 'width', 'height', 'input', 'mirror', 'opacity', 'blend', 'userMove'];
 
     /** @var list<string> */
     public const array IMAGE_INPUT_KEYS = ['name', 'placeholder', 'allowMove', 'allowResize', 'allowRotate', 'hidable', 'allowedDirectories'];
 
     /** @var list<string> */
-    public const array SHAPE_KEYS = ['kind', 'id', 'shape', 'fill', 'stroke', 'strokeWidth', 'strokeStyle', 'cornerRadius', 'opacity', 'name', 'locked', 'userColor', 'at', 'x', 'y', 'width', 'height', 'userMove'];
+    public const array SHAPE_KEYS = ['kind', 'id', 'shape', 'fill', 'stroke', 'strokeWidth', 'strokeStyle', 'cornerRadius', 'opacity', 'blend', 'name', 'locked', 'userColor', 'at', 'x', 'y', 'width', 'height', 'userMove'];
 
     /**
      * The keys of a shape's `userColor` block ({@see ShapeUserColor}).
@@ -111,7 +112,7 @@ final class DslParser
     public const array SHAPE_FILL_STOP_KEYS = ['at', 'color', 'opacity'];
 
     /** @var list<string> */
-    public const array BACKGROUND_KEYS = ['kind', 'id', 'asset', 'fill', 'fillable'];
+    public const array BACKGROUND_KEYS = ['kind', 'id', 'asset', 'fill', 'fillable', 'opacity', 'blend'];
 
     /** @var list<string> */
     public const array CONTAINER_KEYS = ['kind', 'id', 'members', 'children', 'maxHeight', 'gap', 'spaceAfter', 'hidable', 'name', 'userMove', 'repeat'];
@@ -422,6 +423,7 @@ final class DslParser
         $lineHeight = $this->readPositiveNumber($path, $raw, 'lineHeight') ?? TextElement::DEFAULT_LINE_HEIGHT;
         $letterSpacing = $this->readLetterSpacing($path, $raw);
         $opacity = $this->readOpacity($path, $raw);
+        $blend = $this->readBlend($path, $raw);
         $placement = $this->parsePlacement($path, $raw, allowHeight: false);
         $input = $this->parseTextInput($path, $raw['input'] ?? null);
         $userMove = $this->readUserMove($path, $raw);
@@ -430,7 +432,7 @@ final class DslParser
             return null;
         }
 
-        return new TextElement($id, $text, $font, $size, $color, $align, $lineHeight, $placement, $input, $opacity, $userMove, $letterSpacing);
+        return new TextElement($id, $text, $font, $size, $color, $align, $lineHeight, $placement, $input, $opacity, $userMove, $letterSpacing, $blend);
     }
 
     /**
@@ -443,6 +445,7 @@ final class DslParser
         $input = $this->parseImageInput($path, $raw['input'] ?? null);
         $mirror = $this->readBool($path, $raw, 'mirror', false);
         $opacity = $this->readOpacity($path, $raw);
+        $blend = $this->readBlend($path, $raw);
         $userMove = $this->readUserMove($path, $raw);
 
         // A fill re-places a placeholder's picture and resets its flip
@@ -470,7 +473,7 @@ final class DslParser
             return null;
         }
 
-        return new ImageElement($id, $assetId, $placement, $input, $mirror, $opacity, $userMove);
+        return new ImageElement($id, $assetId, $placement, $input, $mirror, $opacity, $userMove, $blend);
     }
 
     /**
@@ -493,6 +496,7 @@ final class DslParser
         $strokeStyle = $this->readShapeStroke($path, $raw);
         $cornerRadius = $this->readNonNegativeNumber($path, $raw, 'cornerRadius') ?? 0.0;
         $opacity = $this->readOpacity($path, $raw);
+        $blend = $this->readBlend($path, $raw);
         $name = $this->readString($path, $raw, 'name');
         $locked = $this->readBool($path, $raw, 'locked', false);
         $userColor = $this->readShapeUserColor($path, $raw);
@@ -536,6 +540,7 @@ final class DslParser
             placement: $placement,
             userColor: $userColor,
             userMove: $userMove,
+            blend: $blend,
         );
     }
 
@@ -843,6 +848,37 @@ final class DslParser
     }
 
     /**
+     * `blend` — "Styl vrstvy" › Režim prolnutí: a CSS `mix-blend-mode` name
+     * (`normal`, `multiply`, `screen`, `soft-light`, …), the 16 a canvas
+     * draws ({@see CanvasBlendMode}).
+     *
+     * @param array<array-key, mixed> $raw
+     */
+    private function readBlend(string $path, array $raw): CanvasBlendMode
+    {
+        $value = $raw['blend'] ?? null;
+
+        if ($value === null) {
+            return CanvasBlendMode::Normal;
+        }
+
+        $mode = is_string($value) ? CanvasBlendMode::fromDslName($value) : null;
+
+        if ($mode === null) {
+            $this->violation(self::join($path, 'blend'), DslErrorCode::InvalidValue, sprintf(
+                '%s.blend must be one of: %s. Got %s.',
+                $path,
+                implode(', ', CanvasBlendMode::dslNames()),
+                self::describe($value),
+            ));
+
+            return CanvasBlendMode::Normal;
+        }
+
+        return $mode;
+    }
+
+    /**
      * `opacity` is a fraction, not a percentage — the same 0…1 Fabric stores,
      * so nothing has to convert on either side of the round-trip.
      *
@@ -1081,6 +1117,8 @@ final class DslParser
         $assetId = $this->readAssetId($path, $raw, 'asset');
         $fill = $this->readShapeFill($path, $raw);
         $fillable = $this->readBool($path, $raw, 'fillable', false);
+        $opacity = $this->readOpacity($path, $raw);
+        $blend = $this->readBlend($path, $raw);
 
         if ($assetId !== null && $fill !== null) {
             $this->violation(self::join($path, 'fill'), DslErrorCode::InvalidStructure, sprintf(
@@ -1093,7 +1131,7 @@ final class DslParser
             return null;
         }
 
-        return new BackgroundElement($id, $assetId, $fillable, $fill);
+        return new BackgroundElement($id, $assetId, $fillable, $fill, $opacity, $blend);
     }
 
     /**

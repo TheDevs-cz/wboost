@@ -37,6 +37,7 @@ use WBoost\Web\Services\SocialNetwork\PlaceholderAllowedDirectories;
 use WBoost\Web\Services\SocialNetwork\ResolveTextOverrides;
 use WBoost\Web\Services\SocialNetwork\TextInputObjectBinder;
 use WBoost\Web\Services\UploaderHelper;
+use WBoost\Web\Value\CanvasBlendMode;
 use WBoost\Web\Value\CanvasContainer;
 use WBoost\Web\Value\CanvasSlice;
 use WBoost\Web\Value\ElementMoveAllowance;
@@ -545,9 +546,12 @@ abstract class AbstractVariantFiller extends AbstractController
      * above its placeholder's live object. Ordered bottom-up. Empty for the
      * typical "placeholders on top of the design" case — costs no extra
      * renders then. `baseDataUri` = the echo base of the slice (equal to
-     * `dataUri` when the gap holds no echo-capable text).
+     * `dataUri` when the gap holds no echo-capable text). A gap holding an
+     * object with a Režim prolnutí comes as several `part`s, the blended one
+     * tagged with its `blendMode` (canvas operator) — the controller draws
+     * that slice with it ({@see CanvasSlice::overlayGapsAbovePlaceholders()}).
      *
-     * @return list<array{aboveInputId: string, dataUri: string, baseDataUri: string}>
+     * @return list<array{aboveInputId: string, part: int, blendMode: string, dataUri: string, baseDataUri: string}>
      */
     public function overlaySlices(): array
     {
@@ -571,6 +575,8 @@ abstract class AbstractVariantFiller extends AbstractController
                 : $dataUri;
             $result[] = [
                 'aboveInputId' => $gap['aboveInputId'],
+                'part' => $gap['part'],
+                'blendMode' => $gap['blendMode']->value,
                 'dataUri' => $dataUri,
                 'baseDataUri' => $baseDataUri,
             ];
@@ -665,6 +671,7 @@ abstract class AbstractVariantFiller extends AbstractController
      *     isBackground: bool,
      *     layerIndex: int,
      *     opacity: float,
+     *     blendMode: string,
      *     seed: null|array<string, mixed>
      * }>
      */
@@ -754,6 +761,9 @@ abstract class AbstractVariantFiller extends AbstractController
                 // never changes it (the server render keeps the object's
                 // opacity through ImagePlacement's merge the same way).
                 'opacity' => self::designOpacity($object),
+                // Režim prolnutí ("Styl vrstvy") — the canvas operator, applied
+                // the same way; the server keeps the object's own key too.
+                'blendMode' => CanvasBlendMode::fromObject($object ?? [])->value,
                 // Loaded-version state for this slot (see the LiveProp).
                 'seed' => $this->seedImageValues[$input->inputId] ?? null,
             ];
