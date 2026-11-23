@@ -225,6 +225,11 @@ export const CAL = {
         },
     },
     slots: { logo: 'Logo', header: 'Obrázek v hlavičce', background: 'Obrázek na pozadí' },
+    /** K7 / K8: pictures are optional — applied without them, they are added in step 3. */
+    picturesFull: 'Všechna místa mají obrázek. Obrázek vyměníte tlačítkem Změnit u místa, nebo ho na místo přetáhněte.',
+    picturesNoneEmpty: 'Všechna místa už mají obrázek — obrázek vyměníte tlačítkem Změnit u místa, nebo ho přetáhněte přímo na místo.',
+    saveAndApply: 'Kalendář má neuložené změny — uložíme je a hned potom použijeme rozvržení.',
+    appliedLater: (n) => `Rozvržení převzato ze skenu · ${n} ${n === 1 ? 'obrázek doplníte' : n <= 4 ? 'obrázky doplníte' : 'obrázků doplníte'} v Úpravách prvků`,
     /** Style groups of the report's `fonts[]` → the genitive of `Písmo {…}`. */
     fontGroups: { num: 'čísel dnů', numSat: 'čísel sobot', numSun: 'čísel nedělí', numHol: 'čísel svátků', day: 'názvů dnů', name: 'jmenin', hol: 'svátků', ev: 'akcí', month: 'měsíce', wk: 'čísla týdne', cap: 'popisku fotky', time: 'časů', shift: 'směn' },
     fontPattern: {

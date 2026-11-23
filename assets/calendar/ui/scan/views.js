@@ -8,8 +8,7 @@ import { CAL, UPLOAD_ERRORS, failure, noteText, picturesLater, pill, startHint }
 import { ratioLabel } from '../../../ai-scan/file-checks.js';
 import { boxStyle, cropStyle, pixelsStyle } from '../../../ai-scan/page/parts.js';
 import { elementFact, sampleWeekLabel } from './preview.js';
-import { bleedOf } from '../../model/defaults.js';
-import { photoDpi } from '../../render/warnings.js';
+import { MIN_PRINT_DPI, PRINT_DPI, pictureDpi, pictureSize, placeOfSlot } from '../picture-size.js';
 
 const ACCEPT = 'image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf';
 const PICTURE_ACCEPT = 'image/jpeg,image/png,image/webp,image/svg+xml';
@@ -18,13 +17,6 @@ const IN_PROGRESS = ['checking', 'queued', 'running'];
 const LONG_AFTER_SECONDS = 180;
 /** Under this short side (px) the review says the result may be less precise (file-checks: a calendar page is taken from 640 × 280 px). */
 export const LOW_RESOLUTION_SHORT_SIDE = 600;
-/**
- * The print-quality thresholds of the editor's dpi warning (render/warnings.js `pageWarnings`: under
- * 200 dpi → „Nízká kvalita fotky — … (pro tisk aspoň 300 dpi)“). Mirrored, not imported: a constant
- * moved into render/ would change the export fingerprint and invalidate every stored PDF export.
- */
-const MIN_PRINT_DPI = 200;
-const PRINT_DPI = 300;
 const STAGES = CAL.stages;
 const stageIndex = (id) => STAGES.findIndex((s) => s.id === id);
 const design = (scan) => scan.store.getState().doc.design;
@@ -636,7 +628,8 @@ function applyButton(scan) {
         return `<button type="button" class="btn sm btn-primary" disabled aria-describedby="calScanApplyHint" data-cal-action="scan-apply" data-k="apply">${label}${ic('arrow-right')}</button>`;
     }
     if (scan.store.isDirty()) {
-        return `<button type="button" class="btn sm btn-tertiary" data-act="save" data-k="scansave">Uložit</button><button type="button" class="btn sm btn-primary" disabled aria-describedby="calScanApplyHint" data-cal-action="scan-apply" data-k="apply">${label}${ic('arrow-right')}</button>`;
+        // K8: one click saves the workspace and applies (scan.apply) — never a dead „Uložit first“
+        return `<button type="button" class="btn sm btn-primary" data-act="apply" data-cal-action="scan-apply" data-k="apply" aria-describedby="calScanApplyHint"${scan.busy === 'apply' ? ' disabled' : ''}>${scan.busy === 'apply' ? 'Ukládám…' : `Uložit a ${label.charAt(0).toLowerCase()}${label.slice(1)}`}${ic('arrow-right')}</button>`;
     }
     return `<button type="button" class="btn sm btn-primary" data-act="apply" data-cal-action="scan-apply" data-k="apply"${scan.busy === 'apply' ? ' disabled' : ''}>${label}${ic('arrow-right')}</button>`;
 }
@@ -646,7 +639,7 @@ function foot(scan, primary, { back = '', apply = false } = {}) {
     const sub = !apply ? '' : typeChanged(scan)
         ? `<p class="as-sub"><span id="calScanApplyHint" class="cal-scan-warn">${CAL.typeChanged.hint}</span></p>`
         : scan.store.isDirty()
-        ? '<p class="as-sub"><span id="calScanApplyHint" class="cal-scan-warn">Nejdřív uložte rozpracované změny.</span></p>'
+        ? `<p class="as-sub"><span id="calScanApplyHint">${CAL.saveAndApply}</span></p>`
         : `<p class="as-sub">Uloží se hned. Původní rozvržení vrátíte tlačítkem Vrátit původní${until ? ` — do ${until}` : ''}.</p>`;
     return `<div class="as-foot" data-region="foot"><div class="as-foot-l">${ic('info')}<span>Kalendář se nezmění, dokud rozvržení nepoužijete.${until ? ` Návrh uchováme do ${until}.` : ''}</span></div><div class="as-foot-r">${back}<button type="button" class="btn sm ghost danger" data-act="discard" data-cal-action="scan-discard" data-k="discard"${scan.busy === 'discard' ? ' disabled' : ''}>Zahodit</button><button type="button" class="btn sm btn-tertiary" data-act="rescan" data-cal-action="scan-rescan" data-k="rescan">${ic('refresh')}Naskenovat znovu</button><span class="as-sp"></span>${primary}</div>${sub}</div>`;
 }
@@ -673,13 +666,12 @@ function reviewView(scan) {
     const week = sampleWeekLabel(scan.store.getState().doc, p);
     const seg = `<div class="seg soft as-seg" role="group" aria-label="Způsob porovnání">${[['side', 'Vedle sebe'], ['slider', 'Posuvník']].map(([v, l]) => `<button type="button" class="${scan.compare === v ? 'on' : ''}" aria-pressed="${scan.compare === v}" data-act="compareMode" data-v="${v}" data-k="cmp${v}">${l}</button>`).join('')}</div>`;
     const hasPictures = p.pictures.length > 0;
-    const primary = hasPictures
-        ? `<button type="button" class="btn sm btn-primary" data-act="toPictures" data-cal-action="scan-pictures" data-k="topictures">Pokračovat na obrázky${ic('arrow-right')}</button>`
-        : applyButton(scan);
+    // K7: „Použít rozvržení“ is the way on; the pictures are an optional side path (or step 3 later)
+    const primary = `${hasPictures ? `<button type="button" class="btn sm btn-tertiary" data-act="toPictures" data-cal-action="scan-pictures" data-k="topictures">${ic('image')}Doplnit obrázky teď</button>` : ''}${applyButton(scan)}`;
     return `${mismatchAlert(scan)}<div class="as-cgrid" data-region="review" data-deep>
 <div class="as-main" data-region="viewer-${scan.compare}-${scan.layers ? 'l' : 'p'}"><div class="as-viewbar">${seg}<label class="as-switch"><input type="checkbox" class="sr" role="switch" data-chg="toggleLayers" data-k="layers"${scan.layers ? ' checked' : ''}><span class="sw sm" aria-hidden="true"></span><span>Ukázat vrstvy</span></label></div>${compare(scan)}${scan.layers ? layerLegend(scan) : ''}<p class="as-cap">${week ? `Náhled ukazuje týden ${week}. ` : ''}${p.photoBox ? 'Fotka je z vašeho obrázku — do kalendáře se nevloží.' : ''}</p></div>
 <div class="as-main" data-region="side" data-deep><div class="as-card as-sumcard" data-region="sum"><h3 class="as-sum"><b>Návrh rozvržení je připravený.</b></h3><p class="cap" style="margin:0">Tohle je návrh — kalendář se zatím nezměnil.</p>${fontsAttention(scan)}</div>${recognised(scan)}${fontsCard(scan)}${cantCard(scan)}${infoCard(scan)}${feedback(scan)}</div></div>
-${foot(scan, primary, { apply: !hasPictures })}`;
+${foot(scan, primary, { apply: true })}`;
 }
 
 // ---- C4b — pictures ---------------------------------------------------------------------------
@@ -691,46 +683,15 @@ function slotBox(scan, slot) {
     return box && box.w > 0 && box.h > 0 ? box : null;
 }
 
-/**
- * The size a place's picture should have (K6): its box in the PROPOSED layout in mm — a box that
- * reaches over the trim already holds the bleed (`print.bleed` / `bleedMm`), and says so; with the
- * bleed off, a box at the page edge says that instead — the background is the whole page. Pixels
- * at {@link PRINT_DPI} (ideal) and {@link MIN_PRINT_DPI} (the editor's dpi warning); the logo is
- * fitted inside its box, so it gets the box and the formats, its px for a PNG only.
- * → { box, fit, text } | null
- */
+/** The size a place's picture should have (K6, `ui/picture-size.js`) in the PROPOSED layout + the fit of the place. */
 export function placeSize(scan, slot) {
-    const d = design(scan);
-    const page = d.page;
-    const bleed = bleedOf(d.print);
     const layout = scan.proposal.layout || {};
     const styles = layout.styles || {};
-    const raw = slot === 'background' ? { x: -bleed, y: -bleed, w: page.width + 2 * bleed, h: page.height + 2 * bleed } : slotBox(scan, slot);
-    if (!raw) return null;
-    // what is printed: the box cut at the bleed edge (a proposal made with another bleed may reach further)
-    const x0 = Math.max(raw.x, -bleed);
-    const y0 = Math.max(raw.y, -bleed);
-    const box = { x: x0, y: y0, w: Math.min(raw.x + raw.w, page.width + bleed) - x0, h: Math.min(raw.y + raw.h, page.height + bleed) - y0 };
-    if (!(box.w > 0 && box.h > 0)) return null;
-    const eps = 0.01;
-    const over = box.x < -eps || box.y < -eps || box.x + box.w > page.width + eps || box.y + box.h > page.height + eps;
-    const atEdge = box.x <= eps || box.y <= eps || box.x + box.w >= page.width - eps || box.y + box.h >= page.height - eps;
-    const mm = (v) => fmt(v);
-    const px = (dpi) => `${Math.ceil((box.w / 25.4) * dpi)} × ${Math.ceil((box.h / 25.4) * dpi)} px`;
-    const bleedText = bleed > 0 && over ? ` včetně spadávky ${mm(bleed)} mm` : bleed === 0 && atEdge ? ' (spadávka je vypnutá)' : '';
+    const d = design(scan);
+    const size = pictureSize({ boxes: layout.boxes, page: d.page, print: d.print, place: placeOfSlot(slot) });
+    if (!size) return null;
     const fit = slot === 'logo' ? ((styles.logo && styles.logo.fit) || 'contain') : slot === 'header' ? ((styles.head && styles.head.bg && styles.head.bg.fit) || 'cover') : ((styles.bg && styles.bg.fit) || 'cover');
-    const size = `${mm(box.w)} × ${mm(box.h)} mm${bleedText}`;
-    const text = slot === 'logo'
-        ? `Místo pro logo ${size} · SVG, nebo PNG s průhledností (ideálně ${px(PRINT_DPI)})`
-        : `Rozměr ${size} · ideálně ${px(PRINT_DPI)}, nejméně ${px(MIN_PRINT_DPI)}`;
-    return { box, fit, text };
-}
-
-/** Effective dpi of a held picture in its place (cover: the shorter cover; contain: fitted inside); null for an SVG. */
-function heldDpi(pic, size) {
-    if (!pic || !pic.width || !pic.height || /\.svg$/i.test(pic.name || '')) return null;
-    if (size.fit !== 'contain') return photoDpi(pic, size.box, 1);
-    return Math.round(Math.max(pic.width / (size.box.w / 25.4), pic.height / (size.box.h / 25.4)));
+    return { ...size, fit };
 }
 
 function pictureCard(scan, item, number) {
@@ -751,7 +712,7 @@ function pictureCard(scan, item, number) {
         body = `<p class="as-ph-note">${ic('info', 's14')}<span>Můžete ho doplnit i později v kroku Úpravy prvků.</span></p><div class="as-row">${gallery('Vybrat z galerie')}${upload('Nahrát')}</div>`;
     }
     const size = placeSize(scan, item.slot);
-    const dpi = size && item.picture ? heldDpi(item.picture, size) : null;
+    const dpi = size && item.picture ? pictureDpi(item.picture, size.box, size.fit) : null;
     const sizeNote = size ? `<p class="as-ph-note cal-scan-size" data-place-size="${slot}">${ic('fit', 's14')}<span>${esc(size.text)}</span></p>${dpi !== null && dpi < MIN_PRINT_DPI ? `<p class="as-ph-note warn" data-place-dpi="${slot}">${ic('alert', 's14')}<span>Nízká kvalita obrázku — ${dpi} dpi (pro tisk aspoň ${PRINT_DPI} dpi)</span></p>` : ''}` : '';
     const source = p.source && p.source.width && p.source.height ? p.source : null;
     const px = sourceBox(scan, slotBox(scan, item.slot));
@@ -784,7 +745,10 @@ function picturesView(scan) {
     const done = p.pictures.filter((item) => item.picture || item.current).length;
     const back = `<button type="button" class="btn sm btn-tertiary" data-act="toReview" data-k="toreview">${ic('arrow-left')}Zpět na kontrolu</button>`;
     const formats = 'JPG, PNG, WebP nebo SVG, nejvýše 10 MB';
-    const multi = p.pictures.length > 1
+    const allFull = p.pictures.every((item) => item.picture);
+    const multi = p.pictures.length > 1 && allFull
+        ? `<p class="as-ph-note ok" data-cal-scan-full>${ic('check-circle', 's14')}<span>${CAL.picturesFull}</span></p>`
+        : p.pictures.length > 1
         ? `<button type="button" class="gal-drop gal-drop-compact as-drop as-multi" data-act="picturesPick" data-k="bulk" data-dropzone="pictures"${scan.busy ? ' disabled' : ''}>${ic('upload', '')}<b><span class="dt-only">Přetáhněte sem víc obrázků najednou</span><span class="ph-only">Klepněte a vyberte víc obrázků</span></b><span class="cap">Přiřadíme je prázdným místům popořadě · ${formats}</span></button>` : '';
     return `${typeChanged(scan) ? mismatchAlert(scan) : ''}<div class="as-cgrid" data-region="pictures" data-deep>
 <div class="as-main" data-region="prop"><span class="lbl">Návrh rozvržení</span><div class="as-frame" style="aspect-ratio:${page.width} / ${page.height}"><span class="cal-scan-prop" data-proposal role="img" aria-label="Návrh rozvržení s očíslovanými místy pro obrázky"></span>${numberedPlaces(scan)}</div><p class="as-cap">Čísla ukazují, kam který obrázek patří. V prázdných místech je vidět původní obrázek. Fotografii týdne nevybíráte — je to obsah každé stránky.</p></div>

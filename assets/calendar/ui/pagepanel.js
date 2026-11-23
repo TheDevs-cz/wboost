@@ -146,7 +146,7 @@ export function mountPagePanel(root, ctx, opts = {}) {
                     has: () => Boolean(content().pagePhotos[key]),
                     upload: async (file) => {
                         const info = await uploadAsset(ctx, file, 'photo');
-                        if (info) setPagePhoto(ctx, current, info);
+                        if (info) setPagePhoto(ctx, current, info, { nameCaption: true });
                     },
                     remove: () => store.removeItem('pagePhotos', key, current.title),
                 });

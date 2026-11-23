@@ -5,9 +5,10 @@
 // A filled row says which file it holds (feedback K11): the original file name (`asset.name`,
 // ellipsised in the middle so the number and extension stay visible, full name in `title`), the
 // pixel size, and — under `PHOTO_MIN_DPI` for the photo box — the „Nízká kvalita“ dpi hint of the
-// page warnings (`render/warnings.js` `lowPhotoDpi`, the one threshold). The line sits under the
+// page warnings (`render/warnings.js` `lowPhotoDpi`, the one threshold; peach + alert icon like
+// every warning, tooltip = `describeWarning` of `render/warning-text.js`). The line sits under the
 // caption field (or in its column when captions are off); at ≤ 600 px it wraps under the row.
-// An upload here (single or bulk) into a week WITHOUT a caption and without an embedded picture
+// An upload here (single or bulk, and the page panel's week-photo upload) into a week WITHOUT a caption and without an embedded picture
 // description starts the caption from the file name (`model/photo-caption.js`; camera names like
 // `IMG_1234` give none) — an ordinary content edit the user sees in the field and can change.
 //
@@ -20,8 +21,8 @@
 //   `uploadAsset(ctx, file, kind)` `api.upload` → `store.addAsset`, error toast on failure
 //   `setPagePhoto(ctx, page, info, { nameCaption })` photo of a week page: crop reset to centred /
 //                                   100 %, caption from the picture's embedded description; with
-//                                   `nameCaption` (this tool only) an empty caption falls back to
-//                                   the file name
+//                                   `nameCaption` (this tool and the page panel's upload) an empty
+//                                   caption falls back to the file name
 //   `sortedImageFiles(files)`      images only, in Czech numeric file-name order
 //
 // DOM hooks: `[data-photo-bulk]` (the multi-file input), `[data-photo-row="<pageKey>"]`,
@@ -30,7 +31,8 @@
 
 import { weekPages } from '../../generate/pages.js';
 import { captionFromFileName } from '../../model/photo-caption.js';
-import { lowPhotoDpi } from '../../render/warnings.js';
+import { describeWarning } from '../../render/warning-text.js';
+import { lowPhotoDpi, photoDpi } from '../../render/warnings.js';
 import { h, icon } from '../dom.js';
 
 export const CAPTION_MAX = 80;
@@ -304,7 +306,11 @@ export function mountPhotosTool(root, ctx) {
         if (sized) parts.push(h('span', { class: 'cal-phs' }, `${asset.width} × ${asset.height} px`));
         const dpi = lowPhotoDpi(state().doc.design, photo, asset);
         if (dpi !== null) {
-            parts.push(h('span', { class: 'cal-phd', title: `Nízká kvalita fotky — ${dpi} dpi (pro tisk aspoň 300 dpi)` }, `Nízká kvalita — ${dpi} dpi`));
+            // the same words as the warning card (K12): title, facts and fix in the tooltip
+            const box = state().doc.design.layout.boxes.photo;
+            const facts = { dpi, width: asset.width, height: asset.height, zoom: photo.zoom || 1, frameW: box.w, frameH: box.h, dpiAt100: photoDpi(asset, box, 1) };
+            const d = describeWarning({ kind: 'dpi', target: { el: 'photo' }, facts }, { designer });
+            parts.push(h('span', { class: 'cal-phd', title: [d.title, d.text, d.hint].filter(Boolean).join('\n') }, icon('alert', 's14'), `Nízká kvalita — ${dpi} dpi`));
             meta.dataset.photoDpi = String(dpi);
         } else delete meta.dataset.photoDpi;
         meta.replaceChildren(...parts);

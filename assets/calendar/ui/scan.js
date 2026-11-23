@@ -37,6 +37,7 @@ import { MIN_LONG_SIDE_CALENDAR, MIN_SHORT_SIDE_CALENDAR, inspectFiles } from '.
 import { morph } from '../../ai-scan/page/app.js';
 import { observe, needsRender } from '../../ai-scan/page/wait.js';
 import * as views from './scan/views.js';
+import { placeOfSlot } from './picture-size.js';
 import { cropPicture, photoCutBox, previewMarkup } from './scan/preview.js';
 
 const IN_PROGRESS = ['checking', 'queued', 'running'];
@@ -143,7 +144,7 @@ class CalendarScan {
         };
         document.addEventListener('visibilitychange', this.onReturn);
         this.unsubscribe = this.store.subscribe((event) => {
-            // „Použít rozvržení“ is disabled while the calendar has unsaved changes
+            // „Použít rozvržení“ says „Uložit a použít…“ while the calendar has unsaved changes
             if (event.type === 'status' && this.root && ['review', 'pictures'].includes(this.view())) this.render();
         });
 
@@ -752,7 +753,7 @@ class CalendarScan {
         }
         const left = list.length - assigned;
         if (assigned > 0) this.ctx.toast(`${views.assignedText(assigned)}${left > 0 ? ` · ${left} jsme nepoužili` : ''}`);
-        else if (!slots.length) this.ctx.toast('Žádné prázdné místo — obrázky jsme nepřiřadili', true);
+        else if (!slots.length) this.ctx.toast(CAL.picturesNoneEmpty, true);
     }
 
     // ---- the gallery as a source ------------------------------------------------------------
@@ -802,9 +803,19 @@ class CalendarScan {
     // ---- apply / restore ------------------------------------------------------------------------
 
     async apply() {
-        if (this.busy || this.store.isDirty() || views.typeChanged(this)) return;
+        if (this.busy || views.typeChanged(this)) return;
         this.busy = 'apply';
         this.render();
+        // K8: unsaved changes of the calendar are saved first, in the same click („Uložit a použít…“)
+        if (this.store.isDirty()) {
+            const saved = await this.store.save();
+            if (!saved.ok) {
+                this.busy = null;
+                this.render();
+                this.ctx.toast(`${saved.error || 'Kalendář se nepodařilo uložit'} — rozvržení jsme proto nepoužili. Zkuste to znovu.`, true);
+                return;
+            }
+        }
         const answer = await api.post(urlFor(this.urls.accept, this.scan.id), { features: [...this.ticked] });
         this.busy = null;
         if (!answer.ok || !answer.document) {
@@ -816,15 +827,18 @@ class CalendarScan {
             return;
         }
         const scanId = this.scan.id;
+        // K7: the places left empty are filled in step 3 — said in the toast, the first one selected there
+        const later = this.proposal.pictures.filter((item) => !item.picture && !item.current).map((item) => placeOfSlot(item.slot));
         this.notifyShell();
         this.open = false;
         this.another();
         // the saved calendar replaces the document; the step history starts again
         this.store.load(answer.document);
         if (this.store.getState().doc.design.step !== 3) this.store.setStep(3);
+        if (later.length) this.store.setUi({ selection: { el: later[0] } });
         this.entry.applied = answer.restoreUntil ? { scanId, restoreUntil: answer.restoreUntil } : null;
         this.changed();
-        this.ctx.toast('Rozvržení převzato ze skenu', false, answer.restoreUntil ? { label: 'Vrátit původní', onClick: () => this.restore(scanId) } : null);
+        this.ctx.toast(later.length ? CAL.appliedLater(later.length) : 'Rozvržení převzato ze skenu', false, answer.restoreUntil ? { label: 'Vrátit původní', onClick: () => this.restore(scanId) } : null);
         this.refreshEntry().then(() => this.changed());
     }
 

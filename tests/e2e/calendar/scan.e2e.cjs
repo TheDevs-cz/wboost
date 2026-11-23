@@ -625,29 +625,34 @@ module.exports = {
                 await dropFiles('[data-cal-scan-panel] [data-dropzone="pictures"]', [logo, backdrop]);
                 await page.waitForFunction(() => /logo\.png/.test(document.querySelector('[data-slot="logo"]').textContent) && /pozadi\.png/.test(document.querySelector('[data-slot="header"]').textContent), { timeout: 20000 });
                 await h.waitToast(page, '2 obrázky přiřazeny');
+                // K8: every place full → no multi-drop zone to drop into for nothing, a note says how to swap one
+                await page.waitForSelector('[data-cal-scan-full]');
+                assert.equal(await page.$('[data-dropzone="pictures"]'), null);
+                assert.match(await text('[data-cal-scan-full]'), /Všechna místa mají obrázek\. Obrázek vyměníte tlačítkem Změnit/);
                 await shot('scan-07c-dropped');
                 // back to what the next checks expect: the logo only
                 await removePicture('header');
                 assert.match(await text('[data-cal-action="scan-apply"]'), /^Použít rozvržení · 1 obrázek doplníte později$/);
             });
 
-            await check('Applying waits for unsaved changes of the calendar', async () => {
+            await check('Unsaved changes of the calendar: one click saves them and applies („Uložit a použít…“, K8)', async () => {
                 await page.click('[data-cal-name]', { clickCount: 3 });
                 await page.type('[data-cal-name]', 'Kalendář ze skenu');
                 await h.waitStatus(page, 'dirty');
-                await page.waitForFunction(() => document.querySelector('[data-cal-action="scan-apply"]').disabled);
-                assert.match(await text('#calScanApplyHint'), /Nejdřív uložte rozpracované změny/);
-                await page.click('[data-k="scansave"]');
-                await h.waitStatus(page, 'clean');
-                await page.waitForFunction(() => !document.querySelector('[data-cal-action="scan-apply"]').disabled);
+                await page.waitForFunction(() => /^Uložit a použít rozvržení/.test(document.querySelector('[data-cal-action="scan-apply"]').textContent));
+                assert.equal(await page.$eval('[data-cal-action="scan-apply"]', (el) => el.disabled), false);
+                assert.match(await text('#calScanApplyHint'), /uložíme je a hned potom použijeme rozvržení/);
             });
 
             let applied = null;
             await check('„Použít rozvržení“ saves at once, reloads the calendar and opens step 3', async () => {
                 await page.click('[data-cal-action="scan-apply"]');
                 await page.waitForSelector('.cal-ws[data-cal-shown-step="3"]', { timeout: 20000 });
-                await h.waitToast(page, 'Rozvržení převzato ze skenu');
+                // K7: the empty place is named in the toast and selected in step 3
+                await h.waitToast(page, 'Rozvržení převzato ze skenu · 1 obrázek doplníte v Úpravách prvků');
                 applied = await state();
+                assert.deepEqual(applied.selection, { el: 'head' });
+                await page.waitForSelector('[data-props="head"] [data-picture-size="head"]');
                 assert.equal(applied.layoutOrigin, 'scan');
                 assert.equal(applied.design.preset, 'photoRight');
                 assert.equal(applied.design.layout.styles.cal.numberSide, 'start');
