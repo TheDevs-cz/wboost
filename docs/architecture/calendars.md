@@ -564,7 +564,7 @@ everything else. ~15 000 lines.
 | `generate/` | dates (UTC, ISO weeks, Easter), Czech tables (name days, holidays, plurals), page list + page keys (`pages.js`), moon (Meeus ch. 49, Czech civil date), DST + seasons (`time.js`: equinoxes / solstices by Meeus ch. 27, Czech civil date — never a fixed date), waste rules, shifts, `dayInfo` (`day.js`) | pure |
 | `render/` | `renderPage(doc, page, opts) → SVG string` (`page.js`), week geometry (`week-layout.js`) and markup (`week.js`), cover / back / special pages (`special.js`), built-in icons, `measure.js`, `warnings.js` | pure except the two marked functions in `measure.js` |
 | `editor/` | geometry, hit test, snap, link, drag sessions, part bars, bleed adaptation, auto-grow, zoom | pure |
-| `state/` | `store.js`, `undo.js`, `payload.js` (pure, node-tested) and `api.js` (fetch) | pure except `api.js` |
+| `state/` | `store.js`, `undo.js`, `payload.js`, `url.js` (the address, see below) (pure, node-tested) and `api.js` (fetch) | pure except `api.js` |
 | `ui/` | DOM modules: `dom.js` kit, `topbar`, `step1`, `step2`, `step4`, `step5` (+ overlay, popover), `pagelist`, `pagepanel`, `pagecontent`, `thumb`, `warnings`, `history`, `client-link`, `editor/*` (stage, overlay, parts overlay, keys, layers, props, props-kal), `controls/*`, `tools/*` | DOM |
 
 **Rule: nothing outside `ui/` and `state/api.js` touches `window`, `document`,
@@ -630,6 +630,29 @@ The exact contract of each `ui/` file is the comment block at its top.
   step 2 — was this: no layout yet, a scan proposal not applied; the
   „Neuložené změny“ beside it were step-1 edits — prod history shows a design
   save 3 s before the accept — which a step change did not save.)
+- **Address** (`state/url.js`, owned by the workspace controller; feedback
+  K9). The URL says where you are: `?krok=N` (1–5, designer only) and, in
+  steps 4 and 5, `&strana=<pageKey>` — the year/type-independent keys of
+  `generate/pages.js` (`cover`, `pre`, `w01`…`w53`, `post`, `back`,
+  `sp:<id>`, URL-encoded); step 4 writes a page only while a page is open
+  (not on „Styl stránek“ / „Speciální stránky“). Kept current on every store
+  event with **`history.replaceState`**, never `pushState` — the workspace
+  has its own Zpět / Pokračovat and a leave guard, and per-step history
+  entries would fight both. The tab title follows the step
+  („<name> · Obsah | WBoost“; the client page keeps its title). On load a link
+  is **navigation only**: `store.openStep(n)` shows the step without a dirty
+  mark and without a save, and a later save answer (which carries the stored
+  step) does not move the view back; the first `setStep` (the user moves)
+  hands the step back to the usual silent-save rule. So the stored step —
+  what the list card and a plain `/calendar/{id}` open — changes only when
+  the user moves. Rules: invalid / unknown values are ignored silently;
+  steps 3–5 need a layout (`effectiveStep()` wins: `?krok=4` without a layout
+  shows the stored step); a client (`/k/{token}`, the read-only member) is
+  always on step 5, so only `strana` counts there (`/k/{token}?strana=w05`);
+  `?sken=` (ui/scan.js) wins over `krok` when the scan is available — scan.js
+  removes `sken` and moves to step 2, `krok` follows. The e2e helper
+  `h.seed()` drops `krok` / `strana` before its reload so the seeded step
+  wins. Tests: node suite `address`, e2e `address.e2e.cjs`.
 - **`Ctx`** — what every `mountX(root, ctx)` gets from the workspace
   controller: `{ store, env, api, measurer, toast, confirm, openTool,
   setStageProbe, actions: { save, leave, finish } }`. Modules return

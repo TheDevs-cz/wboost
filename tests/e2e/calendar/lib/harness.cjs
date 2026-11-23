@@ -193,6 +193,13 @@ async function seed(page, payload) {
         return { status: response.status, json: await response.json().catch(() => null) };
     }, payload);
     assert.equal(answer.status, 200, `seed failed: ${JSON.stringify(answer.json)}`);
+    // the seeded (stored) step must win: an address `?krok=` / `&strana=` would open its own step
+    await page.evaluate(() => {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('krok');
+        url.searchParams.delete('strana');
+        window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+    });
     await reload(page);
     return answer.json;
 }

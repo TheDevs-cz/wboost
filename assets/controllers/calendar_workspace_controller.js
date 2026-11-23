@@ -8,9 +8,10 @@ import { createCanvasMeasurer, ensureFontsLoaded, usedFamilies } from '../calend
 import { specialFamilies } from '../calendar/render/special.js';
 import { createApi } from '../calendar/state/api.js';
 import { createStore } from '../calendar/state/store.js';
+import { addressOf, pageIndexOf, readAddress, writeAddress } from '../calendar/state/url.js';
 import { choiceDialog, confirmDialog, h, toast } from '../calendar/ui/dom.js';
 import { createScan } from '../calendar/ui/scan.js';
-import { mountTopBar } from '../calendar/ui/topbar.js';
+import { STEPS, mountTopBar } from '../calendar/ui/topbar.js';
 import { mountStep1 } from '../calendar/ui/step1.js';
 import { mountStep2 } from '../calendar/ui/step2.js';
 import { mountStep4 } from '../calendar/ui/step4.js';
@@ -23,7 +24,9 @@ import { openTool } from '../calendar/ui/tools/index.js';
  * bootstrap JSON, creates the store and the `Ctx`, mounts the top bar and
  * the module of the current step into `.cal-ws`, and owns everything that
  * is about the page as a whole — Ctrl+S, the leave confirmation,
- * `beforeunload`, Dokončit, and the read-only test hook `window.__calendar`.
+ * `beforeunload`, Dokončit, the address (`?krok=` / `&strana=`, state/url.js:
+ * honoured on load as navigation only, kept current with replaceState) and
+ * the read-only test hook `window.__calendar`.
  *
  *   bootstrap   <script type="application/json"> with { mode, calendar, assets, env }
  *   mode value  designer | client (client = step 5 only, reduced top bar)
@@ -116,11 +119,14 @@ export default class extends Controller {
             .catch(() => null)
             .then(() => {
                 if (!this.store) return;
+                this.openAddress();
                 this.topBar = mountTopBar(this.top, this.ctx);
                 this.unsubscribe = store.subscribe((event) => {
                     if (event.type === 'design' || event.type === 'replace' || event.type === 'undo' || (event.type === 'layout' && !event.live)) this.showStep();
+                    if (!(event.type === 'layout' && event.live) && event.type !== 'status') this.syncAddress();
                 });
                 this.showStep();
+                this.syncAddress();
                 this.element.dataset.calReady = '1';
                 this.resolveReady();
             });
@@ -144,6 +150,37 @@ export default class extends Controller {
         const { design } = this.store.getState().doc;
         if (this.env.mode !== 'designer') return 5;
         return design.step >= 3 && !design.layout ? 2 : design.step;
+    }
+
+    /**
+     * A link `?krok=N&strana=<pageKey>` opens that step and page — as navigation: nothing is
+     * dirtied or saved (`store.openStep`). `?sken=` (ui/scan.js) wins over `krok`; steps 3–5 need a
+     * layout (`effectiveStep`); a client is always on step 5, so only `strana` counts there.
+     * Unknown values are ignored.
+     */
+    openAddress() {
+        const address = readAddress(window.location.search);
+        const { store } = this;
+        if (address.scan && this.ctx.scan) return;
+        if (this.env.mode === 'designer' && address.step) store.openStep(address.step);
+        const index = pageIndexOf(store.pages(), address.page);
+        if (index === null) return;
+        const step = this.effectiveStep();
+        if (step === 4) store.setUi({ contentView: index });
+        else if (step === 5) store.setUi({ previewPage: index });
+    }
+
+    /** The address and the tab title follow the step and page shown (replaceState — no history entries). */
+    syncAddress() {
+        if (!this.store || this.shownStep === null) return;
+        const state = this.store.getState();
+        const address = addressOf({ mode: this.env.mode, step: this.shownStep, ui: state.ui, pages: this.store.pages() });
+        const search = writeAddress(window.location.search, address);
+        if (search !== window.location.search) window.history.replaceState(window.history.state, '', window.location.pathname + search + window.location.hash);
+        if (this.env.mode === 'designer') {
+            const title = `${state.doc.design.name} · ${STEPS[this.shownStep - 1]} | WBoost`;
+            if (document.title !== title) document.title = title;
+        }
     }
 
     showStep() {

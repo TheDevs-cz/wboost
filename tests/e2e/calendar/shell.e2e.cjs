@@ -258,7 +258,7 @@ module.exports = {
             assert.equal(await text(page, '.cal-dialog .modal-body'), 'Kalendář má neuložené změny.');
             assert.deepEqual(await page.$$eval('.cal-dialog [data-cal-choice]', (nodes) => nodes.map((n) => n.textContent.trim()).sort()), ['Odejít bez uložení', 'Uložit a odejít', 'Zůstat']);
             await h.answerDialog(page, 'stay');
-            assert.match(page.url(), new RegExp(`/calendar/${id}$`));
+            assert.match(page.url(), new RegExp(`/calendar/${id}(\\?krok=\\d)?$`), 'still on the calendar (the address carries the step)');
             await page.click('[data-cal-action="back-to-list"]');
             await h.sleep(100);
             await Promise.all([page.waitForNavigation({ waitUntil: 'networkidle2' }), h.answerDialog(page, 'discard').catch(() => null)]);

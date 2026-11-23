@@ -92,6 +92,8 @@ export function createStore({ doc, env, api, measurer }) {
     let failed = false;
     let liveSession = null;
     let assetsVersion = 0;
+    // a step shown by `openStep` (the address) and not stored; null once the user moves
+    let viewStep = null;
 
     // ---- events ---------------------------------------------------------------------------
 
@@ -258,12 +260,29 @@ export function createStore({ doc, env, api, measurer }) {
         const n = Number(step);
         if (![1, 2, 3, 4, 5].includes(n) || n === state.doc.design.step) return;
         if (n >= 3 && !state.doc.design.layout) return;
+        // the user moves: from here on the usual rule stores the step
+        viewStep = null;
         const wasClean = state.status === 'clean';
         writeDesign({ step: n });
         markDesign('step');
         emit({ type: 'design', keys: ['step'] });
         // the step is stored silently when nothing else is unsaved, so reopening returns here
         if (wasClean && state.dirtyDesign.has('step')) save();
+    }
+
+    /**
+     * Shows step `n` without storing it — a link `?krok=N` (state/url.js) is navigation, not an
+     * edit: no dirty mark, no save, and the answer of a later save does not move the view back to
+     * the stored step. The first `setStep` hands the step back to the usual rule.
+     */
+    function openStep(step) {
+        if (!designer) return;
+        const n = Number(step);
+        if (![1, 2, 3, 4, 5].includes(n) || n === state.doc.design.step) return;
+        if (n >= 3 && !state.doc.design.layout) return;
+        viewStep = n;
+        writeDesign({ step: n });
+        emit({ type: 'design', keys: ['step'] });
     }
 
     function applyFeatures(features) {
@@ -625,6 +644,11 @@ export function createStore({ doc, env, api, measurer }) {
             const response = await api.save(payload);
             mergeAssets(response.assets);
             const next = applyResponse(state, response, sent, env);
+            if (finish) viewStep = null;
+            // a step opened by the address stays shown (it was never sent, the server has the stored one)
+            if (viewStep !== null && !next.dirtyDesign.has('step') && next.doc.design.step !== viewStep) {
+                next.doc = { ...next.doc, design: { ...next.doc.design, step: viewStep } };
+            }
             state.doc = next.doc;
             state.server = next.server;
             state.dirtyDesign = next.dirtyDesign;
@@ -687,6 +711,7 @@ export function createStore({ doc, env, api, measurer }) {
      * stack starts again.
      */
     function load(response) {
+        viewStep = null;
         mergeAssets(response.assets);
         const fresh = normalizeDocument(response.calendar, env);
         state.doc = fresh;
@@ -720,6 +745,7 @@ export function createStore({ doc, env, api, measurer }) {
         layoutOpts: () => layoutOpts(),
         setDesign,
         setStep,
+        openStep,
         setFeature,
         setAllFeatures,
         setPrint,
