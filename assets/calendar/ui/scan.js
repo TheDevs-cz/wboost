@@ -892,6 +892,8 @@ const ACTIONS = {
     picturesInput: (scan, el) => scan.holdMany(el.files),
     compareMode: (scan, el) => { scan.compare = el.dataset.v; scan.drawn = null; scan.render(); },
     feature: (scan, el) => { if (el.checked) scan.ticked.add(el.dataset.key); else scan.ticked.delete(el.dataset.key); scan.render(); },
+    // the summary's „Zobrazit písma“ (K3): the „Písma“ card into view, focused
+    toFonts: (scan) => { const card = scan.root && scan.root.querySelector('#calScanFonts'); if (card) { card.scrollIntoView({ block: 'center', behavior: 'smooth' }); card.focus({ preventScroll: true }); } },
     toPictures: (scan) => { scan.step = 'pictures'; scan.drawn = null; scan.changed(); scan.focusHeading(); },
     toReview: (scan) => { scan.step = 'review'; scan.drawn = null; scan.changed(); scan.focusHeading(); },
     picturePick: (scan, el) => { scan.pendingSlot = el.dataset.slot; click(scan, '#calScanPic'); },

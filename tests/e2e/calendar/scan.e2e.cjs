@@ -497,6 +497,11 @@ module.exports = {
                 assert.match(rough[0], /^Popisek fotky\s*přibližně/);
                 assert.match(body, /Tohle kalendář neumí.*Ozdobný pruh/);
                 assert.match(body, /Písmo čísel dnů: nejbližší dostupné/);
+                // K3: the fonts card is flagged — a rose row for „nepodařilo se určit“, a peach one for the stand-in, counts as pills, a line in the summary
+                assert.equal(await page.$eval('[data-cal-scan-fonts]', (el) => el.dataset.calScanFonts), 'bad');
+                assert.deepEqual(await page.$$eval('[data-font-state]', (els) => els.map((el) => [el.dataset.fontState, el.className])), [['nearest_available', 'warn'], ['undetermined', 'bad']]);
+                assert.deepEqual(await page.$$eval('[data-cal-scan-fonts] [data-font-count]', (els) => els.map((el) => el.textContent.trim())), ['1 nerozpoznané', '1 nahrazené']);
+                assert.match(await text('[data-cal-scan-attn="fonts"]'), /Písma neodpovídají předloze: 1 nerozpoznané, 1 nahrazené\. Zobrazit písma/);
                 assert.match(body, /Stránka má jiný poměr stran než váš kalendář \(297 × 150 mm\)/);
                 assert.match(body, /Kalendář se nezmění, dokud rozvržení nepoužijete\. Návrh uchováme do \d+\. \d+\. \d{4}/);
                 assert.deepEqual(await page.$$eval('[data-chg="feature"]', (els) => els.map((el) => [el.dataset.key, el.checked])), [['qr', true], ['events', true]]);

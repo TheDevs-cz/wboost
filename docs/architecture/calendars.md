@@ -879,6 +879,8 @@ targets the calendar's own type), designers only.
   scan-start|scan-pictures|scan-apply|scan-restore|scan-discard|scan-rescan"]`,
   `[data-preset="scan"]`, `[data-cal-scan-dot]`, `[data-proposal]`,
   `[data-cal-scan-prep]` with `[data-prep="logo|fonts|palette|page"][data-state="info|ok|todo"]`,
+  `[data-cal-scan-fonts="ok|warn|bad"]` (`#calScanFonts`) with rows `[data-font-state]` and pills
+  `[data-font-count]`, `[data-cal-scan-attn="fonts"]` in the summary,
   `#calScanFile`, `#calScanPic`, `#calScanPics` (always in the panel's markup), `[data-slot]`
   on a picture card, `[data-dropzone="page|slot|pictures"]`, `[data-box]` /
   `[data-hl]`, `[data-k="layers|fbu|fbd|picg{slot}|pic{slot}|picdrop{slot}"]`,
@@ -908,7 +910,17 @@ Deviations from `docs/ai-scan/ux.md` §6:
 - **No in-review font decisions.** Font rows are information („Písmo čísel
   dnů: nejbližší dostupné — …“, changed in step 3); „Nahrát správné písmo“ /
   „Vybrat jiné písmo“ / „Nechat“ are not built. Without a project font the
-  item links to the Fonty page (new tab).
+  item links to the Fonty page (new tab). **But the card is not quiet**
+  (feedback K3, 2026-11-23): every row carries its state — `undetermined`
+  (or an unknown pattern) a rose `alert-circle`, `nearest_available` a peach
+  `alert`, `measured_match` a mint tick (`CAL.fontStates`); the head shows the
+  counts as pills („2 nerozpoznaná“ rose, „4 nahrazená“ peach, „1 odpovídá“
+  mint); with any problem the card's border is rose (something undetermined)
+  or peach (stand-ins only), a box says what to do — upload the source's font
+  to Fonty (`Nahrát písma`, new tab) and pick it in step 3, the same story as
+  „Nejprve si připravte“ — and the summary card gets the line „Písma
+  neodpovídají předloze: … · Zobrazit písma“ (scrolls to and focuses
+  `#calScanFonts`). Nothing of it blocks „Použít rozvržení“.
 - The header of the summary card says `Návrh rozvržení je připravený.` — there
   is nothing to count as "to decide".
 - The stage names of a calendar scan are the calendar's own (`CAL.stages`).

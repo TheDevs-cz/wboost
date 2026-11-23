@@ -527,17 +527,54 @@ function recognised(scan) {
     return rows ? `<div class="as-card" data-region="rec"><h3>Co jsme rozpoznali</h3><ul class="as-rec">${rows}</ul><p class="cap" style="margin:0">Co jsme nenašli, zůstane v kalendáři nastavené jako dosud. Sken nic nevypíná.</p></div>` : '';
 }
 
+/** The review's fonts by state (K3): `undetermined` (also an unknown pattern), `nearest_available`, `measured_match`. */
+export function fontCounts(p) {
+    const counts = { undetermined: 0, nearest_available: 0, measured_match: 0 };
+    for (const font of p.fonts || []) {
+        if (!CAL.fontGroups[font.group]) continue;
+        counts[CAL.fontStates[font.pattern] ? font.pattern : 'undetermined'] += 1;
+    }
+    return counts;
+}
+const fontProblems = (counts) => counts.undetermined + counts.nearest_available;
+const FONT_PILLS = [['undetermined', 'rose', 'alert-circle'], ['nearest_available', 'pch', 'alert'], ['measured_match', 'mint', 'check']];
+const fontPills = (counts) => FONT_PILLS.filter(([k]) => counts[k] > 0).map(([k, tone, icon]) => `<span class="pill ${tone}" data-font-count="${k}">${ic(icon, 's12')}${CAL.fontCounts[k](counts[k])}</span>`).join('');
+
+/**
+ * „Písma“ (K3): every row with its state — a rose exclamation when the face could not be
+ * determined, a peach warning when the nearest project face stands in, a mint tick for a match.
+ * Any problem flags the card (`.cal-scan-fonts.warn`, the counts as pills in its head), adds the
+ * next step (upload the font to Fonty — the story of „Nejprve si připravte“) and a line in the
+ * summary card (`fontsAttention`). Never blocks „Použít rozvržení“.
+ */
 function fontsCard(scan) {
     const p = scan.proposal;
+    const counts = fontCounts(p);
     const rows = (p.fonts || []).map((font) => {
         const name = CAL.fontGroups[font.group];
-        const text = (CAL.fontPattern[font.pattern] || CAL.fontPattern.undetermined)(font.face ? esc(font.face) : '');
-        return name ? `<li><span>Písmo ${name}: ${text}.</span></li>` : '';
+        if (!name) return '';
+        const pattern = CAL.fontStates[font.pattern] ? font.pattern : 'undetermined';
+        const [cls, icon, sr] = CAL.fontStates[pattern];
+        const text = CAL.fontPattern[pattern](font.face ? esc(font.face) : '');
+        return `<li class="${cls}" data-font-state="${pattern}">${ic(icon, 's16')}<span><span class="sr">${sr}: </span>Písmo ${name}: ${text}.</span></li>`;
     }).join('');
     const none = p.projectFaces === 0
-        ? `<div class="as-it"><p class="as-it-t">${ic('alert', 's16')}<span>Projekt nemá žádné písmo</span></p><p>Kalendář se vykreslí náhradním písmem a v tisku může vypadat jinak.</p><div class="as-it-acts"><a class="btn xs btn-tertiary" href="${esc(scan.urls.fonts)}" target="_blank" rel="noopener">${ic('upload', 's14')}Nahrát písma</a></div></div>` : '';
+        ? `<div class="as-it"><p class="as-it-t">${ic('alert', 's16')}<span>Projekt nemá žádné písmo</span></p><p>Kalendář se vykreslí náhradním písmem a v tisku může vypadat jinak.</p><div class="as-it-acts"><a class="btn xs btn-tertiary" href="${esc(scan.urls.fonts)}" target="_blank" rel="noopener">${ic('upload', 's14')}Nahrát písma<span class="sr"> ${CAL.prepare.newTab}</span></a></div></div>` : '';
     if (!rows && !none) return '';
-    return `<div class="as-card" data-region="fonts"><h3>Písma</h3>${none}${rows ? `<div class="as-info"><ul>${rows}</ul></div><p class="cap" style="margin:0">Písma změníte v dalším kroku Úpravy prvků.</p>` : ''}</div>`;
+    const problems = fontProblems(counts);
+    const tone = counts.undetermined > 0 ? 'bad' : problems > 0 ? 'warn' : 'ok';
+    const head = `<div class="cal-scan-fonts-h"><h3>${problems ? ic(tone === 'bad' ? 'alert-circle' : 'alert', 's16') : ''}Písma</h3>${rows ? `<span class="cal-scan-fonts-pills">${fontPills(counts)}</span>` : ''}</div>`;
+    const action = problems && p.projectFaces !== 0
+        ? `<div class="cal-scan-fonts-do"><p>${CAL.fontsAction}</p><a class="btn xs btn-tertiary" href="${esc(scan.urls.fonts)}" target="_blank" rel="noopener" data-k="fontsupload">${ic('upload', 's14')}Nahrát písma<span class="sr"> ${CAL.prepare.newTab}</span></a></div>` : '';
+    return `<div class="as-card cal-scan-fonts ${tone}" id="calScanFonts" data-region="fonts" data-cal-scan-fonts="${problems ? tone : 'ok'}" tabindex="-1">${head}${none}${rows ? `<ul class="cal-scan-fontl">${rows}</ul>${action}<p class="cap" style="margin:0">${CAL.fontsChange}</p>` : ''}</div>`;
+}
+
+/** A line of the summary card when a font is not the source's (K3) — a button to the „Písma“ card. */
+function fontsAttention(scan) {
+    const counts = fontCounts(scan.proposal);
+    if (!fontProblems(counts)) return '';
+    const bad = counts.undetermined > 0;
+    return `<p class="cal-scan-attn ${bad ? 'bad' : 'warn'}" data-cal-scan-attn="fonts">${ic(bad ? 'alert-circle' : 'alert', 's14')}<span>${CAL.fontsAttention}: ${FONT_PILLS.slice(0, 2).filter(([k]) => counts[k] > 0).map(([k]) => CAL.fontCounts[k](counts[k])).join(', ')}. <button type="button" class="as-link" data-act="toFonts" data-k="tofonts">Zobrazit písma</button></span></p>`;
 }
 
 function cantCard(scan) {
@@ -613,7 +650,7 @@ function reviewView(scan) {
         : applyButton(scan);
     return `${mismatchAlert(scan)}<div class="as-cgrid" data-region="review" data-deep>
 <div class="as-main" data-region="viewer-${scan.compare}-${scan.layers ? 'l' : 'p'}"><div class="as-viewbar">${seg}<label class="as-switch"><input type="checkbox" class="sr" role="switch" data-chg="toggleLayers" data-k="layers"${scan.layers ? ' checked' : ''}><span class="sw sm" aria-hidden="true"></span><span>Ukázat vrstvy</span></label></div>${compare(scan)}${scan.layers ? layerLegend(scan) : ''}<p class="as-cap">${week ? `Náhled ukazuje týden ${week}. ` : ''}${p.photoBox ? 'Fotka je z vašeho obrázku — do kalendáře se nevloží.' : ''}</p></div>
-<div class="as-main" data-region="side" data-deep><div class="as-card as-sumcard" data-region="sum"><h3 class="as-sum"><b>Návrh rozvržení je připravený.</b></h3><p class="cap" style="margin:0">Tohle je návrh — kalendář se zatím nezměnil.</p></div>${recognised(scan)}${fontsCard(scan)}${cantCard(scan)}${infoCard(scan)}${feedback(scan)}</div></div>
+<div class="as-main" data-region="side" data-deep><div class="as-card as-sumcard" data-region="sum"><h3 class="as-sum"><b>Návrh rozvržení je připravený.</b></h3><p class="cap" style="margin:0">Tohle je návrh — kalendář se zatím nezměnil.</p>${fontsAttention(scan)}</div>${recognised(scan)}${fontsCard(scan)}${cantCard(scan)}${infoCard(scan)}${feedback(scan)}</div></div>
 ${foot(scan, primary, { apply: !hasPictures })}`;
 }
 

@@ -263,6 +263,28 @@
 .cal-prep-st.ok { color: var(--mnt-ink); }
 .cal-prep-st.todo { color: var(--pch-ink); }
 @media (max-width: 640px) { .cal-prep-list { grid-template-columns: minmax(0, 1fr); } }
+/* C4 — „Písma“ of the review (K3): rose = could not be determined, peach = a stand-in, mint = a match */
+.cal-scan-fonts.bad { border-color: var(--rose-line); }
+.cal-scan-fonts.warn { border-color: var(--pch-line); }
+.cal-scan-fonts:focus { outline: none; }
+.cal-scan-fonts:focus-visible { box-shadow: 0 0 0 3px var(--lav-glow); }
+.cal-scan-fonts-h { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.cal-scan-fonts-h h3 { display: flex; align-items: center; gap: 8px; flex: 1 1 auto; }
+.cal-scan-fonts.bad .cal-scan-fonts-h h3 .i { color: var(--rose-ink); }
+.cal-scan-fonts.warn .cal-scan-fonts-h h3 .i { color: var(--pch-ink); }
+.cal-scan-fonts-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.cal-scan-fontl { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 12px 0 0; border-top: 1px solid var(--line); list-style: none; font-size: 13px; line-height: 1.5; color: var(--text-2); }
+.cal-scan-fontl li { display: flex; gap: 10px; align-items: flex-start; }
+.cal-scan-fontl li > .i { flex: none; margin-top: 2px; }
+.cal-scan-fontl .bad > .i { color: var(--rose-ink); }
+.cal-scan-fontl .warn > .i { color: var(--pch-ink); }
+.cal-scan-fontl .ok > .i { color: var(--mnt-ink); }
+.cal-scan-fonts-do { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px 14px; border-radius: 14px; background: var(--surface); font-size: 13px; line-height: 1.5; color: var(--text-2); }
+.cal-scan-fonts-do p { margin: 0; }
+.cal-scan-attn { display: flex; gap: 8px; align-items: flex-start; margin: 4px 0 0; font-size: 13px; line-height: 1.5; color: var(--text); }
+.cal-scan-attn > .i { flex: none; margin-top: 3px; }
+.cal-scan-attn.bad > .i { color: var(--rose-ink); }
+.cal-scan-attn.warn > .i { color: var(--pch-ink); }
 .as-cal-cmp { --cmp-max: none; }
 .cal-scan-orig, .cal-scan-prop { display: block; width: 100%; height: 100%; background-repeat: no-repeat; }
 .as-frame > .cal-scan-prop, .as-frame > .cal-scan-orig { position: absolute; inset: 0; }

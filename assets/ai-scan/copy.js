@@ -224,6 +224,23 @@ export const CAL = {
         nearest_available: (face) => `nejbližší dostupné${face ? ` — ${face}` : ''}`,
         undetermined: (face) => `nepodařilo se určit${face ? `, použili jsme ${face}` : ''}`,
     },
+    /**
+     * The „Písma“ card of the review (K3): pattern → [row class, icon, hidden label]; the counts in
+     * its header and in the summary; what to do (the same story as „Nejprve si připravte“ → fonts).
+     */
+    fontStates: {
+        undetermined: ['bad', 'alert-circle', 'nepodařilo se určit'],
+        nearest_available: ['warn', 'alert', 'nahrazeno'],
+        measured_match: ['ok', 'check', 'odpovídá'],
+    },
+    fontCounts: {
+        undetermined: (n) => `${n} ${pl(n, 'nerozpoznané', 'nerozpoznaná', 'nerozpoznaných')}`,
+        nearest_available: (n) => `${n} ${pl(n, 'nahrazené', 'nahrazená', 'nahrazených')}`,
+        measured_match: (n) => `${n} ${pl(n, 'odpovídá', 'odpovídají', 'odpovídá')}`,
+    },
+    fontsAttention: 'Písma neodpovídají předloze',
+    fontsAction: 'Sken v projektu nenašel písmo, které by odpovídalo předloze, a použil nejbližší. Máte-li písmo z předlohy, nahrajte ho do Fontů projektu — v dalším kroku Úpravy prvků ho pak vyberete. Rozvržení můžete použít i tak.',
+    fontsChange: 'Písma změníte v dalším kroku Úpravy prvků.',
 };
 /** `· 1 obrázek doplníte později · {n} obrázky · {n} obrázků` (ux.md §2.4). */
 export const picturesLater = (n) => (n > 0 ? ` · ${n} ${pl(n, 'obrázek', 'obrázky', 'obrázků')} doplníte později` : '');
