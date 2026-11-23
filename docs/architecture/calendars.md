@@ -183,6 +183,7 @@ waste kinds to the JS table.
 | `pageCaptions` | `{text ≤80}` | yes |
 | `pageImages` | `{head, bg}` | no |
 | `pageQr` | `{asset}` | no |
+| `pageEffects` | `{photo, logo, head, bg}` — each `null` (the style's effect list) or an effect list that REPLACES it on this page (§ "Image effects") | no |
 | `moonEdits` | `{op: add\|remove, date, phase 0–3}` | no |
 | `shiftOps` | `{name, shifts[1–4]{letter, from, to}, crews[4], pos}` | no |
 | `specialPages` | `{kind, on, layout, position, nextYear, name, asset, text ≤6000, fileName, pos}` | no |
@@ -401,6 +402,21 @@ measurements behind it: `docs/calendar/effects-plan.md`). Model
   ON shadow into the first drop shadow with `blend: normal` (draws what it
   drew), the key disappears; MCP `photo.shadow` is refused with a pointer to
   `effects`.
+- **This page only** (P2, 2026-11-24): content collection `pageEffects`,
+  page-keyed, designer only — `{photo, logo, head, bg}`, each `null` (= the
+  style's list) or a list that REPLACES the style's list for that picture on
+  that page (`[]` = none there). `photo` is the week photo, on the cover /
+  intro / contacts page that page's photo (falls back to
+  `specialPhoto.effects`). The renderer asks `effectsFor(doc, page, target)`
+  everywhere. Edited in the step-4 page panel (`ui/page-effects.js`):
+  „Podle stylu · N efektů“ + „Upravit jen pro tuto stranu“ (copies the list
+  the page shows now) or the page's own editor + „Zpět na styl“; never
+  undoable (content). Being page-keyed, „Upraveno“ and „Vrátit na styl“ cover
+  it. Step 3 says under „Efekty“ how many pages have their own list. PHP
+  mirror: `CalendarEffectRules` (exact keys per kind, blend / type lists,
+  ranges) — `CalendarEffectContractTest` pins it to `model/effects.js` via
+  `tests/Fixtures/calendar/dump-effects.mjs`. A page's own list is content, so
+  Fotka vlevo ↔ vpravo does not mirror it (only the style's lists).
 - **Mirroring** (Fotka vlevo ↔ vpravo, `mirrorLayout`): angles flip
   (`180 − a`), gradient centres `x → 100 − x` — a darkened corner stays with
   the logo.
@@ -1070,6 +1086,16 @@ targets the calendar's own type), designers only.
   the multi-drop zone or on a card (`holdMany` — the places without a
   picture in order; shown when the proposal has more than one place), or the
   project's gallery: the `Project:ImageGallery` modal `#calScanGalleryModal`
+- **„Co kalendář nepřevezme“** (feedback K15a, 2026-11-24; was „Tohle
+  kalendář neumí“): the report's `notExpressible` grouped by CODE — one row
+  per code with all its crops (≤ 3), the name, „· 3 místa“ when repeated,
+  and one sentence what it is and what to do (`CAL.notExpressible[code] =
+  {title, text}`: ornament / header_text / second_photo / more_logos → part
+  of the header or background picture (or the caption, the logo picture);
+  days_in_grid, rotated_text, month_colours → what the calendar does
+  instead; multilingual_names → „tiskne … česky“ — the ONE place to change
+  when „Jazyky názvů“ (K15b) ships). A lead says it is information; no
+  warning colours. Unknown codes are left out. `li[data-cant="<code>"]`.
   of `workspace.html.twig` — rendered only for whoever may START a scan
   (`ai_scan_start`), outside the workspace's root — answers with the window
   event `asset-selected`, and the server copies the gallery file's bytes to
@@ -1086,16 +1112,6 @@ targets the calendar's own type), designers only.
   still answers `wrong_state` + `reason: calendar_type` toasts that, never
   „Návrh už není k dispozici.“ e2e: `scan.e2e.cjs` (the K4 checks).
 - **„Nejprve si připravte“** (feedback K1, 2026-11-23) — the upload screen
-- **„Co kalendář nepřevezme“** (feedback K15a, 2026-11-24; was „Tohle
-  kalendář neumí“): the report's `notExpressible` grouped by CODE — one row
-  per code with all its crops (≤ 3), the name, „· 3 místa“ when repeated,
-  and one sentence what it is and what to do (`CAL.notExpressible[code] =
-  {title, text}`: ornament / header_text / second_photo / more_logos → part
-  of the header or background picture (or the caption, the logo picture);
-  days_in_grid, rotated_text, month_colours → what the calendar does
-  instead; multilingual_names → „tiskne … česky“ — the ONE place to change
-  when „Jazyky názvů“ (K15b) ships). A lead says it is information; no
-  warning colours. Unknown codes are left out. `li[data-cant="<code>"]`.
   opens with a card of four things to have ready (`views.prepare()`, copy
   `CAL.prepare`, `.cal-prep*` in `calendar.css`): the logo as SVG or PNG (the
   scan never cuts the logo out of the picture — it marks its place, the file

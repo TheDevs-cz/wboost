@@ -111,6 +111,11 @@
 /* the photo field of the cover / intro / contacts page (ui/pagecontent.js) */
 .cal-pcfx { display: flex; flex-direction: column; gap: 8px; min-width: 0; margin-top: 6px; padding-top: 12px; border-top: 1px solid var(--line); }
 .cal-fx [hidden] { display: none !important; }
+/* a page's own effects in the step-4 page panel (ui/page-effects.js) */
+.cal-pfx { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.cal-pfx:empty { display: none; }
+.cal-pfxb { align-self: flex-start; margin-left: -8px; }
+.cal-fxh2 { margin: 0; }
 
 /* ---- Upload tile ------------------------------------------------------------- */
 .cal-himg { display: grid; grid-template-columns: 72px minmax(0, 1fr); align-items: center; gap: 12px; }

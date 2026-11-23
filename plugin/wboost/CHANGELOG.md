@@ -5,6 +5,18 @@ every deploy. When the server is newer than your skill, Claude tells you once
 per session how to update (see the README). Versions follow `x.y.z`: a new or
 changed tool or parameter is at least a minor bump.
 
+## 0.7.0 — 2026-11-24
+
+**A page's own layer effects** (no new tool; a new content collection).
+
+New parameters and behaviour
+- `update_calendar_content` collection `pageEffects` (designer only, id = page
+  key): `{photo, logo, head, bg}`, each `null` (the picture follows the
+  layout's effect list) or a full effect list that REPLACES the style's list on
+  that page (`[]` = no effects there). `photo` is the week photo, on the cover /
+  intro / contacts page that page's photo. Listed in „Upraveno“ and removed by
+  „Vrátit na styl“ like the other page overrides.
+
 ## 0.6.0 — 2026-11-24
 
 **Layer effects on calendar pictures** (no new tool or parameter; the calendar

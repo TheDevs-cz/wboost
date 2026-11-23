@@ -80,6 +80,7 @@ readonly final class DescribeCalendarChange
             }, $label),
             'pageCaptions' => self::labelled($removed ? 'Odebral popisek' : 'Upravil popisek', $label),
             'pageImages' => self::labelled($removed ? 'Odebral obrázky strany' : 'Upravil obrázky strany', $label),
+            'pageEffects' => self::labelled($removed ? 'Vrátil efekty strany na styl' : 'Upravil efekty strany', $label),
             'pageQr' => self::labelled($removed ? 'Odebral QR kód' : 'Nahrál QR kód', $label),
             'events' => match (true) {
                 $removed => 'Odebral akci ' . $name,

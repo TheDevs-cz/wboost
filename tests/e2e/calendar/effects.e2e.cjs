@@ -208,6 +208,27 @@ module.exports = {
             assert.deepEqual((await styles()).specialPhoto.effects, []);
         });
 
+        await check('P2: a week page takes its own photo effects in the step-4 page panel; „Zpět na styl“ and „Vrátit na styl“', async () => {
+            await page.$eval('[data-page-thumb="1"]', (el) => el.click());
+            await page.waitForSelector('[data-page-fx="photo"] [data-page-fx-own="photo"]', { timeout: 10000 });
+            const key = await page.$eval('[data-page-panel]', (el) => el.dataset.pagePanel);
+            assert.match(await page.$eval('[data-page-fx="photo"]', (el) => el.textContent), /Podle stylu · 2 efekty/);
+            await click('[data-page-fx-own="photo"]');
+            const content = async () => (await h.state(page)).content.pageEffects || {};
+            assert.equal((await content())[key].photo.length, 2, 'the style list is copied');
+            assert.equal(await shown('[data-page-pill]'), true, 'Upraveno');
+            await click('[data-page-fx="photo"] [data-fx-add="gradient"]');
+            assert.equal((await content())[key].photo.length, 3);
+            assert.equal((await styles()).photo.effects.length, 2, 'the style is untouched');
+            assert.equal(await page.$$eval('.cal-m4c svg[data-page] [data-el="photo"] [data-fx="gradient"]', (l) => l.length), 2, 'the page shows its own list');
+            await click('[data-page-fx-reset="photo"]');
+            assert.equal((await content())[key], undefined, 'back to the style: the item is gone');
+            await click('[data-page-fx-own="photo"]');
+            await click('[data-cal-action="page-reset"]');
+            assert.equal((await content())[key], undefined, '„Vrátit na styl“ removes it too');
+            await h.save(page);
+        });
+
         await check('timing: the editor with effects stays responsive (logged)', async () => {
             await h.gotoStep(page, 3);
             await select('photo');

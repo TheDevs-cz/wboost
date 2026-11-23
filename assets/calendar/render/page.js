@@ -2,6 +2,7 @@
 
 import { COLORS, MARKS, bleedOf, ptToMm } from '../model/defaults.js';
 import { esc, fillLayers, num, rect } from './svg.js';
+import { effectsFor } from '../model/effects.js';
 import { layoutWeekPage } from './week-layout.js';
 import { renderWeekPage } from './week.js';
 import { renderBack, renderCover, renderSpecial } from './special.js';
@@ -68,7 +69,7 @@ export function renderPage(doc, page, opts) {
     if (styles) {
         const images = doc.content.pageImages[page.key];
         const bgAsset = o.env.assets[(images && images.bg) || styles.bg.asset] || null;
-        body += `<g data-el="bg">${fillLayers(bleedBox, styles.bg, bgAsset, o, `${o.idPrefix}-bg`)}</g>`;
+        body += `<g data-el="bg">${fillLayers(bleedBox, { ...styles.bg, effects: effectsFor(doc, page, 'bg') }, bgAsset, o, `${o.idPrefix}-bg`)}</g>`;
     } else {
         body += rect(bleedBox, { fill: COLORS.paper, 'data-el': 'bg' });
     }

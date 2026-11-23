@@ -52,6 +52,12 @@ final class CalendarContentRulesTest extends TestCase
             'pageCaptions' => ['pre', ['text' => 'Zima na návsi']],
             'pageImages' => ['sp:customPage1', ['head' => null, 'bg' => self::ASSET]],
             'pageQr' => ['w52', ['asset' => self::ASSET]],
+            'pageEffects' => ['w05', [
+                'photo' => [['kind' => 'dropShadow', 'on' => true, 'blend' => 'multiply', 'opacity' => 75, 'color' => '#000000', 'angle' => 120, 'distance' => 1.5, 'spread' => 0, 'size' => 3]],
+                'logo' => null,
+                'head' => null,
+                'bg' => [['kind' => 'gradient', 'on' => false, 'blend' => 'normal', 'opacity' => 100, 'type' => 'radial', 'angle' => 90, 'scale' => 100, 'x' => 100, 'y' => 0, 'stops' => [['color' => '#000000', 'opacity' => 70, 'pos' => 0], ['color' => '#000000', 'opacity' => 0, 'pos' => 100]]]],
+            ]],
             'pageSetup' => ['cover', ['layout' => 1, 'logo' => 'tc', 'logoSize' => 'l']],
             'pageContent' => ['sp:intro', [
                 'heading' => 'Slovo starostky', 'salutation' => 'Milí občané,', 'body' => "První **odstavec**.\n\nDruhý *odstavec*.",

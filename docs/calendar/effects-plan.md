@@ -1,6 +1,6 @@
 # K2 — Photoshop-like layer effects on calendar images (plan)
 
-Status: plan 2026-11-23; **decided by Jan 2026-11-24** (below); P1 built 2026-11-24 (current truth:
+Status: plan 2026-11-23; **decided by Jan 2026-11-24** (below); P1 + P2 built 2026-11-24 (current truth:
 `docs/architecture/calendars.md` § "Image effects").
 Spike files (HTML, Gotenberg PDFs, CMYK conversions, PNG renders) are in the session
 scratchpad `k2spike/`. They are not in the repo.

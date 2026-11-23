@@ -17,6 +17,8 @@ export const COLLECTIONS = Object.freeze({
     pageCaptions: def({ clientWritable: true, pageKeyed: true }),
     pageImages: def({ pageKeyed: true }),
     pageQr: def({ pageKeyed: true }),
+    // a page's own layer effects of its pictures (model/effects.js `pageEffectsOf`), designer only
+    pageEffects: def({ pageKeyed: true }),
     comments: def({ clientWritable: true, dated: true }),
     // content of the cover, the back and the generated special pages (2026-11-12). Keyed by the
     // fixed page keys of `CONTENT_PAGE_KEYS`, but NOT `pageKeyed`: they are the page's content,

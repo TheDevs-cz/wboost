@@ -236,3 +236,52 @@ export function effectsAt(styles, path) {
     }
     return Array.isArray(node) ? node : [];
 }
+
+// ---- per page (P2): `content.pageEffects[pageKey]` ------------------------------------------
+
+/**
+ * The pictures of a page whose effects a page may set for itself. An item of `pageEffects` is
+ * `{ photo, logo, head, bg }`, each `null` (= the style's list) or a list that REPLACES the style's
+ * list on that page. `photo` is the page's photo: the week photo on a week page, the special photo
+ * (`styles.specialPhoto`) on the cover / intro / contacts page.
+ */
+export const PAGE_EFFECT_TARGETS = Object.freeze(['photo', 'logo', 'head', 'bg']);
+
+/** The style path whose list a target of `page` falls back to. */
+export function styleEffectPath(page, target) {
+    if (target === 'photo') return page && page.kind !== 'week' ? 'specialPhoto.effects' : 'photo.effects';
+    if (target === 'logo') return 'logo.effects';
+    if (target === 'head') return 'head.bg.effects';
+    return 'bg.effects';
+}
+
+/** A page's own effects, normalised: `{ photo, logo, head, bg }`, `null` where the page has none. */
+export function pageEffectsOf(content, pageKey) {
+    const raw = content && content.pageEffects && isObject(content.pageEffects[pageKey]) ? content.pageEffects[pageKey] : {};
+    const out = {};
+    for (const target of PAGE_EFFECT_TARGETS) out[target] = Array.isArray(raw[target]) ? normalizeEffects(raw[target]) : null;
+    return out;
+}
+
+/** The effects a picture of `page` is drawn with: the page's own list, else the style's. */
+export function effectsFor(doc, page, target) {
+    const own = page ? pageEffectsOf(doc.content, page.key)[target] : null;
+    if (own) return own;
+    return effectsAt(doc.design.layout ? doc.design.layout.styles : null, styleEffectPath(page, target));
+}
+
+/** The item to store for a page after `target` changed (`null` list = back to the style); `null` = remove the item. */
+export function pageEffectsItem(content, pageKey, target, list) {
+    const next = { ...pageEffectsOf(content, pageKey), [target]: list === null ? null : normalizeEffects(list) };
+    return PAGE_EFFECT_TARGETS.some((t) => next[t] !== null) ? next : null;
+}
+
+/** How many pages have their own list for a style path (the hint under „Efekty“ in step 3). */
+export function pagesOverriding(content, pages, path) {
+    let count = 0;
+    for (const page of pages || []) {
+        const own = pageEffectsOf(content, page.key);
+        if (PAGE_EFFECT_TARGETS.some((t) => own[t] !== null && styleEffectPath(page, t) === path)) count += 1;
+    }
+    return count;
+}

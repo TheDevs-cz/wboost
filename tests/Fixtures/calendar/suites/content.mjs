@@ -9,7 +9,7 @@ export default async function (t, load) {
     const { DEFAULT_PAGE } = await load('model/defaults.js');
 
     t.test('collection registry and client whitelist', () => {
-        assert.deepEqual(Object.keys(C.COLLECTIONS).sort(), ['clubs', 'comments', 'events', 'moonEdits', 'names', 'pageCaptions', 'pageContent', 'pageGroups', 'pageImages', 'pagePhotos', 'pageQr', 'pageSetup', 'shiftOps', 'specialPages', 'wasteExtras', 'wasteKinds']);
+        assert.deepEqual(Object.keys(C.COLLECTIONS).sort(), ['clubs', 'comments', 'events', 'moonEdits', 'names', 'pageCaptions', 'pageContent', 'pageEffects', 'pageGroups', 'pageImages', 'pagePhotos', 'pageQr', 'pageSetup', 'shiftOps', 'specialPages', 'wasteExtras', 'wasteKinds']);
         const where = (flag) => Object.keys(C.COLLECTIONS).filter((k) => C.COLLECTIONS[k][flag]).sort();
         // the client fills in texts, photos and contact groups of the cover / back / special pages
         // (`pageContent`, `pageGroups`); what those pages look like (`pageSetup`, `specialPages`) is the designer's
@@ -21,7 +21,7 @@ export default async function (t, load) {
         // a year change moves dated items only
         const kept = { pageContent: { cover: { title: 'A', subtitle: '', note: '', photo: null } }, pageGroups: { g: { page: 'sp:contacts', heading: 'H', lines: [], highlight: false, pos: 0 } }, pageSetup: { cover: { layout: 1, logo: 'tc', logoSize: 's' } } };
         assert.ok(C.shiftContentYear(normalizeContent(kept), 2027, 2028).ops.every((op) => !['pageContent', 'pageGroups', 'pageSetup'].includes(op.c)));
-        assert.deepEqual(where('pageKeyed'), ['pageCaptions', 'pageImages', 'pagePhotos', 'pageQr']);
+        assert.deepEqual(where('pageKeyed'), ['pageCaptions', 'pageEffects', 'pageImages', 'pagePhotos', 'pageQr']);
         assert.deepEqual(where('dated'), ['comments', 'events', 'moonEdits', 'names', 'wasteExtras']);
         assert.deepEqual(Object.keys(normalizeContent({})).sort(), ['v', ...Object.keys(C.COLLECTIONS)].sort());
     });

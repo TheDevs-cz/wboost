@@ -49,6 +49,8 @@ final class DescribeCalendarChangeTest extends TestCase
 
         yield ['Upravil obrázky strany — Titulní strana', 'pageImages', null, ['head' => null, 'bg' => 'a'], 'Titulní strana'];
         yield ['Odebral obrázky strany — Titulní strana', 'pageImages', ['head' => null, 'bg' => 'a'], null, 'Titulní strana'];
+        yield ['Upravil efekty strany — 5. týden', 'pageEffects', null, ['photo' => [], 'logo' => null, 'head' => null, 'bg' => null], '5. týden'];
+        yield ['Vrátil efekty strany na styl — 5. týden', 'pageEffects', ['photo' => [], 'logo' => null, 'head' => null, 'bg' => null], null, '5. týden'];
         yield ['Nahrál QR kód — 5. týden', 'pageQr', null, ['asset' => 'a'], '5. týden'];
         yield ['Nahrál QR kód — 5. týden', 'pageQr', ['asset' => 'a'], ['asset' => 'b'], '5. týden'];
         yield ['Odebral QR kód — 5. týden', 'pageQr', ['asset' => 'a'], null, '5. týden'];

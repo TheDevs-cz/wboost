@@ -9,6 +9,7 @@
 //   QR kód              while QR is on (week pages): „QR kód této strany“ when every page has its
 //                       own code, „Jiný QR kód jen pro tuto stranu“ over the shared code otherwise —
 //                       a page's own code wins in both modes
+// the page's own layer effects of its pictures (`ui/page-effects.js`, designer; K2),
 // and „Vrátit na styl“, which removes every override of the page.
 // The cover, the back and the generated special pages show their CONTENT first — titles, texts,
 // photo, contact groups, layout of the cover (`ui/pagecontent.js`, shared with step 5); that is
@@ -29,6 +30,7 @@
 import { clearPageOverrides, pageHasOverrides } from '../model/content.js';
 import { h, icon } from './dom.js';
 import { hasPageContent, mountPageContent } from './pagecontent.js';
+import { mountPageEffects } from './page-effects.js';
 import { CAPTION_MAX, fileTile, setPageCaption, setPagePhoto, uploadAsset } from './tools/photos.js';
 import { QR_ACCEPT } from './tools/qr.js';
 import { pageWarnings, warningCard } from './warnings.js';
@@ -45,6 +47,9 @@ export function mountPagePanel(root, ctx, opts = {}) {
     // warning of the page appears or goes
     const contentHost = h('div', { class: 'cal-p4c' });
     const contentEditor = mountPageContent(contentHost, ctx, { page: () => store.pages()[opts.pageIndex] || null });
+    // a page's own layer effects (K2): mounted once, re-attached by every rebuild like the content
+    const effectsHost = h('div', { class: 'cal-p4fx' });
+    const effectsEditor = mountPageEffects(effectsHost, ctx, { page: () => store.pages()[opts.pageIndex] || null });
 
     const state = () => store.getState();
     const page = () => store.pages()[opts.pageIndex] || null;
@@ -227,7 +232,7 @@ export function mountPagePanel(root, ctx, opts = {}) {
 
         parts = { key, pill, reset, syncs };
         body.dataset.pagePanel = key;
-        body.replaceChildren(...[head, warningBox, hasPageContent(current) ? contentHost : null, ...sections, empty, reset].filter(Boolean));
+        body.replaceChildren(...[head, warningBox, hasPageContent(current) ? contentHost : null, ...sections, empty, effectsHost, reset].filter(Boolean));
         sync();
     }
 
@@ -251,6 +256,7 @@ export function mountPagePanel(root, ctx, opts = {}) {
         destroy() {
             unsubscribe();
             contentEditor.destroy();
+            effectsEditor.destroy();
             root.replaceChildren();
         },
     };

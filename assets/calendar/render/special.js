@@ -32,6 +32,7 @@ import { wasteKindsOn } from '../generate/waste.js';
 import { wrapText } from './measure.js';
 import { attrs, esc, fillLayers, imageIn, num, photoWithEffects, pictureShape, rect, slotPlaceholder, textEl } from './svg.js';
 import { drawnRect, withEffects } from './effects.js';
+import { effectsFor } from '../model/effects.js';
 
 const DESIGN_W = 1000;
 const DESIGN_H = 468;
@@ -220,7 +221,7 @@ function lines(c, x, y, w, n, gap = 19) {
 /** The photo of a page in its box, or the grey slot while it is missing (nothing with `placeholders: 'none'`). */
 function pagePhoto(c, box, photo, label, id, radius = 0) {
     const asset = photo ? c.assets[photo.asset] : null;
-    const effects = c.styles.specialPhoto ? c.styles.specialPhoto.effects : [];
+    const effects = effectsFor(c.doc, c.page, 'photo');
     if (asset) return `<g data-el="page-photo">${photoWithEffects(box, asset, photo, radius, c.opts, `${c.opts.idPrefix}-${id}`, effects)}</g>`;
     if (!c.placeholders) return '';
     return `<g data-el="page-photo" data-empty="1">${withEffects(effects, { type: 'rect', box, radius }, slotPlaceholder(box, label, { radius }), `${c.opts.idPrefix}-${id}-fx`)}</g>`;
@@ -232,7 +233,7 @@ function logoIn(c, box) {
     if (asset) {
         const picture = imageIn(box, asset, 'contain', 100, c.opts);
         const shape = pictureShape(asset, drawnRect(box, asset, 'contain'), 0, picture);
-        return `<g data-el="page-logo">${withEffects(c.styles.logo.effects, shape, picture, `${c.opts.idPrefix}-logo-fx`)}</g>`;
+        return `<g data-el="page-logo">${withEffects(effectsFor(c.doc, c.page, 'logo'), shape, picture, `${c.opts.idPrefix}-logo-fx`)}</g>`;
     }
     if (!c.placeholders) return '';
     const dash = `${num(5 * c.u)} ${num(4 * c.u)}`;
@@ -256,7 +257,7 @@ function header(c, title, id, o = {}) {
     const band = { x: -c.B, y: -c.B, w: c.W + 2 * c.B, h: c.Y(HEADER_BOTTOM) + c.B };
     let out = '';
     if (!c.styles.head.bg) out += rect(band, { fill: COLORS.band });
-    else out += fillLayers(band, c.styles.head.bg, c.assets[c.styles.head.bg.asset] || null, { ...c.opts, slotLabel: null }, `${c.opts.idPrefix}-${id}`);
+    else out += fillLayers(band, { ...c.styles.head.bg, effects: effectsFor(c.doc, c.page, 'head') }, c.assets[c.styles.head.bg.asset] || null, { ...c.opts, slotLabel: null }, `${c.opts.idPrefix}-${id}`);
     const fontOf = (size) => c.headFont(800, size, 0.5);
     const limit = o.right ? o.right.x - 24 : DESIGN_W - MARGIN;
     const main = fitLine(c, title, fontOf, 20, c.X(limit - MARGIN), 'Nadpis');
@@ -1300,6 +1301,8 @@ function backContacts(c) {
 
 function draw(doc, page, opts) {
     const c = context(doc, opts);
+    // the page whose own layer effects apply (`effectsFor`)
+    c.page = page;
     if (page.kind === 'cover') return { svg: cover(c, page), issues: c.issues };
     if (page.kind === 'back') {
         const variant = page.backVariant === 'contacts' ? 'contacts' : 'year';

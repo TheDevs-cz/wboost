@@ -193,6 +193,12 @@ readonly final class UpdateCalendarContentTool
      *   "page"), "text" pages their text. Its page key is "sp:<id>".
      * - pageImages {head: asset|null, bg: asset|null}, pageQr {asset} — a page's
      *   own header / background picture and QR code (id = page key).
+     * - pageEffects {photo, logo, head, bg} — a page's own layer effects
+     *   (designer; id = page key, all four keys): each null = the style's list
+     *   (set_calendar_layout styles.photo / logo / head.bg / bg .effects; on the
+     *   cover, intro and contacts pages photo falls back to specialPhoto), or a
+     *   list of effects with ALL their keys (the shapes get_calendar shows in
+     *   the layout) that REPLACES the style's list on that page; [] = none.
      * - pageSetup — how the cover, the back and two special pages are arranged
      *   (id = page key, per-key shape, all keys required):
      *   "cover" {layout: 0 photo with a title band | 1 framed photo, title

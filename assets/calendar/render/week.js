@@ -4,6 +4,7 @@ import { COLORS, K, ptToMm } from '../model/defaults.js';
 import { frameAlign, isElementVisible } from '../model/elements.js';
 import { attrs, fillLayers, fontSpec, num, imageIn, photoWithEffects, pictureShape, rect, slotPlaceholder, textEl } from './svg.js';
 import { drawnRect, withEffects } from './effects.js';
+import { effectsFor } from '../model/effects.js';
 import { iconFragment } from './icons.js';
 import { wrapText } from './measure.js';
 import { fillIsOn, placeMonthText } from './week-layout.js';
@@ -64,11 +65,11 @@ function renderPhoto(doc, page, opts) {
     const asset = override ? assetOf(opts, override.asset) : null;
     let out = '<g data-el="photo">';
     if (asset) {
-        out += photoWithEffects(box, asset, override, s.radius, opts, id, s.effects);
+        out += photoWithEffects(box, asset, override, s.radius, opts, id, effectsFor(doc, page, 'photo'));
     } else if (opts.placeholders !== 'none') {
         // the empty frame shows the effects too: the designer sets them up before any photo exists
         const slot = slotPlaceholder(box, s.source === 'client' ? 'FOTKU DOPLNÍ KLIENT' : 'FOTOGRAFIE', { radius: s.radius, minW: 50, minH: 19 });
-        out += withEffects(s.effects, { type: 'rect', box, radius: s.radius }, slot, `${id}-fx`);
+        out += withEffects(effectsFor(doc, page, 'photo'), { type: 'rect', box, radius: s.radius }, slot, `${id}-fx`);
     }
     if (s.border.on && s.border.width > 0) {
         const bw = s.border.width;
@@ -81,7 +82,8 @@ function renderHead(doc, page, opts) {
     const layout = doc.design.layout;
     const images = doc.content.pageImages[page.key];
     const asset = assetOf(opts, (images && images.head) || layout.styles.head.bg.asset);
-    return `<g data-el="head">${fillLayers(layout.boxes.head, layout.styles.head.bg, asset, { ...opts, slotLabel: 'OBRÁZEK HLAVIČKY' }, `${opts.idPrefix}-head`)}</g>`;
+    const fill = { ...layout.styles.head.bg, effects: effectsFor(doc, page, 'head') };
+    return `<g data-el="head">${fillLayers(layout.boxes.head, fill, asset, { ...opts, slotLabel: 'OBRÁZEK HLAVIČKY' }, `${opts.idPrefix}-head`)}</g>`;
 }
 
 function singleLine(box, value, font, align, pad, fill) {
@@ -158,7 +160,7 @@ function renderLogo(doc, page, opts) {
     let out = '<g data-el="logo">';
     if (asset) {
         const picture = imageIn(box, asset, s.fit, 100, opts);
-        out += withEffects(s.effects, pictureShape(asset, drawnRect(box, asset, s.fit), 0, picture), picture, `${opts.idPrefix}-logo-fx`);
+        out += withEffects(effectsFor(doc, page, 'logo'), pictureShape(asset, drawnRect(box, asset, s.fit), 0, picture), picture, `${opts.idPrefix}-logo-fx`);
     } else if (opts.placeholders !== 'none') {
         const size = Math.min(3.8, box.h * 0.3, box.w * 0.16);
         out += rect({ x: box.x + 0.2, y: box.y + 0.2, w: box.w - 0.4, h: box.h - 0.4 }, { rx: 1.2, fill: '#FFFFFF', 'fill-opacity': 0.6, stroke: COLORS.mut, 'stroke-width': 0.3, 'stroke-dasharray': '1.4 1' });

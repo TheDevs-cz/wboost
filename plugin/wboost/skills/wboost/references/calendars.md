@@ -421,6 +421,7 @@ Dates `YYYY-MM-DD` within `[year−1-12-01, year+1-01-31]`. Weekdays `0` Monday
 | specialPages | `{kind: "intro"\|"contacts"\|"year"\|"waste"\|"notes"\|"image"\|"text", on, layout 0–20, position: "front"\|"back", nextYear, name ≤60, asset\|null, text ≤6000\|null, fileName ≤120\|null, pos}` | designer |
 | pageImages | `{head: asset\|null, bg: asset\|null}` (id = page key) | designer |
 | pageQr | `{asset}` (id = page key) | designer |
+| pageEffects | `{photo, logo, head, bg}` (id = page key): each `null` = the style's effect list, or a full effect list (every key, as in `layout.styles.*.effects`) that REPLACES it on that page — `photo` is the week photo, on the cover / intro / contacts page that page's photo | designer |
 | pageSetup | arrangement of a page — id `cover` `{layout 0–3, logo: "none"\|"tl"\|"tc"\|"tr"\|"title", logoSize: "s"\|"m"\|"l"}`, `sp:intro` `{align: "left"\|"justify"}`, `sp:contacts` `{clubLegend, wasteLegend, notes}`, `back` `{logo}` | designer |
 
 **`pageContent` shapes** (all keys required; `""` = empty — an empty `title` /

@@ -25,6 +25,7 @@ import { alignControl, sideControl, valignControl } from '../controls/align.js';
 import { createRefresher, getPath, styleBinding, stylesOf } from '../controls/bind.js';
 import { colorPalette, colorPicker } from '../controls/color.js';
 import { effectsEditor } from '../controls/effects.js';
+import { pagesOverriding } from '../../model/effects.js';
 import { fillPanel } from '../controls/fill.js';
 import { limitField } from '../controls/number.js';
 import { note, panelHead, panelRoot, section, setShown } from '../controls/panel.js';
@@ -65,7 +66,19 @@ function createKit(ctx, refresher) {
         fill: (path, options = {}) => bound(path, (b) => fillPanel({ value: b.get(), ctx, path, ...options, onStart: b.onStart, onChange: b.onChange, onCommit: b.onCommit })),
         upload: (path, options) => bound(path, (b) => uploadTile({ value: b.get(), ctx, attrs: b.attrs, onChange: b.onChange, ...options })),
         /** „Efekty“ of a picture — the effect list at `path` (`photo.effects`, `head.bg.effects`…). */
-        effects: (path) => bound(path, (b) => effectsEditor({ value: b.get(), palette, path, onStart: b.onStart, onChange: b.onChange, onCommit: b.onCommit })),
+        effects: (path) => {
+            const editor = bound(path, (b) => effectsEditor({ value: b.get(), palette, path, onStart: b.onStart, onChange: b.onChange, onCommit: b.onCommit }));
+            // pages with their own list (step 4) do not follow this one
+            const count = () => pagesOverriding(store.getState().doc.content, store.pages(), path);
+            const hint = h('p', { class: 'cap cal-note cal-fxh2' });
+            const paint = (n) => {
+                hint.textContent = n === 1 ? '1 strana má vlastní efekty (krok 4) — tento styl tam neplatí.' : `${n} ${n >= 2 && n <= 4 ? 'strany mají' : 'stran má'} vlastní efekty (krok 4) — tento styl tam neplatí.`;
+                hint.hidden = n === 0;
+            };
+            paint(count());
+            refresher.track(count, paint);
+            return h('div', { class: 'cal-sub' }, editor, hint);
+        },
         /**
          * The size the place's picture should have (K7, `ui/picture-size.js`): mm with the bleed and
          * px for print — follows the box while it is moved or resized.

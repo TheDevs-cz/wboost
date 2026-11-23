@@ -23,7 +23,7 @@ readonly final class CalendarContentRules
     public const array COLLECTIONS = [
         'clubs', 'events', 'names', 'wasteKinds', 'wasteExtras', 'moonEdits', 'shiftOps',
         'specialPages', 'pagePhotos', 'pageCaptions', 'pageImages', 'pageQr', 'comments',
-        'pageSetup', 'pageContent', 'pageGroups',
+        'pageSetup', 'pageContent', 'pageGroups', 'pageEffects',
     ];
 
     /**
@@ -38,7 +38,7 @@ readonly final class CalendarContentRules
      */
     public const array CLIENT_WRITABLE = ['pagePhotos', 'pageCaptions', 'wasteKinds', 'wasteExtras', 'events', 'clubs', 'names', 'comments', 'pageContent', 'pageGroups'];
 
-    public const array PAGE_KEYED = ['pagePhotos', 'pageCaptions', 'pageImages', 'pageQr'];
+    public const array PAGE_KEYED = ['pagePhotos', 'pageCaptions', 'pageImages', 'pageQr', 'pageEffects'];
 
     public const string ID_PATTERN = '/^[A-Za-z0-9_-]{1,40}$/';
 
@@ -238,6 +238,8 @@ readonly final class CalendarContentRules
             'pageQr' => self::item($v, $collection, ['asset'], static fn (array $v): array => [
                 'asset' => self::asset($v['asset'], $existingAssets, false, $collection, 'asset'),
             ]),
+            // a page's own layer effects (K2): designer only — not in CLIENT_WRITABLE
+            'pageEffects' => CalendarEffectRules::pageItem($v),
             'comments' => self::comment($v, $actor, $year, $stored, $now),
             'pageSetup' => self::pageSetup($op->id, $v),
             'pageContent' => self::pageContent($op->id, $v, $existingAssets),

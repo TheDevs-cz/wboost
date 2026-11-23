@@ -171,4 +171,48 @@ export default async function (t, load) {
         const box = doc.design.layout.boxes.photo;
         assert.ok(svg.includes(`cx="${Math.round((box.x + box.w) * 1000) / 1000}"`), 'the corner of the photo on a 420 mm page');
     });
+    t.test('a page replaces the style list of one picture; other pictures and pages keep the style', async () => {
+        const C = await load('model/content.js');
+        const doc = await makeDoc(load, {
+            features: { specialPages: true },
+            content: {
+                pagePhotos: { w02: { asset: 'photo1', zoom: 1, px: 0.5, py: 0.5 }, w03: { asset: 'photo1', zoom: 1, px: 0.5, py: 0.5 } },
+                pageEffects: { w02: { photo: [CORNER, { ...CORNER, x: 0 }], logo: [], head: null, bg: null }, cover: { photo: [FADE], logo: null, head: null, bg: null } },
+                pageContent: { cover: { title: '', subtitle: '', note: '', photo: { asset: 'photo1', zoom: 1, px: 0.5, py: 0.5 } } },
+            },
+            styles: (l) => {
+                l.styles.photo.effects = [SHADOW];
+                l.styles.logo.asset = 'logo1';
+                l.styles.logo.effects = [SHADOW];
+                l.styles.specialPhoto.effects = [SHADOW];
+            },
+        });
+        const pages = buildPages(doc);
+        const w02 = pages.find((p) => p.key === 'w02');
+        const w03 = pages.find((p) => p.key === 'w03');
+        const cover = pages.find((p) => p.kind === 'cover');
+        assert.deepEqual(E.effectsFor(doc, w02, 'photo').map((e) => e.x), [100, 0], 'the page list');
+        assert.deepEqual(E.effectsFor(doc, w02, 'logo'), [], 'an empty own list = no effects on this page');
+        assert.equal(E.effectsFor(doc, w03, 'photo')[0].kind, 'dropShadow', 'another page keeps the style');
+        assert.equal(E.effectsFor(doc, cover, 'photo')[0].type, 'linear', 'a special page: its own list over specialPhoto');
+        assert.equal(E.styleEffectPath(cover, 'photo'), 'specialPhoto.effects');
+        const svg2 = renderPage(doc, w02, opts());
+        const svg3 = renderPage(doc, w03, opts());
+        const photo = (svg) => svg.slice(svg.indexOf('data-el="photo"'), svg.indexOf('data-el="cal"'));
+        assert.equal((photo(svg2).match(/data-fx="gradient"/g) || []).length, 2);
+        assert.ok(!photo(svg2).includes('dropShadow'));
+        assert.ok(photo(svg3).includes('data-fx="dropShadow"') && !photo(svg3).includes('data-fx="gradient"'));
+        assert.ok(!svg2.slice(svg2.indexOf('data-el="logo"')).includes('data-fx'), 'the logo of w02 has none');
+
+        // the item: null back to the style; all null → no item
+        const item = E.pageEffectsItem(doc.content, 'w02', 'photo', null);
+        assert.deepEqual(item, { photo: null, logo: [], head: null, bg: null });
+        assert.equal(E.pageEffectsItem({ pageEffects: {} }, 'w05', 'photo', null), null);
+        // page-keyed: „Vrátit na styl“ removes it, „Upraveno“ sees it
+        assert.ok(C.pageHasOverrides(doc.content, 'cover'));
+        assert.ok(C.clearPageOverrides(doc.content, 'w02').some((op) => op.c === 'pageEffects'));
+        assert.equal(E.pagesOverriding(doc.content, pages, 'photo.effects'), 1);
+        assert.equal(E.pagesOverriding(doc.content, pages, 'specialPhoto.effects'), 1);
+        assert.equal(E.pagesOverriding(doc.content, pages, 'logo.effects'), 1);
+    });
 }
