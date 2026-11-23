@@ -24,7 +24,8 @@
 //   .cal-5ps[data-photo-surface]      drag surface over the photo frame: dragging pans the crop
 //   [data-photo-upload] (file input), [data-photo-zoom] (range 100–500), [data-photo-remove],
 //   [data-photo-edit] („Upravit fotku“ → the photo editor of `ui/photo-editor.js` in a floating panel;
-//                     its draft is previewed on the page and re-applied after every re-render)
+//                     its draft is previewed on the page and re-applied after every re-render),
+//   [data-photo-gallery] („Z galerie“ — the designer's workspace only, `ui/gallery-pick.js`)
 //   [data-caption-edit]               pencil at the caption → caption editor (`n / 80 znaků`)
 //   [data-day-plus="<date>"]          plus per day row, on the OUTER side of its frame
 //   [data-day-row="<date>"]           compact mode only: the day row as the button of the plus menu
@@ -49,6 +50,7 @@ import { newId, sorted } from '../model/content.js';
 import { isElementVisible } from '../model/elements.js';
 import { ZOOM_MAX, ZOOM_MIN, cropItem, normalizeCrop, panBy, photoPlacement, transformAttr, zoomTo } from '../model/photo-crop.js';
 import { h, icon, relativeTime } from './dom.js';
+import { hasGallery, pickGalleryAsset } from './gallery-pick.js';
 import { closePhotoEditor, openPhotoEditor, weekPhotoEditing } from './photo-editor.js';
 import { closePopover, openPopover } from './popover.js';
 import { badgeLabel, bindWarningBadge, dayWarnings, photoWarnings } from './warnings.js';
@@ -107,7 +109,9 @@ export function mountStep5Overlay(overlayRoot, ctx, opts = {}) {
     const zoomWrap = h('span', { class: 'cal-5z' }, icon('minus', 's14'), zoomInput, icon('plus', 's14'), zoomValue);
     const hint = h('span', { class: 'cap cal-5hint' }, 'Fotku posunete tažením');
     const removeButton = h('button', { type: 'button', class: 'btn icon sm btn-ghost', 'data-photo-remove': true, 'aria-label': 'Odebrat fotku', title: 'Odebrat fotku' }, icon('trash', 's16'));
-    const controls = h('div', { class: 'cal-5ph', hidden: true }, uploadLabel, editButton, zoomWrap, hint, removeButton);
+    // „Z galerie“ (feedback K14 P2): the designer's workspace has the project's gallery
+    const galleryButton = hasGallery() ? h('button', { type: 'button', class: 'btn sm btn-tertiary', 'data-photo-gallery': true, title: 'Vybrat fotku z galerie projektu' }, icon('image-search', 's16'), h('span', null, 'Z galerie')) : null;
+    const controls = h('div', { class: 'cal-5ph', hidden: true }, uploadLabel, galleryButton, editButton, zoomWrap, hint, removeButton);
     if (opts.controls) opts.controls.append(controls);
 
     const photoImage = () => {
@@ -199,6 +203,22 @@ export function mountStep5Overlay(overlayRoot, ctx, opts = {}) {
         fileInput.value = '';
         upload(file);
     });
+    if (galleryButton) {
+        galleryButton.addEventListener('click', async () => {
+            const page = last.page;
+            if (!page || busy) return;
+            busy = true;
+            galleryButton.disabled = true;
+            try {
+                const info = await pickGalleryAsset(ctx, 'photo');
+                // a new or replaced photo always starts centred at 100 % (handoff §8)
+                if (info) store.putItem('pagePhotos', page.key, { asset: info.id, zoom: 1, px: 0.5, py: 0.5 }, page.title);
+            } finally {
+                busy = false;
+                galleryButton.disabled = false;
+            }
+        });
+    }
     // the quick zoom keeps the picture point at the frame centre where it is (as the editor does)
     const zoomedCrop = (item) => {
         const asset = assetOf(item);

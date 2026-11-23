@@ -8,6 +8,7 @@ use League\Flysystem\Filesystem;
 use Ramsey\Uuid\Uuid;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use WBoost\Web\Repository\CalendarAssetRepository;
+use WBoost\Web\Services\Calendar\CalendarAssetUploader;
 use WBoost\Web\Services\Calendar\ReadImageDescription;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Tests\TestingLogin;
@@ -113,6 +114,59 @@ final class UploadCalendarAssetControllerTest extends WebTestCase
         $photo = self::upload($browser, self::UPLOAD_URL, $token, 'photo', self::SVG, 'fotka.svg');
         self::assertResponseStatusCodeSame(422);
         self::assertSame(['error' => 'Fotka musí být JPG, PNG nebo WebP.'], $photo);
+    }
+
+    /**
+     * „Vybrat z galerie“ (feedback K14 P2): the designer picks a picture of the project's gallery —
+     * its BYTES go through the very upload rules into a new calendar asset; the gallery keeps its
+     * file. Another project's picture, one in the Koš, an id that is none: refused. The client link
+     * has no gallery.
+     */
+    public function testAGalleryPictureBecomesACalendarPhotoForTheDesignerOnly(): void
+    {
+        $browser = self::createClient();
+        TestingLogin::logInAsUser($browser, TestDataFixture::USER_1_EMAIL);
+        $token = self::csrf(self::bootstrap($browser, self::WORKSPACE_URL));
+
+        /** @var \League\Flysystem\FilesystemOperator $gallery */
+        $gallery = self::getContainer()->get('oneup_flysystem.minio_filesystem');
+        $gallery->write('fixtures/in-root.png', self::jpeg(2400, 1600, 'Náves v létě'));
+        $gallery->write('fixtures/in-trash.png', self::jpeg(10, 10));
+
+        $browser->request('POST', self::UPLOAD_URL, ['_token' => $token, 'kind' => 'photo', 'fileId' => TestDataFixture::FILE_IN_ROOT_ID]);
+        self::assertResponseIsSuccessful();
+        $asset = self::json($browser);
+        self::assertSame(2400, $asset['width']);
+        self::assertSame(1600, $asset['height']);
+        self::assertSame('image/jpeg', $asset['mime']);
+        self::assertSame('in-root.png', $asset['name']);
+        self::assertSame('Náves v létě', $asset['description']);
+        self::assertIsString($asset['previewUrl']);
+        self::assertIsString($asset['id']);
+        self::assertTrue(self::getContainer()->get(Filesystem::class)->fileExists(sprintf('calendars/%s/%s.jpg', TestDataFixture::CALENDAR_1_ID, $asset['id'])));
+        self::assertTrue($gallery->fileExists('fixtures/in-root.png'), 'the gallery keeps its file');
+
+        foreach ([TestDataFixture::FILE_TRASHED_ID, '00000000-0000-0000-0000-00000000dead', 'nonsense'] as $fileId) {
+            $browser->request('POST', self::UPLOAD_URL, ['_token' => $token, 'kind' => 'photo', 'fileId' => $fileId]);
+            self::assertResponseStatusCodeSame(422, $fileId);
+            self::assertSame(['error' => CalendarAssetUploader::GALLERY_PICTURE_GONE], self::json($browser), $fileId);
+        }
+
+        // A picture of another project's gallery is not this calendar's to take.
+        $foreign = Uuid::uuid7();
+        self::getContainer()->get(\Doctrine\DBAL\Connection::class)->insert('file_upload', [
+            'id' => $foreign->toString(), 'project_id' => TestDataFixture::PROJECT_2_ID, 'uploaded_at' => '2026-01-01 00:00:00',
+            'source' => 'project_image', 'path' => 'fixtures/in-root.png',
+        ]);
+        $browser->request('POST', self::UPLOAD_URL, ['_token' => $token, 'kind' => 'photo', 'fileId' => $foreign->toString()]);
+        self::assertResponseStatusCodeSame(422);
+
+        // The client link has no gallery.
+        $clientUrl = '/k/' . TestDataFixture::CALENDAR_2_TOKEN;
+        $browser->getCookieJar()->clear();
+        $clientToken = self::csrf(self::bootstrap($browser, $clientUrl));
+        $browser->request('POST', $clientUrl . '/asset', ['_token' => $clientToken, 'kind' => 'photo', 'fileId' => TestDataFixture::FILE_IN_ROOT_ID]);
+        self::assertResponseStatusCodeSame(403);
     }
 
     public function testRefusals(): void

@@ -423,7 +423,7 @@ Dates `YYYY-MM-DD` within `[year−1-12-01, year+1-01-31]`. Weekdays `0` Monday
 | wasteExtras | `{kind: wasteKindId, date}` | client, designer |
 | comments | `{date, text ≤500}` — insert only; author + time set by the server | client, designer |
 | pageCaptions | `{text ≤80}` (id = page key) | client, designer |
-| pagePhotos | `{asset, zoom 1–3, px 0–1, py 0–1}` (id = page key) | client, designer |
+| pagePhotos | `{asset, zoom 1–5, px 0–1, py 0–1, rotate?, flip?}` (id = page key) — the crop, see below | client, designer |
 | pageContent | texts + photo of the cover / back / generated special pages — id is one of `cover`, `back`, `sp:intro`, `sp:contacts`, `sp:year`, `sp:waste`, `sp:notes` and decides the shape (below) | client, designer |
 | pageGroups | `{page: "sp:contacts"\|"sp:waste", heading ≤80, lines: [{label ≤40, value ≤200}] (≤30), highlight, pos}` — ≤ 60 per calendar | client, designer |
 | moonEdits | `{op: "add"\|"remove", date, phase 0–3}` | designer |
@@ -435,8 +435,15 @@ Dates `YYYY-MM-DD` within `[year−1-12-01, year+1-01-31]`. Weekdays `0` Monday
 | pageSetup | arrangement of a page — id `cover` `{layout 0–3, logo: "none"\|"tl"\|"tc"\|"tr"\|"title", logoSize: "s"\|"m"\|"l"}`, `sp:intro` `{align: "left"\|"justify"}`, `sp:contacts` `{clubLegend, wasteLegend, notes}`, `back` `{logo}` | designer |
 
 **`pageContent` shapes** (all keys required; `""` = empty — an empty `title` /
-`heading` prints the default; `photo` is `null` or `{asset, zoom 1–3, px 0–1,
-py 0–1}`):
+`heading` prints the default; `photo` is `null` or the crop of `pagePhotos`):
+
+**The crop of a photo** (`pagePhotos`, `pageContent.*.photo`): `zoom` × "just
+covers the frame" (1 = 100 %, max 5), `px` / `py` the share of the free travel
+(0.5 / 0.5 = centred), optional `rotate` −180…180° (a turned photo is drawn
+larger so it still covers its frame — and prints at a lower dpi) and
+`flip: true` (mirrored horizontally). Leave `rotate` / `flip` out when 0 / not
+mirrored — `flip: false` is refused. A new photo starts at
+`{asset, zoom: 1, px: 0.5, py: 0.5}`.
 
 | id | item |
 |---|---|

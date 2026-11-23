@@ -622,6 +622,24 @@ an ordering prefix go; camera / generated names such as `IMG_1234`, `PXL_…`,
 Assets are never deleted individually (replaced photos stay until the calendar
 goes — they count as *referenced* in the storage report).
 
+**„Z galerie“ — a picture of the project's gallery (feedback K14 P2,
+2026-11-24).** The designer's door only: `fileId` instead of `file`
+(`CalendarAssetUploader::storeGalleryFile`) — the gallery file must be a
+`ProjectImage` of the calendar's own project, not in the Koš (else 422
+`GALLERY_PICTURE_GONE`); its **bytes are copied** through the very rules of an
+upload (`storeFile`: size, sniffing, pixel cap, normalisation, preview, embedded
+caption; the gallery's file name becomes `asset.name`), so a later Koš / purge /
+rename in the gallery changes nothing in the calendar and the gallery does not
+change. The client link answers 403 (`/k/{token}` is no project member). UI:
+`ui/gallery-pick.js` (`hasGallery`, `pickGalleryAsset`) opens the
+`Project:ImageGallery` modal that `workspace.html.twig` renders for the
+designer's workspace (lazy — the component renders when the modal first opens;
+shared with the calendar scan, `#calScanGalleryModal`) — „Z galerie“ in the
+step-5 photo toolbar (`[data-photo-gallery]`), the step-4 page panel
+(`[data-page-gallery="photo"]`) and the content photo field
+(`[data-content-gallery]`). Not in „Fotky a popisky“: that tool is a Bootstrap
+modal itself, and a second modal over it is not supported.
+
 What an upload is refused for, in order (all 422 `{ error }` unless noted):
 client storage full → a `photo` whose **sniffed** MIME type is not in
 `CalendarAssetUploader::PHOTO_MIME_TYPES` (JPEG, PNG, WebP + the phone formats

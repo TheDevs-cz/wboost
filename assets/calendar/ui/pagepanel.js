@@ -26,11 +26,13 @@
 // DOM hooks: `[data-page-panel="<pageKey>"]`, `[data-page-pill]` (Upraveno), `[data-page-warning]`,
 // `[data-page-field="photo|caption|head|bg|qr"]` (the file input or the text input),
 // `[data-page-remove="photo|head|bg|qr"]`, `[data-page-edit="photo"]` („Upravit“ → the photo editor,
-// `ui/photo-editor.js`; closed with the panel), `[data-cal-action="page-reset"]`.
+// `ui/photo-editor.js`; closed with the panel), `[data-page-gallery="photo"]` („Z galerie“, the
+// designer's workspace only — `ui/gallery-pick.js`), `[data-cal-action="page-reset"]`.
 
 import { clearPageOverrides, pageHasOverrides } from '../model/content.js';
 import { h, icon } from './dom.js';
 import { hasPageContent, mountPageContent } from './pagecontent.js';
+import { hasGallery, pickGalleryAsset } from './gallery-pick.js';
 import { closePhotoEditor, openPhotoEditor, weekPhotoEditing } from './photo-editor.js';
 import { mountPageEffects } from './page-effects.js';
 import { CAPTION_MAX, fileTile, setPageCaption, setPagePhoto, uploadAsset } from './tools/photos.js';
@@ -100,7 +102,9 @@ export function mountPagePanel(root, ctx, opts = {}) {
         const remove = h('button', { type: 'button', class: 'btn xs btn-ghost', 'data-page-remove': name, onClick: o.remove }, icon('trash', 's14'), 'Odebrat');
         // „Upravit“ — the photo editor (feedback K14), for a field that has one
         const edit = o.edit ? h('button', { type: 'button', class: 'btn xs btn-ghost', 'data-page-edit': name, title: 'Výřez, otočení a zrcadlení', onClick: (event) => o.edit(event.currentTarget) }, icon('image-edit', 's14'), 'Upravit') : null;
-        const el = h('div', { class: 'cal-p4s' }, h('span', { class: 'lbl' }, label), h('div', { class: 'cal-ftr' }, tile, h('div', { class: 'cal-ftb' }, hint, edit, remove)));
+        // „Z galerie“ (feedback K14 P2) — the designer's workspace only
+        const gallery = o.gallery && hasGallery() ? h('button', { type: 'button', class: 'btn xs btn-ghost', 'data-page-gallery': name, title: 'Vybrat z galerie projektu', onClick: () => o.gallery() }, icon('image-search', 's14'), 'Z galerie') : null;
+        const el = h('div', { class: 'cal-p4s' }, h('span', { class: 'lbl' }, label), h('div', { class: 'cal-ftr' }, tile, h('div', { class: 'cal-ftb' }, hint, gallery, edit, remove)));
         return {
             el,
             sync() {
@@ -160,6 +164,10 @@ export function mountPagePanel(root, ctx, opts = {}) {
                     },
                     remove: () => store.removeItem('pagePhotos', key, current.title),
                     editable: () => Boolean(weekPhotoEditing(ctx, current)),
+                    gallery: async () => {
+                        const info = await pickGalleryAsset(ctx, 'photo');
+                        if (info) setPagePhoto(ctx, current, info);
+                    },
                     edit: (anchor) => {
                         const editing = weekPhotoEditing(ctx, current);
                         if (!editing) return;

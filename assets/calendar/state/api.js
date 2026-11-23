@@ -103,6 +103,10 @@ export function createApi(env) {
         upload(file, kind) {
             return send(urls.asset, { _token: token, kind, file }, 'Soubor se nepodařilo nahrát');
         },
+        /** A picture of the project's gallery copied into a new asset (designer only) → the asset info, as `upload`. */
+        uploadFromGallery(fileId, kind) {
+            return send(urls.asset, { _token: token, kind, fileId }, 'Obrázek z galerie se nepodařilo použít');
+        },
         history() {
             return fetchHistory(urls.history);
         },

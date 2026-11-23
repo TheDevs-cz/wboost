@@ -35,10 +35,10 @@ use WBoost\Web\Mcp\Response\SkillVersionResponse;
  */
 final class SkillRelease
 {
-    public const string VERSION = '0.9.0';
+    public const string VERSION = '0.10.0';
 
     /** One or two lines: what the CURRENT version adds over the previous one. */
-    public const string WHATS_NEW = 'Multilingual calendars: `manage_calendar` `languages` (any of sk, pl, de, en besides Czech) prints the month, weekday and week-number names in several languages; `styles.cal.dayFormat` gains `auto`.';
+    public const string WHATS_NEW = 'Calendar photos can be turned and mirrored: the crop of `pagePhotos` / `pageContent.*.photo` takes optional `rotate` (−180…180°) and `flip: true`, and `zoom` goes up to 5.';
 
     /** A stable download of the latest released skill folder, built by `.github/workflows/plugin-release.yml`. */
     public const string ZIP_URL = 'https://github.com/TheDevs-cz/wboost/releases/latest/download/wboost-skill.zip';

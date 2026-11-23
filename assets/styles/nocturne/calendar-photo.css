@@ -48,3 +48,5 @@
 /* „Fotky a popisky“: the pencil above the bin in the last column; the editor under its row */
 .cal-phr .cal-phx { height: auto; gap: 2px; }
 .cal-phl > .cal-pe-inline { margin: -2px 0 4px; }
+/* „Z galerie“ under the hint of a content photo field (P2) */
+.cal-ftbg { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }

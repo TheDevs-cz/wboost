@@ -64,6 +64,7 @@ module.exports = {
     async run({ browser, page, h, check }) {
         const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wb-cal-k14-'));
         const photo = gradientPng(1500, 1000, path.join(tmp, 'krajina.png'));
+        const galleryPhoto = gradientPng(900, 700, path.join(tmp, 'k14-galerie.png'));
         let id = null;
         let week = null;
         let asset = null;
@@ -78,6 +79,7 @@ module.exports = {
         }
         const photoImage = (p = page) => p.$eval('.cal-5w svg g[data-el="photo"] image', (el) => ({ transform: el.getAttribute('transform'), filter: el.getAttribute('filter'), x: Number(el.getAttribute('x')) }));
 
+        if (process.env.E2E_DEBUG) page.on('response', async (r) => r.request().method() === 'POST' && r.status() >= 400 && console.error('    POST', r.status(), r.url(), (await r.text().catch(() => '')).slice(0, 300)));
         await check('setup: a 7-day calendar with a layout in step 5, a photo on a week page', async () => {
             id = await h.createCalendar(page);
             await h.gotoStep(page, 2);
@@ -126,6 +128,7 @@ module.exports = {
             await page.keyboard.press('+');
             await page.keyboard.press('ArrowLeft');
             assert.match(await page.$eval(`${PE} [data-pe-info]`, (el) => el.textContent), /1\s500 × 1\s000\s*px · \d+\s*dpi/);
+            await h.shot(page, 'photo-editor-desktop');
             await page.click(`${PE} [data-pe-action="done"]`);
             await page.waitForFunction(() => !document.querySelector('.cal-pe-pop'), { timeout: 3000 });
             const stored = await item();
@@ -213,6 +216,27 @@ module.exports = {
             await h.save(page);
         });
 
+        await check('P2 designer: „Z galerie“ copies a picture of the project gallery into the week photo', async () => {
+            const other = (await h.cal(page, (c) => c.pages())).find((p) => p.kind === 'week' && p.index === week.index + 1);
+            await h.gotoStep(page, 5);
+            await showPage(other.index);
+            await page.click('[data-photo-gallery]');
+            await page.waitForSelector('#calScanGalleryModal.show', { timeout: 8000 });
+            // the component is lazy: it renders when the modal opens
+            await page.waitForSelector('#calScanGalleryModal input[type="file"][data-gallery-uploader-target="input"]', { timeout: 20000 });
+            await (await page.$('#calScanGalleryModal input[type="file"][data-gallery-uploader-target="input"]')).uploadFile(galleryPhoto);
+            const select = '#calScanGalleryModal .gallery-asset__select[data-image-gallery-name-param="k14-galerie.png"]';
+            await page.waitForSelector(select, { timeout: 30000 });
+            await h.sleep(300);
+            await page.click(select);
+            await page.waitForFunction((key) => Boolean(window.__calendar.state().content.pagePhotos[key]), { timeout: 15000 }, other.key);
+            const stored = (await state()).content.pagePhotos[other.key];
+            assert.deepEqual({ zoom: stored.zoom, px: stored.px, py: stored.py }, { zoom: 1, px: 0.5, py: 0.5 });
+            assert.equal(h.psql(`SELECT original_name FROM calendar_asset WHERE id = '${stored.asset}'`), 'k14-galerie.png', 'a copy of the gallery file, under its name');
+            await page.waitForFunction(() => !document.querySelector('#calScanGalleryModal.show'), { timeout: 5000 });
+            await h.save(page);
+        });
+
         await check('client: the client opens the same editor in step 5 and its turn is stored', async () => {
             const context = await browser.createBrowserContext();
             const client = await h.newPage(context);
@@ -220,6 +244,8 @@ module.exports = {
                 await client.goto(clientUrl, { waitUntil: 'networkidle2' });
                 await client.waitForSelector('.cal-ws[data-cal-ready]', { timeout: 15000 }).catch(() => client.waitForSelector('.cal-5w svg', { timeout: 15000 }));
                 await showPage(week.index, client);
+                assert.equal(await client.$('[data-photo-gallery]'), null, 'the client link has no gallery');
+                assert.equal(await client.$('#calScanGalleryModal'), null);
                 await client.click('[data-photo-edit]');
                 await client.waitForSelector(`${PE} [data-photo-editor]`, { timeout: 3000 });
                 await client.click(`${PE} [data-pe-action="rotate-right"]`);
@@ -255,6 +281,7 @@ module.exports = {
 
         await check('cleanup', async () => {
             await h.deleteCalendar(page, id);
+            h.psql(`DELETE FROM file_upload WHERE project_id = '${h.config.projectId}' AND original_name = 'k14-galerie.png'`);
         });
     },
 };

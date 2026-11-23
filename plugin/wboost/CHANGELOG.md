@@ -5,6 +5,19 @@ every deploy. When the server is newer than your skill, Claude tells you once
 per session how to update (see the README). Versions follow `x.y.z`: a new or
 changed tool or parameter is at least a minor bump.
 
+## 0.10.0 — 2026-11-24
+
+**Turned and mirrored calendar photos** (no new tool or parameter; the crop of a
+photo changed).
+
+New parameters and behaviour
+- `update_calendar_content`: the crop of a photo (`pagePhotos`, and `photo` of
+  `pageContent` cover / `sp:intro` / `sp:contacts`) is `{asset, zoom 1–5, px,
+  py, rotate?, flip?}` — `zoom` now up to 5 (was 3), optional `rotate`
+  −180…180° (the photo is drawn larger so it still covers its frame) and
+  `flip: true` (mirrored horizontally). Omit both when 0 / not mirrored;
+  `flip: false` is refused. Items without them read as before.
+
 ## 0.9.0 — 2026-11-24
 
 **Multilingual calendars.**

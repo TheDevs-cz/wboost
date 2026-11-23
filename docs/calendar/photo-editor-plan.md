@@ -1,7 +1,7 @@
 # K14 — photo editing in the calendar (plan)
 
 Status: approved by Jan 2026-11-24 — **build P1 + P2, no colour adjustments** (§ 11 records the
-decisions). P1 built 2026-11-24; the current truth is `docs/architecture/calendars.md` § "Photo crop
+decisions). P1 (a6b0dc2e) and P2 built 2026-11-24; the current truth is `docs/architecture/calendars.md` § "Photo crop
 and „Upravit fotku“". Spike files (HTML, Gotenberg PDFs, extracted JPEGs, PNG renders) were in the
 session scratchpad `k14spike/`; they are not in the repo.
 

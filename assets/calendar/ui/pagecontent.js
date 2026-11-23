@@ -38,6 +38,7 @@ import { styleBinding } from './controls/bind.js';
 import { colorPalette } from './controls/color.js';
 import { effectsEditor } from './controls/effects.js';
 import { renderThumb } from './thumb.js';
+import { hasGallery, pickGalleryAsset } from './gallery-pick.js';
 import { mountPhotoEditor } from './photo-editor.js';
 import { fileTile, uploadAsset } from './tools/photos.js';
 
@@ -208,7 +209,19 @@ export function mountPageContent(root, ctx, opts) {
         const zoomValue = h('output', { class: 'cal-5zv' }, '100 %');
         const edit = h('button', { type: 'button', class: 'btn xs btn-ghost', 'data-photo-edit': '', 'aria-expanded': 'false', title: 'Výřez, otočení a zrcadlení fotky', onClick: () => toggleEditor() }, icon('image-edit', 's14'), 'Upravit výřez');
         const remove = h('button', { type: 'button', class: 'btn xs btn-ghost', 'data-photo-remove': '', onClick: () => { closeEditor(); writeContent({ photo: null }); } }, icon('trash', 's14'), 'Odebrat');
-        const hint = h('span', { class: 'cap' });
+        // „Z galerie“ (feedback K14 P2) under the hint — the designer's workspace only (`ui/gallery-pick.js`)
+        const hintText = h('span', { class: 'cap' });
+        const gallery = hasGallery()
+            ? h('button', { type: 'button', class: 'btn xs btn-ghost', 'data-content-gallery': '', title: 'Vybrat z galerie projektu', onClick: () => pickFromGallery() }, icon('image-search', 's14'), 'Z galerie')
+            : null;
+        const hint = gallery ? h('span', { class: 'cal-ftbg' }, hintText, gallery) : hintText;
+        async function pickFromGallery() {
+            const info = await pickGalleryAsset(ctx, 'photo');
+            if (info) {
+                closeEditor();
+                writeContent({ photo: cropItem(info.id, null) });
+            }
+        }
         const controls = h('div', { class: 'cal-cropc' }, h('span', { class: 'cal-5z' }, icon('minus', 's14'), zoom, icon('plus', 's14'), zoomValue), edit, remove);
 
         // „Upravit výřez“ — one inline editor under the controls
@@ -258,7 +271,7 @@ export function mountPageContent(root, ctx, opts) {
             tile.setAsset(asset);
             surface.hidden = !asset;
             controls.hidden = !asset;
-            hint.textContent = asset ? 'Výřez posunete tažením v náhledu.' : slotLabel;
+            hintText.textContent = asset ? 'Výřez posunete tažením v náhledu.' : slotLabel;
             // the photo went away or was replaced under an open editor
             if (editing && (!photo || photo.asset !== editing.asset)) closeEditor();
             if (!asset) return;

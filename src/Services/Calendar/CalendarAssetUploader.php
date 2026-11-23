@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace WBoost\Web\Services\Calendar;
 
+use League\Flysystem\FilesystemException;
+use League\Flysystem\FilesystemReader;
+use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -16,10 +20,12 @@ use Symfony\Component\Validator\Constraints\Image;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 use WBoost\Web\Controller\Calendar\UploadCalendarAssetController;
 use WBoost\Web\Entity\Calendar;
+use WBoost\Web\Entity\FileUpload;
 use WBoost\Web\Exceptions\CalendarChangeForbidden;
 use WBoost\Web\Exceptions\InvalidCalendarChange;
 use WBoost\Web\Message\Calendar\UploadCalendarAsset;
 use WBoost\Web\Repository\CalendarAssetRepository;
+use WBoost\Web\Repository\FileUploadRepository;
 use WBoost\Web\Services\Image\DownscaleImage;
 use WBoost\Web\Services\Image\ImageDecodeLimits;
 use WBoost\Web\Services\Image\NormalizeImageFormat;
@@ -31,7 +37,9 @@ use WBoost\Web\Value\RenderImageFormat;
 /**
  * The upload endpoint behind both routes — `/calendar/{id}/asset` and the
  * client link's `/k/{token}/asset` (docs/calendar/architecture.md §C.7):
- * multipart `_token`, `kind`, `file`; answers the new asset's info. The
+ * multipart `_token`, `kind`, `file` — or, for the designer, `fileId` of a
+ * picture of the project's gallery (copied, {@see self::storeGalleryFile()});
+ * answers the new asset's info. The
  * calendar document is not touched: the client references the id and saves.
  */
 readonly final class CalendarAssetUploader
@@ -62,6 +70,7 @@ readonly final class CalendarAssetUploader
     public const string TOO_MANY_PIXELS = 'Obrázek má příliš velké rozměry (nejvýše 60 megapixelů). Zmenšete ho a nahrajte znovu.';
     public const string CLIENT_STORAGE_FULL = 'Do tohoto kalendáře už bylo nahráno příliš mnoho fotek (limit 2 GB). Obraťte se prosím na grafika.';
     public const string PHOTO_FORMAT = 'Fotka musí být JPG, PNG nebo WebP.';
+    public const string GALLERY_PICTURE_GONE = 'Obrázek v galerii už není. Vyberte jiný.';
     public const string UNREADABLE = 'Tento formát obrázku neumíme přečíst. Nahrajte PNG, JPG, WebP nebo SVG.';
 
     public function __construct(
@@ -75,6 +84,9 @@ readonly final class CalendarAssetUploader
         private CalendarDocument $document,
         private ProvideIdentity $provideIdentity,
         private CsrfTokenManagerInterface $csrfTokenManager,
+        private FileUploadRepository $fileUploads,
+        #[Autowire(service: 'oneup_flysystem.minio_filesystem')]
+        private FilesystemReader $gallery,
     ) {
     }
 
@@ -101,6 +113,14 @@ readonly final class CalendarAssetUploader
 
         if (!$actor->isDesigner() && !$kind->clientMayUpload()) {
             throw new CalendarChangeForbidden();
+        }
+
+        $galleryFileId = $request->request->getString('fileId');
+
+        if ($galleryFileId !== '') {
+            $assetId = $this->storeGalleryFile($calendar, $actor, $kind, $galleryFileId);
+
+            return new JsonResponse(['id' => $assetId->toString()] + $this->document->asset($this->assetRepository->get($assetId)));
         }
 
         $file = $request->files->get('file');
@@ -225,6 +245,55 @@ readonly final class CalendarAssetUploader
         ));
 
         return $assetId;
+    }
+
+    /**
+     * „Vybrat z galerie“ (feedback K14 P2): a picture of the project's gallery
+     * becomes an asset of the calendar. Its BYTES are copied through the very
+     * rules of an upload ({@see self::storeFile()}), so the calendar does not
+     * depend on what happens to the gallery file later (Koš, purge, rename)
+     * and the gallery does not change. Designer only — the client link has no
+     * access to the project's gallery. A picture of another project, one in
+     * the Koš, a stand-in or an id that is none: {@see self::GALLERY_PICTURE_GONE}.
+     *
+     * @throws InvalidCalendarChange
+     * @throws CalendarChangeForbidden
+     */
+    public function storeGalleryFile(Calendar $calendar, CalendarActor $actor, CalendarAssetKind $kind, string $fileId): UuidInterface
+    {
+        if (!$actor->isDesigner()) {
+            throw new CalendarChangeForbidden();
+        }
+
+        $file = Uuid::isValid($fileId) ? $this->fileUploads->find(Uuid::fromString($fileId)) : null;
+
+        if (!$file instanceof FileUpload || $file->isTrashed() || !$file->source->isGalleryPicture() || !$file->project->id->equals($calendar->project->id)) {
+            throw new InvalidCalendarChange(self::GALLERY_PICTURE_GONE);
+        }
+
+        try {
+            if ($this->gallery->fileSize($file->path) > CalendarDocument::MAX_FILE_SIZE) {
+                throw new InvalidCalendarChange(self::TOO_LARGE);
+            }
+
+            $bytes = $this->gallery->read($file->path);
+        } catch (FilesystemException) {
+            throw new InvalidCalendarChange(self::GALLERY_PICTURE_GONE);
+        }
+
+        $temporary = tempnam(sys_get_temp_dir(), 'calendar-gallery-');
+
+        if ($temporary === false) {
+            throw new \RuntimeException('No temporary file for a gallery picture.');
+        }
+
+        try {
+            file_put_contents($temporary, $bytes);
+
+            return $this->storeFile($calendar, $actor, $kind, new UploadedFile($temporary, $file->originalName ?? basename($file->path), null, null, true));
+        } finally {
+            @unlink($temporary);
+        }
     }
 
     private static function fileName(string $name): string
