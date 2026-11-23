@@ -173,6 +173,20 @@ module.exports = {
             assert.equal(await stage('[data-el="logo"] filter feGaussianBlur'), 1);
         });
 
+        await check('P3: inner shadow, outer and inner glow — fields of their kind, drawn in Photoshop order', async () => {
+            await select('photo');
+            for (const kind of ['innerShadow', 'outerGlow', 'innerGlow']) await click(`[data-props="photo"] [data-fx-add="${kind}"]`);
+            const fx = (await styles()).photo.effects;
+            assert.deepEqual(fx.slice(0, 3).map((e) => e.kind), ['innerGlow', 'outerGlow', 'innerShadow']);
+            assert.equal(await shown(prop('photo.effects.0.spread')), true, 'the new inner glow is open');
+            assert.equal(await page.$(prop('photo.effects.0.angle')), null, 'a glow has no angle');
+            assert.match(await page.$eval(`label:has(${prop('photo.effects.0.spread')})`, (el) => el.textContent), /Zúžení/);
+            const order = await page.$$eval('.cal-cv svg[data-page] [data-el="photo"] [data-fx]', (l) => l.map((n) => n.dataset.fx));
+            assert.deepEqual(order, ['dropShadow', 'outerGlow', 'gradient', 'innerGlow', 'innerShadow']);
+            for (let i = 0; i < 3; i++) await click('[data-props="photo"] [data-fx-row="0"] [data-fx-remove]');
+            assert.equal((await styles()).photo.effects.length, 2);
+        });
+
         await check('header and background pictures offer Efekty only while their picture is on', async () => {
             await select('head');
             assert.equal(await shown(prop('head.bg.effects.0.on')), false);

@@ -38,12 +38,18 @@ readonly final class CalendarEffectRules
     /** Keys of an effect per kind, in the order effects.js writes them. */
     public const array KEYS = [
         'dropShadow' => ['kind', 'on', 'blend', 'opacity', 'color', 'angle', 'distance', 'spread', 'size'],
+        'innerShadow' => ['kind', 'on', 'blend', 'opacity', 'color', 'angle', 'distance', 'spread', 'size'],
+        'outerGlow' => ['kind', 'on', 'blend', 'opacity', 'color', 'spread', 'size'],
+        'innerGlow' => ['kind', 'on', 'blend', 'opacity', 'color', 'spread', 'size'],
         'gradient' => ['kind', 'on', 'blend', 'opacity', 'type', 'angle', 'scale', 'x', 'y', 'stops'],
     ];
 
     /** [min, max] of the numbers per kind — `LIMITS.fx*` / `percent` of defaults.js. */
     public const array RANGES = [
         'dropShadow' => ['opacity' => [0, 100], 'angle' => [-180, 180], 'distance' => [0, 30], 'spread' => [0, 100], 'size' => [0, 30]],
+        'innerShadow' => ['opacity' => [0, 100], 'angle' => [-180, 180], 'distance' => [0, 30], 'spread' => [0, 100], 'size' => [0, 30]],
+        'outerGlow' => ['opacity' => [0, 100], 'spread' => [0, 100], 'size' => [0, 30]],
+        'innerGlow' => ['opacity' => [0, 100], 'spread' => [0, 100], 'size' => [0, 30]],
         'gradient' => ['opacity' => [0, 100], 'angle' => [0, 359], 'scale' => [10, 150], 'x' => [-50, 150], 'y' => [-50, 150]],
     ];
 

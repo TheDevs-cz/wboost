@@ -124,7 +124,10 @@ readonly final class SetCalendarLayoutTool
      * - effects — Photoshop-like layer effects of a picture, a LIST sent whole
      *   ([] = none; missing keys take the defaults): {kind "dropShadow", on,
      *   blend, opacity %, color, angle (the LIGHT angle °: 120 = shadow down
-     *   right), distance mm, spread %, size mm} and {kind "gradient" (an
+     *   right), distance mm, spread %, size mm}, {kind "innerShadow"} (the
+     *   same keys, inside the picture; spread = choke), {kind "outerGlow" |
+     *   "innerGlow", on, blend, opacity, color, spread %, size mm} and
+     *   {kind "gradient" (an
      *   overlay; several allowed), on, blend, opacity %, type
      *   "linear"|"radial"|"reflected", angle (0 = left → right, 90 = top →
      *   bottom), scale % (10–150), x / y = the centre in % of the picture
@@ -132,7 +135,8 @@ readonly final class SetCalendarLayoutTool
      *   blend is one of normal, darken, multiply, color-burn, lighten, screen,
      *   color-dodge, overlay, soft-light, hard-light, difference, exclusion,
      *   hue, saturation, color, luminosity. The first effect of a kind is its
-     *   top one; shadows lie under the picture, gradients over it.
+     *   top one; bottom → top: drop shadows, outer glows, the picture,
+     *   gradients, inner glows, inner shadows.
      * - moon: {color, size (mm 1.5–9), valign, phases [new, first quarter,
      *   full, last quarter] booleans, icons [asset|null ×4]}.
      * - icons: {order — the icon order in a day row, a list out of "waste",

@@ -11,11 +11,15 @@
 //   { kind: 'dropShadow', on, blend, opacity, color, angle, distance, spread, size }
 //       angle = Photoshop's LIGHT angle: 0° = light from the right, 90° = from the top, so the
 //       shadow falls the other way (120° → down right)
+//   { kind: 'innerShadow', … }  the same keys, inside the picture; spread = Zúžení (choke)
+//   { kind: 'outerGlow' | 'innerGlow', on, blend, opacity, color, spread, size }  around / inside the
+//       edge, no offset (innerGlow: spread = Zúžení)
 //   { kind: 'gradient', on, blend, opacity, type: linear|radial|reflected, angle, scale, x, y, stops }
 //       angle as the fills: 0° = left → right, 90° = top → bottom; x / y = the centre in % of the
 //       picture; scale % of the picture's extent; stops = [{ color, opacity, pos }] (2–8)
 //
-// Stacking is by kind, as in Photoshop: drop shadows under the picture, gradient overlays over it.
+// Stacking is by kind, as in Photoshop (bottom → top): drop shadows, outer glows, THE PICTURE, gradient
+// overlays, inner glows, inner shadows.
 // Within a kind the FIRST effect of the list is the TOP one (as `layout.order`).
 //
 // Blend modes: only the 16 that the PDF has natively (`/BM`). Photoshop's other 11 (Rozpustit,
@@ -34,7 +38,10 @@ export const MAX_STOPS = 8;
 
 /** Kinds in Photoshop's panel order (top → bottom); `under` = painted below the picture. */
 export const EFFECT_KINDS = Object.freeze([
+    Object.freeze({ kind: 'innerShadow', label: 'Vnitřní stín', under: false }),
+    Object.freeze({ kind: 'innerGlow', label: 'Vnitřní záře', under: false }),
     Object.freeze({ kind: 'gradient', label: 'Překrytí přechodem', under: false }),
+    Object.freeze({ kind: 'outerGlow', label: 'Vnější záře', under: true }),
     Object.freeze({ kind: 'dropShadow', label: 'Vržený stín', under: true }),
 ]);
 
@@ -63,6 +70,10 @@ export const GRADIENT_TYPES = Object.freeze(['linear', 'radial', 'reflected']);
 
 const DEFAULTS = Object.freeze({
     dropShadow: Object.freeze({ kind: 'dropShadow', on: true, blend: 'multiply', opacity: 75, color: '#000000', angle: 120, distance: 1.5, spread: 0, size: 3 }),
+    // spread = Zúžení (choke): how much of the size is a hard edge
+    innerShadow: Object.freeze({ kind: 'innerShadow', on: true, blend: 'multiply', opacity: 75, color: '#000000', angle: 120, distance: 1.5, spread: 0, size: 3 }),
+    outerGlow: Object.freeze({ kind: 'outerGlow', on: true, blend: 'screen', opacity: 75, color: '#FFFFBE', spread: 0, size: 3 }),
+    innerGlow: Object.freeze({ kind: 'innerGlow', on: true, blend: 'screen', opacity: 75, color: '#FFFFBE', spread: 0, size: 3 }),
     gradient: Object.freeze({
         kind: 'gradient',
         on: true,
@@ -128,12 +139,20 @@ export function normalizeEffect(raw) {
         blend: BLEND_VALUES.includes(raw.blend) ? raw.blend : d.blend,
         opacity: clampLimit('percent', finite(raw.opacity, d.opacity)),
     };
-    if (raw.kind === 'dropShadow') {
+    if (raw.kind === 'dropShadow' || raw.kind === 'innerShadow') {
         return {
             ...common,
             color: colorOf(raw.color, d.color),
             angle: clampLimit('fxAngle', wrapAngle(finite(raw.angle, d.angle))),
             distance: clampLimit('fxDistance', finite(raw.distance, d.distance)),
+            spread: clampLimit('percent', finite(raw.spread, d.spread)),
+            size: clampLimit('fxSize', finite(raw.size, d.size)),
+        };
+    }
+    if (raw.kind === 'outerGlow' || raw.kind === 'innerGlow') {
+        return {
+            ...common,
+            color: colorOf(raw.color, d.color),
             spread: clampLimit('percent', finite(raw.spread, d.spread)),
             size: clampLimit('fxSize', finite(raw.size, d.size)),
         };
@@ -190,7 +209,7 @@ export function shadowToEffects(shadow) {
 /** The effects mirrored left ↔ right (Fotka vlevo ↔ vpravo): angles and centres flip horizontally. */
 export function mirrorEffects(list) {
     return (Array.isArray(list) ? list : []).map((e) => {
-        if (e.kind === 'dropShadow') return { ...e, angle: clampLimit('fxAngle', wrapAngle(180 - e.angle)) };
+        if (e.kind === 'dropShadow' || e.kind === 'innerShadow') return { ...e, angle: clampLimit('fxAngle', wrapAngle(180 - e.angle)) };
         if (e.kind === 'gradient') return { ...e, angle: (((180 - e.angle) % 360) + 360) % 360, x: 100 - e.x };
         return { ...e };
     });

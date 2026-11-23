@@ -1,7 +1,7 @@
 // Layer effects around a picture (model/effects.js; architecture "Image effects").
 //
-// `withEffects(effects, shape, content, opts, id)` returns `content` (the picture's markup) with its
-// effects: drop shadows under it, gradient overlays over it.
+// `withEffects(effects, shape, content, id)` returns `content` (the picture's markup) with its
+// effects: drop shadows and outer glows under it; gradient overlays, inner glows and inner shadows over it.
 //
 //   shape = { type: 'rect', box, radius }          the picture fills this (rounded) rectangle — a
 //                                                   photo in its crop frame, a picture that covers
@@ -24,7 +24,7 @@
 //
 // Pure: strings only. Ids derive from `id`, which the caller derives from `opts.idPrefix`.
 
-import { isUnderKind, shadowOffset } from '../model/effects.js';
+import { EFFECT_KINDS, isUnderKind, shadowOffset } from '../model/effects.js';
 import { attrs, esc, num } from './svg.js';
 
 const blendStyle = (blend) => (blend && blend !== 'normal' ? `mix-blend-mode:${blend}` : null);
@@ -129,7 +129,72 @@ function gradientOverlay(effect, shape, id) {
     return `<defs>${filter}</defs><g${attrs({ filter: `url(#${id})`, opacity, style })} data-fx="gradient">${shape.copy}</g>`;
 }
 
-const DRAW = { dropShadow, gradient: gradientOverlay };
+/** An outer glow is a drop shadow without an offset. */
+function outerGlow(effect, shape, id) {
+    return dropShadow({ ...effect, angle: 0, distance: 0 }, shape, id).replace('data-fx="dropShadow"', 'data-fx="outerGlow"');
+}
+
+/** Path of a rounded rectangle (clockwise). */
+function roundedRect(b, r) {
+    const rr = Math.max(0, Math.min(r || 0, b.w / 2, b.h / 2));
+    if (!(rr > 0)) return `M${num(b.x)} ${num(b.y)}H${num(b.x + b.w)}V${num(b.y + b.h)}H${num(b.x)}Z`;
+    return `M${num(b.x + rr)} ${num(b.y)}H${num(b.x + b.w - rr)}A${num(rr)} ${num(rr)} 0 0 1 ${num(b.x + b.w)} ${num(b.y + rr)}V${num(b.y + b.h - rr)}A${num(rr)} ${num(rr)} 0 0 1 ${num(b.x + b.w - rr)} ${num(b.y + b.h)}H${num(b.x + rr)}A${num(rr)} ${num(rr)} 0 0 1 ${num(b.x)} ${num(b.y + b.h - rr)}V${num(b.y + rr)}A${num(rr)} ${num(rr)} 0 0 1 ${num(b.x + rr)} ${num(b.y)}Z`;
+}
+
+/**
+ * Inner shadow / inner glow: the area OUTSIDE the (offset, choked) shape, blurred, kept inside the
+ * shape. A rectangle: an even-odd frame clipped by a vector clip path; an outline: the inverted
+ * alpha of a copy inside a filter.
+ */
+function inner(effect, shape, id, kind) {
+    const { dx, dy } = kind === 'innerShadow' ? shadowOffset(effect) : { dx: 0, dy: 0 };
+    const choke = (effect.spread / 100) * effect.size;
+    const sigma = (effect.size * (1 - effect.spread / 100)) / 2;
+    const style = blendStyle(effect.blend);
+    const b = shape.box;
+    if (shape.type === 'rect') {
+        const reach = 3 * sigma + Math.abs(dx) + Math.abs(dy) + choke + 1;
+        const outer = region(b, reach);
+        const hole = { x: b.x + dx + choke, y: b.y + dy + choke, w: Math.max(0, b.w - 2 * choke), h: Math.max(0, b.h - 2 * choke) };
+        const d = `${roundedRect(outer, 0)}${roundedRect(hole, Math.max(0, (shape.radius || 0) - choke))}`;
+        let defs = `<clipPath id="${esc(id)}-c"><path d="${roundedRect(b, shape.radius)}"/></clipPath>`;
+        let filter = null;
+        if (sigma > 0) {
+            defs += `${filterOpen(id, region(b, 3 * sigma + 0.5))}<feGaussianBlur stdDeviation="${num(sigma)}"/></filter>`;
+            filter = `url(#${id})`;
+        }
+        const path = `<path${attrs({ d, 'fill-rule': 'evenodd', fill: effect.color, 'fill-opacity': effect.opacity < 100 ? effect.opacity / 100 : null, filter })}/>`;
+        return `<defs>${defs}</defs><g${attrs({ 'clip-path': `url(#${id}-c)`, style })} data-fx="${kind}">${path}</g>`;
+    }
+    const r = region(b, 3 * sigma + Math.abs(dx) + Math.abs(dy) + choke + 0.5);
+    let chain = '<feComponentTransfer in="SourceAlpha" result="inv"><feFuncA type="table" tableValues="1 0"/></feComponentTransfer>';
+    let input = 'inv';
+    if (choke > 0) {
+        chain += `<feMorphology in="${input}" operator="dilate" radius="${num(choke)}" result="k"/>`;
+        input = 'k';
+    }
+    if (sigma > 0) {
+        chain += `<feGaussianBlur in="${input}" stdDeviation="${num(sigma)}" result="b"/>`;
+        input = 'b';
+    }
+    if (dx || dy) {
+        chain += `<feOffset in="${input}" dx="${num(dx)}" dy="${num(dy)}" result="o"/>`;
+        input = 'o';
+    }
+    chain += `<feComposite in="${input}" in2="SourceAlpha" operator="in" result="e"/><feFlood flood-color="${esc(effect.color)}" flood-opacity="${num(effect.opacity / 100)}"/><feComposite in2="e" operator="in"/>`;
+    return `<defs>${filterOpen(id, r)}${chain}</filter></defs><g${attrs({ filter: `url(#${id})`, style })} data-fx="${kind}">${shape.copy}</g>`;
+}
+
+const DRAW = {
+    dropShadow,
+    outerGlow,
+    gradient: gradientOverlay,
+    innerGlow: (effect, shape, id) => inner(effect, shape, id, 'innerGlow'),
+    innerShadow: (effect, shape, id) => inner(effect, shape, id, 'innerShadow'),
+};
+
+/** Bottom-to-top rank of a kind (Photoshop's panel lists the top first). */
+const rank = (kind) => EFFECT_KINDS.length - EFFECT_KINDS.findIndex((k) => k.kind === kind);
 
 /**
  * @param effects  the effect list (normalised); switched-off effects are skipped
@@ -140,8 +205,13 @@ const DRAW = { dropShadow, gradient: gradientOverlay };
 export function withEffects(effects, shape, content, id) {
     const active = (Array.isArray(effects) ? effects : []).map((e, i) => ({ e, i })).filter(({ e }) => e.on && DRAW[e.kind]);
     if (!active.length || !shape || !content) return content;
-    // the first effect of a kind is its top one: paint each kind from its last effect up
-    const paint = (list) => list.slice().reverse().map(({ e, i }) => DRAW[e.kind](e, shape, `${id}${i}`)).join('');
+    // bottom to top: by kind (Photoshop's order), and inside a kind from its last effect up (the first is the top one)
+    const paint = (list) =>
+        list
+            .slice()
+            .sort((a, b) => rank(a.e.kind) - rank(b.e.kind) || b.i - a.i)
+            .map(({ e, i }) => DRAW[e.kind](e, shape, `${id}${i}`))
+            .join('');
     const under = paint(active.filter(({ e }) => isUnderKind(e.kind)));
     const over = paint(active.filter(({ e }) => !isUnderKind(e.kind)));
     return `${under}${over ? `<g style="isolation:isolate">${content}${over}</g>` : content}`;

@@ -24,8 +24,8 @@ use WBoost\Web\Value\Calendar\CalendarExportVariant;
  * pass, the PDF/X-4 frame — of a calendar that uses what carries colour: a
  * brand-coloured header, a background gradient with stop opacity, a
  * translucent kalendárium, a photo with rounded corners, border and layer
- * effects (shadow, overlays in multiply / color), a transparent logo with
- * outline effects, a QR picture, an event, a special page. Needs the `gotenberg` service; run
+ * effects (shadow, inner shadow + glow, overlays in multiply / color), a
+ * transparent logo with outline effects (glow, inner shadow, overlay), a QR picture, an event, a special page. Needs the `gotenberg` service; run
  * with `vendor/bin/phpunit --group gotenberg --filter CalendarCmyk`.
  *
  * What is asserted is INK, read back through Ghostscript's CMYK device
@@ -230,6 +230,8 @@ final class CalendarCmykExportGotenbergTest extends WebTestCase
             ['kind' => 'gradient', 'on' => true, 'blend' => 'multiply', 'opacity' => 80, 'type' => 'radial', 'angle' => 90, 'scale' => 100, 'x' => 100, 'y' => 0, 'stops' => [['color' => '#000000', 'opacity' => 70, 'pos' => 0], ['color' => '#000000', 'opacity' => 0, 'pos' => 100]]],
             ['kind' => 'gradient', 'on' => true, 'blend' => 'color', 'opacity' => 60, 'type' => 'radial', 'angle' => 90, 'scale' => 30, 'x' => 0, 'y' => 100, 'stops' => [['color' => '#C8102E', 'opacity' => 100, 'pos' => 0], ['color' => '#C8102E', 'opacity' => 0, 'pos' => 100]]],
             ['kind' => 'dropShadow', 'on' => true, 'blend' => 'multiply', 'opacity' => 45, 'color' => '#000000', 'angle' => 120, 'distance' => 3, 'spread' => 10, 'size' => 4],
+            ['kind' => 'innerShadow', 'on' => true, 'blend' => 'multiply', 'opacity' => 60, 'color' => '#000000', 'angle' => 90, 'distance' => 1, 'spread' => 20, 'size' => 3],
+            ['kind' => 'innerGlow', 'on' => true, 'blend' => 'screen', 'opacity' => 50, 'color' => '#FFFFBE', 'spread' => 0, 'size' => 2],
         ];
         $logo = self::upload($browser, self::WORKSPACE_URL . '/asset', $token, 'logo', self::circlePng(200), 'logo.png');
         self::assertResponseIsSuccessful((string) $browser->getResponse()->getContent());
@@ -238,6 +240,8 @@ final class CalendarCmykExportGotenbergTest extends WebTestCase
         $logoStyle->effects = [
             ['kind' => 'dropShadow', 'on' => true, 'blend' => 'normal', 'opacity' => 70, 'color' => '#000000', 'angle' => 90, 'distance' => 1, 'spread' => 20, 'size' => 3],
             ['kind' => 'gradient', 'on' => true, 'blend' => 'screen', 'opacity' => 100, 'type' => 'linear', 'angle' => 90, 'scale' => 100, 'x' => 50, 'y' => 50, 'stops' => [['color' => '#FFD000', 'opacity' => 100, 'pos' => 0], ['color' => '#00A0E0', 'opacity' => 100, 'pos' => 100]]],
+            ['kind' => 'outerGlow', 'on' => true, 'blend' => 'screen', 'opacity' => 75, 'color' => '#FFFFBE', 'spread' => 10, 'size' => 3],
+            ['kind' => 'innerShadow', 'on' => true, 'blend' => 'multiply', 'opacity' => 70, 'color' => '#000000', 'angle' => 120, 'distance' => 1, 'spread' => 0, 'size' => 2],
         ];
         $styles->lines = ['on' => true, 'width' => 0.8, 'style' => 'dashed', 'color' => '#004E7C'];
         // the day numbers in pure black; the names and the day words keep the calendar's default

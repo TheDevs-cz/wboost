@@ -246,7 +246,7 @@ async function main(input) {
         if (value.length > FX.MAX_EFFECTS) refuse('invalid_effect', `styles.${path} holds at most ${FX.MAX_EFFECTS} effects.`);
         return value.map((raw, index) => {
             const at = `styles.${path}[${index}]`;
-            if (!isObject(raw) || !FX.isEffectKind(raw.kind)) refuse('invalid_effect', `${at}.kind must be one of ${quote(kinds)} (dropShadow = Vržený stín, gradient = Překrytí přechodem).`);
+            if (!isObject(raw) || !FX.isEffectKind(raw.kind)) refuse('invalid_effect', `${at}.kind must be one of ${quote(kinds)} (dropShadow = Vržený stín, outerGlow = Vnější záře, gradient = Překrytí přechodem, innerGlow = Vnitřní záře, innerShadow = Vnitřní stín).`);
             const keys = FX.effectKeys(raw.kind);
             const fallback = FX.newEffect(raw.kind);
             for (const [key, member] of Object.entries(raw)) {

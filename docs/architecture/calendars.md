@@ -373,9 +373,16 @@ measurements behind it: `docs/calendar/effects-plan.md`). Model
   of the picture), stops[2–8]}` (Překrytí přechodem, several allowed; real-mm
   `userSpaceOnUse` geometry — 45° is a real 45°, radial is a circle of
   scale × half the longer side; unlike the fills' unit-square gradients).
+  Since P3: `innerShadow` (Vnitřní stín — the keys of a drop shadow, inside
+  the picture, `spread` = Zúžení), `outerGlow` / `innerGlow` (Vnější / Vnitřní
+  záře — `{on, blend, opacity, color, spread, size}`, no offset). On a
+  rectangle an inner effect is an even-odd frame around the (offset, choked)
+  hole, blurred and clipped by a vector clip path; on an outline it is the
+  inverted alpha of the copy inside a filter.
   Ranges: `LIMITS.fx*` + `percent`; `normalizeEffects` clamps, drops unknown
-  kinds, caps the list at 10. Stacking is by kind as in Photoshop (shadows
-  under the picture, overlays over it); within a kind the first effect is the
+  kinds, caps the list at 10. Stacking is by kind as in Photoshop (bottom →
+  top: drop shadows, outer glows, THE PICTURE, gradient overlays, inner glows,
+  inner shadows); within a kind the first effect is the
   top one; the panel lists overlays first and moves an effect only within its
   kind.
 - **Blend modes**: only the 16 a PDF has natively (`BLEND_MODES`, Czech

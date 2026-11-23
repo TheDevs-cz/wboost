@@ -31,6 +31,18 @@ final class CalendarEffectRulesTest extends TestCase
         self::assertNull($item['head']);
     }
 
+    public function testGlowsAndInnerShadowsHaveTheirOwnShapes(): void
+    {
+        $glow = ['kind' => 'outerGlow', 'on' => true, 'blend' => 'screen', 'opacity' => 75, 'color' => '#FFFFBE', 'spread' => 0, 'size' => 3];
+        $item = CalendarEffectRules::pageItem(['photo' => [['kind' => 'innerShadow'] + self::SHADOW, ['kind' => 'innerGlow'] + $glow], 'logo' => [$glow], 'head' => null, 'bg' => null]);
+
+        self::assertSame(['innerShadow', 'innerGlow'], array_column($item['photo'] ?? [], 'kind'));
+        self::assertSame($glow, $item['logo'][0] ?? null);
+
+        $this->expectException(InvalidCalendarChange::class);
+        CalendarEffectRules::pageItem(['photo' => [$glow + ['angle' => 120]], 'logo' => null, 'head' => null, 'bg' => null]);
+    }
+
     /**
      * @return iterable<string, array{array<mixed>}>
      */

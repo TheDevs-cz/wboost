@@ -28,6 +28,9 @@ if (major < 22 || (major === 22 && minor < 7)) {
         maxStops: FX.MAX_STOPS,
         ranges: {
             dropShadow: { opacity: range('percent'), angle: range('fxAngle'), distance: range('fxDistance'), spread: range('percent'), size: range('fxSize') },
+            innerShadow: { opacity: range('percent'), angle: range('fxAngle'), distance: range('fxDistance'), spread: range('percent'), size: range('fxSize') },
+            outerGlow: { opacity: range('percent'), spread: range('percent'), size: range('fxSize') },
+            innerGlow: { opacity: range('percent'), spread: range('percent'), size: range('fxSize') },
             gradient: { opacity: range('percent'), angle: [0, 359], scale: range('fxScale'), x: range('fxCentre'), y: range('fxCentre') },
         },
         collection: COLLECTIONS.pageEffects || null,

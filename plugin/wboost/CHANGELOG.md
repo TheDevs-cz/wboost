@@ -5,6 +5,19 @@ every deploy. When the server is newer than your skill, Claude tells you once
 per session how to update (see the README). Versions follow `x.y.z`: a new or
 changed tool or parameter is at least a minor bump.
 
+## 0.8.0 — 2026-11-24
+
+**Inner shadow and glows for calendar pictures** (no new tool or parameter).
+
+New parameters and behaviour
+- The effect lists of the calendar pictures (`set_calendar_layout` styles
+  `photo / logo / head.bg / bg / specialPhoto .effects`, content `pageEffects`)
+  take three more kinds: `innerShadow` (Vnitřní stín — the keys of a
+  `dropShadow`, inside the picture, `spread` = choke), `outerGlow` (Vnější
+  záře) and `innerGlow` (Vnitřní záře) — `{on, blend, opacity, color, spread,
+  size}`. Stacking bottom → top: drop shadows, outer glows, the picture,
+  gradients, inner glows, inner shadows.
+
 ## 0.7.0 — 2026-11-24
 
 **A page's own layer effects** (no new tool; a new content collection).

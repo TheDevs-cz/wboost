@@ -14,11 +14,11 @@
 //
 // One row per effect, in Photoshop's panel order (overlays above shadows, list order inside a kind):
 // eye (on / off) · name (opens the settings below the row; one open at a time) · up / down inside its
-// kind · Duplikovat · Odebrat; then „Vržený stín“ / „Překrytí přechodem“ add buttons. A new or
-// duplicated effect goes on top of its kind and opens.
+// kind · Duplikovat · Odebrat; then one add button per kind (Vržený stín, Vnější záře, Překrytí
+// přechodem, Vnitřní záře, Vnitřní stín). A new or duplicated effect goes on top of its kind and opens.
 //
 // DOM hooks: `[data-fx-row="<i>"][data-fx-kind]`, `[data-fx-open="<i>"]`, `[data-fx-up]`, `[data-fx-down]`,
-// `[data-fx-copy]`, `[data-fx-remove]`, `[data-fx-add="dropShadow|gradient"]`.
+// `[data-fx-copy]`, `[data-fx-remove]`, `[data-fx-add="dropShadow|outerGlow|gradient|innerGlow|innerShadow"]`.
 //
 // The element carries `setValue(list)`; rows are rebuilt only when the structure changes (count, kinds,
 // order, the open row) — a value change repaints the controls in place, so a slider keeps its drag.
@@ -69,7 +69,7 @@ export function effectsEditor({ value, onChange, onStart, onCommit, palette, pat
     });
 
     const list = h('div', { class: 'cal-fxl' });
-    const empty = h('p', { class: 'cap cal-note' }, 'Žádné efekty. Přidejte vržený stín nebo překrytí přechodem.');
+    const empty = h('p', { class: 'cap cal-note' }, 'Žádné efekty. Přidejte stín, záři nebo překrytí přechodem.');
     const addButtons = EFFECT_KINDS.slice()
         .reverse()
         .map(({ kind, label }) =>
@@ -95,14 +95,21 @@ export function effectsEditor({ value, onChange, onStart, onCommit, palette, pat
         const blend = blendSelect({ value: effect.blend, attrs: prop(i, 'blend'), onChange: (next) => setEffect(i, { blend: next }, true) });
         const opacity = sliderRow({ label: 'Krytí', limit: 'percent', unit: '%', value: effect.opacity, attrs: prop(i, 'opacity'), ...slide(i, 'opacity') });
         controls.push({ el: field('Režim prolnutí', blend), set: (e) => blend.setValue(e.blend) }, { el: opacity, set: (e) => opacity.setValue(e.opacity) });
-        if (effect.kind === 'dropShadow') {
-            const color = colorPicker({ value: effect.color, palette, label: 'Barva stínu', attrs: prop(i, 'color'), onChange: (next) => next && setEffect(i, { color: next }) });
-            const sliders = [
-                ['angle', 'Úhel', 'fxAngle', '°'],
-                ['distance', 'Vzdálenost', 'fxDistance', 'mm'],
-                ['spread', 'Rozšíření', 'percent', '%'],
+        if (effect.kind !== 'gradient') {
+            const shadow = effect.kind === 'dropShadow' || effect.kind === 'innerShadow';
+            const inside = effect.kind === 'innerShadow' || effect.kind === 'innerGlow';
+            const color = colorPicker({ value: effect.color, palette, label: shadow ? 'Barva stínu' : 'Barva záře', attrs: prop(i, 'color'), onChange: (next) => next && setEffect(i, { color: next }) });
+            const rows = [
+                ...(shadow
+                    ? [
+                          ['angle', 'Úhel', 'fxAngle', '°'],
+                          ['distance', 'Vzdálenost', 'fxDistance', 'mm'],
+                      ]
+                    : []),
+                ['spread', inside ? 'Zúžení' : 'Rozšíření', 'percent', '%'],
                 ['size', 'Velikost', 'fxSize', 'mm'],
-            ].map(([key, label, limit, unit]) => ({ key, el: sliderRow({ label, limit, unit, value: effect[key], attrs: prop(i, key), ...slide(i, key) }) }));
+            ];
+            const sliders = rows.map(([key, label, limit, unit]) => ({ key, el: sliderRow({ label, limit, unit, value: effect[key], attrs: prop(i, key), ...slide(i, key) }) }));
             controls.push({ el: field('Barva', color), set: (e) => color.setValue(e.color) });
             for (const s of sliders) controls.push({ el: s.el, set: (e) => s.el.setValue(e[s.key]) });
         } else if (effect.kind === 'gradient') {

@@ -49,7 +49,12 @@ final class CalendarEffectContractTest extends TestCase
         self::assertSame(CalendarEffectRules::TARGETS, $js['targets']);
         self::assertSame(CalendarEffectRules::MAX_EFFECTS, $js['maxEffects']);
         self::assertSame(CalendarEffectRules::MAX_STOPS, $js['maxStops']);
-        self::assertEquals(CalendarEffectRules::RANGES, $js['ranges']);
+        $ranges = $js['ranges'];
+        self::assertIsArray($ranges);
+        ksort($ranges);
+        $phpRanges = CalendarEffectRules::RANGES;
+        ksort($phpRanges);
+        self::assertEquals($phpRanges, $ranges);
 
         self::assertIsArray($js['collection'], 'pageEffects is a JS content collection');
         self::assertTrue($js['collection']['pageKeyed'] ?? null, 'page-keyed in JS');

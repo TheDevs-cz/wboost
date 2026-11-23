@@ -35,10 +35,10 @@ use WBoost\Web\Mcp\Response\SkillVersionResponse;
  */
 final class SkillRelease
 {
-    public const string VERSION = '0.7.0';
+    public const string VERSION = '0.8.0';
 
     /** One or two lines: what the CURRENT version adds over the previous one. */
-    public const string WHATS_NEW = 'A page can take its own layer effects: `update_calendar_content` collection `pageEffects` (designer) — per page `{photo, logo, head, bg}`, each null (the style) or a list that replaces the style\'s effects on that page.';
+    public const string WHATS_NEW = 'Calendar layer effects gain Vnitřní stín, Vnější záře and Vnitřní záře: effect kinds `innerShadow`, `outerGlow`, `innerGlow` in `set_calendar_layout` styles and in `pageEffects`.';
 
     /** A stable download of the latest released skill folder, built by `.github/workflows/plugin-release.yml`. */
     public const string ZIP_URL = 'https://github.com/TheDevs-cz/wboost/releases/latest/download/wboost-skill.zip';

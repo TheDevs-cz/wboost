@@ -215,4 +215,22 @@ export default async function (t, load) {
         assert.equal(E.pagesOverriding(doc.content, pages, 'specialPhoto.effects'), 1);
         assert.equal(E.pagesOverriding(doc.content, pages, 'logo.effects'), 1);
     });
+    t.test('P3: inner shadow, outer and inner glow — Photoshop stacking, a rectangle and an outline', () => {
+        const GLOW = { kind: 'outerGlow', on: true, blend: 'screen', opacity: 75, color: '#FFFFBE', spread: 20, size: 4 };
+        const IN_GLOW = { ...GLOW, kind: 'innerGlow' };
+        const IN_SHADOW = { ...SHADOW, kind: 'innerShadow', spread: 25 };
+        assert.deepEqual(E.normalizeEffect({ kind: 'outerGlow', angle: 90 }), { kind: 'outerGlow', on: true, blend: 'screen', opacity: 75, color: '#FFFFBE', spread: 0, size: 3 }, 'a glow has no angle / distance');
+        assert.deepEqual(E.effectKeys('innerShadow'), E.effectKeys('dropShadow').map((k) => k));
+        assert.equal(E.mirrorEffects([IN_SHADOW])[0].angle, 60);
+        const list = [IN_SHADOW, FADE, GLOW, IN_GLOW, SHADOW];
+        const rect = R.withEffects(list, { type: 'rect', box: { x: 0, y: 0, w: 20, h: 10 }, radius: 2 }, '<image href="p"/>', 'f');
+        const order = [...rect.matchAll(/data-fx="(\w+)"|<image/g)].map((m) => m[1] || 'IMAGE');
+        assert.deepEqual(order, ['dropShadow', 'outerGlow', 'IMAGE', 'gradient', 'innerGlow', 'innerShadow'], 'Photoshop stacking, bottom → top');
+        assert.match(rect, /<g clip-path="url\(#f0-c\)" style="mix-blend-mode:multiply" data-fx="innerShadow"><path d="[^"]+" fill-rule="evenodd"/, 'an inner shadow of a rectangle: an even-odd frame, clipped');
+        assert.ok(!/<mask\b/.test(rect));
+        const alpha = R.withEffects([IN_SHADOW, IN_GLOW, GLOW], { type: 'alpha', box: { x: 0, y: 0, w: 20, h: 10 }, copy: '<image href="logo.png"/>' }, '<image href="logo.png"/>', 'a');
+        assert.equal((alpha.match(/tableValues="1 0"/g) || []).length, 2, 'inner effects invert the outline');
+        assert.match(alpha, /data-fx="outerGlow"/);
+        for (const m of alpha.matchAll(/<image\b[^>]*>/g)) assert.ok(!/filter=/.test(m[0]));
+    });
 }

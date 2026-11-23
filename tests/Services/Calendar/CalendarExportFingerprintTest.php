@@ -29,7 +29,7 @@ use WBoost\Web\Services\Calendar\CalendarModuleInliner;
  */
 final class CalendarExportFingerprintTest extends TestCase
 {
-    private const string FINGERPRINT = 'efef6bf3482c380fa9f790041199d1eb';
+    private const string FINGERPRINT = 'f73c05881b7a944a33f8b9bac8592a21';
 
     public function testTheRendererIsWhatItWasBeforeCalendarScans(): void
     {
