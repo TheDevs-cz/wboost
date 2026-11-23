@@ -11,6 +11,8 @@ export default async function (t, load) {
     const { normalizeDocument } = await load('model/normalize.js');
     const { layoutWeekPage, monthLabel, monthLines, placeMonthText, monthTextSpec, MONTH_LINE_HEIGHT } = await load('render/week-layout.js');
     const { renderPage } = await load('render/page.js');
+    const { pageWarnings } = await load('render/warnings.js');
+    const { describeWarning } = await load('render/warning-text.js');
     const A = await load('editor/autogrow.js');
     const { K } = await load('model/defaults.js');
     const { createEstimatorMeasurer } = await load('render/measure.js');
@@ -200,5 +202,28 @@ export default async function (t, load) {
         assert.ok(svgMl.includes('KWIECIEŃ / APRIL 2027'));
         const cs = await makeDoc(load);
         assert.equal(count(renderPage(cs, page(cs, 'w13'), { ...opts, idPrefix: 'p' }), 0), 1);
+    });
+
+    t.test('warnings: names of days that do not fit and a Měsíc too big for its frame are reported, Czech defaults stay quiet', async () => {
+        const kinds = (doc, key) => pageWarnings(doc, page(doc, key), opts).map((w) => w.kind);
+        const cs = await makeDoc(load, { type: 'fortnight', features: { moon: true } });
+        assert.deepEqual(kinds(cs, 'w12').filter((k) => k === 'dayNames' || k === 'month'), []);
+        const full = await makeDoc(load, { type: 'fortnight', features: { moon: true }, languages: ['pl', 'en'], styles: (l) => { l.styles.cal.dayFormat = 'full'; } });
+        const warnings = pageWarnings(full, page(full, 'w12'), opts).filter((w) => w.kind === 'dayNames');
+        assert.deepEqual(warnings.map((w) => w.target), [{ el: 'cal', frame: 0 }, { el: 'cal', frame: 1 }]);
+        const d = describeWarning(warnings[0]);
+        assert.equal(d.title, 'Názvy dnů se do řádku nevejdou');
+        assert.ok(d.hint.includes('„Zkrácené“'));
+        assert.deepEqual(d.actions[0].selection, { el: 'cal', part: 'day' });
+        assert.deepEqual(describeWarning(warnings[0], { designer: false }).actions, []);
+        const auto = await makeDoc(load, { type: 'fortnight', features: { moon: true }, languages: ['pl', 'en'], styles: (l) => { l.styles.cal.dayFormat = 'auto'; } });
+        assert.deepEqual(kinds(auto, 'w12').filter((k) => k === 'dayNames'), [], 'auto falls back to the short names instead');
+        // five languages in the default 14-day header: the week across the years wraps beyond what the frame holds
+        const five = grownDoc(await makeDoc(load, { type: 'fortnight', languages: ['sk', 'pl', 'de', 'en'] }));
+        const month = pageWarnings(five, page(five, 'pre'), opts).filter((w) => w.kind === 'month');
+        assert.ok(month.length >= 1);
+        assert.equal(month[0].target.el, 'month');
+        assert.ok(month[0].message.startsWith('Měsíc se do rámečku nevejde.'));
+        assert.ok(month[0].facts.lines > 2);
     });
 }

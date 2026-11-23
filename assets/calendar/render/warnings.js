@@ -2,8 +2,9 @@
 // `Warning = { pageIndex, kind, target, facts, message }` — the wording lives in `warning-text.js`.
 
 import { createDayContext } from '../generate/day.js';
-import { isElementVisible } from '../model/elements.js';
-import { layoutWeekPage } from './week-layout.js';
+import { frameAlign, isElementVisible } from '../model/elements.js';
+import { layoutWeekPage, placeMonthText } from './week-layout.js';
+import { printLanguages } from '../generate/languages.js';
 import { specialPageIssues } from './special.js';
 import { warningMessage } from './warning-text.js';
 
@@ -68,6 +69,19 @@ export function pageWarnings(doc, page, opts) {
                 out.push(warn(page, 'event', { date: row.date }, { date: row.date, count: row.info.events.length + row.info.eventsDropped }));
             }
         }
+    }
+    // „Názvy dnů“ wider than the row allows (K15b): drawn anyway, never cut — once per week column
+    for (const frame of geometry.frames) {
+        if (frame.dayOverflow) out.push(warn(page, 'dayNames', { el: 'cal', frame: frame.index }, { format: frame.dayFormat, multilingual: printLanguages(design).length > 1 }));
+    }
+    // a multilingual Měsíc that needs more room than its frame has (K15b)
+    if (printLanguages(design).length > 1 && isElementVisible(design, 'month')) {
+        page.week.monthTexts.forEach((text, f) => {
+            const box = design.layout.boxes[f === 1 ? 'month2' : 'month'];
+            if (!box) return;
+            const placed = placeMonthText(design.layout.styles, (opts.env && opts.env.fonts) || [], text, box, frameAlign(design.layout.styles.month.align, f), opts.measurer, true);
+            if (placed.overflow) out.push(warn(page, 'month', { el: 'month', frame: f }, { lines: placed.lines.length }));
+        });
     }
     return out;
 }

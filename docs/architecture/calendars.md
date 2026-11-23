@@ -896,6 +896,11 @@ unchanged). Set in step 1 „Jazyky názvů“ (checkboxes, no cap) and by MCP
   the row at most. auto = full when they fit, else short; **a Czech-only
   calendar keeps full under auto** (exactly its old output). A form that does
   not fit → `frame.dayOverflow` → page warning.
+- **Warnings** (`render/warnings.js`, wording in `warning-text.js`): `dayNames`
+  (target `{ el: 'cal', frame }`, facts `{ format, multilingual }`, once per week
+  column of a page) and, for multilingual calendars only, `month` (target
+  `{ el: 'month', frame }`, facts `{ lines }`) when `placeMonthText` reports an
+  overflow. Both offer the designer the `element` action.
 
 ### Generation in one paragraph
 

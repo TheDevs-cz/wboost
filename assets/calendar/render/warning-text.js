@@ -26,6 +26,8 @@
 //   icons     { date, total, drawn }
 //   event     { date, count }                    events of the day (dropped ones included)
 //   overflow  { issue }                          the sentence of `specialPageIssues`
+//   dayNames  { format, multilingual }           „Názvy dnů“ wider than the row allows (full | short)
+//   month     { lines }                          a multilingual Měsíc taller / wider than its frame
 
 /** The dpi under which a photo is flagged, and the dpi a print photo should ideally have. */
 export const MIN_DPI = 200;
@@ -132,6 +134,29 @@ function describeOverflow(f) {
     };
 }
 
+function describeDayNames(f, designer) {
+    const short = f.format === 'short';
+    const actions = designer ? [{ id: 'element', label: 'Upravit kalendárium', selection: { el: 'cal', part: 'day' } }] : [];
+    return {
+        title: 'Názvy dnů se do řádku nevejdou',
+        text: `${short ? 'I zkrácené názvy dnů' : f.multilingual ? 'Celé názvy dnů ve všech jazycích' : 'Celé názvy dnů'} jsou širší než místo v řádku — přetečou přes ikony nebo okraj kalendária.`,
+        hint: designer
+            ? `${short ? '' : 'V kroku 3 › Kalendárium zvolte Názvy dnů „Zkrácené“ nebo „Automaticky“, '}${short ? 'Z' : 'z'}menšete písmo dne, nebo kalendárium rozšiřte${f.multilingual ? ' — případně uberte jazyk v kroku 1' : ''}.`
+            : 'Požádejte grafika o úpravu kalendária.',
+        actions,
+    };
+}
+
+function describeMonth(f, designer) {
+    const actions = designer ? [{ id: 'element', label: 'Upravit Měsíc', selection: { el: 'month' } }] : [];
+    return {
+        title: 'Měsíc se do rámečku nevejde',
+        text: `Název měsíce ve všech jazycích potřebuje ${f.lines} ${plural(f.lines, ['řádek', 'řádky', 'řádků'])} a rámeček Měsíc je pro něj malý — text přeteče přes okraj.`,
+        hint: designer ? 'Zmenšete písmo měsíce, rámeček Měsíc zvětšete (místo uvolní posunuté kalendárium), nebo uberte jazyk v kroku 1.' : 'Požádejte grafika o úpravu záhlaví.',
+        actions,
+    };
+}
+
 export function describeWarning(warning, opts = {}) {
     const designer = opts.designer !== false;
     const f = warning.facts || {};
@@ -151,6 +176,12 @@ export function describeWarning(warning, opts = {}) {
             break;
         case 'overflow':
             out = describeOverflow(f);
+            break;
+        case 'dayNames':
+            out = describeDayNames(f, designer);
+            break;
+        case 'month':
+            out = describeMonth(f, designer);
             break;
         default:
             out = { title: 'Upozornění', text: String(warning.message || ''), hint: '', actions: [] };
