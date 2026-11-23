@@ -146,6 +146,20 @@ export const CAL = {
     drop: { bold: 'Přetáhněte sem obrázek stránky kalendáře', phone: 'Klepněte a vyberte obrázek', cap: 'JPG, PNG, WebP, HEIC nebo PDF (první stránka) · nejvýše 10 MB · jedna stránka kalendáře' },
     tipsOk: ['Export stránky z grafického programu', 'Jedna celá stránka s dny v řádcích, rovně a bez ořezu', 'Běžný týden — ne titulní strana ani měsíční přehled'],
     tipsNo: ['Fotka kalendáře na stole — zkreslí barvy i rozměry', 'Více stránek v jednom obrázku', 'Ozdobné pruhy a rámečky — rozvržení má pevnou sadu prvků'],
+    /** S1 — „Nejprve si připravte“: what to have ready before the upload (informs, never blocks). */
+    prepare: {
+        title: 'Nejprve si připravte',
+        lead: 'Sken poběží i bez toho — s připravenými podklady ale vyjde návrh blíž vaší předloze.',
+        logo: { title: 'Logo v SVG nebo PNG', text: 'Sken logo z obrázku nevyřízne, označí jen jeho místo. Soubor tam vložíte po skenu — z počítače nebo z galerie projektu.' },
+        fonts: { title: 'Písma, která kalendář používá', text: 'Nahrajte je do Fontů projektu. Sken vybere nejbližší z nich, bez nich použije náhradní písmo.', link: 'Nahrát písma' },
+        palette: { title: 'Barevnou paletu', text: 'Barvy sken převezme z obrázku. Barvy z palety projektu pak máte po ruce při úpravách prvků.', link: 'Otevřít paletu' },
+        page: { title: 'První stránku se všemi ikonami', text: 'Pracovní verzi první týdenní stránky, na které je vidět každý prvek a ikona, které kalendář bude mít. Co na obrázku chybí, sken nerozpozná.' },
+        fontsOk: (n) => `V projektu ${n === 1 ? 'je' : n <= 4 ? 'jsou' : 'je'} ${n} ${n === 1 ? 'písmo' : n <= 4 ? 'písma' : 'písem'}`,
+        fontsNone: 'Projekt zatím nemá žádné písmo',
+        paletteOk: (n) => `V paletě ${n === 1 ? 'je' : n <= 4 ? 'jsou' : 'je'} ${n} ${n === 1 ? 'barva' : n <= 4 ? 'barvy' : 'barev'}`,
+        paletteNone: 'Paleta je prázdná',
+        newTab: '(otevře se v nové záložce)',
+    },
     takeOver: 'Převezmeme rozmístění fotografie, kalendária, hlavičky, měsíce a loga a také barvy. Písma vybereme z projektu. Fotky, texty a dny doplní kalendář sám.',
     hasLayout: 'Kalendář už rozvržení má. Sken ho nezmění, dokud návrh nepoužijete.',
     /** S1 — a calendar page may be smaller than a design: at least 640 × 280 px (longer × shorter side). */

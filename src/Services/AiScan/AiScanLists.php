@@ -13,6 +13,7 @@ use WBoost\Web\Entity\User;
 use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Services\AiScan\Calendar\CalendarScanRestoreOrder;
 use WBoost\Web\Services\AiScan\Template\ScanProposal;
+use WBoost\Web\Services\Calendar\CalendarDocument;
 use WBoost\Web\Value\AiScan\AiScanKind;
 use WBoost\Web\Value\AiScan\AiScanMode;
 use WBoost\Web\Value\AiScan\AiScanStatus;
@@ -53,6 +54,7 @@ final readonly class AiScanLists
         private ScanProposal $proposal,
         private GetFonts $getFonts,
         private CalendarScanRestoreOrder $restoreOrder,
+        private CalendarDocument $calendarDocument,
     ) {
     }
 
@@ -130,9 +132,11 @@ final readonly class AiScanLists
         $request = $this->openRequest($projectId, $viewer->id->toString());
         $estimate = $this->estimate->forNew($kind, $runtime);
         $faces = 0;
+        $families = 0;
 
         foreach ($this->getFonts->allForProject($project->id) as $font) {
             $faces += count($font->faces);
+            $families += $font->faces === [] ? 0 : 1;
         }
 
         $state = match (true) {
@@ -153,7 +157,10 @@ final readonly class AiScanLists
             'credits' => ['limit' => $limit, 'used' => $used, 'left' => $limit === null ? null : max(0, $limit - $used)],
             'nextMonth' => $month->format('Y-m-01'),
             'consent' => ['version' => $this->definition->consentVersion(), 'given' => $viewer->aiScanConsentVersion === $this->definition->consentVersion()],
-            'fonts' => ['faces' => $faces],
+            // `families` / `palette`: „Nejprve si připravte“ of the calendar scan — read again
+            // when the user comes back from the Fonty / Paleta barev tab (calendars.md).
+            'fonts' => ['faces' => $faces, 'families' => $families],
+            'palette' => ['colours' => count($this->calendarDocument->palette($project))],
             'queue' => [
                 'position' => $estimate->position,
                 'estimatedStartSeconds' => $estimate->startSeconds,

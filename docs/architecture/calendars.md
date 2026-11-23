@@ -774,6 +774,26 @@ targets the calendar's own type), designers only.
   event `asset-selected`, and the server copies the gallery file's bytes to
   the scan (`fileId`). JPG, PNG, WebP or SVG. The upload zone and the
   chosen-file card take a dropped page the same way (`data-dropzone="page"`).
+- **„Nejprve si připravte“** (feedback K1, 2026-11-23) — the upload screen
+  opens with a card of four things to have ready (`views.prepare()`, copy
+  `CAL.prepare`, `.cal-prep*` in `calendar.css`): the logo as SVG or PNG (the
+  scan never cuts the logo out of the picture — it marks its place, the file
+  goes in on the pictures step, from the disk or the gallery), the fonts the
+  calendar uses in the project's Fonty (the scan picks the nearest project
+  face; without one the built-in face), the colour palette (colours are taken
+  from the picture; the palette's colours are the swatches of step 3's
+  pickers — the scanner also receives it, as `brandColours`) and the picture
+  itself: a working version of the first WEEK page showing every element and
+  icon the calendar will have. It informs, never blocks, and is on the
+  `upload` view only (gone once a file is chosen). Fonts and palette show a
+  live state — `V projektu jsou 2 písma` / `Projekt zatím nemá žádné písmo`,
+  `V paletě je 5 barev` / `Paleta je prázdná` — from `entry.fonts.families`
+  and `entry.palette.colours` (the count of `CalendarDocument::palette()`,
+  i.e. what the pickers offer); the entry is read again when the panel opens
+  on the upload screen and on `visibilitychange` back to the tab while that
+  screen shows, because the links (`Nahrát písma` → `env.scan.urls.fonts`,
+  `Otevřít paletu` → `env.scan.urls.palette`) open a new tab — the workspace
+  guards unsaved changes.
 - **Upload checks**: `inspectFiles(files, {minShortSide: 280, minLongSide:
   640, goodShortSide: 600})` — a calendar page is taken from 640 × 280 px,
   longer × shorter side (a page 640 px wide is 299 px high; the template
@@ -858,6 +878,7 @@ targets the calendar's own type), designers only.
   `[data-cal-scan-panel][data-view]`, `[data-cal-action="scan-open|scan-close|
   scan-start|scan-pictures|scan-apply|scan-restore|scan-discard|scan-rescan"]`,
   `[data-preset="scan"]`, `[data-cal-scan-dot]`, `[data-proposal]`,
+  `[data-cal-scan-prep]` with `[data-prep="logo|fonts|palette|page"][data-state="info|ok|todo"]`,
   `#calScanFile`, `#calScanPic`, `#calScanPics` (always in the panel's markup), `[data-slot]`
   on a picture card, `[data-dropzone="page|slot|pictures"]`, `[data-box]` /
   `[data-hl]`, `[data-k="layers|fbu|fbd|picg{slot}|pic{slot}|picdrop{slot}"]`,

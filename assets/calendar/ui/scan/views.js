@@ -81,9 +81,34 @@ const tips = () => `<div><h3 style="margin:0 0 10px">S čím to jde nejlépe</h3
 const fileInput = () => `<input type="file" class="sr" id="calScanFile" tabindex="-1" aria-hidden="true" accept="${ACCEPT}" data-chg="fileInput">`;
 const errorText = (error) => (error ? (error.code === 'small' ? CAL.uploadSmall : UPLOAD_ERRORS[error.code])(error.width, error.height) : '');
 
+/**
+ * „Nejprve si připravte“ — what to have ready before the page goes in (the product owner's list,
+ * K1). Informs, never blocks; shown on the upload screen only. The font and colour counts are the
+ * entry's (`fonts.families`, `palette.colours` — read again when the user returns from the tab the
+ * links open); the logo and the page are advice without a state.
+ */
+function prepare(scan) {
+    const P = CAL.prepare;
+    const entry = scan.entry || {};
+    const families = entry.fonts && typeof entry.fonts.families === 'number' ? entry.fonts.families : null;
+    const colours = entry.palette && typeof entry.palette.colours === 'number' ? entry.palette.colours : null;
+    const state = (n, ok, none) => (n === null ? '' : n > 0
+        ? `<span class="cal-prep-st ok">${ic('check-circle', 's14')}<span>${ok(n)}</span></span>`
+        : `<span class="cal-prep-st todo">${ic('alert', 's14')}<span>${none}</span></span>`);
+    const link = (href, label, key, icon) => (href ? `<a class="btn xs btn-tertiary" href="${esc(href)}" target="_blank" rel="noopener" data-k="${key}">${ic(icon, 's14')}${label}<span class="sr"> ${P.newTab}</span></a>` : '');
+    const st = (n) => (n === null ? 'info' : n > 0 ? 'ok' : 'todo');
+    const item = (key, icon, copy, extra = '', status = 'info') => `<li class="cal-prep-it" data-prep="${key}" data-state="${status}"><span class="cal-prep-ico" aria-hidden="true">${ic(icon, 's16')}</span><div class="cal-prep-b"><b>${copy.title}</b><span>${copy.text}</span>${extra ? `<span class="cal-prep-row">${extra}</span>` : ''}</div></li>`;
+    return `<section class="as-card cal-prep" data-region="prep" data-cal-scan-prep aria-labelledby="calScanPrepT"><div class="cal-prep-h"><h3 id="calScanPrepT">${P.title}</h3><p>${P.lead}</p></div><ol class="cal-prep-list">${[
+        item('logo', 'star', P.logo),
+        item('fonts', 'font', P.fonts, `${state(families, P.fontsOk, P.fontsNone)}${link(scan.urls.fonts, P.fonts.link, 'prepfonts', 'upload')}`, st(families)),
+        item('palette', 'palette', P.palette, `${state(colours, P.paletteOk, P.paletteNone)}${link(scan.urls.palette, P.palette.link, 'preppalette', 'palette')}`, st(colours)),
+        item('page', 'calendar', P.page),
+    ].join('')}</ol></section>`;
+}
+
 function uploadView(scan) {
     const error = scan.uploadError;
-    return `<div class="as-cgrid" data-region="upload" data-deep><div class="as-main" data-region="zone">${fileInput()}
+    return `${prepare(scan)}<div class="as-cgrid" data-region="upload" data-deep><div class="as-main" data-region="zone">${fileInput()}
 <button type="button" class="gal-drop as-drop" data-act="pick" data-k="drop" data-dropzone="page" aria-describedby="calScanCap${error ? ' calScanErr' : ''}">${ic('sparkle', '')}<b><span class="dt-only">${CAL.drop.bold}</span><span class="ph-only">${CAL.drop.phone}</span></b><span class="dt-only">nebo <u>vyberte soubor</u> z počítače</span><span class="cap" id="calScanCap">${CAL.drop.cap}</span></button>
 ${error ? `<p class="hint err" id="calScanErr" role="alert" style="margin:0;display:flex;gap:6px">${ic('alert', 's14')}<span>${esc(errorText(error))}</span></p>` : ''}</div>
 <div class="as-card" data-region="tips">${tips()}</div></div>`;

@@ -25,6 +25,10 @@
 // scan-discard|scan-rescan|scan-pictures|scan-close"], file inputs #calScanFile / #calScanPic (always
 // in the panel's markup — never created on the fly).
 //
+// The upload screen opens with „Nejprve si připravte“ (logo, fonts, palette, the page to scan) — the
+// font and colour counts come from `entry` (`fonts.families`, `palette.colours`), read again when the
+// panel opens and when the user comes back to this tab (the Fonty / Paleta links open a new one).
+//
 // Test hook: `window.__calendarScan` → `{ view(), scan(), proposal(), entry() }` (read-only).
 
 import { api, announce, urlFor } from '../../ai-scan/kit.js';
@@ -131,6 +135,13 @@ class CalendarScan {
         };
         this.onAsset = (event) => this.galleryPicked(event.detail || {});
         window.addEventListener('asset-selected', this.onAsset);
+        // „Nejprve si připravte“ links the Fonty / Paleta barev pages in a new tab: back on this tab
+        // with the upload screen showing, its counts are read again (entry `fonts` / `palette`)
+        this.onReturn = () => {
+            if (document.visibilityState !== 'visible' || !this.open || !this.root || this.view() !== 'upload') return;
+            this.refreshEntry().then(() => { if (!this.destroyed && this.view() === 'upload') this.render(); });
+        };
+        document.addEventListener('visibilitychange', this.onReturn);
         this.unsubscribe = this.store.subscribe((event) => {
             // „Použít rozvržení“ is disabled while the calendar has unsaved changes
             if (event.type === 'status' && this.root && ['review', 'pictures'].includes(this.view())) this.render();
@@ -172,6 +183,7 @@ class CalendarScan {
         window.clearTimeout(this.timer);
         window.clearInterval(this.ticker);
         window.removeEventListener('asset-selected', this.onAsset);
+        document.removeEventListener('visibilitychange', this.onReturn);
         this.unsubscribe();
         this.unmount();
         this.dropPhoto();
@@ -455,6 +467,7 @@ class CalendarScan {
         this.changed();
         this.seen();
         if (this.unfinished()) this.schedule();
+        if (!this.scan && !this.picked) this.onReturn(); // the upload screen's „Nejprve si připravte“ counts
         window.setTimeout(() => {
             const panel = this.root ? this.root.querySelector('[data-cal-scan-panel]') : null;
             if (panel) panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });

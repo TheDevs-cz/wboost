@@ -249,6 +249,20 @@
     .as-cgrid .as-cpics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; }
     .as-cgrid .as-cpic-one { width: 100%; max-width: 480px; }
 }
+/* S1 — „Nejprve si připravte“ (K1): four items, two columns from tablet width, one on phones */
+.cal-prep { gap: 12px; padding: 16px 18px; }
+.cal-prep-h { display: flex; flex-direction: column; gap: 2px; }
+.cal-prep-h p { margin: 0; font-size: 13px; line-height: 1.5; color: var(--muted); }
+.cal-prep-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 22px; margin: 0; padding: 0; list-style: none; }
+.cal-prep-it { display: flex; gap: 12px; align-items: flex-start; min-width: 0; }
+.cal-prep-ico { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; background: var(--pch-deep); color: var(--pch-ink); }
+.cal-prep-b { display: flex; flex-direction: column; gap: 3px; min-width: 0; font-size: 13px; line-height: 1.5; color: var(--text-2); }
+.cal-prep-b > b { font-size: 14px; font-weight: 600; color: var(--text); }
+.cal-prep-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-top: 3px; }
+.cal-prep-st { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; font-weight: 600; }
+.cal-prep-st.ok { color: var(--mnt-ink); }
+.cal-prep-st.todo { color: var(--pch-ink); }
+@media (max-width: 640px) { .cal-prep-list { grid-template-columns: minmax(0, 1fr); } }
 .as-cal-cmp { --cmp-max: none; }
 .cal-scan-orig, .cal-scan-prop { display: block; width: 100%; height: 100%; background-repeat: no-repeat; }
 .as-frame > .cal-scan-prop, .as-frame > .cal-scan-orig { position: absolute; inset: 0; }

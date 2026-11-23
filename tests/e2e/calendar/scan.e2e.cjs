@@ -342,6 +342,18 @@ module.exports = {
                 await shot('scan-02-upload');
             });
 
+            await check('S1 „Nejprve si připravte“ (K1): logo, fonts, palette and the page — fonts and palette with their live state and a link into a new tab', async () => {
+                assert.deepEqual(await page.$$eval('[data-cal-scan-prep] [data-prep]', (els) => els.map((el) => el.dataset.prep)), ['logo', 'fonts', 'palette', 'page']);
+                assert.match(await text('[data-cal-scan-prep]'), /Nejprve si připravte.*Logo v SVG nebo PNG.*Písma, která kalendář používá.*Barevnou paletu.*První stránku se všemi ikonami/);
+                // the e2e project has no font and no colour
+                assert.equal(await page.$eval('[data-prep="fonts"]', (el) => el.dataset.state), 'todo');
+                assert.match(await text('[data-prep="fonts"]'), /Projekt zatím nemá žádné písmo/);
+                assert.equal(await page.$eval('[data-prep="palette"]', (el) => el.dataset.state), 'todo');
+                assert.match(await text('[data-prep="palette"]'), /Paleta je prázdná/);
+                const links = await page.$$eval('[data-cal-scan-prep] a', (els) => els.map((a) => [a.getAttribute('href'), a.target]));
+                assert.deepEqual(links, [[`/project/${h.config.projectId}/fonts`, '_blank'], [`/project/${h.config.projectId}/paleta`, '_blank']]);
+            });
+
             await check('S1 a file that is no picture is refused in the browser', async () => {
                 // (a PDF is accepted since 2026-11-13: its first page is scanned — a Photoshop file is still a source file)
                 const bad = path.join(tmp, 'stranka.psd');

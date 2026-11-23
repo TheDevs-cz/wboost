@@ -303,6 +303,9 @@ final class AiScanNotificationsAndAccessTest extends WebTestCase
         self::assertSame(3, $entry['historyCount']);
         self::assertSame(1, $entry['queue']['position']);
         self::assertSame(2, $entry['fonts']['faces']);
+        // „Nejprve si připravte“ of the calendar scan reads these live (calendars.md § "Calendar scan — UI").
+        self::assertSame(1, $entry['fonts']['families']);
+        self::assertSame(2, $entry['palette']['colours']);
 
         // Somebody else's failure leaves the strip after 24 hours; the requester keeps it.
         $this->backdate($failed['id'], 'finished_at', '-2 days');

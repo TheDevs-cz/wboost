@@ -149,6 +149,7 @@ readonly final class CalendarDocument
                 'restore' => $this->urlGenerator->generate('calendar_scan', $own + ['action' => 'restore']),
                 'picture' => $this->urlGenerator->generate('calendar_scan', $own + ['action' => 'picture']),
                 'fonts' => $this->urlGenerator->generate('fonts_list', ['id' => $calendar->project->id->toString()]),
+                'palette' => $this->urlGenerator->generate('project_palette', ['id' => $calendar->project->id->toString()]),
             ],
         ];
     }
