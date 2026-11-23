@@ -285,6 +285,9 @@ module.exports = {
             assert.equal((await h.state(client)).content.wasteKinds.bio.on, false);
             await client.click(`${M} label:has([data-waste-on])`);
             await client.waitForSelector(`${M} [data-weekday="${wasteWeekday}"]`);
+            // K10a: the icon is the designer's (design + an `icon` upload) — the client sees it, nothing to upload
+            assert.equal(await exists(client, `${M} [data-waste-icon]`), true);
+            assert.equal(await exists(client, `${M} [data-waste-icon] input[type="file"], ${M} [data-waste-icon-add], ${M} [data-waste-icon-reset]`), false);
             const pressed = () => client.$$eval(`${M} [data-weekday]`, (nodes) => nodes.filter((n) => n.getAttribute('aria-pressed') === 'true').map((n) => Number(n.dataset.weekday)));
             if (!(await pressed()).includes(wasteWeekday)) await client.click(`${M} [data-weekday="${wasteWeekday}"]`);
             for (const other of await pressed()) {

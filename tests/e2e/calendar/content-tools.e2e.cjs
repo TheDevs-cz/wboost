@@ -245,6 +245,61 @@ module.exports = {
             await closeTool(page);
         });
 
+        await check('K10a waste: an own icon per kind (a custom kind too) — upload, shown in the tab and the day rows, Původní, saved', async () => {
+            await openTool(page, 'waste');
+            const own = kept.own;
+            await page.click(`${M} [data-waste-tab="${own}"]`);
+            await page.waitForSelector(`${M} label[data-waste-icon] input[type="file"]`);
+            assert.equal(await page.$eval(`${M} [data-waste-icon-reset]`, (el) => el.hidden), true, 'no Původní while the built-in bin shows');
+            assert.equal(await page.$eval(`${M} [data-waste-icon-add]`, (el) => el.offsetParent !== null && el.textContent.trim()), 'Nahrát ikonu', 'a visible „Nahrát ikonu“');
+            const upload = async () => {
+                const file = path.join(os.tmpdir(), `wboost-e2e-waste-icon-${process.pid}.png`);
+                fs.writeFileSync(file, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAFklEQVR4nGM4YRNAEmIY1TCqYfhqAAA5l1QQO0NBsAAAAABJRU5ErkJggg==', 'base64'));
+                try {
+                    const input = await page.$(`${M} label[data-waste-icon] input[type="file"]`);
+                    await input.uploadFile(file);
+                    await page.waitForFunction((sel, id) => document.querySelector(`${sel} [data-waste-tab="${id}"] .cal-bin.own img`), { timeout: 10000 }, M, own);
+                } finally {
+                    fs.rmSync(file, { force: true });
+                }
+            };
+            await upload();
+            let s = await h.state(page);
+            const asset = s.design.layout.styles.waste.kinds[own].icon;
+            assert.match(String(asset), /^[0-9a-f-]{36}$/, 'the icon is design: styles.waste.kinds[id].icon');
+            assert.equal('icon' in s.content.wasteKinds[own], false, 'never in the content item');
+            assert.equal(await page.$eval(`${M} [data-waste-tab="${own}"] img`, (el) => el.naturalWidth > 0), true);
+            assert.equal(await page.$eval(`${M} [data-waste-icon-reset]`, (el) => el.hidden), false);
+            assert.equal(await page.$eval(`${M} [data-waste-icon-add]`, (el) => el.offsetParent), null, '„Nahrát ikonu“ gives way to Původní (the tile still replaces it)');
+            // the day rows print the uploaded picture: give the kind one date and look at its row
+            await page.click(`${M} [data-waste-mode] button[data-value="dates"]`);
+            await page.waitForSelector(`${M} .cal-dpg`);
+            await page.click(`${M} [data-month="5"]`);
+            await page.click(`${M} [data-date="${isoOf(Y, 5, 4)}"]`);
+            const icons = await h.cal(page, (c, date) => {
+                for (const [index, p] of c.pages().entries()) {
+                    if (p.kind !== 'week') continue;
+                    const g = c.geometry(index);
+                    for (const frame of (g && g.frames) || []) for (const row of frame.rows) if (row.date === date) return row.info.icons.filter((i) => i.category === 'waste');
+                }
+                return null;
+            }, isoOf(Y, 5, 4));
+            assert.ok(icons && icons.some((i) => i.kindId === own && i.asset === asset), 'the day row carries the own icon');
+            // Původní puts the bin back (design, so the kind's content item is untouched)
+            await page.click(`${M} [data-waste-icon-reset]`);
+            s = await h.state(page);
+            assert.equal(s.design.layout.styles.waste.kinds[own].icon, null);
+            assert.equal(await exists(page, `${M} [data-waste-tab="${own}"] img`), false);
+            assert.deepEqual(s.content.wasteKinds[own].dates, [isoOf(Y, 5, 4)]);
+            // a new upload sets it again — kept for the save / reload and the PDF check
+            await upload();
+            const again = (await h.state(page)).design.layout.styles.waste.kinds[own].icon;
+            assert.match(String(again), /^[0-9a-f-]{36}$/);
+            kept.wasteIcon = again;
+            await h.shot(page, 'waste-icon-1440-dark');
+            await closeTool(page);
+        });
+
         await check('C6 no Excel import in Akce a spolky; C7 an event of club ZŠ prints „ZŠ · název“', async () => {
             await openTool(page, 'events');
             assert.doesNotMatch(await modalText(page), /Excel|AI /);
@@ -488,6 +543,9 @@ module.exports = {
             assert.deepEqual([await value(page, `${M} [data-waste-from]`), await value(page, `${M} [data-waste-to]`)], [isoOf(Y, 4, 1), isoOf(Y, 11, 30)]);
             assert.deepEqual(await page.$$eval(`${M} [data-weekday][aria-pressed="true"]`, (els) => els.map((el) => el.dataset.weekday)), ['3']);
             assert.equal(await page.$eval(`${M} [data-waste-tab="${kept.own}"]`, (el) => el.textContent.trim()), 'Textil');
+            assert.equal(after.design.layout.styles.waste.kinds[kept.own].icon, kept.wasteIcon, 'K10a: the own icon is saved');
+            await page.click(`${M} [data-waste-tab="${kept.own}"]`);
+            await page.waitForFunction((sel) => { const img = document.querySelector(`${sel} label[data-waste-icon] img`); return img && img.naturalWidth > 0; }, { timeout: 8000 }, M);
             await closeTool(page);
         });
 

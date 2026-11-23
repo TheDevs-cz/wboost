@@ -212,6 +212,31 @@ export default async function (t, load) {
         assert.equal([...off.matchAll(/data-waste="/g)].length, 0);
     });
 
+    t.test('waste legends show the own icon of a kind as uploaded (K10a): contacts legend instead of the swatch, waste plan beside it', async () => {
+        const icon1 = { url: '/full/bin.svg', previewUrl: null, width: null, height: null, mime: 'image/svg+xml', name: 'bin.svg', description: null, kind: 'icon' };
+        const env = { assets: { ...ASSETS, icon1 }, fonts: [], projectName: 'Obec' };
+        const styles = (layout) => {
+            layout.styles.waste.kinds = { ...(layout.styles.waste.kinds || {}), kom: { color: null, icon: 'icon1' } };
+            return layout;
+        };
+        const setup = { 'sp:contacts': { clubLegend: false, wasteLegend: true, notes: false } };
+        const contacts = draw(await docWith({ contacts: item('contacts') }, { styles, content: { wasteKinds: WASTE, pageSetup: setup, ...clone(TYPICAL) } }), 'sp:contacts', { env });
+        checkXml(contacts);
+        const legend = /<g data-group="legend-waste" data-legend="waste"[^>]*>(.*?)<\/g><\/g>/.exec(contacts)[1];
+        assert.equal((legend.match(/<rect/g) || []).length, 2, 'swatches for the kinds without an own icon');
+        assert.equal((legend.match(/<image href="\/full\/bin\.svg"/g) || []).length, 1, 'the own icon replaces the swatch of its kind');
+        assert.ok(!/<image[^>]*fill=/.test(legend), 'never tinted');
+
+        const plan = draw(await docWith({ waste: item('waste') }, { styles, content: { wasteKinds: WASTE } }), 'sp:waste', { env });
+        checkXml(plan);
+        const planLegend = plan.slice(plan.indexOf('data-legend="waste"'));
+        assert.ok(planLegend.includes('data-waste-icon="kom"') && planLegend.includes('href="/full/bin.svg"'), 'the plan legend shows the icon');
+        assert.equal((planLegend.match(/<image/g) || []).length, 1);
+        // an icon whose asset is unknown (deleted) falls back to the swatch alone
+        const missing = draw(await docWith({ waste: item('waste') }, { styles, content: { wasteKinds: WASTE } }), 'sp:waste');
+        assert.ok(!missing.includes('data-waste-icon'));
+    });
+
     t.test('year grid: every day once, weekends and holidays coloured, holidays bold', async () => {
         const doc = await docWith({ year: item('year') });
         const svg = draw(doc, 'sp:year');

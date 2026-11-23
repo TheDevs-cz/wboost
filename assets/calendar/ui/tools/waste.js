@@ -10,7 +10,16 @@
 // `[data-waste-name]`, `[data-waste-place]`, `[data-waste-mode] button[data-value]`,
 // `[data-weekday="0…6"]`, `[data-waste-interval]`, `[data-waste-from]`, `[data-waste-to]`,
 // `[data-waste-total]`, `[data-date="<iso>"]` (month grid), `[data-month="1…12"][data-count]`,
-// `[data-waste-count]`, `[data-waste-clear]`, `[data-waste-remove]`.
+// `[data-waste-count]`, `[data-waste-clear]`, `[data-waste-remove]`, `[data-waste-icon]` (the kind's
+// icon in the card head: an upload tile `label.cal-icp` with a file input for the designer, a plain
+// picture for the client), `[data-waste-icon-add]` (label of the same input), `[data-waste-icon-reset]`.
+//
+// „Ikona“ (K10a): the icon is LOOK, so it lives in the design — `layout.styles.waste.kinds[id].icon`
+// (asset id, kind `icon` upload; the same key step 3 › Ikony › Odpady writes) — never in the
+// client-writable `wasteKinds` item. Hence designer-only, like the server: a client may upload only
+// `photo` and never touch the design, so he sees the icon and cannot change it. Every kind gets one,
+// including an own kind added here. Writing it is a layout change (undoable). An uploaded SVG / PNG
+// is printed as uploaded — the kind's colour does not tint it (day rows, legends, this dialog).
 
 import { WEEKDAYS, WEEKDAYS_SHORT, WEEK_RULES } from '../../generate/czech.js';
 import { addDays, iso } from '../../generate/dates.js';
@@ -19,13 +28,19 @@ import { wasteRuleOn } from '../../generate/waste.js';
 import { dateLimits, newId, nextPos, sorted } from '../../model/content.js';
 import { BUILTIN_WASTE } from '../../model/defaults.js';
 import { binIcon } from '../../render/icons.js';
+import { setStyle } from '../controls/bind.js';
 import { h, icon, segmented, selectField, switchRow } from '../dom.js';
 import { dateField, keyedList, mountDatePicker, plural, readToolState, textField, writeToolState, ymOf } from './datepicker.js';
 
 const TERMS = ['termín', 'termíny', 'termínů'];
 const COLLECTIONS = ['svoz', 'svozy', 'svozů'];
 
+const ICON_ACCEPT = 'image/svg+xml,image/png,image/jpeg';
+
 const binSvg = (color) => h('span', { class: 'cal-bin', 'aria-hidden': 'true', html: `<svg viewBox="0 0 14 18">${binIcon({ x: 0, y: 0, w: 14, h: 18 }, color, '')}</svg>` });
+
+/** The kind's mark: its uploaded icon as is, else the built-in bin in its colour. */
+const kindMark = (color, asset) => (asset ? h('span', { class: 'cal-bin own', 'aria-hidden': 'true' }, h('img', { src: asset.previewUrl || asset.url, alt: '' })) : binSvg(color));
 
 export function mountWasteTool(root, ctx) {
     const { store } = ctx;
@@ -37,6 +52,26 @@ export function mountWasteTool(root, ctx) {
         const layout = store.getState().doc.design.layout;
         return wasteKindColor(layout ? layout.styles : null, id, kind);
     };
+    const designer = ctx.env.mode === 'designer';
+    /** The uploaded icon of a kind (asset id) — design, `styles.waste.kinds[id].icon`. */
+    const iconOf = (id) => {
+        const layout = store.getState().doc.design.layout;
+        const own = layout && layout.styles.waste && layout.styles.waste.kinds ? layout.styles.waste.kinds[id] : null;
+        return (own && own.icon) || null;
+    };
+    const iconAsset = (id) => {
+        const asset = iconOf(id);
+        return asset ? (ctx.env.assets || {})[asset] || null : null;
+    };
+    /** Identity of what the mark shows — the DOM is rebuilt only when it changes. */
+    const markKey = (id, kind) => `${colorOf(id, kind)}|${iconAsset(id) ? iconOf(id) : ''}`;
+
+    function setIcon(id, asset) {
+        store.change((layout) => {
+            const kinds = layout.styles.waste.kinds || {};
+            return setStyle(layout, 'waste.kinds', { ...kinds, [id]: { color: null, icon: null, ...(kinds[id] || {}), icon: asset } });
+        });
+    }
 
     let selected = readToolState(ctx, 'waste').kind || null;
     let panel = null; // { signature, update(kind) }
@@ -47,10 +82,10 @@ export function mountWasteTool(root, ctx) {
         const name = h('span');
         const button = h('button', { type: 'button', role: 'tab', class: 'cal-wtab', 'data-waste-tab': id, onClick: () => select(id) }, bin, name);
         button.update = (kind) => {
-            const color = colorOf(id, kind);
-            if (button.dataset.color !== color) {
-                button.dataset.color = color;
-                const next = binSvg(color);
+            const key = markKey(id, kind);
+            if (button.dataset.mark !== key) {
+                button.dataset.mark = key;
+                const next = kindMark(colorOf(id, kind), iconAsset(id));
                 bin.replaceWith(next);
                 bin = next;
             }
@@ -264,6 +299,73 @@ export function mountWasteTool(root, ctx) {
         };
     }
 
+    /**
+     * „Ikona“ of the card head. Designer: an upload tile (click = pick an SVG / PNG) + „Původní“
+     * while an own icon is set. Client: the icon, read-only.
+     */
+    function buildIcon(id) {
+        const view = h('span', { class: 'cal-bin-host' });
+        let shown = null;
+        if (!designer) {
+            const node = h('span', { class: 'cal-wico', 'data-waste-icon': '' }, view);
+            return {
+                node,
+                update(kind) {
+                    const key = markKey(id, kind);
+                    if (key === shown) return;
+                    shown = key;
+                    view.replaceChildren(kindMark(colorOf(id, kind), iconAsset(id)));
+                    node.title = iconAsset(id) ? 'Vlastní ikona (mění grafik)' : '';
+                },
+            };
+        }
+        let busy = false;
+        const inputId = `cal-wico-${id}`;
+        const input = h('input', { type: 'file', id: inputId, class: 'sr', accept: ICON_ACCEPT, 'aria-label': 'Nahrát vlastní ikonu druhu (SVG, PNG)', 'data-upload': 'icon' });
+        const tile = h('label', { class: 'cal-icp cal-wicp', 'data-waste-icon': '' }, input, view);
+        // the visible way in while the built-in bin shows (the tile alone does not say it takes a file)
+        const add = h('label', { class: 'btn xs ghost', for: inputId, 'data-waste-icon-add': '' }, icon('upload', 's14'), 'Nahrát ikonu');
+        const reset = h('button', { type: 'button', class: 'btn xs ghost', 'data-waste-icon-reset': '', title: 'Vrátit vestavěnou ikonu', hidden: true, onClick: () => setIcon(id, null) }, icon('undo', 's14'), 'Původní');
+        input.addEventListener('change', async () => {
+            const file = input.files && input.files[0];
+            input.value = '';
+            if (!file || busy) return;
+            const limit = Number(ctx.env.maxFileSize) || 0;
+            if (limit > 0 && file.size > limit) {
+                ctx.toast('Soubor je větší než 10 MB.', true);
+                return;
+            }
+            busy = true;
+            tile.dataset.busy = '1';
+            try {
+                const info = await ctx.api.upload(file, 'icon');
+                store.addAsset(info);
+                if (kindOf(id)) setIcon(id, info.id);
+                ctx.toast('Vlastní ikona nahrána');
+            } catch (error) {
+                ctx.toast((error && error.message) || 'Soubor se nepodařilo nahrát', true);
+            } finally {
+                busy = false;
+                delete tile.dataset.busy;
+            }
+        });
+        return {
+            node: h('span', { class: 'cal-wico' }, tile, add, reset),
+            update(kind) {
+                const key = markKey(id, kind);
+                if (key === shown) return;
+                shown = key;
+                const own = iconAsset(id);
+                view.replaceChildren(kindMark(colorOf(id, kind), own));
+                tile.title = own ? 'Vyměnit vlastní ikonu (SVG, PNG)' : 'Nahrát vlastní ikonu (SVG, PNG)';
+                if (own) tile.dataset.asset = iconOf(id);
+                else delete tile.dataset.asset;
+                reset.hidden = !own;
+                add.hidden = Boolean(own);
+            },
+        };
+    }
+
     function buildPanel(id, kind) {
         const on = switchRow({ label: 'Zobrazovat v kalendáři', checked: kind.on, attrs: { 'data-waste-on': '' }, onChange: (checked) => put(id, { on: checked }) });
         const remove = h('button', { type: 'button', class: 'btn sm ghost danger', 'data-waste-remove': '', onClick: () => removeKind(id) }, icon('trash', 's16'), 'Odebrat druh');
@@ -272,7 +374,7 @@ export function mountWasteTool(root, ctx) {
             panelEl.replaceChildren(head);
             return { update: (next) => on.setChecked(next.on) };
         }
-        const binHost = h('span', { class: 'cal-bin-host' });
+        const iconField = buildIcon(id);
         const title = kind.builtin ? h('b') : null;
         const name = kind.builtin
             ? null
@@ -289,16 +391,11 @@ export function mountWasteTool(root, ctx) {
             onChange: (value) => put(id, { mode: value }),
         });
         const body = kind.mode === 'dates' ? buildDates(id) : buildRule(id);
-        panelEl.replaceChildren(head, h('div', { class: 'cal-wcard' }, h('div', { class: 'cal-wch' }, binHost, title, name, place), mode, body.node));
-        let binColor = null;
+        panelEl.replaceChildren(head, h('div', { class: 'cal-wcard' }, h('div', { class: 'cal-wch' }, iconField.node, title, name, place), mode, body.node));
         return {
             update(next) {
                 on.setChecked(next.on);
-                const color = colorOf(id, next);
-                if (color !== binColor) {
-                    binColor = color;
-                    binHost.replaceChildren(binSvg(color));
-                }
+                iconField.update(next);
                 if (title) title.textContent = next.name;
                 if (name) name.setValue(next.name);
                 place.setValue(next.place);

@@ -94,7 +94,12 @@ are `K` and the control ranges `LIMITS`, both in `model/defaults.js`.
   (`num numSat numSun numHol day name hol ev time shift placeText`), `cal`
   (number side, icon grid, cell sizes, `bg` and `numBg` — „Pozadí čísel“, see the row
   layout below…), fills (`head.bg`, `month.bg`, `bg`),
-  `icons.order`, `moon`, `waste.kinds[id]` (colour / icon overrides),
+  `icons.order`, `moon`, `waste.kinds[id]` (colour / icon overrides — the
+  icon of a kind, built-in or own, is set in step 3 › Ikony › Odpady and in
+  the step-4 tool Odpady („Nahrát ikonu“ / „Původní“, designer only: it is
+  design and an `icon` upload; a client sees it read-only. Any kind has one,
+  an own kind added in step 4 too. An uploaded SVG / PNG prints as uploaded,
+  never tinted by the kind's colour — K10a),
   `offsets[part]` (part nudges, mm), `ev.box` (the event box, **flow-anchored**:
   `x` from the text column's zone-side edge — so it needs no change when the
   layout is mirrored). A text style's `family` is exactly
@@ -298,7 +303,10 @@ renders three):
   now means three / four columns). The club legend („Vysvětlivky“, ≤ 8, only
   while events are on) and the waste legend („Svoz odpadů“) are **generated
   groups** appended to the user's and flow with them (`data-legend`);
-  `pageSetup` switches them. `notes` reserves the right 24–30 % for ruled
+  `pageSetup` switches them. A waste kind with an own icon shows that icon
+  instead of its colour swatch in „Svoz odpadů“ (it is what the day rows
+  print); the waste plan's legend keeps the swatch (it keys the grid's
+  colours) and puts the icon beside it (`data-waste-icon`). `notes` reserves the right 24–30 % for ruled
   lines with their heading in the header band.
 - The waste plan's layout 1 („Mřížka + texty“) sets the `pageGroups` of
   `sp:waste` beside the grid; layout 0 has no room and ignores them.

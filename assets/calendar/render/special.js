@@ -528,7 +528,7 @@ function measureGroup(c, id, group, s, cw) {
     const pad = highlight ? s * 0.95 : 0;
     const inner = cw - 2 * pad;
     const heading = one(group.heading);
-    const rows = (Array.isArray(group.lines) ? group.lines : []).map((line) => ({ label: one(line && line.label), value: one(line && line.value), swatch: line && line.swatch ? line.swatch : null }));
+    const rows = (Array.isArray(group.lines) ? group.lines : []).map((line) => ({ label: one(line && line.label), value: one(line && line.value), swatch: line && line.swatch ? line.swatch : null, icon: line && line.icon ? line.icon : null }));
     const gapLV = s * 0.9;
     const labelMax = rows.reduce((max, row) => (row.label ? Math.max(max, c.width(row.label, highlight ? bold : regular)) : max), 0);
     const labelW = Math.min(labelMax, inner * 0.5);
@@ -552,9 +552,14 @@ function measureGroup(c, id, group, s, cw) {
         }
         if (row.swatch) {
             const side = s * 0.82;
+            // a legend line: the colour swatch, or the kind's own icon (shown as uploaded, never tinted)
+            const mark = (x, y) => {
+                const box = { x, y: y + s * 0.8 - side * 0.86, w: side, h: side };
+                return row.icon ? `<g data-waste-icon="1">${imageIn(box, row.icon, 'contain', 100, c.opts)}</g>` : rect(box, { rx: side * 0.18, fill: row.swatch });
+            };
             parts.push({
                 h: lineH,
-                draw: (x, y) => rect({ x, y: y + s * 0.8 - side * 0.86, w: side, h: side }, { rx: side * 0.18, fill: row.swatch }) + T(x + side + s * 0.55, y + s * 0.8, row.value, regular, { fill: c.ink }),
+                draw: (x, y) => mark(x, y) + T(x + side + s * 0.55, y + s * 0.8, row.value, regular, { fill: c.ink }),
             });
             continue;
         }
@@ -879,11 +884,17 @@ function legendClubs(doc) {
         .slice(0, 8);
 }
 
-/** The waste kinds that are switched on, for a legend. */
+/** The uploaded icon of a waste kind (`styles.waste.kinds[id].icon`) as an asset, or null. */
+function wasteIconOf(c, id) {
+    const own = c.styles.waste && c.styles.waste.kinds ? c.styles.waste.kinds[id] : null;
+    return own && own.icon ? c.assets[own.icon] || null : null;
+}
+
+/** The waste kinds that are switched on, for a legend (the own icon replaces the swatch — it is what the day rows print). */
 function legendWaste(c) {
     if (!c.doc.design.features.waste) return [];
     const dayContext = c.opts.dayContext || createDayContext(c.doc);
-    return dayContext.wasteKinds.filter(([, kind]) => kind.on).map(([id, kind]) => ({ swatch: wasteKindColor(c.styles, id, kind), label: '', value: one(kind.name) || 'Odpad' }));
+    return dayContext.wasteKinds.filter(([, kind]) => kind.on).map(([id, kind]) => ({ swatch: wasteKindColor(c.styles, id, kind), icon: wasteIconOf(c, id), label: '', value: one(kind.name) || 'Odpad' }));
 }
 
 function contacts(c, page, layout) {
@@ -984,10 +995,14 @@ function wastePlan(c, page, layout) {
         const name = String(kind.name || '').trim() || 'Odpad';
         const side = 14 * c.u;
         const top = c.Y(DESIGN_H - 30);
+        // the swatch keys the grid's colours; the kind's own icon (as uploaded) follows it
         out += rect({ x: c.X(lx), y: top, w: side, h: side }, { rx: 2 * c.u, fill: wasteKindColor(c.styles, id, kind) });
-        out += textEl(c.X(lx) + side + 8 * c.u, top + side / 2 + 0.36 * legendFont.sizeMm, name, legendFont, { fill: COLORS.ink });
+        const own = wasteIconOf(c, id);
+        const iconW = own ? 14 + 6 : 0;
+        if (own) out += `<g data-waste-icon="${esc(id)}">${imageIn({ x: c.X(lx + 14 + 6), y: top, w: side, h: side }, own, 'contain', 100, c.opts)}</g>`;
+        out += textEl(c.X(lx + iconW) + side + 8 * c.u, top + side / 2 + 0.36 * legendFont.sizeMm, name, legendFont, { fill: COLORS.ink });
         const width = c.measurer ? c.measurer.width(name, legendFont) / c.ux : name.length * 6;
-        lx += Math.max(120, 14 + 8 + width + 28);
+        lx += Math.max(120, iconW + 14 + 8 + width + 28);
     }
     out += '</g>';
 
