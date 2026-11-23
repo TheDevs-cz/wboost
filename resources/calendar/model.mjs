@@ -76,6 +76,7 @@ async function main(input) {
     const load = (path) => import(pathToFileURL(join(input.root, 'assets/calendar', path)).href);
     const { K, bleedOf, roundMm } = await load('model/defaults.js');
     const { DEFAULT_ORDER, HIDEABLE_BOXES, elementOfBox } = await load('model/elements.js');
+    const FX = await load('model/effects.js');
     const { defaultLayout, defaultStyles, presetsForType } = await load('model/layouts.js');
     const { normalizeDocument, normalizeLayout } = await load('model/normalize.js');
     const { buildPages } = await load('generate/pages.js');
@@ -212,6 +213,7 @@ async function main(input) {
             if (fallback !== null && fallback !== undefined) refuse('invalid_style_value', `styles.${path} cannot be null (it is a ${Array.isArray(fallback) ? 'list' : typeof fallback}).`);
             return null;
         }
+        if (key === 'effects' && Array.isArray(current)) return checkEffects(path, value);
         if (ENUMS[key] && typeof current !== 'boolean' && typeof current !== 'number' && !isObject(current)) {
             if (!ENUMS[key].includes(value)) refuse('invalid_style_value', `styles.${path} must be one of ${quote(ENUMS[key])}${fallback === null ? ' or null (automatic)' : ''}, not ${JSON.stringify(value)}.`);
             return value;
@@ -230,6 +232,50 @@ async function main(input) {
             if (new Set(value).size !== value.length) refuse('invalid_style_value', 'styles.icons.order must not repeat a category.');
         }
         return checkNested(path, clone(value));
+    }
+
+    /**
+     * A picture's layer effects (`photo.effects`, `logo.effects`, `head.bg.effects`, `bg.effects`,
+     * `specialPhoto.effects`): a list stored whole. Kinds, keys, blend modes, gradient types and the
+     * value types are refused when wrong; numbers out of range are clamped by the normaliser (a note
+     * says so); missing keys get the kind's defaults.
+     */
+    function checkEffects(path, value) {
+        const kinds = FX.EFFECT_KINDS.map((k) => k.kind);
+        if (!Array.isArray(value)) refuse('invalid_effect', `styles.${path} must be a list of effects ({kind: ${quote(kinds)}, …}), [] for none.`);
+        if (value.length > FX.MAX_EFFECTS) refuse('invalid_effect', `styles.${path} holds at most ${FX.MAX_EFFECTS} effects.`);
+        return value.map((raw, index) => {
+            const at = `styles.${path}[${index}]`;
+            if (!isObject(raw) || !FX.isEffectKind(raw.kind)) refuse('invalid_effect', `${at}.kind must be one of ${quote(kinds)} (dropShadow = Vržený stín, gradient = Překrytí přechodem).`);
+            const keys = FX.effectKeys(raw.kind);
+            const fallback = FX.newEffect(raw.kind);
+            for (const [key, member] of Object.entries(raw)) {
+                if (!keys.includes(key)) refuse('invalid_effect', `${at}.${key} is not a setting of a ${raw.kind}. Settings: ${keys.join(', ')}.`);
+                const want = Array.isArray(fallback[key]) ? 'list' : typeof fallback[key];
+                const got = Array.isArray(member) ? 'list' : member === null ? 'null' : typeof member;
+                if (want !== got) refuse('invalid_effect', `${at}.${key} must be a ${want}, not ${got}.`);
+                if (typeof member === 'number' && !Number.isFinite(member)) refuse('invalid_effect', `${at}.${key} must be a finite number.`);
+            }
+            if (raw.blend !== undefined && !FX.BLEND_VALUES.includes(raw.blend)) {
+                refuse('invalid_effect', `${at}.blend must be one of ${quote(FX.BLEND_VALUES)} — the blend modes a PDF keeps (Photoshop's dissolve, linear burn / dodge, darker / lighter colour, vivid / linear / pin light, hard mix, subtract and divide are not available).`);
+            }
+            if (raw.kind === 'gradient' && raw.type !== undefined && !FX.GRADIENT_TYPES.includes(raw.type)) refuse('invalid_effect', `${at}.type must be one of ${quote(FX.GRADIENT_TYPES)}.`);
+            if (raw.stops !== undefined) {
+                if (raw.stops.length < 2 || raw.stops.length > FX.MAX_STOPS) refuse('invalid_effect', `${at}.stops must hold 2–${FX.MAX_STOPS} stops {color, opacity 0–100, pos 0–100}.`);
+                raw.stops.forEach((stop, k) => {
+                    if (!isObject(stop) || Object.keys(stop).some((key) => !['color', 'opacity', 'pos'].includes(key))) refuse('invalid_effect', `${at}.stops[${k}] must be {color, opacity, pos}.`);
+                    for (const key of ['opacity', 'pos']) {
+                        if (stop[key] !== undefined && (typeof stop[key] !== 'number' || !Number.isFinite(stop[key]))) refuse('invalid_effect', `${at}.stops[${k}].${key} must be a number 0–100.`);
+                    }
+                });
+            }
+            const checked = checkNested(`${path}[${index}]`, clone(raw));
+            const normal = FX.normalizeEffect({ ...fallback, ...checked });
+            for (const key of ['opacity', 'angle', 'distance', 'spread', 'size', 'scale', 'x', 'y']) {
+                if (typeof checked[key] === 'number' && normal[key] !== checked[key]) notes.push(`${at}.${key}: ${checked[key]} → ${normal[key]} (allowed range / step).`);
+            }
+            return normal;
+        });
     }
 
     /**
@@ -269,6 +315,9 @@ async function main(input) {
                 const checked = checkNested(next, clone(entry));
                 out[key] = isObject(out[key]) ? { ...out[key], ...checked } : checked;
                 continue;
+            }
+            if (next === 'photo.shadow') {
+                refuse('unknown_style_key', 'styles.photo.shadow was replaced by styles.photo.effects (2026-11-24): a list of layer effects — a shadow is {"kind": "dropShadow", "blend", "opacity", "color", "angle" (light angle °, 120 = shadow down right), "distance" mm, "spread" %, "size" mm}.');
             }
             if (!Object.prototype.hasOwnProperty.call(current, key)) {
                 refuse('unknown_style_key', `styles.${next} is not a style key. Keys of ${path ? `styles.${path}` : 'styles'}: ${Object.keys(current).join(', ')}. (get_calendar layout.styles shows the whole tree.)`);

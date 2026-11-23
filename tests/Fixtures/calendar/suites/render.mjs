@@ -68,7 +68,9 @@ export default async function (t, load) {
             specialPages: { intro: { kind: 'intro', on: true, layout: 0, position: 'front', nextYear: false, name: 'Slovo <starosty>', asset: null, text: null, fileName: null, pos: 0 } },
         },
         styles: (l) => {
-            l.styles.photo.shadow.on = true;
+            l.styles.photo.effects = [{ kind: 'dropShadow', on: true, blend: 'multiply', opacity: 60, color: '#000000', angle: 120, distance: 2, spread: 20, size: 3 }, { kind: 'gradient', on: true, blend: 'multiply', opacity: 80, type: 'radial', angle: 90, scale: 100, x: 100, y: 0, stops: [{ color: '#000000', opacity: 70, pos: 0 }, { color: '#000000', opacity: 0, pos: 100 }] }];
+            l.styles.logo.effects = [{ kind: 'dropShadow', on: true, blend: 'normal', opacity: 60, color: '#000000', angle: 90, distance: 1, spread: 10, size: 2 }, { kind: 'gradient', on: true, blend: 'screen', opacity: 100, type: 'linear', angle: 90, scale: 100, x: 50, y: 50, stops: [{ color: '#FF0000', opacity: 100, pos: 0 }, { color: '#0000FF', opacity: 100, pos: 100 }] }];
+            l.styles.head.bg.effects = [{ kind: 'gradient', on: true, blend: 'overlay', opacity: 50, type: 'reflected', angle: 0, scale: 100, x: 50, y: 50, stops: [{ color: '#FFFFFF', opacity: 0, pos: 0 }, { color: '#FFFFFF', opacity: 100, pos: 100 }] }];
             l.styles.photo.border.on = true;
             l.styles.photo.radius = 4;
             l.styles.head.bg.gradient.on = true;
@@ -197,7 +199,7 @@ export default async function (t, load) {
         assert.ok(Math.abs(image[0] - (box.x + (box.w - dw) * 0.2)) < 0.001);
         assert.ok(Math.abs(image[1] - (box.y + (box.h - dh) * 0.8)) < 0.001);
         assert.ok(svg.includes(`<clipPath id="p1-photo-p"><rect x="${box.x}" y="${box.y}" width="${box.w}" height="${box.h}" rx="4"/></clipPath>`));
-        assert.ok(svg.includes('feGaussianBlur stdDeviation="1.5"'));
+        assert.ok(svg.includes('feGaussianBlur stdDeviation="1.2"'), 'drop shadow σ = size × (1 − spread) / 2');
         assert.ok(!svg.includes('FOTKU DOPLNÍ KLIENT'));
     });
 
@@ -231,7 +233,7 @@ export default async function (t, load) {
             assert.ok(!/data-(evbox|icgrid|handle|cp|guide)|cal-ovl|#E0708A|#D9486A|#e5484d|#8d7fd6/i.test(svg), 'no handles, guides, event boxes or bleed hatch');
             assert.ok(!/\son[a-z]+="/.test(svg), 'no event handlers');
             const dataAttrs = new Set([...svg.matchAll(/\s(data-[\w-]+)="/g)].map((m) => m[1]));
-            assert.deepEqual([...dataAttrs].sort(), ['data-band', 'data-date', 'data-el', 'data-frame', 'data-page', 'data-part']);
+            assert.deepEqual([...dataAttrs].sort(), ['data-band', 'data-date', 'data-el', 'data-frame', 'data-fx', 'data-page', 'data-part']);
         }
     });
 

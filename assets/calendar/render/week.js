@@ -2,7 +2,8 @@
 
 import { COLORS, K, ptToMm } from '../model/defaults.js';
 import { frameAlign, isElementVisible } from '../model/elements.js';
-import { attrs, esc, fillLayers, fontSpec, num, photoIn, imageIn, rect, slotPlaceholder, textEl } from './svg.js';
+import { attrs, fillLayers, fontSpec, num, imageIn, photoWithEffects, pictureShape, rect, slotPlaceholder, textEl } from './svg.js';
+import { drawnRect, withEffects } from './effects.js';
 import { iconFragment } from './icons.js';
 import { wrapText } from './measure.js';
 import { fillIsOn, monthTextSpec } from './week-layout.js';
@@ -61,14 +62,12 @@ function renderPhoto(doc, page, opts) {
     const override = doc.content.pagePhotos[page.key];
     const asset = override ? assetOf(opts, override.asset) : null;
     let out = '<g data-el="photo">';
-    if (s.shadow.on) {
-        out += `<defs><filter id="${esc(id)}-s" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="${num(s.shadow.blur / 2)}"/></filter></defs>`;
-        out += rect({ x: box.x + s.shadow.dx, y: box.y + s.shadow.dy, w: box.w, h: box.h }, { rx: s.radius || null, fill: s.shadow.color, 'fill-opacity': s.shadow.opacity / 100, filter: `url(#${id}-s)` });
-    }
     if (asset) {
-        out += photoIn(box, asset, override, s.radius, opts, id);
+        out += photoWithEffects(box, asset, override, s.radius, opts, id, s.effects);
     } else if (opts.placeholders !== 'none') {
-        out += slotPlaceholder(box, s.source === 'client' ? 'FOTKU DOPLNÍ KLIENT' : 'FOTOGRAFIE', { radius: s.radius, minW: 50, minH: 19 });
+        // the empty frame shows the effects too: the designer sets them up before any photo exists
+        const slot = slotPlaceholder(box, s.source === 'client' ? 'FOTKU DOPLNÍ KLIENT' : 'FOTOGRAFIE', { radius: s.radius, minW: 50, minH: 19 });
+        out += withEffects(s.effects, { type: 'rect', box, radius: s.radius }, slot, `${id}-fx`);
     }
     if (s.border.on && s.border.width > 0) {
         const bw = s.border.width;
@@ -154,7 +153,8 @@ function renderLogo(doc, page, opts) {
     const asset = assetOf(opts, s.asset);
     let out = '<g data-el="logo">';
     if (asset) {
-        out += imageIn(box, asset, s.fit, 100, opts);
+        const picture = imageIn(box, asset, s.fit, 100, opts);
+        out += withEffects(s.effects, pictureShape(asset, drawnRect(box, asset, s.fit), 0, picture), picture, `${opts.idPrefix}-logo-fx`);
     } else if (opts.placeholders !== 'none') {
         const size = Math.min(3.8, box.h * 0.3, box.w * 0.16);
         out += rect({ x: box.x + 0.2, y: box.y + 0.2, w: box.w - 0.4, h: box.h - 0.4 }, { rx: 1.2, fill: '#FFFFFF', 'fill-opacity': 0.6, stroke: COLORS.mut, 'stroke-width': 0.3, 'stroke-dasharray': '1.4 1' });

@@ -11,7 +11,7 @@
      .cal-noprop           empty state
    Controls: .cal-swx/.cal-sws/.cal-swc/.cal-hex (colour) · .cal-szi (slider row) ·
      .cal-side (text segmented) · .cal-al2 (two icon segmented) · .cal-bgp/.cal-bgs
-     (background layers) · .cal-gr* (gradient editor) · .cal-himg* (upload tile).
+     (background layers) · .cal-gr* (gradient editor) · .cal-fx* (layer effects) · .cal-himg* (upload tile).
    ========================================================================== */
 
 /* ---- Panel frame -------------------------------------------------------- */
@@ -88,6 +88,29 @@
 .cal-gr .cal-add { align-self: flex-start; margin-left: -8px; }
 .cal-grt { display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: center; gap: 8px; }
 .cal-grt > .lbl { letter-spacing: 0; text-transform: none; font-size: 13px; font-weight: 400; color: var(--text-2); }
+
+/* ---- Layer effects (ui/controls/effects.js) ------------------------------------ */
+.cal-fx { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.cal-fxl { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.cal-fxr { display: flex; flex-direction: column; min-width: 0; border-radius: 12px; background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line); }
+.cal-fxh { display: flex; align-items: center; gap: 2px; min-height: 40px; padding: 2px 4px; }
+.cal-fxn { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; min-height: 38px; padding: 0 6px; border: 0; border-radius: 8px; background: none; color: var(--text); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.cal-fxt { display: flex; flex-direction: column; flex: 1; min-width: 0; line-height: 1.25; }
+.cal-fxn b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-fxn .cap { font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-fxn:hover { background: var(--surface-3); }
+.cal-fxn:focus-visible { outline: 2px solid var(--lav-ink); outline-offset: 2px; }
+.cal-fxr.off .cal-fxn b, .cal-fxr.off .cal-fxn .cap { color: var(--muted); }
+.cal-fxb { display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 6px 12px 14px; border-top: 1px solid var(--line); }
+.cal-fxf { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.cal-fxf > .lbl { letter-spacing: 0; text-transform: none; font-size: 12px; font-weight: 600; color: var(--subtle); }
+.cal-fxb .cal-szi { grid-template-columns: 76px minmax(0, 1fr) 54px; }
+.cal-fxa { display: flex; flex-wrap: wrap; gap: 2px 8px; }
+.cal-fxa .cal-add { margin-left: -8px; }
+.cal-fxa .cal-add + .cal-add { margin-left: 0; }
+/* the photo field of the cover / intro / contacts page (ui/pagecontent.js) */
+.cal-pcfx { display: flex; flex-direction: column; gap: 8px; min-width: 0; margin-top: 6px; padding-top: 12px; border-top: 1px solid var(--line); }
+.cal-fx [hidden] { display: none !important; }
 
 /* ---- Upload tile ------------------------------------------------------------- */
 .cal-himg { display: grid; grid-template-columns: 72px minmax(0, 1fr); align-items: center; gap: 12px; }

@@ -313,18 +313,12 @@ module.exports = {
             await type(prop('photo.border.width'), '0');
             assert.equal((await styles()).photo.border.width, 0.1);
             assert.equal(await value(prop('photo.border.width')), '0,1');
-            assert.equal(await shown(prop('photo.shadow.blur')), false);
-            await toggle('photo.shadow.on');
-            assert.equal(await shown(prop('photo.shadow.blur')), true);
-            await type(prop('photo.shadow.dx'), '-99');
-            assert.equal((await styles()).photo.shadow.dx, -10);
-            await type(prop('photo.shadow.dy'), '99');
-            assert.equal((await styles()).photo.shadow.dy, 10);
-            await type(prop('photo.shadow.opacity'), '250');
-            assert.equal((await styles()).photo.shadow.opacity, 100);
-            assert.equal(await value(prop('photo.shadow.opacity')), '100');
-            await type(prop('photo.shadow.blur'), '31');
-            assert.equal((await styles()).photo.shadow.blur, 30);
+            // Efekty (layer effects — the whole editor is effects.e2e.cjs): a drop shadow is added open
+            await page.click('[data-props="photo"] [data-fx-add="dropShadow"]');
+            assert.equal((await styles()).photo.effects[0].kind, 'dropShadow');
+            assert.equal(await shown(prop('photo.effects.0.size')), true, 'a new effect opens');
+            await page.click('[data-props="photo"] [data-fx-remove]');
+            assert.deepEqual((await styles()).photo.effects, []);
             await clickSeg('photo.source', 'self');
             assert.equal((await styles()).photo.source, 'self');
             await clickSeg('photo.source', 'client');
@@ -683,7 +677,8 @@ module.exports = {
             await select('cap');
             for (const p of ['cap.family', 'cap.weight', 'cap.size', 'cap.align', 'cap.valign', 'cap.color', 'cap.bg.colorOn', 'cap.pad']) assert.ok(await page.$(prop(p)), `Popisek: ${p}`);
             await select('photo');
-            for (const p of ['photo.source', 'photo.radius', 'photo.border.on', 'photo.border.width', 'photo.border.color', 'photo.shadow.on', 'photo.shadow.blur', 'photo.shadow.opacity', 'photo.shadow.dx', 'photo.shadow.dy', 'photo.shadow.color']) assert.ok(await page.$(prop(p)), `Fotografie: ${p}`);
+            for (const p of ['photo.source', 'photo.radius', 'photo.border.on', 'photo.border.width', 'photo.border.color']) assert.ok(await page.$(prop(p)), `Fotografie: ${p}`);
+            assert.ok(await page.$('[data-props="photo"] [data-fx-add="dropShadow"]'), 'Fotografie: Efekty');
             await select('cal');
             assert.ok(await page.$('.cal-props-kal'), 'the Kalendárium is handed to mountKalProps');
             assert.equal(await page.$('[data-props="cal"] ~ *'), null, '… and nothing else');

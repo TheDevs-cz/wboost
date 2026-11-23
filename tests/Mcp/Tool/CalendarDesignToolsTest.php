@@ -463,6 +463,53 @@ final class CalendarDesignToolsTest extends WebTestCase
         self::assertArrayNotHasKey('hidden', self::arr(self::dig($removed, 'layout', 'boxes', 'logo')));
     }
 
+    /**
+     * Layer effects of the pictures (docs/calendar/effects-plan.md): a list sent
+     * whole, defaults for missing keys, ranges clamped with a note.
+     */
+    public function testPicturesTakeLayerEffects(): void
+    {
+        $patched = $this->ok('set_calendar_layout', [
+            'calendarId' => TestDataFixture::CALENDAR_2_ID,
+            'styles' => [
+                'photo' => ['effects' => [
+                    ['kind' => 'gradient', 'type' => 'radial', 'blend' => 'multiply', 'x' => 100, 'y' => 0, 'stops' => [['color' => '#000000', 'opacity' => 60, 'pos' => 0], ['color' => '#000000', 'opacity' => 0, 'pos' => 100]]],
+                    ['kind' => 'dropShadow', 'size' => 99, 'color' => '#112233'],
+                ]],
+                'logo' => ['effects' => [['kind' => 'dropShadow', 'blend' => 'normal']]],
+                'head' => ['bg' => ['effects' => [['kind' => 'gradient', 'type' => 'reflected']]]],
+                'specialPhoto' => ['effects' => []],
+            ],
+        ]);
+
+        $layout = self::arr($patched['layout']);
+        self::assertSame('radial', self::dig($layout, 'styles', 'photo', 'effects', 0, 'type'));
+        self::assertSame('multiply', self::dig($layout, 'styles', 'photo', 'effects', 0, 'blend'));
+        self::assertEquals(100, self::dig($layout, 'styles', 'photo', 'effects', 0, 'x'));
+        self::assertEquals(30, self::dig($layout, 'styles', 'photo', 'effects', 1, 'size'), 'clamped to 30 mm');
+        self::assertEquals(120, self::dig($layout, 'styles', 'photo', 'effects', 1, 'angle'), 'a missing key takes the default');
+        self::assertSame('#112233', self::dig($layout, 'styles', 'photo', 'effects', 1, 'color'));
+        self::assertSame('normal', self::dig($layout, 'styles', 'logo', 'effects', 0, 'blend'));
+        self::assertSame('reflected', self::dig($layout, 'styles', 'head', 'bg', 'effects', 0, 'type'));
+        self::assertArrayNotHasKey('shadow', self::arr(self::dig($layout, 'styles', 'photo')));
+        self::assertStringContainsString('styles.photo.effects[1].size: 99 → 30', self::text($patched['notes']));
+
+        $revision = $this->calendar(TestDataFixture::CALENDAR_2_ID)->revision;
+        foreach ([
+            ['styles.photo.effects[0].kind', ['photo' => ['effects' => [['kind' => 'satin']]]]],
+            ['styles.photo.effects[0].blend', ['photo' => ['effects' => [['kind' => 'dropShadow', 'blend' => 'plus-lighter']]]]],
+            ['styles.logo.effects[0].noise', ['logo' => ['effects' => [['kind' => 'dropShadow', 'noise' => 5]]]]],
+            ['styles.bg.effects[0].stops', ['bg' => ['effects' => [['kind' => 'gradient', 'stops' => [['color' => '#000000', 'opacity' => 1, 'pos' => 0]]]]]]],
+        ] as [$names, $styles]) {
+            $refusal = $this->refused('set_calendar_layout', ['calendarId' => TestDataFixture::CALENDAR_2_ID, 'styles' => $styles]);
+            self::assertStringEndsWith('(invalid_effect)', $refusal, $names);
+            self::assertStringContainsString($names, $refusal);
+        }
+        $old = $this->refused('set_calendar_layout', ['calendarId' => TestDataFixture::CALENDAR_2_ID, 'styles' => ['photo' => ['shadow' => ['on' => true]]]]);
+        self::assertStringContainsString('styles.photo.effects', $old, 'the old key points to the new one');
+        self::assertSame($revision, $this->calendar(TestDataFixture::CALENDAR_2_ID)->revision);
+    }
+
     public function testAnUnknownKeyOrAWrongValueIsRefusedByNameAndStoresNothing(): void
     {
         $revision = $this->calendar(TestDataFixture::CALENDAR_2_ID)->revision;

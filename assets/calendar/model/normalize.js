@@ -3,6 +3,7 @@
 import { DEFAULT_FEATURES, DEFAULT_PAGE, DEFAULT_PRINT, K, SCHEMA_VERSION, bleedOf, clampLimit, roundMm } from './defaults.js';
 import { BOX_KEYS, DEFAULT_ORDER, HIDEABLE_BOXES, SECOND_FRAMES, frameAlign } from './elements.js';
 import { COLLECTIONS } from './content.js';
+import { EFFECT_PATHS, normalizeEffects, shadowToEffects } from './effects.js';
 import { defaultBoxes, defaultStyles, presetsForType } from './layouts.js';
 import { adaptBoxesToBleed, clampBoxesToBounds } from '../editor/bleed.js';
 
@@ -68,10 +69,11 @@ function clampStyles(styles, defaults) {
     styles.moon.size = clampLimit('moonSize', styles.moon.size);
     styles.photo.border.width = clampLimit('photoBorder', styles.photo.border.width);
     styles.photo.radius = clampLimit('generic', styles.photo.radius);
-    styles.photo.shadow.blur = clampLimit('generic', styles.photo.shadow.blur);
-    styles.photo.shadow.dx = clampLimit('shadowOffset', styles.photo.shadow.dx);
-    styles.photo.shadow.dy = clampLimit('shadowOffset', styles.photo.shadow.dy);
-    styles.photo.shadow.opacity = clampLimit('percent', styles.photo.shadow.opacity);
+    for (const path of EFFECT_PATHS) {
+        const keys = path.split('.');
+        const owner = keys.slice(0, -1).reduce((node, key) => node[key], styles);
+        owner.effects = normalizeEffects(owner.effects);
+    }
     styles.month.pad = clampLimit('pad', styles.month.pad);
     styles.cap.pad = clampLimit('pad', styles.cap.pad);
     if (styles.hol.wrapWidth !== null) styles.hol.wrapWidth = Math.max(K.HOL_WRAP_MIN, roundMm(finite(styles.hol.wrapWidth, K.HOL_WRAP_MIN)));
@@ -154,6 +156,19 @@ function deriveSecondFrame(stored, boxes, page) {
     return storedIsFirst ? { first: a, second: m, flipped: false } : { first: m, second: a, flipped: true };
 }
 
+/**
+ * Styles stored before the layer effects (2026-11-24) carry the photo's „Stín“ as
+ * `photo.shadow { on, blur, opacity, dx, dy, color }` and no `photo.effects`: the shadow becomes the
+ * first drop shadow of the list (drawing exactly what it drew). The missing key is the marker — a
+ * stored `effects` is never touched. Returns a copy; nothing is written back until the layout changes.
+ */
+function migrateStyles(styles) {
+    if (!isObject(styles) || !isObject(styles.photo)) return styles;
+    if (styles.photo.effects !== undefined || styles.photo.shadow === undefined) return styles;
+    const { shadow, ...photo } = styles.photo;
+    return { ...styles, photo: { ...photo, effects: shadowToEffects(shadow) } };
+}
+
 export function normalizeLayout(layout, type, page, env) {
     const raw = isObject(layout) ? layout : {};
     const defaults = defaultStyles(env || {});
@@ -184,7 +199,7 @@ export function normalizeLayout(layout, type, page, env) {
     }
     // missing element keys go on top, in the default stacking order
     const missing = DEFAULT_ORDER.filter((key) => !order.includes(key));
-    const styles = clampStyles(mergeDefaults(defaults, isObject(raw.styles) ? raw.styles : {}, ''), defaults);
+    const styles = clampStyles(mergeDefaults(defaults, isObject(raw.styles) ? migrateStyles(raw.styles) : {}, ''), defaults);
     for (const key of flipAlignOf) styles[key] = { ...styles[key], align: frameAlign(styles[key].align, 1) };
     return { v: SCHEMA_VERSION, boxes, order: [...missing, ...order], styles };
 }

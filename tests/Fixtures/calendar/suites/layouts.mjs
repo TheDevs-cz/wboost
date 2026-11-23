@@ -165,7 +165,11 @@ export default async function (t, load) {
         layout.styles.time = { ...layout.styles.time, align: 'end' };
         layout.styles.offsets = { name: { x: 2, y: 1 }, ev: { x: -3, y: 0 } };
         layout.styles.hol.wrapWidth = 40;
-        layout.styles.photo.shadow.dx = 2;
+        layout.styles.photo.effects = [
+            { kind: 'dropShadow', on: true, blend: 'multiply', opacity: 75, color: '#000000', angle: 120, distance: 2, spread: 0, size: 3 },
+            { kind: 'gradient', on: true, blend: 'multiply', opacity: 80, type: 'radial', angle: 30, scale: 100, x: 100, y: 0, stops: [{ color: '#000000', opacity: 70, pos: 0 }, { color: '#000000', opacity: 0, pos: 100 }] },
+        ];
+        layout.styles.photo.border.width = 2;
         layout.styles.head.bg.gradient.angle = 30;
         const m = L.mirrorLayout(layout, PAGE);
 
@@ -188,11 +192,16 @@ export default async function (t, load) {
             delete c.styles.ev.align;
             delete c.styles.time.align;
             delete c.styles.offsets;
+            for (const el of ['photo', 'logo', 'bg', 'specialPhoto']) delete c.styles[el].effects;
+            delete c.styles.head.bg.effects;
             return c;
         };
         assert.deepEqual(strip(m), strip(layout));
         assert.deepEqual(m.order, layout.order);
-        assert.equal(m.styles.photo.shadow.dx, 2);
+        assert.equal(m.styles.photo.border.width, 2);
+        // layer effects follow the composition: the shadow's light and the gradient's centre flip
+        assert.deepEqual(m.styles.photo.effects.map((e) => [e.angle, e.x]), [[60, undefined], [150, 0]]);
+        assert.deepEqual(L.mirrorLayout(m, PAGE).styles.photo.effects, layout.styles.photo.effects, 'mirroring twice is the identity');
         assert.equal(m.styles.hol.wrapWidth, 40);
         assert.equal(m.styles.cal.iconCellW, 9);
         assert.deepEqual(m.styles.ev.box, { x: 1, y: 2, w: 30, h: 6 });

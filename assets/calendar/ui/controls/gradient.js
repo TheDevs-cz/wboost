@@ -1,12 +1,13 @@
 // Gradient editor (handoff §6.1 "Gradient editor", map §8.8). Owner: P5a; reused wherever a `Fill` is edited.
 //
-//   gradientEditor({ value, onChange, onStart?, onCommit?, palette, path? }) → HTMLElement `.cal-gr`
+//   gradientEditor({ value, onChange, onStart?, onCommit?, palette, path?, types? }) → HTMLElement `.cal-gr`
 //
 //   value      `Fill['gradient']` = { on, type: 'linear' | 'radial', angle, stops: [{ color, opacity, pos }] }
 //              (0° = left → right, 90° = top → bottom; opacity and pos 0–100)
 //   onChange   `(gradient) => void` — always the complete next gradient (`on` and unknown keys kept)
 //   onStart / onCommit   bracket the angle slider drag (one undo step, see `bind.js`)
 //   palette    colours offered for a stop (`colorPalette(env)`)
+//   types      the Typ options (default Lineární | Kruhový; the layer effects add `reflected` Zrcadlený)
 //   path       style path of the gradient (`'bg.gradient'`) → `data-prop` hooks:
 //              `<path>.stops.<i>.color` (swatch button), `.opacity`, `.pos`, `<path>.type`, `<path>.angle`
 //
@@ -30,11 +31,10 @@ function rgba(color, opacity) {
 
 /** CSS `background` showing the gradient like the renderer draws it. */
 export function gradientCss(gradient) {
-    const stops = gradient.stops
-        .slice()
-        .sort((a, b) => a.pos - b.pos)
-        .map((s) => `${rgba(s.color, s.opacity)} ${s.pos}%`)
-        .join(', ');
+    let sorted = gradient.stops.slice().sort((a, b) => a.pos - b.pos);
+    // Zrcadlený (layer effects): the stops run from the centre outwards both ways
+    if (gradient.type === 'reflected') sorted = [...sorted.slice().reverse().map((s) => ({ ...s, pos: 50 - s.pos / 2 })), ...sorted.map((s) => ({ ...s, pos: 50 + s.pos / 2 }))];
+    const stops = sorted.map((s) => `${rgba(s.color, s.opacity)} ${s.pos}%`).join(', ');
     if (gradient.type === 'radial') return `radial-gradient(ellipse closest-side, ${stops})`;
     // CSS: 0deg = bottom → top, 90deg = left → right; ours: 0° = left → right, 90° = top → bottom
     return `linear-gradient(${(Number(gradient.angle) || 0) + 90}deg, ${stops})`;
@@ -71,7 +71,9 @@ export function swapStops(stops) {
     return stops.map((s) => ({ ...s, pos: 100 - s.pos })).reverse();
 }
 
-export function gradientEditor({ value, onChange, onStart, onCommit, palette, path }) {
+const TYPE_LABELS = { linear: 'Lineární', radial: 'Kruhový', reflected: 'Zrcadlený' };
+
+export function gradientEditor({ value, onChange, onStart, onCommit, palette, path, types = ['linear', 'radial'] }) {
     let current = value;
     let openStop = null;
     let rows = [];
@@ -90,11 +92,8 @@ export function gradientEditor({ value, onChange, onStart, onCommit, palette, pa
         label: 'Typ přechodu',
         value: current.type,
         attrs: prop('type'),
-        options: [
-            { value: 'linear', label: 'Lineární' },
-            { value: 'radial', label: 'Kruhový' },
-        ],
-        onChange: (next) => emit({ ...current, type: next === 'radial' ? 'radial' : 'linear' }),
+        options: types.map((t) => ({ value: t, label: TYPE_LABELS[t] })),
+        onChange: (next) => emit({ ...current, type: types.includes(next) ? next : 'linear' }),
     });
     const angle = sliderRow({
         label: 'Úhel',

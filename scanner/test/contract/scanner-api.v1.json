@@ -3226,14 +3226,7 @@
              "width": 0.7,
              "color": "#FFFFFF"
             },
-            "shadow": {
-             "on": false,
-             "blur": 3,
-             "opacity": 35,
-             "dx": 1.5,
-             "dy": 2,
-             "color": "#000000"
-            }
+            "effects": []
            },
            "cap": {
             "family": "Arial (Arial Italique)",
@@ -3272,7 +3265,8 @@
            },
            "logo": {
             "asset": null,
-            "fit": "contain"
+            "fit": "contain",
+            "effects": []
            },
            "head": {
             "bg": {
@@ -3299,7 +3293,8 @@
              "imageOn": false,
              "asset": null,
              "fit": "cover",
-             "imageOpacity": 100
+             "imageOpacity": 100,
+             "effects": []
             },
             "text": {
              "family": "Arial (Arial Gras Italique)",
@@ -3379,7 +3374,11 @@
             "imageOn": false,
             "asset": null,
             "fit": "cover",
-            "imageOpacity": 100
+            "imageOpacity": 100,
+            "effects": []
+           },
+           "specialPhoto": {
+            "effects": []
            },
            "cal": {
             "bg": {
@@ -3719,14 +3718,7 @@
          "width": 0.7,
          "color": "#FFFFFF"
         },
-        "shadow": {
-         "on": false,
-         "blur": 3,
-         "opacity": 35,
-         "dx": 1.5,
-         "dy": 2,
-         "color": "#000000"
-        }
+        "effects": []
        },
        "cap": {
         "family": "Arial (Arial Italique)",
@@ -3765,7 +3757,8 @@
        },
        "logo": {
         "asset": null,
-        "fit": "contain"
+        "fit": "contain",
+        "effects": []
        },
        "head": {
         "bg": {
@@ -3792,7 +3785,8 @@
          "imageOn": false,
          "asset": null,
          "fit": "cover",
-         "imageOpacity": 100
+         "imageOpacity": 100,
+         "effects": []
         },
         "text": {
          "family": "Arial (Arial Gras Italique)",
@@ -3872,7 +3866,11 @@
         "imageOn": false,
         "asset": null,
         "fit": "cover",
-        "imageOpacity": 100
+        "imageOpacity": 100,
+        "effects": []
+       },
+       "specialPhoto": {
+        "effects": []
        },
        "cal": {
         "bg": {

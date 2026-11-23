@@ -23,8 +23,9 @@ use WBoost\Web\Value\Calendar\CalendarExportVariant;
  * The REAL „Pro tisk (CMYK)“ export — node, Gotenberg's Chromium, the colour
  * pass, the PDF/X-4 frame — of a calendar that uses what carries colour: a
  * brand-coloured header, a background gradient with stop opacity, a
- * translucent kalendárium, a photo with rounded corners, border and shadow, a
- * QR picture, an event, a special page. Needs the `gotenberg` service; run
+ * translucent kalendárium, a photo with rounded corners, border and layer
+ * effects (shadow, overlays in multiply / color), a transparent logo with
+ * outline effects, a QR picture, an event, a special page. Needs the `gotenberg` service; run
  * with `vendor/bin/phpunit --group gotenberg --filter CalendarCmyk`.
  *
  * What is asserted is INK, read back through Ghostscript's CMYK device
@@ -178,6 +179,8 @@ final class CalendarCmykExportGotenbergTest extends WebTestCase
         $pictures = self::pictures($file);
         self::assertContains([600, 400, 'DeviceCMYK', 'DCTDecode'], $pictures, 'the photo: same pixels, CMYK JPEG');
         self::assertContains([116, 116, 'DeviceGray', 'FlateDecode'], $pictures, 'the QR code: black ink only');
+        self::assertContains([200, 200, 'DeviceGray', 'FlateDecode'], $pictures, 'the logo itself (all neutral → grey): its own pixels, not a filter raster');
+        self::assertCount(1, array_filter($pictures, static fn (array $p): bool => $p[3] === 'DCTDecode'), 'the photo under its effects is still the one uploaded JPEG');
 
         foreach ($pictures as $picture) {
             self::assertContains($picture[2], ['DeviceCMYK', 'DeviceGray'], 'every picture is CMYK or grey');
@@ -220,7 +223,22 @@ final class CalendarCmykExportGotenbergTest extends WebTestCase
         $photoStyle = self::node($styles, 'photo');
         $photoStyle->radius = 6;
         $photoStyle->border = ['on' => true, 'width' => 1, 'color' => '#FFFFFF'];
-        $photoStyle->shadow = ['on' => true, 'blur' => 4, 'opacity' => 45, 'dx' => 2, 'dy' => 2.5, 'color' => '#000000'];
+        // layer effects (K2): a shadow + overlays in non-normal blend modes over the JPEG photo (vector
+        // overlays, the photo stays the uploaded JPEG), and the outline effects of a transparent PNG logo
+        // (filter output = 300 ppi pictures with a soft mask) — all of it must pass the colour pass
+        $photoStyle->effects = [
+            ['kind' => 'gradient', 'on' => true, 'blend' => 'multiply', 'opacity' => 80, 'type' => 'radial', 'angle' => 90, 'scale' => 100, 'x' => 100, 'y' => 0, 'stops' => [['color' => '#000000', 'opacity' => 70, 'pos' => 0], ['color' => '#000000', 'opacity' => 0, 'pos' => 100]]],
+            ['kind' => 'gradient', 'on' => true, 'blend' => 'color', 'opacity' => 60, 'type' => 'radial', 'angle' => 90, 'scale' => 30, 'x' => 0, 'y' => 100, 'stops' => [['color' => '#C8102E', 'opacity' => 100, 'pos' => 0], ['color' => '#C8102E', 'opacity' => 0, 'pos' => 100]]],
+            ['kind' => 'dropShadow', 'on' => true, 'blend' => 'multiply', 'opacity' => 45, 'color' => '#000000', 'angle' => 120, 'distance' => 3, 'spread' => 10, 'size' => 4],
+        ];
+        $logo = self::upload($browser, self::WORKSPACE_URL . '/asset', $token, 'logo', self::circlePng(200), 'logo.png');
+        self::assertResponseIsSuccessful((string) $browser->getResponse()->getContent());
+        $logoStyle = self::node($styles, 'logo');
+        $logoStyle->asset = $logo['id'];
+        $logoStyle->effects = [
+            ['kind' => 'dropShadow', 'on' => true, 'blend' => 'normal', 'opacity' => 70, 'color' => '#000000', 'angle' => 90, 'distance' => 1, 'spread' => 20, 'size' => 3],
+            ['kind' => 'gradient', 'on' => true, 'blend' => 'screen', 'opacity' => 100, 'type' => 'linear', 'angle' => 90, 'scale' => 100, 'x' => 50, 'y' => 50, 'stops' => [['color' => '#FFD000', 'opacity' => 100, 'pos' => 0], ['color' => '#00A0E0', 'opacity' => 100, 'pos' => 100]]],
+        ];
         $styles->lines = ['on' => true, 'width' => 0.8, 'style' => 'dashed', 'color' => '#004E7C'];
         // the day numbers in pure black; the names and the day words keep the calendar's default
         // text colours (#2B2830, #6E6977 — tinted greys)
@@ -229,6 +247,7 @@ final class CalendarCmykExportGotenbergTest extends WebTestCase
         $boxes = self::node($layout, 'boxes');
         $boxes->photo = ['x' => 8, 'y' => 34, 'w' => 180, 'h' => 100];
         $boxes->qr = ['x' => 170, 'y' => 110, 'w' => 20, 'h' => 20];
+        $boxes->logo = ['x' => 14, 'y' => 40, 'w' => 20, 'h' => 20];
 
         self::save($browser, self::WORKSPACE_URL . '/save', [
             'design' => [
@@ -324,6 +343,22 @@ final class CalendarCmykExportGotenbergTest extends WebTestCase
         $image->newPseudoImage($width, $height, 'plasma:fractal');
         $image->setImageFormat('jpeg');
         $image->setImageCompressionQuality(85);
+        $bytes = $image->getImageBlob();
+        $image->clear();
+
+        return $bytes;
+    }
+
+    /** A white disc on transparency: a logo with an outline. */
+    private static function circlePng(int $size): string
+    {
+        $image = new \Imagick();
+        $image->newImage($size, $size, new \ImagickPixel('transparent'));
+        $draw = new \ImagickDraw();
+        $draw->setFillColor(new \ImagickPixel('#F4F4F4'));
+        $draw->circle($size / 2, $size / 2, $size / 2, $size * 0.1);
+        $image->drawImage($draw);
+        $image->setImageFormat('png32');
         $bytes = $image->getImageBlob();
         $image->clear();
 

@@ -89,6 +89,12 @@ export const LIMITS = Object.freeze({
     generic: { min: 0, max: 30, step: 0.5 },
     bleedMm: { min: 0, max: 10, step: 0.5 },
     photoZoom: { min: 1, max: 3, step: 0.01 },
+    // layer effects of the pictures (model/effects.js)
+    fxSize: { min: 0, max: 30, step: 0.1 },
+    fxDistance: { min: 0, max: 30, step: 0.1 },
+    fxAngle: { min: -180, max: 180, step: 1 },
+    fxScale: { min: 10, max: 150, step: 1 },
+    fxCentre: { min: -50, max: 150, step: 1 },
 });
 
 /** Wireframe colours of the prototype (`CK`). */

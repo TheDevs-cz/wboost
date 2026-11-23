@@ -24,9 +24,10 @@ import { h, switchRow } from '../dom.js';
 import { alignControl, sideControl, valignControl } from '../controls/align.js';
 import { createRefresher, getPath, styleBinding, stylesOf } from '../controls/bind.js';
 import { colorPalette, colorPicker } from '../controls/color.js';
+import { effectsEditor } from '../controls/effects.js';
 import { fillPanel } from '../controls/fill.js';
 import { limitField } from '../controls/number.js';
-import { labelled, note, pair, panelHead, panelRoot, section, setShown } from '../controls/panel.js';
+import { note, panelHead, panelRoot, section, setShown } from '../controls/panel.js';
 import { positionSection } from '../controls/position.js';
 import { textProps } from '../controls/text.js';
 import { uploadTile } from '../controls/upload.js';
@@ -63,6 +64,8 @@ function createKit(ctx, refresher) {
         text: (path) => bound(path, (b) => textProps({ value: b.get(), fonts: env.fonts, path, onChange: b.patch })),
         fill: (path, options = {}) => bound(path, (b) => fillPanel({ value: b.get(), ctx, path, ...options, onStart: b.onStart, onChange: b.onChange, onCommit: b.onCommit })),
         upload: (path, options) => bound(path, (b) => uploadTile({ value: b.get(), ctx, attrs: b.attrs, onChange: b.onChange, ...options })),
+        /** „Efekty“ of a picture — the effect list at `path` (`photo.effects`, `head.bg.effects`…). */
+        effects: (path) => bound(path, (b) => effectsEditor({ value: b.get(), palette, path, onStart: b.onStart, onChange: b.onChange, onCommit: b.onCommit })),
         /**
          * The size the place's picture should have (K7, `ui/picture-size.js`): mm with the bleed and
          * px for print — follows the box while it is moved or resized.
@@ -107,25 +110,7 @@ const PANELS = {
                     (styles) => s(styles).border.on,
                 ),
             ),
-            section(
-                'Stín',
-                kit.toggle('photo.shadow.on', 'Zobrazit stín'),
-                kit.when(
-                    h(
-                        'div',
-                        { class: 'cal-sub' },
-                        pair(
-                            labelled('Rozostření', kit.number('photo.shadow.blur', 'generic', 'mm', 'Rozostření')),
-                            labelled('Krytí', kit.number('photo.shadow.opacity', 'percent', '%', 'Krytí stínu')),
-                            labelled('Posun X', kit.number('photo.shadow.dx', 'shadowOffset', 'mm', 'Posun X')),
-                            labelled('Posun Y', kit.number('photo.shadow.dy', 'shadowOffset', 'mm', 'Posun Y')),
-                        ),
-                        h('span', { class: 'lbl' }, 'Barva stínu'),
-                        kit.color('photo.shadow.color', 'Barva stínu'),
-                    ),
-                    (styles) => s(styles).shadow.on,
-                ),
-            ),
+            section('Efekty', kit.effects('photo.effects')),
         ];
     },
 
@@ -153,6 +138,7 @@ const PANELS = {
                     (styles) => Boolean(styles.logo.asset),
                 ),
             ),
+            section('Efekty', kit.effects('logo.effects')),
         ];
     },
 
@@ -194,6 +180,7 @@ const PANELS = {
                 },
             }),
             kit.size('head', 'Obrázek do hlavičky: '),
+            kit.when(section('Efekty obrázku', kit.effects('head.bg.effects')), (styles) => styles.head.bg.imageOn),
         ];
     },
 
@@ -217,7 +204,7 @@ const PANELS = {
     },
 
     bg(kit) {
-        return [kit.fill('bg', { label: null, image: { captionSet: 'Výchozí fotka — u jednotlivých stran ji lze vyměnit' } }), kit.when(kit.size('bg', 'Obrázek na pozadí: '), (styles) => Boolean(styles.bg.imageOn))];
+        return [kit.fill('bg', { label: null, image: { captionSet: 'Výchozí fotka — u jednotlivých stran ji lze vyměnit' } }), kit.when(kit.size('bg', 'Obrázek na pozadí: '), (styles) => Boolean(styles.bg.imageOn)), kit.when(section('Efekty obrázku', kit.effects('bg.effects')), (styles) => styles.bg.imageOn)];
     },
 };
 

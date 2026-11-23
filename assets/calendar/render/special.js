@@ -30,7 +30,8 @@ import { daysInMonth, iso, weekday } from '../generate/dates.js';
 import { createDayContext, wasteKindColor } from '../generate/day.js';
 import { wasteKindsOn } from '../generate/waste.js';
 import { wrapText } from './measure.js';
-import { attrs, esc, fillLayers, imageIn, num, photoIn, rect, slotPlaceholder, textEl } from './svg.js';
+import { attrs, esc, fillLayers, imageIn, num, photoWithEffects, pictureShape, rect, slotPlaceholder, textEl } from './svg.js';
+import { drawnRect, withEffects } from './effects.js';
 
 const DESIGN_W = 1000;
 const DESIGN_H = 468;
@@ -219,14 +220,20 @@ function lines(c, x, y, w, n, gap = 19) {
 /** The photo of a page in its box, or the grey slot while it is missing (nothing with `placeholders: 'none'`). */
 function pagePhoto(c, box, photo, label, id, radius = 0) {
     const asset = photo ? c.assets[photo.asset] : null;
-    if (asset) return `<g data-el="page-photo">${photoIn(box, asset, photo, radius, c.opts, `${c.opts.idPrefix}-${id}`)}</g>`;
-    return c.placeholders ? `<g data-el="page-photo" data-empty="1">${slotPlaceholder(box, label, { radius })}</g>` : '';
+    const effects = c.styles.specialPhoto ? c.styles.specialPhoto.effects : [];
+    if (asset) return `<g data-el="page-photo">${photoWithEffects(box, asset, photo, radius, c.opts, `${c.opts.idPrefix}-${id}`, effects)}</g>`;
+    if (!c.placeholders) return '';
+    return `<g data-el="page-photo" data-empty="1">${withEffects(effects, { type: 'rect', box, radius }, slotPlaceholder(box, label, { radius }), `${c.opts.idPrefix}-${id}-fx`)}</g>`;
 }
 
 /** The logo of the style in a square (mm), or a dashed box while the style has none. */
 function logoIn(c, box) {
     const asset = c.styles.logo && c.styles.logo.asset ? c.assets[c.styles.logo.asset] : null;
-    if (asset) return `<g data-el="page-logo">${imageIn(box, asset, 'contain', 100, c.opts)}</g>`;
+    if (asset) {
+        const picture = imageIn(box, asset, 'contain', 100, c.opts);
+        const shape = pictureShape(asset, drawnRect(box, asset, 'contain'), 0, picture);
+        return `<g data-el="page-logo">${withEffects(c.styles.logo.effects, shape, picture, `${c.opts.idPrefix}-logo-fx`)}</g>`;
+    }
     if (!c.placeholders) return '';
     const dash = `${num(5 * c.u)} ${num(4 * c.u)}`;
     const size = Math.min(12 * c.u, box.w * 0.22);

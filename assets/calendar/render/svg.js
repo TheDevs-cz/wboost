@@ -2,6 +2,8 @@
 
 import { COLORS, ptToMm } from '../model/defaults.js';
 import { cssFont } from '../model/fonts.js';
+// (effects.js imports the string helpers of this file back — a cycle of call-time uses only)
+import { drawnRect, mayBeTransparent, withEffects } from './effects.js';
 
 const ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 
@@ -114,7 +116,9 @@ export function fillLayers(box, fill, imageAsset, opts, idPrefix) {
     if (fill.imageOn) {
         if (imageAsset) {
             const id = `${idPrefix}-c`;
-            out += `<defs><clipPath id="${esc(id)}">${rect(box)}</clipPath></defs><g clip-path="url(#${esc(id)})">${imageIn(box, imageAsset, fill.fit, fill.imageOpacity, opts)}</g>`;
+            const body = `<g clip-path="url(#${esc(id)})">${imageIn(box, imageAsset, fill.fit, fill.imageOpacity, opts)}</g>`;
+            const picture = `<defs><clipPath id="${esc(id)}">${rect(box)}</clipPath></defs>${body}`;
+            out += withEffects(fill.effects, pictureShape(imageAsset, drawnRect(box, imageAsset, fill.fit), 0, body), picture, `${idPrefix}-fx`);
         } else if (opts && opts.slotLabel && opts.placeholders !== 'none') {
             out += slotPlaceholder(box, opts.slotLabel);
         }
@@ -122,10 +126,31 @@ export function fillLayers(box, fill, imageAsset, opts, idPrefix) {
     return out;
 }
 
+/**
+ * The shape the layer effects of a picture follow (render/effects.js): its rectangle, or — for a
+ * picture that may be transparent — its outline, painted once more by `copy` (markup without defs).
+ */
+export function pictureShape(asset, box, radius, copy) {
+    return mayBeTransparent(asset) ? { type: 'alpha', box, copy } : { type: 'rect', box, radius: radius || 0 };
+}
+
+/** A photo cropped into a frame (`photoIn`) with the layer effects of `effects` around it. */
+export function photoWithEffects(box, asset, crop, radius, opts, idPrefix, effects) {
+    const parts = photoParts(box, asset, crop, radius, opts, idPrefix);
+    if (!parts) return '';
+    return withEffects(effects, pictureShape(asset, box, radius, parts.body), parts.defs + parts.body, `${idPrefix}-fx`);
+}
+
 /** A photo cropped into a frame: cover scale × zoom, positioned by px / py (0–1), clipped to the radius. */
 export function photoIn(box, asset, crop, radius, opts, idPrefix) {
+    const parts = photoParts(box, asset, crop, radius, opts, idPrefix);
+    return parts ? parts.defs + parts.body : '';
+}
+
+/** `photoIn` in two parts: `defs` (the clip) and `body` (the clipped picture, which refers to it). */
+function photoParts(box, asset, crop, radius, opts, idPrefix) {
     const href = assetUrl(asset, opts && opts.quality);
-    if (!href) return '';
+    if (!href) return null;
     const id = `${idPrefix}-p`;
     const zoom = Math.max(1, Number(crop && crop.zoom) || 1);
     const px = crop && Number.isFinite(crop.px) ? crop.px : 0.5;
@@ -139,5 +164,5 @@ export function photoIn(box, asset, crop, radius, opts, idPrefix) {
     } else {
         image = `<image href="${esc(href)}" x="${num(box.x)}" y="${num(box.y)}" width="${num(box.w)}" height="${num(box.h)}" preserveAspectRatio="xMidYMid slice"/>`;
     }
-    return `<defs><clipPath id="${esc(id)}">${rect(box, { rx: radius || null })}</clipPath></defs><g clip-path="url(#${esc(id)})">${image}</g>`;
+    return { defs: `<defs><clipPath id="${esc(id)}">${rect(box, { rx: radius || null })}</clipPath></defs>`, body: `<g clip-path="url(#${esc(id)})">${image}</g>` };
 }

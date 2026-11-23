@@ -326,9 +326,10 @@ Arguments are applied in this order; the call is atomic.
 | text styles `num` `numSat` `numSun` `numHol` `day` `name` `hol` `ev` `time` `shift` `placeText` `month` `wk` `cap` `head.text` | `family`, `weight`, `size`, `color` (+ `hol.wrapWidth`; `ev.align/valign/box`; `time.position/align/valign`; `shift.bgMode/bg`; `month.align/upper/pad/bg`; `wk.align/form`; `cap.align/valign/pad/bg`) |
 | `cal` | `numberSide`, `numAlign`, `dayFormat`, `dayPosition`, `dayAlign`, `satColor`, `sunColor`, `bg {color, opacity}`, `iconSize`, `iconGrid`, `iconCellW`, `iconCells`, `placeLabels`, `emptyIconSlot` |
 | `lines` | `on`, `width`, `style`, `color` |
-| fills `bg`, `head.bg`, `month.bg`, `cap.bg` | `colorOn`, `color`, `colorOpacity`, `gradient {on, type, angle, stops[{color, opacity, pos}]}`, `imageOn`, `asset`, `fit`, `imageOpacity` |
-| `photo` | `source`, `radius`, `border {on, width, color}`, `shadow {on, blur, opacity, dx, dy, color}` |
-| `logo`, `qr` | `logo {asset, fit}`, `qr {perPage, asset}` |
+| fills `bg`, `head.bg`, `month.bg`, `cap.bg` | `colorOn`, `color`, `colorOpacity`, `gradient {on, type, angle, stops[{color, opacity, pos}]}`, `imageOn`, `asset`, `fit`, `imageOpacity` (+ `effects` of the picture on `bg` and `head.bg`) |
+| `photo` | `source`, `radius`, `border {on, width, color}`, `effects` |
+| `logo`, `qr`, `specialPhoto` | `logo {asset, fit, effects}`, `qr {perPage, asset}`, `specialPhoto {effects}` (the photos of the cover, intro and contacts pages) |
+| `effects` (of `photo`, `logo`, `head.bg`, `bg`, `specialPhoto`) | a LIST sent whole, `[]` = none, missing keys = defaults: `{kind: "dropShadow", on, blend, opacity, color, angle, distance, spread, size}` (angle = the light angle °, 120 = shadow down right; distance / size mm, spread %) · `{kind: "gradient", on, blend, opacity, type, angle, scale, x, y, stops[{color, opacity, pos}]}` (an overlay, several allowed; x / y = centre in % of the picture, 100 / 0 = top right; scale 10–150 %). The first effect of a kind is its top one; shadows under the picture, gradients over it |
 | `moon` | `color`, `size`, `valign`, `phases[4]`, `icons[4]` |
 | `icons` | `order` (of `waste`, `moon`, `ev`, `time`, `season`), `ev {name, asset, perEvent}`, `time {asset, color}`, `season {mode, asset, assets[4], color}` |
 | `waste.kinds`, `offsets` | maps keyed by waste kind id / part name: an entry merges one level, `null` removes it |
@@ -339,12 +340,14 @@ Enumerations: `align` `start`\|`middle`\|`end`; `valign` `top`\|`middle`\|`botto
 `solid`\|`dash`\|`dot`; `wk.form` `a`\|`b`\|`c`; `time.position` `text`\|`sep`;
 `shift.bgMode` `alt`\|`all`\|`none`; `fit` `cover`\|`contain`; `photo.source`
 `client`\|`self`; `icons.season.mode` `four`\|`one`; `gradient.type`
-`linear`\|`radial`.
+`linear`\|`radial`; effect `type` `linear`\|`radial`\|`reflected`; effect
+`blend` `normal`\|`darken`\|`multiply`\|`color-burn`\|`lighten`\|`screen`\|`color-dodge`\|`overlay`\|`soft-light`\|`hard-light`\|`difference`\|`exclusion`\|`hue`\|`saturation`\|`color`\|`luminosity`
+(only the modes a PDF keeps).
 
 Answer: the `manage_calendar` shape. Reason codes: `invalid_calendar_id`,
 `calendar_not_found`, `designer_only`, `nothing_to_do`, `unknown_preset`,
 `preset_type_mismatch`, `no_layout`, `unknown_box`, `invalid_box`,
-`not_hideable`, `invalid_order`, `unknown_style_key`, `invalid_style_value`,
+`not_hideable`, `invalid_order`, `unknown_style_key`, `invalid_style_value`, `invalid_effect`,
 `unknown_font`, `invalid_color`, `invalid_design`, `model_unavailable`.
 
 ## `upload_calendar_asset(calendarId, kind, fileBase64, filename)`

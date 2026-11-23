@@ -116,10 +116,23 @@ readonly final class SetCalendarLayoutTool
      * - Fills — bg (page background), head.bg, month.bg, cap.bg: {colorOn,
      *   color, colorOpacity, gradient {on, type "linear"|"radial", angle,
      *   stops [{color, opacity, pos 0–100}, …]}, imageOn, asset (an uploaded
-     *   asset id|null), fit "cover"|"contain", imageOpacity}.
+     *   asset id|null), fit "cover"|"contain", imageOpacity}; bg and head.bg
+     *   also carry effects (of their picture).
      * - photo: {source "client"|"self", radius, border {on, width, color},
-     *   shadow {on, blur, opacity, dx, dy, color}}; logo: {asset, fit}; qr:
-     *   {perPage, asset}.
+     *   effects}; logo: {asset, fit, effects}; specialPhoto: {effects} (the
+     *   photos of the cover, intro and contacts pages); qr: {perPage, asset}.
+     * - effects — Photoshop-like layer effects of a picture, a LIST sent whole
+     *   ([] = none; missing keys take the defaults): {kind "dropShadow", on,
+     *   blend, opacity %, color, angle (the LIGHT angle °: 120 = shadow down
+     *   right), distance mm, spread %, size mm} and {kind "gradient" (an
+     *   overlay; several allowed), on, blend, opacity %, type
+     *   "linear"|"radial"|"reflected", angle (0 = left → right, 90 = top →
+     *   bottom), scale % (10–150), x / y = the centre in % of the picture
+     *   (100 / 0 = top right corner), stops [{color, opacity, pos}, 2–8]}.
+     *   blend is one of normal, darken, multiply, color-burn, lighten, screen,
+     *   color-dodge, overlay, soft-light, hard-light, difference, exclusion,
+     *   hue, saturation, color, luminosity. The first effect of a kind is its
+     *   top one; shadows lie under the picture, gradients over it.
      * - moon: {color, size (mm 1.5–9), valign, phases [new, first quarter,
      *   full, last quarter] booleans, icons [asset|null ×4]}.
      * - icons: {order — the icon order in a day row, a list out of "waste",
@@ -145,7 +158,7 @@ readonly final class SetCalendarLayoutTool
      * Errors end with a reason code: invalid_calendar_id, calendar_not_found,
      * designer_only, nothing_to_do, unknown_preset, preset_type_mismatch,
      * no_layout, unknown_box, invalid_box, not_hideable, invalid_order,
-     * unknown_style_key, invalid_style_value, unknown_font, invalid_color,
+     * unknown_style_key, invalid_style_value, invalid_effect, unknown_font, invalid_color,
      * invalid_design (the server's rule, quoted in Czech — e.g. an asset id
      * that is not uploaded to this calendar), model_unavailable (retry).
      *

@@ -35,10 +35,10 @@ use WBoost\Web\Mcp\Response\SkillVersionResponse;
  */
 final class SkillRelease
 {
-    public const string VERSION = '0.5.4';
+    public const string VERSION = '0.6.0';
 
     /** One or two lines: what the CURRENT version adds over the previous one. */
-    public const string WHATS_NEW = 'Control characters are refused: a design document (`preview_design`, `set_design`) may hold none but line breaks and tabs, and a fill (`render_variant`, `export_variant`, `export_document`) may not hold U+0000 — both name the place, strip the character and call again.';
+    public const string WHATS_NEW = 'Calendar pictures get Photoshop-like layer effects: `set_calendar_layout` styles `photo.effects`, `logo.effects`, `head.bg.effects`, `bg.effects`, `specialPhoto.effects` (drop shadows, several gradient overlays, 16 blend modes); `photo.shadow` is gone.';
 
     /** A stable download of the latest released skill folder, built by `.github/workflows/plugin-release.yml`. */
     public const string ZIP_URL = 'https://github.com/TheDevs-cz/wboost/releases/latest/download/wboost-skill.zip';

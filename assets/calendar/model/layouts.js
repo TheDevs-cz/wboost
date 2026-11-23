@@ -3,6 +3,7 @@
 import { COLORS, DEFAULT_PAGE, roundMm } from './defaults.js';
 import { DEFAULT_ORDER, HIDEABLE_BOXES } from './elements.js';
 import { fontNames, nearestFace } from './fonts.js';
+import { mirrorEffects } from './effects.js';
 
 export const FALLBACK_ACCENT = '#2E5A8C';
 
@@ -55,15 +56,16 @@ export function defaultStyles(env = {}) {
             source: 'client',
             radius: 0,
             border: { on: false, width: 0.7, color: '#FFFFFF' },
-            shadow: { on: false, blur: 3, opacity: 35, dx: 1.5, dy: 2, color: '#000000' },
+            effects: [],
         },
         cap: { ...text(400, 9, mut), align: 'start', valign: 'middle', pad: 3, bg: fill({ colorOn: true, color: COLORS.ph2 }) },
-        logo: { asset: null, fit: 'contain' },
-        head: { bg: fill({ colorOn: true, color: COLORS.band, stops: [COLORS.band, COLORS.paper] }), text: text(800, 15, ink) },
+        logo: { asset: null, fit: 'contain', effects: [] },
+        head: { bg: fill({ colorOn: true, color: COLORS.band, stops: [COLORS.band, COLORS.paper], effects: [] }), text: text(800, 15, ink) },
         month: { ...text(800, 15, ink), align: 'end', upper: true, pad: 3, bg: fill({ colorOn: false, color: '#FFFFFF', stops: ['#FFFFFF', COLORS.band] }) },
         wk: { ...text(400, 9.5, mut), align: 'end', form: 'a' },
         qr: { perPage: false, asset: null },
-        bg: fill({ colorOn: true, color: COLORS.paper, stops: [COLORS.paper, COLORS.band] }),
+        bg: fill({ colorOn: true, color: COLORS.paper, stops: [COLORS.paper, COLORS.band], effects: [] }),
+        specialPhoto: { effects: [] },
         cal: {
             bg: { color: null, opacity: 100 },
             numBg: { color: null, opacity: 100 },
@@ -246,6 +248,12 @@ export function mirrorLayout(layout, page) {
             month: { ...styles.month, align: flipAlign(styles.month.align) },
             wk: { ...styles.wk, align: flipAlign(styles.wk.align) },
             cap: { ...styles.cap, align: flipAlign(styles.cap.align) },
+            // the layer effects follow the composition (a darkened corner stays with the logo)
+            photo: { ...styles.photo, effects: mirrorEffects(styles.photo.effects) },
+            logo: { ...styles.logo, effects: mirrorEffects(styles.logo.effects) },
+            head: { ...styles.head, bg: { ...styles.head.bg, effects: mirrorEffects(styles.head.bg.effects) } },
+            bg: { ...styles.bg, effects: mirrorEffects(styles.bg.effects) },
+            specialPhoto: { ...styles.specialPhoto, effects: mirrorEffects(styles.specialPhoto && styles.specialPhoto.effects) },
         },
     };
 }

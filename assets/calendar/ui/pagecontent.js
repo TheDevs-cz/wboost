@@ -34,6 +34,9 @@ import { CONTENT_LIMITS, newId, nextPos, pageContentOf, pageGroupsOf, pageSetupO
 import { LIMITS } from '../model/defaults.js';
 import { COVER_LAYOUTS, specialPhotoBox } from '../render/special.js';
 import { checkRow, h, icon, segmented } from './dom.js';
+import { styleBinding } from './controls/bind.js';
+import { colorPalette } from './controls/color.js';
+import { effectsEditor } from './controls/effects.js';
 import { renderThumb } from './thumb.js';
 import { fileTile, uploadAsset } from './tools/photos.js';
 
@@ -252,7 +255,19 @@ export function mountPageContent(root, ctx, opts) {
             surface.addEventListener('pointercancel', up);
         });
         syncs.push(() => paint(item().photo));
-        return h('div', { class: 'cal-p4s' }, h('span', { class: 'lbl' }, label), h('div', { class: 'cal-ftr' }, tile, h('div', { class: 'cal-ftb' }, hint)), surface, controls);
+        return h('div', { class: 'cal-p4s' }, h('span', { class: 'lbl' }, label), h('div', { class: 'cal-ftr' }, tile, h('div', { class: 'cal-ftb' }, hint)), surface, controls, designer ? photoEffects() : null);
+    }
+
+    /**
+     * „Efekty fotky“ — the layer effects of the photos of the cover, the intro and the contacts page:
+     * one list in the style (`styles.specialPhoto.effects`), designer only, undoable like every style.
+     */
+    function photoEffects() {
+        if (!store.getState().doc.design.layout) return null;
+        const binding = styleBinding(store, 'specialPhoto.effects');
+        const editor = effectsEditor({ value: binding.get(), palette: colorPalette(env), path: 'specialPhoto.effects', onStart: binding.onStart, onChange: binding.onChange, onCommit: binding.onCommit });
+        syncs.push(() => editor.setValue(binding.get()));
+        return h('div', { class: 'cal-pcfx' }, h('span', { class: 'lbl' }, 'Efekty fotky'), h('span', { class: 'cap' }, 'Platí pro fotky titulní strany, úvodu a kontaktů.'), editor);
     }
 
     function setupSegment(name, label, options) {

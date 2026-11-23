@@ -69,14 +69,7 @@
                 "width": 0.7,
                 "color": "#FFFFFF"
             },
-            "shadow": {
-                "on": false,
-                "blur": 3,
-                "opacity": 35,
-                "dx": 1.5,
-                "dy": 2,
-                "color": "#000000"
-            }
+            "effects": []
         },
         "cap": {
             "family": null,
@@ -115,7 +108,8 @@
         },
         "logo": {
             "asset": null,
-            "fit": "contain"
+            "fit": "contain",
+            "effects": []
         },
         "head": {
             "bg": {
@@ -142,7 +136,8 @@
                 "imageOn": false,
                 "asset": null,
                 "fit": "cover",
-                "imageOpacity": 100
+                "imageOpacity": 100,
+                "effects": []
             },
             "text": {
                 "family": null,
@@ -222,7 +217,11 @@
             "imageOn": false,
             "asset": null,
             "fit": "cover",
-            "imageOpacity": 100
+            "imageOpacity": 100,
+            "effects": []
+        },
+        "specialPhoto": {
+            "effects": []
         },
         "cal": {
             "bg": {

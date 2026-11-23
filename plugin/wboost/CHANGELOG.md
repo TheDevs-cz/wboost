@@ -5,6 +5,26 @@ every deploy. When the server is newer than your skill, Claude tells you once
 per session how to update (see the README). Versions follow `x.y.z`: a new or
 changed tool or parameter is at least a minor bump.
 
+## 0.6.0 — 2026-11-24
+
+**Layer effects on calendar pictures** (no new tool or parameter; the calendar
+layout styles changed).
+
+New parameters and behaviour
+- `set_calendar_layout` `styles`: every picture of a calendar takes a list of
+  Photoshop-like layer effects — `photo.effects` (the week photo),
+  `logo.effects` (the logo, also on the cover and back), `head.bg.effects` /
+  `bg.effects` (the header / background picture, a page's own one too) and
+  `specialPhoto.effects` (the photos of the cover, intro and contacts pages).
+  Kinds: `dropShadow` (Vržený stín: blend, opacity, color, light angle,
+  distance, spread, size) and `gradient` (Překrytí přechodem, several per
+  picture: blend, opacity, type linear / radial / reflected, angle, scale,
+  centre x / y, stops). 16 blend modes — the ones a PDF keeps; a wrong kind,
+  key or blend is refused with `invalid_effect`.
+- `styles.photo.shadow` is gone: a stored shadow became the first drop shadow
+  of `photo.effects`; sending `photo.shadow` is refused with a pointer to the
+  new key.
+
 ## 0.5.4 — 2026-11-14
 
 **Control characters are refused** (no new tool or parameter).
