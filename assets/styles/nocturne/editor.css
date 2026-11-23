@@ -228,6 +228,8 @@ a.ed-sync:hover { color: var(--text); }
 /* clean preview (lavender eye): every helper overlay off at once */
 .ed.ed-is-clean .editable-outline,
 .ed.ed-is-clean .container-zone,
+.ed.ed-is-clean .container-row-ghost,
+.ed.ed-is-clean .container-row-limit,
 .ed.ed-is-clean .canvas-ruler,
 .ed.ed-is-clean .canvas-ruler-corner,
 .ed.ed-is-clean .canvas-guide,
