@@ -205,6 +205,8 @@ final class CalendarScanTest extends WebTestCase
         self::assertSame(['logo', 'header'], array_column(self::listOf($proposal['pictures']), 'slot'));
         self::assertSame([['code' => 'ornament', 'box' => [10, 600, 300, 40]]], $proposal['notExpressible']);
         self::assertSame([['code' => 'ratio_adapted', 'w' => 297, 'h' => 150]], $proposal['notes']);
+        // Names printed in further languages beside Czech (K16): known codes, in order, once each.
+        self::assertSame(['pl', 'en'], $proposal['languages']);
         self::assertSame('nearest_available', self::dig($proposal, 'fonts', 0, 'pattern'));
         self::assertNull($proposal['applied']);
     }

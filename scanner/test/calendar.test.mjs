@@ -210,8 +210,10 @@ test('report: closed lists, measured boxes, the kept candidate by measurement; a
         needsUpload: [{ slot: 'logo' }, { slot: 'header' }, { slot: 'sticker' }],
         featuresOffered: [{ key: 'captions' }, { key: 'nonsense' }],
         notExpressible: [{ code: 'ornament', x: 300, y: 0, w: 10, h: 145 }, { code: 'free text from the picture', x: 0, y: 0, w: 1, h: 1 }],
+        languages: [{ code: 'pl' }, { code: 'en' }, { code: 'pl' }, { code: 'klingon' }, { code: 'cs' }],
     } });
     assert.equal(report.status, 'proposed'); assert.equal(report.candidate, 1, 'the better-measured candidate is kept');
+    assert.deepEqual(report.languages, [{ code: 'pl' }, { code: 'en' }], 'languages beside Czech: the closed list, in order, once each');
     assert.equal(report.measures.keepBest.agrees, false);
     assert.deepEqual(report.pageBox, [40, 40, 1240, 580]);
     assert.deepEqual(report.photoBox, [40, 148 + 0, 868, 472], 'the photo box of the kept layout, clipped to the page, in source px');
@@ -227,10 +229,11 @@ test('report: closed lists, measured boxes, the kept candidate by measurement; a
     // the app's contract (AiScanReportValidator::CALENDAR_SCALARS / CALENDAR_LISTS)
     for (const k of ['status', 'candidate', 'unfinished', 'type', 'pageBox', 'photoBox', 'recognised', 'needsUpload', 'featuresOffered', 'fonts', 'notExpressible', 'notes']) assert.ok(k in report, k);
     const text = JSON.stringify(report);
-    assert.ok(!/free text from the picture|sticker|nonsense/.test(text), 'nothing outside the closed lists reaches the report');
+    assert.ok(!/free text from the picture|sticker|nonsense|klingon/.test(text), 'nothing outside the closed lists reaches the report');
     // alone: no finish at all
     const alone = await buildCalendarReport({ build: b, finish: null, unfinished: true, stopReason: 'turns' });
     assert.equal(alone.unfinished, true); assert.equal(alone.stopReason, 'turns');
+    assert.deepEqual(alone.languages, [], 'no finish: no languages');
     assert.equal(Object.fromEntries(alone.recognised.map((r) => [r.element, r.state])).logo, 'absent');
     assert.equal(shown({ boxes: { wk: { x: 0 } } }, { weekNumbers: false }, 'wk'), false);
 });

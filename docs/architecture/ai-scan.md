@@ -695,6 +695,13 @@ of a picture reaches a column the screens read:
   (`element`, `state`), `needsUpload` (`slot`), `featuresOffered` (`key`),
   `fonts` (`group`, `pattern`, `face`), `notExpressible` (`code`, `box`),
   `notes` (`code`) — codes, keys and boxes only; extras under the same rule.
+  Optional (since K16, 2026-11-23 — a report of an older scanner has none):
+  `languages` (`code`) — the further languages the page prints its month /
+  weekday / week-label names in beside Czech, in printed order; the model's
+  word inside the closed list (`LANGUAGES` of `calendar-report.mjs` =
+  `CalendarScanProposalView::LANGUAGES` = the enum of
+  `finish.calendar.schema.json`). It rides as an extra (codes only) — the
+  validator does not require it.
 
 The design document of each candidate is stored as sent — it IS the proposal.
 
@@ -1409,6 +1416,17 @@ in node, the browser draws the proposal with the calendar's own renderer.
   keyed by digits and the column is read as PHP arrays. `finish` copies the
   kept one into `proposal.document`.
 - **Finish** — the calendar report (above).
+- **What the instructions teach beyond the vocabulary** (`system.calendar.md`,
+  K16 2026-11-23, measured on 5 pages before / after — FEEDBACK K16): a
+  tinted column behind the day numbers is `styles.cal.numBg` (with the
+  frame's edge on the page edge when the band runs off the page — the
+  band follows `numberBandOf`), not an `ornament`; the caption box is the
+  PLATE's edges (several source lines are one box, the text wraps), a
+  plate-less caption gets the room a caption may take, not its words'
+  width; names in further languages are rebuilt from the whole line and
+  named in `languages`. These are prompt + schema only (they travel in the
+  claim's definition and deploy with the app); `languages` reaches the
+  report only from a scanner built with the K16 `calendar-report.mjs`.
 - Tools of a kind may be per-kind variants: an entry of `tools.json` with an
   `id` (`scan_crop.calendar`) named in `kinds.calendar.tools`; the scanner
   resolves by `id`, then by name. Template entries are unchanged.
@@ -1525,7 +1543,9 @@ off and never touches content.
 `hasLayout`, `preset`, `layout`, `recognised[{element, state, kept}]`,
 `features[{key}]`, `pictures[{slot, picture {url, name, width, height} | null,
 current}]`, `fonts[{group, pattern, face, closeness}]`, `projectFaces`,
-`notExpressible[{code, box}]`, `notes[{code, w?, h?}]`, `approximate`,
+`notExpressible[{code, box}]`, `notes[{code, w?, h?}]`, `languages` (ISO 639-1
+codes beside Czech, `[]` when none — the calendar cannot print them yet; K15b
+switches them on), `approximate`,
 `rating` (null | 1 | -1 — „Jak se sken povedl?“), `applied` (null until accepted: `{restoreUntil, restorable, restored, superseded, changed,
 features}` — `restorable`: this scan is the one its calendar can restore now; `superseded`: a scan applied later goes first).
 

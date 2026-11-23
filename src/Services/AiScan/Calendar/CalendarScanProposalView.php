@@ -25,6 +25,9 @@ use WBoost\Web\Value\AiScan\AiScanStatus;
  * - `pictures[]` — the places for a picture: what is held for each, or that
  *   the calendar's own picture stays;
  * - `fonts[]`, `notExpressible[]` (code + source-pixel box), `notes[]`;
+ * - `languages[]` — ISO 639-1 codes of the languages the page prints its
+ *   month / weekday / week-label names in BESIDE Czech, in printed order
+ *   (the calendar cannot print them yet — K15b switches them on);
  * - `pageBox` / `photoBox` — where the page and its photo are in the
  *   uploaded picture (source pixels), for the browser's preview only;
  * - `builtFor` (`week` | `fortnight`), `typeChanged` — the calendar was
@@ -34,6 +37,9 @@ use WBoost\Web\Value\AiScan\AiScanStatus;
  */
 final readonly class CalendarScanProposalView
 {
+    /** `languages` of `finish.calendar.schema.json` and the scanner's `LANGUAGES` (calendar-report.mjs). */
+    public const array LANGUAGES = ['sk', 'pl', 'de', 'en', 'hu', 'uk', 'ru', 'fr', 'it', 'es'];
+
     public function __construct(
         private UrlGeneratorInterface $urlGenerator,
         private GetFonts $getFonts,
@@ -134,6 +140,7 @@ final readonly class CalendarScanProposalView
             'projectFaces' => $faces,
             'notExpressible' => self::coded($report['notExpressible'] ?? null, CalendarScanProposal::NOT_EXPRESSIBLE, true),
             'notes' => self::coded($report['notes'] ?? null, CalendarScanProposal::NOTES, false),
+            'languages' => self::languages($report['languages'] ?? null),
             'approximate' => $scan->approximate,
             'rating' => $scan->rating,
             'applied' => $applied,
@@ -195,6 +202,24 @@ final readonly class CalendarScanProposalView
         }
 
         return $out;
+    }
+
+    /**
+     * The report's `languages` inside the closed list, in order, once each.
+     *
+     * @return list<string>
+     */
+    private static function languages(mixed $items): array
+    {
+        $codes = [];
+
+        foreach (self::coded($items, self::LANGUAGES, false) as $row) {
+            if (is_string($row['code'] ?? null)) {
+                $codes[] = $row['code'];
+            }
+        }
+
+        return array_values(array_unique($codes));
     }
 
     /**

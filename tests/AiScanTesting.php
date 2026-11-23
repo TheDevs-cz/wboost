@@ -484,6 +484,8 @@ trait AiScanTesting
             'fonts' => [['group' => 'num', 'pattern' => 'nearest_available', 'face' => self::FACE, 'closeness' => 0.61]],
             'notExpressible' => [['code' => 'ornament', 'box' => [10, 600, 300, 40]]],
             'notes' => [['code' => 'ratio_adapted', 'w' => 297, 'h' => 150]],
+            // the scanner passes the model's word inside its closed list; the app filters again
+            'languages' => [['code' => 'pl'], ['code' => 'en'], ['code' => 'klingon'], ['code' => 'pl']],
             'measures' => ['mae' => 0.031],
         ];
     }

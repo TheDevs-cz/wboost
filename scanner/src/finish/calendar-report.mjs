@@ -12,6 +12,8 @@ export const SLOTS = ['logo', 'header', 'background'];
 export const NOT_EXPRESSIBLE = ['ornament', 'header_text', 'second_photo', 'more_logos', 'days_in_grid', 'rotated_text', 'month_colours', 'multilingual_names'];
 /** Text styles the review names a face for, in the order it lists them. */
 export const FONT_GROUPS = ['num', 'day', 'name', 'month', 'wk', 'cap'];
+/** Languages a page may print its names in BESIDE Czech (`languages` of finish.calendar.schema.json, the app's CalendarScanProposalView::LANGUAGES). */
+export const LANGUAGES = ['sk', 'pl', 'de', 'en', 'hu', 'uk', 'ru', 'fr', 'it', 'es'];
 
 const WEEKDAYS = ['pondeli', 'utery', 'streda', 'ctvrtek', 'patek', 'sobota', 'nedele'];
 const list = (v) => (Array.isArray(v) ? v.filter((x) => x && typeof x === 'object') : []);
@@ -112,6 +114,9 @@ export async function buildCalendarReport({ build, finish = null, unfinished = f
         .filter((slot) => slot !== 'logo' || shown(layout, features, 'logo'))
         .map((slot) => ({ slot }));
 
+    // the model's word inside the closed list, in its order, once each (nothing measures it)
+    const languages = [...new Set(list(finish?.languages).map((l) => l.code).filter((c) => LANGUAGES.includes(c)))].map((code) => ({ code }));
+
     const featuresOffered = [...new Set([...list(finish?.featuresOffered).map((f) => f.key), ...(kept.candidate.features ?? [])].filter((k) => FEATURES.includes(k)))].map((key) => ({ key }));
 
     // ---- fonts: one row per text style the page draws, from measurements — never from the model's say-so.
@@ -187,7 +192,7 @@ export async function buildCalendarReport({ build, finish = null, unfinished = f
         pageBox: [build.pageBox.x, build.pageBox.y, build.pageBox.w, build.pageBox.h],
         photoBox: photo,
         preset: kept.preset,
-        recognised, needsUpload, featuresOffered, fonts, notExpressible, notes,
+        recognised, needsUpload, featuresOffered, fonts, notExpressible, notes, languages,
         measures: {
             keepBest: { by: kb.by, agrees: kb.agrees, modelPreferred: kb.modelPreferred, commonShare: kb.commonShare, scores: kb.scores.map((s) => ({ candidate: s.candidate, mae: s.mae, commonMae: s.commonMae })) },
             mae: kept.mae, pictureShare: kept.pictureShare, candidates: build.candidates.length, rejections: build.attempts.filter((a) => !a.rendered).length,

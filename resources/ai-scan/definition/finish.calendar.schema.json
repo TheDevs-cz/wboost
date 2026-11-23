@@ -135,6 +135,33 @@
         ],
         "additionalProperties": false
       }
+    },
+    "languages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "sk",
+              "pl",
+              "de",
+              "en",
+              "hu",
+              "uk",
+              "ru",
+              "fr",
+              "it",
+              "es"
+            ]
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "additionalProperties": false
+      }
     }
   },
   "required": [
@@ -144,7 +171,8 @@
     "recognised",
     "needsUpload",
     "featuresOffered",
-    "notExpressible"
+    "notExpressible",
+    "languages"
   ],
   "additionalProperties": false
 }
