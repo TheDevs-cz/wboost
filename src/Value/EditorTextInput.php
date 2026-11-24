@@ -184,7 +184,7 @@ readonly final class EditorTextInput
      * caller is responsible for stamping the matching id onto the canvas
      * object on the next save.
      *
-     * @param array{inputId?: string, name: null|string, maxLength: null|int, locked: bool, uppercase?: bool, description?: null|string, hidable?: bool, richText?: bool, lists?: bool, listBullet?: null|string, listBulletImage?: null|string, listIndent?: null|float|int, listItemSpacing?: null|float|int, listBlockSpacing?: null|float|int, listCheckboxes?: bool, listCheckboxImage?: null|string, listCheckboxCheckedImage?: null|string, checklist?: bool, checklistAdd?: bool, checklistRemove?: bool, checklistEditText?: bool, checklistToggle?: bool, sampleValue?: null|string, allowedFonts?: mixed, fontChoice?: mixed, allowedColors?: mixed} $data
+     * @param array{inputId?: string, name?: null|string, maxLength?: null|int, locked?: bool, uppercase?: bool, description?: null|string, hidable?: bool, richText?: bool, lists?: bool, listBullet?: null|string, listBulletImage?: null|string, listIndent?: null|float|int, listItemSpacing?: null|float|int, listBlockSpacing?: null|float|int, listCheckboxes?: bool, listCheckboxImage?: null|string, listCheckboxCheckedImage?: null|string, checklist?: bool, checklistAdd?: bool, checklistRemove?: bool, checklistEditText?: bool, checklistToggle?: bool, sampleValue?: null|string, allowedFonts?: mixed, fontChoice?: mixed, allowedColors?: mixed} $data
      */
     public static function fromArray(array $data): self
     {
@@ -223,9 +223,12 @@ readonly final class EditorTextInput
 
         return new self(
             inputId: $inputId,
-            name: $data['name'],
-            maxLength: $data['maxLength'],
-            locked: $data['locked'],
+            // The editor payload sends `name: textbox.name` — a textbox that
+            // never got a name has no key at all after JSON (undefined), which
+            // used to 500 the canvas save. Absent = no name / no limit / free.
+            name: $data['name'] ?? null,
+            maxLength: $data['maxLength'] ?? null,
+            locked: $data['locked'] ?? false,
             uppercase: $data['uppercase'] ?? false,
             description: $data['description'] ?? null,
             hidable: $data['hidable'] ?? false,
