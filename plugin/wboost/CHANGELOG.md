@@ -5,6 +5,21 @@ every deploy. When the server is newer than your skill, Claude tells you once
 per session how to update (see the README). Versions follow `x.y.z`: a new or
 changed tool or parameter is at least a minor bump.
 
+## 0.17.0 — 2026-11-24
+
+**„Navázat pod“ in the design DSL (templates).**
+
+New parameters and behaviour
+- A top-level `container` element takes `follows: {"container": "<id>",
+  "gap": 20}`: it starts `gap` px below that top-level container's ACTUAL
+  content bottom and moves up and down with it — a footer right after
+  repeatable rows. `gap` is optional (the target's uniform `gap`, else 20);
+  either end of a link may hold a single member.
+- New lint errors `follows_unknown_container`, `follows_nested`,
+  `follows_cycle`; `repeat_max_overflows` counts containers attached below
+  the rows' root.
+- `describe_variant` `containers[].follows` (`{containerId, gap}` or null).
+
 ## 0.16.0 — 2026-11-24
 
 **Own layers on chosen pages, „Prázdná strana“ (desk calendars).**

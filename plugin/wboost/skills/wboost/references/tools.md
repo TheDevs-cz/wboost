@@ -70,7 +70,7 @@ with a message saying exactly that.
 
 ## `get_context(skillVersion?)`
 
-`skillVersion`: the version your wboost skill states (`"0.16.0"`); omit it when
+`skillVersion`: the version your wboost skill states (`"0.17.0"`); omit it when
 you have no wboost skill. Changes nothing. Returns:
 
 ```jsonc
@@ -94,7 +94,7 @@ you have no wboost skill. Changes nothing. Returns:
     }]
   }],
   "skill": {                                        // the version check — see SKILL.md
-    "latestVersion": "0.16.0", "installedVersion",   // null when no skillVersion was sent
+    "latestVersion": "0.17.0", "installedVersion",   // null when no skillVersion was sent
     "status",                                       // "current" | "outdated" | "unknown"
     "message", "whatsNew",                          // null when current; tell the user once
     "updateClaudeCode", "updateClaudeAi"            // the update routes; null when current
@@ -206,7 +206,8 @@ of the canvas size a design must be authored at.
     "hidable",             // true = the WHOLE container may be hidden (see below)
     "name",                // nullable label of that hide toggle
     "repeat",              // nullable {max, min, default} — a repeatable ROW (see below)
-    "fitsRows"             // nullable — how many rows fit by designed geometry (≤ max)
+    "fitsRows",            // nullable — how many rows fit by designed geometry (≤ max)
+    "follows"              // nullable {containerId, gap} — attached below that container (see below)
   }],
 
   "richTextOptions": {     // null unless a fillable richText input exists
@@ -285,6 +286,12 @@ server's estimate of how many fit the root's `maxHeight` / the page by the
 designed geometry; the fill page stops adding rows at the smaller of `max` and
 what really fits. Fill rows with the `rows` argument (see "Fill vocabulary");
 without it a render shows `default` rows, each with the template row's sample.
+
+A container with `follows` is **attached below** another top-level container
+("Navázat pod"): it starts `gap` px below that container's actual bottom and
+moves with it — e.g. a footer under repeatable rows lands right after the
+last row you fill. Its own texts fill as usual; `fitsRows` already counts it
+(the rows fit only while the attached container stays on the page).
 
 An image slot with a `containerId` flows like a text box of fixed height: a
 long text above it pushes it down (its picture keeps its place inside the
@@ -806,7 +813,8 @@ background are both reported in one turn.
 renderer, so it stops the call before anything is drawn — and the
 repeatable-row structure codes `repeat_not_nested`, `repeat_multiple_in_parent`
 and `repeat_inside_repeat` (the saved design would silently lose that
-`repeat`). Other lint codes
+`repeat`), and the "Navázat pod" codes `follows_unknown_container`,
+`follows_nested` and `follows_cycle` (it would silently lose that `follows`). Other lint codes
 (`out_of_canvas_bounds`, `text_overlap`, `color_not_in_palette`,
 `font_size_too_small`, `container_overflow_predicted`, `container_too_few_items`,
 `container_hidable_without_name`, `image_without_asset_or_placeholder`,

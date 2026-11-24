@@ -15,6 +15,7 @@ use WBoost\Web\Mcp\Design\DesignIdentity;
 use WBoost\Web\Mcp\Design\Dsl\BackgroundElement;
 use WBoost\Web\Mcp\Design\Dsl\CanvasSpec;
 use WBoost\Web\Mcp\Design\Dsl\ContainerElement;
+use WBoost\Web\Mcp\Design\Dsl\ContainerFollowSpec;
 use WBoost\Web\Mcp\Design\Dsl\DesignDocument;
 use WBoost\Web\Mcp\Design\Dsl\DesignElement;
 use WBoost\Web\Mcp\Design\Dsl\ImageElement;
@@ -170,6 +171,55 @@ final class DesignLinterTest extends KernelTestCase
     }
 
     /**
+     * "Navázat pod": a single-text footer attached below a single-text
+     * header is a valid design — either end of a link may hold one item.
+     */
+    public function testAValidFollowsLinkWithSingleItemEndsIsClean(): void
+    {
+        $report = $this->lint(self::document([
+            self::text('headline', 80.0, 200.0, 920.0),
+            self::text('subhead', 80.0, 400.0, 920.0),
+            self::container('top', ['headline'], maxHeight: 300.0),
+            new ContainerElement('bottom', ['subhead'], [], 300.0, null, null, follows: new ContainerFollowSpec('top', 30.0)),
+        ]));
+
+        self::assertSame([], array_map(static fn (LintFinding $finding): string => $finding->code->value, $report->findings));
+    }
+
+    /**
+     * A container attached below the rows root rides on its bottom, so the
+     * rows fit only while it stays on the page — `repeat_max_overflows`
+     * counts it (≡ RepeatableRows::designedCapacity).
+     */
+    public function testRepeatMaxOverflowsCountsAContainerAttachedBelowTheRoot(): void
+    {
+        $elements = static fn (null|ContainerFollowSpec $follows): array => [
+            self::text('headline', 80.0, 200.0, 920.0),
+            self::text('first', 80.0, 700.0, 920.0),
+            self::text('second', 80.0, 811.0, 920.0),
+            new ContainerElement('row', ['headline'], [], null, null, null, repeat: ContainerRepeat::fromArray(['max' => 3])),
+            self::container('list', [], ['row'], maxHeight: 400.0),
+            new ContainerElement('footer', ['first', 'second'], [], 300.0, null, null, follows: $follows),
+        ];
+
+        // Alone, 3 rows of ~111 px fit the root's 400 px.
+        $alone = $this->lint(self::document($elements(null)));
+        self::assertSame([], $alone->withCode(LintCode::RepeatMaxOverflows));
+
+        // Attached 400 px below the root, the ~222 px footer leaves room for
+        // one extra row only: 1080 − (311 + 400 + 222) = 147 px.
+        $attached = $this->lint(self::document($elements(new ContainerFollowSpec('list', 400.0))));
+        $finding = $attached->withCode(LintCode::RepeatMaxOverflows)[0] ?? null;
+        self::assertNotNull($finding);
+        self::assertStringContainsString('only 2 fit', $finding->message);
+        self::assertStringContainsString('"footer" attached below it', $finding->message);
+
+        // The default gap is the root's uniform gap, else 20 — plenty of room.
+        $default = $this->lint(self::document($elements(new ContainerFollowSpec('list'))));
+        self::assertSame([], $default->withCode(LintCode::RepeatMaxOverflows));
+    }
+
+    /**
      * @return iterable<string, array{LintCode}>
      */
     public static function codes(): iterable
@@ -261,6 +311,30 @@ final class DesignLinterTest extends KernelTestCase
                 self::text('subhead', 80.0, 300.0, 920.0),
                 new ContainerElement('row', ['headline'], [], null, null, null, repeat: ContainerRepeat::fromArray(['max' => 8])),
                 self::container('list', ['subhead'], ['row'], maxHeight: 400.0),
+            ]),
+            LintCode::FollowsUnknownContainer => self::document([
+                self::text('headline', 80.0, 200.0, 920.0),
+                self::text('subhead', 80.0, 300.0, 920.0),
+                new ContainerElement('body', ['headline', 'subhead'], [], 600.0, null, null, follows: new ContainerFollowSpec('nowhere')),
+            ]),
+            LintCode::FollowsNested => self::document([
+                self::text('headline', 80.0, 100.0, 920.0),
+                self::text('subhead', 80.0, 200.0, 920.0),
+                self::text('first', 80.0, 300.0, 920.0),
+                self::text('second', 80.0, 400.0, 920.0),
+                self::text('third', 80.0, 600.0, 920.0),
+                self::text('fourth', 80.0, 700.0, 920.0),
+                self::container('inner', ['first', 'second'], maxHeight: null),
+                self::container('outer', ['headline', 'subhead'], ['inner'], maxHeight: 900.0),
+                new ContainerElement('tail', ['third', 'fourth'], [], 300.0, null, null, follows: new ContainerFollowSpec('inner')),
+            ]),
+            LintCode::FollowsCycle => self::document([
+                self::text('headline', 80.0, 200.0, 920.0),
+                self::text('subhead', 80.0, 300.0, 920.0),
+                self::text('first', 80.0, 600.0, 920.0),
+                self::text('second', 80.0, 700.0, 920.0),
+                new ContainerElement('top', ['headline', 'subhead'], [], 300.0, null, null, follows: new ContainerFollowSpec('bottom')),
+                new ContainerElement('bottom', ['first', 'second'], [], 300.0, null, null, follows: new ContainerFollowSpec('top')),
             ]),
             LintCode::ImageWithoutAssetOrPlaceholder => self::document([
                 self::image('photo', 80.0, 400.0, 920.0, 400.0, placeholder: false),

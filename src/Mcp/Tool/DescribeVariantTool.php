@@ -527,6 +527,7 @@ readonly final class DescribeVariantTool
                 memberImageInputIds: $container->memberImageInputIds,
                 repeat: $repeatInfo[$container->id]['repeat'] ?? null,
                 fitsRows: $repeatInfo[$container->id]['fitsRows'] ?? null,
+                follows: $container->follows,
             ),
             ResolvedCanvasContainer::collection($definitions, $frames, $inputs, $decorationTops, $imageFrames),
         );

@@ -7,6 +7,7 @@ namespace WBoost\Web\Mcp\Design;
 use Ramsey\Uuid\Uuid;
 use WBoost\Web\Exceptions\DesignCompilationFailed;
 use WBoost\Web\Mcp\Design\Dsl\BackgroundElement;
+use WBoost\Web\Mcp\Design\Dsl\ContainerElement;
 use WBoost\Web\Mcp\Design\Dsl\DesignDocument;
 use WBoost\Web\Mcp\Design\Dsl\ImageElement;
 use WBoost\Web\Mcp\Design\Dsl\Rect;
@@ -1017,11 +1018,14 @@ readonly final class DesignCompiler
      *     (first claimant wins, in list order);
      *  5. cycles: a child reference that reaches back to an ancestor is dropped;
      *  6. fixpoint: containers with fewer than 2 items (members + children)
-     *     are dropped and the survivors re-filtered, until nothing changes.
+     *     are dropped and the survivors re-filtered, until nothing changes —
+     *     a repeatable row, a parent holding only its row and either end of
+     *     a valid "Navázat pod" link (`follows`, re-validated every pass)
+     *     may hold one.
      *
      * @param array<string, string> $inputIds
      * @param array<string, array<string, mixed>> $objectByInputId
-     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}}>
+     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}, follows?: array{containerId: string, gap: float}}>
      */
     private function compileContainers(
         DesignDocument $document,
@@ -1036,12 +1040,15 @@ readonly final class DesignCompiler
         }
 
         $containerIds = [];
+        /** @var array<string, ContainerElement> $containerById */
+        $containerById = [];
 
         foreach ($containers as $container) {
             $containerIds[$container->id] = true;
+            $containerById[$container->id] ??= $container;
         }
 
-        /** @var list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}}> $result */
+        /** @var list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}, follows?: array{containerId: string, gap: float}}> $result */
         $result = [];
 
         foreach ($containers as $container) {
@@ -1114,6 +1121,18 @@ readonly final class DesignCompiler
             // references are final (≡ sanitizedContainers()).
             if ($container->repeat !== null) {
                 $entry['repeat'] = $container->repeat->toStoredArray();
+            }
+
+            // "Navázat pod" — the container id IS the target's slug; the gap
+            // defaults to the target's uniform gap, else 20 (≡ the editor's
+            // defaultFollowGap), and is rounded like every spacing. Whether
+            // the link is valid is settled on the whole list below
+            // (≡ sanitizedContainers()' applyFollowRules).
+            if ($container->follows !== null && $container->follows->containerId !== $container->id) {
+                $entry['follows'] = [
+                    'containerId' => $container->follows->containerId,
+                    'gap' => self::spacing($container->follows->resolvedGap($containerById[$container->follows->containerId] ?? null)) ?? 0.0,
+                ];
             }
 
             if ($entry['id'] !== '' && $entry['maxHeight'] > 0) {
@@ -1193,8 +1212,8 @@ readonly final class DesignCompiler
      * itself, and must have exactly one parent — the first that claims them in
      * list order.
      *
-     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}}> $containers
-     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}}>
+     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}, follows?: array{containerId: string, gap: float}}> $containers
+     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}, follows?: array{containerId: string, gap: float}}>
      */
     private static function pruneChildReferences(array $containers): array
     {
@@ -1239,8 +1258,8 @@ readonly final class DesignCompiler
      * editor matters more than symmetry — a design saved from the browser and
      * the same design compiled here must produce the same `containers`.
      *
-     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}}> $containers
-     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}}>
+     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}, follows?: array{containerId: string, gap: float}}> $containers
+     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}, follows?: array{containerId: string, gap: float}}>
      */
     private static function dropCyclicChildReferences(array $containers): array
     {
@@ -1302,8 +1321,8 @@ readonly final class DesignCompiler
      * The linter reports each of these as an error before set_design gets
      * here, so this pass only keeps a hand-built canvas consistent.
      *
-     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}}> $containers
-     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}}>
+     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}, follows?: array{containerId: string, gap: float}}> $containers
+     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}, follows?: array{containerId: string, gap: float}}>
      */
     private static function applyRepeatRules(array $containers): array
     {
@@ -1359,14 +1378,93 @@ readonly final class DesignCompiler
     }
 
     /**
+     * The valid "Navázat pod" links, follower id → target id (≡
+     * `CanvasContainer::validFollowLinks()` and the JS `followLinks()`): both
+     * ends top-level, the target exists, and a chain that loops back loses
+     * the link closing the loop (walked in list order).
+     *
+     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}, follows?: array{containerId: string, gap: float}}> $containers
+     * @return array<string, string>
+     */
+    private static function followLinks(array $containers): array
+    {
+        $nested = [];
+        $known = [];
+
+        foreach ($containers as $container) {
+            $known[$container['id']] = true;
+            foreach ($container['memberContainerIds'] as $childId) {
+                $nested[$childId] = true;
+            }
+        }
+
+        $links = [];
+
+        foreach ($containers as $container) {
+            $target = $container['follows']['containerId'] ?? null;
+
+            if ($target === null || isset($nested[$container['id']]) || isset($links[$container['id']])) {
+                continue;
+            }
+
+            if (!isset($known[$target]) || isset($nested[$target])) {
+                continue;
+            }
+
+            $links[$container['id']] = $target;
+        }
+
+        foreach ($containers as $container) {
+            $seen = [$container['id'] => true];
+            $current = $container['id'];
+
+            while (isset($links[$current])) {
+                $next = $links[$current];
+
+                if (isset($seen[$next])) {
+                    unset($links[$current]);
+
+                    break;
+                }
+
+                $seen[$next] = true;
+                $current = $next;
+            }
+        }
+
+        return $links;
+    }
+
+    /**
+     * Drop every `follows` that is not a valid link (≡ the JS
+     * `applyFollowRules()`). The linter reports each such link as an error
+     * before set_design gets here.
+     *
+     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}, follows?: array{containerId: string, gap: float}}> $containers
+     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}, follows?: array{containerId: string, gap: float}}>
+     */
+    private static function applyFollowRules(array $containers): array
+    {
+        $links = self::followLinks($containers);
+
+        foreach ($containers as $index => $container) {
+            if (isset($container['follows']) && !isset($links[$container['id']])) {
+                unset($containers[$index]['follows']);
+            }
+        }
+
+        return $containers;
+    }
+
+    /**
      * §4.4-17's fixpoint: a container needs 2+ items counting nested children,
      * and dropping one can invalidate the parent that counted it. Iterate until
      * the surviving set stops shrinking — a single pass leaves inert
      * definitions behind, which `CanvasContainer` would then drop silently and
      * asymmetrically from the design the agent was shown.
      *
-     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}}> $containers
-     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}}>
+     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}, follows?: array{containerId: string, gap: float}}> $containers
+     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}, follows?: array{containerId: string, gap: float}}>
      */
     private static function dropDegenerateToFixpoint(array $containers): array
     {
@@ -1379,6 +1477,11 @@ readonly final class DesignCompiler
         }
 
         for (;;) {
+            // Either end of a valid "Navázat pod" link may be ONE member;
+            // a link whose end was just dropped goes too (≡ the JS loop).
+            $containers = self::applyFollowRules($containers);
+            $links = self::followLinks($containers);
+            $linked = array_fill_keys([...array_keys($links), ...array_values($links)], true);
             $valid = [];
 
             foreach ($containers as $container) {
@@ -1386,7 +1489,7 @@ readonly final class DesignCompiler
                 // columns) and a parent may hold only its repeatable row —
                 // ≡ CanvasContainer::fromArray() and sanitizedContainers().
                 $holdsRow = array_filter($container['memberContainerIds'], static fn (string $id): bool => isset($repeatable[$id])) !== [];
-                $minimum = isset($container['repeat']) || $holdsRow ? 1 : 2;
+                $minimum = isset($container['repeat']) || $holdsRow || isset($linked[$container['id']]) ? 1 : 2;
 
                 if (count($container['memberInputIds']) + count($container['memberContainerIds']) >= $minimum) {
                     $valid[$container['id']] = true;

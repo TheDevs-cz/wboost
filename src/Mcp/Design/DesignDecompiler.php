@@ -9,6 +9,7 @@ use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Mcp\Design\Dsl\BackgroundElement;
 use WBoost\Web\Mcp\Design\Dsl\CanvasSpec;
 use WBoost\Web\Mcp\Design\Dsl\ContainerElement;
+use WBoost\Web\Mcp\Design\Dsl\ContainerFollowSpec;
 use WBoost\Web\Mcp\Design\Dsl\DesignDocument;
 use WBoost\Web\Mcp\Design\Dsl\DesignElement;
 use WBoost\Web\Mcp\Design\Dsl\DslParser;
@@ -1543,7 +1544,7 @@ readonly final class DesignDecompiler
             }
         }
 
-        /** @var list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string, userMove: null|ElementMoveAllowance, repeat: null|ContainerRepeat}> $built */
+        /** @var list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string, userMove: null|ElementMoveAllowance, repeat: null|ContainerRepeat, follows: null|ContainerFollowSpec}> $built */
         $built = [];
 
         foreach ($containers as $position => $container) {
@@ -1597,6 +1598,25 @@ readonly final class DesignDecompiler
                 $children[] = $childSlug;
             }
 
+            // "Navázat pod" — the target through the same slug map as
+            // `children` (an id may be remapped); the gap always explicit,
+            // so compiling it back gives the same canvas.
+            $follows = null;
+
+            if ($container->follows !== null) {
+                $targetSlug = $idBySourceId[$container->follows->containerId] ?? null;
+
+                if ($targetSlug === null) {
+                    $losses[] = new DesignLoss($path, DesignLossCode::InputFeatureDropped, sprintf(
+                        '%s is attached below a container (%s) this canvas does not define; the "follows" link is dropped.',
+                        $path,
+                        $container->follows->containerId,
+                    ));
+                } else {
+                    $follows = new ContainerFollowSpec($targetSlug, $container->follows->gap);
+                }
+            }
+
             $built[] = [
                 'id' => $idBySourceId[$container->id],
                 'members' => array_values(array_unique($members)),
@@ -1608,6 +1628,7 @@ readonly final class DesignDecompiler
                 'name' => $container->name,
                 'userMove' => $container->userMove,
                 'repeat' => $container->repeat,
+                'follows' => $follows,
             ];
         }
 
@@ -1626,6 +1647,7 @@ readonly final class DesignDecompiler
                 $entry['name'],
                 $entry['userMove'],
                 $entry['repeat'],
+                $entry['follows'],
             ),
             $built,
         );
@@ -1636,9 +1658,9 @@ readonly final class DesignDecompiler
      * mirroring `sanitizedContainers()` in `assets/controllers/canvas_payload.js`
      * and {@see DesignCompiler}'s own pass, because the parser enforces both.
      *
-     * @param list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string, userMove: null|ElementMoveAllowance, repeat: null|ContainerRepeat}> $containers
+     * @param list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string, userMove: null|ElementMoveAllowance, repeat: null|ContainerRepeat, follows: null|ContainerFollowSpec}> $containers
      * @param list<DesignLoss> $losses
-     * @return list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string, userMove: null|ElementMoveAllowance, repeat: null|ContainerRepeat}>
+     * @return list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string, userMove: null|ElementMoveAllowance, repeat: null|ContainerRepeat, follows: null|ContainerFollowSpec}>
      */
     private static function pruneContainerChildren(array $containers, array &$losses): array
     {
@@ -1711,9 +1733,9 @@ readonly final class DesignDecompiler
      * strip its parent below the minimum — hence the fixpoint, matching
      * {@see DesignCompiler::dropDegenerateToFixpoint()}.
      *
-     * @param list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string, userMove: null|ElementMoveAllowance, repeat: null|ContainerRepeat}> $containers
+     * @param list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string, userMove: null|ElementMoveAllowance, repeat: null|ContainerRepeat, follows: null|ContainerFollowSpec}> $containers
      * @param list<DesignLoss> $losses
-     * @return list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string, userMove: null|ElementMoveAllowance, repeat: null|ContainerRepeat}>
+     * @return list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string, userMove: null|ElementMoveAllowance, repeat: null|ContainerRepeat, follows: null|ContainerFollowSpec}>
      */
     private static function dropDegenerateContainers(array $containers, array &$losses): array
     {
@@ -1726,14 +1748,46 @@ readonly final class DesignDecompiler
         }
 
         for (;;) {
+            // Either end of a "Navázat pod" link may be one item; a link
+            // whose target was dropped in the previous pass goes with it.
+            $present = array_fill_keys(array_column($containers, 'id'), true);
+            $linked = [];
+
+            foreach ($containers as $index => $container) {
+                $follows = $container['follows'];
+
+                if ($follows === null) {
+                    continue;
+                }
+
+                if (!isset($present[$follows->containerId])) {
+                    $losses[] = new DesignLoss(
+                        'canvas.containers',
+                        DesignLossCode::InputFeatureDropped,
+                        sprintf(
+                            'Container "%s" was attached below "%s", which is dropped; the "follows" link goes with it.',
+                            $container['id'],
+                            $follows->containerId,
+                        ),
+                    );
+                    $containers[$index]['follows'] = null;
+
+                    continue;
+                }
+
+                $linked[$container['id']] = true;
+                $linked[$follows->containerId] = true;
+            }
+
             /** @var array<string, true> $valid */
             $valid = [];
 
             foreach ($containers as $container) {
                 // A repeatable row may be one item; a parent may hold only
-                // its repeatable row (≡ CanvasContainer::fromArray()).
+                // its repeatable row; either end of a link may be one item
+                // (≡ CanvasContainer::collectionFromCanvas()).
                 $holdsRow = array_filter($container['children'], static fn (string $id): bool => isset($repeatable[$id])) !== [];
-                $minimum = $container['repeat'] !== null || $holdsRow ? 1 : 2;
+                $minimum = $container['repeat'] !== null || $holdsRow || isset($linked[$container['id']]) ? 1 : 2;
 
                 if (count($container['members']) + count($container['children']) >= $minimum) {
                     $valid[$container['id']] = true;
@@ -1744,7 +1798,7 @@ readonly final class DesignDecompiler
                 return $containers;
             }
 
-            /** @var list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string, userMove: null|ElementMoveAllowance, repeat: null|ContainerRepeat}> $next */
+            /** @var list<array{id: string, members: list<string>, children: list<string>, maxHeight: null|float, gap: null|float, spaceAfter: null|float, hidable: bool, name: null|string, userMove: null|ElementMoveAllowance, repeat: null|ContainerRepeat, follows: null|ContainerFollowSpec}> $next */
             $next = [];
 
             foreach ($containers as $container) {

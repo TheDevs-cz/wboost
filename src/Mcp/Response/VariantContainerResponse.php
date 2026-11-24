@@ -68,6 +68,14 @@ readonly final class VariantContainerResponse
         public null|array $repeat = null,
         /** How many rows fit by designed geometry, within `[min, max]` (null unless repeatable). */
         public null|int $fitsRows = null,
+        /**
+         * "Navázat pod": this top-level container starts `gap` px below the
+         * ACTUAL bottom of container `containerId` (moves up and down with
+         * it). Null = not attached.
+         *
+         * @var null|array{containerId: string, gap: float}
+         */
+        public null|array $follows = null,
     ) {
     }
 }

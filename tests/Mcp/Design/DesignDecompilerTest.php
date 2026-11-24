@@ -669,6 +669,75 @@ final class DesignDecompilerTest extends TestCase
         self::assertSame([], $decompiled->losses);
     }
 
+    /**
+     * "Navázat pod": a single-text footer attached below a list root that
+     * holds only its single-text row — both one-member ends survive, the
+     * link reads back as `follows: {container, gap}` with the gap explicit,
+     * and compiling the document again gives the same containers.
+     */
+    public function testAFollowsLinkRoundTripsThroughTheDsl(): void
+    {
+        $canvas = [
+            'objects' => [self::textbox(['top' => 0]), self::textbox(['top' => 300])],
+            'containers' => [
+                ['id' => 'list', 'maxHeight' => 250, 'memberInputIds' => [], 'memberContainerIds' => ['row'], 'gap' => 20],
+                ['id' => 'row', 'maxHeight' => 250, 'memberInputIds' => ['t1'], 'memberContainerIds' => [], 'repeat' => ['max' => 5, 'min' => 1, 'default' => 2]],
+                ['id' => 'footer', 'maxHeight' => 100, 'memberInputIds' => ['t2'], 'memberContainerIds' => [], 'follows' => ['containerId' => 'list', 'gap' => 15]],
+            ],
+        ];
+
+        $decompiled = self::decompile($canvas, [self::textInput('t1', 'Výsledek'), self::textInput('t2', 'Patička')], []);
+        $byId = [];
+        foreach ($decompiled->document->containerElements() as $container) {
+            $byId[$container->id] = $container;
+        }
+
+        self::assertSame(['list', 'row', 'footer'], array_keys($byId));
+        self::assertSame(['container' => 'list', 'gap' => 15.0], $byId['footer']->follows?->toArray());
+        self::assertNull($byId['list']->follows);
+        self::assertSame([], $decompiled->losses);
+
+        // The document parses (the single-text footer is a link end) …
+        $document = DslParser::parse($decompiled->document->toArray());
+        self::assertSame($decompiled->document->toArray(), $document->toArray());
+
+        // … and compiles back to the same definitions.
+        $compiled = (new DesignCompiler(new BackgroundLayer()))->compile(
+            $document,
+            CanvasComparison::compilationContext($document, []),
+            $decompiled->identity(),
+        );
+        $compiledById = array_column($compiled->canvas['containers'], null, 'id');
+        self::assertSame(['containerId' => 'list', 'gap' => 15.0], $compiledById['footer']['follows'] ?? null);
+        self::assertArrayNotHasKey('follows', $compiledById['list']);
+        self::assertSame(
+            ['footer' => 'list'],
+            \WBoost\Web\Value\CanvasContainer::validFollowLinks(\WBoost\Web\Value\CanvasContainer::collectionFromCanvas($compiled->canvas)),
+        );
+    }
+
+    public function testAFollowsTargetWithARemappedIdFollowsItsNewSlug(): void
+    {
+        $canvas = [
+            'objects' => [self::textbox(['top' => 0]), self::textbox(['top' => 100]), self::textbox(['top' => 300]), self::textbox(['top' => 400])],
+            'containers' => [
+                ['id' => 'Horní blok', 'maxHeight' => 250, 'memberInputIds' => ['t1', 't2'], 'memberContainerIds' => []],
+                ['id' => 'dole', 'maxHeight' => 250, 'memberInputIds' => ['t3', 't4'], 'memberContainerIds' => [], 'follows' => ['containerId' => 'Horní blok', 'gap' => 0]],
+            ],
+        ];
+
+        $decompiled = self::decompile($canvas, [self::textInput('t1', 'A'), self::textInput('t2', 'B'), self::textInput('t3', 'C'), self::textInput('t4', 'D')], []);
+        $byId = [];
+        foreach ($decompiled->document->containerElements() as $container) {
+            $byId[$container->id] = $container;
+        }
+
+        self::assertCount(2, $byId);
+        $topSlug = array_key_first($byId);
+        self::assertNotSame('Horní blok', $topSlug);
+        self::assertSame(['container' => $topSlug, 'gap' => 0.0], $byId['dole']->follows?->toArray());
+    }
+
     public function testAMergedRowDecompilesItsLegacySlots(): void
     {
         $slots = [['t1' => 'old-scorer-2'], ['t1' => 'old-scorer-3']];

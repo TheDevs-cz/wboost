@@ -122,6 +122,15 @@ final readonly class ApplyFixes
                 }
             }
 
+            // A container's "Navázat pod" gap is a nested px value.
+            if (is_array($element['follows'] ?? null)) {
+                $gap = self::number($element['follows']['gap'] ?? null);
+
+                if ($gap !== null) {
+                    $element['follows']['gap'] = round($gap * $factor, 2);
+                }
+            }
+
             $elements[] = $element;
         }
 

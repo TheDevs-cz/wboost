@@ -27,8 +27,9 @@ enum LintSeverity: string
     /**
      * The design cannot be rendered / saved as written:
      * {@see LintCode::FontNotAllowed} (the compiler's hard refusal seen one
-     * stage earlier — see {@see LintCode}'s class note) and the repeatable-row
-     * structure codes, whose `repeat` the canvas sanitizer would drop.
+     * stage earlier — see {@see LintCode}'s class note), the repeatable-row
+     * structure codes, whose `repeat` the canvas sanitizer would drop, and
+     * the `follows_*` codes, whose "Navázat pod" link it would drop.
      */
     case Error = 'error';
 

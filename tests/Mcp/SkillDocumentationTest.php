@@ -116,6 +116,7 @@ final class SkillDocumentationTest extends KernelTestCase
         '`adjust` block' => DslParser::ADJUST_KEYS,
         '`userMove` block' => DslParser::USER_MOVE_KEYS,
         '`repeat` block' => DslParser::REPEAT_KEYS,
+        '`follows` block' => DslParser::FOLLOWS_KEYS,
     ];
 
     /**

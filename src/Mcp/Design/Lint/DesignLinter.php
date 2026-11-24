@@ -816,11 +816,24 @@ readonly final class DesignLinter
             }
         }
 
+        $links = self::followLinks($containers, $byId, $parentOf);
+
         /** @var list<LintFinding> $findings */
         $findings = [
             ...self::checkUserMove($document, $containers, $parentOf, $indexById),
             ...self::checkRepeatStructure($containers, $byId, $parentOf, $indexById),
+            ...self::checkFollowStructure($document, $containers, $byId, $parentOf, $indexById, $links),
         ];
+
+        // Either end of a declared "follows" link may be ONE item; when the
+        // link itself is broken, a follows_* error already says so.
+        $linked = [];
+        foreach ($containers as $container) {
+            if ($container->follows !== null && isset($byId[$container->follows->containerId])) {
+                $linked[$container->id] = true;
+                $linked[$container->follows->containerId] = true;
+            }
+        }
 
         foreach ($containers as $container) {
             $path = sprintf('elements[%d]', $indexById[$container->id] ?? 0);
@@ -831,7 +844,7 @@ readonly final class DesignLinter
                 $container->childIds,
                 static fn (string $childId): bool => ($byId[$childId] ?? null)?->repeat !== null,
             ) !== [];
-            $minimum = $container->repeat !== null || $holdsRow ? 1 : 2;
+            $minimum = $container->repeat !== null || $holdsRow || isset($linked[$container->id]) ? 1 : 2;
 
             if ($items < $minimum) {
                 $findings[] = new LintFinding(
@@ -839,7 +852,7 @@ readonly final class DesignLinter
                     $container->id,
                     $path,
                     sprintf(
-                        '%s ("%s") groups %d item(s); a container needs at least 2 (members plus nested children; 1 for a repeatable row). A container that reflows nothing is dropped by the canvas sanitizer, so it would disappear from the saved design without a word — remove it, or give it a second member.',
+                        '%s ("%s") groups %d item(s); a container needs at least 2 (members plus nested children; 1 for a repeatable row or an end of a "follows" link). A container that reflows nothing is dropped by the canvas sanitizer, so it would disappear from the saved design without a word — remove it, or give it a second member.',
                         $path,
                         $container->id,
                         $items,
@@ -875,7 +888,7 @@ readonly final class DesignLinter
                 $findings[] = $overflow;
             }
 
-            array_push($findings, ...$this->checkRepeatCapacity($document, $container, $byId, $parentOf, $rects, $heights, $lineCounts, $indexById));
+            array_push($findings, ...$this->checkRepeatCapacity($document, $container, $byId, $parentOf, $rects, $heights, $lineCounts, $indexById, $links));
         }
 
         return $findings;
@@ -982,6 +995,7 @@ readonly final class DesignLinter
      * @param array<string, float> $heights
      * @param array<string, null|int> $lineCounts
      * @param array<string, int> $indexById
+     * @param array<string, string> $links valid "follows" links, follower → target
      * @return list<LintFinding>
      */
     private function checkRepeatCapacity(
@@ -993,9 +1007,11 @@ readonly final class DesignLinter
         array $heights,
         array $lineCounts,
         array $indexById,
+        array $links,
     ): array {
         $rootFlow = null;
         $findings = [];
+        $followers = null;
 
         foreach (self::treeOf($root, $byId) as $row) {
             if ($row->repeat === null || $row->repeat->max <= 1 || !isset($parentOf[$row->id])) {
@@ -1018,6 +1034,14 @@ readonly final class DesignLinter
                 $room = min($room, $root->maxHeight - $rootFlow['height']);
             }
 
+            // Containers attached below the root ("follows", transitively)
+            // ride on its bottom: each one must still end above the page
+            // bottom less its own spaceAfter (≡ RepeatableRows::designedCapacity).
+            $followers ??= self::followerChain($document, $root, $byId, $rects, $heights, $lineCounts, $links);
+            foreach ($followers as $below) {
+                $room = min($room, (float) $document->canvas->height - $below['spaceAfter'] - ($rootFlow['top'] + $rootFlow['height'] + $below['extra']));
+            }
+
             $fits = $room < -self::OVERFLOW_TOLERANCE ? 0 : 1 + (int) floor(($room + self::OVERFLOW_TOLERANCE) / $pitch);
 
             if ($fits >= $row->repeat->max) {
@@ -1038,12 +1062,200 @@ readonly final class DesignLinter
                     $fits === 1 ? 's' : '',
                     $root->id,
                     self::number($pitch),
-                    $root->maxHeight === null
+                    ($root->maxHeight === null
                         ? 'bounded by the page bottom'
-                        : sprintf('maxHeight %s px', self::number($root->maxHeight)),
+                        : sprintf('maxHeight %s px', self::number($root->maxHeight)))
+                    . ($followers === [] ? '' : sprintf(
+                        ', and %s attached below it must stay on the page',
+                        implode(', ', array_map(static fn (string $id): string => sprintf('"%s"', $id), array_keys($followers))),
+                    )),
                     max(1, $fits),
                     $root->id,
                 ),
+            );
+        }
+
+        return $findings;
+    }
+
+    /**
+     * The containers attached below `$root` ("follows", transitively) with
+     * how far each one's bottom lies below the root's content bottom
+     * (`extra` = the chain's gaps + flow heights) and its own spaceAfter.
+     * A follower is placed at its target's ACTUAL bottom + gap, so its
+     * designed top does not matter. Unmeasurable followers are skipped.
+     *
+     * @param array<string, ContainerElement> $byId
+     * @param array<string, Rect> $rects
+     * @param array<string, float> $heights
+     * @param array<string, null|int> $lineCounts
+     * @param array<string, string> $links follower → target
+     * @return array<string, array{extra: float, spaceAfter: float}>
+     */
+    private static function followerChain(
+        DesignDocument $document,
+        ContainerElement $root,
+        array $byId,
+        array $rects,
+        array $heights,
+        array $lineCounts,
+        array $links,
+    ): array {
+        $chain = [];
+        $bottomOf = [$root->id => 0.0];
+        $queue = [$root->id];
+
+        while ($queue !== []) {
+            $targetId = array_shift($queue);
+
+            foreach ($links as $followerId => $linkTarget) {
+                if ($linkTarget !== $targetId || isset($bottomOf[$followerId])) {
+                    continue;
+                }
+
+                $follower = $byId[$followerId] ?? null;
+                $flow = $follower === null ? null : self::flowOf($document, $follower, $byId, $rects, $heights, $lineCounts, []);
+
+                if ($follower === null || $follower->follows === null || $flow === null) {
+                    continue;
+                }
+
+                $extra = $bottomOf[$targetId] + $follower->follows->resolvedGap($byId[$targetId] ?? null) + $flow['height'];
+                $bottomOf[$followerId] = $extra;
+                $chain[$followerId] = ['extra' => $extra, 'spaceAfter' => $follower->spaceAfter ?? 0.0];
+                $queue[] = $followerId;
+            }
+        }
+
+        return $chain;
+    }
+
+    /**
+     * The valid "Navázat pod" links, follower → target (≡
+     * `CanvasContainer::validFollowLinks()`): both ends top-level, the target
+     * a container, and a chain that loops back loses the link closing the
+     * loop (walked in element order).
+     *
+     * @param list<ContainerElement> $containers
+     * @param array<string, ContainerElement> $byId
+     * @param array<string, string> $parentOf
+     * @return array<string, string>
+     */
+    private static function followLinks(array $containers, array $byId, array $parentOf): array
+    {
+        $links = [];
+
+        foreach ($containers as $container) {
+            $targetId = $container->follows?->containerId;
+
+            if ($targetId === null || $targetId === $container->id || isset($parentOf[$container->id]) || isset($links[$container->id])) {
+                continue;
+            }
+
+            if (!isset($byId[$targetId]) || isset($parentOf[$targetId])) {
+                continue;
+            }
+
+            $links[$container->id] = $targetId;
+        }
+
+        foreach ($containers as $container) {
+            $seen = [$container->id => true];
+            $current = $container->id;
+
+            while (isset($links[$current])) {
+                $next = $links[$current];
+
+                if (isset($seen[$next])) {
+                    unset($links[$current]);
+
+                    break;
+                }
+
+                $seen[$next] = true;
+                $current = $next;
+            }
+        }
+
+        return $links;
+    }
+
+    /**
+     * The "Navázat pod" structure rules — each one an error, because the
+     * canvas sanitizer (editor, compiler, `CanvasContainer`) drops a
+     * `follows` that breaks them: the target must be a container, both ends
+     * top-level, and no chain may loop back.
+     *
+     * @param list<ContainerElement> $containers
+     * @param array<string, ContainerElement> $byId
+     * @param array<string, string> $parentOf
+     * @param array<string, int> $indexById
+     * @param array<string, string> $links the valid links
+     * @return list<LintFinding>
+     */
+    private static function checkFollowStructure(
+        DesignDocument $document,
+        array $containers,
+        array $byId,
+        array $parentOf,
+        array $indexById,
+        array $links,
+    ): array {
+        $findings = [];
+
+        foreach ($containers as $container) {
+            $follows = $container->follows;
+
+            if ($follows === null || isset($links[$container->id])) {
+                continue;
+            }
+
+            $targetId = $follows->containerId;
+            $path = sprintf('elements[%d].follows', $indexById[$container->id] ?? 0);
+
+            if (!isset($byId[$targetId])) {
+                $findings[] = new LintFinding(
+                    LintCode::FollowsUnknownContainer,
+                    $container->id,
+                    $path,
+                    $document->element($targetId) === null
+                        ? sprintf('%s: "%s" is attached below "%s", which no element declares; the link would be dropped. Name the id of a top-level container.', $path, $container->id, $targetId)
+                        : sprintf('%s: "%s" is attached below "%s", which is not a container; the link would be dropped. Wrap that element in a top-level container (it may hold just that one element) and name the container.', $path, $container->id, $targetId),
+                );
+
+                continue;
+            }
+
+            if (isset($parentOf[$container->id]) || isset($parentOf[$targetId])) {
+                $nested = isset($parentOf[$container->id]) ? $container->id : $targetId;
+                $findings[] = new LintFinding(
+                    LintCode::FollowsNested,
+                    $container->id,
+                    $path,
+                    sprintf(
+                        '%s: "%s" is nested in "%s"; "follows" binds two TOP-LEVEL containers (inside a parent the flow already stacks its items), so the link would be dropped. Attach the top-level containers instead, or drop "follows".',
+                        $path,
+                        $nested,
+                        $parentOf[$nested],
+                    ),
+                );
+
+                continue;
+            }
+
+            $findings[] = new LintFinding(
+                LintCode::FollowsCycle,
+                $container->id,
+                $path,
+                $targetId === $container->id
+                    ? sprintf('%s: "%s" is attached below itself; the link would be dropped.', $path, $container->id)
+                    : sprintf(
+                        '%s: attaching "%s" below "%s" closes a loop ("follows" leads back to "%s"), so this link would be dropped. Attach the blocks in one direction, top to bottom.',
+                        $path,
+                        $container->id,
+                        $targetId,
+                        $container->id,
+                    ),
             );
         }
 

@@ -119,10 +119,17 @@ final class DslParser
     public const array BACKGROUND_KEYS = ['kind', 'id', 'asset', 'fill', 'fillable', 'opacity', 'blend', 'adjust'];
 
     /** @var list<string> */
-    public const array CONTAINER_KEYS = ['kind', 'id', 'members', 'children', 'maxHeight', 'gap', 'spaceAfter', 'hidable', 'name', 'userMove', 'repeat'];
+    public const array CONTAINER_KEYS = ['kind', 'id', 'members', 'children', 'maxHeight', 'gap', 'spaceAfter', 'hidable', 'name', 'userMove', 'repeat', 'follows'];
 
     /** @var list<string> */
     public const array REPEAT_KEYS = ['max', 'min', 'default', 'slots'];
+
+    /**
+     * The `follows` block ("Navázat pod", {@see ContainerFollowSpec}).
+     *
+     * @var list<string>
+     */
+    public const array FOLLOWS_KEYS = ['container', 'gap'];
 
     /**
      * The `userMove` block ("Uživatel může posunout") — the canvas contract's
@@ -726,6 +733,55 @@ final class DslParser
         }
 
         return $repeat;
+    }
+
+    /**
+     * `follows: {container, gap?}` — "Navázat pod": this top-level container
+     * starts `gap` px below the actual content bottom of the container
+     * `container` (a slug). `gap` is a number ≥ 0 or null / absent (= the
+     * target's uniform `gap`, else 20 — resolved by the compiler). Absent /
+     * null = not attached. Only the SHAPE is checked here; whether the target
+     * is a container, both ends are top-level and no chain loops back are
+     * lint errors (they need the whole document).
+     *
+     * @param array<array-key, mixed> $raw
+     */
+    private function readFollows(string $path, array $raw): null|ContainerFollowSpec
+    {
+        $value = $raw['follows'] ?? null;
+
+        if ($value === null) {
+            return null;
+        }
+
+        $blockPath = self::join($path, 'follows');
+
+        if (!is_array($value) || array_is_list($value)) {
+            $this->wrongType($path, 'follows', sprintf('an object {%s} (or null)', implode(', ', self::FOLLOWS_KEYS)), $value);
+
+            return null;
+        }
+
+        $this->checkKeys($blockPath, $value, self::FOLLOWS_KEYS, 'a follows block');
+
+        $container = $value['container'] ?? null;
+
+        if (!is_string($container) || trim($container) === '') {
+            if (!array_key_exists('container', $value) || $container === null) {
+                $this->violation(self::join($blockPath, 'container'), DslErrorCode::MissingKey, sprintf(
+                    '%s.container is required: the id of the top-level container this one is attached below.',
+                    $blockPath,
+                ));
+            } else {
+                $this->wrongType($blockPath, 'container', 'a container id string', $container);
+            }
+
+            return null;
+        }
+
+        $gap = $this->readNonNegativeNumber($blockPath, $value, 'gap');
+
+        return new ContainerFollowSpec($container, $gap);
     }
 
     /**
@@ -1334,12 +1390,13 @@ final class DslParser
         $name = $name === null || trim($name) === '' ? null : trim($name);
         $userMove = $this->readUserMove($path, $raw);
         $repeat = $this->readRepeat($path, $raw);
+        $follows = $this->readFollows($path, $raw);
 
         if ($id === null) {
             return null;
         }
 
-        return new ContainerElement($id, $members, $children, $maxHeight, $gap, $spaceAfter, $hidable, $name, $userMove, $repeat);
+        return new ContainerElement($id, $members, $children, $maxHeight, $gap, $spaceAfter, $hidable, $name, $userMove, $repeat, $follows);
     }
 
     // -----------------------------------------------------------------
@@ -1813,6 +1870,16 @@ final class DslParser
             }
         }
 
+        /** @var array<string, true> $linked both ends of every declared "follows" link */
+        $linked = [];
+
+        foreach ($containersById as $container) {
+            if ($container->follows !== null && isset($containersById[$container->follows->containerId])) {
+                $linked[$container->id] = true;
+                $linked[$container->follows->containerId] = true;
+            }
+        }
+
         /** @var array<string, string> $parentOf child id => parent id */
         $parentOf = [];
 
@@ -1829,15 +1896,18 @@ final class DslParser
             // A repeatable row may be ONE item (a column of single scorers)
             // and a parent may hold nothing but its repeatable row — the
             // rows ARE its items (≡ CanvasContainer::fromArray()).
+            // Either end of a "Navázat pod" link may be a single element too
+            // (a lone text attached below the rows) — whether the link itself
+            // is valid is the linter's business.
             $holdsRow = array_filter(
                 $container->childIds,
                 static fn (string $childId): bool => ($containersById[$childId] ?? null)?->repeat !== null,
             ) !== [];
-            $minimum = $container->repeat !== null || $holdsRow ? 1 : 2;
+            $minimum = $container->repeat !== null || $holdsRow || isset($linked[$container->id]) ? 1 : 2;
 
             if (count($container->referencedIds()) < $minimum) {
                 $this->violation($path, DslErrorCode::InvalidStructure, sprintf(
-                    '%s ("%s") groups %d item(s); a container needs at least 2 (members + children) — 1 for a repeatable row. A single-item container reflows nothing and is dropped by the canvas sanitizer, so it would silently disappear from the saved design.',
+                    '%s ("%s") groups %d item(s); a container needs at least 2 (members + children) — 1 for a repeatable row or an end of a "follows" link. A single-item container reflows nothing and is dropped by the canvas sanitizer, so it would silently disappear from the saved design.',
                     $path,
                     $container->id,
                     count($container->referencedIds()),

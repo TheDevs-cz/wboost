@@ -231,6 +231,21 @@ footer too).
     `_minItems` runs on every render frame. Browser-verified 2026-11-24 on
     the prod design (headless Chrome, in-memory, nothing saved); the group
     editor is not browser-verified.
+- **MCP design DSL** (2026-11-24): `"follows": {"container": "<slug>",
+  "gap": 20}` on a container element (parser `FOLLOWS_KEYS`, strict types,
+  shape only — `Dsl/ContainerFollowSpec`); `gap` optional = the target's
+  uniform `gap`, else 20 (≡ `defaultFollowGap`), resolved and rounded by the
+  compiler (`DesignCompiler::followLinks` / `applyFollowRules` ≡ the JS,
+  re-run inside the degenerate fixpoint like `sanitizedContainers`). The
+  container id IS its slug, so the link maps 1:1; the decompiler maps the
+  target through the same slug remap as `children` and always writes the
+  gap explicitly (round trip stable). A 1-item container is accepted when it
+  is an end of a declared link (parser, linter, compiler, decompiler — four
+  copies of the rule). Lint ERRORS `follows_unknown_container`,
+  `follows_nested`, `follows_cycle` (reported on the container whose link is
+  cut; a self-reference counts); `repeat_max_overflows` adds each follower
+  (transitively) below the root: room ≥ page − its spaceAfter − (root bottom
+  + Σ gap + flow height). AI-scan `ApplyFixes::scaled` scales `follows.gap`.
 - Tests: `ContainerFollowsLayoutTest` (prod fixture `turnaj-follows.json`:
   footer 20 px under the last row at 1…7 rows, hidden target, PHP ≡ engine
   overflow at 1…8 rows on a 950 px page, editor fits ≡ server capacity),

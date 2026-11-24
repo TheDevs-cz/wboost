@@ -222,6 +222,7 @@ final class DescribeVariantTest extends WebTestCase
                 'memberImageInputIds' => [],
                 'repeat' => null,
                 'fitsRows' => null,
+                'follows' => null,
             ],
             $containers[TestDataFixture::ORIENTATION_ROOT_CONTAINER_ID],
         );
@@ -244,6 +245,7 @@ final class DescribeVariantTest extends WebTestCase
                 'memberImageInputIds' => [],
                 'repeat' => null,
                 'fitsRows' => null,
+                'follows' => null,
             ],
             $containers[TestDataFixture::ORIENTATION_NESTED_CONTAINER_ID],
         );

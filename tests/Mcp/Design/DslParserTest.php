@@ -555,6 +555,87 @@ final class DslParserTest extends TestCase
         ));
     }
 
+    /**
+     * "Navázat pod": `follows` on a top-level container — a single-text
+     * follower and a single-text target are both accepted (either end of a
+     * link may hold one item), the gap is optional and round-trips as null.
+     */
+    public function testParsesAFollowsLinkAndAcceptsSingleItemEnds(): void
+    {
+        $document = DslParser::parse(self::documentWith(
+            self::textElement(['id' => 'title']),
+            self::textElement(['id' => 'footer']),
+            ['kind' => 'container', 'id' => 'top', 'members' => ['title'], 'maxHeight' => 400],
+            ['kind' => 'container', 'id' => 'bottom', 'members' => ['footer'], 'maxHeight' => 200, 'follows' => ['container' => 'top']],
+        ));
+
+        $bottom = $document->element('bottom');
+        self::assertInstanceOf(ContainerElement::class, $bottom);
+        self::assertNotNull($bottom->follows);
+        self::assertSame('top', $bottom->follows->containerId);
+        self::assertNull($bottom->follows->gap);
+        self::assertSame(['container' => 'top', 'gap' => null], $document->toArray()['elements'][3]['follows'] ?? null);
+        self::assertArrayNotHasKey('follows', $document->toArray()['elements'][2], 'absent when not attached');
+        self::assertSame($document->toArray(), DslParser::parse($document->toArray())->toArray());
+
+        $explicit = DslParser::parse(self::documentWith(
+            self::textElement(['id' => 'title']),
+            self::textElement(['id' => 'footer']),
+            ['kind' => 'container', 'id' => 'top', 'members' => ['title'], 'maxHeight' => 400],
+            ['kind' => 'container', 'id' => 'bottom', 'members' => ['footer'], 'maxHeight' => 200, 'follows' => ['container' => 'top', 'gap' => 0]],
+        ))->element('bottom');
+        self::assertInstanceOf(ContainerElement::class, $explicit);
+        self::assertSame(0.0, $explicit->follows?->gap, 'an explicit 0 is kept, not defaulted');
+
+        // An unknown / nested target is NOT a parse error — the linter
+        // reports it (follows_unknown_container / follows_nested).
+        $unknown = DslParser::parse(self::documentWith(
+            self::textElement(['id' => 'a']),
+            self::textElement(['id' => 'b']),
+            ['kind' => 'container', 'id' => 'bottom', 'members' => ['a', 'b'], 'maxHeight' => 200, 'follows' => ['container' => 'nowhere']],
+        ))->element('bottom');
+        self::assertInstanceOf(ContainerElement::class, $unknown);
+        self::assertSame('nowhere', $unknown->follows?->containerId);
+    }
+
+    /**
+     * @return iterable<string, array{mixed}>
+     */
+    public static function invalidFollows(): iterable
+    {
+        yield 'no container' => [['gap' => 10]];
+        yield 'empty container' => [['container' => '']];
+        yield 'container not a string' => [['container' => 5]];
+        yield 'negative gap' => [['container' => 'top', 'gap' => -4]];
+        yield 'gap not a number' => [['container' => 'top', 'gap' => '20']];
+        yield 'unknown key' => [['container' => 'top', 'below' => true]];
+        yield 'a bare slug' => ['top'];
+        yield 'a list' => [['top']];
+    }
+
+    #[DataProvider('invalidFollows')]
+    public function testAnInvalidFollowsIsRefused(mixed $follows): void
+    {
+        self::reject(self::documentWith(
+            self::textElement(['id' => 'title']),
+            self::textElement(['id' => 'footer']),
+            ['kind' => 'container', 'id' => 'top', 'members' => ['title'], 'maxHeight' => 400],
+            ['kind' => 'container', 'id' => 'bottom', 'members' => ['footer'], 'maxHeight' => 200, 'follows' => $follows],
+        ));
+    }
+
+    public function testASingleItemContainerOutsideAnyLinkIsStillRefused(): void
+    {
+        self::reject(self::documentWith(
+            self::textElement(['id' => 'title']),
+            self::textElement(['id' => 'footer']),
+            self::textElement(['id' => 'lone']),
+            ['kind' => 'container', 'id' => 'top', 'members' => ['title'], 'maxHeight' => 400],
+            ['kind' => 'container', 'id' => 'bottom', 'members' => ['footer'], 'maxHeight' => 200, 'follows' => ['container' => 'top']],
+            ['kind' => 'container', 'id' => 'alone', 'members' => ['lone'], 'maxHeight' => 200],
+        ));
+    }
+
     public function testAContainerHidableFlagMustBeABoolean(): void
     {
         self::reject(self::documentWith(
@@ -1090,7 +1171,7 @@ final class DslParserTest extends TestCase
             self::documentWith(['kind' => 'container', 'id' => 'body', 'padding' => 4]),
             'elements[0].padding',
             DslErrorCode::UnknownKey,
-            'Allowed keys: kind, id, members, children, maxHeight, gap, spaceAfter, hidable, name, userMove, repeat.',
+            'Allowed keys: kind, id, members, children, maxHeight, gap, spaceAfter, hidable, name, userMove, repeat, follows.',
         ];
         yield 'unknown at key (row is deliberately not v1)' => [
             self::documentWith(self::textElement(['at' => ['area' => 'top', 'row' => [1, 2]]])),

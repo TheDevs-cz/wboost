@@ -153,6 +153,30 @@ enum LintCode: string
     case RepeatMaxOverflows = 'repeat_max_overflows';
 
     /**
+     * `follows.container` names no container (a missing slug, or a text /
+     * image / shape). The canvas sanitizer drops a link to a container that
+     * does not exist, so the agent's "Navázat pod" would silently vanish. An
+     * ERROR.
+     */
+    case FollowsUnknownContainer = 'follows_unknown_container';
+
+    /**
+     * `follows` where the follower or its target is NESTED in another
+     * container. "Navázat pod" binds two TOP-LEVEL containers — inside a
+     * parent the flow already places one item below the other — so the
+     * sanitizer drops the link. An ERROR.
+     */
+    case FollowsNested = 'follows_nested';
+
+    /**
+     * `follows` links that loop back (A below B below A, or a container
+     * attached below itself): the sanitizer cuts the link that closes the
+     * loop (walked in element order), so it would silently vanish. An ERROR,
+     * reported on the container whose link is cut.
+     */
+    case FollowsCycle = 'follows_cycle';
+
+    /**
      * An image element with neither a stand-in picture nor a fillable
      * placeholder input: it draws nothing and it fills nothing.
      */
@@ -199,7 +223,10 @@ enum LintCode: string
             self::FontNotAllowed,
             self::RepeatNotNested,
             self::RepeatMultipleInParent,
-            self::RepeatInsideRepeat => LintSeverity::Error,
+            self::RepeatInsideRepeat,
+            self::FollowsUnknownContainer,
+            self::FollowsNested,
+            self::FollowsCycle => LintSeverity::Error,
             default => LintSeverity::Warning,
         };
     }

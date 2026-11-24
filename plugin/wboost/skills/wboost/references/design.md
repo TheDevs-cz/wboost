@@ -137,7 +137,8 @@ rules and scrims rather than uploading a picture of one. A `container` groups `m
 decorative ones and fillable image slots alike) and `children` (nested containers) into one vertical flow — a **top-level
 container must carry `maxHeight`**, a nested one must not need it. A nested container with
 `repeat: {"max": 8}` is a row the person filling it repeats ("+ Přidat řádek") — design ONE row,
-never number rows by hand.
+never number rows by hand. A top-level container with `follows: {"container": "<id>"}` is
+attached below another top-level container and moves up and down with its actual bottom.
 
 **Every design should have exactly one `background` element** — the editor's
 locked "Pozadí" layer at the bottom, always covering the whole canvas incl. the
@@ -240,8 +241,9 @@ within the document. Slugs carry input identity across saves.
 | `shape` gradient stop | `at`, `color`, `opacity` |
 | `shape` userColor block | `target`, `colors`, `free` |
 | `background` element | `kind`, `id`, `asset`, `fill`, `fillable`, `opacity`, `blend`, `adjust` |
-| `container` element | `kind`, `id`, `members`, `children`, `maxHeight`, `gap`, `spaceAfter`, `hidable`, `name`, `userMove`, `repeat` |
+| `container` element | `kind`, `id`, `members`, `children`, `maxHeight`, `gap`, `spaceAfter`, `hidable`, `name`, `userMove`, `repeat`, `follows` |
 | `repeat` block | `max`, `min`, `default`, `slots` |
+| `follows` block | `container`, `gap` |
 | `image` border block | `color`, `width` |
 | `adjust` block | `brightness`, `contrast`, `saturation`, `hue`, `grayscale`, `blur` |
 | `shadow` block | `kind`, `color`, `opacity`, `angle`, `distance`, `size` |
@@ -372,7 +374,8 @@ within the document. Slugs carry input identity across saves.
   (lint `background_drawn_as_element`); a design with no background at all
   exports transparent (lint `missing_background`).
 - **`container`**: needs at least 2 referenced items counting `members` and
-  `children` together. `members` are texts, shapes and images — decorative ones
+  `children` together (1 for a repeatable row, a parent holding only its row,
+  or either end of a `follows` link). `members` are texts, shapes and images — decorative ones
   AND fillable image placeholders (a slot flows as a fixed box: a wrapping text
   above moves it, the picture keeps its place inside the frame, hiding it
   closes the gap) — never the background, never another container (nest via
@@ -401,6 +404,26 @@ within the document. Slugs carry input identity across saves.
   callers still land in their row. Never author it. (No tool returns a saved design,
   so you meet it only if a user pastes such a document — keep it verbatim
   then, or rows 2+ of every old export are lost.)
+- **`follows`** ("Navázat pod") on a **top-level** `container`:
+  `{"container": "<id of another top-level container>", "gap": 20}` — at
+  render time this container starts `gap` px below that container's ACTUAL
+  content bottom, pulled up AND pushed down (rows added or removed, texts
+  wrapping, members hidden). `gap` is optional: omitted / `null` = the
+  target's uniform `gap` if it has one, else 20. Chains are fine (C below B
+  below A), several containers may follow one target, and either end of a
+  link may hold a single member (a lone text attached below the rows).
+  Both keep their own `maxHeight`; the follower's `spaceAfter` is its
+  margin above the page bottom. **`follows` vs nesting:** a footer that must
+  start right after repeatable rows and move with them is `follows` on the
+  footer's own top-level container (the rows' root bounds only the rows); nest
+  it as a child only when ONE `maxHeight` should bound everything together —
+  a nested footer counts against the root's `maxHeight` and eats the rows'
+  room. Lint errors (set_design would silently drop the link):
+  `follows_unknown_container` (the id is not a container — wrap a lone text in
+  a one-member container first), `follows_nested` (the follower or the target
+  sits inside another container) and `follows_cycle` (the links loop back).
+  `repeat_max_overflows` counts containers attached below the rows' root —
+  they must stay on the page too.
 - **`userMove`** ("Uživatel může posunout") on a `text` (locked ones too), a
   `shape`, a **decorative** `image` or a **top-level** `container`: the person
   filling the template may move that element (a container: the whole block).

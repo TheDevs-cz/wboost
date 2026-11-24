@@ -90,6 +90,13 @@ readonly final class ContainerElement implements DesignElement
          * container.
          */
         public null|ContainerRepeat $repeat = null,
+        /**
+         * "Navázat pod" (canvas `follows` on the definition): this TOP-LEVEL
+         * container starts `gap` px below the actual content bottom of
+         * another top-level container and moves up and down with it. Null =
+         * not attached. See {@see ContainerFollowSpec}.
+         */
+        public null|ContainerFollowSpec $follows = null,
     ) {
     }
 
@@ -131,6 +138,10 @@ readonly final class ContainerElement implements DesignElement
 
         if ($this->repeat !== null) {
             $data['repeat'] = $this->repeat->toStoredArray();
+        }
+
+        if ($this->follows !== null) {
+            $data['follows'] = $this->follows->toArray();
         }
 
         return $data;

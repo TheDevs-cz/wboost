@@ -1035,6 +1035,109 @@ final class DesignCompilerTest extends TestCase
     }
 
     /**
+     * The „Výsledky turnaje" shape (Jan, 2026-11-24): a list root (gap 20)
+     * holding one repeatable row, and a 2-text footer container attached
+     * below the root — it must start right after the last row and move with
+     * it both ways, without the root's maxHeight bounding it.
+     */
+    public function testAFooterAttachedBelowTheRowsCompilesItsFollowsLink(): void
+    {
+        $compiled = $this->compile(self::rowsDesign([
+            ['kind' => 'container', 'id' => 'row', 'members' => ['score', 'team'], 'repeat' => ['max' => 6, 'default' => 2]],
+            ['kind' => 'container', 'id' => 'list', 'members' => [], 'children' => ['row'], 'maxHeight' => 600, 'gap' => 20],
+            ['kind' => 'container', 'id' => 'footer', 'members' => ['note', 'extra'], 'maxHeight' => 200, 'follows' => ['container' => 'list']],
+        ]));
+
+        $byId = array_column($compiled->canvas['containers'], null, 'id');
+        self::assertSame(['row', 'list', 'footer'], array_keys($byId));
+        self::assertSame(['containerId' => 'list', 'gap' => 20.0], $byId['footer']['follows'] ?? null, 'the gap defaults to the root\'s uniform gap');
+        self::assertArrayNotHasKey('follows', $byId['list']);
+        self::assertArrayNotHasKey('follows', $byId['row']);
+
+        // …and survives the PHP sanitizer through the canvas JSON with the
+        // link intact.
+        $decoded = json_decode($compiled->canvasJson(), true);
+        self::assertIsArray($decoded);
+        $parsed = \WBoost\Web\Value\CanvasContainer::collectionFromCanvas($decoded);
+        self::assertSame(['footer' => 'list'], \WBoost\Web\Value\CanvasContainer::validFollowLinks($parsed));
+        $footer = \WBoost\Web\Value\CanvasContainer::findById($parsed, 'footer');
+        self::assertNotNull($footer);
+        self::assertEquals(['containerId' => 'list', 'gap' => 20.0], $footer->follows?->toArray());
+        self::assertSame(6, \WBoost\Web\Value\CanvasContainer::findById($parsed, 'row')?->repeat?->max);
+    }
+
+    public function testAFollowsGapDefaultsToTheTargetGapElseTwentyAndIsRounded(): void
+    {
+        $link = $this->compiledFollows(...);
+
+        self::assertSame(['containerId' => 'top', 'gap' => 12.0], $link(['gap' => 12], ['container' => 'top']));
+        self::assertSame(['containerId' => 'top', 'gap' => 0.0], $link(['gap' => 0], ['container' => 'top']), 'a target gap of 0 is a gap');
+        self::assertSame(['containerId' => 'top', 'gap' => 20.0], $link([], ['container' => 'top']));
+        self::assertSame(['containerId' => 'top', 'gap' => 7.3], $link(['gap' => 12], ['container' => 'top', 'gap' => 7.25]));
+        self::assertSame(['containerId' => 'top', 'gap' => 0.0], $link([], ['container' => 'top', 'gap' => 0]));
+    }
+
+    /**
+     * The compiled `follows` of a 2-text container attached below a 2-text
+     * `top` container carrying `$top`'s extra keys.
+     *
+     * @param array<string, mixed> $top
+     * @param array<string, mixed> $follows
+     */
+    private function compiledFollows(array $top, array $follows): mixed
+    {
+        $byId = array_column($this->compile(self::rowsDesign([
+            $top + ['kind' => 'container', 'id' => 'top', 'members' => ['score', 'team'], 'maxHeight' => 400],
+            ['kind' => 'container', 'id' => 'bottom', 'members' => ['note', 'extra'], 'maxHeight' => 200, 'follows' => $follows],
+        ]))->canvas['containers'], null, 'id');
+
+        return $byId['bottom']['follows'] ?? null;
+    }
+
+    public function testEitherEndOfAFollowsLinkMayHoldASingleMember(): void
+    {
+        $compiled = $this->compile(self::rowsDesign([
+            ['kind' => 'container', 'id' => 'top', 'members' => ['score'], 'maxHeight' => 400],
+            ['kind' => 'container', 'id' => 'bottom', 'members' => ['note'], 'maxHeight' => 200, 'follows' => ['container' => 'top', 'gap' => 10]],
+        ]));
+
+        $byId = array_column($compiled->canvas['containers'], null, 'id');
+        self::assertSame(['top', 'bottom'], array_keys($byId));
+        self::assertSame(['containerId' => 'top', 'gap' => 10.0], $byId['bottom']['follows'] ?? null);
+
+        $parsed = \WBoost\Web\Value\CanvasContainer::collectionFromCanvas($compiled->canvas);
+        self::assertCount(2, $parsed, 'CanvasContainer keeps both single-member ends');
+        self::assertSame(['bottom' => 'top'], \WBoost\Web\Value\CanvasContainer::validFollowLinks($parsed));
+    }
+
+    public function testFollowsBreakingTheStructureRulesIsDroppedLikeTheEditorDoes(): void
+    {
+        // A target nested in another container: the link goes, and the
+        // single-member follower is then degenerate and goes too.
+        $nested = array_column($this->compile(self::rowsDesign([
+            ['kind' => 'container', 'id' => 'row', 'members' => ['score', 'team'], 'repeat' => ['max' => 4]],
+            ['kind' => 'container', 'id' => 'list', 'members' => [], 'children' => ['row'], 'maxHeight' => 600],
+            ['kind' => 'container', 'id' => 'solo', 'members' => ['note'], 'maxHeight' => 200, 'follows' => ['container' => 'row']],
+        ]))->canvas['containers'], null, 'id');
+        self::assertSame(['row', 'list'], array_keys($nested));
+
+        // A loop: walked in list order, the link closing it is cut.
+        $loop = array_column($this->compile(self::rowsDesign([
+            ['kind' => 'container', 'id' => 'a', 'members' => ['score', 'team'], 'maxHeight' => 400, 'follows' => ['container' => 'b']],
+            ['kind' => 'container', 'id' => 'b', 'members' => ['note', 'extra'], 'maxHeight' => 400, 'follows' => ['container' => 'a']],
+        ]))->canvas['containers'], null, 'id');
+        self::assertSame(['containerId' => 'b', 'gap' => 20.0], $loop['a']['follows'] ?? null);
+        self::assertArrayNotHasKey('follows', $loop['b']);
+        self::assertSame(['a' => 'b'], \WBoost\Web\Value\CanvasContainer::validFollowLinks(\WBoost\Web\Value\CanvasContainer::collectionFromCanvas(['containers' => array_values($loop)])));
+
+        // An unknown target: the link goes, the 2-member container stays.
+        $unknown = array_column($this->compile(self::rowsDesign([
+            ['kind' => 'container', 'id' => 'a', 'members' => ['score', 'team'], 'maxHeight' => 400, 'follows' => ['container' => 'score']],
+        ]))->canvas['containers'], null, 'id');
+        self::assertArrayNotHasKey('follows', $unknown['a']);
+    }
+
+    /**
      * @param list<array<string, mixed>> $containers
      * @return array<string, mixed>
      */
