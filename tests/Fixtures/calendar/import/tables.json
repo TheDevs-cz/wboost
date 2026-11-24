@@ -1,0 +1,335 @@
+{
+    "odpady-radky.xlsx": {
+        "sheets": [
+            {
+                "name": "Svoz 2027",
+                "rows": [
+                    [
+                        "Harmonogram svozu odpadů 2027 – obec Testov"
+                    ],
+                    [],
+                    [
+                        "Datum svozu",
+                        "Druh odpadu",
+                        "Poznámka / místo"
+                    ],
+                    [
+                        "2027-01-07",
+                        "Komunální odpad"
+                    ],
+                    [
+                        "2027-01-21",
+                        "Komunální odpad"
+                    ],
+                    [
+                        "2027-02-04",
+                        "Komunální odpad"
+                    ],
+                    [
+                        "2027-02-18",
+                        "Komunální odpad"
+                    ],
+                    [
+                        "2027-03-04",
+                        "Komunální odpad"
+                    ],
+                    [
+                        "2027-01-14",
+                        "PLASTY",
+                        "žluté pytle"
+                    ],
+                    [
+                        "2027-02-11",
+                        "PLASTY",
+                        "žluté pytle"
+                    ],
+                    [
+                        "2027-03-11",
+                        "PLASTY",
+                        "žluté pytle"
+                    ],
+                    [
+                        "2027-01-28",
+                        "papír"
+                    ],
+                    [
+                        "2027-04-02",
+                        "Bioodpad",
+                        "hnědé nádoby"
+                    ],
+                    [],
+                    [
+                        "2027-04-25",
+                        "Nebezpečný odpad",
+                        "u hasičské zbrojnice"
+                    ],
+                    [
+                        "neznámé datum",
+                        "PLASTY"
+                    ],
+                    [
+                        "2029-03-01",
+                        "PLASTY"
+                    ],
+                    [
+                        "46513",
+                        "Komunální odpad"
+                    ]
+                ]
+            },
+            {
+                "name": "Kontakty",
+                "rows": [
+                    [
+                        "Sběrný dvůr",
+                        "Po 8–12"
+                    ]
+                ]
+            }
+        ],
+        "truncated": false
+    },
+    "odpady-sloupce.xls": {
+        "sheets": [
+            {
+                "name": "List1",
+                "rows": [
+                    [
+                        "Komunál",
+                        "Plast",
+                        "Papír"
+                    ],
+                    [
+                        "2027-01-07",
+                        "14.1.2027",
+                        "2027-01-28"
+                    ],
+                    [
+                        "2027-01-21",
+                        "11. 2. 2027",
+                        "2027-02-25"
+                    ],
+                    [
+                        "2027-02-04",
+                        "11. 3."
+                    ],
+                    [
+                        "2027-02-18"
+                    ]
+                ]
+            }
+        ],
+        "truncated": false
+    },
+    "odpady-mesice.ods": {
+        "sheets": [
+            {
+                "name": "Svozy",
+                "rows": [
+                    [
+                        "Měsíc",
+                        "Komunální odpad",
+                        "Plasty",
+                        "Papír",
+                        "Sklo"
+                    ],
+                    [
+                        "Leden",
+                        "7., 21.",
+                        "14.",
+                        "28."
+                    ],
+                    [
+                        "Únor",
+                        "7., 21.",
+                        "14."
+                    ],
+                    [
+                        "Březen",
+                        "7., 21.",
+                        "14.",
+                        "28."
+                    ],
+                    [
+                        "Duben",
+                        "7., 21.",
+                        "14."
+                    ],
+                    [
+                        "Květen",
+                        "7., 21.",
+                        "14.",
+                        "28."
+                    ],
+                    [
+                        "Červen",
+                        "7., 21.",
+                        "14.",
+                        "",
+                        "3. a 17."
+                    ],
+                    [
+                        "Červenec",
+                        "7., 21.",
+                        "14.",
+                        "28."
+                    ],
+                    [
+                        "Srpen",
+                        "7., 21.",
+                        "14."
+                    ],
+                    [
+                        "Září",
+                        "7., 21.",
+                        "14.",
+                        "28."
+                    ],
+                    [
+                        "Říjen",
+                        "7., 21.",
+                        "14."
+                    ],
+                    [
+                        "Listopad",
+                        "7., 21.",
+                        "14.",
+                        "28."
+                    ],
+                    [
+                        "Prosinec",
+                        "7., 21.",
+                        "14."
+                    ]
+                ]
+            }
+        ],
+        "truncated": false
+    },
+    "odpady-sklo-1250.csv": {
+        "sheets": [
+            {
+                "name": "Worksheet",
+                "rows": [
+                    [
+                        "Termíny svozu – sklo (zelené kontejnery)"
+                    ],
+                    [
+                        "15.01.2027"
+                    ],
+                    [
+                        "12.02.2027"
+                    ],
+                    [
+                        "12.03.2027"
+                    ],
+                    [
+                        "09.04.2027"
+                    ],
+                    [
+                        "30.02.2027"
+                    ]
+                ]
+            }
+        ],
+        "truncated": false
+    },
+    "akce.xlsx": {
+        "sheets": [
+            {
+                "name": "Akce 2027",
+                "rows": [
+                    [
+                        "Datum",
+                        "Název akce",
+                        "Pořadatel",
+                        "Čas",
+                        "Místo konání"
+                    ],
+                    [
+                        "2027-01-17",
+                        "Tříkrálová sbírka – poděkování",
+                        "Obec Testov",
+                        "17:00",
+                        "sál OÚ"
+                    ],
+                    [
+                        "2027-02-14",
+                        "Hasičský ples",
+                        "SDH Testov",
+                        "20:00",
+                        "sokolovna"
+                    ],
+                    [
+                        "2027-02-14",
+                        "Hasičský ples",
+                        "SDH Testov",
+                        "20:00",
+                        "sokolovna"
+                    ],
+                    [
+                        "12.–14. 6. 2027",
+                        "Pouťové oslavy",
+                        "TJ Sokol Testov",
+                        "",
+                        "náves"
+                    ],
+                    [
+                        "2027-04-30",
+                        "Pálení čarodějnic",
+                        "SDH",
+                        "18:00",
+                        "hřiště"
+                    ],
+                    [
+                        "2027-06-01",
+                        "Dětský den",
+                        "",
+                        "14:00",
+                        "hřiště"
+                    ],
+                    [
+                        "",
+                        "Akce bez data",
+                        "SDH"
+                    ],
+                    [
+                        "2027-09-05",
+                        "",
+                        "TJ Sokol Testov"
+                    ]
+                ]
+            }
+        ],
+        "truncated": false
+    },
+    "akce-1250.csv": {
+        "sheets": [
+            {
+                "name": "Worksheet",
+                "rows": [
+                    [
+                        "Datum",
+                        "Akce",
+                        "Spolek"
+                    ],
+                    [
+                        "6.3.2027",
+                        "Maškarní ples; pro děti",
+                        "ZŠ Testov"
+                    ],
+                    [
+                        "24. 12. 2027",
+                        "Zpívání u stromu"
+                    ],
+                    [
+                        "1.1.2028",
+                        "Novoroční výšlap",
+                        "KČT"
+                    ]
+                ]
+            }
+        ],
+        "truncated": false
+    }
+}

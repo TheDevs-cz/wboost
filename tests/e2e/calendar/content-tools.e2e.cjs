@@ -118,9 +118,18 @@ module.exports = {
             assert.equal((await h.state(page)).design.features.waste, true);
         });
 
-        await check('C6 no Excel import in Odpady; the four built-in kinds are tabs', async () => {
-            assert.doesNotMatch(await modalText(page), /Excel|AI /);
-            assert.equal(await exists(page, `${M} input[type="file"]`), false);
+        await check('C6 (retired by K10b) Odpady offers „Nahrát z Excelu“ + „Stáhnout vzor“, no AI; the four built-in kinds are tabs', async () => {
+            assert.doesNotMatch(await modalText(page), /AI /);
+            assert.match(await modalText(page), /Nahrát z Excelu\s*xlsx, xls, ods nebo csv/);
+            assert.ok(await exists(page, `${M} [data-import-file="waste"]`));
+            const vzor = await page.$eval(`${M} [data-import-template="waste"]`, (a) => a.href);
+            assert.match(vzor, /\/import\/template\/waste$/);
+            const answer = await page.evaluate(async (url) => {
+                const r = await fetch(url, { credentials: 'same-origin' });
+                return { status: r.status, type: r.headers.get('Content-Type'), disposition: r.headers.get('Content-Disposition') };
+            }, vzor);
+            assert.deepEqual([answer.status, answer.type], [200, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']);
+            assert.match(answer.disposition, /odpady-vzor-\d{4}\.xlsx/);
             assert.deepEqual(await page.$$eval(`${M} [data-waste-tab]`, (els) => els.map((el) => el.textContent.trim())), ['Komunální odpad', 'Bio odpad', 'Plast', 'Papír']);
             assert.deepEqual(await page.$$eval(`${M} [data-waste-add] option`, (els) => els.map((el) => el.textContent)), ['+ Přidat druh', 'Sklo', 'Vlastní druh…']);
         });
@@ -297,6 +306,60 @@ module.exports = {
             assert.match(String(again), /^[0-9a-f-]{36}$/);
             kept.wasteIcon = again;
             await h.shot(page, 'waste-icon-1440-dark');
+            await closeTool(page);
+        });
+
+        await check('K10b waste: „Nahrát z Excelu“ — review (mapping, skipped rows), Zrušit writes nothing, Načíst replaces; a second file ADDS', async () => {
+            const FIX = path.join(__dirname, '../../Fixtures/calendar/import');
+            if (Y !== 2027) throw new Error(`SKIPPED — the import fixtures are 2027 tables, this calendar is ${Y}`);
+            await openTool(page, 'waste');
+            const before = (await h.state(page)).content.wasteKinds;
+            const upload = async (name) => {
+                const input = await page.$(`${M} [data-import-file="waste"]`);
+                await input.uploadFile(path.join(FIX, name));
+                await page.waitForSelector(`${M} [data-import-review="waste"]`, { timeout: 15000 });
+            };
+            await upload('odpady-radky.xlsx');
+            assert.equal(await page.$eval(`${M} .cal-wt`, (el) => el.hidden), true, 'the review takes the tool\'s place');
+            assert.equal(await page.$eval(`${M} select[data-import-shape]`, (el) => el.value), 'rows');
+            const mapped = await page.$$eval(`${M} [data-import-map]`, (els) => Object.fromEntries(els.map((el) => [el.dataset.importMap, el.value])));
+            assert.deepEqual(mapped, { 'komunalni odpad': 'kom', plasty: 'plast', papir: 'papir', bioodpad: 'bio', 'nebezpecny odpad': 'new' });
+            assert.deepEqual(await page.$$eval(`${M} [data-import-issues="skipped"] [data-import-issue]`, (els) => els.map((el) => el.dataset.importIssue)), ['16', '17']);
+            assert.equal(await page.$eval(`${M} [data-import-apply]`, (el) => el.textContent), 'Načíst 12 termínů');
+            await h.shot(page, 'import-waste-review-1440-dark');
+            // Zrušit: nothing written
+            await page.click(`${M} [data-import-cancel]`);
+            assert.equal(await exists(page, `${M} [data-import-review]`), false);
+            assert.equal(await page.$eval(`${M} .cal-wt`, (el) => el.hidden), false);
+            assert.deepEqual((await h.state(page)).content.wasteKinds, before);
+
+            // again: Bio (a rule kind of C4) and Plast (C5) are kept out, the rest is written
+            await upload('odpady-radky.xlsx');
+            await page.select(`${M} select[data-import-map="bioodpad"]`, 'skip');
+            await page.select(`${M} select[data-import-map="plasty"]`, 'skip');
+            assert.equal(await page.$eval(`${M} [data-import-apply]`, (el) => el.textContent), 'Načíst 8 termínů');
+            await page.click(`${M} [data-import-apply]`);
+            await page.waitForFunction((sel) => !document.querySelector(`${sel} [data-import-review]`), { timeout: 5000 }, M);
+            let kinds = (await h.state(page)).content.wasteKinds;
+            assert.deepEqual([kinds.kom.on, kinds.kom.mode, kinds.kom.dates], [true, 'dates', ['2027-01-07', '2027-01-21', '2027-02-04', '2027-02-18', '2027-03-04', '2027-05-06']]);
+            assert.deepEqual(kinds.papir.dates.length, 1);
+            assert.deepEqual(kinds.bio, before.bio, 'skipped');
+            assert.deepEqual(kinds.plast, before.plast, 'skipped');
+            const fresh = Object.keys(kinds).find((id) => !before[id]);
+            assert.deepEqual([kinds[fresh].name, kinds[fresh].place, kinds[fresh].builtin, kinds[fresh].dates.length], ['Nebezpečný odpad', 'u hasičské zbrojnice', null, 1]);
+            assert.equal(await page.$eval(`${M} [data-waste-tab].on`, (el) => el.dataset.wasteTab), 'kom', 'the first imported kind is shown');
+
+            // a second file, „Přidat k termínům“: overlapping dates are kept once
+            await upload('odpady-sloupce.xls');
+            assert.equal(await page.$eval(`${M} select[data-import-shape]`, (el) => el.value), 'columns');
+            await page.select(`${M} select[data-import-map="plast"]`, 'skip');
+            await page.click(`${M} [data-import-mode] button[data-value="add"]`);
+            assert.match(await page.$eval(`${M} [data-import-target="kom"]`, (el) => el.textContent), /přidá se 4 termíny k 6 stávajícím/);
+            await page.click(`${M} [data-import-apply]`);
+            await page.waitForFunction((sel) => !document.querySelector(`${sel} [data-import-review]`), { timeout: 5000 }, M);
+            kinds = (await h.state(page)).content.wasteKinds;
+            assert.equal(kinds.kom.dates.length, 6, 'the four dates were there already');
+            assert.equal(kinds.papir.dates.length, 2);
             await closeTool(page);
         });
 
@@ -660,6 +723,21 @@ module.exports = {
                             await phone.$eval(`${M} [data-waste-tab="plast"]`, (el) => el.click());
                             await sleep(100);
                             await h.shot(phone, `waste-dates-390-${theme}`);
+                        }
+                        // K10b: the import review fits the phone too (cancelled — nothing written)
+                        const table = { waste: 'odpady-radky.xlsx' }[key];
+                        if (table && Y === 2027) {
+                            const input = await phone.$(`${M} [data-import-file="${key}"]`);
+                            await input.uploadFile(path.join(__dirname, '../../Fixtures/calendar/import', table));
+                            await phone.waitForSelector(`${M} [data-import-review="${key}"]`, { timeout: 15000 });
+                            const fitReview = await phone.$eval(`${M} .modal-body`, (el) => {
+                                const wide = [...el.querySelectorAll('*')].filter((n) => n.getBoundingClientRect().right > window.innerWidth + 0.5 || n.getBoundingClientRect().left < -0.5);
+                                return { scroll: el.scrollWidth - el.clientWidth, wide: wide.slice(0, 3).map((n) => n.className || n.tagName) };
+                            });
+                            assert.ok(fitReview.scroll <= 1, `${key} import: body scrolls sideways by ${fitReview.scroll}px`);
+                            assert.deepEqual(fitReview.wide, [], `${key} import: elements leave the screen`);
+                            await h.shot(phone, `${key}-import-390-${theme}`);
+                            await phone.$eval(`${M} [data-import-cancel]`, (el) => el.click());
                         }
                         await phone.$eval(`${M} [data-cal-action="modal-done"]`, (el) => el.click());
                         await phone.waitForFunction(() => !document.querySelector('.cal-tool-modal'), { timeout: 8000 });

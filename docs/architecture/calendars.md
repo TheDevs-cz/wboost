@@ -690,6 +690,36 @@ no new content contract, nothing stored).
 - Fixtures: `tests/Fixtures/calendar/import/` (built by its `generate.php`,
   committed): realistic municipal tables of every shape and format — no real
   municipal file was available; try real ones when they come.
+- **Recognition and the write — `model/import.js`** (pure, node suite
+  `import`, input = `tests/Fixtures/calendar/import/tables.json`, which
+  `CalendarTableReaderTest` pins to the reader's output — re-run
+  `generate.php` after a reader change). Dates: ISO, `1. 3. 2027`,
+  `01.03.2027`, `1.3.`, `1/3/2027`, `1. března`, `1. 3. 27`, Excel serials
+  30000–80000; no year = the calendar's; impossible dates (30. 2.) refused.
+  Waste shapes (`detectWasteShape`, overridable in the review): `rows` (A:
+  the date column + the text column filled on its rows = kind, the next text
+  column = place; rows before the first date are title / header), `columns`
+  (B: ≥ 2 date columns, kind = the header cell above), `months` (C: a column
+  of ≥ 3 month names, cells `7., 21.` / `3. a 17.`), `dates` (D: one column;
+  its title row names the kind). Kinds are matched by name, then by the
+  built-in aliases (`builtinOf`: PLASTY, směsný, Bioodpad, … — `new:<builtin>`
+  when the built-in is not in the calendar yet), else „Nový druh: <název>“;
+  D without a recognisable title goes to the kind open in the tool.
+  `planWaste`: per target kind REPLACE (default) or ADD (union) its dates,
+  `mode: 'dates'`, `on: true`, rule fields kept, place filled from the file
+  when the kind has none and the file has one place for it; > 400 dates →
+  that kind is refused, not written. Out-of-range / unreadable rows are
+  listed with the file's row numbers, never written.
+- **UI — `ui/tools/import.js`**: `importBar` on top of the tool („Nahrát z
+  Excelu“ · „xlsx, xls, ods nebo csv“ · „Stáhnout vzor“), the answer opens
+  `mountImportReview` IN PLACE of the tool body (`.cal-wt[hidden]`): sheet,
+  shape, per group a target select, „Nahradit termíny“ / „Přidat k termínům“,
+  „Po načtení“ per target kind (a switched-on rule kind is flagged „místo
+  pravidelného svozu“), skipped rows in a `<details>`. Nothing is written
+  before „Načíst N termínů“ → ONE `store.applyOps` (content ops are not
+  undoable — the preview is the safety) → toast, the first imported kind is
+  selected. Hotovo / Esc / Zrušit discard the review. e2e
+  `content-tools` (K10b checks, 390 px fit).
 
 ### Budgets of the public client link
 

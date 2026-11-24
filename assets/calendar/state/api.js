@@ -89,7 +89,7 @@ export async function fetchExport(url) {
 }
 
 /**
- * @param env  `{ csrf, urls: { save, asset, history, export, clientLink?, layoutImport?, documentText? } }`
+ * @param env  `{ csrf, urls: { save, asset, history, export, importTable, importTemplateWaste, importTemplateEvents, clientLink?, layoutImport?, documentText? } }`
  */
 export function createApi(env) {
     const urls = env.urls || {};
@@ -124,6 +124,10 @@ export function createApi(env) {
         /** → `{ text, name }` */
         documentText(file) {
             return send(urls.documentText, { _token: token, file }, 'Dokument se nepodařilo přečíst');
+        },
+        /** „Nahrát z Excelu“ (K10b) → `{ sheets: [{ name, rows: string[][] }], truncated, name }`; the file is not stored. */
+        importTable(file) {
+            return send(urls.importTable, { _token: token, file }, 'Tabulku se nepodařilo přečíst');
         },
     };
 }

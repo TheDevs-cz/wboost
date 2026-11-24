@@ -119,4 +119,12 @@ IOFactory::createWriter(book(['Akce 2027' => $e]), 'Xlsx')->save("$dir/akce.xlsx
 $csv = ["Datum;Akce;Spolek", '6.3.2027;"Maškarní ples; pro děti";ZŠ Testov', '24. 12. 2027;Zpívání u stromu;', '1.1.2028;Novoroční výšlap;KČT'];
 file_put_contents("$dir/akce-1250.csv", iconv('UTF-8', 'CP1250', implode("\r\n", $csv)));
 
+// What the reader makes of them — the input of the node suite `import` and a contract the PHP
+// test pins (CalendarTableReaderTest::testTablesJsonIsWhatTheReaderReads).
+$tables = [];
+foreach (['odpady-radky.xlsx', 'odpady-sloupce.xls', 'odpady-mesice.ods', 'odpady-sklo-1250.csv', 'akce.xlsx', 'akce-1250.csv'] as $name) {
+    $tables[$name] = (new WBoost\Web\Services\Calendar\CalendarTableReader())->read("$dir/$name", $name);
+}
+file_put_contents("$dir/tables.json", json_encode($tables, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n");
+
 echo "ok\n";

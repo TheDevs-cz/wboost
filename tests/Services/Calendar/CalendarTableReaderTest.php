@@ -51,6 +51,17 @@ final class CalendarTableReaderTest extends TestCase
         self::assertCount(18, $rows);
     }
 
+    public function testTablesJsonIsWhatTheReaderReads(): void
+    {
+        $tables = json_decode((string) file_get_contents(self::DIR . 'tables.json'), true, 64, JSON_THROW_ON_ERROR);
+        self::assertIsArray($tables);
+        self::assertCount(6, $tables);
+
+        foreach ($tables as $name => $table) {
+            self::assertSame($table, (new CalendarTableReader())->read(self::DIR . $name, (string) $name), sprintf('%s: re-run generate.php — the node suite `import` reads tables.json', $name));
+        }
+    }
+
     public function testShapeBColumnsPerKindFromXls(): void
     {
         $rows = (new CalendarTableReader())->read(self::DIR . 'odpady-sloupce.xls', 'odpady-sloupce.xls')['sheets'][0]['rows'];

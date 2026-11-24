@@ -1,3 +1,4 @@
 composer.lock binary
 symfony.lock binary
 yarn.lock binary
+tests/Fixtures/calendar/import/*.csv binary

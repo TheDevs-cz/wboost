@@ -6,6 +6,9 @@
 // `store.putItem('wasteKinds', id, kind)` (item-wise merge on save); removing a kind also removes
 // its single collections (`wasteExtras`). View state (`ui.toolState.waste`): `{ kind, ym }`.
 //
+// „Nahrát z Excelu“ (K10b, both roles): the bar + review of `ui/tools/import.js`; the review takes
+// the place of the tool until applied or cancelled, then the first imported kind is selected.
+//
 // DOM hooks: `[data-waste-tab="<id>"]`, `[data-waste-add]` (select), `[data-waste-on]`,
 // `[data-waste-name]`, `[data-waste-place]`, `[data-waste-mode] button[data-value]`,
 // `[data-weekday="0…6"]`, `[data-waste-interval]`, `[data-waste-from]`, `[data-waste-to]`,
@@ -30,6 +33,7 @@ import { BUILTIN_WASTE } from '../../model/defaults.js';
 import { binIcon } from '../../render/icons.js';
 import { setStyle } from '../controls/bind.js';
 import { h, icon, segmented, selectField, switchRow } from '../dom.js';
+import { importBar, mountImportReview } from './import.js';
 import { dateField, keyedList, mountDatePicker, plural, readToolState, textField, writeToolState, ymOf } from './datepicker.js';
 
 const TERMS = ['termín', 'termíny', 'termínů'];
@@ -100,7 +104,28 @@ export function mountWasteTool(root, ctx) {
     const addSelect = selectField({ options: [{ value: '', label: '+ Přidat druh' }], value: '', label: 'Přidat druh odpadu', attrs: { 'data-waste-add': '' }, onChange: (value) => addKind(value) });
     addSelect.classList.add('cal-wadd');
     const panelEl = h('div', { class: 'cal-wpanel', role: 'tabpanel' });
-    const el = h('div', { class: 'cal-wt' }, h('div', { class: 'cal-wtabs', role: 'tablist', 'aria-label': 'Druhy odpadu' }, tabsEl, addSelect), panelEl);
+    // „Nahrát z Excelu“ (K10b): the review replaces the tool until it is applied or cancelled
+    let review = null;
+    const bar = importBar(ctx, 'waste', (table) => {
+        if (review) review.destroy();
+        el.hidden = true;
+        review = mountImportReview(root, ctx, {
+            kind: 'waste',
+            table,
+            selected,
+            onClose(result) {
+                review.destroy();
+                review = null;
+                el.hidden = false;
+                if (result && result.imported.length) {
+                    selected = result.imported[0];
+                    writeToolState(ctx, 'waste', { kind: selected });
+                }
+                render();
+            },
+        });
+    });
+    const el = h('div', { class: 'cal-wt' }, bar, h('div', { class: 'cal-wtabs', role: 'tablist', 'aria-label': 'Druhy odpadu' }, tabsEl, addSelect), panelEl);
     root.replaceChildren(el);
 
     tabsEl.addEventListener('keydown', (event) => {
@@ -443,6 +468,7 @@ export function mountWasteTool(root, ctx) {
     return {
         destroy() {
             unsubscribe();
+            if (review) review.destroy();
             root.replaceChildren();
         },
     };

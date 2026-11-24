@@ -181,3 +181,41 @@
 }
 
 .cal-cled-host:empty { display: none; }
+
+/* „Nahrát z Excelu“ (K10b) — ui/tools/import.js: the bar on top of Odpady / Akce a spolky and the
+   review that takes the tool's place until „Načíst …“ or „Zrušit“ */
+.cal-wt[hidden], .cal-evt[hidden] { display: none; }
+.cal-imp-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.cal-imp-btn { gap: 10px; height: auto; min-height: 40px; padding: 6px 14px 6px 12px; border: 1px dashed var(--line-3); border-radius: 12px; text-align: left; }
+.cal-imp-btn > span { display: flex; flex-direction: column; line-height: 1.25; }
+.cal-imp-btn .cap { font-weight: 400; }
+.cal-imp-btn[data-busy] { opacity: .6; cursor: progress; }
+.cal-imp-vzor { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; color: var(--lav-ink); text-decoration: none; }
+.cal-imp-vzor:hover { text-decoration: underline; }
+.cal-imp { display: flex; flex-direction: column; gap: 16px; }
+.cal-imp-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 15px; }
+.cal-imp-head b { overflow-wrap: anywhere; }
+.cal-imp-body { display: flex; flex-direction: column; gap: 14px; }
+.cal-imp-row { display: flex; flex-wrap: wrap; gap: 12px 20px; }
+.cal-imp-f { display: flex; flex-direction: column; gap: 6px; min-width: 180px; margin: 0; }
+.cal-imp-map { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); align-items: center; gap: 10px 16px; padding: 14px 16px; border: 1px solid var(--line-2); border-radius: 16px; background: var(--surface); }
+.cal-imp-src { display: flex; flex-direction: column; min-width: 0; }
+.cal-imp-src b { font-weight: 600; overflow-wrap: anywhere; }
+.cal-imp-pick { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.cal-imp-pick .cal-select { flex: 1 1 auto; min-width: 0; }
+.cal-imp-code { flex: none; width: 92px; }
+.cal-imp-sum { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; font-size: 14px; }
+.cal-imp-sum li.refused { color: var(--rose-ink); }
+.cal-imp-det { border: 1px solid var(--line-2); border-radius: 12px; padding: 8px 12px; background: var(--surface); font-size: 13px; }
+.cal-imp-det.warn { border-color: var(--pch-line); }
+.cal-imp-det summary { display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 500; }
+.cal-imp-det.warn summary { color: var(--pch-ink); }
+.cal-imp-issues { margin: 8px 0 0; padding-left: 18px; color: var(--text-2); }
+.cal-imp-issues li { overflow-wrap: anywhere; }
+.cal-imp-foot { display: flex; justify-content: flex-end; gap: 8px; }
+@media (max-width: 640px) {
+    .cal-imp-map { grid-template-columns: minmax(0, 1fr); gap: 4px 0; }
+    .cal-imp-map > .lbl:nth-child(2) { display: none; }
+    .cal-imp-map > .cal-select, .cal-imp-map > .cal-imp-pick { margin-bottom: 8px; }
+    .cal-imp-f { flex: 1 1 100%; }
+}
