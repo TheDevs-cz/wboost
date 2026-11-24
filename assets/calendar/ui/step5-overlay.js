@@ -26,7 +26,11 @@
 //   [data-photo-edit] („Upravit fotku“ → the photo editor of `ui/photo-editor.js` in a floating panel;
 //                     its draft is previewed on the page and re-applied after every re-render),
 //   [data-photo-gallery] („Z galerie“ — the designer's workspace only, `ui/gallery-pick.js`)
-//   [data-caption-edit]               pencil at the caption → caption editor (`n / 80 znaků`)
+//   [data-caption-edit]               pencil at the caption → caption editor (`n / 80 znaků`); a
+//                                     page with a photo and no caption opens it with the file-name
+//                                     suggestion (`captionFromFileName`, K18)
+//   a photo put here (upload, „Z galerie“) goes through `setPagePhoto` of `ui/tools/photos.js`:
+//                                     an empty caption starts from the cleaned file name (K18)
 //   [data-day-plus="<date>"]          plus per day row, on the OUTER side of its frame
 //   [data-day-row="<date>"]           compact mode only: the day row as the button of the plus menu
 //   [data-day-comments="<date>"]      bubble with the number of comments → the thread
@@ -47,12 +51,14 @@
 
 import { parts } from '../generate/dates.js';
 import { newId, sorted } from '../model/content.js';
+import { captionFromFileName } from '../model/photo-caption.js';
 import { isElementVisible } from '../model/elements.js';
 import { ZOOM_MAX, ZOOM_MIN, cropItem, normalizeCrop, panBy, photoPlacement, transformAttr, zoomTo } from '../model/photo-crop.js';
 import { h, icon, relativeTime } from './dom.js';
 import { hasGallery, pickGalleryAsset } from './gallery-pick.js';
 import { closePhotoEditor, openPhotoEditor, weekPhotoEditing } from './photo-editor.js';
 import { closePopover, openPopover } from './popover.js';
+import { setPagePhoto } from './tools/photos.js';
 import { badgeLabel, bindWarningBadge, dayWarnings, photoWarnings } from './warnings.js';
 
 const CAPTION_MAX = 80;
@@ -187,8 +193,8 @@ export function mountStep5Overlay(overlayRoot, ctx, opts = {}) {
         try {
             const info = await ctx.api.upload(file, 'photo');
             store.addAsset(info);
-            // a new or replaced photo always starts centred at 100 % (handoff §8)
-            store.putItem('pagePhotos', page.key, { asset: info.id, zoom: 1, px: 0.5, py: 0.5 }, page.title);
+            // centred at 100 % (handoff §8); an empty caption starts from the file name (K18)
+            setPagePhoto(ctx, page, info);
         } catch (error) {
             ctx.toast((error && error.message) || 'Soubor se nepodařilo nahrát', true);
         } finally {
@@ -211,8 +217,8 @@ export function mountStep5Overlay(overlayRoot, ctx, opts = {}) {
             galleryButton.disabled = true;
             try {
                 const info = await pickGalleryAsset(ctx, 'photo');
-                // a new or replaced photo always starts centred at 100 % (handoff §8)
-                if (info) store.putItem('pagePhotos', page.key, { asset: info.id, zoom: 1, px: 0.5, py: 0.5 }, page.title);
+                // centred at 100 % (handoff §8); an empty caption starts from the file name (K18)
+                if (info) setPagePhoto(ctx, page, info);
             } finally {
                 busy = false;
                 galleryButton.disabled = false;
@@ -495,7 +501,10 @@ export function mountStep5Overlay(overlayRoot, ctx, opts = {}) {
         const page = last.page;
         if (!page) return;
         const stored = content().pageCaptions[page.key];
-        const input = h('input', { type: 'text', maxlength: String(CAPTION_MAX), value: stored ? stored.text : '', 'aria-label': 'Popisek fotky', 'data-field': 'caption', autocomplete: 'off' });
+        // no caption yet: offer the photo's cleaned file name (K18) — written only on „Uložit“
+        const photo = photoItem();
+        const suggested = !stored && photo && assetOf(photo) ? captionFromFileName(assetOf(photo).name, CAPTION_MAX) : null;
+        const input = h('input', { type: 'text', maxlength: String(CAPTION_MAX), value: stored ? stored.text : suggested || '', 'aria-label': 'Popisek fotky', 'data-field': 'caption', autocomplete: 'off' });
         openPopover({
             kind: 'caption',
             title: 'Popisek fotky',

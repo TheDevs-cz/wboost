@@ -233,6 +233,8 @@ module.exports = {
             const stored = (await state()).content.pagePhotos[other.key];
             assert.deepEqual({ zoom: stored.zoom, px: stored.px, py: stored.py }, { zoom: 1, px: 0.5, py: 0.5 });
             assert.equal(h.psql(`SELECT original_name FROM calendar_asset WHERE id = '${stored.asset}'`), 'k14-galerie.png', 'a copy of the gallery file, under its name');
+            // K18: an empty caption starts from the gallery file's cleaned name
+            assert.deepEqual((await state()).content.pageCaptions[other.key], { text: 'k14 galerie' }, 'caption from the file name');
             await page.waitForFunction(() => !document.querySelector('#calScanGalleryModal.show'), { timeout: 5000 });
             await h.save(page);
         });

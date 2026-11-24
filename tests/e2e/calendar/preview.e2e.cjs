@@ -212,6 +212,9 @@ module.exports = {
             assert.equal(await page.$eval('.cal-5z', (el) => el.hidden), false);
             assert.ok(await exists(page, '.cal-5w svg g[data-el="photo"] image'), 'the photo is drawn');
             await page.waitForSelector(`[data-page-thumb="${week.index}"][data-overridden]`, { timeout: 3000 });
+            // K18: a week without a caption takes the cleaned file name, drawn over the photo
+            assert.deepEqual((await state()).content.pageCaptions[week.key], { text: 'foto a' }, 'caption from the file name');
+            assert.match(await page.$eval('.cal-5w svg [data-el="cap"]', (el) => el.textContent), /foto a/);
             await h.save(page);
         });
         if (!assetA) return;
@@ -273,6 +276,21 @@ module.exports = {
             const item = (await state()).content.pagePhotos[week.key];
             assert.deepEqual({ zoom: item.zoom, px: item.px, py: item.py }, { zoom: 1, px: 0.5, py: 0.5 });
             assert.equal(Number(await page.$eval('[data-photo-zoom]', (el) => el.value)), 100);
+            assert.deepEqual((await state()).content.pageCaptions[week.key], { text: 'foto a' }, 'a replaced photo keeps the caption');
+            // K18: cleared caption → the pencil offers the file name, Esc writes nothing
+            await page.click('[data-caption-edit]');
+            await page.waitForSelector(`${POP}[data-cal-popover="caption"]`);
+            assert.equal(await page.$eval(`${POP} [data-field="caption"]`, (el) => el.value), 'foto a');
+            await page.$eval(`${POP} [data-field="caption"]`, (el) => { el.value = ''; el.dispatchEvent(new Event('input', { bubbles: true })); });
+            await page.keyboard.press('Enter');
+            await popoverGone();
+            assert.equal((await state()).content.pageCaptions[week.key], undefined, 'an emptied caption is removed');
+            await page.click('[data-caption-edit]');
+            await page.waitForSelector(`${POP}[data-cal-popover="caption"]`);
+            assert.equal(await page.$eval(`${POP} [data-field="caption"]`, (el) => el.value), 'foto b', 'the file name is offered');
+            await page.keyboard.press('Escape');
+            await popoverGone();
+            assert.equal((await state()).content.pageCaptions[week.key], undefined, 'Esc stored nothing');
             await h.save(page);
             await page.click('[data-photo-remove]');
             assert.equal((await state()).content.pagePhotos[week.key], undefined);

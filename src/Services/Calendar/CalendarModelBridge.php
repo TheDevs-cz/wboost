@@ -167,6 +167,51 @@ final class CalendarModelBridge
         );
     }
 
+    /**
+     * Starting captions from photo file names — the browser's own rule
+     * (`assets/calendar/model/photo-caption.js`) run by
+     * `resources/calendar/photo-captions.mjs` (feedback K18). One spawn for
+     * the whole list.
+     *
+     * @param list<string> $names
+     *
+     * @return list<null|string> the caption of each name, in order (null = camera-style name, no caption)
+     *
+     * @throws CalendarModelUnavailable
+     */
+    public function captionsFromFileNames(array $names, int $max = 80): array
+    {
+        if ($names === []) {
+            return [];
+        }
+
+        $process = new Process([$this->node(), $this->projectDir . '/resources/calendar/photo-captions.mjs']);
+        $process->setInput((string) json_encode(['root' => $this->projectDir, 'names' => $names, 'max' => $max], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE));
+        $process->setTimeout(self::TIMEOUT_SECONDS);
+
+        try {
+            $process->mustRun();
+        } catch (ProcessException $exception) {
+            throw new CalendarModelUnavailable('The caption rule could not be run: ' . mb_substr($exception->getMessage(), 0, 400), 0, $exception);
+        }
+
+        $result = json_decode($process->getOutput(), true);
+
+        if (!is_array($result) || ($result['ok'] ?? null) !== true || !is_array($result['captions'] ?? null) || count($result['captions']) !== count($names)) {
+            $message = is_array($result) && is_string($result['message'] ?? null) ? $result['message'] : 'unreadable answer';
+
+            throw new CalendarModelUnavailable('The caption rule failed: ' . mb_substr($message, 0, 400));
+        }
+
+        $captions = [];
+
+        foreach ($result['captions'] as $caption) {
+            $captions[] = is_string($caption) && trim($caption) !== '' ? $caption : null;
+        }
+
+        return $captions;
+    }
+
     private function node(): string
     {
         if ($this->node === null) {

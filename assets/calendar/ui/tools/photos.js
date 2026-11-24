@@ -19,10 +19,11 @@
 // Also exported for the other step-4 modules (page panel, QR tool, special pages):
 //   `fileTile(options)`            the dashed upload tile with a hidden file input
 //   `uploadAsset(ctx, file, kind)` `api.upload` → `store.addAsset`, error toast on failure
-//   `setPagePhoto(ctx, page, info, { nameCaption })` photo of a week page: crop reset to centred /
-//                                   100 %, caption from the picture's embedded description; with
-//                                   `nameCaption` (this tool and the page panel's upload) an empty
-//                                   caption falls back to the file name
+//   `setPagePhoto(ctx, page, info)` photo of a week page: crop reset to centred / 100 %, caption
+//                                   from the picture's embedded description, else an empty caption
+//                                   starts from the file name — EVERY path that puts a photo on a
+//                                   week goes through here (this tool, the page panel, step 5's
+//                                   Vyměnit fotku / Z galerie, the warning fix; K11, K18)
 //   `sortedImageFiles(files)`      images only, in Czech numeric file-name order
 //
 // DOM hooks: `[data-photo-bulk]` (the multi-file input), `[data-photo-row="<pageKey>"]`,
@@ -112,16 +113,17 @@ export async function uploadAsset(ctx, file, kind) {
 }
 
 /**
- * Puts an uploaded photo on a week page. A new photo always starts centred at 100 % (handoff §8);
- * a description embedded in the picture becomes the caption, an existing caption is kept otherwise.
+ * Puts an uploaded (or gallery) photo on a week page. A new photo always starts centred at 100 %
+ * (handoff §8); a description embedded in the picture becomes the caption; otherwise an existing
+ * caption is kept and an empty one starts from the cleaned file name (`model/photo-caption.js`).
  */
-export function setPagePhoto(ctx, page, info, { nameCaption = false } = {}) {
+export function setPagePhoto(ctx, page, info) {
     const ops = [{ c: 'pagePhotos', id: page.key, v: { asset: info.id, zoom: 1, px: 0.5, py: 0.5 }, label: page.title }];
     const { doc } = ctx.store.getState();
     const description = typeof info.description === 'string' ? info.description.trim() : '';
     if (doc.design.features.captions) {
         const current = doc.content.pageCaptions[page.key];
-        const fromName = nameCaption && !description && !(current && current.text.trim()) ? captionFromFileName(info.name, CAPTION_MAX) : null;
+        const fromName = !description && !(current && current.text.trim()) ? captionFromFileName(info.name, CAPTION_MAX) : null;
         const text = description ? description.slice(0, CAPTION_MAX) : fromName;
         if (text) ops.push({ c: 'pageCaptions', id: page.key, v: { text }, label: page.title });
     }
@@ -211,7 +213,7 @@ export function mountPhotosTool(root, ctx) {
                     const info = await ctx.api.upload(job.file, 'photo');
                     store.addAsset(info);
                     // the page list may have changed meanwhile (never for a week key that still exists)
-                    setPagePhoto(ctx, job.page, info, { nameCaption: true });
+                    setPagePhoto(ctx, job.page, info);
                 } catch (error) {
                     failed += 1;
                     if (!firstError) firstError = (error && error.message) || 'Soubor se nepodařilo nahrát';
@@ -254,7 +256,7 @@ export function mountPhotosTool(root, ctx) {
             attrs: { 'data-photo-file': '' },
             onFiles: async ([file]) => {
                 const info = await uploadAsset(ctx, file, 'photo');
-                if (info) setPagePhoto(ctx, page, info, { nameCaption: true });
+                if (info) setPagePhoto(ctx, page, info);
             },
         });
         const caption = captions

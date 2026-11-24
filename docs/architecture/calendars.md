@@ -612,11 +612,29 @@ WebP preview (WebP, not JPEG, so a logo
 keeps its transparency); the full file is used only on the large step-5 page
 and for the dpi warning. Uploading never changes the calendar document — the
 client references the id and saves.
-A week photo uploaded in „Fotky a popisky“ (single or bulk) sets the caption
-from the embedded description; failing that, a week with no caption gets one
-from the cleaned file name (`model/photo-caption.js`: extension, `_`/`-` and
-an ordering prefix go; camera / generated names such as `IMG_1234`, `PXL_…`,
-`Snímek obrazovky…` give none) — feedback K11. Its rows name the file
+**Every path that puts a photo on a week** — „Fotky a popisky“ (single row and
+the multi-upload „Nahrát všechny fotky najednou“, input or drop), the step-4 page
+panel (upload, „Z galerie“), step 5 („Nahrát / Vyměnit fotku“, „Z galerie“) and
+the warning fix „Vyměnit fotku“ — goes through `setPagePhoto` (`ui/tools/photos.js`):
+the caption comes from the embedded description; failing that, a week with no
+caption gets one from the cleaned file name (`model/photo-caption.js`: the file
+name without its extension, `_`/`-` and an ordering prefix go; a generic word is
+a caption too — `Foto.jpg` → „Foto“; only camera / generated names such as
+`IMG_1234`, `DSC_0001`, `PXL_…`, `Snímek obrazovky…`, `WhatsApp Image…` give
+none). A caption that is already there is never replaced by a file name — it
+stays the user's editable text (feedback K11, K18). In step 5 the caption pencil
+of a week with a photo and no caption opens with the file-name suggestion
+prefilled; only „Uložit“ writes it. **Not at render time**: an empty caption
+prints nothing — the file name becomes a caption only by being written into
+`pageCaptions` (so it can be edited or deleted, and an export never shows text
+nobody saw). Photos from before K18 were filled once by
+`app:calendar:backfill-photo-captions` (dry run by default; `--apply`,
+`--calendar=<id>`): description, else the file name through the same JS rule
+(`resources/calendar/photo-captions.mjs`, `CalendarModelBridge::captionsFromFileNames`),
+only empty captions of calendars with captions on, written by
+`BackfillCalendarPhotoCaptions` under the row lock with one history line
+„Doplnil popisky z názvů souborů (N)“.
+Rows of „Fotky a popisky“ name the file
 (`asset.name`), the pixel size and the low-dpi hint (`render/warnings.js`
 `lowPhotoDpi` / `PHOTO_MIN_DPI`, shared with the page warnings).
 Assets are never deleted individually (replaced photos stay until the calendar

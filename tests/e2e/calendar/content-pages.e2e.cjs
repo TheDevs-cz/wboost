@@ -93,7 +93,7 @@ function makeFiles() {
         // bulk upload: chosen in a "wrong" order on purpose, plus a file that is not a picture
         p01: write('01.png', png(2600, 1700, [200, 80, 60])),
         p02: write('02.png', png(2640, 1700, [70, 150, 90], 'Rybník za humny, foto: Jana Nová')),
-        p10: write('10.png', png(2680, 1700, [60, 90, 190])),
+        p10: write('10 Foto.png', png(2680, 1700, [60, 90, 190])),
         notes: write('poznamky.txt', 'tohle není fotka'),
         // 310 mm at 300 dpi — a print-size photo
         print: write('tisk.png', png(3661, 2440, [120, 120, 60])),
@@ -350,12 +350,16 @@ module.exports = {
             }
             assert.equal(await text(page, '[data-photo-count]'), `Fotky: 3 z ${weeks.length}`);
             assert.equal(await page.$$eval('[data-photo-row] .cal-ft.has img', (nodes) => nodes.length), 3);
-            assert.deepEqual(state.content.pageCaptions, { [weeks[1].key]: { text: 'Rybník za humny, foto: Jana Nová' } }, 'the caption comes from the description embedded in 02');
+            // the description embedded in 02 wins; K18: every other week a multi-upload fills starts its
+            // caption from the file name — `10 Foto.png` → „Foto“ (a generic word is a caption too),
+            // `01.png` is digits only and gives none
+            assert.deepEqual(state.content.pageCaptions, { [weeks[1].key]: { text: 'Rybník za humny, foto: Jana Nová' }, [weeks[2].key]: { text: 'Foto' } }, 'captions of the multi-upload');
+            assert.equal(await page.$eval(`[data-photo-row="${weeks[2].key}"] [data-photo-caption]`, (el) => el.value), 'Foto');
             assert.equal(await page.$eval(`[data-photo-row="${weeks[1].key}"] [data-photo-caption]`, (el) => el.value), 'Rybník za humny, foto: Jana Nová');
-            // K11: every filled row names its file and pixel size; `01` / `02` / `10` give no caption
+            // K11: every filled row names its file and pixel size
             assert.deepEqual(
                 await page.$$eval('[data-photo-row] [data-photo-name]:not([hidden])', (nodes) => nodes.map((n) => n.textContent)),
-                ['01.png2600 × 1700 px', '02.png2640 × 1700 px', '10.png2680 × 1700 px'],
+                ['01.png2600 × 1700 px', '02.png2640 × 1700 px', '10 Foto.png2680 × 1700 px'],
             );
             assert.equal(await page.$eval(`[data-photo-row="${weeks[0].key}"] [data-photo-name]`, (el) => el.title), '01.png · 2600 × 1700 px');
             assert.equal(await exists(page, '[data-photo-name][data-photo-dpi]'), false, 'no low-resolution hint at 2600 px');
@@ -367,7 +371,7 @@ module.exports = {
             const assets = await bootAssets(page);
             const saved = (await h.state(page)).content.pagePhotos;
             const names = weeks.slice(0, 3).map((week) => assets[saved[week.key].asset].name);
-            assert.deepEqual(names, ['01.png', '02.png', '10.png'], 'file-name order from the first week');
+            assert.deepEqual(names, ['01.png', '02.png', '10 Foto.png'], 'file-name order from the first week');
             assert.deepEqual(weeks.slice(0, 3).map((week) => [assets[saved[week.key].asset].width, assets[saved[week.key].asset].height]), [[2600, 1700], [2640, 1700], [2680, 1700]], 'pixel size of every bulk upload');
             for (const index of [1, 2, 3]) await page.waitForSelector(`[data-page-thumb="${index}"][data-overridden]`);
             await showPage(page, 1);

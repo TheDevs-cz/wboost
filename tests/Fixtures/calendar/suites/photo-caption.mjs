@@ -16,6 +16,13 @@ export default async function (t, load) {
             '12) Vánoce.jpg': 'Vánoce',
             'Foto z dovolené.jpg': 'Foto z dovolené',
             'Image of the farm.png': 'Image of the farm',
+            // K18: generic words are captions too — „the file name without its extension“
+            'Foto.jpg': 'Foto',
+            'Foto.png': 'Foto',
+            'foto_12.jpg': 'foto 12',
+            'Obrázek 1.png': 'Obrázek 1',
+            'image (3).png': 'image (3)',
+            'Photo 2.jpg': 'Photo 2',
             '2024 Chata.jpg': '2024 Chata',
             'cesta/k/souboru/Ples.jpg': 'Ples',
             // macOS hands out decomposed (NFD) names
@@ -29,7 +36,7 @@ export default async function (t, load) {
             'IMG_1234.jpg', 'IMG-20240512-WA0003.jpg', 'img1234.jpeg', 'DSC01234.JPG', 'DSCN0042.jpg', 'DSCF7781.RAF',
             'PXL_20240512_143022123.jpg', 'VID_20240101.mp4', 'MVIMG_20190101_1200.jpg', 'DJI_0042.jpg', 'GOPR0123.jpg',
             'P1010234.JPG', '_MG_4471.CR2', 'Screenshot 2024-05-12 at 14.03.22.png', 'Snímek obrazovky 2024-05-12 v 14.03.22.png',
-            'WhatsApp Image 2024-05-12 at 14.03.22.jpeg', 'unnamed.jpg', 'image (3).png', 'foto_12.jpg', 'Obrázek 1.png',
+            'WhatsApp Image 2024-05-12 at 14.03.22.jpeg', 'unnamed.jpg',
             '20240512_143022.jpg', '2024-05-12.jpg', '0001.jpg', '01.jpg', '01_IMG_1234.jpg',
             '3f2504e0-4f89-11d3-9a0c-0305e82c3301.jpg', 'a3f9c0de12b4e5f6.jpg', 'ab.jpg', '01 ab.jpg', '', '.jpg',
         ];

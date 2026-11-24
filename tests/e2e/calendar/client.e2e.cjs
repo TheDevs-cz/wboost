@@ -357,8 +357,10 @@ module.exports = {
 
             await openDialog(page, 'history');
             const rows = await historyRows(page);
-            const top = rows.slice(0, 3).map((r) => `${r.who}: ${r.what}`).sort();
-            assert.deepEqual(top, [`Klient: Komentář k ${d}. ${m}.: Prosíme jinou fotku`, `Klient: Nahrál fotku — ${week.title}`, `Klient: Přidal akci „Pouť“ — ${d}. ${m}.`].sort());
+            // K18: the upload also starts the empty caption from the file name (obec.jpg → „obec“)
+            assert.equal(s.content.pageCaptions[week.key].text, 'obec', 'caption from the file name');
+            const top = rows.slice(0, 4).map((r) => `${r.who}: ${r.what}`).sort();
+            assert.deepEqual(top, [`Klient: Komentář k ${d}. ${m}.: Prosíme jinou fotku`, `Klient: Nahrál fotku — ${week.title}`, `Klient: Upravil popisek — ${week.title}`, `Klient: Přidal akci „Pouť“ — ${d}. ${m}.`].sort());
             await closeDialog(page, 'history');
         });
 
