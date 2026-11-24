@@ -53,6 +53,11 @@ function fixture(h) {
         DELETE FROM file_upload WHERE project_id = ${project} AND original_name = ${quote(GALLERY_FILE)};
     `);
     if (psql('SELECT admin_only FROM ai_scan_runtime LIMIT 1') === 't') compose(['web', 'bin/console', 'app:ai-scan:status', '--admin-only=0']);
+    // one run starts more than ten scans, and the user's daily start count spans every project (other
+    // e2e projects of the same user, earlier runs today) — generous limits, as ../ai-scan/lib/harness.cjs sets them
+    if (Number(psql('SELECT least(daily_starts_user, daily_starts_project) FROM ai_scan_runtime LIMIT 1')) < 500) {
+        compose(['web', 'bin/console', 'app:ai-scan:status', '--daily-starts-user=500', '--daily-starts-project=500']);
+    }
 }
 const project = (h, set) => psql(`UPDATE project SET ${set} WHERE id = ${quote(h.config.projectId)}`);
 
@@ -193,7 +198,9 @@ module.exports = {
                 await h.gotoStep(page, 2);
                 await waitCard('locked');
                 assert.match(await text('[data-cal-scan-card]'), /Naskenovat design.*Premium.*Požádat o přístup/);
-                assert.equal(await page.$('#calScanGalleryModal'), null, 'no gallery component for somebody who cannot scan');
+                // the gallery modal is on every designer's page since K14 („Z galerie“ for photos) — and lazy:
+                // its component is not rendered until it first opens
+                assert.equal(await page.$('#calScanGalleryModal [data-gallery-uploader-target="input"]'), null, 'the lazy gallery is not loaded before it opens');
                 await shot('scan-00a-locked');
                 await page.click('[data-cal-scan-card] [data-act="request"]');
                 await page.waitForSelector('dialog[open] [data-send]');
@@ -446,6 +453,8 @@ module.exports = {
                 assert.ok(shown.done.some((text) => /^(\d+ s|\d+ min \d+ s)$/.test(text)), `durations: ${shown.done.join(' | ')}`);
                 // „Tyto texty jsme našli“: before the first render the page shows the lines the reading found, outlined
                 await page.waitForSelector('[data-cal-scan-panel] [data-cal-scan-found]', { timeout: 30000 });
+                // the outlines are laid over the picture: measure once it has loaded (the private bucket may take a moment)
+                await page.waitForFunction(() => { const img = document.querySelector('[data-cal-scan-panel] [data-cal-scan-found] img'); return img && img.complete && img.naturalWidth > 0; }, { timeout: 15000 });
                 const found = await page.evaluate(() => {
                     const frame = document.querySelector('[data-cal-scan-panel] [data-cal-scan-found]');
                     const box = frame.getBoundingClientRect();
@@ -600,6 +609,8 @@ module.exports = {
                 await page.waitForSelector('#calScanGalleryModal.show', { timeout: 15000 });
                 // the e2e project's gallery is empty: put one picture there through the gallery's own uploader
                 const tile = '#calScanGalleryModal [data-image-gallery-id-param]';
+                // the component loads lazily, when the modal first opens (K14)
+                await page.waitForSelector(`${tile}, #calScanGalleryModal [data-gallery-uploader-target="input"]`, { timeout: 30000 });
                 if (!(await page.$(tile))) {
                     await (await page.$('#calScanGalleryModal [data-gallery-uploader-target="input"]')).uploadFile(strip);
                     const confirm = await page.waitForSelector('#calScanGalleryModal [data-action*="gallery-uploader#upload"], #calScanGalleryModal [data-gallery-uploader-target="submit"]', { timeout: 4000 }).catch(() => null);
@@ -1052,9 +1063,12 @@ module.exports = {
             await check('14 days chosen but not saved: the scan saves the calendar first, builds the two-sided layout, and it applies', async () => {
                 unsavedId = await h.createCalendar(page);
                 await page.click('[data-type="fortnight"]');
-                await h.gotoStep(page, 2);
                 assert.notEqual((await state()).status, 'clean', 'the type switch is still unsaved');
                 assert.equal(psql(`SELECT type FROM calendar WHERE id = ${quote(unsavedId)}`), 'week');
+                // since K8 a step change saves first — the scan then starts on the calendar as saved; the
+                // server half of K4 (a start saves an unsaved calendar first) stays covered below
+                await h.gotoStep(page, 2);
+                assert.equal(psql(`SELECT type FROM calendar WHERE id = ${quote(unsavedId)}`), 'fortnight', 'Pokračovat / the stepper saved the type (K8)');
                 await page.waitForSelector('[data-cal-scan-card] [data-cal-action="scan-open"]', { timeout: 20000 });
                 await startScan(await picture('stranka-14-neulozeno.png'));
                 // the start saved first: the scan is built for the 14-day calendar the user sees
