@@ -3532,7 +3532,8 @@
             "kinds": {}
            },
            "offsets": {}
-          }
+          },
+          "layers": {}
          }
         }
        }
@@ -4025,7 +4026,8 @@
         "kinds": {}
        },
        "offsets": {}
-      }
+      },
+      "layers": {}
      },
      "features": {
       "captions": false,
