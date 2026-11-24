@@ -718,6 +718,16 @@ in-process.
 - **Stand-in.** A scan never takes a picture out of the source; places are
   filled later. In candidate renders the reserved asset id
   `AiScanStandIn::ASSET_ID` resolves to one bundled neutral picture — an extra
+- **Layer styles in a template scan** (K21, 2026-11-24 — `system.template.md`,
+  prompt only): the instructions offer the DSL's `shadow` (`dropShadow` /
+  `outerGlow`, one per text / shape / picture place), a picture place's
+  `cornerRadius` (a round photo = half its side) and `border`, and a shape's
+  `blend` for a tint that multiplies / screens the photo; `adjust` is never
+  offered (it edits the user's picture) and `letterSpacing` stays as
+  `scanner/eval/RESULTS.md` §10.6 decided. A shadow the scan builds is no
+  longer an approximation, so the review's „Stín pod nadpisem jsme
+  vynechali.“ appears only for one it could not build. Measured before /
+  after in `docs/ai-scan/round-k21-plan.md` § 8.
 - **A "left-out thing" that lies on built layers is dropped** before the
   template report is stored (`Template/OmittedOnLayers::without()`): an
   `omitted` entry whose box lies for at least half on layers the scan built

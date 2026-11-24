@@ -47,7 +47,9 @@ OCR reads words well and layout poorly: it may split a line, join two columns, m
 - **One fill field per piece of copy.** A sentence or line stays ONE text element even when a word inside it has another colour or weight: set the whole text in the dominant style and report `mixed_styles`. A paragraph is one text with `\n` breaks, not one element per line. Split only where a client would fill separate fields (a price and its label, a date and a place).
 - **Contact lines** (name, phone, e-mail, web, address) are one text element per item, not merged.
 - **Text you cannot set horizontally** (rotated, curved, vertical) becomes a horizontal text at its position when it is copy a client will change (report `rotation`), or part of the picture place it belongs to when it is artwork.
-- **Effects** the document cannot express (shadow, outline, blur, blend, mask, letter-spacing) are left out or approximated with a primitive, and listed in the report.
+- **Shadows and glows** of a text, a shape or a picture place are its `shadow` block (one per element): a darker copy of the element offset from it (soft or hard-edged) is a `dropShadow`, a soft halo evenly around it (often light on a dark background) an `outerGlow`. Read it off the picture: the offset direction and length (→ `angle`, `distance`), how far it blurs (→ `size`; 0 = a hard copy), its colour and strength (→ `color`, `opacity`; `scan_measure` the shadow next to the element). Most elements have none — send a shadow only where you see one; never invent one to make text stand out.
+- **Rounded and round pictures**: a photo with rounded corners is a picture place with `cornerRadius` (px); a round photo or avatar is a square place with `cornerRadius` = half its side. A picture frame of one solid colour is `border {color, width}`.
+- **Effects** the document still cannot express (outline, blur, an inner shadow, two shadows on one element, masks other than rounded corners, letter-spacing) are left out or approximated with a primitive, and listed in the report.
 
 # Places for pictures
 
@@ -60,7 +62,7 @@ OCR reads words well and layout poorly: it may split a line, join two columns, m
 
 # What the document cannot express
 
-No rotation, shadows, blur, blend modes, masks or clipping (no rounded or circular photos), text outline, letter spacing, underline, mixed styles inside one text, curved text, arbitrary vector paths, per-corner radii, off-centre radial gradients.
+No rotation, blur, inner shadows or more than one shadow per element, masks or clipping other than a picture's rounded corners, text outline, letter spacing, underline, mixed styles inside one text, curved text, arbitrary vector paths, per-corner radii, off-centre radial gradients.
 
 # The design document (DSL reference)
 
@@ -68,15 +70,18 @@ A design is `{"canvas": {"width": W, "height": H}, "elements": [...]}`; `canvas`
 
 Every element has `kind` and `id` (slug `^[a-z0-9][a-z0-9_-]*$`, ≤ 64 chars, unique).
 
-**text** — keys: `kind, id, text, font, size, color, align, lineHeight, opacity, x, y, width, input`.
+**text** — keys: `kind, id, text, font, size, color, align, lineHeight, opacity, shadow, x, y, width, input`.
 Required: `text` (`\n` = line break), `font`, `size` (px), `x`, `y`, `width`. Defaults: `color` `#000000`, `align` `left` (`left|center|right|justify`), `lineHeight` `1.16`, `opacity` `1`.
 `input` keys: `name, maxLength, uppercase, hidable, locked, richText, sampleValue`.
 
-**shape** — keys: `kind, id, shape, fill, stroke, strokeWidth, strokeStyle, cornerRadius, opacity, name, locked, x, y, width, height`.
-`shape` ∈ `rectangle|square|circle|ellipse|triangle|line|star`; a circle is given by its bounding box (`width` = `height` = diameter). `fill` is a hex colour or a gradient: `{"type": "linear", "angle": 90, "from": "#…", "to": "#…"}` or `{"type": "linear"|"radial", "angle": 90, "stops": [{"at": 0, "color": "#…", "opacity": 0}, {"at": 1, "color": "#…", "opacity": 1}]}` (`at` and `opacity` are fractions 0…1; a radial gradient ignores `angle`). `stroke` hex + `strokeWidth` px + `strokeStyle` `solid|dashed|dotted`. `cornerRadius` px, on `rectangle|square|line` only. `opacity` fraction 0…1. A `line` is a thin rectangle (`height` = its thickness); with `strokeStyle: "dotted"` it is a row of round dots as big as the line is thick.
+**shape** — keys: `kind, id, shape, fill, stroke, strokeWidth, strokeStyle, cornerRadius, opacity, blend, shadow, name, locked, x, y, width, height`.
+`shape` ∈ `rectangle|square|circle|ellipse|triangle|line|star`; a circle is given by its bounding box (`width` = `height` = diameter). `fill` is a hex colour or a gradient: `{"type": "linear", "angle": 90, "from": "#…", "to": "#…"}` or `{"type": "linear"|"radial", "angle": 90, "stops": [{"at": 0, "color": "#…", "opacity": 0}, {"at": 1, "color": "#…", "opacity": 1}]}` (`at` and `opacity` are fractions 0…1; a radial gradient ignores `angle`). `stroke` hex + `strokeWidth` px + `strokeStyle` `solid|dashed|dotted`. `cornerRadius` px, on `rectangle|square|line` only. `opacity` fraction 0…1. `blend` (`multiply`, `screen`, `overlay`, `soft-light`, … — default `normal`): only for a tint over a photo that visibly darkens (`multiply`) or lightens (`screen`) it while its texture shows through unchanged. A `line` is a thin rectangle (`height` = its thickness); with `strokeStyle: "dotted"` it is a row of round dots as big as the line is thick.
 
-**image** — keys: `kind, id, asset, x, y, width, height, input, mirror, opacity`.
+**image** — keys: `kind, id, asset, x, y, width, height, input, mirror, opacity, cornerRadius, border, shadow`.
+`cornerRadius` px (half the side = a circle), `border` `{"color": "#…", "width": px}`.
 `asset` is always `standInAsset` in a scan. With `"input": {"name": "Fotografie"}` it is a fillable place for a picture, stretched to the box; `input` keys: `name, placeholder, allowMove, allowResize, allowRotate, hidable`.
+
+**shadow** (texts, shapes, pictures) — `{"kind": "dropShadow", "color": "#000000", "opacity": 0.5, "angle": 120, "distance": 10, "size": 20}`: `opacity` fraction 0…1; `angle` the LIGHT angle in degrees as in Photoshop (120 = the shadow falls down right, 90 = straight down, 180 = to the right); `distance` and `size` (blur) canvas px. `{"kind": "outerGlow", "color": "#ffffff", "opacity": 0.75, "size": 20}` has no `angle` / `distance`.
 
 **background** — keys: `kind, id, asset, fill, fillable`. Exactly one per design. Either `fill` (hex or gradient object, as for shapes) or `asset` (a picture, cover-fitted over the whole canvas); `"fillable": true` (pictures only) lets the user replace the photo. It takes no placement and no opacity.
 

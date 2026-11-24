@@ -139,3 +139,23 @@ calendar, one run per page before (definition as on main) and after:
 
 Not changed by the round: `icons.order` (no page shows both icon kinds), the number band of
 chotebuz stays `grow` 0 (its band hugs the numbers). One run per page — the spread is not measured.
+
+## 8. Results — Phase 2T template layer styles (2026-11-24)
+
+`scanner/eval/run.mjs` (file driver, on the plan), the eval project, one run per input before
+(definition as on main) and after. Gate (§ 3): the easy set must not get worse.
+
+| input | masked before → after | text IoU before → after | what the after proposal builds |
+|---|---|---|---|
+| informace-s-fotkou (easy) | 0.990 → 0.999 | 0.966 → 0.993 | nothing new — no effect invented |
+| argumenty (easy) | 0.993 → 0.989 | 0.911 → 0.942 | nothing new |
+| vite-ze-2-strana (easy) | 0.995 → 0.993 | 0.966 → 0.978 | nothing new |
+| B1-koncert (hard: hard offset text shadow `8px 8px 0 #d61f69 @0.9`) | 0.985 → 0.968 | 0.525 → 0.533 | headline `dropShadow` `#c62166`, opacity 1, angle 135, distance 8, size 0 — the source's shadow almost exactly (the masked drop follows the headline's substitute face, now set larger: 130 → 178 px, truth 230) |
+| B2-sleva (hard: card with a soft shadow, rounded photo) | 0.884 → 0.906 | 0.611 → 0.510 | card `dropShadow`, photo place `cornerRadius` 20; 21 turns (11 before) |
+| B4-citat (hard: circular photo, glass card) | 0.783 → 0.782 | 0.344 → 0.357 | photo place `cornerRadius` 98 = a circle |
+| B5-otevreno (hard: text shadow, shadowed chip) | 0.854 → 0.846 | 0.344 → 0.387 | headline `dropShadow` |
+
+Easy set: no invented effect, text IoU up on all three, masked similarity within ±0.01 — the gate
+holds, adopted. B2's text IoU fall is one run of a long, rotated, mixed-style input; the spread is not
+measured. `shadow_omitted` remains in the reports only for shadows the DSL cannot draw (box shadow of
+a rotated sticker, a second shadow).
