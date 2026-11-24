@@ -528,6 +528,83 @@ final class CalendarDesignToolsTest extends WebTestCase
         self::assertSame($revision, $this->calendar(TestDataFixture::CALENDAR_2_ID)->revision);
     }
 
+    /**
+     * K20: own layers — added (on top, centred, then placed by their box in
+     * the same call), patched (fill / stroke merge), restacked through
+     * `order`, hidden, removed; refusals name the key; nothing is stored on
+     * a refusal.
+     */
+    public function testOwnLayersAreAddedPlacedRestackedPatchedAndRemoved(): void
+    {
+        $picture = $this->ok('upload_calendar_asset', ['calendarId' => TestDataFixture::CALENDAR_2_ID, 'kind' => 'image', 'fileBase64' => base64_encode(self::SVG), 'filename' => 'partneri.svg']);
+
+        $added = $this->ok('set_calendar_layout', [
+            'calendarId' => TestDataFixture::CALENDAR_2_ID,
+            'layers' => [
+                'stripe' => ['kind' => 'rect', 'name' => 'Pruh', 'fill' => ['color' => '#c8102e'], 'radius' => 2, 'opacity' => 137],
+                'partners' => ['kind' => 'image', 'asset' => $picture['assetId']],
+                'rule' => ['kind' => 'line', 'stroke' => ['style' => 'dot', 'width' => 1.5]],
+            ],
+            'boxes' => ['u:stripe' => ['x' => -5, 'y' => 60, 'w' => 320, 'h' => 10], 'u:rule' => ['hidden' => true]],
+        ]);
+
+        $layout = self::arr($added['layout']);
+        self::assertSame('#C8102E', self::dig($layout, 'layers', 'stripe', 'fill', 'color'));
+        self::assertTrue(self::dig($layout, 'layers', 'stripe', 'fill', 'on'), 'a missing key takes the default of the kind');
+        self::assertEquals(100, self::dig($layout, 'layers', 'stripe', 'opacity'), 'clamped');
+        self::assertSame('weeks', self::dig($layout, 'layers', 'stripe', 'pages'));
+        self::assertSame($picture['assetId'], self::dig($layout, 'layers', 'partners', 'asset'));
+        self::assertSame('dot', self::dig($layout, 'layers', 'rule', 'stroke', 'style'));
+        self::assertEquals(['x' => -5, 'y' => 60, 'w' => 320, 'h' => 10], self::dig($layout, 'boxes', 'u:stripe'));
+        self::assertTrue(self::dig($layout, 'boxes', 'u:rule', 'hidden'));
+        $order = self::arr(self::dig($layout, 'order'));
+        self::assertSame(['u:rule', 'u:partners', 'u:stripe'], array_slice($order, 0, 3), 'each new layer goes on top, in the order given');
+        self::assertStringContainsString('layers.stripe.opacity: 137 → 100', self::text($added['notes']));
+
+        // Restack: the stripe under the photo; patch its colour only; remove the line.
+        $order = [...array_values(array_filter($order, static fn (mixed $key): bool => $key !== 'u:stripe')), 'u:stripe'];
+        $patched = $this->ok('set_calendar_layout', [
+            'calendarId' => TestDataFixture::CALENDAR_2_ID,
+            'layers' => ['stripe' => ['fill' => ['color' => '#004E7C']], 'rule' => null],
+            'order' => array_values(array_filter($order, static fn (mixed $key): bool => $key !== 'u:rule')),
+        ]);
+        $layout = self::arr($patched['layout']);
+        self::assertSame('#004E7C', self::dig($layout, 'layers', 'stripe', 'fill', 'color'));
+        self::assertEquals(2, self::dig($layout, 'layers', 'stripe', 'radius'), 'the rest of the item stays');
+        self::assertSame('u:stripe', self::arr($layout['order'])[count(self::arr($layout['order'])) - 1]);
+        self::assertArrayNotHasKey('rule', self::arr($layout['layers']));
+        self::assertArrayNotHasKey('u:rule', self::arr($layout['boxes']));
+
+        // the stored layout is the browser's; a preset reset keeps the own layers
+        $stored = $this->calendar(TestDataFixture::CALENDAR_2_ID)->layout;
+        self::assertInstanceOf(\stdClass::class, $stored);
+        self::assertInstanceOf(\stdClass::class, $stored->layers ?? null);
+        self::assertObjectHasProperty('stripe', $stored->layers);
+        $reset = $this->ok('set_calendar_layout', ['calendarId' => TestDataFixture::CALENDAR_2_ID, 'preset' => 'photoLeft', 'reset' => true]);
+        self::assertArrayHasKey('stripe', self::arr(self::dig($reset, 'layout', 'layers')));
+
+        $revision = $this->calendar(TestDataFixture::CALENDAR_2_ID)->revision;
+        foreach ([
+            ['invalid_layer', 'layers.x.kind', ['layers' => ['x' => ['kind' => 'text']]]],
+            ['invalid_layer', 'layers.x.kind', ['layers' => ['x' => ['name' => 'no kind']]]],
+            ['invalid_layer', 'layers.stripe.kind cannot change', ['layers' => ['stripe' => ['kind' => 'ellipse']]]],
+            ['invalid_layer', 'layers.x.radius is not a setting of a line', ['layers' => ['x' => ['kind' => 'line', 'radius' => 3]]]],
+            ['invalid_layer', 'layers.x.stroke.cap', ['layers' => ['x' => ['kind' => 'rect', 'stroke' => ['cap' => 'round']]]]],
+            ['invalid_layer', 'layers.x.pages', ['layers' => ['x' => ['kind' => 'rect', 'pages' => ['w05']]]]],
+            ['invalid_layer', 'layers.x.asset', ['layers' => ['x' => ['kind' => 'image', 'asset' => Uuid::uuid7()->toString()]]]],
+            ['invalid_layer', 'usable layer id', ['layers' => ['a b' => ['kind' => 'rect']]]],
+            ['invalid_color', 'layers.x.fill.color', ['layers' => ['x' => ['kind' => 'ellipse', 'fill' => ['color' => 'red']]]]],
+            ['unknown_layer', '"ghost"', ['layers' => ['ghost' => null]]],
+            ['invalid_order', 'u:stripe', ['order' => ['qr', 'logo', 'cap', 'wk', 'month', 'head', 'cal', 'photo']]],
+            ['unknown_box', '"u:ghost"', ['boxes' => ['u:ghost' => ['x' => 1]]]],
+        ] as [$reason, $names, $arguments]) {
+            $refusal = $this->refused('set_calendar_layout', ['calendarId' => TestDataFixture::CALENDAR_2_ID] + $arguments);
+            self::assertStringEndsWith('(' . $reason . ')', $refusal, $names);
+            self::assertStringContainsString($names, $refusal);
+        }
+        self::assertSame($revision, $this->calendar(TestDataFixture::CALENDAR_2_ID)->revision, 'A refused call stores nothing.');
+    }
+
     public function testAnUnknownKeyOrAWrongValueIsRefusedByNameAndStoresNothing(): void
     {
         $revision = $this->calendar(TestDataFixture::CALENDAR_2_ID)->revision;

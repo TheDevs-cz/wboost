@@ -7,7 +7,7 @@ Read this before any calendar work. Contents:
 - Tool reference: [`list_calendars`](#list_calendarsprojectid-skillversion) ·
   [`get_calendar`](#get_calendarcalendarid-historylimit) ·
   [`manage_calendar`](#manage_calendaraction-projectid-calendarid-name-year-type-features-languages-print-preset-linkelements-fromcalendarid-regenerate-variant-exportid) ·
-  [`set_calendar_layout`](#set_calendar_layoutcalendarid-preset-reset-boxes-order-styles) ·
+  [`set_calendar_layout`](#set_calendar_layoutcalendarid-preset-reset-layers-boxes-order-styles) ·
   [`upload_calendar_asset`](#upload_calendar_assetcalendarid-kind-filebase64-filename) ·
   [`render_calendar_page`](#render_calendar_pagecalendarid-page-bleed-marks-sampletexts) ·
   [`update_calendar_content`](#update_calendar_contentcalendarid-operations) (collections, page texts, waste rules)
@@ -40,7 +40,7 @@ list_calendars                → every calendar this account can reach (or one 
 manage_calendar "create"      → a new calendar (settings + optionally a preset in one call)
   └ get_calendar              → settings, layout + styles, pages, ALL content, assets, fonts
       ├ manage_calendar "configure"  → name, year, type, feature switches, languages, print
-      ├ set_calendar_layout          → preset, then boxes / order / styles patches
+      ├ set_calendar_layout          → preset, then own layers / boxes / order / styles patches
       ├ upload_calendar_asset        → a file → assetId (then reference it)
       ├ update_calendar_content      → add / replace / delete content items
       ├ render_calendar_page         → LOOK at a page after every change
@@ -75,6 +75,14 @@ Design rules:
   `specialPages`, `qr`, `timeChange`, `seasons` on with `manage_calendar`
   `configure` before judging a render — content of an off feature is stored
   but invisible.
+- **Own layers for what the built-ins cannot do.** A stripe across the page,
+  a frame round the photo, a partner-logo strip, a dividing line: add them as
+  own layers (`set_calendar_layout` `layers` — rect, rounded rect, ellipse,
+  line, picture) instead of baking them into the header or background picture.
+  They are part of the design (on every week page; a client sees them and
+  cannot change them), stack with the built-ins in `order` as `u:<id>` and
+  are placed by `boxes["u:<id>"]`. A palette colour prints with its exact
+  CMYK.
 - **Assets belong to one calendar.** Upload with `upload_calendar_asset`, then
   reference the returned `assetId` (its `next` field says where). A gallery
   image id (`upload_image`, `list_gallery`) is NOT a calendar asset.
@@ -165,6 +173,29 @@ Design rules:
   },
   "boxes": { "logo": { "x": 170, "y": 30, "w": 22, "h": 22 }, "qr": { "hidden": true } }
 }
+```
+
+```jsonc
+// set_calendar_layout — own layers: a stripe in the brand colour along the bottom (into the bleed),
+// a thin dotted rule under the header, a partner-logo strip (an "image" upload) — then the stripe
+// is moved UNDER the photo by listing it after "photo" in order
+{
+  "calendarId": "…",
+  "layers": {
+    "stripe":   { "kind": "rect", "fill": { "color": "#C8102E" } },
+    "rule":     { "kind": "line", "stroke": { "color": "#2B2830", "width": 0.5, "style": "dot" } },
+    "partners": { "kind": "image", "asset": "<assetId of an image upload>", "fit": "contain" }
+  },
+  "boxes": {
+    "u:stripe":   { "x": -5, "y": 136, "w": 320, "h": 14 },
+    "u:rule":     { "x": 6, "y": 28, "w": 298, "h": 4 },
+    "u:partners": { "x": 230, "y": 113, "w": 70, "h": 20 }
+  },
+  "order": ["u:partners", "u:rule", "qr", "logo", "cap", "wk", "month", "head", "cal", "photo", "u:stripe"]
+}
+// later: recolour the stripe only, remove the rule
+{ "calendarId": "…", "layers": { "stripe": { "fill": { "color": "#004E7C" } }, "rule": null },
+  "order": ["u:partners", "qr", "logo", "cap", "wk", "month", "head", "cal", "photo", "u:stripe"] }
 ```
 
 ```jsonc
@@ -310,7 +341,7 @@ Reason codes: `invalid_action`, `missing_argument`, `nothing_to_do`,
 `source_has_no_layout`, `invalid_variant`, `export_not_found`,
 `invalid_design`, `model_unavailable`.
 
-## `set_calendar_layout(calendarId, preset?, reset?, boxes?, order?, styles?)`
+## `set_calendar_layout(calendarId, preset?, reset?, layers?, boxes?, order?, styles?)`
 
 Scope `calendars:write`, **designer role**. One layout serves every week page.
 Arguments are applied in this order; the call is atomic.
@@ -319,13 +350,34 @@ Arguments are applied in this order; the call is atomic.
   layout yet → the browser's default layout for it. Has one → `photoLeft` ↔
   `photoRight` mirrors it and keeps the styling; `reset: true` applies the
   untouched default instead.
+- `layers`: own layers — pictures and shapes drawn on every week page,
+  `{"<id>": item | null}`. A new id (yours: 1–40 of `A–Z a–z 0–9 _ -`) adds
+  a layer ON TOP of the stack, centred, sized relative to the page; an
+  existing id changes it (`fill` / `stroke` merge one level, the rest
+  replaces; the kind cannot change); `null` removes it. At most 50.
+  Item: `kind` + `name` (`''` = „Obdélník 2“…), `opacity` 0–100, `blend`
+  (the effect blend modes below) and per kind —
+  `rect` `{fill {on, color, opacity}, stroke {on, color, width pt 0.1–20,
+  style solid|dash|dot}, radius mm}` (radius > 0 = a rounded rectangle) ·
+  `ellipse` `{fill, stroke}` · `line` `{stroke {color, width, style, cap
+  butt|round}}` — drawn through the middle of its box, horizontal when the
+  box is wider than high (a box keeps min 4 mm height; the line is `width`
+  pt) · `image` `{asset (an `image` upload of this calendar), fit
+  contain|cover, radius mm}`. Strokes sit inside the box. Page sets are not
+  available yet (`pages` is always `"weeks"`). Refusals: `invalid_layer`,
+  `unknown_layer`, `too_many_layers`, `invalid_color`.
 - `boxes`: `{"<element>": {x?, y?, w?, h?, hidden?}}` — mm from the top-left
   trim corner, 0.1 mm steps, inside `[-bleed, size + bleed]`, min 6 × 4.
   Elements `photo`, `cap`, `logo`, `head`, `month`, `cal`, `wk`, `qr` (+ the
-  second-week frames of a 14-day layout: `cal2`, `month2`, `wk2`). `hidden`
-  only on `logo`, `month`, `wk`, `qr` — hiding `month` / `wk` hides both
-  frames; the `*2` frames take no `hidden`.
-- `order`: every key of `layout.order` once, top layer first.
+  second-week frames of a 14-day layout: `cal2`, `month2`, `wk2`) and every
+  own layer as `u:<id>` (also one added in the same call). `hidden` only on
+  `logo`, `month`, `wk`, `qr` and own layers — hiding `month` / `wk` hides
+  both frames; the `*2` frames take no `hidden`.
+- `order`: every key of `layout.order` once (own layers as `u:<id>`), top
+  layer first. An own layer below every built-in element lies under the
+  photo and the Kalendárium.
+- A preset `reset` keeps the own layers; `manage_calendar` `import_layout`
+  replaces them with the source calendar's.
 - `styles`: a partial `layout.styles` — objects merge, scalars and lists
   replace. Sizes and line widths in pt (type 3–60), lengths in mm, opacity
   0–100, colours `#RRGGBB`, `family` = a `get_calendar` `fonts[].family` or
@@ -357,13 +409,14 @@ Enumerations: `align` `start`\|`middle`\|`end`; `valign` `top`\|`middle`\|`botto
 Answer: the `manage_calendar` shape. Reason codes: `invalid_calendar_id`,
 `calendar_not_found`, `designer_only`, `nothing_to_do`, `unknown_preset`,
 `preset_type_mismatch`, `no_layout`, `unknown_box`, `invalid_box`,
-`not_hideable`, `invalid_order`, `unknown_style_key`, `invalid_style_value`, `invalid_effect`,
+`not_hideable`, `invalid_order`, `unknown_layer`, `invalid_layer`, `too_many_layers`,
+`unknown_style_key`, `invalid_style_value`, `invalid_effect`,
 `unknown_font`, `invalid_color`, `invalid_design`, `model_unavailable`.
 
 ## `upload_calendar_asset(calendarId, kind, fileBase64, filename)`
 
 Scope `calendars:write`. `kind`: `photo` (JPEG / PNG / WebP / phone HEIC; never
-SVG), `logo`, `icon`, `qr`, `image` (header / background picture), `page` (a
+SVG), `logo`, `icon`, `qr`, `image` (header / background picture, an own picture layer), `page` (a
 special page's graphic; a PDF's first page is rasterised). base64 only (a
 `data:` URI is tolerated), about 3 MB over MCP, 10 MB hard limit. A `client`
 role uploads `photo` only. Uploading changes nothing in the calendar.

@@ -16,7 +16,7 @@
 // Commands (all designer actions of the store):
 //   { op: 'configure', name?, year?, type?, features?: {…}, languages?: [...], print?: {…}, linkElements? }
 //   { op: 'preset', preset, reset? }
-//   { op: 'layout', boxes?: {…}, order?: [...], styles?: {…} }
+//   { op: 'layout', layers?: {id: item|null}, boxes?: {…}, order?: [...], styles?: {…} }
 //   { op: 'replace_layout', layout, assets?, keepLayers? }   keepLayers: the current own layers stay (AI scan)
 //   { op: 'step', step }
 //
@@ -76,6 +76,7 @@ async function main(input) {
     const load = (path) => import(pathToFileURL(join(input.root, 'assets/calendar', path)).href);
     const { K, bleedOf, roundMm } = await load('model/defaults.js');
     const { DEFAULT_ORDER, HIDEABLE_BOXES, elementOfBox } = await load('model/elements.js');
+    const LY = await load('model/layers.js');
     const FX = await load('model/effects.js');
     const { defaultLayout, defaultStyles, presetsForType } = await load('model/layouts.js');
     const { normalizeDocument, normalizeLayout } = await load('model/normalize.js');
@@ -192,8 +193,9 @@ async function main(input) {
         const d = design();
         if (d.layout && cmd.reset === true) {
             // back to the untouched default: the default of the current preset, then (7 days) the mirror
-            store.replaceLayout(defaultLayout(d.preset || allowed[0], d.page, bleedOf(d.print), env), {});
-            notes.push('The layout was reset to the preset\'s default — every style and position change is gone.');
+            // own layers are not part of a preset: a reset keeps them (K20)
+            store.replaceLayout(defaultLayout(d.preset || allowed[0], d.page, bleedOf(d.print), env), {}, { keepLayers: true });
+            notes.push(`The layout was reset to the preset's default — every style and position change is gone${Object.keys(d.layout.layers || {}).length ? ' (the own layers stay)' : ''}.`);
         } else if (d.layout && d.preset === cmd.preset) {
             notes.push(`The calendar already has the "${cmd.preset}" layout — nothing changed. Pass reset: true to throw the current styling away and start from the default.`);
         } else if (d.layout) {
@@ -363,10 +365,10 @@ async function main(input) {
             for (const [field, v] of Object.entries(value)) {
                 if (field === 'hidden') {
                     if (typeof v !== 'boolean') refuse('invalid_box', `boxes.${key}.hidden must be true or false.`);
-                    if (!HIDEABLE_BOXES.includes(key)) {
+                    if (!HIDEABLE_BOXES.includes(key) && !LY.isLayerKey(key)) {
                         refuse('not_hideable', key === 'cap'
                             ? 'The caption is shown or hidden by the feature switch: manage_calendar "configure" with features {"captions": false}.'
-                            : `The element "${key}" cannot be hidden. Only ${HIDEABLE_BOXES.join(', ')} take hidden${HIDEABLE_BOXES.includes(elementOfBox(key)) ? ` — hide "${elementOfBox(key)}", its second frame follows` : ''}.`);
+                            : `The element "${key}" cannot be hidden. Only ${HIDEABLE_BOXES.join(', ')} and own layers (u:<id>) take hidden${HIDEABLE_BOXES.includes(elementOfBox(key)) ? ` — hide "${elementOfBox(key)}", its second frame follows` : ''}.`);
                     }
                     if (v) next.hidden = true;
                     else delete next.hidden;
@@ -389,6 +391,101 @@ async function main(input) {
         return out;
     }
 
+    // ---- own layers (K20, model/layers.js) ------------------------------------------------
+
+    const layerKinds = () => quote(LY.LAYER_KINDS);
+    const describeKeys = (kind) => LY.LAYER_KEYS[kind].filter((k) => k !== 'kind').join(', ');
+    const GROUP_KEYS = { fill: LY.FILL_KEYS, stroke: LY.STROKE_KEYS };
+
+    /**
+     * One entry of `layers`: a new layer (needs `kind`; missing keys take the defaults of the kind) or
+     * a patch of an existing one (`fill` / `stroke` merge one level, everything else replaces). Kinds,
+     * keys, enums, colours and value types are refused when wrong; numbers out of range are clamped
+     * by `normalizeLayer` (a note says so). Returns the normalised layer.
+     */
+    function checkLayer(id, raw, current) {
+        const at = `layers.${id}`;
+        const value = asMap(raw);
+        if (!isObject(value)) refuse('invalid_layer', `${at} must be a JSON object (a layer: {kind, …}) or null to remove it.`);
+        if (current && value.kind !== undefined && value.kind !== current.kind) refuse('invalid_layer', `${at}.kind cannot change (${current.kind} → ${JSON.stringify(value.kind)}): remove the layer (null) and add a new one.`);
+        const kind = current ? current.kind : value.kind;
+        if (!LY.LAYER_KINDS.includes(kind)) refuse('invalid_layer', `${at}.kind must be one of ${layerKinds()} (image = a picture, rect = a rectangle — with radius > 0 a rounded one, ellipse, line).`);
+        const keys = LY.LAYER_KEYS[kind];
+        const strokeKeys = kind === 'line' ? LY.LINE_STROKE_KEYS : LY.STROKE_KEYS;
+        for (const [key, member] of Object.entries(value)) {
+            if (!keys.includes(key)) refuse('invalid_layer', `${at}.${key} is not a setting of a ${kind} layer. Settings: ${describeKeys(kind)}.`);
+            if (key === 'pages' && member !== 'weeks') refuse('invalid_layer', `${at}.pages: own layers are on every week page for now ("weeks") — page sets (all pages, chosen pages) are not available yet.`);
+            if (key === 'except' && !(Array.isArray(member) && member.length === 0)) refuse('invalid_layer', `${at}.except: hiding a layer on single pages is not available yet — send [] or leave it out.`);
+            if (key === 'name' && typeof member !== 'string') refuse('invalid_layer', `${at}.name must be a text (at most ${LY.LAYER_NAME_MAX} characters, '' = the numbered default).`);
+            if (key === 'blend' && !FX.BLEND_VALUES.includes(member)) refuse('invalid_layer', `${at}.blend must be one of ${quote(FX.BLEND_VALUES)}.`);
+            if (key === 'fit' && !LY.IMAGE_FITS.includes(member)) refuse('invalid_layer', `${at}.fit must be one of ${quote(LY.IMAGE_FITS)}.`);
+            if ((key === 'opacity' || key === 'radius') && (typeof member !== 'number' || !Number.isFinite(member))) refuse('invalid_layer', `${at}.${key} must be a number (${key === 'opacity' ? '0–100 %' : 'mm'}).`);
+            if (key === 'asset' && member !== null) {
+                if (typeof member !== 'string' || !env.assets[member]) refuse('invalid_layer', `${at}.asset must be the id of a picture uploaded to THIS calendar (upload_calendar_asset kind "image"), or null.`);
+            }
+            if (key === 'fill' || key === 'stroke') {
+                const group = asMap(member);
+                const allowed = key === 'fill' ? GROUP_KEYS.fill : strokeKeys;
+                if (!isObject(group)) refuse('invalid_layer', `${at}.${key} must be a JSON object {${allowed.join(', ')}}.`);
+                for (const [field, v] of Object.entries(group)) {
+                    const path = `${at}.${key}.${field}`;
+                    if (!allowed.includes(field)) refuse('invalid_layer', `${path} is not a setting. ${at}.${key} takes ${allowed.join(', ')}.`);
+                    if (field === 'on' && typeof v !== 'boolean') refuse('invalid_layer', `${path} must be true or false.`);
+                    if (field === 'color' && (typeof v !== 'string' || !COLOR.test(v))) refuse('invalid_color', `${path} must be a colour written "#RRGGBB" (six hex digits), not ${JSON.stringify(v)}.`);
+                    if ((field === 'opacity' || field === 'width') && (typeof v !== 'number' || !Number.isFinite(v))) refuse('invalid_layer', `${path} must be a number (${field === 'width' ? 'pt 0.1–20' : '0–100 %'}).`);
+                    if (field === 'style' && !LY.STROKE_STYLES.includes(v)) refuse('invalid_layer', `${path} must be one of ${quote(LY.STROKE_STYLES)}.`);
+                    if (field === 'cap' && !LY.LINE_CAPS.includes(v)) refuse('invalid_layer', `${path} must be one of ${quote(LY.LINE_CAPS)}.`);
+                }
+            }
+        }
+        const base = current || LY.newLayer(kind, env.accent || '#2E5A8C');
+        const merged = { ...base, ...value, kind };
+        for (const key of ['fill', 'stroke']) {
+            if (value[key] !== undefined && base[key]) merged[key] = { ...base[key], ...asMap(value[key]) };
+        }
+        const layer = LY.normalizeLayer(merged);
+        for (const key of ['opacity', 'radius']) {
+            if (typeof value[key] === 'number' && layer[key] !== value[key]) notes.push(`${at}.${key}: ${value[key]} → ${layer[key]} (allowed range / step).`);
+        }
+        for (const key of ['fill', 'stroke']) {
+            const group = asMap(value[key]);
+            if (!isObject(group)) continue;
+            for (const field of ['opacity', 'width']) {
+                if (typeof group[field] === 'number' && layer[key][field] !== group[field]) notes.push(`${at}.${key}.${field}: ${group[field]} → ${layer[key][field]} (allowed range / step).`);
+            }
+        }
+        if (typeof value.name === 'string' && layer.name !== value.name) notes.push(`${at}.name: shortened / cleaned to ${JSON.stringify(layer.name)}.`);
+        return layer;
+    }
+
+    /** `layers` of a layout command applied to the current layout → `{ layers, boxes, order }`. */
+    function mergeLayers(current, patch) {
+        let layout = { ...current, layers: { ...(current.layers || {}) } };
+        const map = asMap(patch);
+        if (!isObject(map)) refuse('invalid_layer', 'layers must be an object {"<id>": {kind, …} | null}: a new id adds a layer, an existing id changes it, null removes it.');
+        const d = design();
+        for (const [id, value] of Object.entries(map)) {
+            if (!LY.isLayerId(id)) refuse('invalid_layer', `"${id}" is not a usable layer id: 1–40 characters of A–Z, a–z, 0–9, "_" or "-".`);
+            const existing = layout.layers[id] || null;
+            if (value === null) {
+                if (!existing) refuse('unknown_layer', `There is no own layer "${id}" to remove. Own layers: ${Object.keys(layout.layers).join(', ') || 'none'}.`);
+                layout = LY.removeLayer(layout, id);
+                continue;
+            }
+            const layer = checkLayer(id, value, existing);
+            if (existing) {
+                layout = LY.setLayer(layout, id, layer);
+                continue;
+            }
+            if (Object.keys(layout.layers).length >= LY.MAX_LAYERS) refuse('too_many_layers', `A calendar holds at most ${LY.MAX_LAYERS} own layers.`);
+            const asset = layer.kind === 'image' && layer.asset ? env.assets[layer.asset] : null;
+            const aspect = asset && asset.width > 0 && asset.height > 0 ? asset.width / asset.height : undefined;
+            layout = LY.addLayer(layout, id, layer, LY.defaultLayerBox(layer.kind, d.page, aspect));
+            notes.push(`layers.${id}: added on top of the stack, centred on the page (boxes["u:${id}"] places it).`);
+        }
+        return layout;
+    }
+
     function noteDifferences(requested, actual, path) {
         if (isObject(requested)) {
             for (const [key, value] of Object.entries(requested)) {
@@ -408,19 +505,22 @@ async function main(input) {
         let boxes = d.layout.boxes;
         let order = d.layout.order;
         let styles = d.layout.styles;
+        let layers = d.layout.layers || {};
+        if (cmd.layers !== undefined && cmd.layers !== null) ({ boxes, order, layers } = mergeLayers(d.layout, cmd.layers));
         if (cmd.boxes !== undefined && cmd.boxes !== null) boxes = mergeBoxes(boxes, cmd.boxes);
         if (cmd.order !== undefined && cmd.order !== null) {
+            const all = [...DEFAULT_ORDER, ...Object.keys(layers).map(LY.layerKey)];
             const valid = Array.isArray(cmd.order)
-                && cmd.order.length === DEFAULT_ORDER.length
+                && cmd.order.length === all.length
                 && new Set(cmd.order).size === cmd.order.length
-                && cmd.order.every((key) => DEFAULT_ORDER.includes(key));
-            if (!valid) refuse('invalid_order', `order must list every element exactly once, top layer first: ${DEFAULT_ORDER.join(', ')} (the background is always at the bottom and is not listed).`);
+                && cmd.order.every((key) => all.includes(key));
+            if (!valid) refuse('invalid_order', `order must list every element${all.length > DEFAULT_ORDER.length ? ' and every own layer' : ''} exactly once, top layer first: ${all.join(', ')} (the background is always at the bottom and is not listed).`);
             order = cmd.order.slice();
         }
         if (cmd.styles !== undefined && cmd.styles !== null) styles = mergeStyles(styles, cmd.styles, defaultStyles(env), '');
         const bleed = bleedOf(d.print);
         store.change(() => {
-            const normalised = normalizeLayout({ v: 1, boxes, order, styles }, d.type, d.page, env);
+            const normalised = normalizeLayout({ v: 1, boxes, order, styles, layers }, d.type, d.page, env);
             return { ...normalised, boxes: clampBoxesToBounds(normalised.boxes, d.page, bleed) };
         });
         const stored = design().layout;

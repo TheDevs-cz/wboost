@@ -35,10 +35,10 @@ use WBoost\Web\Mcp\Response\SkillVersionResponse;
  */
 final class SkillRelease
 {
-    public const string VERSION = '0.14.0';
+    public const string VERSION = '0.15.0';
 
     /** One or two lines: what the CURRENT version adds over the previous one. */
-    public const string WHATS_NEW = 'Photo adjustments: `set_design` images and picture backgrounds take `adjust` — brightness, contrast, saturation, hue, grayscale and blur, applied to a user\'s picture in a fillable slot too.';
+    public const string WHATS_NEW = 'Own layers in desk calendars: `set_calendar_layout` takes `layers` — rectangles (rounded), ellipses, lines and pictures on every week page, placed by `boxes["u:<id>"]` and stacked in `order`.';
 
     /** A stable download of the latest released skill folder, built by `.github/workflows/plugin-release.yml`. */
     public const string ZIP_URL = 'https://github.com/TheDevs-cz/wboost/releases/latest/download/wboost-skill.zip';

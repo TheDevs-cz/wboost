@@ -5,6 +5,21 @@ every deploy. When the server is newer than your skill, Claude tells you once
 per session how to update (see the README). Versions follow `x.y.z`: a new or
 changed tool or parameter is at least a minor bump.
 
+## 0.15.0 — 2026-11-24
+
+**Own layers in desk calendars (Vlastní vrstvy).**
+
+New parameters and behaviour
+- `set_calendar_layout` takes `layers`: `{"<id>": item | null}` — a new id
+  adds a rectangle (`radius` > 0 = rounded), an ellipse, a line or a picture
+  (an `image` upload) on top of the stack, an existing id changes it (`fill` /
+  `stroke` merge), `null` removes it. Own layers are drawn on every week page,
+  placed by `boxes["u:<id>"]` (also `hidden`) and stacked with the built-ins
+  in `order` as `u:<id>`; strokes sit inside the box, a palette colour prints
+  with its exact CMYK. New refusals `invalid_layer`, `unknown_layer`,
+  `too_many_layers`. `get_calendar` returns them in `layout.layers`; a preset
+  `reset` keeps them, `import_layout` takes the source's.
+
 ## 0.14.0 — 2026-11-24
 
 **Photo adjustments in designs (Styl vrstvy › Úpravy obrázku).**

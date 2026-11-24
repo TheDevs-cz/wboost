@@ -499,6 +499,20 @@ static text layer P4.
   `AcceptCalendarScanHandler`), its restore brings back the stored layout with
   its own. An old browser tab (pre-K20 JS) drops `layers` on its next layout
   save — the accepted risk of every new layout key.
+- **MCP** (skill 0.15.0): `set_calendar_layout` `layers` = `{"<id>": item |
+  null}` — a new id (the agent's, `isLayerId`) adds a layer on top, centred,
+  with the kind's defaults (shapes in the accent); an existing id is patched
+  (`fill` / `stroke` merge one level, the kind cannot change); `null`
+  removes. `resources/calendar/model.mjs` `checkLayer` refuses unknown keys
+  by name, wrong enums / colours / types (`invalid_layer`, `invalid_color`),
+  a picture that is not an asset of this calendar, `pages` other than
+  `'weeks'` and a non-empty `except` (page sets are P2); removing an unknown
+  id is `unknown_layer`, the 51st layer `too_many_layers`; ranges are clamped
+  with a note. `boxes` take `u:<id>` (with `hidden`), `order` must list every
+  element AND every own layer. A preset `reset` keeps the own layers
+  (`replace_layout` / `replaceLayout(…, { keepLayers })`), `import_layout`
+  replaces them. `get_calendar` returns them in `layout.layers`,
+  `render_calendar_page` draws them (`CalendarDesignToolsTest`).
 - **UI — step 3 › Vrstvy** (`ui/editor/layers.js`, also in step 4 „Styl
   stránek“): „Přidat“ `[data-cal-action="layer-add"]` → menu
   `[data-layer-add="image|gallery|rect|rounded|ellipse|line"]` (Obrázek —
@@ -2149,7 +2163,7 @@ calendars and `get_calendar` carries the project's fonts and palette).
 | `get_calendar(calendarId, historyLimit?)` | read | `CalendarDocument` materialised by the model: settings, layout **with styles**, `pages` (page keys), content, assets, fonts, palette, history (≤ 200). Never the client token. Falls back to the stored values (`pages: null`) when the model cannot run |
 | `render_calendar_page(calendarId, page, bleed?, marks?, sampleTexts?)` | read | JSON summary + WebP (1600 px) of one stored page |
 | `manage_calendar(action, …)` | write | `create` (`CreateCalendar`, then the settings), `configure` (name, year, type, features, print, linkElements), `finish`, `client_link` (get = `RecordCalendarHistory` LINK_COPIED, `regenerate` = `RegenerateCalendarClientLink`), `import_layout` (`ImportCalendarLayout::plan` + `CopyCalendarAsset` + history, then `replace_layout`), `export_pdf` (`CalendarExports::request` — the web's own request; answers `export`) and `export_status` |
-| `set_calendar_layout(calendarId, preset?, reset?, boxes?, order?, styles?)` | write | preset → default layout (or mirror / reset), then a validated patch |
+| `set_calendar_layout(calendarId, preset?, reset?, layers?, boxes?, order?, styles?)` | write | preset → default layout (or mirror / reset), then a validated patch (own layers first, so `boxes["u:<id>"]` / `order` can place a layer added in the same call) |
 | `upload_calendar_asset(calendarId, kind, fileBase64, filename)` | write | `CalendarAssetUploader::storeFile()` — the method both web routes end in |
 | `update_calendar_content(calendarId, operations[])` | write | item operations `{collection, id, value\|null, label?}` re-encoded as the web payload's `content` list — including `pageContent` / `pageGroups` (and `pageSetup` for a designer); shapes, caps and examples are in the tool's description and `references/tools.md` |
 
@@ -2186,7 +2200,8 @@ calendars and `get_calendar` carries the project's fonts and palette).
   `invalid_content` (quotes the Czech `InvalidCalendarChange` text),
   `designer_only`. Design: the model's codes (`unknown_preset`,
   `preset_type_mismatch`, `no_layout`, `unknown_box`, `invalid_box`,
-  `not_hideable`, `invalid_order`, `unknown_style_key`,
+  `not_hideable`, `invalid_order`, `unknown_layer`, `invalid_layer`,
+  `too_many_layers`, `unknown_style_key`,
   `invalid_style_value`, `unknown_font`, `invalid_color`, `unknown_feature`,
   `invalid_print`, `invalid_year`, `invalid_type`, `invalid_name`),
   `invalid_design` (the server's rule, Czech text), `model_unavailable`, and

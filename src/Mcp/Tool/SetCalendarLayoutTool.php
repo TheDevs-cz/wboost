@@ -56,7 +56,8 @@ readonly final class SetCalendarLayoutTool
      * exact tree this tool patches, and fonts[] / palette are what you may use.
      * Check the result with render_calendar_page.
      *
-     * Arguments (any combination; applied in this order):
+     * Arguments (any combination; applied in this order: preset, layers,
+     * boxes, order, styles):
      * 1. preset — "photoLeft" (photo left, days right) or "photoRight" for a
      *    7-day calendar, "twoSided" (week 1 left, photo in the middle, week 2
      *    right) for a 14-day one. On a calendar WITHOUT a layout it creates the
@@ -79,10 +80,29 @@ readonly final class SetCalendarLayoutTool
      *    hidden: true / false works on logo, month, wk, qr only; the caption is hidden by the feature switch captions and
      *    wk / qr also need their feature (weekNumbers, qr) switched on.
      *    Out-of-range values are brought into range and reported in notes.
-     * 3. order — the stacking order: every key of layout.order exactly once,
-     *    TOP layer first (default qr, logo, cap, wk, month, head, cal, photo).
-     *    The page background is always at the bottom.
-     * 4. styles — a partial copy of layout.styles: nested objects are merged,
+     * 3. order — the stacking order: every key of layout.order exactly once
+     *    (own layers included, as "u:<id>"), TOP layer first (default qr,
+     *    logo, cap, wk, month, head, cal, photo). The page background is
+     *    always at the bottom.
+     * 4. layers — OWN LAYERS: pictures and shapes on top of (or under) the
+     *    built-in elements, drawn on every week page. {"<id>": item | null}:
+     *    a new id (1–40 of A–Z a–z 0–9 _ -, your choice) adds a layer, an
+     *    existing id changes it (fill / stroke merge, the rest replaces), null
+     *    removes it. Items: {kind "rect" | "ellipse" | "line" | "image", name
+     *    ('' = numbered default), opacity 0–100, blend (the 16 modes below)}
+     *    + rect {fill {on, color, opacity}, stroke {on, color, width pt
+     *    0.1–20, style "solid"|"dash"|"dot"}, radius mm (> 0 = rounded)},
+     *    ellipse {fill, stroke}, line {stroke {color, width, style, cap
+     *    "butt"|"round"}} (a line is drawn through the middle of its box,
+     *    horizontal when the box is wider than high), image {asset (an
+     *    "image" upload of THIS calendar), fit "contain"|"cover", radius mm}.
+     *    A new layer goes on TOP of the stack, centred; place it with
+     *    boxes["u:<id>"] {x, y, w, h, hidden} in the same call and restack it
+     *    with order (own layers appear there as "u:<id>"). Strokes sit inside
+     *    the box; a project palette colour prints with its exact CMYK. Own
+     *    layers are on all week pages (page sets are not available yet). Up
+     *    to 50.
+     * 5. styles — a partial copy of layout.styles: nested objects are merged,
      *    scalars and lists are replaced whole. Example: {"num": {"size": 30,
      *    "color": "#1A1A1A"}, "month": {"upper": false}, "cal": {"numberSide":
      *    "start"}}.
@@ -164,6 +184,7 @@ readonly final class SetCalendarLayoutTool
      * Errors end with a reason code: invalid_calendar_id, calendar_not_found,
      * designer_only, nothing_to_do, unknown_preset, preset_type_mismatch,
      * no_layout, unknown_box, invalid_box, not_hideable, invalid_order,
+     * unknown_layer, invalid_layer, too_many_layers,
      * unknown_style_key, invalid_style_value, invalid_effect, unknown_font, invalid_color,
      * invalid_design (the server's rule, quoted in Czech — e.g. an asset id
      * that is not uploaded to this calendar), model_unavailable (retry).
@@ -174,6 +195,7 @@ readonly final class SetCalendarLayoutTool
      * @param null|array<array-key, mixed> $boxes {"<element>": {x?, y?, w?, h?, hidden?}} in mm from the top-left trim corner.
      * @param null|list<string> $order Every element key once, top layer first.
      * @param null|array<array-key, mixed> $styles Partial copy of layout.styles — nested objects merge, scalars and lists replace.
+     * @param null|array<array-key, mixed> $layers Own layers {"<id>": {kind, …} | null}: a new id adds, an existing id changes, null removes.
      */
     #[McpTool(name: 'set_calendar_layout')]
     public function __invoke(
@@ -187,6 +209,8 @@ readonly final class SetCalendarLayoutTool
         null|array $order = null,
         #[Schema(type: 'object', additionalProperties: true)]
         null|array $styles = null,
+        #[Schema(type: 'object', additionalProperties: true)]
+        null|array $layers = null,
     ): CalendarDesignResponse {
         $calendar = $this->loader->viewable($calendarId);
         $actor = $this->writer->designer($calendar);
@@ -198,6 +222,10 @@ readonly final class SetCalendarLayoutTool
         }
 
         $patch = ['op' => 'layout'];
+
+        if ($layers !== null && $layers !== []) {
+            $patch['layers'] = array_is_list($layers) ? $layers : (object) $layers;
+        }
 
         if ($boxes !== null && $boxes !== []) {
             $patch['boxes'] = array_is_list($boxes) ? $boxes : (object) $boxes;
@@ -216,7 +244,7 @@ readonly final class SetCalendarLayoutTool
         }
 
         if ($commands === []) {
-            throw new ToolCallException('Nothing to do: pass a preset and / or boxes, order, styles. (nothing_to_do)');
+            throw new ToolCallException('Nothing to do: pass a preset and / or layers, boxes, order, styles. (nothing_to_do)');
         }
 
         $applied = $this->writer->apply($calendar, $actor, $commands);
