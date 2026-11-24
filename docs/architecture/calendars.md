@@ -690,7 +690,7 @@ no new content contract, nothing stored).
 - Fixtures: `tests/Fixtures/calendar/import/` (built by its `generate.php`,
   committed): realistic municipal tables of every shape and format — no real
   municipal file was available; try real ones when they come.
-- **Recognition and the write — `model/import.js`** (pure, node suite
+- **Recognition and the write — `state/import.js` (outside `model/` on purpose: the export fingerprint)** (pure, node suite
   `import`, input = `tests/Fixtures/calendar/import/tables.json`, which
   `CalendarTableReaderTest` pins to the reader's output — re-run
   `generate.php` after a reader change). Dates: ISO, `1. 3. 2027`,

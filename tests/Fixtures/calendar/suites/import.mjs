@@ -1,5 +1,5 @@
 // „Nahrát z Excelu“ (K10b): recognising the table, dates, mapping and the ops of the write
-// (model/import.js). The tables are what CalendarTableReader made of the committed fixtures
+// (state/import.js). The tables are what CalendarTableReader made of the committed fixtures
 // (tests/Fixtures/calendar/import/tables.json — pinned by CalendarTableReaderTest).
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -14,7 +14,7 @@ const seq = () => {
 };
 
 export default async function (t, load) {
-    const im = await load('model/import.js');
+    const im = await load('state/import.js');
     const { BUILTIN_WASTE } = await load('model/defaults.js');
     const Y = 2027;
     const kind = (builtin, o = {}) => ({ builtin, name: builtin ? BUILTIN_WASTE[builtin].name : 'Vlastní', on: false, place: '', mode: 'rule', weekdays: [1], interval: '2e', from: null, to: null, dates: [], pos: 0, ...o });

@@ -13,8 +13,8 @@
 // name and club, normalised) is skipped; a multi-day event goes on its first day.
 
 import { iso, parts } from '../generate/dates.js';
-import { dateLimits, newId, nextPos } from './content.js';
-import { BUILTIN_WASTE } from './defaults.js';
+import { dateLimits, newId, nextPos } from '../model/content.js';
+import { BUILTIN_WASTE } from '../model/defaults.js';
 
 export const MAX_WASTE_DATES = 400;
 export const MAX_KIND_NAME = 30;

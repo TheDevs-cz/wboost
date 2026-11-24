@@ -93,7 +93,7 @@ does not answer „excel“.
 
 ### 2. Table shapes we recognise
 
-Detection is rule-based (pure JS, `model/import.js`, node suite `import`),
+Detection is rule-based (pure JS, `state/import.js` (outside `model/` on purpose: the export fingerprint), node suite `import`),
 offered as a guess the user can change in the mapping step.
 
 Odpady:

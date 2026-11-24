@@ -9,7 +9,7 @@
 // rows — and writes nothing until „Načíst …“. Then ONE `store.applyOps` (content ops are not
 // undoable, hence the preview) and `onClose({ imported: [ids…] })`; „Zrušit“ → `onClose(null)`.
 // While the review is shown the modal's „Hotovo“ is hidden (one primary); Esc / × still close.
-// The plan comes from `model/import.js`, the same function for the preview and the write.
+// The plan comes from `state/import.js`, the same function for the preview and the write.
 //
 // DOM hooks: `[data-import-file]` (input), `[data-import-template]` (a), `[data-import-review]`,
 // `[data-import-sheet]`, `[data-import-shape]`, `[data-import-col="date|name|club"]`,
@@ -17,7 +17,7 @@
 // `[data-import-target="<kind id>"]` / `[data-import-summary]`, `[data-import-issues]` (details) with
 // `[data-import-issue="<row>"]`, `[data-import-cancel]`, `[data-import-apply]` (`data-count`).
 
-import * as im from '../../model/import.js';
+import * as im from '../../state/import.js';
 import { sorted } from '../../model/content.js';
 import { BUILTIN_WASTE } from '../../model/defaults.js';
 import { h, icon, segmented, selectField } from '../dom.js';
