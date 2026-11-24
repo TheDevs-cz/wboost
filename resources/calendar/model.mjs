@@ -15,9 +15,9 @@
 //
 // Commands (all designer actions of the store):
 //   { op: 'configure', name?, year?, type?, features?: {…}, languages?: [...], print?: {…}, linkElements? }
-//   { op: 'preset', preset, reset? }
+//   { op: 'preset', preset, reset?, dropLayers? }   dropLayers: a reset without the own layers (an AI scan's candidate)
 //   { op: 'layout', layers?: {id: item|null}, boxes?: {…}, order?: [...], styles?: {…} }
-//   { op: 'replace_layout', layout, assets?, keepLayers? }   keepLayers: the current own layers stay (AI scan)
+//   { op: 'replace_layout', layout, assets?, keepLayers? }   keepLayers: true = the current own layers stay; 'scan' = an AI scan's accept (its `scan_…` layers replace the earlier scan's, the designer's stay)
 //   { op: 'step', step }
 //
 // Text is measured with the deterministic estimator (there are no fonts here): the auto-grow of
@@ -194,8 +194,10 @@ async function main(input) {
         if (d.layout && cmd.reset === true) {
             // back to the untouched default: the default of the current preset, then (7 days) the mirror
             // own layers are not part of a preset: a reset keeps them (K20)
-            store.replaceLayout(defaultLayout(d.preset || allowed[0], d.page, bleedOf(d.print), env), {}, { keepLayers: true });
-            notes.push(`The layout was reset to the preset's default — every style and position change is gone${Object.keys(d.layout.layers || {}).length ? ' (the own layers stay)' : ''}.`);
+            // … except for an AI scan's candidate (`dropLayers`, K21): it is drawn without the calendar's own
+            // layers — their pictures are the customer's and the picture goes to the AI provider
+            store.replaceLayout(defaultLayout(d.preset || allowed[0], d.page, bleedOf(d.print), env), {}, { keepLayers: cmd.dropLayers !== true });
+            notes.push(`The layout was reset to the preset's default — every style and position change is gone${Object.keys(d.layout.layers || {}).length && cmd.dropLayers !== true ? ' (the own layers stay)' : ''}.`);
         } else if (d.layout && d.preset === cmd.preset) {
             notes.push(`The calendar already has the "${cmd.preset}" layout — nothing changed. Pass reset: true to throw the current styling away and start from the default.`);
         } else if (d.layout) {
@@ -559,7 +561,7 @@ async function main(input) {
     function replaceLayout(cmd) {
         if (!isObject(cmd.layout)) refuse('invalid_design', 'There is no layout to apply.');
         // keepLayers: the AI scan's accept — the scan does not know the own layers, they stay on top
-        store.replaceLayout(cmd.layout, isObject(cmd.assets) ? cmd.assets : {}, { keepLayers: cmd.keepLayers === true });
+        store.replaceLayout(cmd.layout, isObject(cmd.assets) ? cmd.assets : {}, { keepLayers: cmd.keepLayers === 'scan' ? 'scan' : cmd.keepLayers === true });
         if (design().step < 3) store.setStep(3);
     }
 

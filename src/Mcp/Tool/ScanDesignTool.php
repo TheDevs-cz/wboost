@@ -213,9 +213,16 @@ readonly final class ScanDesignTool
      * has off — pass the ones to turn on to "apply"; "languages" = the
      * further languages the page prints its month / weekday / week names in,
      * see manage_calendar languages), pictures[] ({slot: logo
-     * | header | background, current}: places whose picture was not taken
-     * from the image), fonts[], notExpressible[] ({code, box}: things on the
-     * page a wboost calendar cannot draw), notes[], expiresAt, applied.
+     * | header | background | scan_<name>, current}: places whose picture was
+     * not taken from the image; a scan_<name> slot is an empty picture layer
+     * the scan proposed — after "apply" upload the picture with
+     * upload_calendar_asset (kind image) and set it with set_calendar_layout
+     * layers.scan_<name>.asset), fonts[], notExpressible[] ({code, box}:
+     * things on the page a wboost calendar cannot draw), notes[], expiresAt,
+     * applied. The layout's own layers with ids scan_<name> are the ones the
+     * scan proposes (stripes, frames, lines, picture places); "apply" adds
+     * them, keeps the calendar's other own layers and replaces the scan_
+     * layers of an earlier scan.
      *
      * "apply" — scanId, and optionally fixes[], placeholders[], name. Applies
      * them and CREATES the template; idempotent — called again it returns the

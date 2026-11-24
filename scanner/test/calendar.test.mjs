@@ -10,7 +10,7 @@ import { definitionFiles } from '../src/drivers/file-job.mjs';
 import { readDefinition, HttpScannerApi, INSTRUMENTS } from '../src/protocol.mjs';
 import { ocrPython } from '../src/instruments/ocr.mjs';
 import * as im from '../src/instruments/raster.mjs';
-import { CalendarBuild, detectRules, rowLadder, columnLadders, detectPageBox, pictureMask, mergeDeep, withMmRulers, labelOverlaps, clearOfPicture } from '../src/adapters/calendar.mjs';
+import { CalendarBuild, detectRules, rowLadder, columnLadders, detectPageBox, pictureMask, mergeDeep, withMmRulers, labelOverlaps, clearOfPicture, withLayerOrder } from '../src/adapters/calendar.mjs';
 import { buildCalendarReport, shown } from '../src/finish/calendar-report.mjs';
 import { Caps } from '../src/caps.mjs';
 import { scriptedEngine } from './support/fakes.mjs';
@@ -36,8 +36,13 @@ function fakeCalendarApp({ features: current = {} } = {}) {
                 if (c.op === 'configure') for (const [k, v] of Object.entries(c.features)) { if (v !== true) return { error: 'a scan switches features ON only' }; features[k] = true; }
                 if (c.op === 'layout') {
                     for (const k of Object.keys(c.styles ?? {})) if (!(k in layout.styles)) return { error: `styles.${k} is not a style key. Keys of styles: ${Object.keys(layout.styles).join(', ')}` };
-                    for (const k of Object.keys(c.boxes ?? {})) if (!(k in layout.boxes)) return { error: `"${k}" is not an element box of this calendar` };
-                    layout = { ...layout, boxes: mergeDeep(layout.boxes, c.boxes ?? {}), styles: mergeDeep(layout.styles, c.styles ?? {}), order: c.order ?? layout.order };
+                    // own layers (K21): new ones only, each with a box; the order lists every layer once
+                    const layers = { ...(layout.layers ?? {}) }; const boxes = { ...layout.boxes };
+                    for (const [id, l] of Object.entries(c.layers ?? {})) { if (l === null || layers[id]) return { error: `layers.${id}: a candidate adds new layers only` }; layers[id] = l; boxes[`u:${id}`] = { x: 100, y: 50, w: 20, h: 20 }; }
+                    for (const k of Object.keys(c.boxes ?? {})) if (!(k in boxes)) return { error: `"${k}" is not an element box of this calendar` };
+                    const all = [...DEFAULT.order, ...Object.keys(layers).map((id) => `u:${id}`)];
+                    if (c.order && (c.order.length !== all.length || !all.every((k) => c.order.includes(k)))) return { error: 'order must list every element and every own layer exactly once' };
+                    layout = { ...layout, layers, boxes: mergeDeep(boxes, c.boxes ?? {}), styles: mergeDeep(layout.styles, c.styles ?? {}), order: c.order ?? [...Object.keys(c.layers ?? {}).map((id) => `u:${id}`), ...layout.order] };
                 }
             }
             return { layout, features, preset };
@@ -54,6 +59,7 @@ function fakeCalendarApp({ features: current = {} } = {}) {
                 if (el === 'photo') svg += rect(b, '#9aa0a6');
                 if (el === 'head') svg += rect(b, layout.styles.head.bg.color);
                 if (el === 'logo') svg += rect(b, '#dddddd');
+                if (el.startsWith('u:') && layout.layers[el.slice(2)]?.kind === 'rect') svg += rect(b, layout.layers[el.slice(2)].fill?.color ?? '#000000');
                 if (el === 'cap' && features.captions) svg += rect(b, layout.styles.cap.bg.color);
                 if (el === 'month') svg += rect({ x: b.x + b.w - 40, y: b.y + b.h / 2 - layout.styles.month.size * 0.127, w: 40, h: layout.styles.month.size * 0.253 }, layout.styles.month.color);
                 if (el === 'cal' && layout.styles.lines.on) { const pitch = (b.h - 2) / 7; for (let i = 1; i <= 7; i++) svg += `<rect x="${(b.x + 5) * PX}" y="${Math.round((b.y + i * pitch) * PX)}" width="${(Math.min(b.x + b.w, PAGE.width) - b.x - 10) * PX}" height="2" fill="${layout.styles.lines.color}"/>`; }
@@ -173,6 +179,46 @@ test('calendar_preview: preset default + one patch → commands; feedback names 
     assert.ok(Math.abs(second.json.rules.delta.firstYMm) <= 0.3);
     const cmp = await tools.compare_region({ x: 200, y: 20, w: 110, h: 60 });
     assert.equal(cmp.json.candidate, 2); assert.equal(cmp.images.length, 1);
+});
+
+test('own layers (K21): a candidate carries the scan\'s layers, the order gets their keys, a patch merges and null removes; other ids are refused', async () => {
+    const { b, app, tools } = await build();
+    b.ocrSource = [];
+    const band = { kind: 'rect', fill: { on: true, color: '#1F3A5F', opacity: 100 } };
+    const first = await tools.calendar_preview({ preset: 'photoLeft', layers: { scan_band: band, scan_logo2: { kind: 'image', name: 'Partner' } }, boxes: { 'u:scan_band': { x: -5, y: 140, w: 320, h: 10 } }, order: ['qr', 'logo', 'cap', 'wk', 'month', 'head', 'cal', 'photo'] });
+    assert.equal(first.json.candidate, 1);
+    const layout = app.last[app.last.length - 1];
+    assert.deepEqual(Object.keys(layout.layers), ['scan_band', 'scan_logo2']);
+    assert.deepEqual(layout.order.slice(0, 2), ['u:scan_band', 'u:scan_logo2'], 'layers the order left out go on top');
+    assert.equal(layout.order.length, 10);
+    const second = await tools.calendar_preview({ patch: true, layers: { scan_logo2: null }, styles: { lines: { color: '#40454C' } } });
+    assert.equal(second.json.candidate, 2);
+    const patched = app.last[app.last.length - 1];
+    assert.deepEqual(Object.keys(patched.layers), ['scan_band'], 'null removed the picture layer');
+    assert.ok(!patched.order.includes('u:scan_logo2') && !('u:scan_logo2' in patched.boxes));
+    assert.equal(patched.boxes['u:scan_band'].y, 140, 'the patch kept the band\'s box');
+    await assert.rejects(() => tools.calendar_preview({ patch: true, layers: { Stripe: band } }), /scan_/);
+    assert.deepEqual(withLayerOrder(['qr', 'u:gone', 'cal'], ['scan_a']), ['u:scan_a', 'qr', 'cal']);
+});
+
+test('picture mask (K21): a picture layer is the user\'s like the logo; an opaque own rectangle above the photo clears its box', () => {
+    const toPx = (b) => ({ x: Math.max(0, Math.round(b.x)), y: Math.max(0, Math.round(b.y)), w: Math.round(b.w), h: Math.round(b.h) });
+    const layout = { boxes: { photo: { x: 0, y: 0, w: 50, h: 100 }, 'u:scan_p': { x: 60, y: 60, w: 10, h: 10 }, 'u:scan_r': { x: 0, y: 40, w: 50, h: 10 } }, order: ['u:scan_r', 'u:scan_p', 'photo'], layers: { scan_p: { kind: 'image' }, scan_r: { kind: 'rect', fill: { on: true, color: '#000000', opacity: 100 } } }, styles: {} };
+    const m = pictureMask(layout, {}, toPx, 100, 100);
+    assert.equal(m[65 * 100 + 65], 1, 'picture layer');
+    assert.equal(m[45 * 100 + 10], 0, 'the opaque band over the photo');
+    assert.equal(m[20 * 100 + 10], 1, 'the photo elsewhere');
+    const seeThrough = pictureMask({ ...layout, layers: { ...layout.layers, scan_r: { kind: 'rect', fill: { on: true, color: '#000000', opacity: 40 } } } }, {}, toPx, 100, 100);
+    assert.equal(seeThrough[45 * 100 + 10], 1, 'a see-through band keeps the photo masked');
+});
+
+test('report (K21): every picture layer of the kept candidate is a place to fill; its id is the slot', async () => {
+    const { b, tools } = await build();
+    b.ocrSource = [];
+    await tools.calendar_preview({ preset: 'photoLeft', layers: { scan_logo2: { kind: 'image' }, scan_band: { kind: 'rect' } } });
+    const report = await buildCalendarReport({ build: b, finish: { needsUpload: [{ slot: 'header' }, { slot: 'scan_logo2' }] } });
+    assert.deepEqual(report.needsUpload, [{ slot: 'header' }, { slot: 'scan_logo2' }]);
+    assert.deepEqual(report.measures.layers, { rect: 1, ellipse: 0, line: 0, image: 1 });
 });
 
 test('caps: a refused patch is an answer and uses no candidate; the 4th candidate and the 4th refusal are refused', async () => {

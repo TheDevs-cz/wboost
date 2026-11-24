@@ -7,7 +7,7 @@ import { api, bytesCz, creditLine, dateCz, dialogHead, duration, esc, ic, minute
 import { CAL, UPLOAD_ERRORS, failure, noteText, picturesLater, pill, startHint } from '../../../ai-scan/copy.js';
 import { ratioLabel } from '../../../ai-scan/file-checks.js';
 import { boxStyle, cropStyle, pixelsStyle } from '../../../ai-scan/page/parts.js';
-import { elementFact, sampleWeekLabel } from './preview.js';
+import { elementFact, sampleWeekLabel, scanLayersFact } from './preview.js';
 import { MIN_PRINT_DPI, PRINT_DPI, pictureDpi, pictureSize, placeOfSlot } from '../picture-size.js';
 
 const ACCEPT = 'image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf';
@@ -525,7 +525,10 @@ function recognised(scan) {
         const state = item.state === 'approximate' ? '' : `<span class="sr"> — ${sr}</span>`;
         return `<li class="${cls}"${LAYER_TAGS[item.element] ? ` data-hl="${esc(item.element)}"` : ''}>${ic(icon)}<b>${CAL.elements[item.element] || esc(item.element)}${state}</b><span class="f">${esc(fact)}</span></li>`;
     }).join('');
-    return rows ? `<div class="as-card" data-region="rec"><h3>Co jsme rozpoznali</h3><ul class="as-rec">${rows}</ul><p class="cap" style="margin:0">Co jsme nenašli, zůstane v kalendáři nastavené jako dosud. Sken nic nevypíná.</p></div>` : '';
+    // K21: the own layers the scan proposes (shapes, picture places) — one row, they are not elements
+    const own = scanLayersFact(p.layout);
+    const ownRow = own ? `<li class="ok" data-cal-scan-layers>${ic('layers')}<b>${CAL.ownLayers}</b><span class="f">${esc(own)}</span></li>` : '';
+    return rows ? `<div class="as-card" data-region="rec"><h3>Co jsme rozpoznali</h3><ul class="as-rec">${rows}${ownRow}</ul><p class="cap" style="margin:0">Co jsme nenašli, zůstane v kalendáři nastavené jako dosud. Sken nic nevypíná.</p></div>` : '';
 }
 
 /** The review's fonts by state (K3): `undetermined` (also an unknown pattern), `nearest_available`, `measured_match`. */
@@ -696,7 +699,7 @@ ${foot(scan, primary, { apply: true })}`;
 /** Where a place for a picture sits in the layout: its box in page mm (null = the whole page). */
 function slotBox(scan, slot) {
     const boxes = (scan.proposal.layout && scan.proposal.layout.boxes) || {};
-    const box = slot === 'logo' ? boxes.logo : slot === 'header' ? boxes.head : null;
+    const box = slot === 'logo' ? boxes.logo : slot === 'header' ? boxes.head : slot === 'background' ? null : boxes[placeOfSlot(slot)];
     return box && box.w > 0 && box.h > 0 ? box : null;
 }
 
@@ -707,8 +710,16 @@ export function placeSize(scan, slot) {
     const d = design(scan);
     const size = pictureSize({ boxes: layout.boxes, page: d.page, print: d.print, place: placeOfSlot(slot) });
     if (!size) return null;
-    const fit = slot === 'logo' ? ((styles.logo && styles.logo.fit) || 'contain') : slot === 'header' ? ((styles.head && styles.head.bg && styles.head.bg.fit) || 'cover') : ((styles.bg && styles.bg.fit) || 'cover');
+    const layer = layout.layers && layout.layers[slot];
+    const fit = layer ? (layer.fit || 'contain') : slot === 'logo' ? ((styles.logo && styles.logo.fit) || 'contain') : slot === 'header' ? ((styles.head && styles.head.bg && styles.head.bg.fit) || 'cover') : ((styles.bg && styles.bg.fit) || 'cover');
     return { ...size, fit };
+}
+
+/** The name of a place: a built-in one, or a picture layer the scan proposed (K21) by its name. */
+function slotName(scan, slot) {
+    if (CAL.slots[slot]) return CAL.slots[slot];
+    const layers = (scan.proposal.layout && scan.proposal.layout.layers) || {};
+    return CAL.layerSlot(layers[slot] ? esc(layers[slot].name || '') : '');
 }
 
 /** The buttons and the state line of a place (shared by the pictures step and the review's backdrop card, K7b). */
@@ -747,7 +758,7 @@ function placeCrop(scan, item, { maxRatio = 2.2 } = {}) {
 
 function pictureCard(scan, item, number) {
     const busy = scan.busy === `picture:${item.slot}`;
-    const name = CAL.slots[item.slot] || esc(item.slot);
+    const name = slotName(scan, item.slot);
     const slot = esc(item.slot);
     return `<article class="as-ph" data-region="pic-${slot}" data-slot="${slot}" data-hl="pic-${slot}" data-dropzone="slot" aria-label="Místo ${number}: ${name}"><div class="as-ph-crop">${placeCrop(scan, item)}<b class="as-num">${number}</b>${item.picture ? `<span class="chk" role="img" aria-label="Doplněno">${ic('check', 's12')}</span>` : ''}</div><div class="as-ph-b"><div class="as-ph-h"><b>${name}</b>${busy ? '<span class="as-spin" style="width:12px;height:12px"></span>' : ''}</div>${sizeNote(scan, item)}${pictureBody(scan, item)}</div></article>`;
 }
@@ -787,7 +798,7 @@ function otherPictures(scan) {
     if (!rest.length) return '';
     const rows = rest.map((item) => {
         const slot = esc(item.slot);
-        const name = CAL.slots[item.slot] || slot;
+        const name = slotName(scan, item.slot);
         const busy = scan.busy === `picture:${item.slot}`;
         return `<li class="cal-scan-more-r" data-region="more-${slot}" data-slot="${slot}" data-hl="pic-${slot}" data-dropzone="slot"><div class="cal-scan-more-h"><b>${name}</b>${busy ? '<span class="as-spin" style="width:12px;height:12px"></span>' : ''}${!item.picture && !item.current ? '<span class="cap">zatím prázdné</span>' : ''}</div>${pictureBody(scan, item, { drop: false })}</li>`;
     }).join('');

@@ -70,7 +70,7 @@ with a message saying exactly that.
 
 ## `get_context(skillVersion?)`
 
-`skillVersion`: the version your wboost skill states (`"0.17.0"`); omit it when
+`skillVersion`: the version your wboost skill states (`"0.17.1"`); omit it when
 you have no wboost skill. Changes nothing. Returns:
 
 ```jsonc
@@ -94,7 +94,7 @@ you have no wboost skill. Changes nothing. Returns:
     }]
   }],
   "skill": {                                        // the version check — see SKILL.md
-    "latestVersion": "0.17.0", "installedVersion",   // null when no skillVersion was sent
+    "latestVersion": "0.17.1", "installedVersion",   // null when no skillVersion was sent
     "status",                                       // "current" | "outdated" | "unknown"
     "message", "whatsNew",                          // null when current; tell the user once
     "updateClaudeCode", "updateClaudeAi"            // the update routes; null when current
@@ -673,12 +673,12 @@ may come out less precise — say so when the user has a larger original.
   "kind": "calendar", "calendarId", "expiresAt",
   "hasLayout": true,            // the calendar has a layout that apply REPLACES
   "preset": "photoRight",
-  "layout": { "v": 1, "boxes": {…}, "order": […], "styles": {…} },   // what the calendar would get now (mm, pt)
+  "layout": { "v": 1, "boxes": {…}, "order": […], "styles": {…}, "layers": {…} },   // what the calendar would get now (mm, pt); layers "scan_<name>" = own layers the scan proposes
   "recognised": [ { "element": "photo|cap|cal|month|wk|head|logo|qr|bg",
                     "state": "found|approximate|absent",
                     "kept": false } ],   // kept: the calendar keeps its current setting (element not on the page)
   "featuresOffered": ["qr", "events"],   // switches the page shows and the calendar has off
-  "pictures": [ { "slot": "logo|header|background", "current": false } ],   // places whose picture you must supply
+  "pictures": [ { "slot": "logo|header|background|scan_<name>", "current": false } ],   // places whose picture you must supply (scan_<name> = an empty picture layer)
   "fonts": [ { "group": "num", "pattern": "measured_match|nearest_available|undetermined", "face" } ],
   "notExpressible": [ { "code": "ornament|header_text|second_photo|more_logos|days_in_grid|rotated_text|month_colours|multilingual_names", "box" } ],
   "notes": [ { "code": "fortnight_left_half|ratio_adapted|colours_estimated|page_box_set" } ],
@@ -706,7 +706,13 @@ Rules:
   `upload_calendar_asset` (`logo` → kind `logo`; `header` / `background` →
   kind `image`) after `apply` and set it with `set_calendar_layout`
   (`styles: {"logo": {"asset": id}}`, `{"head": {"bg": {"asset": id, "imageOn": true}}}`,
-  `{"bg": {"asset": id, "imageOn": true}}`).
+  `{"bg": {"asset": id, "imageOn": true}}`); a `scan_<name>` slot is an empty
+  picture LAYER the scan proposed (a second logo, a partner strip): kind
+  `image`, then `set_calendar_layout` `layers: {"scan_<name>": {"asset": id}}`.
+- Own layers: the scan proposes stripes, frames, lines, circles and picture
+  places as own layers with ids `scan_<name>`. `apply` adds them, keeps every
+  own layer the calendar already has, and replaces the `scan_…` layers an
+  earlier scan added.
 - When the page and the calendar disagree, `notes[]` says so and only one
   week of the picture is used: `fortnight_left_half` (a two-week page for a
   7-day calendar — the left week was rebuilt, the right one is not in the

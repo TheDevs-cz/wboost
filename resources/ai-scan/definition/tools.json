@@ -433,7 +433,7 @@
     "kinds": [
       "calendar"
     ],
-    "description": "Builds a candidate layout on the calendar's own model and renders the sample week page with the app's real renderer. Nothing is saved. A complete candidate = `preset` (photoLeft | photoRight — the candidate always starts from that preset's DEFAULT layout, see defaultLayout in the pre-pass) + `features` (switches to turn ON, never off) + ONE patch of `boxes` (mm), `order` and `styles` over that default. With `\"patch\": true` the given boxes / styles / features are merged over your previous candidate, so a correction sends only what changes. Read `rendered` first: false means the model refused the patch — `issues` says which key or value (an unknown key lists its siblings); fix it and call again (such refusals are limited). When it rendered: the candidate number, the picture, `notes` (values the model clamped or grew), the materialised `boxes`, and measured feedback against the source — `mae` (0 = identical; the photo, logo and QR boxes excluded), `rules` (the row ladder of source and render and their `delta` in mm, with the arithmetic to apply), per element `mae`, `move` (mm) and for month / week label `inkHeightRatio`, and `worstCells`. At most 3 candidates are rendered in a scan; the scanner keeps the best-measured one.",
+    "description": "Builds a candidate layout on the calendar's own model and renders the sample week page with the app's real renderer. Nothing is saved. A complete candidate = `preset` (photoLeft | photoRight — the candidate always starts from that preset's DEFAULT layout, see defaultLayout in the pre-pass) + `features` (switches to turn ON, never off) + ONE patch of `boxes` (mm), `order`, `styles` and own `layers` over that default. With `\"patch\": true` the given boxes / styles / features are merged over your previous candidate, so a correction sends only what changes. Read `rendered` first: false means the model refused the patch — `issues` says which key or value (an unknown key lists its siblings); fix it and call again (such refusals are limited). When it rendered: the candidate number, the picture, `notes` (values the model clamped or grew), the materialised `boxes`, and measured feedback against the source — `mae` (0 = identical; the photo, logo and QR boxes excluded), `rules` (the row ladder of source and render and their `delta` in mm, with the arithmetic to apply), per element `mae`, `move` (mm) and for month / week label `inkHeightRatio`, and `worstCells`. At most 3 candidates are rendered in a scan; the scanner keeps the best-measured one.",
     "input_schema": {
       "type": "object",
       "properties": {
@@ -455,19 +455,24 @@
         "boxes": {
           "type": "object",
           "additionalProperties": true,
-          "description": "{\"<element>\": {x?, y?, w?, h?, hidden?}} in page mm; elements: photo cap logo head month cal wk qr; hidden only on logo month wk qr."
+          "description": "{\"<element>\": {x?, y?, w?, h?, hidden?}} in page mm; elements: photo cap logo head month cal wk qr; hidden only on logo month wk qr; an own layer is placed by \"u:<id>\" (e.g. \"u:scan_band\": {x, y, w, h})."
         },
         "order": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "All eight element keys exactly once, top layer first."
+          "description": "All eight element keys exactly once, top layer first — and \"u:<id>\" of each own layer where it lies in the stack (one you leave out goes on top)."
         },
         "styles": {
           "type": "object",
           "additionalProperties": true,
           "description": "A patch of the style tree — only keys that exist in defaultLayout.styles."
+        },
+        "layers": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Own layers — decoration the eight elements cannot draw: {\"scan_<name>\": {kind: rect | ellipse | line | image, …}} (ids \"scan_\" + lower-case letters, digits, \"_\"). rect / ellipse: fill {on, color, opacity}, stroke {on, color, width pt, style solid|dash|dot}, rect radius mm; line: stroke {color, width pt, style, cap butt|round} (a box drawn through its middle, horizontal when w ≥ h); image: an EMPTY place for a picture the user supplies (fit contain|cover, radius) — never an asset; every kind: name, opacity, blend. Place each with boxes[\"u:<id>\"]. With patch: true, null removes a layer."
         },
         "patch": {
           "type": "boolean",
@@ -484,7 +489,7 @@
     "kinds": [
       "calendar"
     ],
-    "description": "Builds a candidate layout on the calendar's own model and renders the sample page (two weeks) with the app's real renderer. Nothing is saved. A complete candidate = `features` (switches to turn ON, never off) + ONE patch of `boxes` (mm), `order` and `styles` over the DEFAULT of the one preset `twoSided` (see defaultLayout in the pre-pass). The second frames `cal2`, `month2`, `wk2` you do not send are placed as the mirror image of `cal`, `month`, `wk`; send one only where the source's right column is not that mirror. With `\"patch\": true` the given boxes / styles / features are merged over your previous candidate, so a correction sends only what changes. Read `rendered` first: false means the model refused the patch — `issues` says which key or value (an unknown key lists its siblings); fix it and call again (such refusals are limited). When it rendered: the candidate number, the picture, `notes` (values the model clamped or grew), the materialised `boxes` (all eleven), and measured feedback against the source — `mae` (0 = identical; the photo, logo and QR boxes excluded), `rules` (the row ladder of the LEFT column, source and render and their `delta` in mm, with the arithmetic to apply to `cal`), `rules2` (the same for the RIGHT column and `cal2`), per frame `mae`, `move` (mm) and for the month lines / week labels `inkHeightRatio`, and `worstCells`. At most 3 candidates are rendered in a scan; the scanner keeps the best-measured one.",
+    "description": "Builds a candidate layout on the calendar's own model and renders the sample page (two weeks) with the app's real renderer. Nothing is saved. A complete candidate = `features` (switches to turn ON, never off) + ONE patch of `boxes` (mm), `order`, `styles` and own `layers` over the DEFAULT of the one preset `twoSided` (see defaultLayout in the pre-pass). The second frames `cal2`, `month2`, `wk2` you do not send are placed as the mirror image of `cal`, `month`, `wk`; send one only where the source's right column is not that mirror. With `\"patch\": true` the given boxes / styles / features are merged over your previous candidate, so a correction sends only what changes. Read `rendered` first: false means the model refused the patch — `issues` says which key or value (an unknown key lists its siblings); fix it and call again (such refusals are limited). When it rendered: the candidate number, the picture, `notes` (values the model clamped or grew), the materialised `boxes` (all eleven), and measured feedback against the source — `mae` (0 = identical; the photo, logo and QR boxes excluded), `rules` (the row ladder of the LEFT column, source and render and their `delta` in mm, with the arithmetic to apply to `cal`), `rules2` (the same for the RIGHT column and `cal2`), per frame `mae`, `move` (mm) and for the month lines / week labels `inkHeightRatio`, and `worstCells`. At most 3 candidates are rendered in a scan; the scanner keeps the best-measured one.",
     "input_schema": {
       "type": "object",
       "properties": {
@@ -505,19 +510,24 @@
         "boxes": {
           "type": "object",
           "additionalProperties": true,
-          "description": "{\"<box>\": {x?, y?, w?, h?, hidden?}} in page mm; boxes: photo cap logo head month month2 cal cal2 wk wk2 qr; hidden only on logo month wk qr (it hides both frames)."
+          "description": "{\"<box>\": {x?, y?, w?, h?, hidden?}} in page mm; boxes: photo cap logo head month month2 cal cal2 wk wk2 qr; hidden only on logo month wk qr (it hides both frames); an own layer is placed by \"u:<id>\" (e.g. \"u:scan_band\": {x, y, w, h})."
         },
         "order": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "All eight element keys exactly once, top layer first (an element with two frames is listed once)."
+          "description": "All eight element keys exactly once, top layer first (an element with two frames is listed once) — and \"u:<id>\" of each own layer where it lies in the stack (one you leave out goes on top)."
         },
         "styles": {
           "type": "object",
           "additionalProperties": true,
           "description": "A patch of the style tree — only keys that exist in defaultLayout.styles."
+        },
+        "layers": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Own layers — decoration the eight elements cannot draw: {\"scan_<name>\": {kind: rect | ellipse | line | image, …}} (ids \"scan_\" + lower-case letters, digits, \"_\"). rect / ellipse: fill {on, color, opacity}, stroke {on, color, width pt, style solid|dash|dot}, rect radius mm; line: stroke {color, width pt, style, cap butt|round} (a box drawn through its middle, horizontal when w ≥ h); image: an EMPTY place for a picture the user supplies (fit contain|cover, radius) — never an asset; every kind: name, opacity, blend. Place each with boxes[\"u:<id>\"]. With patch: true, null removes a layer."
         },
         "patch": {
           "type": "boolean",

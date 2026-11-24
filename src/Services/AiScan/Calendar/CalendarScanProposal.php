@@ -54,6 +54,14 @@ final readonly class CalendarScanProposal
         'background' => ['kind' => CalendarAssetKind::Image, 'path' => ['bg', 'asset'], 'switch' => ['bg', 'imageOn']],
     ];
 
+    /**
+     * A place for a picture in an own layer the scan proposed (K21): the
+     * slot IS the layer's id — `scan_…`, the prefix of
+     * `assets/calendar/model/layers.js` SCAN_LAYER_PREFIX — of an image layer
+     * the proposal has; its picture becomes `layers.<id>.asset`.
+     */
+    public const string LAYER_SLOT_PATTERN = '/^scan_[a-z0-9_]{1,35}$/';
+
     public const array NOT_EXPRESSIBLE = ['ornament', 'header_text', 'second_photo', 'more_logos', 'days_in_grid', 'rotated_text', 'month_colours', 'multilingual_names'];
 
     /** Elements with a frame per week column on a 14-day layout: first frame → second frame. */
@@ -240,8 +248,22 @@ final readonly class CalendarScanProposal
         return $states;
     }
 
+    /** A slot name a picture may be held for: a built-in place or an own layer's (K21). */
+    public static function isSlot(string $slot): bool
+    {
+        return isset(self::SLOTS[$slot]) || preg_match(self::LAYER_SLOT_PATTERN, $slot) === 1;
+    }
+
+    /** The kind of calendar asset a picture of the slot becomes. */
+    public static function slotKind(string $slot): CalendarAssetKind
+    {
+        return self::SLOTS[$slot]['kind'] ?? CalendarAssetKind::Image;
+    }
+
     /**
-     * The slots the scan found a picture in.
+     * The slots the scan found a picture in: the built-in places of the
+     * report's `needsUpload`, then the picture layers of the proposed layout
+     * (K21 — every one of them is a place to fill, reported or not).
      *
      * @return list<string>
      */
@@ -254,6 +276,34 @@ final readonly class CalendarScanProposal
 
             if (is_string($slot) && isset(self::SLOTS[$slot]) && !in_array($slot, $slots, true)) {
                 $slots[] = $slot;
+            }
+        }
+
+        return [...$slots, ...self::layerSlots(self::layout($scan))];
+    }
+
+    /**
+     * The picture layers of a proposed layout, in stack order (top first).
+     *
+     * @return list<string>
+     */
+    public static function layerSlots(null|\stdClass $layout): array
+    {
+        $layers = $layout->layers ?? null;
+        $order = $layout->order ?? null;
+
+        if (!$layers instanceof \stdClass || !is_array($order)) {
+            return [];
+        }
+
+        $slots = [];
+
+        foreach ($order as $key) {
+            $id = is_string($key) && str_starts_with($key, 'u:') ? substr($key, 2) : null;
+            $layer = $id !== null ? ($layers->{$id} ?? null) : null;
+
+            if ($id !== null && preg_match(self::LAYER_SLOT_PATTERN, $id) === 1 && $layer instanceof \stdClass && ($layer->kind ?? null) === 'image') {
+                $slots[] = $id;
             }
         }
 
@@ -312,6 +362,26 @@ final readonly class CalendarScanProposal
 
             if ($spec['switch'] !== null) {
                 self::put($layout, $spec['switch'], true);
+            }
+        }
+
+        // The scan's own picture layers (K21): the held picture, else the one
+        // the calendar's layer of the same id has (an earlier scan's, filled).
+        foreach (self::layerSlots($layout) as $slot) {
+            $asset = $pictures[$slot] ?? null;
+            $ownLayers = $current->layers ?? null;
+            $ownLayer = $ownLayers instanceof \stdClass ? ($ownLayers->{$slot} ?? null) : null;
+            $own = $ownLayer instanceof \stdClass && ($ownLayer->kind ?? null) === 'image' ? ($ownLayer->asset ?? null) : null;
+
+            if ($asset === null && is_string($own) && $own !== '') {
+                $asset = $own;
+                $currentPictures[] = $slot;
+            }
+
+            $layer = $layout->layers->{$slot} ?? null;
+
+            if ($asset !== null && $layer instanceof \stdClass) {
+                $layer->asset = $asset;
             }
         }
 

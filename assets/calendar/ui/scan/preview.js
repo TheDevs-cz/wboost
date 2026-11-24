@@ -8,6 +8,7 @@
 import { normalizeLayout } from '../../model/normalize.js';
 import { buildPages, weekPages } from '../../generate/pages.js';
 import { renderThumb } from '../thumb.js';
+import { isScanLayerId } from '../../model/layers.js';
 
 const PHOTO = 'scan-preview-photo';
 const slotAsset = (slot) => `scan-preview-${slot}`;
@@ -34,16 +35,19 @@ export function previewDocument(doc, proposal, env, { ticked = [], photo = null 
     const assets = { ...(env.assets || {}) };
     const layout = normalizeLayout(JSON.parse(JSON.stringify(proposal.layout)), d.type, d.page, env);
     const styles = { ...layout.styles };
+    const layers = { ...(layout.layers || {}) };
     for (const item of proposal.pictures || []) {
         if (!item.picture) continue;
         const id = slotAsset(item.slot);
         assets[id] = { url: item.picture.url, previewUrl: null, width: item.picture.width, height: item.picture.height, mime: 'image/png', name: item.picture.name, description: null, kind: item.slot === 'logo' ? 'logo' : 'image' };
-        placeSlot(styles, item.slot, id);
+        // a picture layer the scan proposed (K21) takes it as the layer's own picture
+        if (layers[item.slot]) layers[item.slot] = { ...layers[item.slot], asset: id };
+        else placeSlot(styles, item.slot, id);
     }
     const features = { ...d.features };
     for (const key of ticked) if (key in features) features[key] = true;
     const content = { ...doc.content };
-    const next = { ...doc, design: { ...d, preset: proposal.preset, layout: { ...layout, styles }, features }, content };
+    const next = { ...doc, design: { ...d, preset: proposal.preset, layout: { ...layout, styles, layers }, features }, content };
     const pages = weekPages(buildPages(next));
     const page = pages.find((p) => p.key === proposal.page) || pages[0] || null;
     if (photo && page) {
@@ -169,6 +173,28 @@ function fillFact(fill) {
     if (fill.gradient && fill.gradient.on) return 'barevný přechod';
     if (fill.colorOn !== false && HEX.test(fill.color || '')) return `barva ${String(fill.color).toUpperCase()}`;
     return '';
+}
+
+const LAYER_WORDS = {
+    rect: ['obdélník', 'obdélníky', 'obdélníků'],
+    ellipse: ['elipsa', 'elipsy', 'elips'],
+    line: ['čára', 'čáry', 'čar'],
+    image: ['obrázek', 'obrázky', 'obrázků'],
+};
+const czPlural = (n, [one, few, many]) => `${n} ${n === 1 ? one : n >= 2 && n <= 4 ? few : many}`;
+
+/**
+ * The own layers the scan proposes (K21, ids `scan_…`) as one review phrase — „2 obdélníky, 1 čára,
+ * 1 obrázek“ — or `''` when it proposes none. A rectangle with a radius counts as a rectangle.
+ */
+export function scanLayersFact(layout) {
+    const layers = (layout && layout.layers) || {};
+    const counts = {};
+    for (const [id, layer] of Object.entries(layers)) {
+        if (!isScanLayerId(id) || !layer || !LAYER_WORDS[layer.kind]) continue;
+        counts[layer.kind] = (counts[layer.kind] || 0) + 1;
+    }
+    return Object.keys(LAYER_WORDS).filter((kind) => counts[kind]).map((kind) => czPlural(counts[kind], LAYER_WORDS[kind])).join(', ');
 }
 
 /**

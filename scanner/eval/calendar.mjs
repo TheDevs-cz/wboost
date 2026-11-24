@@ -86,7 +86,7 @@ for (const name of inputs) {
             // the proposal as the prototype's candidate: the scanned calendar has every switch off, so what is on is what the scan offered
             // a scan builds for the calendar's own type: 7 days, or 14 (`twoSided`, with the second frames)
             const type = report.type === 'fortnight' ? 'fortnight' : 'week';
-            const candidate = { type, preset: doc.preset, features: Object.fromEntries(FEATURES.map((k) => [k, doc.featuresOn.includes(k)])), boxes: layout.boxes, order: layout.order, styles: layout.styles, needsUpload: report.needsUpload.map((n) => ({ what: n.slot === 'header' ? 'headerImage' : n.slot })) };
+            const candidate = { type, preset: doc.preset, features: Object.fromEntries(FEATURES.map((k) => [k, doc.featuresOn.includes(k)])), boxes: layout.boxes, order: layout.order, styles: layout.styles, ...(layout.layers && !Array.isArray(layout.layers) && Object.keys(layout.layers).length ? { layers: layout.layers } : {}), needsUpload: report.needsUpload.map((n) => ({ what: n.slot === 'header' ? 'headerImage' : n.slot })) };
             try {
                 const [x, y, w, h] = report.pageBox;
                 const pagePng = await pagePicture(input.image, { x, y, w, h });

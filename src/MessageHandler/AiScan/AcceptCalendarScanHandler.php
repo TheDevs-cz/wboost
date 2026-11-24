@@ -132,9 +132,10 @@ readonly final class AcceptCalendarScanHandler
             $commands[] = $configure;
         }
 
-        // The scan does not know the calendar's own layers (K20): they stay on
-        // top of the scanned layout; a restore brings back the stored layout's own.
-        $commands[] = ['op' => 'replace_layout', 'layout' => $plan['layout'], 'keepLayers' => true];
+        // The calendar's own layers (K20) stay over the scanned layout; the
+        // scan's own (`scan_…`, K21) come with it and replace the layers an
+        // earlier scan added. A restore brings back the stored layout's own.
+        $commands[] = ['op' => 'replace_layout', 'layout' => $plan['layout'], 'keepLayers' => 'scan'];
 
         try {
             $model = $this->model->run($calendar, $commands);
@@ -209,7 +210,7 @@ readonly final class AcceptCalendarScanHandler
             try {
                 file_put_contents($path, $picture['bytes']);
                 $assets[$slot] = $this->uploader
-                    ->storeFile($calendar, $actor, CalendarScanProposal::SLOTS[$slot]['kind'], new UploadedFile($path, $held['name'], null, null, true))
+                    ->storeFile($calendar, $actor, CalendarScanProposal::slotKind($slot), new UploadedFile($path, $held['name'], null, null, true))
                     ->toString();
             } catch (InvalidCalendarChange) {
                 throw new AiScanRefused(AiScanRefusal::InvalidFix, ['field' => 'pictures']);

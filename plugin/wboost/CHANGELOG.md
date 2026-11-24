@@ -5,6 +5,21 @@ every deploy. When the server is newer than your skill, Claude tells you once
 per session how to update (see the README). Versions follow `x.y.z`: a new or
 changed tool or parameter is at least a minor bump.
 
+## 0.17.1 — 2026-11-24
+
+**The calendar AI scan builds own layers.**
+
+Changed behaviour (no new parameter)
+- `scan_design` on a calendar proposes the page's stripes, frames, dividing
+  lines, circles and extra picture places (a second logo, a partner strip) as
+  own layers with ids `scan_<name>` in `layout.layers`.
+- `result.pictures[]` may hold a slot `scan_<name>`: an empty picture layer.
+  After `apply`, upload the picture with `upload_calendar_asset` (kind
+  `image`) and set it with `set_calendar_layout`
+  `layers: {"scan_<name>": {"asset": id}}`.
+- `apply` keeps every own layer the calendar already has and replaces the
+  `scan_…` layers an earlier scan added.
+
 ## 0.17.0 — 2026-11-24
 
 **„Navázat pod“ in the design DSL (templates).**

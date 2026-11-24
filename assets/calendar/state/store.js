@@ -553,7 +553,8 @@ export function createStore({ doc, env, api, measurer }) {
 
     /**
      * A whole layout from elsewhere (a layout file, a sibling, an AI scan): one undo step.
-     * `opts.keepLayers` keeps the current own layers on top of it (the AI scan does not know them);
+     * `opts.keepLayers` keeps the current own layers on top of it; `'scan'` (an AI scan's accept) keeps
+     * the scan's own `scan_…` layers too and drops the calendar's earlier `scan_…` ones (K21);
      * otherwise the new layout's own layers replace them (a layout file IS the design).
      */
     function replaceLayout(layout, assets, opts = {}) {
@@ -563,7 +564,9 @@ export function createStore({ doc, env, api, measurer }) {
         const before = snapshot();
         const hadLayout = Boolean(design.layout);
         const preset = presetsForType(design.type).includes(design.preset) ? design.preset : presetsForType(design.type)[0];
-        const incoming = opts.keepLayers === true && design.layout && layout && typeof layout === 'object' ? carryLayers({ ...layout, boxes: layout.boxes || {}, order: Array.isArray(layout.order) ? layout.order : [] }, design.layout) : layout;
+        // keepLayers 'scan' (an accepted AI scan, K21): the scan's own `scan_…` layers stay, the designer's are carried over
+        const keep = opts.keepLayers === true || opts.keepLayers === 'scan';
+        const incoming = keep && design.layout && layout && typeof layout === 'object' ? carryLayers({ ...layout, boxes: layout.boxes || {}, order: Array.isArray(layout.order) ? layout.order : [] }, design.layout, { scan: opts.keepLayers === 'scan' }) : layout;
         const normalised = normalizeLayout(incoming, design.type, design.page, env);
         const clamped = { ...normalised, boxes: clampBoxesToBounds(normalised.boxes, design.page, bleedOf(design.print)) };
         writeDesign({ layout: grown(clamped, { ...design, preset }), preset });

@@ -557,9 +557,12 @@ layer P4.
   target's own special pages stay; `dropForeignPageKeys` in `parseLayoutFile`
   (with the calendar's content) and `ImportCalendarLayout::dropForeignPageKeys`
   on the server, which is authoritative);
-  **the AI scan's accept keeps them** (`replace_layout` with `keepLayers` —
-  `AcceptCalendarScanHandler`), its restore brings back the stored layout with
-  its own. An old browser tab (pre-K20 JS) drops `layers` on its next layout
+  **the AI scan's accept keeps them** (`replace_layout` with `keepLayers:
+  "scan"` — `AcceptCalendarScanHandler`; since K21 a scan proposes layers of
+  its own, ids `scan_…`, which come with it and replace an earlier scan's —
+  `carryLayers(…, { scan: true })`; a scan's CANDIDATE is drawn without the
+  calendar's layers, `dropLayers`), its restore brings back the stored layout
+  with its own. An old browser tab (pre-K20 JS) drops `layers` on its next layout
   save — the accepted risk of every new layout key.
 - **MCP** (skill 0.15.0): `set_calendar_layout` `layers` = `{"<id>": item |
   null}` — a new id (the agent's, `isLayerId`) adds a layer on top, centred,

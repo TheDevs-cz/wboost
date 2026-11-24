@@ -66,7 +66,7 @@ final readonly class CalendarScanPictures
         $held = [];
 
         foreach ($slots as $slot => $info) {
-            if (!is_string($slot) || !isset(CalendarScanProposal::SLOTS[$slot]) || !is_array($info) || !is_string($info['file'] ?? null)) {
+            if (!is_string($slot) || !CalendarScanProposal::isSlot($slot) || !is_array($info) || !is_string($info['file'] ?? null)) {
                 continue;
             }
 
@@ -197,7 +197,7 @@ final readonly class CalendarScanPictures
      */
     public function remove(AiScan $scan, string $slot): void
     {
-        if (!isset(CalendarScanProposal::SLOTS[$slot])) {
+        if (!CalendarScanProposal::isSlot($slot)) {
             throw new AiScanRefused(AiScanRefusal::InvalidFix, ['field' => 'slot']);
         }
 

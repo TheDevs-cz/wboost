@@ -3,7 +3,7 @@
 // where the kept candidate backs it up; boxes and font facts are measured. When the model never
 // finished (a cap), the scanner writes the report alone: `unfinished: true`.
 import { keepBest } from './keepbest.mjs';
-import { ELEMENTS, FEATURES, SECOND_FRAMES } from '../adapters/calendar.mjs';
+import { ELEMENTS, FEATURES, SECOND_FRAMES, SCAN_LAYER_ID } from '../adapters/calendar.mjs';
 import { verifiedMatch, verificationThresholds } from '../instruments/fonts.mjs';
 import { normalise } from './text.mjs';
 
@@ -114,6 +114,13 @@ export async function buildCalendarReport({ build, finish = null, unfinished = f
         .filter((slot) => slot !== 'logo' || shown(layout, features, 'logo'))
         .map((slot) => ({ slot }));
 
+    // the own layers the kept candidate proposes (K21): every picture layer is a place the user fills — reported or not
+    const ownLayers = Object.entries(layout?.layers ?? {}).filter(([id]) => SCAN_LAYER_ID.test(id));
+    for (const key of layout?.order ?? []) {
+        const id = typeof key === 'string' && key.startsWith('u:') ? key.slice(2) : null;
+        if (id && SCAN_LAYER_ID.test(id) && layout.layers?.[id]?.kind === 'image' && layout.boxes?.[key] && !layout.boxes[key].hidden) needsUpload.push({ slot: id });
+    }
+
     // the model's word inside the closed list, in its order, once each (nothing measures it)
     const languages = [...new Set(list(finish?.languages).map((l) => l.code).filter((c) => LANGUAGES.includes(c)))].map((code) => ({ code }));
 
@@ -195,7 +202,8 @@ export async function buildCalendarReport({ build, finish = null, unfinished = f
         recognised, needsUpload, featuresOffered, fonts, notExpressible, notes, languages,
         measures: {
             keepBest: { by: kb.by, agrees: kb.agrees, modelPreferred: kb.modelPreferred, commonShare: kb.commonShare, scores: kb.scores.map((s) => ({ candidate: s.candidate, mae: s.mae, commonMae: s.commonMae })) },
-            mae: kept.mae, pictureShare: kept.pictureShare, candidates: build.candidates.length, rejections: build.attempts.filter((a) => !a.rendered).length,
+            mae: kept.mae, pictureShare: kept.pictureShare, candidates: build.candidates.length,
+            layers: Object.fromEntries(['rect', 'ellipse', 'line', 'image'].map((kind) => [kind, ownLayers.filter(([, l]) => l?.kind === kind).length])), rejections: build.attempts.filter((a) => !a.rendered).length,
             fontVerification: fontStats, pageBox: build.pageBoxSet ?? 'whole', rows: build.rowsFound ? build.rowsFound() : (build.ladder ? build.ladder.rules.length : 0), texts: build.lines.length, faceSheets: build.stats.faceSheets,
             rules: kept.feedback.rules?.delta ?? null,
             ...(fortnight ? { rules2: kept.feedback.rules2?.delta ?? null } : {}),

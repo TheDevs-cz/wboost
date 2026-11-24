@@ -2,7 +2,8 @@
 // cards (ui/scan/views.js) and in step 3 where the picture is actually chosen (ui/editor/props.js).
 //
 //   pictureSize({ boxes, page, print, place }) → { box, text } | null
-//     place   'logo' | 'head' | 'bg' (the scan's slots `header` / `background` map to `head` / `bg`)
+//     place   'logo' | 'head' | 'bg' | 'u:<id>' (the scan's slots `header` / `background` map to `head` / `bg`,
+//             a picture layer's `scan_…` to `u:scan_…`)
 //     box     the place's box in mm, cut at the bleed edge — what is printed; `bg` is the whole page
 //             plus bleed
 //     text    „Rozměr 320 × 32 mm včetně spadávky 5 mm · ideálně 3780 × 378 px, nejméně 2520 × 252 px“;
@@ -15,13 +16,14 @@
 // `PHOTO_MIN_DPI` / `PHOTO_IDEAL_DPI`: under 200 dpi → „… (pro tisk aspoň 300 dpi)“), re-exported.
 
 import { bleedOf } from '../model/defaults.js';
+import { isScanLayerId, layerKey } from '../model/layers.js';
 import { PHOTO_IDEAL_DPI as PRINT_DPI, PHOTO_MIN_DPI as MIN_PRINT_DPI, photoDpi } from '../render/warnings.js';
 
 export { MIN_PRINT_DPI, PRINT_DPI };
 
 const SLOT_PLACE = { header: 'head', background: 'bg' };
-/** The scan's slot name → the layout's element key. */
-export const placeOfSlot = (slot) => SLOT_PLACE[slot] || slot;
+/** The scan's slot name → the layout's element key (a scanned picture layer `scan_…` → its box `u:scan_…`, K21). */
+export const placeOfSlot = (slot) => SLOT_PLACE[slot] || (isScanLayerId(slot) ? layerKey(slot) : slot);
 
 const fmt = (n) => String(Math.round(n * 10) / 10).replace('.', ',');
 

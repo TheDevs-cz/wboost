@@ -399,16 +399,29 @@ export function duplicateLayer(layout, id, newId, bounds) {
 }
 
 /**
+ * The own layers an AI scan proposes carry ids with this prefix (K21): accepting a later scan
+ * replaces them and keeps every layer the designer added (`carryLayers(…, { scan: true })`).
+ */
+export const SCAN_LAYER_PREFIX = 'scan_';
+export const isScanLayerId = (id) => typeof id === 'string' && id.startsWith(SCAN_LAYER_PREFIX);
+
+/**
  * `target` (a layout that does not know the own layers — a preset's default, a scanned layout)
  * with the own layers of `source`: their items, boxes and their places in the stack (each at its
  * index of `source.order`). Layers `target` has of its own are replaced.
+ *
+ * `opts.scan` (an accepted AI scan, K21): `target`'s own layers — the scan's, `scan_…` — stay, and
+ * of `source` only the layers that are NOT a scan's are carried over (a later scan replaces the
+ * layers of the earlier one, the designer's stay).
  */
-export function carryLayers(target, source) {
-    const ids = layerIds(source).filter((id) => source.layers && source.layers[id] && source.boxes[layerKey(id)]);
+export function carryLayers(target, source, opts = {}) {
+    const scan = opts.scan === true;
+    const ids = layerIds(source).filter((id) => source.layers && source.layers[id] && source.boxes[layerKey(id)] && !(scan && isScanLayerId(id)));
     const boxes = {};
-    for (const [key, box] of Object.entries(target.boxes || {})) if (!isLayerKey(key)) boxes[key] = box;
-    const order = (target.order || []).filter((k) => !isLayerKey(k));
+    for (const [key, box] of Object.entries(target.boxes || {})) if (!isLayerKey(key) || (scan && isScanLayerId(layerIdOf(key)))) boxes[key] = box;
+    const order = (target.order || []).filter((k) => !isLayerKey(k) || (scan && isScanLayerId(layerIdOf(k))));
     const layers = {};
+    if (scan) for (const [id, layer] of Object.entries(target.layers || {})) if (isScanLayerId(id) && boxes[layerKey(id)]) layers[id] = layer;
     source.order.forEach((key, index) => {
         const id = layerIdOf(key);
         if (id === null || !ids.includes(id)) return;

@@ -5,7 +5,8 @@
 import assert from 'node:assert/strict';
 
 export default async function (t, load) {
-    const { photoCutBox, elementFact } = await load('ui/scan/preview.js');
+    const { photoCutBox, elementFact, scanLayersFact } = await load('ui/scan/preview.js');
+    const { placeOfSlot } = await load('ui/picture-size.js');
 
     // the Chotěbuz scan of 2026-11-16 (prod 01a1e350-…): a 310 × 145 mm page in a 3661 × 1713 px picture
     const page = { width: 310, height: 145 };
@@ -66,5 +67,19 @@ export default async function (t, load) {
         assert.equal(elementFact('photo', layout, page), 'vlevo, do okraje');
         assert.equal(elementFact('logo', layout, page), 'vlevo dole');
         assert.equal(elementFact('cal', layout, page), 'vpravo, čísla vpravo');
+    });
+
+    // K21: the own layers a scan proposes — one phrase in „Co jsme rozpoznali“, their picture places by layer id
+    t.test('the scan\'s own layers are counted by kind; the designer\'s are not', () => {
+        const layout = { layers: { scan_band: { kind: 'rect' }, scan_frame: { kind: 'rect' }, scan_rule: { kind: 'line' }, scan_logo2: { kind: 'image' }, mine: { kind: 'ellipse' } } };
+        assert.equal(scanLayersFact(layout), '2 obdélníky, 1 čára, 1 obrázek');
+        assert.equal(scanLayersFact({ layers: { mine: { kind: 'rect' } } }), '');
+        assert.equal(scanLayersFact({}), '');
+    });
+
+    t.test('a picture layer\'s slot is its own box and takes the held picture in the preview', () => {
+        assert.equal(placeOfSlot('scan_logo2'), 'u:scan_logo2');
+        assert.equal(placeOfSlot('header'), 'head');
+        assert.equal(placeOfSlot('logo'), 'logo');
     });
 }

@@ -159,3 +159,26 @@ Easy set: no invented effect, text IoU up on all three, masked similarity within
 holds, adopted. B2's text IoU fall is one run of a long, rotated, mixed-style input; the spread is not
 measured. `shadow_omitted` remains in the reports only for shadows the DSL cannot draw (box shadow of
 a rotated sticker, a second shadow).
+
+## 9. Results — Phase 3: the calendar scan builds own layers (2026-11-24)
+
+Built as § 3 planned; decisions by the orchestrator on Jan's standing "follow the recommendations":
+Q1 as recommended (accept keeps the designer's layers, adds the scan's, replaces an earlier scan's),
+Q2 unchanged. Ids are `scan_<name>` with an UNDERSCORE (not `scan-`): a picture layer's id is its
+review slot, and report slots are `code`s (`[a-z][a-z0-9_]*`). Found on the way: a candidate's preset
+reset KEPT the calendar's own layers (K20), so a designer's picture layer was drawn into the picture
+sent to the AI provider — a candidate now drops them (`dropLayers`).
+
+Eval through the real job core on the plan, the eval calendar; "before" = the definition on main
+(the P2 runs for the real pages), "after" = this phase:
+
+| page | F1 before → after | MAE | box IoU | the proposal after |
+|---|---|---|---|---|
+| `k21layers` (synthetic: orange stripe under the header, green frame round an inset photo, vertical divider, partner logo in the header) | 0.774 → **0.963** / 0.952 (2 runs) | 0.024 → 0.014 / 0.013 | 0.955 → 0.986 / 0.991 | `scan_stripe` −5/27/320×4 (truth −5/27/320×4), `scan_frame` 8.9/32.9/177.7×102 stroke (truth 9/33/178×102), `scan_divider` line; the partner logo went to the built-in logo (free on this page). Before: two `ornament` rows, nothing built |
+| `chotebuz` | 0.649 (P2) → 0.595 / 0.646 (2 runs; this page swings ± 0.03 run to run) | 0.031 → 0.037 / 0.031 | – | `numBg` kept; run 1 of the first draft built the number band as a rect INSTEAD of `numBg` → the instructions now say an element's own look is never a layer; afterwards one run adds a rect for the part of the grey column BELOW the Kalendárium (which `numBg` cannot draw) |
+| `markvartovice` (nothing to build) | 0.939 → 0.939 | 0.026 → 0.027 | – | no layer invented |
+
+Review in the browser (eval scan of `k21layers`): the proposal preview draws the scanned layers, „Co
+jsme rozpoznali“ ends with „Vlastní vrstvy — 2 obdélníky, 1 čára“. The place card of a picture layer
+(„Obrázek ve vrstvě „…““) is covered by the PHP / node tests, not seen in a browser (no eval page
+produced one: the free built-in logo was preferred).

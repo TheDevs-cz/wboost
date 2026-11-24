@@ -502,6 +502,89 @@ final class CalendarScanTest extends WebTestCase
     }
 
     /**
+     * K21: a scan proposes own layers of its own (`scan_…`): its candidate
+     * is drawn WITHOUT the calendar's own layers (their pictures are the
+     * customer's, the picture goes to the AI provider), a picture layer is a
+     * place to fill like the logo, and accept keeps the designer's layers,
+     * adds the scan's and drops the layers an earlier scan added.
+     */
+    public function testAScanProposesOwnLayersAndItsAcceptKeepsTheDesignersAndReplacesAnEarlierScans(): void
+    {
+        $layout = self::calJson(self::DESIGNED, 'layout');
+        /** @var array<string, mixed> $boxes */
+        $boxes = $layout['boxes'];
+        /** @var list<string> $order */
+        $order = $layout['order'];
+        $rect = static fn (string $name, string $color): array => ['kind' => 'rect', 'name' => $name, 'pages' => 'weeks', 'except' => [], 'opacity' => 100, 'blend' => 'normal', 'fill' => ['on' => true, 'color' => $color, 'opacity' => 100], 'stroke' => ['on' => false, 'color' => '#2B2830', 'width' => 1, 'style' => 'solid'], 'radius' => 0];
+        $mine = $rect('Pruh', '#E5DDF7');
+        $layout = [...$layout,
+            'boxes' => [...$boxes, 'u:mine' => ['x' => -5, 'y' => 60, 'w' => 320, 'h' => 10], 'u:scan_old' => ['x' => 10, 'y' => 10, 'w' => 20, 'h' => 20]],
+            'order' => ['u:mine', 'u:scan_old', ...$order],
+            'layers' => ['mine' => $mine, 'scan_old' => $rect('Starý sken', '#000000')]];
+        self::connection()->executeStatement('UPDATE calendar SET layout = CAST(:layout AS JSONB) WHERE id = :id', ['layout' => json_encode($layout, JSON_THROW_ON_ERROR), 'id' => self::DESIGNED]);
+
+        $commands = [
+            ['op' => 'preset', 'preset' => 'photoRight'],
+            ['op' => 'layout',
+                'layers' => [
+                    'scan_band' => ['kind' => 'rect', 'name' => 'Pruh dole', 'fill' => ['on' => true, 'color' => '#1F3A5F', 'opacity' => 100]],
+                    'scan_logo2' => ['kind' => 'image', 'name' => 'Logo partnera'],
+                ],
+                'boxes' => ['u:scan_band' => ['x' => -5, 'y' => 140, 'w' => 320, 'h' => 10], 'u:scan_logo2' => ['x' => 250, 'y' => 5, 'w' => 40, 'h' => 15]],
+            ],
+        ];
+        $scanId = self::calendarReady($this->client, self::DESIGNED, commands: $commands);
+
+        // The candidate knew nothing of the calendar's own layers.
+        $candidate = self::decoded(self::dig(self::scanJson($scanId, 'candidates'), 0, 'design', 'layoutJson'));
+        self::assertSame(['scan_band', 'scan_logo2'], array_keys(self::listOf(self::dig($candidate, 'layers'))));
+        self::assertNotContains('u:mine', self::listOf(self::dig($candidate, 'order')));
+
+        TestingLogin::logInAsUser($this->client, TestDataFixture::USER_1_EMAIL);
+        $this->client->request('GET', sprintf('/ai-scan/%s/proposal', $scanId));
+        self::assertResponseIsSuccessful();
+        $proposal = self::dig(self::json($this->client), 'proposal');
+        self::assertIsArray($proposal);
+        self::assertSame(['logo', 'header', 'scan_logo2'], array_column(self::listOf($proposal['pictures']), 'slot'));
+
+        $held = $this->hold($scanId, self::DESIGNED, 'scan_logo2', self::png(240, 90), 'partner.png');
+        self::assertTrue($held['ok'], (string) json_encode($held));
+        self::assertTrue($this->post(self::DESIGNED, $scanId, 'accept', ['features' => []])['ok']);
+
+        $after = self::state(self::DESIGNED)['layout'];
+        $layers = self::listOf(self::dig($after, 'layers'));
+        self::assertEqualsCanonicalizing(['mine', 'scan_band', 'scan_logo2'], array_keys($layers), 'the designer\'s stays, the scan\'s come, the earlier scan\'s is gone');
+        self::assertEquals($mine, $layers['mine']);
+        self::assertSame('#1F3A5F', self::dig($layers, 'scan_band', 'fill', 'color'));
+        self::assertEquals(['x' => -5, 'y' => 140, 'w' => 320, 'h' => 10], self::dig($after, 'boxes', 'u:scan_band'));
+        $assetId = self::connection()->fetchOne("SELECT id FROM calendar_asset WHERE calendar_id = :id AND kind = 'image'", ['id' => self::DESIGNED]);
+        self::assertSame($assetId, self::dig($layers, 'scan_logo2', 'asset'), 'the held picture fills the picture layer');
+        self::assertNotContains('u:scan_old', self::listOf(self::dig($after, 'order')));
+    }
+
+    public function testAScanMayNotNameALayerAnotherWayGiveItAPictureOrPutItOnChosenPages(): void
+    {
+        $scanId = self::start(self::PROJECT, kind: AiScanKind::Calendar, calendarId: self::EMPTY)->toString();
+        self::passIntake($this->client, $scanId);
+        $build = self::claim($this->client, 'build');
+        $seq = 0;
+
+        foreach ([
+            ['band' => ['kind' => 'rect']],
+            ['scan_logo2' => ['kind' => 'image', 'asset' => '01a1cf47-d5e5-71a3-a917-efe29965cc15']],
+            ['scan_band' => ['kind' => 'rect', 'pages' => ['w05']]],
+            ['scan_band' => null],
+        ] as $layers) {
+            $answer = self::scanner($this->client, 'POST', $scanId . '/render', ['run' => $build['run'], 'seq' => ++$seq, 'commands' => [
+                ['op' => 'preset', 'preset' => 'photoLeft'],
+                ['op' => 'layout', 'layers' => $layers],
+            ]], $build['lease']);
+            self::assertNull($answer['json']['candidate'], $answer['raw']);
+            self::assertSame('invalid_command', self::dig($answer['json'], 'issues', 0, 'code'), $answer['raw']);
+        }
+    }
+
+    /**
      * K21: what the scan reads of the pictures' layer effects (K2) and of the
      * band behind the day numbers (K5b „Rozšíření“) is a style patch like any
      * other — rendered, proposed and written by accept exactly as the model

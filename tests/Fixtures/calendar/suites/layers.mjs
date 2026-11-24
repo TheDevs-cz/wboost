@@ -270,6 +270,30 @@ export default async function (t, load) {
         assert.throws(() => client.change((layout) => L.addLayer(layout, 'x', L.newLayer('rect'), { x: 1, y: 1, w: 10, h: 10 })));
     });
 
+    // K21: an AI scan proposes its own layers (`scan_…`); its accept keeps the designer's and replaces an earlier scan's
+    t.test('carryLayers({ scan }) / replaceLayout(keepLayers "scan"): the scan\'s layers stay, the designer\'s are carried, an earlier scan\'s are dropped', async () => {
+        const doc = await makeDoc(load);
+        const env = { ...ENV, assets: {}, mode: 'designer' };
+        const api = { save: () => Promise.reject(new Error('no')) };
+        const store = createStore({ doc: normalizeDocument(doc, env), env, api, measurer: createEstimatorMeasurer() });
+        store.change((layout) => L.addLayer(L.addLayer(layout, 'mine', L.newLayer('ellipse'), { x: 5, y: 5, w: 10, h: 10 }), 'scan_old', L.newLayer('rect'), { x: 50, y: 5, w: 10, h: 10 }));
+        assert.equal(L.isScanLayerId('scan_old'), true);
+        assert.equal(L.isScanLayerId('mine'), false);
+        let scanned = defaultLayout('photoRight', PAGE, 5, ENV);
+        scanned = L.addLayer({ ...scanned, layers: {} }, 'scan_band', L.newLayer('rect', '#1F3A5F'), { x: -5, y: 120, w: 320, h: 6 });
+        store.replaceLayout(scanned, {}, { keepLayers: 'scan' });
+        const after = store.getState().doc.design.layout;
+        assert.deepEqual(Object.keys(after.layers).sort(), ['mine', 'scan_band']);
+        assert.deepEqual(after.boxes['u:scan_band'], { x: -5, y: 120, w: 320, h: 6 });
+        assert.ok(!after.boxes['u:scan_old'] && !after.order.includes('u:scan_old'), 'the earlier scan\'s layer is gone');
+        assert.ok(after.order.includes('u:mine') && after.order.includes('u:scan_band'));
+        // the plain carry (keepLayers true) still replaces what the target brings
+        const plain = L.carryLayers(scanned, after);
+        assert.deepEqual(Object.keys(plain.layers).sort(), ['mine', 'scan_band']);
+        const noScan = L.carryLayers(scanned, { ...after, layers: { mine: after.layers.mine }, order: after.order.filter((k) => k !== 'u:scan_band') });
+        assert.deepEqual(Object.keys(noScan.layers), ['mine'], 'keepLayers true: the target\'s own layers are replaced');
+    });
+
     // ---- P2: page sets, the cover / back / special pages, „Prázdná strana“ -------------------------
 
     const BLANK = { kind: 'blank', on: true, layout: 0, position: 'front', nextYear: false, name: 'Prázdná strana', asset: null, text: null, fileName: null, pos: 9 };

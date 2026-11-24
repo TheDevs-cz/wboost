@@ -36,6 +36,23 @@ const r2 = (v) => Math.round(v * 100) / 100;
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
 
+/** The ids of the own layers a scan proposes (K21) — the app's CalendarScanProposal::LAYER_SLOT_PATTERN. */
+export const SCAN_LAYER_ID = /^scan_[a-z0-9_]{1,35}$/;
+/** The box / order key of an own layer. */
+export const layerKey = (id) => `u:${id}`;
+const isLayerKey = (key) => typeof key === 'string' && key.startsWith('u:');
+
+/**
+ * The stack order the model takes: every built-in element and every own layer once. An own layer
+ * the model's order leaves out goes on top (where the model would add it); a key of a layer that
+ * is gone is dropped.
+ */
+export function withLayerOrder(order, ids) {
+    const keys = new Set(ids.map(layerKey));
+    const kept = order.filter((k) => !isLayerKey(k) || keys.has(k));
+    return [...[...keys].filter((k) => !kept.includes(k)), ...kept];
+}
+
 /** Deep merge of a patch over a base (objects merge, everything else replaces; `null` is a value). */
 export function mergeDeep(base, patch) {
     if (!isObject(base) || !isObject(patch)) return patch === undefined ? base : structuredClone(patch);
@@ -177,11 +194,16 @@ export function pictureMask(layout, features, toPx, W, H) {
         if (el === 'qr') return features?.qr === true;
         return true;
     };
-    const opaque = (el) => (el === 'head' ? opaqueFill(styles.head?.bg) : el === 'cal' ? !!styles.cal?.bg?.color && (styles.cal.bg.opacity ?? 100) >= 99 : el === 'cap' ? opaqueFill(styles.cap?.bg) : el === 'month' ? opaqueFill(styles.month?.bg) : false);
+    const layers = layout?.layers ?? {};
+    const layerOf = (el) => (isLayerKey(el) ? layers[el.slice(2)] ?? null : null);
+    // an own rectangle filled opaquely (and drawn opaquely) covers what is under it
+    const opaqueLayer = (l) => l?.kind === 'rect' && l.fill?.on !== false && (l.fill?.opacity ?? 100) >= 99 && (l.opacity ?? 100) >= 99 && (l.blend ?? 'normal') === 'normal';
+    const opaque = (el) => (isLayerKey(el) ? opaqueLayer(layerOf(el)) : el === 'head' ? opaqueFill(styles.head?.bg) : el === 'cal' ? !!styles.cal?.bg?.color && (styles.cal.bg.opacity ?? 100) >= 99 : el === 'cap' ? opaqueFill(styles.cap?.bg) : el === 'month' ? opaqueFill(styles.month?.bg) : false);
     // bottom layer first: `order[0]` is the top layer
     for (const el of [...order].reverse()) {
         if (!shown(el)) continue;
-        if (el === 'photo' || el === 'logo' || el === 'qr') fill(boxes[el], 1);
+        // a picture layer (K21) is a place the user fills, like the logo: not the scan's to match
+        if (el === 'photo' || el === 'logo' || el === 'qr' || layerOf(el)?.kind === 'image') fill(boxes[el], 1);
         else if (opaque(el)) { fill(boxes[el], 0); if (SECOND_FRAMES[el] && boxes[SECOND_FRAMES[el]]) fill(boxes[SECOND_FRAMES[el]], 0); }
     }
     return mask;
@@ -464,11 +486,16 @@ export class CalendarBuild {
         if (!this.presets.includes(preset)) throw new ToolUserError(this.presets.length === 1 ? `"preset" must be ${this.presets[0]} — the only layout of this calendar` : `"preset" must be one of ${this.presets.join(', ')} — where the photo is`);
         const features = [...new Set([...(base?.features ?? []), ...(Array.isArray(a.features) ? a.features : [])])];
         for (const f of features) if (!FEATURES.includes(f)) throw new ToolUserError(`"${f}" is not a feature switch — switches: ${FEATURES.join(', ')}`);
-        for (const key of ['boxes', 'styles']) if (a[key] !== undefined && a[key] !== null && !isObject(a[key])) throw new ToolUserError(`"${key}" must be an object`);
-        if (a.order !== undefined && a.order !== null && !Array.isArray(a.order)) throw new ToolUserError('"order" must be a list of the eight element keys, top layer first');
+        for (const key of ['boxes', 'styles', 'layers']) if (a[key] !== undefined && a[key] !== null && !isObject(a[key])) throw new ToolUserError(`"${key}" must be an object`);
+        if (a.order !== undefined && a.order !== null && !Array.isArray(a.order)) throw new ToolUserError('"order" must be a list of the eight element keys (and "u:<id>" of your own layers), top layer first');
+        for (const id of Object.keys(a.layers ?? {})) if (!SCAN_LAYER_ID.test(id)) throw new ToolUserError(`"${id}" is not a usable layer id — own layers of a scan are named "scan_" + lower-case letters, digits or "_" (e.g. "scan_band", "scan_logo2")`);
+        // own layers (K21): a patch merges into the previous candidate's; null removes one (with its box and place in the stack)
+        const layers = mergeDeep(base?.layers ?? {}, a.layers ?? {});
+        const boxes = mergeDeep(base?.boxes ?? {}, a.boxes ?? {});
+        for (const [id, layer] of Object.entries(layers)) if (layer === null) { delete layers[id]; delete boxes[layerKey(id)]; }
+        for (const key of Object.keys(boxes)) if (key.startsWith('u:') && !layers[key.slice(2)]) delete boxes[key];
         return {
-            preset, features,
-            boxes: mergeDeep(base?.boxes ?? {}, a.boxes ?? {}),
+            preset, features, layers, boxes,
             order: a.order ?? base?.order ?? null,
             styles: mergeDeep(base?.styles ?? {}, a.styles ?? {}),
         };
@@ -528,8 +555,10 @@ export class CalendarBuild {
 
     static commandsOf(c) {
         const layout = { op: 'layout' };
+        const layers = c.layers ?? {};
+        if (Object.keys(layers).length) layout.layers = layers;
         if (Object.keys(c.boxes).length) layout.boxes = c.boxes;
-        if (c.order) layout.order = c.order;
+        if (c.order) layout.order = withLayerOrder(c.order, Object.keys(layers));
         if (Object.keys(c.styles).length) layout.styles = c.styles;
         return [
             { op: 'preset', preset: c.preset },

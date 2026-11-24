@@ -22,9 +22,12 @@ use WBoost\Web\Services\Calendar\CalendarModelBridge;
  * The commands a scan may send are a closed subset of the model's:
  *
  * - `{op: "preset", preset}` — always a RESET to the preset's default layout
- *   (the candidate never inherits the calendar's current styling);
+ *   (the candidate never inherits the calendar's current styling) WITHOUT the
+ *   calendar's own layers (K21: their pictures are the customer's, and the
+ *   candidate's picture goes to the AI provider);
  * - `{op: "configure", features: {<key>: true}}` — switches ON only;
- * - `{op: "layout", boxes?, order?, styles?}` — the validated patch.
+ * - `{op: "layout", boxes?, order?, styles?, layers?}` — the validated patch;
+ *   `layers` only new `scan_…` layers without a picture (K21).
  *
  * A command the model refuses is an answer (`blocked`, with the model's
  * message as the issue), exactly like a design the template preflight
@@ -38,6 +41,9 @@ final readonly class CalendarCandidate
     private const string SAMPLE_PAGE_ODD = 'w03';
 
     private const int MAX_COMMANDS = 8;
+
+    /** Own layers one candidate may propose (K21). */
+    private const int MAX_LAYERS = 12;
 
     public function __construct(
         private CalendarModelBridge $model,
@@ -291,7 +297,7 @@ final readonly class CalendarCandidate
                         return sprintf('commands[%d].preset must be a preset name.', $index);
                     }
 
-                    $commands[] = ['op' => 'preset', 'preset' => $command['preset'], 'reset' => true];
+                    $commands[] = ['op' => 'preset', 'preset' => $command['preset'], 'reset' => true, 'dropLayers' => true];
                     $hasPreset = true;
 
                     break;
@@ -316,8 +322,14 @@ final readonly class CalendarCandidate
                     break;
 
                 case 'layout':
-                    if (array_diff(array_keys($command), ['op', 'boxes', 'order', 'styles']) !== []) {
-                        return sprintf('commands[%d]: a layout command takes boxes, order and styles.', $index);
+                    if (array_diff(array_keys($command), ['op', 'boxes', 'order', 'styles', 'layers']) !== []) {
+                        return sprintf('commands[%d]: a layout command takes boxes, order, styles and layers.', $index);
+                    }
+
+                    $layers = self::checkLayers($command['layers'] ?? null, $index);
+
+                    if ($layers !== null) {
+                        return $layers;
                     }
 
                     /** @var array<string, mixed> $command */
@@ -332,10 +344,57 @@ final readonly class CalendarCandidate
 
         if (!$hasPreset) {
             // The candidate always starts from a preset's default.
-            array_unshift($commands, ['op' => 'preset', 'preset' => $calendar->layoutPreset ?? self::defaultPreset($calendar), 'reset' => true]);
+            array_unshift($commands, ['op' => 'preset', 'preset' => $calendar->layoutPreset ?? self::defaultPreset($calendar), 'reset' => true, 'dropLayers' => true]);
         }
 
         return $commands;
+    }
+
+    /**
+     * The own layers a scan proposes (K21) — checked before the model sees
+     * them: ids `scan_…` (accept tells them from the designer's by it), new
+     * layers only (a candidate starts without any), on every week page, and
+     * never a picture — an image layer is an empty place the user fills.
+     * The model checks everything else (kinds, keys, ranges, boxes, order).
+     * → null when fine, else the refusal.
+     */
+    private static function checkLayers(mixed $layers, int $index): null|string
+    {
+        if ($layers === null) {
+            return null;
+        }
+
+        if (!is_array($layers) || ($layers !== [] && array_is_list($layers))) {
+            return sprintf('commands[%d].layers must be an object {"scan_<name>": {kind, …}}.', $index);
+        }
+
+        if (count($layers) > self::MAX_LAYERS) {
+            return sprintf('commands[%d].layers: a scan proposes at most %d own layers.', $index, self::MAX_LAYERS);
+        }
+
+        foreach ($layers as $id => $layer) {
+            $at = sprintf('commands[%d].layers.%s', $index, $id);
+
+            if (preg_match(CalendarScanProposal::LAYER_SLOT_PATTERN, (string) $id) !== 1) {
+                return sprintf('%s: an own layer of a scan is named "scan_" + lower-case letters, digits or "_" (e.g. "scan_band", "scan_logo2").', $at);
+            }
+
+            if (!is_array($layer) || array_is_list($layer)) {
+                return sprintf('%s must be a new layer {kind, …} (a candidate starts without own layers; nothing to change or remove).', $at);
+            }
+
+            if (array_key_exists('asset', $layer) && $layer['asset'] !== null) {
+                return sprintf('%s.asset: a scan never sets a picture — an image layer is an empty place the user fills (leave asset out).', $at);
+            }
+
+            foreach (['pages', 'except'] as $key) {
+                if (array_key_exists($key, $layer) && !($key === 'pages' && $layer[$key] === 'weeks')) {
+                    return sprintf('%s.%s: a scanned layer is on every week page — leave %s out.', $at, $key, $key);
+                }
+            }
+        }
+
+        return null;
     }
 
     /**

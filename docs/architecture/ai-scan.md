@@ -1449,6 +1449,54 @@ in node, the browser draws the proposal with the calendar's own renderer.
   untouched (`#candidateOf` merges the model's `styles`), so they reach
   production with the app. Test:
   `CalendarScanTest::testPictureEffectsAndTheNumberBandWidthOfACandidateAreProposedAndAppliedAsSent`.
+- **Own layers (K21 Phase 3, 2026-11-24)** — what the eight elements cannot
+  draw (a stripe, a frame, a dividing line, a circle, a second logo, a
+  sponsor strip, an ornament picture) the scan builds as K20 own layers:
+  `{op: "layout", layers: {"scan_<name>": {kind, …}}}` + boxes
+  `u:scan_<name>` + their `order` entries. Contract:
+  - ids `scan_` + `[a-z0-9_]{1,35}` (`CalendarScanProposal::LAYER_SLOT_PATTERN`
+    = `model/layers.js` `SCAN_LAYER_PREFIX` = the scanner's `SCAN_LAYER_ID`;
+    underscores because a slot is a report `code`). `CalendarCandidate`
+    refuses (`invalid_command`) any other id, a picture (`asset` ≠ null), a
+    page set other than `weeks`, a removal (`null`), more than 12 layers; the
+    model checks the rest (kinds, keys, ranges, boxes, order).
+  - **A candidate is drawn without the calendar's own layers**: the preset
+    reset carries `dropLayers: true` (model.mjs). Their pictures are the
+    customer's and the candidate's picture goes to the AI provider — before
+    K21 a reset kept them, so a designer's picture layer reached the
+    provider (K20 → K21). The proposal therefore shows the scan's layers
+    only; the designer's are added by accept.
+  - **An `image` layer is a place to fill**, empty (the render's grey slot):
+    its id IS the slot (`pictures[].slot`, held like `logo`, an `image`
+    asset at accept → `layers.<id>.asset`; `CalendarScanProposal::slots()`
+    lists the picture layers of the proposed layout whatever the report
+    says; `plan()` keeps the picture the calendar's layer of the same id
+    has, as `current`). The scanner's report adds them to `needsUpload` and
+    masks them out of the measurement like the logo; an opaque own rect
+    above the photo clears the mask.
+  - **Accept** sends `replace_layout` with `keepLayers: "scan"`
+    (`store.replaceLayout` → `carryLayers(…, { scan: true })`): the scan's
+    `scan_…` layers come with the layout, the calendar's other own layers
+    are carried over at their stack positions, and the `scan_…` layers an
+    earlier accepted scan left are dropped (decision Q1, recommended). A
+    restore brings back the stored layout as it was.
+  - Instructions: `system.calendar.md` § "Own layers"; `ornament`,
+    `second_photo`, `more_logos` are now only what cannot be a layer.
+    `tools.json` `calendar_preview` (+ `.fortnight`) declares `layers`.
+  - **Needs the scanner image** built from the K21 commit (the adapter
+    passes `layers`, the mask, the report's slots): an older scanner drops
+    the model's `layers`, so nothing breaks — the scan just builds none.
+  - Review: „Co jsme rozpoznali“ gets a row „Vlastní vrstvy — 2 obdélníky,
+    1 čára, 1 obrázek“ (`scanLayersFact`), a picture layer's place is
+    „Obrázek ve vrstvě „<name>““ with its box, size and crop; after apply
+    an empty one is selected in step 3 (`u:<id>`).
+  - MCP `scan_design result`: `pictures[].slot` may be `scan_<name>`; after
+    `apply` the picture is set with `upload_calendar_asset` +
+    `set_calendar_layout layers.<id>.asset`.
+  Tests: `CalendarScanTest::testAScanProposesOwnLayersAndItsAcceptKeepsTheDesignersAndReplacesAnEarlierScans`,
+  `…testAScanMayNotNameALayerAnotherWayGiveItAPictureOrPutItOnChosenPages`,
+  node suites `layers` (the merge) and `scan-preview`, scanner
+  `calendar.test.mjs` (own layers, mask, report).
 - Tools of a kind may be per-kind variants: an entry of `tools.json` with an
   `id` (`scan_crop.calendar`) named in `kinds.calendar.tools`; the scanner
   resolves by `id`, then by name. Template entries are unchanged.

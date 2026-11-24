@@ -245,6 +245,10 @@ export const CAL = {
         },
     },
     slots: { logo: 'Logo', header: 'Obrázek v hlavičce', background: 'Obrázek na pozadí' },
+    /** K21: a picture place in an own layer the scan proposed (a second logo, a partner strip, an ornament picture). */
+    layerSlot: (name) => (name ? `Obrázek ve vrstvě „${name}“` : 'Obrázek ve vlastní vrstvě'),
+    /** K21: the row of „Co jsme rozpoznali“ for the own layers the scan proposes. */
+    ownLayers: 'Vlastní vrstvy',
     /** K7 / K8: pictures are optional — applied without them, they are added in step 3. */
     picturesFull: 'Všechna místa mají obrázek. Obrázek vyměníte tlačítkem Změnit u místa, nebo ho na místo přetáhněte.',
     picturesNoneEmpty: 'Všechna místa už mají obrázek — obrázek vyměníte tlačítkem Změnit u místa, nebo ho přetáhněte přímo na místo.',
