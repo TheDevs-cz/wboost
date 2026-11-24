@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace WBoost\Web\Mcp\Design\Dsl;
 
 use WBoost\Web\Value\CanvasBlendMode;
+use WBoost\Web\Value\CanvasShadow;
 use WBoost\Web\Value\CanvasShapeGradient;
 use WBoost\Web\Value\CanvasShapeKind;
 use WBoost\Web\Value\CanvasShapeStroke;
@@ -81,6 +82,8 @@ readonly final class ShapeElement implements DesignElement
          * `globalCompositeOperation`); Normal = not emitted.
          */
         public CanvasBlendMode $blend = CanvasBlendMode::Normal,
+        /** "Styl vrstvy" › Vržený stín / Vnější záře (Fabric `shadow`), or none. */
+        public null|CanvasShadow $shadow = null,
     ) {
     }
 
@@ -134,6 +137,10 @@ readonly final class ShapeElement implements DesignElement
 
         if ($this->blend !== CanvasBlendMode::Normal) {
             $data['blend'] = $this->blend->dslName();
+        }
+
+        if ($this->shadow !== null) {
+            $data['shadow'] = $this->shadow->toDsl();
         }
 
         return $data;

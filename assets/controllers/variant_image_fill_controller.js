@@ -419,6 +419,8 @@ export default class extends Controller {
             // Režim prolnutí likewise: the picture blends with the backdrop
             // (this canvas' backgroundImage) and the lower overlay parts.
             fabricObject.set('globalCompositeOperation', slot && typeof slot.blendMode === 'string' ? slot.blendMode : 'source-over');
+            // Stín / záře (nonScaling: the pick's own scale never resizes it).
+            fabricObject.set('shadow', slot && slot.shadow ? { ...slot.shadow } : null);
             this.canvas.add(fabricObject);
         }
         // Every slot change repaints in the designed z-order (this also puts

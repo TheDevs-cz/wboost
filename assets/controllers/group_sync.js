@@ -1,6 +1,7 @@
 import { CANVAS_CUSTOM_PROPERTIES, applyEditorLock } from './canvas_custom_properties.js';
 import { coverForDimensions } from './canvas_payload.js';
 import { clonePaintValue, isShapeObject, serializePaintValue } from './canvas_shapes.js';
+import { scaleShadow } from './canvas_layer_shadow.js';
 import { applyGeometryDelta, projectGeometry, ratios } from './group_projection.js';
 
 /**
@@ -71,13 +72,18 @@ const META_KEYS = [
 // visual share on 1080×1920. Stored already scaled in each variant (the PHP
 // projector does the same for new dimensions) — nothing at render time needs
 // to know the sibling it came from.
-const PROJECTED_META_KEYS = ['userMove'];
+// `shadow` ("Styl vrstvy"): its blur + offsets are canvas px, projected by
+// the width ratio like a shape's strokeWidth (CanvasDesignProjector mirrors it).
+const PROJECTED_META_KEYS = ['userMove', 'shadow'];
 
 /** Per-target value of a propagated prop: projected for PROJECTED_META_KEYS,
  *  a deep-enough copy otherwise. */
 function propValueFor(key, value, rx, ry) {
     if (key === 'userMove') {
         return projectUserMove(value, rx, ry);
+    }
+    if (key === 'shadow') {
+        return scaleShadow(value, rx);
     }
     return clonePaintValue(value);
 }
@@ -261,7 +267,10 @@ function snapshotProps(obj) {
     const props = {};
 
     [...STYLE_KEYS, ...META_KEYS, ...PROJECTED_META_KEYS].forEach((key) => {
-        props[key] = clonePaintValue(obj[key]);
+        // A Fabric Shadow is a live object (not a paint) — snapshot it plain.
+        props[key] = key === 'shadow'
+            ? (obj.shadow && typeof obj.shadow.toObject === 'function' ? obj.shadow.toObject() : (obj.shadow || null))
+            : clonePaintValue(obj[key]);
     });
 
     return props;
@@ -489,6 +498,10 @@ export class GroupSync {
                 // maxima are this dimension's px, so project them too.
                 if (obj.userMove !== undefined) {
                     clone.userMove = projectUserMove(obj.userMove, rx, ry);
+                }
+                // Same for the shadow's px (blur + offsets).
+                if (obj.shadow) {
+                    clone.set('shadow', scaleShadow(obj.shadow, rx));
                 }
 
                 if (isTextboxObject(clone) && typeof clone.initDimensions === 'function') {

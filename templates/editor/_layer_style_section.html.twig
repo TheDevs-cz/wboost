@@ -2,12 +2,64 @@
    Included once per element popover (text, image, shape), so ids carry the
    `surface` suffix. Režim prolnutí = Fabric's native
    `globalCompositeOperation`; the options are filled by the controller from
-   canvas_blend_modes.js (the 16 modes a canvas draws). #}
+   canvas_blend_modes.js (the 16 modes a canvas draws). Stín / záře = Fabric's
+   native `shadow` (canvas_layer_shadow.js) — one per element, so a drop
+   shadow OR an outer glow; never offered on the background layer. #}
 {% set s = surface %}
 <div class="ed-lstyle d-none" data-canvas-layer-style-target="section">
     <h3 class="ed-sec-h">Styl vrstvy</h3>
     <div class="mb-2">
         <label for="layer-blend-{{ s }}" class="form-label small mb-1">Režim prolnutí <i class="i i-info s12 ed-tip" title="Jak se vrstva mísí s tím, co leží pod ní — jako ve Photoshopu. Nabízíme režimy, které umí prohlížeč i export."></i></label>
         <select id="layer-blend-{{ s }}" class="form-select form-select-sm" data-canvas-layer-style-target="blend" data-action="change->canvas-layer-style#updateBlend"></select>
+    </div>
+
+    <div class="mb-2" data-canvas-layer-style-target="shadowBlock">
+        <label for="layer-shadow-{{ s }}" class="form-label small mb-1">Stín a záře <i class="i i-info s12 ed-tip" title="Vržený stín nebo vnější záře kolem vrstvy. Jeden prvek má jeden z nich; stín přebírá průhlednost a režim prolnutí vrstvy."></i></label>
+        <select id="layer-shadow-{{ s }}" class="form-select form-select-sm" data-canvas-layer-style-target="shadowKind" data-action="change->canvas-layer-style#updateShadowKind">
+            <option value="none">Žádný</option>
+            <option value="dropShadow">Vržený stín</option>
+            <option value="outerGlow">Vnější záře</option>
+        </select>
+
+        <div class="ed-lstyle__fx d-none" data-canvas-layer-style-target="shadowFields">
+            <div class="row g-1 align-items-end mt-1">
+                <div class="col-auto">
+                    <label class="mb-0" title="Barva">
+                        <input type="button" class="color-picker-trigger ed-lstyle__color" aria-label="Barva stínu" value="#000000"
+                               data-controller="color-picker" data-color-picker-paint-value="true"
+                               data-canvas-layer-style-target="shadowColor"
+                               data-action="input->canvas-layer-style#previewShadow change->canvas-layer-style#commitShadow">
+                    </label>
+                </div>
+                <div class="col">
+                    <label for="layer-shadow-opacity-{{ s }}" class="form-label small mb-1">
+                        Krytí <span class="text-muted" data-canvas-layer-style-target="shadowOpacityValue">50 %</span>
+                    </label>
+                    <input type="range" id="layer-shadow-opacity-{{ s }}" class="form-range" min="0" max="100" step="1"
+                           data-canvas-layer-style-target="shadowOpacity"
+                           data-action="input->canvas-layer-style#previewShadow change->canvas-layer-style#commitShadow keydown->canvas-layer-style#fieldKeydown">
+                </div>
+            </div>
+            <div class="row g-1 mt-1">
+                <div class="col-4" data-canvas-layer-style-target="shadowAngleRow">
+                    <label for="layer-shadow-angle-{{ s }}" class="form-label small mb-1" title="Úhel světla — 120° = stín padá vpravo dolů">Úhel °</label>
+                    <input type="number" id="layer-shadow-angle-{{ s }}" class="form-control form-control-sm" min="-180" max="180" step="1"
+                           data-canvas-layer-style-target="shadowAngle"
+                           data-action="input->canvas-layer-style#previewShadow change->canvas-layer-style#commitShadow keydown->canvas-layer-style#fieldKeydown">
+                </div>
+                <div class="col-4" data-canvas-layer-style-target="shadowDistanceRow">
+                    <label for="layer-shadow-distance-{{ s }}" class="form-label small mb-1" title="Jak daleko od vrstvy stín padá (px plátna)">Vzdálenost</label>
+                    <input type="number" id="layer-shadow-distance-{{ s }}" class="form-control form-control-sm" min="0" step="1"
+                           data-canvas-layer-style-target="shadowDistance"
+                           data-action="input->canvas-layer-style#previewShadow change->canvas-layer-style#commitShadow keydown->canvas-layer-style#fieldKeydown">
+                </div>
+                <div class="col-4">
+                    <label for="layer-shadow-size-{{ s }}" class="form-label small mb-1" title="Rozmazání okraje (px plátna)">Velikost</label>
+                    <input type="number" id="layer-shadow-size-{{ s }}" class="form-control form-control-sm" min="0" step="1"
+                           data-canvas-layer-style-target="shadowSize"
+                           data-action="input->canvas-layer-style#previewShadow change->canvas-layer-style#commitShadow keydown->canvas-layer-style#fieldKeydown">
+                </div>
+            </div>
+        </div>
     </div>
 </div>

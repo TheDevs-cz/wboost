@@ -27,6 +27,7 @@ use WBoost\Web\Services\Editor\BackgroundLayer;
 use WBoost\Web\Value\BackgroundMode;
 use WBoost\Web\Value\CanvasBlendMode;
 use WBoost\Web\Value\CanvasContainer;
+use WBoost\Web\Value\CanvasShadow;
 use WBoost\Web\Value\CanvasShape;
 use WBoost\Web\Value\CanvasShapeGradient;
 use WBoost\Web\Value\CanvasShapeKind;
@@ -722,6 +723,8 @@ readonly final class DesignDecompiler
                 allowEditorLock: $isShape,
                 allowOpacity: in_array($slot['kind'], ['shape', 'text', 'image'], true),
                 allowStroke: $isShape,
+                // "Styl vrstvy": texts, images and shapes word their shadow.
+                allowShadow: true,
             );
 
             if ($slot['kind'] === 'text') {
@@ -983,6 +986,7 @@ readonly final class DesignDecompiler
             ElementMoveAllowance::fromCanvasObject($object),
             max((float) TextElement::MIN_LETTER_SPACING, min((float) TextElement::MAX_LETTER_SPACING, self::number($object, 'charSpacing') ?? 0.0)),
             CanvasBlendMode::fromObject($object),
+            CanvasShadow::fromObject($object),
         );
     }
 
@@ -1046,6 +1050,7 @@ readonly final class DesignDecompiler
             opacity: self::opacity($object),
             userMove: self::imageUserMove($object, $placeholder, $path, $losses),
             blend: CanvasBlendMode::fromObject($object),
+            shadow: CanvasShadow::fromObject($object),
         );
     }
 
@@ -1153,6 +1158,7 @@ readonly final class DesignDecompiler
             userColor: self::shapeUserColor($object),
             userMove: ElementMoveAllowance::fromCanvasObject($object),
             blend: CanvasBlendMode::fromObject($object),
+            shadow: CanvasShadow::fromObject($object),
         );
     }
 
@@ -1849,6 +1855,7 @@ readonly final class DesignDecompiler
         bool $allowEditorLock = false,
         bool $allowOpacity = false,
         bool $allowStroke = false,
+        bool $allowShadow = false,
     ): void {
         $opacity = self::number($object, 'opacity');
 
@@ -1860,7 +1867,7 @@ readonly final class DesignDecompiler
             ));
         }
 
-        if (($object['shadow'] ?? null) !== null) {
+        if (!$allowShadow && ($object['shadow'] ?? null) !== null) {
             $losses[] = new DesignLoss($path, DesignLossCode::StyleDropped, sprintf(
                 '%s has a drop shadow; the DSL has no word for it and saving removes it.',
                 $path,

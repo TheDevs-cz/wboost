@@ -102,7 +102,7 @@ final class DesignCompilerTest extends TestCase
         'opacity', 'stroke', 'strokeWidth', 'strokeUniform', 'strokeDashArray', 'strokeLineCap',
         'rx', 'ry', 'radius', 'points',
         // "Styl vrstvy" › Režim prolnutí — native, emitted only when not Normal.
-        'globalCompositeOperation',
+        'globalCompositeOperation', 'shadow',
     ];
 
     // =================================================================
@@ -567,6 +567,29 @@ final class DesignCompilerTest extends TestCase
         self::assertArrayNotHasKey('globalCompositeOperation', $byName['Plain']);
         self::assertSame('luminosity', $byName['Foto']['globalCompositeOperation']);
         self::assertSame('screen', $byName['Overlay']['globalCompositeOperation']);
+    }
+
+    public function testShadowCompilesToTheNativeFabricShadow(): void
+    {
+        $compiled = $this->compile([
+            'canvas' => ['width' => 1080, 'height' => 1080],
+            'elements' => [
+                ['kind' => 'text', 'id' => 'headline', 'text' => 'Stín', 'font' => self::FONT, 'size' => 40, 'x' => 80, 'y' => 80, 'width' => 900, 'shadow' => ['kind' => 'dropShadow', 'opacity' => 0.4, 'distance' => 20, 'size' => 12]],
+                ['kind' => 'shape', 'id' => 'card', 'shape' => 'rectangle', 'name' => 'Karta', 'x' => 80, 'y' => 300, 'width' => 400, 'height' => 300, 'fill' => '#ffffff', 'shadow' => ['kind' => 'outerGlow', 'color' => '#ffcc00', 'size' => 30]],
+                ['kind' => 'text', 'id' => 'plain', 'text' => 'Plain', 'font' => self::FONT, 'size' => 40, 'x' => 80, 'y' => 700, 'width' => 900],
+            ],
+        ]);
+
+        $byName = [];
+        foreach ($compiled->objects() as $object) {
+            $key = $object['text'] ?? $object['name'] ?? '?';
+            self::assertIsString($key);
+            $byName[$key] = $object;
+        }
+
+        self::assertSame(['color' => 'rgba(0,0,0,0.4)', 'blur' => 12.0, 'offsetX' => 10.0, 'offsetY' => 17.32, 'affectStroke' => false, 'nonScaling' => true], $byName['Stín']['shadow']);
+        self::assertSame(['color' => 'rgba(255,204,0,0.75)', 'blur' => 30.0, 'offsetX' => 0.0, 'offsetY' => 0.0, 'affectStroke' => false, 'nonScaling' => true], $byName['Karta']['shadow']);
+        self::assertArrayNotHasKey('shadow', $byName['Plain']);
     }
 
     public function testADottedStrokeScalesItsDashPatternWithTheStrokeWidth(): void

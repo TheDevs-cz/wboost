@@ -7,6 +7,8 @@ namespace WBoost\Web\Mcp\Design\Dsl;
 use Ramsey\Uuid\Uuid;
 use WBoost\Web\Exceptions\InvalidDesignDocument;
 use WBoost\Web\Value\CanvasBlendMode;
+use WBoost\Web\Value\CanvasShadow;
+use WBoost\Web\Value\CanvasShadowKind;
 use WBoost\Web\Value\CanvasShapeGradient;
 use WBoost\Web\Value\CanvasShapeGradientStop;
 use WBoost\Web\Value\CanvasShapeKind;
@@ -73,19 +75,19 @@ final class DslParser
     public const array AT_KEYS = ['area', 'col', 'marginX', 'marginY', 'offsetX', 'offsetY'];
 
     /** @var list<string> */
-    public const array TEXT_KEYS = ['kind', 'id', 'text', 'font', 'size', 'color', 'align', 'lineHeight', 'letterSpacing', 'opacity', 'blend', 'at', 'x', 'y', 'width', 'input', 'userMove'];
+    public const array TEXT_KEYS = ['kind', 'id', 'text', 'font', 'size', 'color', 'align', 'lineHeight', 'letterSpacing', 'opacity', 'blend', 'shadow', 'at', 'x', 'y', 'width', 'input', 'userMove'];
 
     /** @var list<string> */
     public const array TEXT_INPUT_KEYS = ['name', 'maxLength', 'uppercase', 'hidable', 'locked', 'richText', 'sampleValue', 'allowedFonts', 'fontChoice', 'allowedColors'];
 
     /** @var list<string> */
-    public const array IMAGE_KEYS = ['kind', 'id', 'asset', 'at', 'x', 'y', 'width', 'height', 'input', 'mirror', 'opacity', 'blend', 'userMove'];
+    public const array IMAGE_KEYS = ['kind', 'id', 'asset', 'at', 'x', 'y', 'width', 'height', 'input', 'mirror', 'opacity', 'blend', 'shadow', 'userMove'];
 
     /** @var list<string> */
     public const array IMAGE_INPUT_KEYS = ['name', 'placeholder', 'allowMove', 'allowResize', 'allowRotate', 'hidable', 'allowedDirectories'];
 
     /** @var list<string> */
-    public const array SHAPE_KEYS = ['kind', 'id', 'shape', 'fill', 'stroke', 'strokeWidth', 'strokeStyle', 'cornerRadius', 'opacity', 'blend', 'name', 'locked', 'userColor', 'at', 'x', 'y', 'width', 'height', 'userMove'];
+    public const array SHAPE_KEYS = ['kind', 'id', 'shape', 'fill', 'stroke', 'strokeWidth', 'strokeStyle', 'cornerRadius', 'opacity', 'blend', 'shadow', 'name', 'locked', 'userColor', 'at', 'x', 'y', 'width', 'height', 'userMove'];
 
     /**
      * The keys of a shape's `userColor` block ({@see ShapeUserColor}).
@@ -128,6 +130,9 @@ final class DslParser
      * @var list<string>
      */
     public const array USER_MOVE_KEYS = ['vertical', 'horizontal', 'maxUp', 'maxDown', 'maxLeft', 'maxRight'];
+
+    /** "Styl vrstvy" › stín / záře block on text, image and shape. */
+    public const array SHADOW_KEYS = ['kind', 'color', 'opacity', 'angle', 'distance', 'size'];
 
     /**
      * Slug shape: lowercase only, so two ids can never differ by case alone —
@@ -424,6 +429,7 @@ final class DslParser
         $letterSpacing = $this->readLetterSpacing($path, $raw);
         $opacity = $this->readOpacity($path, $raw);
         $blend = $this->readBlend($path, $raw);
+        $shadow = $this->readShadow($path, $raw);
         $placement = $this->parsePlacement($path, $raw, allowHeight: false);
         $input = $this->parseTextInput($path, $raw['input'] ?? null);
         $userMove = $this->readUserMove($path, $raw);
@@ -432,7 +438,7 @@ final class DslParser
             return null;
         }
 
-        return new TextElement($id, $text, $font, $size, $color, $align, $lineHeight, $placement, $input, $opacity, $userMove, $letterSpacing, $blend);
+        return new TextElement($id, $text, $font, $size, $color, $align, $lineHeight, $placement, $input, $opacity, $userMove, $letterSpacing, $blend, $shadow);
     }
 
     /**
@@ -446,6 +452,7 @@ final class DslParser
         $mirror = $this->readBool($path, $raw, 'mirror', false);
         $opacity = $this->readOpacity($path, $raw);
         $blend = $this->readBlend($path, $raw);
+        $shadow = $this->readShadow($path, $raw);
         $userMove = $this->readUserMove($path, $raw);
 
         // A fill re-places a placeholder's picture and resets its flip
@@ -473,7 +480,7 @@ final class DslParser
             return null;
         }
 
-        return new ImageElement($id, $assetId, $placement, $input, $mirror, $opacity, $userMove, $blend);
+        return new ImageElement($id, $assetId, $placement, $input, $mirror, $opacity, $userMove, $blend, $shadow);
     }
 
     /**
@@ -497,6 +504,7 @@ final class DslParser
         $cornerRadius = $this->readNonNegativeNumber($path, $raw, 'cornerRadius') ?? 0.0;
         $opacity = $this->readOpacity($path, $raw);
         $blend = $this->readBlend($path, $raw);
+        $shadow = $this->readShadow($path, $raw);
         $name = $this->readString($path, $raw, 'name');
         $locked = $this->readBool($path, $raw, 'locked', false);
         $userColor = $this->readShapeUserColor($path, $raw);
@@ -541,6 +549,7 @@ final class DslParser
             userColor: $userColor,
             userMove: $userMove,
             blend: $blend,
+            shadow: $shadow,
         );
     }
 
@@ -876,6 +885,83 @@ final class DslParser
         }
 
         return $mode;
+    }
+
+    /**
+     * `shadow` — "Styl vrstvy" › Vržený stín / Vnější záře, Photoshop's
+     * controls: `{kind: dropShadow|outerGlow, color, opacity (0…1), angle
+     * (light angle °, drop shadow only), distance (px, drop shadow only),
+     * size (blur px)}`. Only `kind` is required; null / absent = none.
+     *
+     * @param array<array-key, mixed> $raw
+     */
+    private function readShadow(string $path, array $raw): null|CanvasShadow
+    {
+        $value = $raw['shadow'] ?? null;
+
+        if ($value === null) {
+            return null;
+        }
+
+        $blockPath = self::join($path, 'shadow');
+
+        if (!is_array($value) || array_is_list($value)) {
+            $this->wrongType($path, 'shadow', sprintf('an object {%s} (or null)', implode(', ', self::SHADOW_KEYS)), $value);
+
+            return null;
+        }
+
+        $this->checkKeys($blockPath, $value, self::SHADOW_KEYS, 'a shadow block');
+
+        $kindValue = $value['kind'] ?? null;
+        $kind = is_string($kindValue) ? CanvasShadowKind::tryFrom($kindValue) : null;
+
+        if ($kind === null) {
+            $this->violation(self::join($blockPath, 'kind'), DslErrorCode::InvalidValue, sprintf(
+                '%s.kind must be one of: %s. Got %s.',
+                $blockPath,
+                implode(', ', CanvasShadowKind::values()),
+                self::describe($kindValue),
+            ));
+
+            return null;
+        }
+
+        $isGlow = $kind === CanvasShadowKind::OuterGlow;
+
+        if ($isGlow) {
+            foreach (['angle', 'distance'] as $key) {
+                if (array_key_exists($key, $value)) {
+                    $this->invalidValue($blockPath, $key, 'only applies to a dropShadow — an outerGlow sits evenly around the element');
+                }
+            }
+        }
+
+        $color = $this->readHexColor($blockPath, $value, 'color') ?? ($isGlow ? '#ffffff' : '#000000');
+        $opacity = $this->readUnitFraction($blockPath, $value, 'opacity', 'opacity of the shadow (0.5 = 50 %)') ?? ($isGlow ? 0.75 : 0.5);
+        $angle = $this->readNumber($blockPath, $value, 'angle') ?? 120.0;
+        $distance = $this->readNonNegativeNumber($blockPath, $value, 'distance') ?? 10.0;
+        $size = $this->readNonNegativeNumber($blockPath, $value, 'size') ?? 20.0;
+
+        if ($angle < -180.0 || $angle > 180.0) {
+            $this->invalidValue($blockPath, 'angle', 'is the light angle in degrees, -180…180 (120 = the shadow falls bottom-right)');
+            $angle = 120.0;
+        }
+
+        foreach (['distance' => $distance, 'size' => $size] as $key => $px) {
+            if ($px > CanvasShadow::MAX_PX) {
+                $this->invalidValue($blockPath, $key, sprintf('is at most %d canvas px', (int) CanvasShadow::MAX_PX));
+            }
+        }
+
+        return new CanvasShadow(
+            kind: $kind,
+            color: $color,
+            opacity: $opacity,
+            angle: $angle,
+            distance: $isGlow ? 0.0 : min($distance, CanvasShadow::MAX_PX),
+            size: min($size, CanvasShadow::MAX_PX),
+        );
     }
 
     /**

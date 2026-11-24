@@ -76,6 +76,35 @@ final class CanvasDesignProjectorTest extends TestCase
         self::assertTrue($image['imagePlaceholder']);
     }
 
+    /**
+     * "Styl vrstvy": a shadow's px (blur + offsets, `nonScaling`) are the same
+     * visual share of every size — projected by the width ratio like a
+     * shape's strokeWidth; colour and blend copy verbatim.
+     */
+    public function testShadowPixelsProjectByWidthRatio(): void
+    {
+        $canvas = json_encode([
+            'version' => '5.2.4',
+            'objects' => [
+                [
+                    'type' => 'Textbox', 'inputId' => 't-1', 'left' => 0, 'top' => 0, 'width' => 500, 'fontSize' => 40,
+                    'globalCompositeOperation' => 'multiply',
+                    'shadow' => ['color' => 'rgba(0,0,0,0.5)', 'blur' => 10, 'offsetX' => 4, 'offsetY' => 6, 'nonScaling' => true],
+                ],
+            ],
+        ], JSON_THROW_ON_ERROR);
+
+        $projected = $this->decode($this->projector->project($canvas, 1000, 1000, 2000, 3000, 'https://assets/bg.png'));
+        $text = $this->objectAt($projected, 0);
+
+        self::assertSame('multiply', $text['globalCompositeOperation']);
+        self::assertIsArray($text['shadow']);
+        self::assertSame('rgba(0,0,0,0.5)', $text['shadow']['color']);
+        self::assertEqualsWithDelta(20.0, $text['shadow']['blur'], 0.001);
+        self::assertEqualsWithDelta(8.0, $text['shadow']['offsetX'], 0.001);
+        self::assertEqualsWithDelta(12.0, $text['shadow']['offsetY'], 0.001, 'offsets follow the WIDTH ratio on both axes, like the blur');
+    }
+
     public function testContainersScaleMaxHeightByHeightRatio(): void
     {
         $canvas = json_encode([

@@ -16,6 +16,8 @@ use WBoost\Web\Mcp\Design\Dsl\ElementKind;
 use WBoost\Web\Mcp\Design\Dsl\PlacementArea;
 use WBoost\Web\Mcp\Design\Dsl\TextAlign;
 use WBoost\Web\Mcp\Security\McpScope;
+use WBoost\Web\Value\CanvasBlendMode;
+use WBoost\Web\Value\CanvasShadowKind;
 
 /**
  * The drift guard for the Claude Code skill under `plugin/wboost/skills/`.
@@ -109,6 +111,7 @@ final class SkillDocumentationTest extends KernelTestCase
         '`shape` userColor block' => DslParser::SHAPE_USER_COLOR_KEYS,
         '`background` element' => DslParser::BACKGROUND_KEYS,
         '`container` element' => DslParser::CONTAINER_KEYS,
+        '`shadow` block' => DslParser::SHADOW_KEYS,
         '`userMove` block' => DslParser::USER_MOVE_KEYS,
         '`repeat` block' => DslParser::REPEAT_KEYS,
     ];
@@ -301,6 +304,22 @@ final class SkillDocumentationTest extends KernelTestCase
 
         self::assertSame($aligns, self::enumeratedValues('`align`'), sprintf(
             'The "align" row in %s does not match TextAlign.',
+            self::DESIGN,
+        ));
+
+        $blends = CanvasBlendMode::dslNames();
+        sort($blends);
+
+        self::assertSame($blends, self::enumeratedValues('`blend`'), sprintf(
+            'The "blend" row in %s does not match CanvasBlendMode.',
+            self::DESIGN,
+        ));
+
+        $shadowKinds = CanvasShadowKind::values();
+        sort($shadowKinds);
+
+        self::assertSame($shadowKinds, self::enumeratedValues('`shadow.kind`'), sprintf(
+            'The "shadow.kind" row in %s does not match CanvasShadowKind.',
             self::DESIGN,
         ));
     }

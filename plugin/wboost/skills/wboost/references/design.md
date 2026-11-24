@@ -231,17 +231,18 @@ within the document. Slugs carry input identity across saves.
 | `canvas` | `width`, `height`, `background` |
 | `canvas.background` | `image`, `fill` |
 | `at` | `area`, `col`, `marginX`, `marginY`, `offsetX`, `offsetY` |
-| `text` element | `kind`, `id`, `text`, `font`, `size`, `color`, `align`, `lineHeight`, `letterSpacing`, `opacity`, `blend`, `at`, `x`, `y`, `width`, `input`, `userMove` |
+| `text` element | `kind`, `id`, `text`, `font`, `size`, `color`, `align`, `lineHeight`, `letterSpacing`, `opacity`, `blend`, `shadow`, `at`, `x`, `y`, `width`, `input`, `userMove` |
 | `text` input block | `name`, `maxLength`, `uppercase`, `hidable`, `locked`, `richText`, `sampleValue`, `allowedFonts`, `fontChoice`, `allowedColors` |
-| `image` element | `kind`, `id`, `asset`, `at`, `x`, `y`, `width`, `height`, `input`, `mirror`, `opacity`, `blend`, `userMove` |
+| `image` element | `kind`, `id`, `asset`, `at`, `x`, `y`, `width`, `height`, `input`, `mirror`, `opacity`, `blend`, `shadow`, `userMove` |
 | `image` input block | `name`, `placeholder`, `allowMove`, `allowResize`, `allowRotate`, `hidable`, `allowedDirectories` |
-| `shape` element | `kind`, `id`, `shape`, `fill`, `stroke`, `strokeWidth`, `strokeStyle`, `cornerRadius`, `opacity`, `blend`, `name`, `locked`, `userColor`, `at`, `x`, `y`, `width`, `height`, `userMove` |
+| `shape` element | `kind`, `id`, `shape`, `fill`, `stroke`, `strokeWidth`, `strokeStyle`, `cornerRadius`, `opacity`, `blend`, `shadow`, `name`, `locked`, `userColor`, `at`, `x`, `y`, `width`, `height`, `userMove` |
 | `shape` gradient fill | `type`, `angle`, `from`, `to`, `stops` |
 | `shape` gradient stop | `at`, `color`, `opacity` |
 | `shape` userColor block | `target`, `colors`, `free` |
 | `background` element | `kind`, `id`, `asset`, `fill`, `fillable`, `opacity`, `blend` |
 | `container` element | `kind`, `id`, `members`, `children`, `maxHeight`, `gap`, `spaceAfter`, `hidable`, `name`, `userMove`, `repeat` |
 | `repeat` block | `max`, `min`, `default`, `slots` |
+| `shadow` block | `kind`, `color`, `opacity`, `angle`, `distance`, `size` |
 | `userMove` block | `vertical`, `horizontal`, `maxUp`, `maxDown`, `maxLeft`, `maxRight` |
 
 ### Enumerated values
@@ -255,6 +256,7 @@ within the document. Slugs carry input identity across saves.
 | `strokeStyle` | `solid`, `dashed`, `dotted` |
 | `userColor.target` | `fill`, `stroke`, `both` |
 | gradient `fill.type` | `linear`, `radial` |
+| `shadow.kind` | `dropShadow`, `outerGlow` |
 | `blend` | `normal`, `darken`, `multiply`, `color-burn`, `lighten`, `screen`, `color-dodge`, `overlay`, `soft-light`, `hard-light`, `difference`, `exclusion`, `hue`, `saturation`, `color`, `luminosity` |
 
 ### Required, and defaults
@@ -325,7 +327,19 @@ within the document. Slugs carry input identity across saves.
   `normal`. Only the 16 modes listed above exist (no dissolve, linear burn,
   vivid light, …). A filled placeholder keeps it for the user's picture. Like
   opacity it is design-only, and a blended object prints flattened (never as
-  pure-K black).
+  pure-K black). On a `background` it does nothing (the background is always
+  the bottom layer, with nothing under it to blend with).
+- **`shadow`** ("Vržený stín" / "Vnější záře") on a `text`, `image` or `shape`:
+  `{"kind": "dropShadow", "color": "#000000", "opacity": 0.5, "angle": 120,
+  "distance": 10, "size": 20}` — `angle` is Photoshop's LIGHT angle in degrees
+  (−180…180; 120 = the shadow falls bottom-right), `distance` and `size` (the
+  blur) are canvas px, `opacity` a fraction. `{"kind": "outerGlow", "color":
+  "#ffffff", "size": 24}` glows evenly around the element (no `angle` /
+  `distance`). Only `kind` is required; defaults: black 0.5 / white 0.75, angle
+  120, distance 10, size 20. ONE per element (a shadow or a glow), no spread.
+  The shadow takes the element's own `opacity` and `blend`; the group editor
+  scales its px with each size. A filled placeholder keeps it for the user's
+  picture.
 - **`image` `mirror`**: `true` flips a **decorative** image horizontally (default
   `false`). Rejected on a fillable placeholder — filling re-places the picture
   and resets any mirroring.

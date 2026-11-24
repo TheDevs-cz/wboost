@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace WBoost\Web\Services\Print;
 
 use WBoost\Web\Value\CanvasBlendMode;
+use WBoost\Web\Value\CanvasShadow;
 use WBoost\Web\Value\CanvasShape;
 use WBoost\Web\Value\ResolvedInputOverrides;
 use WBoost\Web\Value\RichText;
@@ -30,8 +31,9 @@ use WBoost\Web\Value\RichText;
  *    Unless it is TRANSLUCENT (admin-set opacity < 1): then showing the
  *    picture through IS the design, so it overprints as a K tint (its alpha
  *    is the K amount). Opacity 0 objects are ignored, and so are objects
- *    with a Režim prolnutí (their colour depends on what is beneath, so
- *    they are flattened in the RGB composite like any other colour).
+ *    with a Režim prolnutí or a stín / záře (their colour depends on what
+ *    is beneath, so they are flattened in the RGB composite like any other
+ *    colour).
  *
  * "Black" is `#000000` plus every brand colour whose manual CMYK is 0/0/0/100
  * (the typical brand black is a near-black hex such as #1d1d1b).
@@ -90,9 +92,10 @@ final class BlackInkObjects
             }
 
             // A Režim prolnutí makes the object's colour a function of what
-            // lies beneath — only pass 1's browser composite knows it, so a
-            // blended object is flattened there like any other colour.
-            if (CanvasBlendMode::blends($object)) {
+            // lies beneath, and a shadow / glow is a soft colour field around
+            // it — only pass 1's browser composite knows either, so such an
+            // object is flattened there like any other colour.
+            if (CanvasBlendMode::blends($object) || CanvasShadow::fromObject($object) !== null) {
                 continue;
             }
 

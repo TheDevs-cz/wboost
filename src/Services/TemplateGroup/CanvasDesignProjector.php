@@ -6,6 +6,7 @@ namespace WBoost\Web\Services\TemplateGroup;
 
 use WBoost\Web\Services\Editor\BackgroundLayer;
 use WBoost\Web\Value\BackgroundMode;
+use WBoost\Web\Value\CanvasShadow;
 use WBoost\Web\Value\CanvasShape;
 use WBoost\Web\Value\ElementMoveAllowance;
 
@@ -279,6 +280,13 @@ readonly final class CanvasDesignProjector
         // images never carry a stroke, so the type guard keeps this off them.
         if (CanvasShape::isShapeType($type)) {
             $this->scaleKey($object, 'strokeWidth', $rx);
+        }
+
+        // "Styl vrstvy" shadow: blur + offsets are canvas px (`nonScaling`),
+        // projected by the width ratio like strokeWidth — mirrors
+        // scaleShadow() in group_sync.js.
+        if (is_array($object['shadow'] ?? null)) {
+            $object['shadow'] = CanvasShadow::scaleFabric($object['shadow'], $rx);
         }
 
         $this->scaleUserMove($object, $rx, $ry);

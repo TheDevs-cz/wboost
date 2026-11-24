@@ -15,6 +15,7 @@ use WBoost\Web\Mcp\Design\Dsl\TextElement;
 use WBoost\Web\Mcp\Design\Geometry\GridResolver;
 use WBoost\Web\Services\Editor\BackgroundLayer;
 use WBoost\Web\Value\CanvasBlendMode;
+use WBoost\Web\Value\CanvasShadow;
 use WBoost\Web\Value\CanvasShape;
 use WBoost\Web\Value\CanvasShapeGradient;
 use WBoost\Web\Value\EditorImageInput;
@@ -600,7 +601,7 @@ readonly final class DesignCompiler
             'allowedColors' => $element->input->allowedColors,
         ];
 
-        return self::withUserMove(self::withBlend(self::withOpacity($object, $element->opacity), $element->blend), $element->userMove);
+        return self::withUserMove(self::withShadow(self::withBlend(self::withOpacity($object, $element->opacity), $element->blend), $element->shadow), $element->userMove);
     }
 
     /**
@@ -615,6 +616,22 @@ readonly final class DesignCompiler
     {
         if ($blend !== CanvasBlendMode::Normal) {
             $object['globalCompositeOperation'] = $blend->value;
+        }
+
+        return $object;
+    }
+
+    /**
+     * "Styl vrstvy" › stín / záře = Fabric's native `shadow`, emitted only
+     * when the element has one.
+     *
+     * @param array<string, mixed> $object
+     * @return array<string, mixed>
+     */
+    private static function withShadow(array $object, null|CanvasShadow $shadow): array
+    {
+        if ($shadow !== null) {
+            $object['shadow'] = $shadow->toFabric();
         }
 
         return $object;
@@ -791,7 +808,7 @@ readonly final class DesignCompiler
             $object['allowedDirectoryIds'] = $element->input->allowedDirectories;
         }
 
-        return self::withUserMove(self::withBlend(self::withOpacity($object, $element->opacity), $element->blend), $element->userMove);
+        return self::withUserMove(self::withShadow(self::withBlend(self::withOpacity($object, $element->opacity), $element->blend), $element->shadow), $element->userMove);
     }
 
     /**
@@ -851,7 +868,7 @@ readonly final class DesignCompiler
             $object['colorFree'] = $element->userColor->free;
         }
 
-        $object = self::withUserMove(self::withBlend($object, $element->blend), $element->userMove);
+        $object = self::withUserMove(self::withShadow(self::withBlend($object, $element->blend), $element->shadow), $element->userMove);
 
         return match ($element->shape->fabricType()) {
             'Rect' => $object + ['rx' => $element->cornerRadius, 'ry' => $element->cornerRadius],

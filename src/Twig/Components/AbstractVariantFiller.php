@@ -39,6 +39,7 @@ use WBoost\Web\Services\SocialNetwork\TextInputObjectBinder;
 use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Value\CanvasBlendMode;
 use WBoost\Web\Value\CanvasContainer;
+use WBoost\Web\Value\CanvasShadow;
 use WBoost\Web\Value\CanvasSlice;
 use WBoost\Web\Value\ElementMoveAllowance;
 use WBoost\Web\Value\FileSource;
@@ -672,6 +673,7 @@ abstract class AbstractVariantFiller extends AbstractController
      *     layerIndex: int,
      *     opacity: float,
      *     blendMode: string,
+     *     shadow: null|array{color: string, blur: float, offsetX: float, offsetY: float, affectStroke: false, nonScaling: true},
      *     seed: null|array<string, mixed>
      * }>
      */
@@ -764,6 +766,8 @@ abstract class AbstractVariantFiller extends AbstractController
                 // Režim prolnutí ("Styl vrstvy") — the canvas operator, applied
                 // the same way; the server keeps the object's own key too.
                 'blendMode' => CanvasBlendMode::fromObject($object ?? [])->value,
+                // Stín / záře: Fabric's native shadow (nonScaling px), or null.
+                'shadow' => CanvasShadow::fromObject($object ?? [])?->toFabric(),
                 // Loaded-version state for this slot (see the LiveProp).
                 'seed' => $this->seedImageValues[$input->inputId] ?? null,
             ];

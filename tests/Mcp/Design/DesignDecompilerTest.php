@@ -273,9 +273,9 @@ final class DesignDecompilerTest extends TestCase
     }
 
     /**
-     * Režim prolnutí ("Styl vrstvy") reads back as `blend` on texts, images
-     * and shapes — and the background's opacity + blend too (2026-11-24) —
-     * with no loss.
+     * Režim prolnutí ("Styl vrstvy") reads back as `blend` and a shadow as
+     * `shadow` on texts, images and shapes — and the background's opacity +
+     * blend too (2026-11-24) — with no loss.
      */
     public function testBlendAndBackgroundOpacityReadBackLosslessly(): void
     {
@@ -286,7 +286,7 @@ final class DesignDecompilerTest extends TestCase
                 'isBackground' => true, 'editorLocked' => true, 'inputId' => 'bg',
                 'opacity' => 0.6, 'globalCompositeOperation' => 'multiply',
             ],
-            self::textbox(['globalCompositeOperation' => 'soft-light']),
+            self::textbox(['globalCompositeOperation' => 'soft-light', 'shadow' => ['color' => 'rgba(0,0,0,0.5)', 'blur' => 12, 'offsetX' => 10, 'offsetY' => 17.32, 'affectStroke' => false, 'nonScaling' => true]]),
             self::image(['globalCompositeOperation' => 'screen', 'top' => 600.0, 'assetPath' => 'gallery/logo.png', 'name' => 'Logo']),
             [
                 'type' => 'Rect', 'shapeKind' => 'rectangle', 'left' => 0, 'top' => 0, 'width' => 300, 'height' => 300,
@@ -312,6 +312,7 @@ final class DesignDecompilerTest extends TestCase
 
         self::assertInstanceOf(TextElement::class, $byKind['text'] ?? null);
         self::assertSame(CanvasBlendMode::SoftLight, $byKind['text']->blend);
+        self::assertSame(['kind' => 'dropShadow', 'color' => '#000000', 'opacity' => 0.5, 'angle' => 120.0, 'distance' => 20.0, 'size' => 12.0], $byKind['text']->toArray()['shadow']);
         self::assertInstanceOf(ImageElement::class, $byKind['image'] ?? null);
         self::assertSame(CanvasBlendMode::Screen, $byKind['image']->blend);
         self::assertInstanceOf(ShapeElement::class, $byKind['shape'] ?? null);

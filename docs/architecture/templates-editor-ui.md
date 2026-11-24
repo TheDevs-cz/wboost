@@ -108,6 +108,41 @@ orchestrator dispatches on Fabric's selection lifecycle:
 - `LayerBlendRenderTest` (group `gotenberg`) pins a multiplied shape and a
   multiplied filled placeholder against their normal twins.
 
+**Styl vrstvy — Stín a záře (2026-11-24, phase 2)**
+
+- **Carrier = Fabric's NATIVE `shadow`** `{color: rgba(…), blur, offsetX,
+  offsetY, affectStroke: false, nonScaling: true}`. The UI speaks Photoshop
+  (and the calendar's effects): Žádný / Vržený stín / Vnější záře, colour,
+  Krytí, Úhel (LIGHT angle, 120° = falls bottom-right), Vzdálenost, Velikost
+  (= blur), canvas px. A glow is a shadow at distance 0 — the kind is DERIVED
+  from the offsets, nothing extra is stored. Mapping: `canvas_layer_shadow.js`
+  ↔ `Value/CanvasShadow` (+ `CanvasShadowKind`), the `rgba()` string byte-equal
+  on both sides (`CanvasShadowTest` runs the JS through node).
+- **Native limits, by design for now**: ONE shadow per element (stín OR záře),
+  no spread / choke, and the shadow is drawn with the element's own opacity +
+  Režim prolnutí (a `screen` layer's dark shadow vanishes). The calendar's
+  multi-effect stack (inner shadow / glow, gradient overlays) would need a
+  custom Fabric render patch on all three surfaces — a separate, measured task.
+- **`nonScaling: true`** — blur/offsets ignore the OBJECT's scale (a fill-page
+  pick re-scales the client's picture) but follow the viewport (editor zoom,
+  export `pixelRatio`, print passes). `LayerShadowRenderTest` (gotenberg) pins
+  1× / 2× and a filled placeholder (Fabric draws the shadow from the cached,
+  frame-clipped bitmap, so a slot's shadow follows its frame).
+- Not offered on the background layer. Enter in the number fields commits and
+  never submits the editor form (`fieldKeydown`).
+- **Group editor**: `shadow` ∈ `PROJECTED_META_KEYS` — its px are projected by
+  the WIDTH ratio like `strokeWidth` (`scaleShadow`; snapshotted as a plain
+  object, `clonePaintValue` would turn a Shadow into a Gradient); new objects
+  fanned out get the scaled shadow too. PHP twin:
+  `CanvasDesignProjector::projectObject` → `CanvasShadow::scaleFabric`.
+- Fill page: `imagePlaceholders()` → `shadow`, applied in `_replaceObject`.
+  Print: `BlackInkObjects` skips shadowed objects (flattened, never pure K).
+  Rich-text block stacks inherit it. Echo: unaffected (the echo canvas paints
+  the textbox's own shadow).
+- **MCP**: `shadow: {kind, color, opacity, angle, distance, size}` on text /
+  image / shape (`DslParser::SHADOW_KEYS`); the decompiler reads it back (it
+  used to be a `style_dropped` loss — still one on the background).
+
 **User-movable elements — "Uživatel může posunout" (2026-11-09, M1 of the axis-move plan)**
 
 The ADMIN half of letting the end user move a text (locked ones too), a shape, a

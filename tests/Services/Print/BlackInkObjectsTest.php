@@ -63,8 +63,9 @@ final class BlackInkObjectsTest extends TestCase
     }
 
     /**
-     * A Režim prolnutí makes the colour depend on what lies beneath, so a
-     * blended black object is never pure K — it is flattened in pass 1.
+     * A Režim prolnutí makes the colour depend on what lies beneath and a
+     * shadow is a soft colour field, so such a black object is never pure K
+     * — it is flattened in pass 1.
      */
     public function testBlendedBlackIsFlattenedNotPrintedInK(): void
     {
@@ -72,6 +73,7 @@ final class BlackInkObjectsTest extends TestCase
             ['type' => 'Textbox', 'fill' => '#000000', 'text' => 'Multiply', 'globalCompositeOperation' => 'multiply'],
             ['type' => 'Rect', 'width' => 1000, 'height' => 1000, 'fill' => '#000000', 'globalCompositeOperation' => 'soft-light'],
             ['type' => 'Textbox', 'fill' => '#000000', 'text' => 'Normal', 'globalCompositeOperation' => 'source-over'],
+            ['type' => 'Textbox', 'fill' => '#000000', 'text' => 'Shadow', 'shadow' => ['color' => 'rgba(0,0,0,0.5)', 'blur' => 8, 'offsetX' => 3, 'offsetY' => 3]],
         ]];
 
         self::assertSame(

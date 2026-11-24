@@ -5,6 +5,21 @@ every deploy. When the server is newer than your skill, Claude tells you once
 per session how to update (see the README). Versions follow `x.y.z`: a new or
 changed tool or parameter is at least a minor bump.
 
+## 0.12.0 — 2026-11-24
+
+**Shadows and glows in designs (Styl vrstvy).**
+
+New parameters and behaviour
+- `set_design` `text`, `image` and `shape` elements take `shadow`:
+  `{kind: dropShadow|outerGlow, color, opacity, angle, distance, size}` —
+  Photoshop's Vržený stín (light angle in degrees, distance and size in canvas
+  px, opacity a fraction) or Vnější záře (no angle / distance). One per
+  element. A filled placeholder keeps it for the user's picture; the group
+  editor scales it with each size. `get_design` reads it back (it used to be
+  reported as a loss).
+- `blend` on a `background` is documented as a no-op (the background is
+  always the bottom layer).
+
 ## 0.11.0 — 2026-11-24
 
 **Blend modes in designs (Styl vrstvy).**

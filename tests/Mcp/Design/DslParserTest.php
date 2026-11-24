@@ -1078,7 +1078,7 @@ final class DslParserTest extends TestCase
             self::documentWith(self::imageElement(['src' => 'x.png'])),
             'elements[0].src',
             DslErrorCode::UnknownKey,
-            'Allowed keys: kind, id, asset, at, x, y, width, height, input, mirror, opacity, blend, userMove.',
+            'Allowed keys: kind, id, asset, at, x, y, width, height, input, mirror, opacity, blend, shadow, userMove.',
         ];
         yield 'unknown background key' => [
             self::documentWith(['kind' => 'background', 'id' => 'bg', 'cover' => true]),
