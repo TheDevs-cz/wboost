@@ -6,6 +6,7 @@ namespace WBoost\Web\Mcp\Design\Dsl;
 
 use WBoost\Web\Value\CanvasBlendMode;
 use WBoost\Web\Value\CanvasShapeGradient;
+use WBoost\Web\Value\ImageAdjustments;
 
 /**
  * The background layer — **at most one per document** (plan §3.4 / §4.3
@@ -49,6 +50,8 @@ readonly final class BackgroundElement implements DesignElement
          * `globalCompositeOperation`); Normal = not emitted.
          */
         public CanvasBlendMode $blend = CanvasBlendMode::Normal,
+        /** Úpravy obrázku on a PICTURE background (Fabric `filters`). */
+        public ImageAdjustments $adjust = new ImageAdjustments(),
     ) {
     }
 
@@ -76,6 +79,10 @@ readonly final class BackgroundElement implements DesignElement
 
         if ($this->blend !== CanvasBlendMode::Normal) {
             $data['blend'] = $this->blend->dslName();
+        }
+
+        if (!$this->adjust->isNeutral()) {
+            $data['adjust'] = $this->adjust->toDsl();
         }
 
         return $data;

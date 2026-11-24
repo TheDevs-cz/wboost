@@ -36,6 +36,7 @@ use WBoost\Web\Value\ContainerRepeat;
 use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\ElementMoveAllowance;
+use WBoost\Web\Value\ImageAdjustments;
 use WBoost\Web\Value\ImageFrameStyle;
 use WBoost\Web\Value\RichText;
 use WBoost\Web\Value\ShapeColorTarget;
@@ -870,7 +871,7 @@ readonly final class DesignDecompiler
             ));
         }
 
-        return new BackgroundElement($slug, $assetId, $fillable, null, self::opacity($object), CanvasBlendMode::fromObject($object));
+        return new BackgroundElement($slug, $assetId, $fillable, null, self::opacity($object), CanvasBlendMode::fromObject($object), ImageAdjustments::fromObject($object));
     }
 
     /**
@@ -1053,6 +1054,7 @@ readonly final class DesignDecompiler
             blend: CanvasBlendMode::fromObject($object),
             shadow: CanvasShadow::fromObject($object),
             frame: ImageFrameStyle::fromObject($object),
+            adjust: ImageAdjustments::fromObject($object),
         );
     }
 
@@ -1981,12 +1983,15 @@ readonly final class DesignDecompiler
     {
         /** @var mixed $filters */
         $filters = $object['filters'] ?? null;
+        // The adjust block words Jas / Kontrast / Sytost / Odstín /
+        // Černobílá / Rozostření; any other Fabric filter is still a loss.
+        $unworded = is_array($filters) ? count($filters) - count(ImageAdjustments::knownFilters($object)) : 0;
 
-        if (is_array($filters) && $filters !== []) {
+        if ($unworded > 0) {
             $losses[] = new DesignLoss($path, DesignLossCode::StyleDropped, sprintf(
-                '%s has %d image filter(s) applied; the DSL has no word for them and saving removes them.',
+                '%s has %d image filter(s) the DSL has no word for (only `adjust` — brightness, contrast, saturation, hue, grayscale, blur — is kept); saving removes them.',
                 $path,
-                count($filters),
+                $unworded,
             ));
         }
 

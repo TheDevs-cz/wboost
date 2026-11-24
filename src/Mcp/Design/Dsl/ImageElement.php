@@ -7,6 +7,7 @@ namespace WBoost\Web\Mcp\Design\Dsl;
 use WBoost\Web\Value\CanvasBlendMode;
 use WBoost\Web\Value\CanvasShadow;
 use WBoost\Web\Value\ElementMoveAllowance;
+use WBoost\Web\Value\ImageAdjustments;
 use WBoost\Web\Value\ImageFrameStyle;
 
 /**
@@ -61,6 +62,8 @@ readonly final class ImageElement implements DesignElement
         public null|CanvasShadow $shadow = null,
         /** "Styl vrstvy" › Zaoblení rohů + Tah along the visible frame. */
         public ImageFrameStyle $frame = new ImageFrameStyle(),
+        /** "Styl vrstvy" › Úpravy obrázku (Fabric `filters`). */
+        public ImageAdjustments $adjust = new ImageAdjustments(),
     ) {
     }
 
@@ -119,6 +122,10 @@ readonly final class ImageElement implements DesignElement
 
         if ($this->frame->borderColor !== null && $this->frame->borderWidth > 0.0) {
             $data['border'] = ['color' => $this->frame->borderColor, 'width' => $this->frame->borderWidth];
+        }
+
+        if (!$this->adjust->isNeutral()) {
+            $data['adjust'] = $this->adjust->toDsl();
         }
 
         return $data;

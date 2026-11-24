@@ -171,6 +171,33 @@ orchestrator dispatches on Fabric's selection lifecycle:
 - `ImageFrameRenderTest` (gotenberg) pins a scaled decorative image and a
   filled placeholder whose picture overflows its frame, at 1× and 2×.
 
+**Styl vrstvy — Úpravy obrázku (2026-11-24, phase 4)**
+
+- **Carrier = Fabric's NATIVE `filters`** on an image (the background
+  included): Jas, Kontrast, Sytost, Odstín, Černobílá, Rozostření —
+  `canvas_image_filters.js` ↔ `Value/ImageAdjustments` (same UI units, same
+  canonical order, 4-decimal rounding; `ImageAdjustmentsTest` runs the JS
+  through node). Only non-neutral entries are stored; filters the UI does not
+  word are kept untouched by the editor (and reported as a loss by the MCP
+  decompiler). Double-click a slider = 0, "Obnovit" = all neutral.
+- **Backends**: the render template forces Fabric's **Canvas2D** filter
+  backend (`setFilterBackend`) — headless Chromium has no GPU and WebGL would
+  cap a big photo at its texture size; the editor and the fill page keep
+  Fabric's default (WebGL when available) for a live preview — the export is
+  the truth. Filters run on the picture's NATURAL pixels, so the cost does not
+  grow with the export pixel ratio / print ppi: a 4000×3000 photo with blur +
+  three adjustments renders in ~3 s locally (`ImageAdjustmentsRenderTest`
+  guards < 15 s). That cost is paid on every fill-page render of the slice
+  holding the photo — mind it for big blurred backgrounds.
+- Fill page: `imagePlaceholders()` → `filters` (the known ones), applied to
+  the client's picture in `_replaceObject` (`setPlainFilters`); the server
+  keeps the object's `filters` through `ImagePlacement`'s merge, so Fabric
+  re-runs them on the new src. Group editor: `filters` ∈ `STYLE_KEYS` and
+  `BACKGROUND_STYLE_KEYS`, snapshotted PLAIN and re-instantiated per target
+  (`setPropValue`) — a filter instance holds per-canvas state.
+- **MCP**: `adjust: {brightness, contrast, saturation, hue, grayscale, blur}`
+  on `image` and on a PICTURE `background` (refused on a colour fill).
+
 **User-movable elements — "Uživatel může posunout" (2026-11-09, M1 of the axis-move plan)**
 
 The ADMIN half of letting the end user move a text (locked ones too), a shape, a

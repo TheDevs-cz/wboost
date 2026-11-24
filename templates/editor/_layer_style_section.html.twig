@@ -38,6 +38,35 @@
         </div>
     </div>
 
+    {# Images (the background too): Úpravy obrázku = Fabric's native
+       `filters` (canvas_image_filters.js). A fillable slot applies them to
+       the client's picture as well. #}
+    <div class="ed-lstyle__adjust mb-2 d-none" data-canvas-layer-style-target="adjustBlock">
+        <div class="d-flex align-items-center justify-content-between mb-1">
+            <span class="form-label small mb-0">Úpravy obrázku <i class="i i-info s12 ed-tip" title="Jas, kontrast, sytost, odstín, černobílá a rozostření — u pole pro obrázek platí i pro fotku, kterou vloží klient."></i></span>
+            <button type="button" class="btn btn-sm btn-link p-0 text-muted" style="font-size: .75rem;" data-action="canvas-layer-style#resetAdjust">Obnovit</button>
+        </div>
+        {% for adj in [
+            {key: 'brightness', label: 'Jas', min: -100, max: 100},
+            {key: 'contrast', label: 'Kontrast', min: -100, max: 100},
+            {key: 'saturation', label: 'Sytost', min: -100, max: 100},
+            {key: 'hue', label: 'Odstín', min: -180, max: 180},
+            {key: 'blur', label: 'Rozostření', min: 0, max: 100},
+        ] %}
+            <label class="ed-lstyle__adj" for="layer-adjust-{{ adj.key }}-{{ s }}">
+                <span class="small">{{ adj.label }} <span class="text-muted" data-adjust-value="{{ adj.key }}">0</span></span>
+                <input type="range" id="layer-adjust-{{ adj.key }}-{{ s }}" class="form-range" min="{{ adj.min }}" max="{{ adj.max }}" step="1" value="0"
+                       data-adjust="{{ adj.key }}" data-canvas-layer-style-target="adjustInput"
+                       data-action="input->canvas-layer-style#previewAdjust change->canvas-layer-style#commitAdjust dblclick->canvas-layer-style#zeroAdjust">
+            </label>
+        {% endfor %}
+        <div class="form-check mb-0">
+            <input type="checkbox" id="layer-adjust-grayscale-{{ s }}" class="form-check-input" data-adjust="grayscale"
+                   data-canvas-layer-style-target="adjustInput" data-action="change->canvas-layer-style#commitAdjust">
+            <label for="layer-adjust-grayscale-{{ s }}" class="form-check-label small">Černobílá</label>
+        </div>
+    </div>
+
     <div class="mb-2" data-canvas-layer-style-target="shadowBlock">
         <label for="layer-shadow-{{ s }}" class="form-label small mb-1">Stín a záře <i class="i i-info s12 ed-tip" title="Vržený stín nebo vnější záře kolem vrstvy. Jeden prvek má jeden z nich; stín přebírá průhlednost a režim prolnutí vrstvy."></i></label>
         <select id="layer-shadow-{{ s }}" class="form-select form-select-sm" data-canvas-layer-style-target="shadowKind" data-action="change->canvas-layer-style#updateShadowKind">

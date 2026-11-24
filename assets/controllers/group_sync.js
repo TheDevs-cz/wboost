@@ -2,6 +2,7 @@ import { CANVAS_CUSTOM_PROPERTIES, applyEditorLock } from './canvas_custom_prope
 import { coverForDimensions } from './canvas_payload.js';
 import { clonePaintValue, isShapeObject, serializePaintValue } from './canvas_shapes.js';
 import { scaleShadow } from './canvas_layer_shadow.js';
+import { plainFilters, setPlainFilters } from './canvas_image_filters.js';
 import { applyGeometryDelta, projectGeometry, ratios } from './group_projection.js';
 
 /**
@@ -35,8 +36,10 @@ const STYLE_KEYS = [
     'text', 'fontFamily', 'fill', 'textAlign', 'underline', 'linethrough',
     'overline', 'lineHeight', 'charSpacing',
     'stroke', 'strokeDashArray', 'strokeLineCap', 'rx', 'ry', 'opacity',
-    // "Styl vrstvy" — Režim prolnutí (Fabric-native), an absolute copy.
-    'globalCompositeOperation',
+    // "Styl vrstvy" — Režim prolnutí (Fabric-native), an absolute copy, and
+    // an image's Úpravy (Fabric `filters`, snapshotted plain and re-made per
+    // canvas — a filter instance caches per-canvas state).
+    'globalCompositeOperation', 'filters',
     // Mirror (decorative images): orientation, not geometry — Fabric flips
     // around the centre, so it copies absolutely in every dimension.
     'flipX',
@@ -95,6 +98,16 @@ function propValueFor(key, value, rx, ry) {
             : undefined;
     }
     return clonePaintValue(value);
+}
+
+/** Write one propagated prop onto a target object. Image `filters` travel
+ *  as plain objects and are re-instantiated + re-applied on the target. */
+function setPropValue(match, key, value, rx, ry) {
+    if (key === 'filters') {
+        if (typeof match.applyFilters === 'function') setPlainFilters(match, value || []);
+        return;
+    }
+    match.set(key, propValueFor(key, value, rx, ry));
 }
 
 /** Scaled copy of a `userMove` allowance (undefined when nothing is allowed). */
@@ -158,7 +171,7 @@ export function isSyncable(obj) {
  * background by {@see GroupSync#syncPass}; the per-dimension cover fit is
  * untouched, which is why backgrounds stay out of {@see isSyncable}.
  */
-export const BACKGROUND_STYLE_KEYS = ['opacity', 'globalCompositeOperation'];
+export const BACKGROUND_STYLE_KEYS = ['opacity', 'globalCompositeOperation', 'filters'];
 
 function backgroundOf(canvas) {
     return canvas.getObjects().find((o) => o.isBackground === true) || null;
@@ -168,7 +181,9 @@ function backgroundStyleSnapshot(canvas) {
     const background = backgroundOf(canvas);
     if (!background) return null;
     const snapshot = {};
-    BACKGROUND_STYLE_KEYS.forEach((key) => { snapshot[key] = clonePaintValue(background[key]); });
+    BACKGROUND_STYLE_KEYS.forEach((key) => {
+        snapshot[key] = key === 'filters' ? plainFilters(background) : clonePaintValue(background[key]);
+    });
     return snapshot;
 }
 
@@ -281,6 +296,8 @@ function snapshotProps(obj) {
             props[key] = obj.shadow && typeof obj.shadow.toObject === 'function' ? obj.shadow.toObject() : (obj.shadow || null);
         } else if (key === 'frameBorder') {
             props[key] = obj.frameBorder ? { ...obj.frameBorder } : undefined;
+        } else if (key === 'filters') {
+            props[key] = plainFilters(obj);
         } else {
             props[key] = clonePaintValue(obj[key]);
         }
@@ -356,7 +373,7 @@ export class GroupSync {
         targets.forEach((target) => {
             const match = backgroundOf(target.shadow);
             if (!match) return;
-            changed.forEach((key) => match.set(key, clonePaintValue(current[key])));
+            changed.forEach((key) => setPropValue(match, key, current[key], 1, 1));
             touched.add(target.id);
         });
     }
@@ -441,7 +458,7 @@ export class GroupSync {
                     // live object, and handing the SAME instance to every
                     // sibling's shadow canvas would alias state the engine
                     // treats as per-canvas.
-                    match.set(key, propValueFor(key, curProps[key], rx, ry));
+                    setPropValue(match, key, curProps[key], rx, ry);
                 });
 
                 if (isTextboxObject(match) && typeof match.initDimensions === 'function') {
@@ -753,7 +770,7 @@ export class GroupSync {
             copyKeys.forEach((key) => {
                 const value = props[key];
                 if (value !== undefined) {
-                    match.set(key, propValueFor(key, value, rx, ry));
+                    setPropValue(match, key, value, rx, ry);
                 } else if (PROJECTED_META_KEYS.includes(key) && match[key] !== undefined) {
                     // An allowance switched off on the source is switched
                     // off on the target too (absent = fixed).

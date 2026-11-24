@@ -3,6 +3,7 @@ import { isShapeObject } from "./canvas_shapes.js";
 import { BLEND_MODE_GROUPS, NORMAL_BLEND_MODE, blendModeOf, isKnownBlendMode } from "./canvas_blend_modes.js";
 import { SHADOW_GLOW, SHADOW_NONE, defaultEffect, effectToShadow, shadowToEffect } from "./canvas_layer_shadow.js";
 import { designWidth } from "./canvas_viewport.js";
+import { adjustmentsOf, applyAdjustments, neutralAdjustments } from "./canvas_image_filters.js";
 
 /**
  * "Styl vrstvy" — Photoshop-style layer settings shared by the text, image
@@ -31,6 +32,7 @@ export default class extends Controller {
         "shadowBlock", "shadowKind", "shadowFields", "shadowColor", "shadowOpacity", "shadowOpacityValue",
         "shadowAngle", "shadowAngleRow", "shadowDistance", "shadowDistanceRow", "shadowSize",
         "frameBlock", "frameRadius", "frameBorderColor", "frameBorderWidth",
+        "adjustBlock", "adjustInput",
     ];
 
     connect() {
@@ -53,6 +55,10 @@ export default class extends Controller {
 
         const mode = blendModeOf(active);
         this.blendTargets.forEach((select) => { select.value = mode; });
+
+        const isImage = String(active.type || '').toLowerCase() === 'image';
+        this.adjustBlockTargets.forEach((block) => block.classList.toggle('d-none', !isImage));
+        if (isImage) this._showAdjust(adjustmentsOf(active));
 
         const framable = active.isBackground !== true && String(active.type || '').toLowerCase() === 'image';
         this.frameBlockTargets.forEach((block) => block.classList.toggle('d-none', !framable));
@@ -110,6 +116,70 @@ export default class extends Controller {
         canvas.requestRenderAll();
         this.canvasEditorOutlet.markUnsaved();
         if (commit) canvas.fire('object:modified', { target: obj });
+    }
+
+    // --- Úpravy obrázku (images; canvas_image_filters.js) -----------------
+
+    previewAdjust(event) {
+        this._applyAdjust(event, false);
+    }
+
+    commitAdjust(event) {
+        this._applyAdjust(event, true);
+    }
+
+    /** Double-click a slider = back to 0 (Photoshop's Alt-reset). */
+    zeroAdjust(event) {
+        event.target.value = '0';
+        this._applyAdjust(event, true);
+    }
+
+    resetAdjust(event) {
+        const obj = this._activeImage();
+        if (!obj) return;
+        applyAdjustments(obj, neutralAdjustments());
+        this._showAdjust(neutralAdjustments());
+        this._commit(obj);
+    }
+
+    _applyAdjust(event, commit) {
+        const obj = this._activeImage();
+        if (!obj) return;
+        const section = event.target.closest('[data-canvas-layer-style-target="section"]');
+        if (!section) return;
+        const model = neutralAdjustments();
+        section.querySelectorAll('[data-canvas-layer-style-target="adjustInput"]').forEach((input) => {
+            const key = input.dataset.adjust;
+            model[key] = input.type === 'checkbox' ? input.checked : Number(input.value) || 0;
+        });
+        applyAdjustments(obj, model);
+        this._showAdjust(model);
+        const canvas = this.canvasEditorOutlet.canvas;
+        canvas.requestRenderAll();
+        this.canvasEditorOutlet.markUnsaved();
+        if (commit) canvas.fire('object:modified', { target: obj });
+    }
+
+    _activeImage() {
+        const obj = this._active();
+        return obj && String(obj.type || '').toLowerCase() === 'image' ? obj : null;
+    }
+
+    _showAdjust(model) {
+        this.adjustInputTargets.forEach((input) => {
+            const value = model[input.dataset.adjust];
+            if (input.type === 'checkbox') {
+                input.checked = Boolean(value);
+            } else if (document.activeElement !== input) {
+                input.value = String(value || 0);
+            }
+        });
+        this.adjustBlockTargets.forEach((block) => {
+            block.querySelectorAll('[data-adjust-value]').forEach((label) => {
+                const value = Number(model[label.dataset.adjustValue]) || 0;
+                label.textContent = label.dataset.adjustValue === 'hue' ? `${value}°` : String(value);
+            });
+        });
     }
 
     // --- Zaoblení rohů + Tah (images; fabric_image_frame.js draws them) ----

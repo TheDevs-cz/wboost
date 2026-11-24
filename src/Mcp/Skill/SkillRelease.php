@@ -35,10 +35,10 @@ use WBoost\Web\Mcp\Response\SkillVersionResponse;
  */
 final class SkillRelease
 {
-    public const string VERSION = '0.13.0';
+    public const string VERSION = '0.14.0';
 
     /** One or two lines: what the CURRENT version adds over the previous one. */
-    public const string WHATS_NEW = 'Rounded, bordered images: `set_design` image elements take `cornerRadius` and `border: {color, width}` — along the visible frame, so a fillable slot keeps them for the user\'s picture.';
+    public const string WHATS_NEW = 'Photo adjustments: `set_design` images and picture backgrounds take `adjust` — brightness, contrast, saturation, hue, grayscale and blur, applied to a user\'s picture in a fillable slot too.';
 
     /** A stable download of the latest released skill folder, built by `.github/workflows/plugin-release.yml`. */
     public const string ZIP_URL = 'https://github.com/TheDevs-cz/wboost/releases/latest/download/wboost-skill.zip';

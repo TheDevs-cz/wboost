@@ -43,6 +43,7 @@ use WBoost\Web\Value\CanvasShadow;
 use WBoost\Web\Value\CanvasSlice;
 use WBoost\Web\Value\ElementMoveAllowance;
 use WBoost\Web\Value\FileSource;
+use WBoost\Web\Value\ImageAdjustments;
 use WBoost\Web\Value\ImageFrameStyle;
 use WBoost\Web\Value\RenderImageFormat;
 use WBoost\Web\Value\ResolvedImageOverrides;
@@ -677,6 +678,7 @@ abstract class AbstractVariantFiller extends AbstractController
      *     shadow: null|array{color: string, blur: float, offsetX: float, offsetY: float, affectStroke: false, nonScaling: true},
      *     frameRadius: float,
      *     frameBorder: null|array{color: string, width: float},
+     *     filters: list<array<string, mixed>>,
      *     seed: null|array<string, mixed>
      * }>
      */
@@ -774,6 +776,8 @@ abstract class AbstractVariantFiller extends AbstractController
                 // Zaoblení rohů + Tah along the slot's frame (fabric_image_frame.js).
                 'frameRadius' => ImageFrameStyle::fromObject($object ?? [])->radius,
                 'frameBorder' => ImageFrameStyle::fromObject($object ?? [])->toCanvas()['frameBorder'] ?? null,
+                // Úpravy obrázku (Fabric filters) for the client's picture too.
+                'filters' => ImageAdjustments::knownFilters($object ?? []),
                 // Loaded-version state for this slot (see the LiveProp).
                 'seed' => $this->seedImageValues[$input->inputId] ?? null,
             ];

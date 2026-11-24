@@ -106,6 +106,12 @@
                 if (window.WBoostFabricImageFrame) {
                     WBoostFabricImageFrame.enable(fabric.FabricImage || fabric.Image);
                 }
+                // Image Úpravy ("Styl vrstvy", Fabric `filters`): the Canvas2D
+                // backend — headless Chromium has no GPU, and WebGL would cap
+                // a big photo at its texture size.
+                if (fabric.setFilterBackend && fabric.Canvas2dFilterBackend) {
+                    fabric.setFilterBackend(new fabric.Canvas2dFilterBackend());
+                }
 
                 const designWidth = {{ variant.dimension.width }};
                 const designHeight = {{ variant.dimension.height }};

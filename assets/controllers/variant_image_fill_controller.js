@@ -4,6 +4,7 @@ import { ImageAdjustToolbar } from "./image_adjust_toolbar.js";
 import { ImageAdjustHandles } from "./image_adjust_handles.js";
 import { ADJUST_SCALE_MIN, adjustScaleMax, clamp } from "./image_placement.js";
 import { intrinsicSizedImageUrl } from "./svg_intrinsic_size.js";
+import { setPlainFilters } from "./canvas_image_filters.js";
 
 // The slot picture's rounded corners + inside border ("Styl vrstvy",
 // assets/editor/fabric_image_frame.js, loaded by the page) — the same patch
@@ -433,6 +434,8 @@ export default class extends Controller {
                 frameRadius: slot && slot.frameRadius ? slot.frameRadius : 0,
                 frameBorder: slot && slot.frameBorder ? { ...slot.frameBorder } : null,
             });
+            // Úpravy obrázku: the slot's filters run on the client's picture too.
+            setPlainFilters(fabricObject, slot && Array.isArray(slot.filters) ? slot.filters : []);
             this.canvas.add(fabricObject);
         }
         // Every slot change repaints in the designed z-order (this also puts

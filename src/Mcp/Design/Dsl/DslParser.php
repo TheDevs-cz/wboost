@@ -15,6 +15,7 @@ use WBoost\Web\Value\CanvasShapeKind;
 use WBoost\Web\Value\CanvasShapeStroke;
 use WBoost\Web\Value\ContainerRepeat;
 use WBoost\Web\Value\ElementMoveAllowance;
+use WBoost\Web\Value\ImageAdjustments;
 use WBoost\Web\Value\ImageFrameStyle;
 use WBoost\Web\Value\RichText;
 use WBoost\Web\Value\ShapeColorTarget;
@@ -82,7 +83,7 @@ final class DslParser
     public const array TEXT_INPUT_KEYS = ['name', 'maxLength', 'uppercase', 'hidable', 'locked', 'richText', 'sampleValue', 'allowedFonts', 'fontChoice', 'allowedColors'];
 
     /** @var list<string> */
-    public const array IMAGE_KEYS = ['kind', 'id', 'asset', 'at', 'x', 'y', 'width', 'height', 'input', 'mirror', 'opacity', 'blend', 'shadow', 'cornerRadius', 'border', 'userMove'];
+    public const array IMAGE_KEYS = ['kind', 'id', 'asset', 'at', 'x', 'y', 'width', 'height', 'input', 'mirror', 'opacity', 'blend', 'shadow', 'cornerRadius', 'border', 'adjust', 'userMove'];
 
     /** @var list<string> */
     public const array IMAGE_INPUT_KEYS = ['name', 'placeholder', 'allowMove', 'allowResize', 'allowRotate', 'hidable', 'allowedDirectories'];
@@ -115,7 +116,7 @@ final class DslParser
     public const array SHAPE_FILL_STOP_KEYS = ['at', 'color', 'opacity'];
 
     /** @var list<string> */
-    public const array BACKGROUND_KEYS = ['kind', 'id', 'asset', 'fill', 'fillable', 'opacity', 'blend'];
+    public const array BACKGROUND_KEYS = ['kind', 'id', 'asset', 'fill', 'fillable', 'opacity', 'blend', 'adjust'];
 
     /** @var list<string> */
     public const array CONTAINER_KEYS = ['kind', 'id', 'members', 'children', 'maxHeight', 'gap', 'spaceAfter', 'hidable', 'name', 'userMove', 'repeat'];
@@ -137,6 +138,9 @@ final class DslParser
 
     /** "Styl vrstvy" › an image's Tah (inside border along its frame). */
     public const array IMAGE_BORDER_KEYS = ['color', 'width'];
+
+    /** "Styl vrstvy" › Úpravy obrázku on an image / a picture background. */
+    public const array ADJUST_KEYS = ['brightness', 'contrast', 'saturation', 'hue', 'grayscale', 'blur'];
 
     /**
      * Slug shape: lowercase only, so two ids can never differ by case alone —
@@ -458,6 +462,7 @@ final class DslParser
         $blend = $this->readBlend($path, $raw);
         $shadow = $this->readShadow($path, $raw);
         $frame = $this->readImageFrame($path, $raw);
+        $adjust = $this->readAdjust($path, $raw);
         $userMove = $this->readUserMove($path, $raw);
 
         // A fill re-places a placeholder's picture and resets its flip
@@ -485,7 +490,7 @@ final class DslParser
             return null;
         }
 
-        return new ImageElement($id, $assetId, $placement, $input, $mirror, $opacity, $userMove, $blend, $shadow, $frame);
+        return new ImageElement($id, $assetId, $placement, $input, $mirror, $opacity, $userMove, $blend, $shadow, $frame, $adjust ?? new ImageAdjustments());
     }
 
     /**
@@ -893,6 +898,50 @@ final class DslParser
     }
 
     /**
+     * `adjust` — Úpravy obrázku in Photoshop-like units: brightness, contrast,
+     * saturation −100…100, hue −180…180 (°), blur 0…100, grayscale bool.
+     *
+     * @param array<array-key, mixed> $raw
+     */
+    private function readAdjust(string $path, array $raw): null|ImageAdjustments
+    {
+        $value = $raw['adjust'] ?? null;
+
+        if ($value === null) {
+            return null;
+        }
+
+        $blockPath = self::join($path, 'adjust');
+
+        if (!is_array($value) || array_is_list($value)) {
+            $this->wrongType($path, 'adjust', sprintf('an object {%s} (or null)', implode(', ', self::ADJUST_KEYS)), $value);
+
+            return null;
+        }
+
+        $this->checkKeys($blockPath, $value, self::ADJUST_KEYS, 'an adjust block');
+
+        $values = ['brightness' => 0, 'contrast' => 0, 'saturation' => 0, 'hue' => 0, 'blur' => 0];
+        foreach (ImageAdjustments::SPECS as $key => [, , $min, $max]) {
+            $number = $this->readInt($blockPath, $value, $key) ?? 0;
+            if ($number < $min || $number > $max) {
+                $this->invalidValue($blockPath, $key, sprintf('must be a whole number %d…%d', $min, $max));
+                $number = max($min, min($max, $number));
+            }
+            $values[$key] = $number;
+        }
+
+        return new ImageAdjustments(
+            brightness: $values['brightness'],
+            contrast: $values['contrast'],
+            saturation: $values['saturation'],
+            hue: $values['hue'],
+            grayscale: $this->readBool($blockPath, $value, 'grayscale', false),
+            blur: $values['blur'],
+        );
+    }
+
+    /**
      * An image's `cornerRadius` (px) and `border: {color, width}` (px, an
      * INSIDE border) — both along the visible frame, so a fillable slot keeps
      * them for whatever picture the user puts in.
@@ -1249,6 +1298,12 @@ final class DslParser
         $fillable = $this->readBool($path, $raw, 'fillable', false);
         $opacity = $this->readOpacity($path, $raw);
         $blend = $this->readBlend($path, $raw);
+        $adjust = $this->readAdjust($path, $raw);
+
+        if ($adjust !== null && !$adjust->isNeutral() && $fill !== null) {
+            $this->invalidValue($path, 'adjust', 'only applies to a picture background (asset), not to a colour fill');
+            $adjust = null;
+        }
 
         if ($assetId !== null && $fill !== null) {
             $this->violation(self::join($path, 'fill'), DslErrorCode::InvalidStructure, sprintf(
@@ -1261,7 +1316,7 @@ final class DslParser
             return null;
         }
 
-        return new BackgroundElement($id, $assetId, $fillable, $fill, $opacity, $blend);
+        return new BackgroundElement($id, $assetId, $fillable, $fill, $opacity, $blend, $adjust ?? new ImageAdjustments());
     }
 
     /**

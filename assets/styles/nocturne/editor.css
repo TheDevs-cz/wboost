@@ -254,6 +254,8 @@ a.ed-sync:hover { color: var(--text); }
 .ed-umove { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
 /* „Styl vrstvy“ (canvas-layer-style): the shadow colour chip paints its colour. */
 .ed-lstyle__color { display: block; width: 31px; height: 31px; }
+.ed-lstyle__adj { display: block; margin: 0 0 2px; }
+.ed-lstyle__adj .form-range { display: block; }
 .ed-umove.d-none { display: none; }
 .ed-umove__body { display: flex; flex-direction: column; gap: 8px; }
 .ed-umove__body.is-disabled { opacity: .55; }

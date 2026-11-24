@@ -102,7 +102,7 @@ final class DesignCompilerTest extends TestCase
         'opacity', 'stroke', 'strokeWidth', 'strokeUniform', 'strokeDashArray', 'strokeLineCap',
         'rx', 'ry', 'radius', 'points',
         // "Styl vrstvy" › Režim prolnutí — native, emitted only when not Normal.
-        'globalCompositeOperation', 'shadow',
+        'globalCompositeOperation', 'shadow', 'filters',
     ];
 
     // =================================================================
@@ -608,6 +608,25 @@ final class DesignCompilerTest extends TestCase
         self::assertSame(['color' => '#ffffff', 'width' => 8.0], $images[0]['frameBorder']);
         self::assertArrayNotHasKey('frameRadius', $images[1]);
         self::assertArrayNotHasKey('frameBorder', $images[1]);
+    }
+
+    public function testImageAdjustmentsCompileToCanonicalFabricFilters(): void
+    {
+        $compiled = $this->compile([
+            'canvas' => ['width' => 1080, 'height' => 1080],
+            'elements' => [
+                ['kind' => 'image', 'id' => 'photo', 'asset' => self::ASSET_PHOTO, 'x' => 80, 'y' => 80, 'width' => 400, 'height' => 300,
+                    'adjust' => ['blur' => 20, 'grayscale' => true, 'brightness' => -30, 'hue' => 90]],
+            ],
+        ]);
+
+        $images = array_values(array_filter($compiled->objects(), static fn (array $object): bool => ($object['type'] ?? null) === 'Image'));
+        self::assertSame([
+            ['type' => 'Brightness', 'brightness' => -0.3],
+            ['type' => 'HueRotation', 'rotation' => 0.5],
+            ['type' => 'Grayscale', 'mode' => 'luminosity'],
+            ['type' => 'Blur', 'blur' => 0.05],
+        ], $images[0]['filters'], 'canonical order, neutral entries left out — the same array the editor writes');
     }
 
     public function testADottedStrokeScalesItsDashPatternWithTheStrokeWidth(): void

@@ -5,6 +5,18 @@ every deploy. When the server is newer than your skill, Claude tells you once
 per session how to update (see the README). Versions follow `x.y.z`: a new or
 changed tool or parameter is at least a minor bump.
 
+## 0.14.0 — 2026-11-24
+
+**Photo adjustments in designs (Styl vrstvy › Úpravy obrázku).**
+
+New parameters and behaviour
+- `set_design` `image` elements and picture `background` elements take
+  `adjust: {brightness, contrast, saturation, hue, grayscale, blur}` — whole
+  numbers in Photoshop-like units (−100…100, hue −180…180°, blur 0…100,
+  grayscale a flag). A fillable slot applies them to the user's picture too.
+  `get_design` reads them back (other Fabric filters are still reported as a
+  loss).
+
 ## 0.13.0 — 2026-11-24
 
 **Rounded corners and a border for images (Styl vrstvy).**

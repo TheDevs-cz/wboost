@@ -233,16 +233,17 @@ within the document. Slugs carry input identity across saves.
 | `at` | `area`, `col`, `marginX`, `marginY`, `offsetX`, `offsetY` |
 | `text` element | `kind`, `id`, `text`, `font`, `size`, `color`, `align`, `lineHeight`, `letterSpacing`, `opacity`, `blend`, `shadow`, `at`, `x`, `y`, `width`, `input`, `userMove` |
 | `text` input block | `name`, `maxLength`, `uppercase`, `hidable`, `locked`, `richText`, `sampleValue`, `allowedFonts`, `fontChoice`, `allowedColors` |
-| `image` element | `kind`, `id`, `asset`, `at`, `x`, `y`, `width`, `height`, `input`, `mirror`, `opacity`, `blend`, `shadow`, `cornerRadius`, `border`, `userMove` |
+| `image` element | `kind`, `id`, `asset`, `at`, `x`, `y`, `width`, `height`, `input`, `mirror`, `opacity`, `blend`, `shadow`, `cornerRadius`, `border`, `adjust`, `userMove` |
 | `image` input block | `name`, `placeholder`, `allowMove`, `allowResize`, `allowRotate`, `hidable`, `allowedDirectories` |
 | `shape` element | `kind`, `id`, `shape`, `fill`, `stroke`, `strokeWidth`, `strokeStyle`, `cornerRadius`, `opacity`, `blend`, `shadow`, `name`, `locked`, `userColor`, `at`, `x`, `y`, `width`, `height`, `userMove` |
 | `shape` gradient fill | `type`, `angle`, `from`, `to`, `stops` |
 | `shape` gradient stop | `at`, `color`, `opacity` |
 | `shape` userColor block | `target`, `colors`, `free` |
-| `background` element | `kind`, `id`, `asset`, `fill`, `fillable`, `opacity`, `blend` |
+| `background` element | `kind`, `id`, `asset`, `fill`, `fillable`, `opacity`, `blend`, `adjust` |
 | `container` element | `kind`, `id`, `members`, `children`, `maxHeight`, `gap`, `spaceAfter`, `hidable`, `name`, `userMove`, `repeat` |
 | `repeat` block | `max`, `min`, `default`, `slots` |
 | `image` border block | `color`, `width` |
+| `adjust` block | `brightness`, `contrast`, `saturation`, `hue`, `grayscale`, `blur` |
 | `shadow` block | `kind`, `color`, `opacity`, `angle`, `distance`, `size` |
 | `userMove` block | `vertical`, `horizontal`, `maxUp`, `maxDown`, `maxLeft`, `maxRight` |
 
@@ -347,6 +348,14 @@ within the document. Slugs carry input identity across saves.
   that is the slot's frame, so they stay whatever picture the user puts in
   (and survive panning / zooming inside it). Both default to none; a border's
   `width` must be > 0. The group editor scales them with each size.
+- **`adjust`** ("Úpravy obrázku") on an `image` or a PICTURE `background`:
+  `{"brightness": -20, "contrast": 15, "saturation": -100, "hue": 30,
+  "grayscale": true, "blur": 10}` — whole numbers in Photoshop-like units:
+  brightness / contrast / saturation −100…100, hue −180…180 (degrees), blur
+  0…100 (a share of the picture, resolution-independent), grayscale a flag.
+  All default to 0 / false; give only what you change. A fillable placeholder
+  applies them to the user's picture too (a darkened, blurred photo under a
+  headline keeps the text legible whatever the user uploads).
 - **`image` `mirror`**: `true` flips a **decorative** image horizontally (default
   `false`). Rejected on a fillable placeholder — filling re-places the picture
   and resets any mirroring.

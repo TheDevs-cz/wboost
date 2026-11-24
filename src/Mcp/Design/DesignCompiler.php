@@ -21,6 +21,7 @@ use WBoost\Web\Value\CanvasShapeGradient;
 use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\ElementMoveAllowance;
+use WBoost\Web\Value\ImageAdjustments;
 use WBoost\Web\Value\ImageFrameStyle;
 
 /**
@@ -240,6 +241,10 @@ readonly final class DesignCompiler
                 self::withOpacity($background['object'], $backgroundElement->opacity),
                 $backgroundElement->blend,
             );
+
+            if (!$backgroundElement->adjust->isNeutral() && !BackgroundLayer::isColorLayer($background['object'])) {
+                $background['object']['filters'] = $backgroundElement->adjust->toFabric();
+            }
         }
 
         if ($background !== null) {
@@ -813,6 +818,10 @@ readonly final class DesignCompiler
         }
 
         $object = array_merge($object, $element->frame->toCanvas());
+
+        if (!$element->adjust->isNeutral()) {
+            $object['filters'] = $element->adjust->toFabric();
+        }
 
         return self::withUserMove(self::withShadow(self::withBlend(self::withOpacity($object, $element->opacity), $element->blend), $element->shadow), $element->userMove);
     }
