@@ -166,7 +166,8 @@ export default class extends Controller {
         const index = pageIndexOf(store.pages(), address.page);
         if (index === null) return;
         const step = this.effectiveStep();
-        if (step === 4) store.setUi({ contentView: index });
+        if (step === 3) store.setUi({ stagePage: address.page });
+        else if (step === 4) store.setUi({ contentView: index });
         else if (step === 5) store.setUi({ previewPage: index });
     }
 
@@ -305,6 +306,7 @@ export default class extends Controller {
                     content: s.doc.content,
                     revision: s.doc.revision,
                     selection: s.ui.selection,
+                    stagePage: s.ui.stagePage,
                     zoom: s.ui.zoom,
                     status: s.status,
                     layoutOrigin: s.layoutOrigin,

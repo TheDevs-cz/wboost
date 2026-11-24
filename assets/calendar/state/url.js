@@ -2,10 +2,11 @@
 // a page. Pure — the workspace controller reads `location.search` and writes `history.replaceState`.
 //
 //   ?krok=N          the step shown (1–5) — designer only; a client is always on step 5
-//   &strana=<key>    the page in steps 4 and 5 — the year/type-independent page key of
+//   &strana=<key>    the page in steps 3, 4 and 5 — the year/type-independent page key of
 //                    `generate/pages.js` (`cover`, `pre`, `w01`…`w53`, `post`, `back`, `sp:<id>`);
-//                    step 4 writes it only while a page is open (not on „Styl stránek“ /
-//                    „Speciální stránky“)
+//                    step 3 writes it only while the stage shows a chosen page (`ui.stagePage`,
+//                    K20 P2 — not the sample page); step 4 only while a page is open (not on
+//                    „Styl stránek“ / „Speciální stránky“)
 //
 // Other parameters (`?sken=` of ui/scan.js) are kept as they are. Unknown or invalid values are
 // ignored silently.
@@ -31,12 +32,16 @@ export function readAddress(search) {
  *
  * @param o.mode      'designer' | 'client'
  * @param o.step      the step shown (`effectiveStep()`)
- * @param o.ui        the store's `ui` state (`contentView` of step 4, `previewPage` of step 5)
+ * @param o.ui        the store's `ui` state (`stagePage` of step 3, `contentView` of step 4, `previewPage` of step 5)
  * @param o.pages     `store.pages()`
  * @returns `{ step: number | null, page: string | null }`
  */
 export function addressOf({ mode, step, ui, pages }) {
     const shown = mode === 'designer' ? step : 5;
+    if (shown === 3) {
+        const key = ui.stagePage && pages.some((page) => page.key === ui.stagePage) ? ui.stagePage : null;
+        return { step: mode === 'designer' ? shown : null, page: key };
+    }
     let index = null;
     if (shown === 4 && typeof ui.contentView === 'number') index = ui.contentView;
     else if (shown === 5) index = ui.previewPage;

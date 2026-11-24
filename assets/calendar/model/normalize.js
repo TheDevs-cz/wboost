@@ -2,10 +2,10 @@
 
 import { DEFAULT_FEATURES, DEFAULT_PAGE, DEFAULT_PRINT, K, SCHEMA_VERSION, bleedOf, clampLimit, roundMm } from './defaults.js';
 import { BOX_KEYS, DEFAULT_ORDER, HIDEABLE_BOXES, SECOND_FRAMES, frameAlign } from './elements.js';
-import { COLLECTIONS } from './content.js';
+import { COLLECTIONS, GENERATED_SPECIAL_IDS } from './content.js';
 import { EFFECT_PATHS, normalizeEffects, shadowToEffects } from './effects.js';
 import { defaultBoxes, defaultStyles, presetsForType } from './layouts.js';
-import { defaultLayerBox, isLayerKey, layerIdOf, layerKey, normalizeLayers } from './layers.js';
+import { defaultLayerBox, dropForeignPageKeys, isLayerKey, layerIdOf, layerKey, normalizeLayers } from './layers.js';
 import { normalizeLanguages } from '../generate/languages.js';
 import { adaptBoxesToBleed, clampBoxesToBounds } from '../editor/bleed.js';
 
@@ -309,7 +309,7 @@ export function exportLayoutFile(doc) {
  * Parses a layout file for the given design. A file made for another page size is scaled box-wise,
  * bleed edges follow the current bleed. Styles missing in the file get neutral defaults.
  */
-export function parseLayoutFile(text, design) {
+export function parseLayoutFile(text, design, content = null) {
     let file;
     try {
         file = JSON.parse(text);
@@ -322,7 +322,10 @@ export function parseLayoutFile(text, design) {
     const sourcePage = { ...design.page, width: finite(source.width, design.page.width), height: finite(source.height, design.page.height) };
     // normalised in the coordinates of the SOURCE page (a file from before the per-column Měsíc /
     // Číslo týdne gets its second frames mirrored about that page's centre line), scaled below
-    const layout = normalizeLayout(file.layout, design.type, sourcePage, { fonts: [], accent: null });
+    // the own layers' `sp:<id>` page keys of another calendar mean nothing here (K20 P2): kept are
+    // the generated pages (fixed ids) and the special pages of THIS calendar (`content`)
+    const own = (content && content.specialPages) || {};
+    const layout = dropForeignPageKeys(normalizeLayout(file.layout, design.type, sourcePage, { fonts: [], accent: null }), (id) => GENERATED_SPECIAL_IDS.includes(id) || Object.prototype.hasOwnProperty.call(own, id));
     const fx = design.page.width / sourcePage.width;
     const fy = design.page.height / sourcePage.height;
     const bleed = bleedOf(design.print);

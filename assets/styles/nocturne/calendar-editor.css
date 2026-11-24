@@ -82,6 +82,19 @@
 .cal-lacts .cal-ldel { color: var(--rose-ink); }
 .cal-lacts .cal-ldel:hover { background: var(--rose-deep); color: var(--rose-ink); }
 .cal-lname { width: 100%; }
+/* page sets (K20 P2): the set in a row, rows not on the page on the stage, the „under“ divider, the page checklist */
+.cal-own .cal-elt { flex: 0 1 auto; }
+.cal-lset { flex: 0 8 auto; min-width: 20px; margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 500; color: var(--muted); }
+.cal-elr.away .cal-eln { color: var(--subtle); }
+.cal-elr.away .cal-eln > .i { opacity: .55; }
+.cal-lunder { display: flex; align-items: center; gap: 8px; margin: 2px 4px; font-size: 11px; color: var(--muted); }
+.cal-lunder::before, .cal-lunder::after { content: ""; flex: 1; border-top: 1px dashed var(--line-2); }
+.cal-lpages { display: flex; flex-direction: column; gap: 2px; max-height: 240px; margin-top: 8px; padding: 6px 8px; overflow-y: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.cal-lpages[hidden] { display: none; }
+.cal-lpages .cal-check { min-height: 28px; font-size: 13px; }
+/* the page on the stage */
+.cal-stage-pg { flex: 0 1 240px; min-width: 140px; }
+.cal-stage-pg select { font-weight: 600; text-overflow: ellipsis; }
 
 /* ---- Stage ---------------------------------------------------------------- */
 .cal-stage { position: relative; display: flex; flex-direction: column; align-items: stretch; min-width: 0; min-height: 0; overflow: hidden; background: var(--bg); }

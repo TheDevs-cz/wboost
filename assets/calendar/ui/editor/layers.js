@@ -21,7 +21,14 @@
 //   - „Přidat“ creates the layer centred on the page, on TOP of the stack, selected, in one
 //     `store.change` (one undo step); a picture layer appears only once its upload / gallery copy
 //     answered (no empty picture layers); delete is undoable, so it never asks
-//   - own layers are on every week page in P1 (page sets come in P2)
+//   - page sets (K20 P2): a new layer goes on every week page (D2) — or only on the page on the
+//     stage when one was chosen (`ui.stagePage`, `layerPagesForNew`); a row whose layer is not on
+//     the page on the stage is dimmed (`.away`) and selecting it moves the stage to its first
+//     page; on the cover / back / special pages the built-in rows are dimmed and selecting one
+//     goes back to the sample page; a row shows its page set („· 3 strany“) when it is not the
+//     default; while any layer is on a page that is not a week page, the divider
+//     `[data-layer-under]` „pod obsahem ostatních stran“ sits under the lowest built-in row
+//     (layers below it are drawn UNDER the content of those pages — model/layers.js isLayerUnder)
 //
 // Rules kept here:
 //   - reorder, hide / show are one `store.change` each (undoable); the eye of Popisek fotografie
@@ -37,7 +44,9 @@
 import Sortable from 'sortablejs';
 import { ELEMENTS, PARTS, availableParts, elementLabel, isElementVisible } from '../../model/elements.js';
 import { exportLayoutFile, parseLayoutFile } from '../../model/normalize.js';
-import { KIND_ICONS, addLayer, defaultLayerBox, duplicateLayer, isLayerKey, layerIdOf, layerKey, layerLabels, normalizeLayer, removeLayer, setLayer } from '../../model/layers.js';
+import { KIND_ICONS, addLayer, defaultLayerBox, duplicateLayer, isLayerKey, layerIdOf, layerKey, layerLabels, layerOnPage, normalizeLayer, pageSetText, removeLayer, setLayer } from '../../model/layers.js';
+import { isBuiltInEditable, stagePageOf } from '../../editor/stage-page.js';
+import { layerPagesForNew, showLayerOnStage } from './stage-page.js';
 import { FALLBACK_ACCENT } from '../../model/layouts.js';
 import { newId } from '../../model/content.js';
 import { bleedOf } from '../../model/defaults.js';
@@ -98,9 +107,16 @@ export function mountLayers(root, ctx, opts = {}) {
     }
 
     function toggleSelection(key) {
-        const selection = store.getState().ui.selection;
+        const state = store.getState();
+        const selection = state.ui.selection;
         if (selection && selection.el === key) store.setUi({ selection: null });
-        else if (selectable(key)) store.setUi({ selection: key === 'cal' ? { el: 'cal', frame: 0 } : { el: key } });
+        else if (selectable(key)) {
+            const next = key === 'cal' ? { el: 'cal', frame: 0 } : { el: key };
+            // a built-in is edited on a week page: from the cover / a special page back to the sample
+            if (!isLayerKey(key) && key !== 'bg' && !isBuiltInEditable(stagePageOf(state.doc, store.pages(), state.ui))) store.setUi({ stagePage: null, selection: next });
+            else store.setUi({ selection: next });
+            if (isLayerKey(key)) showLayerOnStage(ctx, key);
+        }
     }
 
     function selectPart(part) {
@@ -134,6 +150,7 @@ export function mountLayers(root, ctx, opts = {}) {
         const drawn = key === 'bg' || isElementVisible(d, key);
         const hiddenByEye = key === 'cap' ? !d.features.captions : Boolean(d.layout.boxes[key] && d.layout.boxes[key].hidden);
         const info = spec(key);
+        const away = key !== 'bg' && !isBuiltInEditable(stagePageOf(state.doc, store.pages(), state.ui));
         const select = h('button', { type: 'button', class: 'cal-eln', 'data-layer': key, 'aria-pressed': String(selected), 'aria-disabled': selected || selectable(key) ? null : 'true', onClick: () => toggleSelection(key) }, icon(info ? info.icon : 'layers', 's16'), h('span', { class: 'cal-elt' }, label));
         const children = [h('span', { class: 'cal-grip', 'aria-hidden': 'true' }, icon(key === 'bg' ? 'lock' : 'grip', 's14')), select];
         if (key === 'cal') {
@@ -150,7 +167,7 @@ export function mountLayers(root, ctx, opts = {}) {
                 h('button', { type: 'button', class: 'btn icon xs btn-ghost cal-eye', 'data-layer-eye': key, 'aria-pressed': String(hiddenByEye), 'aria-label': `${hiddenByEye ? 'Zobrazit' : 'Skrýt'}: ${label}`, title: hiddenByEye ? 'Zobrazit' : 'Skrýt', onClick: () => toggleEye(key) }, icon(hiddenByEye ? 'eye-off' : 'eye', 's16')),
             );
         }
-        return h('div', { class: `cal-elr${selected ? ' sel' : ''}${drawn ? '' : ' off'}${key === 'bg' ? ' fixed' : ''}` }, ...children);
+        return h('div', { class: `cal-elr${selected ? ' sel' : ''}${drawn ? '' : ' off'}${away ? ' away' : ''}${key === 'bg' ? ' fixed' : ''}`, title: away ? 'Upravuje se na týdenní straně' : null }, ...children);
     }
 
     /** A row of an own layer: kind icon, name (or the input while renamed), the row menu, the eye. */
@@ -162,6 +179,9 @@ export function mountLayers(root, ctx, opts = {}) {
         const label = layerLabels(d.layout)[key] || '';
         const hidden = Boolean(d.layout.boxes[key] && d.layout.boxes[key].hidden);
         const kindIcon = layer.kind === 'rect' && layer.radius > 0 ? 'square-round' : KIND_ICONS[layer.kind];
+        const shown = stagePageOf(state.doc, store.pages(), state.ui);
+        const away = Boolean(shown && !layerOnPage(layer, shown));
+        const setText = layer.pages === 'weeks' && !layer.except.length ? '' : pageSetText(layer, shown ? shown.key : null, true);
         let name;
         if (renaming === key) {
             name = h('input', { type: 'text', class: 'cal-lren', 'data-layer-name': key, maxlength: '60', value: layer.name, placeholder: label, 'aria-label': 'Název vrstvy', autocomplete: 'off' });
@@ -186,7 +206,13 @@ export function mountLayers(root, ctx, opts = {}) {
             });
             name.addEventListener('blur', () => finish(true));
         }
-        const select = h('button', { type: 'button', class: 'cal-eln', 'data-layer': key, 'aria-pressed': String(selected), 'aria-disabled': selected || selectable(key) ? null : 'true', onClick: () => toggleSelection(key) }, icon(kindIcon, 's16'), renaming === key ? null : h('span', { class: 'cal-elt' }, label));
+        const select = h(
+            'button',
+            { type: 'button', class: 'cal-eln', 'data-layer': key, 'aria-pressed': String(selected), 'aria-disabled': selected || selectable(key) ? null : 'true', onClick: () => toggleSelection(key) },
+            icon(kindIcon, 's16'),
+            renaming === key ? null : h('span', { class: 'cal-elt' }, label),
+            renaming === key || !setText ? null : h('span', { class: 'cal-lset', 'data-layer-pages': key, title: pageSetText(layer, shown ? shown.key : null) }, setText),
+        );
         const children = [h('span', { class: 'cal-grip', 'aria-hidden': 'true' }, icon('grip', 's14'))];
         if (renaming === key) children.push(h('span', { class: 'cal-eln cal-eln-edit' }, icon(kindIcon, 's16'), name));
         else children.push(select);
@@ -196,7 +222,7 @@ export function mountLayers(root, ctx, opts = {}) {
             h('button', { type: 'button', class: 'btn icon xs btn-ghost cal-eye', 'data-layer-eye': key, 'aria-pressed': String(hidden), 'aria-label': `${hidden ? 'Zobrazit' : 'Skrýt'}: ${label}`, title: hidden ? 'Zobrazit' : 'Skrýt', onClick: () => toggleEye(key) }, icon(hidden ? 'eye-off' : 'eye', 's16')),
         );
         if (menuOpen) children.push(rowMenu(key));
-        return h('div', { class: `cal-elr cal-own${selected ? ' sel' : ''}${hidden ? ' off' : ''}` }, ...children);
+        return h('div', { class: `cal-elr cal-own${selected ? ' sel' : ''}${hidden ? ' off' : ''}${away ? ' away' : ''}`, title: away ? 'Na straně na plátně není — kliknutím ji zobrazíte' : null }, ...children);
     }
 
     function rowMenu(key) {
@@ -335,7 +361,7 @@ export function mountLayers(root, ctx, opts = {}) {
     function create(entry, extra = {}, aspect) {
         const d = design();
         if (!d.layout) return;
-        const layer = layerOfMenuEntry(entry, firstColour(), extra);
+        const layer = layerOfMenuEntry(entry, firstColour(), { pages: layerPagesForNew(ctx), ...extra });
         const id = newId();
         store.change((layout) => addLayer(layout, id, layer, defaultLayerBox(layer.kind, d.page, aspect)));
         store.setUi({ selection: { el: layerKey(id) } });
@@ -416,7 +442,19 @@ export function mountLayers(root, ctx, opts = {}) {
         const selection = state.ui.selection;
         const partsOpen = Boolean((selection && selection.el === 'cal' && selection.part) || state.ui.partsOpen);
         const keys = d.layout.order.filter((key) => key !== 'qr' || d.features.qr);
-        list.replaceChildren(...keys.map((key) => h('div', { class: 'cal-eli', 'data-layer-item': key }, row(key, state, partsOpen), key === 'cal' && partsOpen ? partsList(state) : null)));
+        const rows = keys.map((key) => h('div', { class: 'cal-eli', 'data-layer-item': key }, row(key, state, partsOpen), key === 'cal' && partsOpen ? partsList(state) : null));
+        // layers below the lowest built-in are drawn UNDER the content of the cover, back and
+        // special pages — shown once any layer is on such a page
+        const pages = store.pages();
+        const elsewhere = Object.values(d.layout.layers || {}).some((layer) => pages.some((page) => page.kind !== 'week' && layerOnPage(layer, page)));
+        if (elsewhere) {
+            let lowest = -1;
+            keys.forEach((key, index) => {
+                if (!isLayerKey(key)) lowest = index;
+            });
+            if (lowest >= 0) rows.splice(lowest + 1, 0, h('div', { class: 'cal-lunder', 'data-layer-under': '', 'aria-hidden': 'true' }, h('span', null, 'pod obsahem ostatních stran')));
+        }
+        list.replaceChildren(...rows);
         fixed.replaceChildren(row('bg', state, false));
         renderMenu(state);
         if (focused) {
@@ -528,7 +566,7 @@ export function mountLayers(root, ctx, opts = {}) {
             text = '';
         }
         const d = design();
-        const parsed = parseLayoutFile(text, d);
+        const parsed = parseLayoutFile(text, d, store.getState().doc.content);
         if (!parsed.ok) {
             ctx.toast(NOT_A_LAYOUT, true);
             return;
@@ -556,7 +594,7 @@ export function mountLayers(root, ctx, opts = {}) {
     const unsubscribe = store.subscribe((event) => {
         if (event.type === 'status' || event.type === 'content' || (event.type === 'layout' && event.live)) return;
         if (event.type === 'ui') {
-            if (!event.keys.some((key) => key === 'selection' || key === 'partsOpen' || key === 'layoutMenuOpen')) return;
+            if (!event.keys.some((key) => key === 'selection' || key === 'partsOpen' || key === 'layoutMenuOpen' || key === 'stagePage' || key === 'layerAddOpen')) return;
             // selecting the Kalendárium opens its parts
             const selection = store.getState().ui.selection;
             const isCal = Boolean(selection && selection.el === 'cal');
@@ -568,8 +606,17 @@ export function mountLayers(root, ctx, opts = {}) {
             }
         }
         render();
+        openAddOnRequest();
     });
     render();
+
+    /** Step 4's „Přidat vrstvu jen na tuto stranu“ landed here: the „Přidat“ menu opens once. */
+    function openAddOnRequest() {
+        if (!store.getState().ui.layerAddOpen) return;
+        store.setUi({ layerAddOpen: false });
+        if (!addMenu) openAddMenu();
+    }
+    openAddOnRequest();
 
     return {
         destroy() {

@@ -17,6 +17,7 @@ export default async function (t, load) {
     const { adaptBoxesToBleed } = await load('editor/bleed.js');
     const { createStore } = await load('state/store.js');
     const { createEstimatorMeasurer } = await load('render/measure.js');
+    const SP = await load('editor/stage-page.js');
     const base = await layoutOpts(load);
     const PAGE = copy(DEFAULT_PAGE);
     const ENV = { fonts: [], accent: '#C84B55', assets: {}, currentYear: 2026 };
@@ -267,5 +268,151 @@ export default async function (t, load) {
         assert.deepEqual(store.getState().doc.design.layout.layers, {}, 'a layout file is the design');
         const client = createStore({ doc: normalizeDocument(doc, env), env: { ...env, mode: 'client' }, api, measurer: createEstimatorMeasurer() });
         assert.throws(() => client.change((layout) => L.addLayer(layout, 'x', L.newLayer('rect'), { x: 1, y: 1, w: 10, h: 10 })));
+    });
+
+    // ---- P2: page sets, the cover / back / special pages, „Prázdná strana“ -------------------------
+
+    const BLANK = { kind: 'blank', on: true, layout: 0, position: 'front', nextYear: false, name: 'Prázdná strana', asset: null, text: null, fileName: null, pos: 9 };
+    async function p2Doc(add) {
+        return makeDoc(load, { features: { specialPages: true }, content: { specialPages: { blank1: BLANK } }, styles: (layout) => add({ ...layout, layers: {} }) });
+    }
+
+    t.test('cover, back and special pages draw their layers: under the content when below every built-in, over it otherwise; byte for byte without', async () => {
+        const doc = await p2Doc((layout) => {
+            let l = L.addLayer(layout, 'over', { ...L.newLayer('rect', '#E5DDF7'), pages: 'all' }, { x: 10, y: 10, w: 20, h: 20 });
+            l = L.addLayer(l, 'under', { ...L.newLayer('ellipse', '#C84B55'), pages: ['cover', 'sp:blank1', 'back'] }, { x: 40, y: 10, w: 20, h: 20 });
+            // to the very bottom of the stack: under every built-in
+            return { ...l, order: [...l.order.filter((k) => k !== 'u:under'), 'u:under'] };
+        });
+        const pages = buildPages(doc);
+        const cover = pages.find((p) => p.kind === 'cover');
+        const back = pages.find((p) => p.kind === 'back');
+        const blank = pages.find((p) => p.key === 'sp:blank1');
+        assert.ok(blank, 'the blank special page is a page');
+        assert.equal(blank.subtitle, 'Vlastní strana');
+        assert.equal(L.isLayerUnder(doc.design.layout, 'u:under'), true);
+        assert.equal(L.isLayerUnder(doc.design.layout, 'u:over'), false);
+        for (const page of [cover, back, blank]) {
+            const svg = renderPage(doc, page, opts());
+            const content = svg.indexOf(page.kind === 'cover' ? 'data-el="cover"' : page.kind === 'back' ? 'data-el="back"' : 'data-el="special"');
+            const under = svg.indexOf('data-layer="under"');
+            const over = svg.indexOf('data-layer="over"');
+            assert.ok(content > 0 && under > 0 && over > 0, page.key);
+            assert.ok(under < content && content < over, `${page.key}: under → content → over`);
+            assert.ok(over < svg.indexOf('data-el="holes"'), `${page.key}: the binding holes stay on top`);
+        }
+        const blankSvg = renderPage(doc, blank, opts({ placeholders: 'none' }));
+        assert.match(blankSvg, /<g data-el="special" data-kind="blank" data-layout="0"><\/g>/, 'a blank page draws nothing of its own');
+        // the week pages: 'all' is there, the cover-only list is not
+        const week = weekPages(pages)[0];
+        const weekSvg = renderPage(doc, week, opts());
+        assert.ok(weekSvg.includes('data-layer="over"') && !weekSvg.includes('data-layer="under"'));
+        // without layers: exactly the markup of before (the bands add nothing)
+        const plain = await makeDoc(load, { features: { specialPages: true }, content: { specialPages: { blank1: BLANK } } });
+        const bare = copy(plain);
+        delete bare.design.layout.layers;
+        for (const page of buildPages(plain).filter((p) => p.kind !== 'week')) assert.equal(renderPage(bare, page, opts()), renderPage(plain, page, opts()), page.key);
+    });
+
+    t.test('pageLayerBands, pagesOfLayer, missingPageKeys, pageSetText', async () => {
+        const doc = await p2Doc((layout) => {
+            let l = L.addLayer(layout, 'a', { ...L.newLayer('rect'), pages: 'all', except: ['cover'] }, { x: 1, y: 1, w: 10, h: 10 });
+            l = L.addLayer(l, 'b', { ...L.newLayer('rect'), pages: ['w05', 'w53', 'sp:gone'] }, { x: 1, y: 1, w: 10, h: 10 });
+            l = L.addLayer(l, 'c', L.newLayer('line'), { x: 1, y: 1, w: 10, h: 2 });
+            l.boxes['u:c'] = { ...l.boxes['u:c'], hidden: true };
+            return l;
+        });
+        const layout = doc.design.layout;
+        const pages = buildPages(doc);
+        const cover = pages.find((p) => p.kind === 'cover');
+        assert.deepEqual(L.pageLayerBands(layout, cover), { under: [], over: [] }, 'except + the eye');
+        assert.deepEqual(L.pageLayerBands(layout, pages.find((p) => p.key === 'w05')).over, ['u:a', 'u:b'], 'bottom first');
+        assert.deepEqual(L.pagesOfLayer(layout, pages, 'b').map((p) => p.key), ['w05']);
+        assert.deepEqual(L.missingPageKeys(layout.layers.b, pages), ['w53', 'sp:gone'], 'no week 53 in 2027, no such special page');
+        assert.equal(L.pageSetText(layout.layers.a), 'všechny strany, kromě 1');
+        assert.equal(L.pageSetText(layout.layers.b), '3 vybrané strany');
+        assert.equal(L.pageSetText(L.normalizeLayer({ kind: 'rect', pages: ['w05'] }), 'w05'), 'jen tato strana');
+        assert.equal(L.pageSetText(L.normalizeLayer({ kind: 'rect', pages: ['w05'] }), 'w06'), '1 vybraná strana');
+        assert.equal(L.pageSetText(L.normalizeLayer({ kind: 'rect', pages: [] })), 'na žádné straně');
+        assert.equal(L.pageSetText(L.normalizeLayer({ kind: 'rect' })), 'všechny týdenní strany');
+    });
+
+    t.test('showLayerOnPage: „Skrýt zde“ / „Zobrazit zde“ — except on a set, the list itself on a list; no change = same object', async () => {
+        const doc = await p2Doc((layout) => {
+            let l = L.addLayer(layout, 'set', L.newLayer('rect'), { x: 1, y: 1, w: 10, h: 10 });
+            return L.addLayer(l, 'list', { ...L.newLayer('rect'), pages: ['w05', 'cover'] }, { x: 1, y: 1, w: 10, h: 10 });
+        });
+        let l = doc.design.layout;
+        l = L.showLayerOnPage(l, 'set', 'w03', false);
+        assert.deepEqual(l.layers.set.except, ['w03']);
+        assert.equal(L.showLayerOnPage(l, 'set', 'w03', false), l);
+        l = L.showLayerOnPage(l, 'set', 'w03', true);
+        assert.deepEqual(l.layers.set.except, []);
+        l = L.showLayerOnPage(l, 'list', 'w05', false);
+        assert.deepEqual(l.layers.list.pages, ['cover']);
+        l = L.showLayerOnPage(l, 'list', 'sp:blank1', true);
+        assert.deepEqual(l.layers.list.pages, ['cover', 'sp:blank1']);
+        assert.equal(L.showLayerOnPage(l, 'nope', 'w01', false), l);
+        assert.equal(L.showLayerOnPage(l, 'set', 'bad key', false), l);
+    });
+
+    t.test('import: foreign sp: keys dropped from a layout file, generated and own special pages kept', async () => {
+        const doc = await p2Doc((layout) => {
+            let l = L.addLayer(layout, 'x', { ...L.newLayer('rect'), pages: ['cover', 'sp:intro', 'sp:blank1', 'sp:foreign', 'w05'] }, { x: 1, y: 1, w: 10, h: 10 });
+            return L.addLayer(l, 'y', { ...L.newLayer('rect'), pages: 'all', except: ['sp:foreign', 'back'] }, { x: 1, y: 1, w: 10, h: 10 });
+        });
+        const file = JSON.stringify(exportLayoutFile(doc));
+        const here = parseLayoutFile(file, doc.design, doc.content);
+        assert.deepEqual(here.layout.layers.x.pages, ['cover', 'sp:intro', 'sp:blank1', 'w05']);
+        assert.deepEqual(here.layout.layers.y.except, ['back']);
+        const elsewhere = parseLayoutFile(file, doc.design, { specialPages: {} });
+        assert.deepEqual(elsewhere.layout.layers.x.pages, ['cover', 'sp:intro', 'w05']);
+        assert.equal(L.dropForeignPageKeys(doc.design.layout, () => true), doc.design.layout, 'nothing dropped = the same layout');
+    });
+
+    t.test('editor on another page: hit test and snap see only what the page draws; the stage page and its choices', async () => {
+        const doc = await p2Doc((layout) => {
+            let l = L.addLayer(layout, 'c', { ...L.newLayer('rect'), pages: ['cover'] }, { x: 100, y: 40, w: 50, h: 30 });
+            l = L.addLayer(l, 'w', { ...L.newLayer('rect'), pages: ['w05'] }, { x: 10, y: 10, w: 20, h: 20 });
+            return L.addLayer(l, 'all', { ...L.newLayer('rect'), pages: 'weeks' }, { x: 200, y: 100, w: 20, h: 20 });
+        });
+        const d = doc.design;
+        const pages = buildPages(doc);
+        const cover = pages[0];
+        const sample = weekPages(pages)[0];
+        const photo = d.layout.boxes.photo;
+        const inPhoto = { x: photo.x + 2, y: photo.y + 2 };
+        assert.deepEqual(hitTest({ x: 120, y: 50 }, d, null, cover), { el: 'u:c' });
+        assert.deepEqual(hitTest(inPhoto, d, null, cover), { el: 'bg' }, 'no built-in on the cover');
+        assert.notDeepEqual(hitTest({ x: 120, y: 50 }, d, null, sample), { el: 'u:c' }, 'the cover layer is not on a week');
+        assert.deepEqual(visibleBoxKeys(d, cover), ['u:c']);
+        assert.ok(!visibleBoxKeys(d, sample).includes('u:c') && visibleBoxKeys(d, sample).includes('u:all') && visibleBoxKeys(d, sample).includes('photo'));
+        assert.deepEqual(linkBoxKeys(d, cover), []);
+        assert.equal(isElementVisible(d, 'photo', cover), false);
+        assert.equal(isElementVisible(d, 'bg', cover), true);
+        // the stage page
+        const ui = { stagePage: null, selection: null };
+        assert.equal(SP.stagePageOf(doc, pages, ui), sample);
+        assert.equal(SP.stagePageOf(doc, pages, { ...ui, stagePage: 'cover' }), cover);
+        assert.equal(SP.stagePageOf(doc, pages, { ...ui, stagePage: 'sp:gone' }), sample, 'a key without a page → the sample');
+        const keys = SP.stagePageChoices(doc, pages, ui).map((c) => c.key);
+        assert.deepEqual(keys, [null, 'cover', 'sp:blank1', 'w05', 'back'], 'the sample, every non-week page, the weeks a layer names');
+        assert.equal(SP.isBuiltInEditable(cover), false);
+        assert.equal(SP.isBuiltInEditable(sample), true);
+        assert.equal(SP.stageKeyForLayer(doc, pages, ui, 'c'), 'cover');
+        assert.equal(SP.stageKeyForLayer(doc, pages, ui, 'all'), null, 'on the sample: stays on the sample');
+        assert.equal(SP.stageKeyForLayer(doc, pages, { ...ui, stagePage: 'w05' }, 'all'), 'w05', 'on the page shown: stays');
+        assert.equal(SP.stageKeyForLayer(doc, pages, ui, 'w'), 'w05');
+        assert.equal(SP.stageKeyForLayer(doc, pages, ui, 'nope'), undefined);
+    });
+
+    t.test('store: a removed special page takes the stage back to the sample', async () => {
+        const doc = await p2Doc((layout) => layout);
+        const env = { ...ENV, assets: {}, mode: 'designer' };
+        const api = { save: () => Promise.reject(new Error('no')) };
+        const store = createStore({ doc: normalizeDocument(doc, env), env, api, measurer: createEstimatorMeasurer() });
+        store.setUi({ stagePage: 'sp:blank1' });
+        store.removeItem('specialPages', 'blank1', 'Prázdná strana');
+        assert.equal(store.getState().ui.stagePage, null);
     });
 }

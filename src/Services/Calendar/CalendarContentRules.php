@@ -79,7 +79,7 @@ readonly final class CalendarContentRules
 
     private const array WASTE_BUILTINS = ['kom', 'bio', 'plast', 'papir', 'sklo'];
     private const array WASTE_INTERVALS = ['w', '2e', '2o', '4w', '4w2', 'm'];
-    private const array SPECIAL_PAGE_KINDS = ['intro', 'contacts', 'year', 'waste', 'notes', 'image', 'text'];
+    private const array SPECIAL_PAGE_KINDS = ['intro', 'contacts', 'year', 'waste', 'notes', 'image', 'text', 'blank'];
 
     /**
      * A client may only touch the whitelisted collections; anything else

@@ -590,7 +590,7 @@ final class CalendarDesignToolsTest extends WebTestCase
             ['invalid_layer', 'layers.stripe.kind cannot change', ['layers' => ['stripe' => ['kind' => 'ellipse']]]],
             ['invalid_layer', 'layers.x.radius is not a setting of a line', ['layers' => ['x' => ['kind' => 'line', 'radius' => 3]]]],
             ['invalid_layer', 'layers.x.stroke.cap', ['layers' => ['x' => ['kind' => 'rect', 'stroke' => ['cap' => 'round']]]]],
-            ['invalid_layer', 'layers.x.pages', ['layers' => ['x' => ['kind' => 'rect', 'pages' => ['w05']]]]],
+            ['invalid_layer', 'layers.x.pages', ['layers' => ['x' => ['kind' => 'rect', 'pages' => 'covers']]]],
             ['invalid_layer', 'layers.x.asset', ['layers' => ['x' => ['kind' => 'image', 'asset' => Uuid::uuid7()->toString()]]]],
             ['invalid_layer', 'usable layer id', ['layers' => ['a b' => ['kind' => 'rect']]]],
             ['invalid_color', 'layers.x.fill.color', ['layers' => ['x' => ['kind' => 'ellipse', 'fill' => ['color' => 'red']]]]],
@@ -777,6 +777,53 @@ final class CalendarDesignToolsTest extends WebTestCase
      * written through the one tool, pictures included, and a special page
      * that is switched on becomes a page of the calendar.
      */
+    /**
+     * K20 P2: a layer on every page, one only on chosen pages (a blank special
+     * page among them), hidden on single pages; keys without a page are kept
+     * with a note; wrong page sets are refused by name.
+     */
+    public function testOwnLayersTakePageSetsAndABlankPageCarriesThem(): void
+    {
+        $id = TestDataFixture::CALENDAR_2_ID;
+        $this->ok('manage_calendar', ['action' => 'configure', 'calendarId' => $id, 'features' => ['specialPages' => true]]);
+        $this->ok('update_calendar_content', ['calendarId' => $id, 'operations' => [
+            ['collection' => 'specialPages', 'id' => 'Bl4nkPage0000001', 'value' => ['kind' => 'blank', 'on' => true, 'layout' => 0, 'position' => 'front', 'nextYear' => false, 'name' => 'Prázdná strana', 'asset' => null, 'text' => null, 'fileName' => null, 'pos' => 7]],
+        ]]);
+
+        $set = $this->ok('set_calendar_layout', [
+            'calendarId' => $id,
+            'layers' => [
+                'brand' => ['kind' => 'ellipse', 'pages' => 'all', 'except' => ['back']],
+                'sticker' => ['kind' => 'rect', 'pages' => ['sp:Bl4nkPage0000001', 'cover', 'sp:nowhere']],
+            ],
+        ]);
+        $layout = self::arr($set['layout']);
+        self::assertSame('all', self::dig($layout, 'layers', 'brand', 'pages'));
+        self::assertSame(['back'], self::dig($layout, 'layers', 'brand', 'except'));
+        self::assertSame(['sp:Bl4nkPage0000001', 'cover', 'sp:nowhere'], self::dig($layout, 'layers', 'sticker', 'pages'));
+        self::assertStringContainsString('layers.sticker.pages: sp:nowhere is not a page of this calendar now', self::text($set['notes']));
+
+        $read = $this->ok('get_calendar', ['calendarId' => $id, 'historyLimit' => 0]);
+        self::assertContains('sp:Bl4nkPage0000001', array_column(self::arr($read['pages']), 'key'), 'the blank page is a page');
+
+        // a list of pages drops the except of a set when it replaces it
+        $listed = $this->ok('set_calendar_layout', ['calendarId' => $id, 'layers' => ['brand' => ['pages' => ['w05']]]]);
+        self::assertSame([], self::dig(self::arr($listed['layout']), 'layers', 'brand', 'except'));
+
+        $revision = $this->calendar($id)->revision;
+        foreach ([
+            ['layers.x.pages', ['x' => ['kind' => 'rect', 'pages' => 'covers']]],
+            ['layers.x.pages', ['x' => ['kind' => 'rect', 'pages' => ['week 5']]]],
+            ['layers.x.except', ['x' => ['kind' => 'rect', 'except' => 'back']]],
+            ['layers.x.except only goes with', ['x' => ['kind' => 'rect', 'pages' => ['cover'], 'except' => ['back']]]],
+        ] as [$names, $layers]) {
+            $refusal = $this->refused('set_calendar_layout', ['calendarId' => $id, 'layers' => $layers]);
+            self::assertStringEndsWith('(invalid_layer)', $refusal, $names);
+            self::assertStringContainsString($names, $refusal);
+        }
+        self::assertSame($revision, $this->calendar($id)->revision, 'A refused call stores nothing.');
+    }
+
     public function testEveryContentCollectionCanBeFilledAndSpecialPagesBecomePages(): void
     {
         $id = TestDataFixture::CALENDAR_2_ID;

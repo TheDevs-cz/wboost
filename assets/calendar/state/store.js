@@ -46,6 +46,10 @@ const DEFAULT_UI = Object.freeze({
     layoutMenuOpen: false,
     contentView: 'style',
     previewPage: 0,
+    // the page on the step-3 stage (K20 P2, editor/stage-page.js): a page key, null = the sample page
+    stagePage: null,
+    // „Přidat vrstvu jen na tuto stranu“ (step 4) asks Vrstvy to open its „Přidat“ menu once
+    layerAddOpen: false,
     tool: null,
     toolState: {},
     iconCell: null,
@@ -225,6 +229,7 @@ export function createStore({ doc, env, api, measurer }) {
         const patch = {};
         if (state.ui.previewPage > count - 1) patch.previewPage = Math.max(0, count - 1);
         if (typeof state.ui.contentView === 'number' && state.ui.contentView > count - 1) patch.contentView = Math.max(0, count - 1);
+        if (state.ui.stagePage && !pages().some((page) => page.key === state.ui.stagePage)) patch.stagePage = null;
         const keys = Object.keys(patch);
         if (keys.length) state.ui = { ...state.ui, ...patch };
         return keys;

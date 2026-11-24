@@ -5,6 +5,7 @@
 //
 // `mountOverlay(overlayRoot, ctx): { update(geometry, scale), destroy() }`
 //   overlayRoot  `div.cal-ovl` — origin at the TRIM corner, coordinates are `mm × scale` px
+//   update(geometry, scale, page?)  `page` = the page on the stage (K20 P2: a selection not drawn there has no frame)
 //   update       redraws everything from the store state (`ui.selection`, `ui.guides`, the boxes)
 //                and the `WeekGeometry` of the page on the stage; nodes are kept and moved, never
 //                rebuilt, so a handle stays the same element for the whole drag
@@ -31,9 +32,9 @@ function place(el, box, scale) {
     el.style.height = px(box.h * scale);
 }
 
-/** The box key the selection frame is drawn around, or null (nothing / Pozadí / not drawn). */
-export function selectedBoxKey(design, selection) {
-    if (!selection || selection.el === 'bg' || !design.layout || !isElementVisible(design, selection.el)) return null;
+/** The box key the selection frame is drawn around, or null (nothing / Pozadí / not drawn — on `page` when given). */
+export function selectedBoxKey(design, selection, page = null) {
+    if (!selection || selection.el === 'bg' || !design.layout || !isElementVisible(design, selection.el, page)) return null;
     const keys = boxKeysOf(selection.el, design);
     const key = keys[selection.frame || 0] || keys[0];
     return key && design.layout.boxes[key] ? key : null;
@@ -55,11 +56,11 @@ export function mountOverlay(overlayRoot, ctx) {
         return parent.children;
     }
 
-    function update(geometry, scale) {
+    function update(geometry, scale, page = null) {
         const state = store.getState();
         const { design } = state.doc;
         const selection = state.ui.selection;
-        const key = scale > 0 ? selectedBoxKey(design, selection) : null;
+        const key = scale > 0 ? selectedBoxKey(design, selection, page) : null;
         const B = bleedOf(design.print);
 
         frame.hidden = !key;

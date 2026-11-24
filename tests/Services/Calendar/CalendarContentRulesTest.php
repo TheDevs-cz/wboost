@@ -386,6 +386,10 @@ final class CalendarContentRulesTest extends TestCase
         [$id, $page] = self::validItems()['specialPages'];
         $page['text'] = str_repeat('ž', 6000);
         self::assertNotNull(self::validate(new CalendarContentOp('specialPages', $id, $page)));
+
+        // „Prázdná strana“ (K20 P2): a page with no content of its own, for own layers
+        $blank = ['kind' => 'blank', 'on' => true, 'layout' => 0, 'position' => 'front', 'nextYear' => false, 'name' => 'Prázdná strana', 'asset' => null, 'text' => null, 'fileName' => null, 'pos' => 6];
+        self::assertSame($blank, self::validate(new CalendarContentOp('specialPages', 'blankPage01', $blank)));
     }
 
     public function testClientWhitelist(): void

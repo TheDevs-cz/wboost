@@ -10,6 +10,11 @@
 //                       own code, „Jiný QR kód jen pro tuto stranu“ over the shared code otherwise —
 //                       a page's own code wins in both modes
 // the page's own layer effects of its pictures (`ui/page-effects.js`, designer; K2),
+// „Vlastní vrstvy na této straně“ (K20 P2 — the own layers whose page set holds this page, also
+// those hidden here: „Skrýt zde“ / „Zobrazit zde“ toggle the page in the layer's `except` (or its
+// page list), „Upravit“ opens step 3 on this page with the layer selected, „Přidat vrstvu jen na
+// tuto stranu“ opens step 3 on this page with the „Přidat“ menu open — design changes: undoable,
+// no „Upraveno“ pill, untouched by „Vrátit na styl“),
 // and „Vrátit na styl“, which removes every override of the page.
 // The cover, the back and the generated special pages show their CONTENT first — titles, texts,
 // photo, contact groups, layout of the cover (`ui/pagecontent.js`, shared with step 5); that is
@@ -25,6 +30,8 @@
 //
 // DOM hooks: `[data-page-panel="<pageKey>"]`, `[data-page-pill]` (Upraveno), `[data-page-warning]`,
 // `[data-page-field="photo|caption|head|bg|qr"]` (the file input or the text input),
+// `[data-page-layers]`, `[data-page-layer="u:<id>"]`, `[data-page-layer-toggle="u:<id>"]`,
+// `[data-page-layer-edit="u:<id>"]`, `[data-cal-action="page-layer-add"]`,
 // `[data-page-remove="photo|head|bg|qr"]`, `[data-page-edit="photo"]` („Upravit“ → the photo editor,
 // `ui/photo-editor.js`; closed with the panel), `[data-page-gallery="photo"]` („Z galerie“, the
 // designer's workspace only — `ui/gallery-pick.js`), `[data-cal-action="page-reset"]`.
@@ -38,6 +45,8 @@ import { mountPageEffects } from './page-effects.js';
 import { CAPTION_MAX, fileTile, setPageCaption, setPagePhoto, uploadAsset } from './tools/photos.js';
 import { QR_ACCEPT } from './tools/qr.js';
 import { pageWarnings, warningCard } from './warnings.js';
+import { KIND_ICONS, KIND_LABELS, isLayerKey, layerIdOf, layerLabels, layerOnPage, pageSetText, showLayerOnPage } from '../model/layers.js';
+import { editLayersOnPage } from './editor/stage-page.js';
 
 export function mountPagePanel(root, ctx, opts = {}) {
     const { store } = ctx;
@@ -83,10 +92,72 @@ export function mountPagePanel(root, ctx, opts = {}) {
         return out;
     }
 
+    /** Own layers of the page: on it by their page set, or hidden right here (`except`) — top of the stack first. */
+    function pageLayers(current) {
+        const layout = state().doc.design.layout;
+        if (!layout || !layout.layers || !current) return [];
+        const labels = layerLabels(layout);
+        const out = [];
+        for (const key of layout.order) {
+            if (!isLayerKey(key)) continue;
+            const layer = layout.layers[layerIdOf(key)];
+            if (!layer) continue;
+            const on = layerOnPage(layer, current);
+            const hiddenHere = !Array.isArray(layer.pages) && layer.except.includes(current.key) && layerOnPage({ ...layer, except: [] }, current);
+            if (!on && !hiddenHere) continue;
+            out.push({ key, layer, on, label: labels[key], eyeOff: Boolean(layout.boxes[key] && layout.boxes[key].hidden) });
+        }
+        return out;
+    }
+
+    const layersSignature = (current) =>
+        pageLayers(current)
+            .map((l) => `${l.key}:${l.on ? 1 : 0}:${l.eyeOff ? 1 : 0}:${l.label}:${JSON.stringify(l.layer.pages)}:${l.layer.except.length}`)
+            .join(',');
+
     const signatureOf = () => {
         const current = page();
-        return current ? `${current.key}|${current.title}|${current.subtitle}|${store.pages().length}|${fields().join(',')}|${pageWarnings(ctx, current.index).map((w) => w.message).join('\n')}` : '';
+        return current ? `${current.key}|${current.title}|${current.subtitle}|${store.pages().length}|${fields().join(',')}|${pageWarnings(ctx, current.index).map((w) => w.message).join('\n')}|${layersSignature(current)}` : '';
     };
+
+    /** „Vlastní vrstvy na této straně“ (K20 P2) — design: one undoable change per click. */
+    function layersSection(current) {
+        const items = pageLayers(current);
+        const rows = items.map((item) => {
+            const id = layerIdOf(item.key);
+            const kindIcon = item.layer.kind === 'rect' && item.layer.radius > 0 ? 'square-round' : KIND_ICONS[item.layer.kind];
+            const toggle = h(
+                'button',
+                {
+                    type: 'button',
+                    class: 'btn xs btn-ghost',
+                    'data-page-layer-toggle': item.key,
+                    title: item.on ? 'Na této straně vrstvu nezobrazovat' : 'Vrstvu na této straně zase zobrazit',
+                    onClick: () => store.change((layout) => showLayerOnPage(layout, id, current.key, !item.on)),
+                },
+                icon(item.on ? 'eye-off' : 'eye', 's14'),
+                item.on ? 'Skrýt zde' : 'Zobrazit zde',
+            );
+            const edit = h('button', { type: 'button', class: 'btn xs btn-ghost', 'data-page-layer-edit': item.key, title: 'Upravit v kroku 3', onClick: () => editLayersOnPage(ctx, current.kind === 'week' && !Array.isArray(item.layer.pages) ? null : current.key, { select: item.key }) }, icon('edit', 's14'), 'Upravit');
+            const set = item.on ? pageSetText(item.layer, current.key) : 'skrytá na této straně';
+            return h(
+                'div',
+                { class: `cal-p4l${item.on ? '' : ' off'}`, 'data-page-layer': item.key },
+                icon(kindIcon, 's16'),
+                h('span', { class: 'cal-p4lt' }, h('b', null, item.label), h('span', { class: 'cap' }, `${KIND_LABELS[item.layer.kind]} · ${set}${item.eyeOff ? ' · vypnutá ve Vrstvách' : ''}`)),
+                h('span', { class: 'cal-p4la' }, toggle, edit),
+            );
+        });
+        const add = h(
+            'button',
+            { type: 'button', class: 'btn sm btn-ghost', 'data-cal-action': 'page-layer-add', onClick: () => editLayersOnPage(ctx, current.key, { openAdd: true }) },
+            icon('plus', 's16'),
+            'Přidat vrstvu jen na tuto stranu',
+        );
+        const blank = current.kind === 'special' && current.special && current.special.item.kind === 'blank';
+        const hint = blank && !rows.length ? h('p', { class: 'cap' }, 'Prázdná strana nemá vlastní obsah — přidejte na ni obrázky a tvary.') : null;
+        return h('div', { class: 'cal-p4s', 'data-page-layers': '' }, h('span', { class: 'lbl' }, 'Vlastní vrstvy na této straně'), hint, ...rows, add);
+    }
 
     function setImage(current, field, assetId) {
         const stored = state().doc.content.pageImages[current.key] || { head: null, bg: null };
@@ -235,7 +306,8 @@ export function mountPagePanel(root, ctx, opts = {}) {
         }
         // the note about client photos alone is not something to fill in
         const fillable = fields().some((field) => field !== 'photo-note') || hasPageContent(current);
-        const empty = fillable || sections.length ? null : h('p', { class: 'cap' }, 'Tato strana nemá nic k doplnění — vzhled určuje styl z kroku 3.');
+        const blankPage = current.kind === 'special' && current.special && current.special.item.kind === 'blank';
+        const empty = fillable || sections.length || blankPage ? null : h('p', { class: 'cap' }, 'Tato strana nemá nic k doplnění — vzhled určuje styl z kroku 3.');
         const reset = h(
             'button',
             {
@@ -251,7 +323,7 @@ export function mountPagePanel(root, ctx, opts = {}) {
 
         parts = { key, pill, reset, syncs };
         body.dataset.pagePanel = key;
-        body.replaceChildren(...[head, warningBox, hasPageContent(current) ? contentHost : null, ...sections, empty, effectsHost, reset].filter(Boolean));
+        body.replaceChildren(...[head, warningBox, hasPageContent(current) ? contentHost : null, ...sections, empty, layersSection(current), effectsHost, reset].filter(Boolean));
         sync();
     }
 

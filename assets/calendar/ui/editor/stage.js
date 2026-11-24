@@ -5,7 +5,8 @@
 // `mountStage(root, ctx, opts: { embedded: boolean }): { destroy() }`
 //
 //   .cal-stage
-//     .cal-stage-bar          [data-cal-action="link"] · note · [data-cal-action="zoom-out|zoom-fit|zoom-in"]
+//     .cal-stage-bar          [data-cal-action="link"] · page switcher `select[data-stage-page]` (K20 P2,
+//                             value '' = the sample page) · note · [data-cal-action="zoom-out|zoom-fit|zoom-in"]
 //     .cal-cvw                scroll container (the zoomed page may be larger than the stage)
 //       .cal-cv               (W + 2B)·s × (H + 2B)·s px, s = fitScale × zoom — ALL pointer input lands here
 //         .cal-page-svg       renderPage(sample, { bleed: true, placeholders: 'all' })
@@ -25,18 +26,24 @@
 //   - `partsOverlay.update(geometry, scale, selection)` runs after every render (§D.2); a
 //     `pointerdown` that a part bar stopped never reaches the pipeline
 //   - the stage probe (`scale()`, `toClient()`, `page()`) is registered while mounted
+//   - the page shown is `ui.stagePage` (editor/stage-page.js; null = the sample page). On the cover,
+//     back and special pages the built-in content is a picture: only own layers on that page (and
+//     Pozadí) are hit and selected, a selected built-in is dropped. A selected own layer that is
+//     not on the page shown moves the stage to the first page it is on (`showLayerOnStage`).
 
 import { K, bleedOf } from '../../model/defaults.js';
-import { boxKeysOf, frameOfBox, linkBoxKeys, visibleBoxKeys } from '../../model/elements.js';
-import { samplePage } from '../../generate/pages.js';
+import { boxKeysOf, frameOfBox, isElementVisible, linkBoxKeys, visibleBoxKeys } from '../../model/elements.js';
+import { isBuiltInEditable, stagePageChoices, stagePageOf } from '../../editor/stage-page.js';
+import { isLayerKey } from '../../model/layers.js';
 import { renderPage } from '../../render/page.js';
 import { beginDrag, dragTo } from '../../editor/drag.js';
 import { containsPoint, hitTest, partAt } from '../../editor/geometry.js';
 import { dragPartOffset } from '../../editor/parts.js';
 import { fitScale, zoomIn, zoomOut } from '../../editor/zoom.js';
-import { h, icon } from '../dom.js';
+import { h, icon, selectField } from '../dom.js';
 import { mountOverlay, selectedBoxKey } from './overlay.js';
 import { mountPartsOverlay } from './parts-overlay.js';
+import { showLayerOnStage } from './stage-page.js';
 
 const LINK_TIP = 'Zapnuto: změna velikosti prvku posune i prvky, které s ním sousedí (fotka, kalendárium, hlavička). Vypnuto: každý prvek zvlášť.';
 const HINT_ELEMENT = 'Klikněte na prvek, táhněte ho a měňte velikost za úchyty · změna platí pro všechny strany';
@@ -45,7 +52,8 @@ const HINT_PART = 'Táhněte pro posun ve všech řádcích · Esc = zpět na ce
 const STACKED = '(max-width: 960px)';
 // parts whose offset falls back to the offset of Ikony until they get their own (§E.6.8)
 const FOLLOWS_ICON = ['waste', 'moon'];
-const UI_KEYS = ['selection', 'zoom', 'guides', 'panelCollapsed'];
+const UI_KEYS = ['selection', 'zoom', 'guides', 'panelCollapsed', 'stagePage'];
+const HINT_LAYERS_ONLY = 'Na této straně upravujete jen vlastní vrstvy — obsah strany se nastavuje v kroku 4';
 
 const sameSelection = (a, b) => (!a && !b) || Boolean(a && b && a.el === b.el && (a.frame || 0) === (b.frame || 0) && (a.part || null) === (b.part || null));
 
@@ -77,12 +85,18 @@ export function mountStage(root, ctx, opts = {}) {
     const zoomOutButton = h('button', { type: 'button', class: 'btn icon xs btn-ghost', 'aria-label': 'Oddálit', title: 'Oddálit', 'data-cal-action': 'zoom-out', onClick: () => setZoom(zoomOut(store.getState().ui.zoom)) }, icon('minus', 's16'));
     const zoomFitButton = h('button', { type: 'button', class: 'cal-zmv', title: 'Přizpůsobit oknu', 'data-cal-action': 'zoom-fit', onClick: () => setZoom(1) });
     const zoomInButton = h('button', { type: 'button', class: 'btn icon xs btn-ghost', 'aria-label': 'Přiblížit', title: 'Přiblížit', 'data-cal-action': 'zoom-in', onClick: () => setZoom(zoomIn(store.getState().ui.zoom)) }, icon('plus', 's16'));
+    const pagePicker = selectField({ options: [{ value: '', label: 'Vzorová strana' }], value: '', label: 'Strana na plátně', attrs: { 'data-stage-page': '' }, onChange: choosePage });
+    pagePicker.classList.add('cal-stage-pg');
+    const note = h('span', { class: 'cap cal-stage-note' });
+    let pickerKey = '';
+    let noteKey = '';
     const bar = h(
         'div',
         { class: 'cal-stage-bar' },
         linkButton,
         h('span', { class: 'cal-pgsep', 'aria-hidden': 'true' }),
-        h('span', { class: 'cap cal-stage-note' }, h('b', null, 'Vzorová strana'), ' · styl platí pro všechny strany'),
+        pagePicker,
+        note,
         h('span', { class: 'cal-pgsep', 'aria-hidden': 'true' }),
         h('div', { class: 'cal-zm', role: 'group', 'aria-label': 'Zoom' }, zoomOutButton, zoomFitButton, zoomInButton),
     );
@@ -138,7 +152,15 @@ export function mountStage(root, ctx, opts = {}) {
             viewport.scrollTop = fy * viewport.scrollHeight - viewport.clientHeight / 2;
         }
 
-        sample = samplePage(state.doc, store.pages(), state.ui.selection);
+        sample = stagePageOf(state.doc, store.pages(), state.ui);
+        // the stage follows a selected own layer; a built-in cannot be edited on this page
+        const selection = state.ui.selection;
+        if (selection && sample && !isElementVisible(design, selection.el, sample)) {
+            if (isLayerKey(selection.el)) {
+                if (isElementVisible(design, selection.el)) showLayerOnStage(ctx, selection.el);
+            } else if (!isBuiltInEditable(sample)) select(null);
+            if (store.getState().ui !== state.ui) return;
+        }
         if (state.doc !== renderedDoc || sample !== renderedSample) {
             renderedDoc = state.doc;
             renderedSample = sample;
@@ -151,7 +173,7 @@ export function mountStage(root, ctx, opts = {}) {
         }
 
         const geometry = sample ? store.geometry(sample) : null;
-        overlay.update(geometry, scale);
+        overlay.update(geometry, scale, sample);
         partsOverlay.update(geometry, scale, state.ui.selection);
         syncBar(state);
         syncHint(state);
@@ -165,6 +187,23 @@ export function mountStage(root, ctx, opts = {}) {
     }
 
     function syncBar(state) {
+        const pages = store.pages();
+        const choices = stagePageChoices(state.doc, pages, state.ui);
+        const nextPicker = choices.map((c) => `${c.key}=${c.label}`).join('|') + `#${state.ui.stagePage || ''}`;
+        if (nextPicker !== pickerKey) {
+            pickerKey = nextPicker;
+            pagePicker.setOptions(
+                choices.map((c) => ({ value: c.key || '', label: c.label })),
+                state.ui.stagePage && choices.some((c) => c.key === state.ui.stagePage) ? state.ui.stagePage : '',
+            );
+        }
+        const editable = isBuiltInEditable(sample);
+        const nextNote = editable ? (state.ui.stagePage ? 'week' : 'sample') : 'layers';
+        if (nextNote !== noteKey) {
+            noteKey = nextNote;
+            note.replaceChildren(editable ? 'styl platí pro všechny týdny' : 'jen vlastní vrstvy');
+            stage.classList.toggle('layers-only', !editable);
+        }
         const linked = state.doc.design.linkElements !== false;
         linkButton.classList.toggle('on', linked);
         linkButton.setAttribute('aria-pressed', String(linked));
@@ -190,11 +229,12 @@ export function mountStage(root, ctx, opts = {}) {
         const selection = state.ui.selection;
         const part = selection && selection.el === 'cal' ? selection.part || null : null;
         const moved = Boolean(part && state.doc.design.layout.styles.offsets[part]);
-        const key = selection && selection.el === 'cal' ? (part ? `part:${moved}` : 'block') : 'element';
+        const layersOnly = !isBuiltInEditable(sample);
+        const key = layersOnly ? 'layers' : selection && selection.el === 'cal' ? (part ? `part:${moved}` : 'block') : 'element';
         if (key === hintKey) return;
         hintKey = key;
-        if (!part) {
-            hint.replaceChildren(key === 'block' ? HINT_BLOCK : HINT_ELEMENT);
+        if (!part || layersOnly) {
+            hint.replaceChildren(key === 'layers' ? HINT_LAYERS_ONLY : key === 'block' ? HINT_BLOCK : HINT_ELEMENT);
             return;
         }
         hint.replaceChildren(HINT_PART);
@@ -202,6 +242,16 @@ export function mountStage(root, ctx, opts = {}) {
     }
 
     // ---- actions --------------------------------------------------------------------------
+
+    /** The page switcher: a selection that the chosen page does not draw is dropped (else the stage would follow it back). */
+    function choosePage(value) {
+        const state = store.getState();
+        const key = value || null;
+        const next = stagePageOf(state.doc, store.pages(), { ...state.ui, stagePage: key });
+        const selection = state.ui.selection;
+        const keep = Boolean(selection && next && isElementVisible(state.doc.design, selection.el, next));
+        store.setUi(keep ? { stagePage: key } : { stagePage: key, selection: null });
+    }
 
     function toggleLink() {
         const on = store.getState().doc.design.linkElements === false;
@@ -261,19 +311,19 @@ export function mountStage(root, ctx, opts = {}) {
 
         const handle = event.target.closest ? event.target.closest('[data-handle]') : null;
         if (handle && canvas.contains(handle)) {
-            const key = selectedBoxKey(design, selection);
+            const key = selectedBoxKey(design, selection, sample);
             if (!key) return;
             gesture = { ...base, kind: 'resize', key, handle: handle.dataset.handle };
             capture(event);
             return;
         }
 
-        const target = hitTest(pt, design, selection);
+        const target = hitTest(pt, design, selection, sample);
         if (!target) {
             select(null);
             return;
         }
-        const selectedKey = selectedBoxKey(design, selection);
+        const selectedKey = selectedBoxKey(design, selection, sample);
         const inside = Boolean(selectedKey && containsPoint(design.layout.boxes[selectedKey], pt));
         const calWasSelected = Boolean(selection && selection.el === 'cal');
 
@@ -328,8 +378,8 @@ export function mountStage(root, ctx, opts = {}) {
             mode: g.kind === 'resize' ? g.handle : 'move',
             page: design.page,
             bleedMm: bleedOf(design.print),
-            visibleKeys: visibleBoxKeys(design),
-            linkKeys: linkBoxKeys(design),
+            visibleKeys: visibleBoxKeys(design, sample),
+            linkKeys: linkBoxKeys(design, sample),
             link: design.linkElements !== false,
         });
         g.last = JSON.stringify(g.session.base);
@@ -404,7 +454,7 @@ export function mountStage(root, ctx, opts = {}) {
         // a click: the topmost element under the pointer; on the already selected Kalendárium the part
         const state = store.getState();
         const selection = state.ui.selection;
-        const target = hitTest(g.pt, state.doc.design, selection);
+        const target = hitTest(g.pt, state.doc.design, selection, sample);
         if (!target) {
             select(null);
         } else if (target.el === 'cal' && g.calWasSelected) {
@@ -440,8 +490,8 @@ export function mountStage(root, ctx, opts = {}) {
             canvas.style.cursor = '';
             return;
         }
-        const target = hitTest(pointOf(event), state.doc.design, state.ui.selection);
-        const selectedKey = selectedBoxKey(state.doc.design, state.ui.selection);
+        const target = hitTest(pointOf(event), state.doc.design, state.ui.selection, sample);
+        const selectedKey = selectedBoxKey(state.doc.design, state.ui.selection, sample);
         const onSelected = Boolean(selectedKey && containsPoint(state.doc.design.layout.boxes[selectedKey], pointOf(event)));
         canvas.style.cursor = onSelected || (target && target.el !== 'bg') ? 'move' : '';
     }

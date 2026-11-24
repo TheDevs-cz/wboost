@@ -22,8 +22,11 @@ use WBoost\Web\Value\Calendar\CalendarPictureSource;
  *
  * Only what the asked pages can show is inlined — everything the layout
  * refers to, every content picture that is not bound to a page (event icons)
- * and the per-page pictures of THOSE pages. The other assets keep their sizes
- * (the layout reads them) but carry no URL.
+ * and the per-page pictures of THOSE pages. The picture of an own layer that
+ * is only on some pages (`layout.layers[*].pages` = a list, K20 P2) is a
+ * per-page picture of those pages: a sticker on one week is not carried
+ * through every chunk of the PDF. The other assets keep their sizes (the
+ * layout reads them) but carry no URL.
  */
 final class CalendarRenderAssets
 {
@@ -56,9 +59,7 @@ final class CalendarRenderAssets
         $ids = [];
 
         if ($calendar->layout !== null) {
-            foreach (CalendarLayoutAssets::ids($calendar->layout, false) as $id) {
-                $ids[strtolower($id)] = true;
-            }
+            $ids += self::layoutAssets($calendar->layout)['shared'];
         }
 
         foreach ($calendar->content as $collection => $items) {
@@ -81,7 +82,7 @@ final class CalendarRenderAssets
      */
     public function perPage(Calendar $calendar): array
     {
-        $pages = [];
+        $pages = $calendar->layout !== null ? self::layoutAssets($calendar->layout)['perPage'] : [];
 
         foreach ($calendar->content as $collection => $items) {
             if (!is_array($items)) {
@@ -128,16 +129,20 @@ final class CalendarRenderAssets
 
         // A document that is not the stored one (CalendarPageRenderer::renderDocument):
         // the pictures ITS layout names, on top of the stored layout's.
-        if ($layout !== null) {
-            foreach (CalendarLayoutAssets::ids($layout, false) as $id) {
-                $needed[strtolower($id)] = true;
-            }
+        $unsaved = $layout !== null ? self::layoutAssets($layout) : null;
+
+        if ($unsaved !== null) {
+            $needed += $unsaved['shared'];
         }
 
         $perPage = $this->perPage($calendar);
 
         foreach ($pageKeys as $pageKey) {
             $needed += $perPage[$pageKey] ?? [];
+
+            if ($unsaved !== null) {
+                $needed += $unsaved['perPage'][$pageKey] ?? [];
+            }
         }
 
         $map = [];
@@ -208,6 +213,53 @@ final class CalendarRenderAssets
         }
 
         return $faces;
+    }
+
+    /**
+     * The pictures of a layout: `shared` = what every page may show, `perPage`
+     * = page key → the pictures of own layers shown only on a LIST of pages
+     * (`layers[*].pages` = [keys]) — unless the same picture is also used by
+     * something shown everywhere. Lower-case ids.
+     *
+     * @return array{shared: array<string, true>, perPage: array<string, array<string, true>>}
+     */
+    public static function layoutAssets(\stdClass $layout): array
+    {
+        $perPage = [];
+        $layers = $layout->layers ?? null;
+
+        if ($layers instanceof \stdClass) {
+            /** @var \stdClass $copy */
+            $copy = unserialize(serialize($layout));
+            $copyLayers = $copy->layers;
+            assert($copyLayers instanceof \stdClass);
+
+            foreach (get_object_vars($layers) as $id => $layer) {
+                if (!$layer instanceof \stdClass || !is_array($layer->pages ?? null) || !is_string($layer->asset ?? null)) {
+                    continue;
+                }
+
+                foreach ($layer->pages as $pageKey) {
+                    if (is_string($pageKey)) {
+                        $perPage[$pageKey][strtolower($layer->asset)] = true;
+                    }
+                }
+
+                $item = $copyLayers->{$id};
+                assert($item instanceof \stdClass);
+                $item->asset = null;
+            }
+
+            $layout = $copy;
+        }
+
+        $shared = [];
+
+        foreach (CalendarLayoutAssets::ids($layout, false) as $id) {
+            $shared[strtolower($id)] = true;
+        }
+
+        return ['shared' => $shared, 'perPage' => $perPage];
     }
 
     /** Stands for an asset's data URI in a document that is written in pieces. JSON- and HTML-safe. */

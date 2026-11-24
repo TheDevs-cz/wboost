@@ -301,6 +301,13 @@ export function mountProps(root, ctx) {
         const layout = state.doc.design.layout;
         if (event.type === 'ui') {
             if (event.keys.includes('selection') && selectionKey(layout ? state.ui.selection : null) !== shown) build();
+            // the page on the stage („Jen tato strana“ of an own layer's „Na stránkách“, K20 P2)
+            else if (event.keys.includes('stagePage') && !kal) refresh();
+            return;
+        }
+        if (event.type === 'content') {
+            // the page list changed (a special page added / removed): the page checklist of a layer
+            if (!kal) refresh();
             return;
         }
         if (event.type === 'design') {

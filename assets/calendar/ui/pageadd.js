@@ -10,7 +10,8 @@
 //        list scrolls vertically on a desktop, sideways on narrow screens).
 //        `anchor` gets `aria-expanded` while it is open; `onClose()` runs once, whatever closed it.
 //   `addMenuItems(ctx, { slot, anchor, close, onAdded(id) })`  the chooser of a „+“: the generated
-//        kinds that are not in the calendar yet + Nahrát grafiku + Text z Wordu. `slot` null = the
+//        kinds that are not in the calendar yet + Nahrát grafiku + Text z Wordu + Prázdná strana
+//        (K20 P2 — a page for the designer's own layers). `slot` null = the
 //        old plus menu at the top of the list (the page keeps its stored place and is shown as the
 //        preview); a slot (`state/special-slots.js`) places the page there and calls `onAdded`
 //        with its id — the caller selects it.
@@ -21,12 +22,13 @@
 //        page is switched off (its texts stay stored), an uploaded one is deleted.
 //
 // DOM hooks: `[data-special-add="<id>"]`, `[data-special-upload="image|text"]` (file inputs),
+// `[data-special-add-blank]`,
 // `[data-page-move="up|down|front|back"]`, `[data-page-remove]`.
 
 import { specialSections } from '../state/special-slots.js';
 import { specialPageName } from '../generate/pages.js';
 import { h, icon, onOutside } from './dom.js';
-import { GRAPHIC_ACCEPT, TEXT_ACCEPT, addGraphicPage, addTextPage, placeSpecialPage, specialEntries, switchOnSpecial } from './tools/special.js';
+import { GRAPHIC_ACCEPT, TEXT_ACCEPT, addBlankPage, addGraphicPage, addTextPage, placeSpecialPage, specialEntries, switchOnSpecial } from './tools/special.js';
 
 export function openListMenu({ anchor, containers, label, build, onClose = null }) {
     const el = h('div', { class: 'cal-spam', role: 'menu', 'aria-label': label });
@@ -129,6 +131,18 @@ export function addMenuItems(ctx, { slot = null, anchor, close, onAdded }) {
     items.push(
         upload('image', 'image', 'Nahrát grafiku', 'Hotová strana jako PDF nebo obrázek', GRAPHIC_ACCEPT, addGraphicPage),
         upload('text', 'file', 'Text z Wordu', 'Vysází se do stylu kalendáře', TEXT_ACCEPT, addTextPage),
+        menuItem(
+            {
+                'data-special-add-blank': '',
+                onClick: () => {
+                    close();
+                    done(addBlankPage(ctx, slot));
+                },
+            },
+            'square',
+            'Prázdná strana',
+            'Pro vlastní obrázky a tvary z kroku 3',
+        ),
     );
     return items;
 }
@@ -140,7 +154,9 @@ export async function removeSpecialPage(ctx, id, run = (change) => change()) {
         title: 'Odebrat stránku?',
         text: entry.generated
             ? `Stránka „${entry.label}“ z kalendáře zmizí. Její texty zůstanou uložené — když ji později přidáte znovu, budou zpátky.`
-            : `Stránka „${entry.label}“ i s nahraným souborem se z kalendáře smaže.`,
+            : entry.item.kind === 'blank'
+              ? `Stránka „${entry.label}“ se z kalendáře smaže. Vlastní vrstvy, které byly jen na ní, zůstanou ve Vrstvách — na žádné straně.`
+              : `Stránka „${entry.label}“ i s nahraným souborem se z kalendáře smaže.`,
         confirmLabel: 'Odebrat stránku',
         danger: true,
     });

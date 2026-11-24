@@ -85,11 +85,13 @@ export function containsPoint(box, pt) {
  * Topmost visible element under a trim-relative point: `{ el, frame? }`, `{ el: 'bg' }` on the bare
  * page (bleed included), `null` outside.
  */
-export function hitTest(pt, design, selection) {
+export function hitTest(pt, design, selection, page = null) {
     const layout = design.layout;
     if (!layout) return null;
     for (const el of layout.order) {
-        if (!isElementVisible(design, el)) continue;
+        // with the page on the stage (K20 P2): only what that page draws — own layers within their
+        // page set; on the cover, back and special pages no built-in element
+        if (!isElementVisible(design, el, page)) continue;
         const keys = boxKeysOf(el, design);
         for (let i = 0; i < keys.length; i++) {
             const box = layout.boxes[keys[i]];

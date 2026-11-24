@@ -129,7 +129,7 @@ readonly final class DescribeCalendarChange
             return 'Smazal stránku ' . self::quoted($old);
         }
 
-        $uploaded = in_array($new['kind'] ?? null, ['image', 'text'], true);
+        $uploaded = in_array($new['kind'] ?? null, ['image', 'text', 'blank'], true);
 
         if ($uploaded && $old === null) {
             return 'Přidal vlastní stránku ' . self::quoted($new);
@@ -180,6 +180,7 @@ readonly final class DescribeCalendarChange
             'year' => 'Roční kalendárium',
             'waste' => 'Plánovací kalendář svozu odpadů',
             'notes' => 'Poznámky',
+            'blank' => 'Prázdná strana',
             default => $label !== '' ? self::cut($label, 80) : 'Vlastní strana',
         };
     }

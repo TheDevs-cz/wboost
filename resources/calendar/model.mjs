@@ -414,8 +414,17 @@ async function main(input) {
         const strokeKeys = kind === 'line' ? LY.LINE_STROKE_KEYS : LY.STROKE_KEYS;
         for (const [key, member] of Object.entries(value)) {
             if (!keys.includes(key)) refuse('invalid_layer', `${at}.${key} is not a setting of a ${kind} layer. Settings: ${describeKeys(kind)}.`);
-            if (key === 'pages' && member !== 'weeks') refuse('invalid_layer', `${at}.pages: own layers are on every week page for now ("weeks") — page sets (all pages, chosen pages) are not available yet.`);
-            if (key === 'except' && !(Array.isArray(member) && member.length === 0)) refuse('invalid_layer', `${at}.except: hiding a layer on single pages is not available yet — send [] or leave it out.`);
+            if (key === 'pages' || key === 'except') {
+                const list = Array.isArray(member);
+                if (key === 'pages' && !list && !LY.PAGE_SETS.includes(member)) refuse('invalid_layer', `${at}.pages must be "weeks" (every week page), "all" (every page: cover, special pages, weeks, back) or a list of page keys (render_calendar_page / get_calendar pages[].key: "cover", "w05", "sp:<id>", "back"…).`);
+                if (key === 'except' && !list) refuse('invalid_layer', `${at}.except must be a list of page keys the layer is hidden on (only beside pages "weeks" / "all").`);
+                if (list) {
+                    if (member.length > LY.MAX_LAYER_PAGES) refuse('invalid_layer', `${at}.${key}: at most ${LY.MAX_LAYER_PAGES} page keys.`);
+                    for (const pageKey of member) {
+                        if (typeof pageKey !== 'string' || !LY.PAGE_KEY_PATTERN.test(pageKey)) refuse('invalid_layer', `${at}.${key}: ${JSON.stringify(pageKey)} is not a page key ("cover", "pre", "w01"…"w53", "post", "back", "sp:<id>").`);
+                    }
+                }
+            }
             if (key === 'name' && typeof member !== 'string') refuse('invalid_layer', `${at}.name must be a text (at most ${LY.LAYER_NAME_MAX} characters, '' = the numbered default).`);
             if (key === 'blend' && !FX.BLEND_VALUES.includes(member)) refuse('invalid_layer', `${at}.blend must be one of ${quote(FX.BLEND_VALUES)}.`);
             if (key === 'fit' && !LY.IMAGE_FITS.includes(member)) refuse('invalid_layer', `${at}.fit must be one of ${quote(LY.IMAGE_FITS)}.`);
@@ -443,7 +452,16 @@ async function main(input) {
         for (const key of ['fill', 'stroke']) {
             if (value[key] !== undefined && base[key]) merged[key] = { ...base[key], ...asMap(value[key]) };
         }
+        if (Array.isArray(merged.pages) && Array.isArray(merged.except) && merged.except.length) {
+            if (Array.isArray(value.except) && value.except.length) refuse('invalid_layer', `${at}.except only goes with pages "weeks" / "all" — with a list of pages, leave the page out of the list instead.`);
+            merged.except = [];
+        }
         const layer = LY.normalizeLayer(merged);
+        if (Array.isArray(layer.pages)) {
+            const known = new Set(store.pages().map((p) => p.key));
+            const missing = layer.pages.filter((k) => !known.has(k));
+            if (missing.length) notes.push(`${at}.pages: ${missing.join(', ')} ${missing.length === 1 ? 'is' : 'are'} not a page of this calendar now — kept, shown once such a page exists.`);
+        }
         for (const key of ['opacity', 'radius']) {
             if (typeof value[key] === 'number' && layer[key] !== value[key]) notes.push(`${at}.${key}: ${value[key]} → ${layer[key]} (allowed range / step).`);
         }

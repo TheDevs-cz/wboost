@@ -35,10 +35,10 @@ use WBoost\Web\Mcp\Response\SkillVersionResponse;
  */
 final class SkillRelease
 {
-    public const string VERSION = '0.15.0';
+    public const string VERSION = '0.16.0';
 
     /** One or two lines: what the CURRENT version adds over the previous one. */
-    public const string WHATS_NEW = 'Own layers in desk calendars: `set_calendar_layout` takes `layers` — rectangles (rounded), ellipses, lines and pictures on every week page, placed by `boxes["u:<id>"]` and stacked in `order`.';
+    public const string WHATS_NEW = 'Desk calendar own layers on chosen pages: `set_calendar_layout` layers take `pages` ("weeks" | "all" | [page keys]) and `except`, drawn on the cover, special pages and back too; a new special page kind "blank" (Prázdná strana) for a page of own layers.';
 
     /** A stable download of the latest released skill folder, built by `.github/workflows/plugin-release.yml`. */
     public const string ZIP_URL = 'https://github.com/TheDevs-cz/wboost/releases/latest/download/wboost-skill.zip';

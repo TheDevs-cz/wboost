@@ -79,10 +79,13 @@ Design rules:
   a frame round the photo, a partner-logo strip, a dividing line: add them as
   own layers (`set_calendar_layout` `layers` — rect, rounded rect, ellipse,
   line, picture) instead of baking them into the header or background picture.
-  They are part of the design (on every week page; a client sees them and
-  cannot change them), stack with the built-ins in `order` as `u:<id>` and
-  are placed by `boxes["u:<id>"]`. A palette colour prints with its exact
-  CMYK.
+  They are part of the design (a client sees them and cannot change them),
+  stack with the built-ins in `order` as `u:<id>` and are placed by
+  `boxes["u:<id>"]`. A palette colour prints with its exact CMYK. By default
+  a layer is on every week page; `pages` puts it on every page (`"all"`) or on
+  chosen pages (`["cover", "w23", "sp:<id>"]`), `except` hides it on some. A
+  special page of kind `"blank"` („Prázdná strana“) has no content of its own
+  — a page to fill with own layers.
 - **Assets belong to one calendar.** Upload with `upload_calendar_asset`, then
   reference the returned `assetId` (its `next` field says where). A gallery
   image id (`upload_image`, `list_gallery`) is NOT a calendar asset.
@@ -196,6 +199,21 @@ Design rules:
 // later: recolour the stripe only, remove the rule
 { "calendarId": "…", "layers": { "stripe": { "fill": { "color": "#004E7C" } }, "rule": null },
   "order": ["u:partners", "qr", "logo", "cap", "wk", "month", "head", "cal", "photo", "u:stripe"] }
+// page sets: the partner strip also on the cover and the back (every page, minus the intro page),
+// a festival sticker on week 23 only
+{ "calendarId": "…", "layers": {
+    "partners": { "pages": "all", "except": ["sp:intro"] },
+    "festival": { "kind": "image", "asset": "<assetId>", "pages": ["w23"] } } }
+```
+
+```jsonc
+// a page of its own for a big partner wall: a blank special page (update_calendar_content) …
+{ "calendarId": "…", "operations": [ { "collection": "specialPages", "id": "PartnerWall00001",
+    "value": { "kind": "blank", "on": true, "layout": 0, "position": "back", "nextYear": false,
+               "name": "Partneři obce", "asset": null, "text": null, "fileName": null, "pos": 9 } } ] }
+// … then pictures on it only (set_calendar_layout); check with render_calendar_page "sp:PartnerWall00001"
+{ "calendarId": "…", "layers": { "wall": { "kind": "image", "asset": "<assetId>", "pages": ["sp:PartnerWall00001"] } },
+  "boxes": { "u:wall": { "x": 20, "y": 30, "w": 270, "h": 110 } } }
 ```
 
 ```jsonc
@@ -350,8 +368,7 @@ Arguments are applied in this order; the call is atomic.
   layout yet → the browser's default layout for it. Has one → `photoLeft` ↔
   `photoRight` mirrors it and keeps the styling; `reset: true` applies the
   untouched default instead.
-- `layers`: own layers — pictures and shapes drawn on every week page,
-  `{"<id>": item | null}`. A new id (yours: 1–40 of `A–Z a–z 0–9 _ -`) adds
+- `layers`: own layers — pictures and shapes, `{"<id>": item | null}`. A new id (yours: 1–40 of `A–Z a–z 0–9 _ -`) adds
   a layer ON TOP of the stack, centred, sized relative to the page; an
   existing id changes it (`fill` / `stroke` merge one level, the rest
   replaces; the kind cannot change); `null` removes it. At most 50.
@@ -363,8 +380,14 @@ Arguments are applied in this order; the call is atomic.
   butt|round}}` — drawn through the middle of its box, horizontal when the
   box is wider than high (a box keeps min 4 mm height; the line is `width`
   pt) · `image` `{asset (an `image` upload of this calendar), fit
-  contain|cover, radius mm}`. Strokes sit inside the box. Page sets are not
-  available yet (`pages` is always `"weeks"`). Refusals: `invalid_layer`,
+  contain|cover, radius mm}`. Strokes sit inside the box. Which pages:
+  `pages` `"weeks"` (default — every week page) | `"all"` (also the cover,
+  the special pages and the back) | a list of page keys (`get_calendar`
+  `pages[].key`: `"cover"`, `"w05"`, `"sp:<id>"`, `"back"`…; a key without a
+  page this year is kept with a note); `except`: page keys that hide a
+  `"weeks"` / `"all"` layer (not beside a list). On the cover, back and
+  special pages a layer below EVERY built-in element in `order` is drawn
+  under that page's content, any other above it. Refusals: `invalid_layer`,
   `unknown_layer`, `too_many_layers`, `invalid_color`.
 - `boxes`: `{"<element>": {x?, y?, w?, h?, hidden?}}` — mm from the top-left
   trim corner, 0.1 mm steps, inside `[-bleed, size + bleed]`, min 6 × 4.
@@ -377,7 +400,8 @@ Arguments are applied in this order; the call is atomic.
   layer first. An own layer below every built-in element lies under the
   photo and the Kalendárium.
 - A preset `reset` keeps the own layers; `manage_calendar` `import_layout`
-  replaces them with the source calendar's.
+  replaces them with the source calendar's (its `sp:<id>` page keys that are
+  not special pages of this calendar are dropped).
 - `styles`: a partial `layout.styles` — objects merge, scalars and lists
   replace. Sizes and line widths in pt (type 3–60), lengths in mm, opacity
   0–100, colours `#RRGGBB`, `family` = a `get_calendar` `fonts[].family` or
@@ -481,7 +505,7 @@ Dates `YYYY-MM-DD` within `[year−1-12-01, year+1-01-31]`. Weekdays `0` Monday
 | pageGroups | `{page: "sp:contacts"\|"sp:waste", heading ≤80, lines: [{label ≤40, value ≤200}] (≤30), highlight, pos}` — ≤ 60 per calendar | client, designer |
 | moonEdits | `{op: "add"\|"remove", date, phase 0–3}` | designer |
 | shiftOps | `{name ≤30, shifts: [{letter ≤2, from "HH:MM", to "HH:MM"}] (1–4), crews: [4 × ≤2], pos}` | designer |
-| specialPages | `{kind: "intro"\|"contacts"\|"year"\|"waste"\|"notes"\|"image"\|"text", on, layout 0–20, position: "front"\|"back", nextYear, name ≤60, asset\|null, text ≤6000\|null, fileName ≤120\|null, pos}` | designer |
+| specialPages | `{kind: "intro"\|"contacts"\|"year"\|"waste"\|"notes"\|"image"\|"text"\|"blank", on, layout 0–20, position: "front"\|"back", nextYear, name ≤60, asset\|null, text ≤6000\|null, fileName ≤120\|null, pos}` | designer |
 | pageImages | `{head: asset\|null, bg: asset\|null}` (id = page key) | designer |
 | pageQr | `{asset}` (id = page key) | designer |
 | pageEffects | `{photo, logo, head, bg}` (id = page key): each `null` = the style's effect list, or a full effect list (every key, as in `layout.styles.*.effects`) that REPLACES it on that page — `photo` is the week photo, on the cover / intro / contacts page that page's photo | designer |

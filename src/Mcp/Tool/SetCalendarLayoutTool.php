@@ -52,7 +52,7 @@ readonly final class SetCalendarLayoutTool
      * the elements sit, which are hidden, how they stack, and every style
      * (fonts, sizes, colours, fills, the Kalendárium's parts, icons). One
      * layout serves ALL week pages of the calendar — pages never have their
-     * own. Designer role only. Call get_calendar first: its layout is the
+     * own (only own layers may be limited to some pages). Designer role only. Call get_calendar first: its layout is the
      * exact tree this tool patches, and fonts[] / palette are what you may use.
      * Check the result with render_calendar_page.
      *
@@ -99,9 +99,13 @@ readonly final class SetCalendarLayoutTool
      *    A new layer goes on TOP of the stack, centred; place it with
      *    boxes["u:<id>"] {x, y, w, h, hidden} in the same call and restack it
      *    with order (own layers appear there as "u:<id>"). Strokes sit inside
-     *    the box; a project palette colour prints with its exact CMYK. Own
-     *    layers are on all week pages (page sets are not available yet). Up
-     *    to 50.
+     *    the box; a project palette colour prints with its exact CMYK.
+     *    pages: "weeks" (default — every week page), "all" (also the cover,
+     *    the special pages and the back) or a list of page keys ["cover",
+     *    "w05", "sp:<id>", "back"…] (render_calendar_page pages[].key);
+     *    except: page keys hiding a "weeks" / "all" layer. On the cover, back
+     *    and special pages a layer BELOW every built-in element in order is
+     *    drawn under the page's content, any other above it. Up to 50.
      * 5. styles — a partial copy of layout.styles: nested objects are merged,
      *    scalars and lists are replaced whole. Example: {"num": {"size": 30,
      *    "color": "#1A1A1A"}, "month": {"upper": false}, "cal": {"numberSide":

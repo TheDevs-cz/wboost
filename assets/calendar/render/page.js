@@ -6,6 +6,8 @@ import { effectsFor } from '../model/effects.js';
 import { layoutWeekPage } from './week-layout.js';
 import { renderWeekPage } from './week.js';
 import { renderBack, renderCover, renderSpecial } from './special.js';
+import { pageLayerBands } from '../model/layers.js';
+import { renderLayer } from './layers.js';
 
 const marksMargin = (B) => B + MARKS.gapMm + MARKS.lengthMm + 1;
 
@@ -76,12 +78,15 @@ export function renderPage(doc, page, opts) {
 
     if (page.kind === 'week') {
         if (design.layout) body += renderWeekPage(doc, page, layoutWeekPage(doc, page, o), o);
-    } else if (page.kind === 'cover') {
-        body += renderCover(doc, page, o);
-    } else if (page.kind === 'back') {
-        body += renderBack(doc, page, o);
     } else {
-        body += renderSpecial(doc, page, o);
+        // own layers (K20 P2): the cover, back and special pages have no element stack — layers
+        // below every built-in element go under the page's content, the others over it
+        const bands = pageLayerBands(design.layout, page);
+        for (const key of bands.under) body += renderLayer(doc, page, key, o);
+        if (page.kind === 'cover') body += renderCover(doc, page, o);
+        else if (page.kind === 'back') body += renderBack(doc, page, o);
+        else body += renderSpecial(doc, page, o);
+        for (const key of bands.over) body += renderLayer(doc, page, key, o);
     }
     if (o.holes) body += holesMarkup(design.page);
 

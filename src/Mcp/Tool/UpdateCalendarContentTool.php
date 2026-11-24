@@ -185,7 +185,7 @@ readonly final class UpdateCalendarContentTool
      * - shiftOps {name ≤30, shifts: [{letter ≤2, from "HH:MM", to "HH:MM"}] (1–4),
      *   crews: [four strings ≤2], pos} — a shift table column ("Šichtovnice").
      * - specialPages {kind: "intro"|"contacts"|"year"|"waste"|"notes"|"image"|
-     *   "text", on, layout 0–20, position: "front"|"back", nextYear, name ≤60,
+     *   "text"|"blank", on, layout 0–20, position: "front"|"back", nextYear, name ≤60,
      *   asset|null, text ≤6000|null, fileName ≤120|null, pos} — the generated
      *   pages use the fixed ids intro, contacts, year, waste, notes (a page of
      *   ruled lines). Layouts — intro: 0 photo + text, 1 text only, 2 portrait
@@ -194,7 +194,9 @@ readonly final class UpdateCalendarContentTool
      *   grid, 1 grid + texts beside it (pageGroups of "sp:waste").
      *   A special page appears only while on is true AND the feature
      *   specialPages is on; "image" pages show their uploaded asset (kind
-     *   "page"), "text" pages their text. Its page key is "sp:<id>".
+     *   "page"), "text" pages their text, "blank" pages nothing of their own
+     *   („Prázdná strana“ — put own layers on it with set_calendar_layout
+     *   layers[id].pages ["sp:<id>"]). Its page key is "sp:<id>".
      * - pageImages {head: asset|null, bg: asset|null}, pageQr {asset} — a page's
      *   own header / background picture and QR code (id = page key).
      * - pageEffects {photo, logo, head, bg} — a page's own layer effects

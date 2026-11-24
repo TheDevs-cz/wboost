@@ -435,14 +435,14 @@ measurements behind it: `docs/calendar/effects-plan.md`). Model
   stage redraws within the same two frames with or without effects (median
   16.7 ms); step 4 with 55 thumbnails mounts in < 0.1 s (thumbnails are lazy).
 
-### Own layers („Vlastní vrstvy“, feedback K20 P1, 2026-11-24)
+### Own layers („Vlastní vrstvy“, feedback K20 P1 + P2, 2026-11-24)
 
 Pictures and shapes the designer adds on top of (or under) the built-in
 elements. Plan, phases and Jan's decisions D1–D5 (all approved as
-recommended): `docs/calendar/custom-layers-plan.md`. P1 is built — own
-layers on every week page; page sets („Na stránkách“, cover / back / special
-pages, „Prázdná strana“) are P2, effects / gradient / crop / lock P3, a
-static text layer P4.
+recommended): `docs/calendar/custom-layers-plan.md`. P1 (own layers on every
+week page) and P2 (page sets, the cover / back / special pages, „Prázdná
+strana“) are built; effects / gradient / crop / lock are P3, a static text
+layer P4.
 
 - **Where (D1 — design, never a per-page override)**: `layout.layers` =
   `{ "<id>": Layer }`, the geometry is the box `layout.boxes["u:<id>"]`
@@ -469,6 +469,63 @@ static text layer P4.
   diagonals. Ranges `LIMITS.layerRadius` (0–100 mm), `layerStroke` (0.1–20 pt),
   `percent`. `layerOnPage(layer, page)` is the page-set rule (a key without a
   page is simply not shown).
+- **Page sets (P2)**: `pages` `'weeks'` (D2: the default of a new layer) |
+  `'all'` (cover, front special pages, weeks, back special pages, back) | a
+  list of page keys (`cover`, `w05`, `sp:<id>`… — „jen tato strana“ is a list
+  of one); `except` (only beside a set) hides a layer on single pages — step
+  4 „Skrýt zde“. Nothing is rewritten on a year / type change or when a
+  special page goes: a key without a page draws nothing, the panel counts it
+  („2 vybrané strany v kalendáři nejsou“). Helpers in `model/layers.js`:
+  `pageLayerBands`, `isLayerUnder`, `pagesOfLayer`, `missingPageKeys`,
+  `pageSetText`, `showLayerOnPage` (toggle a page in `except` / the list),
+  `dropForeignPageKeys`. All of it is DESIGN: undoable, one layout save, never
+  an „Upraveno“ override, untouched by „Vrátit na styl“.
+- **Cover, back and special pages (P2)** have no element stack, so
+  `renderPage` draws two bands around `renderCover` / `renderBack` /
+  `renderSpecial`: a layer **below every built-in element** in `order`
+  (`isLayerUnder`) is drawn UNDER the page's content, every other one OVER
+  it, both bottom first; the binding holes stay on top. Without layers the
+  markup is byte for byte as before (suite `layers`). Vrstvy shows the
+  divider `[data-layer-under]` „pod obsahem ostatních stran“ under the lowest
+  built-in row while any layer is on such a page.
+- **„Prázdná strana“ (P2, D5)** — `specialPages` kind `blank`
+  (`CalendarContentRules::SPECIAL_PAGE_KINDS`, `OWN_SPECIAL_KINDS` in
+  `generate/pages.js` with `image` / `text`): no content of its own (an empty
+  `<g data-el="special" data-kind="blank">`), subtitle „Vlastní strana“, made
+  by „+“ › „Prázdná strana“ (`[data-special-add-blank]`, `addBlankPage`) at
+  any K13 insertion point or the plus menu; its Speciální stránky card has
+  „Vrstvy“ (`[data-special-layers]` → step 3 on that page) instead of
+  „Vyměnit soubor“. Deleting it leaves its layers in Vrstvy (on no page).
+  History: „Přidal vlastní stránku …“.
+- **The stage page (P2, `editor/stage-page.js` + `ui/editor/stage-page.js`)**:
+  `ui.stagePage` = a page key or null (the sample page). The stage bar's
+  switcher `select[data-stage-page]` lists the sample, every page that is not
+  a week page and the week pages some layer names in its list. On a week
+  page everything is as before; on the cover / back / special pages
+  `isElementVisible(design, key, page)` / `hitTest(…, page)` /
+  `visibleBoxKeys(design, page)` see only own layers in their page set (and
+  Pozadí) — a built-in selection is dropped, the hint says „jen vlastní
+  vrstvy“, built-in rows are dimmed (`.away`) and choosing one takes the
+  stage back to the sample. A selected own layer that is not on the page
+  shown moves the stage to the first page it is on; the switcher drops a
+  selection the chosen page does not draw. A layer added while a page is
+  chosen gets `pages: [thatKey]`, on the sample `'weeks'`. `?krok=3&strana=`
+  addresses the stage page (`state/url.js`); a stage page whose page went
+  away falls back to the sample (`clampView`).
+- **„Na stránkách“** in the layer panel: `select[data-prop="layer.pages"]` —
+  Všechny týdenní strany / Všechny strany kalendáře / Vybrané strany… /
+  Jen tato strana (the page on the stage); „Vybrané“ opens the checklist of
+  every page (`[data-layer-page="<key>"]`); a set with `except` says on how
+  many pages it is hidden + „Zobrazit všude“ (`layer-except-clear`). Rows of
+  Vrstvy show the set when it is not the default (`[data-layer-pages]`).
+- **Step 4 page panel (P2)**: „Vlastní vrstvy na této straně“
+  (`[data-page-layers]`) lists the layers whose set holds the page (also
+  those hidden right here) — `[data-page-layer-toggle]` Skrýt zde / Zobrazit
+  zde, `[data-page-layer-edit]` Upravit (step 3, that page, the layer
+  selected), `[data-cal-action="page-layer-add"]` „Přidat vrstvu jen na tuto
+  stranu“ (step 3 on that page with the „Přidat“ menu open —
+  `ui.layerAddOpen`). Step 4 is the designer's; step 5 and the client link
+  only draw layers.
 - **Render** (`render/layers.js`, dispatched from `renderWeekPage`'s `order`
   loop): `<g data-el="layer" data-layer="<id>" opacity mix-blend-mode>`;
   rect / ellipse / line are plain vector elements (`re` / Béziers in the
@@ -494,7 +551,12 @@ static text layer P4.
   card over a scanned layout KEEP them (`carryLayers` — they are not part of a
   preset); „Nahrát layout“ (file / sibling) and MCP `import_layout` REPLACE
   them with the file's (the file is the design; its picture assets are copied
-  as every layout asset — `CalendarLayoutAssets` walks `layers[*].asset`);
+  as every layout asset — `CalendarLayoutAssets` walks `layers[*].asset`;
+  P2: the source's `sp:<id>` page keys that are not special pages here are
+  dropped — the generated ids `intro contacts year waste notes` and the
+  target's own special pages stay; `dropForeignPageKeys` in `parseLayoutFile`
+  (with the calendar's content) and `ImportCalendarLayout::dropForeignPageKeys`
+  on the server, which is authoritative);
   **the AI scan's accept keeps them** (`replace_layout` with `keepLayers` —
   `AcceptCalendarScanHandler`), its restore brings back the stored layout with
   its own. An old browser tab (pre-K20 JS) drops `layers` on its next layout
@@ -512,7 +574,10 @@ static text layer P4.
   element AND every own layer. A preset `reset` keeps the own layers
   (`replace_layout` / `replaceLayout(…, { keepLayers })`), `import_layout`
   replaces them. `get_calendar` returns them in `layout.layers`,
-  `render_calendar_page` draws them (`CalendarDesignToolsTest`).
+  `render_calendar_page` draws them (`CalendarDesignToolsTest`). Since skill
+  0.16.0 (P2) `pages` takes `'all'` or a list of page keys (a key that is not
+  a page now is kept with a note), `except` a list beside a set; the
+  `specialPages` kind `blank` makes a page for layers.
 - **UI — step 3 › Vrstvy** (`ui/editor/layers.js`, also in step 4 „Styl
   stránek“): „Přidat“ `[data-cal-action="layer-add"]` → menu
   `[data-layer-add="image|gallery|rect|rounded|ellipse|line"]` (Obrázek —
@@ -537,8 +602,8 @@ static text layer P4.
   (on, colour, Krytí) + Obrys (on, colour, pt, Plná | Čárkovaná | Tečkovaná)
   + Zaoblení rohů (rect) · Barva, Tloušťka, Styl, Zakončení (line); Vrstva:
   Krytí vrstvy, Prolnutí; Duplikovat, Smazat vrstvu. Every write goes through
-  `normalizeLayer`. The panel says „na všech týdenních stranách“ — the page
-  set control comes with P2. e2e `user-layers.e2e.cjs`.
+  `normalizeLayer`. e2e `user-layers.e2e.cjs` (P1), `layer-pages.e2e.cjs`
+  (P2: blank page, stage pages, page sets, step 4, print PDF read back).
 - **Server** (`CalendarDesignRules` + `CalendarLayerRules`, the PHP mirror of
   `model/layers.js` — `CalendarLayerContractTest` pins kinds, keys, enums,
   caps and ranges via `tests/Fixtures/calendar/dump-layers.mjs`): top-level
@@ -2353,7 +2418,11 @@ overflow warning, the approval PDF read with `pdftotext`).
   `CalendarRenderAssets`** (`PER_PAGE_COLLECTIONS` + `idsOf`): the headless
   page gets a data URI only for assets that class finds — a new nested
   reference (`pageContent[*].photo.asset`) renders in the workspace and is
-  missing in the PDF otherwise.
+  missing in the PDF otherwise. The picture of an own layer on a LIST of
+  pages (K20 P2) is a per-page picture of those pages
+  (`CalendarRenderAssets::layoutAssets` — shared only when something shown
+  everywhere uses it too), so a sticker on one week is not inlined into every
+  chunk of the PDF.
 - **`ensureFixture()` / the e2e runner write to the dev database** — into their
   own project only. Do not point `BASE` at anything that is not a dev stack.
 

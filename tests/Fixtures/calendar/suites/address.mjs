@@ -59,6 +59,9 @@ export default async function (t, load) {
         assert.deepEqual(addressOf({ mode: 'designer', step: 5, ui, pages }), { step: 5, page: 'back' });
         assert.deepEqual(addressOf({ mode: 'client', step: 5, ui, pages }), { step: null, page: 'back' });
         assert.deepEqual(addressOf({ mode: 'designer', step: 5, ui: { ...ui, previewPage: 9 }, pages }), { step: 5, page: null });
+        // step 3 (K20 P2): the page on the stage, while one is chosen and exists
+        assert.deepEqual(addressOf({ mode: 'designer', step: 3, ui: { ...ui, stagePage: 'cover' }, pages }), { step: 3, page: 'cover' });
+        assert.deepEqual(addressOf({ mode: 'designer', step: 3, ui: { ...ui, stagePage: 'sp:gone' }, pages }), { step: 3, page: null });
         assert.equal(pageIndexOf(pages, 'w01'), 1);
         assert.equal(pageIndexOf(pages, 'w02'), null);
         assert.equal(pageIndexOf(pages, null), null);

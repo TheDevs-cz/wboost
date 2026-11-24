@@ -18,6 +18,8 @@
 //   `addTextPage(ctx, file, slot?)`     Text z Wordu — `.docx` / `.txt`, typeset in the calendar style
 //                                    (with a slot: placed there and NOT shown as the preview — the
 //                                    caller selects the page; both resolve to the new id or null)
+//   `addBlankPage(ctx, slot?)`          Prázdná strana (K20 P2, D5) — no content of its own, the
+//                                    designer fills it with own layers in step 3; returns the new id
 //
 // DOM hooks: `[data-special="<id>"]` (+ class `on` / `sel`), `[data-special-on]` (native checkbox —
 // click its label), `[data-special-preview]`, `[data-special-position] [data-value]`,
@@ -28,7 +30,8 @@
 
 import Sortable from 'sortablejs';
 import { newId, reorder } from '../../model/content.js';
-import { SPECIAL_KIND_LABELS, orderedSpecialPages, specialPageName } from '../../generate/pages.js';
+import { OWN_SPECIAL_KINDS, SPECIAL_KIND_LABELS, orderedSpecialPages, specialPageName } from '../../generate/pages.js';
+import { editLayersOnPage } from '../editor/stage-page.js';
 import { placeSpecial } from '../../state/special-slots.js';
 import { SPECIAL_LAYOUTS } from '../../render/special.js';
 import { checkRow, debounce, h, icon, segmented } from '../dom.js';
@@ -39,7 +42,7 @@ export const TEXT_ACCEPT = '.docx,.txt,application/vnd.openxmlformats-officedocu
 const NAME_MAX = 60;
 const FILE_NAME_MAX = 120;
 
-const isGenerated = (item) => item.kind !== 'image' && item.kind !== 'text';
+const isGenerated = (item) => !OWN_SPECIAL_KINDS.includes(item.kind);
 const isTextFile = (file) => /\.(docx|txt)$/i.test(file.name) || file.type === 'text/plain';
 const baseName = (fileName) => String(fileName).replace(/\.[^.]+$/, '').trim().slice(0, NAME_MAX) || 'Vlastní strana';
 
@@ -127,6 +130,20 @@ export function addGraphicPage(ctx, file, slot = null) {
         return Promise.resolve(null);
     }
     return addUploadedPage(ctx, file, slot);
+}
+
+export function addBlankPage(ctx, slot = null) {
+    const id = newId();
+    const name = SPECIAL_KIND_LABELS.blank;
+    const item = { kind: 'blank', on: true, layout: 0, position: 'front', nextYear: false, name, asset: null, text: null, fileName: null, pos: nextPosition(ctx) };
+    if (slot) {
+        placeSpecialPage(ctx, id, slot, item);
+        return id;
+    }
+    ensureFeature(ctx);
+    ctx.store.putItem('specialPages', id, item, name);
+    showSpecial(ctx, id);
+    return id;
 }
 
 export function addTextPage(ctx, file, slot = null) {
@@ -269,7 +286,7 @@ export function mountSpecialPanel(root, ctx) {
                 onBlur: () => {
                     // an uploaded page never stays nameless
                     const current = itemOf(id);
-                    if (current && current.item.name.trim() === '') write(id, { name: baseName(current.item.fileName || '') }, false);
+                    if (current && current.item.name.trim() === '') write(id, { name: current.item.kind === 'blank' ? SPECIAL_KIND_LABELS.blank : baseName(current.item.fileName || '') }, false);
                 },
             });
             parts.file = h('input', { type: 'file', class: 'sr', accept: `${GRAPHIC_ACCEPT},${TEXT_ACCEPT}`, 'data-special-file': '' });
@@ -301,7 +318,12 @@ export function mountSpecialPanel(root, ctx) {
                 },
                 icon('trash', 's16'),
             );
-            children.splice(1, 0, h('div', { class: 'cal-spown' }, h('span', { class: 'inp sm' }, parts.name), parts.fileLabel, parts.remove));
+            // a blank page has no file: its content is the designer's own layers (step 3)
+            const second =
+                item.kind === 'blank'
+                    ? h('button', { type: 'button', class: 'btn xs btn-ghost', 'data-special-layers': '', title: 'Otevřít stránku v kroku 3 a přidat na ni vlastní vrstvy', onClick: () => editLayersOnPage(ctx, `sp:${id}`) }, icon('layers', 's14'), 'Vrstvy')
+                    : parts.fileLabel;
+            children.splice(1, 0, h('div', { class: 'cal-spown' }, h('span', { class: 'inp sm' }, parts.name), second, parts.remove));
         }
         parts.el = h('section', { class: 'cal-sp', 'data-special': id }, ...children);
         return parts;

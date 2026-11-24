@@ -5,6 +5,23 @@ every deploy. When the server is newer than your skill, Claude tells you once
 per session how to update (see the README). Versions follow `x.y.z`: a new or
 changed tool or parameter is at least a minor bump.
 
+## 0.16.0 — 2026-11-24
+
+**Own layers on chosen pages, „Prázdná strana“ (desk calendars).**
+
+New parameters and behaviour
+- `set_calendar_layout` `layers[id].pages`: `"weeks"` (default, every week
+  page), `"all"` (also the cover, the special pages and the back) or a list
+  of page keys (`"cover"`, `"w23"`, `"sp:<id>"`, `"back"`…; a key without a
+  page this year is kept with a note); `except`: page keys that hide a
+  `"weeks"` / `"all"` layer. On the cover, back and special pages a layer
+  below every built-in element in `order` is drawn under the page's content,
+  the others above it.
+- `update_calendar_content` `specialPages` takes kind `"blank"` — a page with
+  no content of its own, for own layers.
+- `manage_calendar` `import_layout` drops the source's `sp:<id>` page keys
+  that are not special pages of the target.
+
 ## 0.15.0 — 2026-11-24
 
 **Own layers in desk calendars (Vlastní vrstvy).**

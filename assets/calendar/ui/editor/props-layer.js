@@ -5,6 +5,12 @@
 // `layerPanel(ctx, key, refresher) → { el, refresh() }`
 //
 //   Název         [data-prop="layer.name"]          empty = the numbered fallback („Obdélník 2“)
+//   Na stránkách  [data-prop="layer.pages"] (select: weeks | all | pick | here) — K20 P2: všechny
+//                 týdenní strany (D2, the default) / všechny strany / vybrané strany / jen tato
+//                 strana (= the page on the stage); „Vybrané“ opens the checklist of every page
+//                 `[data-layer-page="<pageKey>"]`; a set with `except` says how many pages hide
+//                 the layer + [data-cal-action="layer-except-clear"] „Zobrazit všude“; keys
+//                 without a page this year are counted („2 vybrané strany v kalendáři nejsou“)
 //   Pozice a velikost                               `positionSection` (never links: own layers
 //                                                   are decoration — elements.js linkBoxKeys)
 //   image:   Obrázek (upload `image` / [data-cal-action="layer-gallery"] Z galerie / Odebrat),
@@ -18,14 +24,14 @@
 // Writing rule as everywhere in the editor: a discrete control = one `store.change` (one undo
 // step), a slider = `beginChange` / `updateLive` / `commitChange` (one undo step per drag). Every
 // write goes through `normalizeLayer`, so the stored item is always the normalised shape.
-// Page sets („Na stránkách“) come in P2 — the panel says where the layer is.
 
 import { BLEND_MODES } from '../../model/effects.js';
-import { KIND_LABELS, duplicateLayer, layerIdOf, layerLabel, newLayer, normalizeLayer, removeLayer, setLayer } from '../../model/layers.js';
+import { KIND_LABELS, duplicateLayer, layerIdOf, layerLabel, missingPageKeys, newLayer, normalizeLayer, pageSetText, removeLayer, setLayer } from '../../model/layers.js';
+import { stagePageOf } from '../../editor/stage-page.js';
 import { newId } from '../../model/content.js';
 import { bleedOf } from '../../model/defaults.js';
 import { pageBounds } from '../../editor/geometry.js';
-import { h, icon, segmented, selectField, switchRow } from '../dom.js';
+import { checkRow, h, icon, segmented, selectField, switchRow } from '../dom.js';
 import { getPath, setPath } from '../controls/bind.js';
 import { colorPalette, colorPicker } from '../controls/color.js';
 import { limitField, sliderRow } from '../controls/number.js';
@@ -138,6 +144,91 @@ export function layerPanel(ctx, key, refresher) {
     paintName();
     refresher.track(() => layer() && layer().name, paintName);
 
+    // ---- Na stránkách (K20 P2) ------------------------------------------------------------------
+
+    const pages = () => store.pages();
+    const shownPage = () => stagePageOf(store.getState().doc, pages(), store.getState().ui);
+    const writePages = (patch) => {
+        const current = layer();
+        if (!current) return;
+        const next = normalizeLayer({ ...current, ...patch });
+        if (next && JSON.stringify(next) !== JSON.stringify(current)) store.change((l) => setLayer(l, id, next));
+    };
+    // „Vybrané strany…“ chosen in this panel: a list of one page stays „Vybrané“ (with its checklist)
+    // even when that page is the one on the stage — „Jen tato strana“ is the same data
+    let picking = false;
+    const modeOf = (l) => {
+        if (!l) return 'weeks';
+        if (!Array.isArray(l.pages)) return l.pages;
+        if (picking) return 'pick';
+        const shown = shownPage();
+        return l.pages.length === 1 && shown && l.pages[0] === shown.key ? 'here' : 'pick';
+    };
+    const modeOptions = () => {
+        const shown = shownPage();
+        return [
+            { value: 'weeks', label: 'Všechny týdenní strany' },
+            { value: 'all', label: 'Všechny strany kalendáře' },
+            { value: 'pick', label: 'Vybrané strany…' },
+            { value: 'here', label: shown ? `Jen tato strana (${shown.title})` : 'Jen tato strana', disabled: !shown },
+        ];
+    };
+    const modeSelect = selectField({
+        label: 'Na stránkách',
+        options: modeOptions(),
+        value: modeOf(layer()),
+        attrs: { 'data-prop': 'layer.pages' },
+        onChange: (mode) => {
+            const current = layer();
+            const shown = shownPage();
+            picking = mode === 'pick';
+            if (mode === 'weeks' || mode === 'all') writePages({ pages: mode, except: Array.isArray(current.pages) ? [] : current.except });
+            else if (mode === 'here') writePages({ pages: shown ? [shown.key] : [], except: [] });
+            else writePages({ pages: Array.isArray(current.pages) ? current.pages : shown ? [shown.key] : [], except: [] });
+            paintPages();
+        },
+    });
+    const checklist = h('div', { class: 'cal-lpages', role: 'group', 'aria-label': 'Vybrané strany' });
+    const setNote = h('p', { class: 'cap cal-note', 'data-layer-pages-note': '' });
+    const clearExcept = h('button', { type: 'button', class: 'btn xs btn-ghost', 'data-cal-action': 'layer-except-clear', onClick: () => writePages({ except: [] }) }, icon('eye', 's14'), 'Zobrazit všude');
+    const paintPages = () => {
+        const current = layer();
+        if (!current) return;
+        modeSelect.setOptions(modeOptions(), modeOf(current));
+        const list = Array.isArray(current.pages);
+        checklist.hidden = !(list && modeOf(current) === 'pick');
+        if (!checklist.hidden) {
+            const scroll = checklist.scrollTop;
+            checklist.replaceChildren(
+                ...pages().map((page) => {
+                    const row = checkRow({
+                        label: page.kind === 'week' ? `${page.title} · ${page.subtitle}` : page.title,
+                        checked: current.pages.includes(page.key),
+                        attrs: { 'data-layer-page': page.key },
+                        onChange: (on) => {
+                            const now = layer();
+                            if (!now || !Array.isArray(now.pages)) return;
+                            writePages({ pages: on ? [...now.pages.filter((k) => k !== page.key), page.key] : now.pages.filter((k) => k !== page.key) });
+                        },
+                    });
+                    return row;
+                }),
+            );
+            checklist.scrollTop = scroll;
+        }
+        const missing = missingPageKeys(current, pages()).length;
+        const hidden = list ? 0 : current.except.length;
+        const parts = [];
+        if (list && modeOf(current) === 'pick') parts.push(`Vybráno: ${pageSetText(current)}.`);
+        if (missing) parts.push(missing === 1 ? '1 vybraná strana v kalendáři není.' : `${missing} ${missing <= 4 ? 'vybrané strany' : 'vybraných stran'} v kalendáři nejsou.`);
+        if (hidden) parts.push(hidden === 1 ? 'Na 1 straně je skrytá (krok 4).' : `Na ${hidden} stranách je skrytá (krok 4).`);
+        setNote.textContent = parts.join(' ');
+        setNote.hidden = parts.length === 0;
+        clearExcept.hidden = hidden === 0;
+    };
+    paintPages();
+    refresher.track(() => `${JSON.stringify(layer() ? [layer().pages, layer().except] : null)}#${(shownPage() || {}).key}#${pages().map((p) => p.key).join(',')}`, paintPages);
+
     // ---- kind-specific ------------------------------------------------------------------------
 
     const sections = [];
@@ -223,7 +314,14 @@ export function layerPanel(ctx, key, refresher) {
     );
 
     const position = positionSection(ctx, key);
-    const head = panelHead(layerLabel(layout(), key), `${KIND_LABELS[kind]} · na všech týdenních stranách`);
+    const head = panelHead(layerLabel(layout(), key), `${KIND_LABELS[kind]} · ${pageSetText(layer(), (shownPage() || {}).key)}`);
+    const sub = head.querySelector('.cap');
+    refresher.track(
+        () => (layer() ? `${KIND_LABELS[kind]} · ${pageSetText(layer(), (shownPage() || {}).key)}` : ''),
+        (text) => {
+            if (text && sub) sub.textContent = text;
+        },
+    );
     const title = head.querySelector('[data-props-title]');
     refresher.track(
         () => (layer() ? layerLabel(layout(), key) : ''),
@@ -234,6 +332,7 @@ export function layerPanel(ctx, key, refresher) {
     const el = panelRoot(
         head,
         section('Název', nameBox),
+        section('Na stránkách', modeSelect, checklist, setNote, clearExcept),
         position.el,
         ...sections,
         note('Vlastní vrstva je součást vzhledu: klient ji vidí, ale nemění.'),

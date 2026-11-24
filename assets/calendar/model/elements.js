@@ -1,7 +1,7 @@
 // Element / part vocabulary and visibility rules (architecture §A.1, §B.5, §D.2).
 // Own layers (`u:<id>`, model/layers.js) are elements too: one box, one row, one entry in `order`.
 
-import { isLayerKey, layerIdOf, layerLabel } from './layers.js';
+import { isLayerKey, layerIdOf, layerLabel, layerOnPage } from './layers.js';
 
 export const ELEMENTS = Object.freeze([
     { key: 'photo', label: 'Fotografie', icon: 'image', hideable: false, hasBox: true },
@@ -95,7 +95,18 @@ export function frameAlign(align, frame) {
     return align === 'start' ? 'end' : align === 'end' ? 'start' : align;
 }
 
-export function isElementVisible(design, elementKey) {
+/**
+ * Is the element drawn? With `page` (a page of `buildPages`, K20 P2) on THAT page: an own layer
+ * only within its page set, a built-in element only on week pages (the cover, back and special
+ * pages are drawn by render/special.js — there only Pozadí and own layers exist for the editor).
+ */
+export function isElementVisible(design, elementKey, page = null) {
+    if (page) {
+        if (isLayerKey(elementKey)) {
+            const layers = design.layout && design.layout.layers;
+            if (!layers || !layerOnPage(layers[layerIdOf(elementKey)], page)) return false;
+        } else if (page.kind !== 'week' && elementKey !== 'bg') return false;
+    }
     const features = design.features || {};
     const boxes = (design.layout && design.layout.boxes) || {};
     const hidden = (k) => Boolean(boxes[k] && boxes[k].hidden);
@@ -127,8 +138,8 @@ export function isElementVisible(design, elementKey) {
  * Box keys of the drawn elements, in BOX_KEYS order (second frames with their first one on a
  * fortnight), then the visible own layers in stacking order — the snap targets.
  */
-export function visibleBoxKeys(design) {
-    return [...linkBoxKeys(design), ...((design.layout && design.layout.order) || []).filter((k) => isLayerKey(k) && isElementVisible(design, k))];
+export function visibleBoxKeys(design, page = null) {
+    return [...linkBoxKeys(design, page), ...((design.layout && design.layout.order) || []).filter((k) => isLayerKey(k) && isElementVisible(design, k, page))];
 }
 
 /**
@@ -136,8 +147,9 @@ export function visibleBoxKeys(design) {
  * as the resized box nor as a follower: they are decoration (a frame round the photo must not drag
  * the photo).
  */
-export function linkBoxKeys(design) {
+export function linkBoxKeys(design, page = null) {
     const boxes = (design.layout && design.layout.boxes) || {};
+    if (page && page.kind !== 'week') return [];
     return BOX_KEYS.filter((k) => {
         if (!boxes[k]) return false;
         if (SECOND_FRAMES[k] && design.type !== 'fortnight') return false;

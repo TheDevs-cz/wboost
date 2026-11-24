@@ -22,8 +22,8 @@
 // Layer = {
 //   kind: 'image' | 'rect' | 'ellipse' | 'line',
 //   name: string ≤ 60            '' = the numbered fallback („Obdélník 2“, numbered bottom = 1)
-//   pages: 'weeks' | 'all' | [pageKey…]    which pages show it (P1: always 'weeks' from the UI;
-//   except: [pageKey…]                     page sets come in P2 — D2: the default is every week page)
+//   pages: 'weeks' | 'all' | [pageKey…]    which pages show it (D2: a new layer is on every week page;
+//   except: [pageKey…]                     „Na stránkách“ in its panel, `except` = „Skrýt na této straně“)
 //   opacity: 0–100                         the whole layer, one <g opacity>
 //   blend: one of the 16 PDF blend modes   (model/effects.js BLEND_VALUES)
 //   image:   asset (id | null), fit 'contain' | 'cover', radius mm
@@ -171,6 +171,120 @@ export function layerOnPage(layer, page) {
     else if (layer.pages === 'all') on = true;
     else on = page.kind === 'week';
     return on && !(Array.isArray(layer.except) && layer.except.includes(page.key));
+}
+
+/** Is the own layer `key` drawn at all — it exists, has its box and its eye is open? */
+function layerDrawn(layout, key) {
+    const id = layerIdOf(key);
+    const box = layout && layout.boxes ? layout.boxes[key] : null;
+    return Boolean(id !== null && layout.layers && layout.layers[id] && box && !box.hidden);
+}
+
+/**
+ * Is own layer `key` below EVERY built-in element in `order` (directly above Pozadí)? On the
+ * cover, back and special pages — which have no element stack — such a layer is drawn under the
+ * page's content, every other one above it (plan §3).
+ */
+export function isLayerUnder(layout, key) {
+    const order = layout && Array.isArray(layout.order) ? layout.order : [];
+    const at = order.indexOf(key);
+    if (at < 0) return false;
+    for (let i = at + 1; i < order.length; i++) if (!isLayerKey(order[i])) return false;
+    return true;
+}
+
+/**
+ * The own layers drawn on `page` (a page of `buildPages`), bottom of the stack first: drawn (eye
+ * open) and in the page set. `{ under, over }` — on a week page everything is in `over` (the week
+ * page stacks them with the built-ins itself); elsewhere `under` are the layers below every
+ * built-in element (`isLayerUnder`).
+ */
+export function pageLayerBands(layout, page) {
+    const out = { under: [], over: [] };
+    if (!layout || !layout.layers || !page) return out;
+    const order = Array.isArray(layout.order) ? layout.order : [];
+    for (let i = order.length - 1; i >= 0; i--) {
+        const key = order[i];
+        if (!isLayerKey(key) || !layerDrawn(layout, key) || !layerOnPage(layout.layers[layerIdOf(key)], page)) continue;
+        if (page.kind !== 'week' && isLayerUnder(layout, key)) out.under.push(key);
+        else out.over.push(key);
+    }
+    return out;
+}
+
+/** The pages of `pages` that show layer `id` by its page set (whatever its eye), in page order. */
+export function pagesOfLayer(layout, pages, id) {
+    const layer = layout && layout.layers ? layout.layers[id] : null;
+    return layer ? pages.filter((page) => layerOnPage(layer, page)) : [];
+}
+
+/** Keys of a page list that have no page in `pages` (a week that is not there this year, a removed special page). */
+export function missingPageKeys(layer, pages) {
+    if (!layer || !Array.isArray(layer.pages)) return [];
+    const keys = new Set(pages.map((p) => p.key));
+    return layer.pages.filter((key) => !keys.has(key));
+}
+
+/**
+ * The page set in words, for the panels: „všechny týdenní strany“, „všechny strany“, „jen tato
+ * strana“ (a one-page list of `shownKey`), „1 vybraná strana“ / „3 vybrané strany“; `except` adds
+ * „, kromě 2“. `short` — the Vrstvy row: „týdny“, „všude“, „jen zde“, „3 strany“, „týdny −2“.
+ */
+export function pageSetText(layer, shownKey = null, short = false) {
+    if (!layer) return '';
+    const count = (n, one, few, many) => `${n} ${n === 1 ? one : n >= 2 && n <= 4 ? few : many}`;
+    if (Array.isArray(layer.pages)) {
+        if (layer.pages.length === 1 && layer.pages[0] === shownKey) return short ? 'jen zde' : 'jen tato strana';
+        if (layer.pages.length === 0) return short ? 'nikde' : 'na žádné straně';
+        return short ? count(layer.pages.length, 'strana', 'strany', 'stran') : count(layer.pages.length, 'vybraná strana', 'vybrané strany', 'vybraných stran');
+    }
+    const base = layer.pages === 'all' ? (short ? 'všude' : 'všechny strany') : short ? 'týdny' : 'všechny týdenní strany';
+    const hidden = Array.isArray(layer.except) ? layer.except.length : 0;
+    if (!hidden) return base;
+    return short ? `${base} −${hidden}` : `${base}, kromě ${hidden}`;
+}
+
+/**
+ * Layer `id` shown (`show`) or hidden on the page `pageKey` — „Skrýt na této straně“ / „Zobrazit
+ * zde“: on a page SET the key goes into / out of `except`, on a page LIST the key leaves / joins
+ * the list. Returns the layout unchanged when nothing changes.
+ */
+export function showLayerOnPage(layout, id, pageKey, show) {
+    const layer = layout && layout.layers ? layout.layers[id] : null;
+    if (!layer || !PAGE_KEY_PATTERN.test(pageKey)) return layout;
+    let next;
+    if (Array.isArray(layer.pages)) {
+        const has = layer.pages.includes(pageKey);
+        if (has === show) return layout;
+        next = { ...layer, pages: show ? [...layer.pages, pageKey] : layer.pages.filter((k) => k !== pageKey) };
+    } else {
+        const hidden = layer.except.includes(pageKey);
+        if (hidden === !show) return layout;
+        next = { ...layer, except: show ? layer.except.filter((k) => k !== pageKey) : [...layer.except, pageKey] };
+    }
+    const normal = normalizeLayer(next);
+    return normal ? setLayer(layout, id, normal) : layout;
+}
+
+/**
+ * `layout` without the special-page keys (`sp:<id>`) of another calendar in the page sets of its
+ * layers — a layout file / „Nahrát layout“ (plan §3): `keep(id)` says which special-page ids mean
+ * something here (the generated ids `intro contacts year waste notes` always do). Week, cover
+ * and back keys stay. A layer whose list ends up empty stays, shown on no page.
+ */
+export function dropForeignPageKeys(layout, keep) {
+    if (!layout || !isObject(layout.layers)) return layout;
+    const ok = (key) => !key.startsWith('sp:') || keep(key.slice(3));
+    let changed = false;
+    const layers = {};
+    for (const [id, layer] of Object.entries(layout.layers)) {
+        const pages = Array.isArray(layer.pages) ? layer.pages.filter(ok) : layer.pages;
+        const except = Array.isArray(layer.except) ? layer.except.filter(ok) : layer.except;
+        const same = (Array.isArray(pages) ? pages.length === layer.pages.length : true) && (!Array.isArray(except) || except.length === layer.except.length);
+        layers[id] = same ? layer : { ...layer, pages, except };
+        if (!same) changed = true;
+    }
+    return changed ? { ...layout, layers } : layout;
 }
 
 /**

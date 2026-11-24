@@ -1,8 +1,14 @@
 # K20 — own layers on calendar pages (plan)
 
-Status: **P1 built** (2026-11-24) — own pictures and shapes on every week
-page; P2 (page sets, the other pages, „Prázdná strana“) and P3 (effects,
-gradient, crop, dpi warning, lock) are open. Jan approved every decision of §8
+Status: **P1 + P2 built** (2026-11-24) — own pictures and shapes on every
+week page (P1); page sets, the cover / back / special pages, the stage page
+switcher, the step-4 page panel, „Prázdná strana“, per-page inlining and the
+import rule (P2). P3 (effects, gradient, crop, dpi warning, lock) is open.
+P2 deviations from §4: the stage switcher lists the sample, every non-week
+page and the week pages a layer names (not only pages with a layer — the
+cover and a blank page must be reachable before they have one); a layer
+added while a page is on the stage is „jen tato strana“ of that page, on the
+sample page all week pages (D2); „Na stránkách“ is a select, not radios. Jan approved every decision of §8
 as recommended (D1–D5, 2026-11-24). The current truth is
 `docs/architecture/calendars.md` § "Own layers".
 

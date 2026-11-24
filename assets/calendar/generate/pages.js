@@ -12,7 +12,12 @@ export const SPECIAL_KIND_LABELS = Object.freeze({
     year: 'Roční kalendárium',
     waste: 'Plánovací kalendář svozu odpadů',
     notes: 'Poznámky',
+    // K20 P2 (D5): a page with no built-in content, for the designer's own layers
+    blank: 'Prázdná strana',
 });
+
+/** Special-page kinds the designer makes (not generated from data): an upload, a Word text, a blank page. */
+export const OWN_SPECIAL_KINDS = Object.freeze(['image', 'text', 'blank']);
 
 const pad2 = (n) => String(n).padStart(2, '0');
 
@@ -93,7 +98,7 @@ export function buildPages(doc) {
             kind: 'special',
             key: `sp:${id}`,
             title: specialPageName(item),
-            subtitle: item.kind === 'image' || item.kind === 'text' ? 'Vlastní strana' : 'Speciální strana',
+            subtitle: OWN_SPECIAL_KINDS.includes(item.kind) ? 'Vlastní strana' : 'Speciální strana',
             special: { id, item },
         });
     special.filter(([, item]) => item.position !== 'back').forEach(pushSpecial);
