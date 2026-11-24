@@ -70,6 +70,9 @@ readonly final class CalendarDocument
                 'asset' => $this->urlGenerator->generate('calendar_client_asset', $token),
                 'history' => $this->urlGenerator->generate('calendar_client_history', $token),
                 'export' => $this->urlGenerator->generate('calendar_client_export_request', $token),
+                'importTable' => $this->urlGenerator->generate('calendar_client_import_table', $token),
+                'importTemplateWaste' => $this->urlGenerator->generate('calendar_client_import_template', $token + ['kind' => 'waste']),
+                'importTemplateEvents' => $this->urlGenerator->generate('calendar_client_import_template', $token + ['kind' => 'events']),
             ];
         } else {
             $env['urls'] = [
@@ -78,6 +81,9 @@ readonly final class CalendarDocument
                 'asset' => $this->urlGenerator->generate('calendar_asset_upload', $id),
                 'history' => $this->urlGenerator->generate('calendar_history', $id),
                 'export' => $this->urlGenerator->generate('calendar_export_request', $id),
+                'importTable' => $this->urlGenerator->generate('calendar_import_table', $id),
+                'importTemplateWaste' => $this->urlGenerator->generate('calendar_import_template', $id + ['kind' => 'waste']),
+                'importTemplateEvents' => $this->urlGenerator->generate('calendar_import_template', $id + ['kind' => 'events']),
             ];
         }
 

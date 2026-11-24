@@ -655,6 +655,42 @@ places it through `<image>`, which runs no script.
 `ExtractDocumentText` (.docx / .txt → text of a special page) checks the size
 the zip **declares** for `word/document.xml` (≤ 5 MB) before inflating it.
 
+### Import from a spreadsheet — `CalendarTableReader` (K10b, 2026-11-24)
+
+„Nahrát z Excelu“ in Odpady and Akce a spolky; plan and decisions in
+`docs/calendar/excel-import-plan.md`. The server only READS the table; the
+browser maps, previews and writes ordinary content ops (no new collection,
+no new content contract, nothing stored).
+
+- `POST …/import/table` (`_token`, `file`; both route families — importing is
+  filling content, which a client may do) → `{ sheets: [{ name, rows }],
+  truncated, name }`. `CalendarImportHttp::table` → `CalendarTableReader`
+  (PhpSpreadsheet, `phpoffice/phpspreadsheet`): `.xlsx` / `.xls` / `.ods` /
+  `.csv` `.tsv` `.txt` by extension, else by content (binary formats only).
+  CSV: UTF-8 (± BOM) when valid, else **Windows-1250** (Czech Excel's CSV);
+  separator = the most frequent of `;` TAB `,` in the first 20 lines (`;`
+  wins a tie). A cell is a string: a date cell (number + date format) →
+  ISO `YYYY-MM-DD`; other numbers in their number format; a formula → its
+  cached value (never evaluated); ≤ 300 chars, single-line. Row index = sheet
+  row − 1 (empty rows kept as `[]`, so errors name the file's row numbers);
+  ≤ 10 sheets × 2000 rows × 60 columns, more → cut + `truncated: true`.
+  Not a table → 422 `CalendarTableReader::UNREADABLE`, no data → `EMPTY`.
+  10 MB decimal like every upload (`CalendarDocument::MAX_FILE_SIZE`). The
+  file is read from PHP's upload temp file — no `calendar_asset`, no storage,
+  no history, `revision` unchanged. The client link pays one upload of BOTH
+  upload budgets per table.
+- `GET …/import/template/{waste|events}` „Stáhnout vzor“ →
+  `CalendarImportTemplate`: `odpady-vzor-{rok}.xlsx` (`Datum · Druh odpadu ·
+  Místo svozu`) / `akce-vzor-{rok}.xlsx` (`Datum · Název akce · Zkratka spolku
+  · Název spolku`), example rows as real date cells of the calendar's year,
+  the calendar's kinds / club codes as a drop-down from the hidden sheet
+  „Seznamy“ (other text allowed), a sheet „Návod“. Buffered response.
+- Bootstrap: `env.urls.importTable`, `importTemplateWaste`,
+  `importTemplateEvents` for every role.
+- Fixtures: `tests/Fixtures/calendar/import/` (built by its `generate.php`,
+  committed): realistic municipal tables of every shape and format — no real
+  municipal file was available; try real ones when they come.
+
 ### Budgets of the public client link
 
 The link needs no account, so everything behind `/k/{token}` is bounded.
@@ -696,9 +732,10 @@ file from another project loads without pictures.
 | `calendar_workspace` | GET `/calendar/{calendarId}` | `CalendarVoter::VIEW` (mode from `CalendarAccess`) |
 | `calendar_save` / `calendar_asset_upload` / `calendar_history` / `calendar_card` | POST `…/save`, POST `…/asset`, GET `…/history`, GET `…/card` | `CalendarVoter::VIEW` |
 | `calendar_export_current` / `_request` / `_status` / `_download` | GET `…/export`, POST `…/export`, GET `…/export/{exportId}`, GET `…/export/{exportId}/download` | `CalendarVoter::VIEW` — whoever opens a calendar may export it |
+| `calendar_import_table` / `calendar_import_template` (K10b) | POST `…/import/table`, GET `…/import/template/{waste\|events}` | `CalendarVoter::VIEW` |
 | `calendar_document_text` / `calendar_layout_import` / `calendar_client_link` / `calendar_delete` | POST `…/document-text`, `…/layout-import`, `…/client-link`, `…/delete` | `CalendarVoter::EDIT` |
 | `calendar_scan` | POST `…/scan/{scanId}/{accept\|restore\|picture}` | `CalendarVoter::EDIT` + the AI scan's USE; a scan of another calendar is 404 — § "Scanned layouts". **No `/k/{token}` twin** |
-| `calendar_client` (+ `_save`, `_asset`, `_history`, `_export_current` / `_export_request` / `_export_status` / `_export_download`) | `/k/{token}` (+ `/save`, `/asset`, `/history`, `/export…`) | public; the token is the credential |
+| `calendar_client` (+ `_save`, `_asset`, `_history`, `_export_current` / `_export_request` / `_export_status` / `_export_download`, `_import_table` / `_import_template` — K10b) | `/k/{token}` (+ `/save`, `/asset`, `/history`, `/export…`, `/import/table`, `/import/template/{kind}`) | public; the token is the credential |
 
 `{token}` = `[a-f0-9]{64}`, unknown → 404; regenerating it
 (`RegenerateCalendarClientLink`) kills the old URL. The token addresses the
