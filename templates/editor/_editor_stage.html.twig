@@ -81,6 +81,12 @@
         {# Container-rows P6: hand-numbered copies of a row → ONE repeatable
            row that keeps the old rows' ids (saved exports stay valid). #}
         <button type="button" class="btn btn-sm btn-light is-unavailable" aria-disabled="true" title="Sloučit do opakovaného řádku" aria-label="Sloučit do opakovaného řádku" data-canvas-container-target="mergeButton" data-action="canvas-container#mergeSelectionIntoRow"><i class="i i-list s16"></i></button>
+        {# 2026-11-24: one click from one row's elements to a repeatable row
+           in its own list root, and chaining blocks so the lower one starts
+           right under the upper one ("Navázat pod"). Never `disabled` — a
+           click on a selection that does not fit says why. #}
+        <button type="button" class="btn btn-sm btn-light is-unavailable" aria-disabled="true" title="Dynamické řádky" aria-label="Dynamické řádky" data-canvas-container-target="rowsButton" data-action="canvas-container#makeRowsFromSelection"><i class="i i-refresh s16"></i></button>
+        <button type="button" class="btn btn-sm btn-light is-unavailable" aria-disabled="true" title="Navázat pod sebe" aria-label="Navázat pod sebe" data-canvas-container-target="linkButton" data-action="canvas-container#linkSelection"><i class="i i-link s16"></i></button>
         <span class="canvas-mini-toolbar-sep"></span>
         {# One opacity for every selected element (the background excluded). #}
         <label class="canvas-mini-toolbar-opacity" data-canvas-opacity-target="row" title="Průhlednost vybraných prvků">
@@ -391,6 +397,15 @@
                    repeatable row (a column of scorers) — "Vytvořit kontejner"
                    needs 2+ items. Hidden when the rules forbid a row here. #}
                 <button type="button" class="btn btn-sm btn-outline-secondary w-100 mt-2 d-none" data-canvas-container-target="rowButton" data-action="canvas-container#makeActiveRow" title="Text se stane řádkem, který si uživatel při vyplňování může přidat vícekrát (např. střelci)">Opakovat jako řádek</button>
+            </div>
+            {# A FREE text (in no container): one click to a repeatable row,
+               or attach it below a container so it moves with it. #}
+            <div class="d-none" data-canvas-container-target="freeSection">
+                <h3 class="ed-sec-h">Kontejner</h3>
+                <button type="button" class="btn btn-sm btn-outline-secondary w-100" data-action="canvas-container#makeActiveRow" title="Text se stane řádkem, který si uživatel při vyplňování může přidat vícekrát (např. výsledky, střelci)">{{ icon('refresh', 's14') }}Dynamické řádky</button>
+                <label class="form-label small mt-2 mb-1" for="container-free-follow">Navázat pod kontejner</label>
+                <select id="container-free-follow" class="form-select form-select-sm" data-canvas-container-target="freeFollowSelect" data-action="change->canvas-container#followActiveUnder"></select>
+                <p class="form-text small mb-0">Text pak začne hned pod vybraným kontejnerem a posouvá se s ním nahoru i dolů.</p>
             </div>
             <div class="ed-acts">
                 <button type="button" class="btn btn-tertiary btn-sm" data-action="canvas-clipboard#duplicate">{{ icon('copy', 's14') }}Duplikovat</button>

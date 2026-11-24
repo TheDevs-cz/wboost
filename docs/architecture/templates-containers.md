@@ -197,13 +197,48 @@ footer too).
   the ⚙ says so), moving the target moves its followers; ⧉ duplicate never
   copies `follows`. API listing + MCP `describe_variant`: `containers[].
   follows` (only a link to a listed container).
+- **Editor** (`canvas_container_controller.js` + the pure plans in
+  `container_follow.js`, run by the PHP suite through
+  `container-follow-harness.cjs`):
+  - ⚙ of a top-level container: "Navázat pod kontejner" select (targets =
+    `followTargets`: other roots whose chain does not lead back) + "Mezera
+    pod ním (px)"; a follower with a vertical `userMove` gets the "inert"
+    hint.
+  - Multi-select bar ⛓ "Navázat pod sebe" (`planLink`): a member stands for
+    its whole ROOT, a free element is wrapped into a single-element
+    container; the blocks chain top to bottom, gap = the target's uniform
+    `gap` else 20 (`defaultFollowGap`), a link that would close a loop is
+    removed first.
+  - Multi-select bar ↻ "Dynamické řádky" (`planDynamicRows`; the free text's
+    popover button + "Opakovat jako řádek" on a free element call it too):
+    free elements → a new row (`repeat`) inside a new list root (gap 20,
+    maxHeight to the page bottom); the members of ONE flat top-level
+    container → converted IN PLACE (it becomes the row, the new root takes
+    over spaceAfter / userMove / follows / hidable / name, links to it are
+    re-targeted). Max prefilled with what fits, the row's ⚙ opens. Refused
+    with a toast reason otherwise (mixed, nested, two containers, holding
+    children).
+  - Zone chrome: a linked zone is labelled "Navázaný kontejner" with a
+    bottom-left chip "⛓ pod <Kontejner N> · 20 px ×" (× detaches); an
+    UNLINKED root below a rows root (x-overlap, nearest above) shows the
+    pill "⛓ Navázat pod řádky" (`_linkSuggestions`) — one click links it.
+    Panel rows get a ⛓ badge. The free text's popover offers "Navázat pod
+    kontejner" (wraps it into a single-element follower).
+  - Structure upkeep: `_dropDegenerate` runs `applyFollowRules` to a
+    fixpoint (single-member ends allowed while linked); dissolving a target
+    re-attaches its followers to the target's own target (or frees them);
+    the link set is cached per `renderZones` (`_links`) because
+    `_minItems` runs on every render frame. Browser-verified 2026-11-24 on
+    the prod design (headless Chrome, in-memory, nothing saved); the group
+    editor is not browser-verified.
 - Tests: `ContainerFollowsLayoutTest` (prod fixture `turnaj-follows.json`:
   footer 20 px under the last row at 1…7 rows, hidden target, PHP ≡ engine
   overflow at 1…8 rows on a 950 px page, editor fits ≡ server capacity),
   `ContainerFollowsEngineEdgeTest` (unlinked root between, follower drawn
   above its target, chains, cycle, no x-overlap), `ContainerFollowsRenderTest`
   (Gotenberg: linked ≡ hand-placed footer at 1 and 3 rows),
-  `CanvasContainerTest` (validation).
+  `CanvasContainerTest` (validation), `ContainerFollowActionsTest` (the
+  editor plans through node, every result fed to the server's rules).
 
 **Image slots as members (2026-11-09, container-rows plan P2a)** — a fillable
 image placeholder can join a container (Jan: a club logo per result row, the

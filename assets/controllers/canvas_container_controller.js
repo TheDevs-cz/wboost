@@ -5,9 +5,10 @@ import { CANVAS_CUSTOM_PROPERTIES, applyEditorLock, applyTextboxDefaults } from 
 import { applyShapeDefaults, isShapeObject } from './canvas_shapes.js';
 import { designHeight, trimOriginRect } from './canvas_viewport.js';
 import { buildContainerMoveSection } from './canvas_user_move.js';
-import { applyRepeatRules, normalizeRepeat, repeatBlockReason } from './canvas_payload.js';
+import { applyFollowRules, applyRepeatRules, followLinks, normalizeRepeat, repeatBlockReason } from './canvas_payload.js';
 import { MAX_ROWS, rowCapacity } from './container_rows.js';
 import { applyRowMerge, planRowMerge } from './container_row_merge.js';
+import { defaultFollowGap, followTargets, planDynamicRows, planLink } from './container_follow.js';
 
 /**
  * Container ("smart text area") authoring for the admin canvas editor.
@@ -53,7 +54,7 @@ import { applyRowMerge, planRowMerge } from './container_row_merge.js';
  */
 export default class extends Controller {
     static outlets = ["canvas-editor"];
-    static targets = ["layer", "createButton", "mergeButton", "section", "panel", "panelList", "panelCount", "rowButton"];
+    static targets = ["layer", "createButton", "mergeButton", "rowsButton", "linkButton", "section", "freeSection", "freeFollowSelect", "panel", "panelList", "panelCount", "rowButton"];
 
     /** Zone/panel accent per nesting depth — parent and child containers must
      *  read as DIFFERENT colors at a glance (cycled past depth 2). */
@@ -236,6 +237,8 @@ export default class extends Controller {
         this._syncSection(active);
         this._syncCreateButton(active);
         this._syncMergeButton(active);
+        this._syncRowsButton(active);
+        this._syncLinkButton(active);
     }
 
     // --- creating / dissolving / membership --------------------------------
@@ -357,7 +360,12 @@ export default class extends Controller {
     makeActiveRow() {
         const canvas = this._canvas();
         const active = canvas ? canvas.getActiveObject() : null;
-        if (!active || !active.inputId) return;
+        if (!active) return;
+        // A FREE element: „Dynamické řádky" — a row in a new list root.
+        if (!active.inputId || !this._containerOf(active.inputId)) {
+            this.makeRowsFromSelection();
+            return;
+        }
         const parent = this._containerOf(active.inputId);
         if (!parent || this._rowBlockReason(active) !== null) return;
 
@@ -401,6 +409,386 @@ export default class extends Controller {
             : c));
         defs.push(candidate);
         return repeatBlockReason(defs, candidate);
+    }
+
+
+    // --- „Dynamické řádky" + „Navázat pod" (2026-11-24) ---------------------
+
+    /** Plain selection entries for container_follow.js (absolute geometry). */
+    _selectionEntries(objects) {
+        const layout = this._layout();
+        return objects.map((obj, index) => {
+            const top = this._absTop(obj);
+            return {
+                inputId: obj.inputId || `__pending-${index}`,
+                top,
+                bottom: top + (obj.height || 0) * (obj.scaleY || 1),
+                candidate: Boolean(layout && layout.isMemberCandidate(obj)),
+            };
+        });
+    }
+
+    _activeObjects() {
+        const canvas = this._canvas();
+        const active = canvas ? canvas.getActiveObject() : null;
+        if (!active) return [];
+        return (active.type || '').toLowerCase() === 'activeselection' ? active.getObjects() : [active];
+    }
+
+    _planRows(objects) {
+        const canvas = this._canvas();
+        return planDynamicRows({
+            containers: this._containers(),
+            selection: this._selectionEntries(objects),
+            canvasHeight: canvas ? designHeight(canvas) : 0,
+            newId: () => crypto.randomUUID(),
+        });
+    }
+
+    /**
+     * „Dynamické řádky" (multi-select bar; the text popover for a free text):
+     * the selected elements of ONE row become a repeatable row in a new list
+     * root — free elements get a new row container, the members of one flat
+     * top-level container convert it in place. Max is prefilled with how
+     * many rows fit (the smallest size in a group), then the row's ⚙ opens.
+     * One undo step.
+     */
+    makeRowsFromSelection() {
+        const canvas = this._canvas();
+        if (!canvas) return;
+        const objects = this._activeObjects();
+        const layout = this._layout();
+        // Free members need an id before they can be referenced.
+        objects.forEach((o) => {
+            if (!o.inputId && layout && layout.isMemberCandidate(o)) o.inputId = crypto.randomUUID();
+        });
+        const plan = this._planRows(objects);
+        if (!plan.ok) {
+            this._mergeToast('Dynamické řádky nejdou vytvořit', [plan.reason]);
+            return;
+        }
+
+        canvas.discardActiveObject();
+        const result = plan.apply(this._containers());
+        if (!result) return;
+        this._refreshRowInfo();
+        const row = this._containers().find((c) => c.id === result.rowId);
+        const info = this._rowInfo.get(result.rowId);
+        if (row) {
+            row.repeat = { max: Math.max(1, Math.min(MAX_ROWS, info ? info.groupFits : 1)), min: 1, default: 1 };
+        }
+
+        this._dropDegenerate();
+        this._normalizeDesign();
+        this.renderZones();
+        canvas.requestRenderAll();
+        canvas.fire('object:modified', {});
+        this.canvasEditorOutlet.dispatchSelectionChanged();
+        if (row && this._containers().includes(row)) {
+            this._openSettings(row);
+        }
+    }
+
+    _syncRowsButton(activeObject) {
+        if (!this.hasRowsButtonTarget) return;
+        const isSelection = activeObject && (activeObject.type || '').toLowerCase() === 'activeselection';
+        const plan = isSelection ? this._planRows(activeObject.getObjects()) : null;
+        const ok = Boolean(plan && plan.ok);
+        this.rowsButtonTarget.setAttribute('aria-disabled', ok ? 'false' : 'true');
+        this.rowsButtonTarget.classList.toggle('is-unavailable', !ok);
+        this.rowsButtonTarget.title = ok
+            ? 'Dynamické řádky — z vybraných prvků bude řádek, který si uživatel při vyplňování přidá vícekrát'
+            : `Dynamické řádky — ${plan ? plan.reason : 'vyberte prvky jednoho řádku'}`;
+    }
+
+    _planLink(objects) {
+        return planLink({
+            containers: this._containers(),
+            selection: this._selectionEntries(objects),
+            newId: () => crypto.randomUUID(),
+        });
+    }
+
+    /**
+     * „Navázat pod sebe" (multi-select bar): chain the selected blocks top to
+     * bottom — a member stands for its whole top-level container, a free
+     * element is wrapped into its own single-element container. Each lower
+     * block then starts right under the one above (the normalize pass moves
+     * it there) and follows it as it grows or shrinks. One undo step.
+     */
+    linkSelection() {
+        const canvas = this._canvas();
+        if (!canvas) return;
+        const objects = this._activeObjects();
+        const layout = this._layout();
+        objects.forEach((o) => {
+            if (!o.inputId && layout && layout.isMemberCandidate(o)) o.inputId = crypto.randomUUID();
+        });
+        const plan = this._planLink(objects);
+        if (!plan.ok) {
+            this._mergeToast('Navázat nejde', [plan.reason]);
+            return;
+        }
+        canvas.discardActiveObject();
+        plan.apply(this._containers());
+        this._afterStructureChange();
+        this._mergeToast('Navázáno', [`${plan.count} bloky teď jdou pod sebou — spodní se posouvá podle toho, kde horní skončí.`], true);
+    }
+
+    _syncLinkButton(activeObject) {
+        if (!this.hasLinkButtonTarget) return;
+        const isSelection = activeObject && (activeObject.type || '').toLowerCase() === 'activeselection';
+        const plan = isSelection ? this._planLink(activeObject.getObjects()) : null;
+        const ok = Boolean(plan && plan.ok);
+        this.linkButtonTarget.setAttribute('aria-disabled', ok ? 'false' : 'true');
+        this.linkButtonTarget.classList.toggle('is-unavailable', !ok);
+        this.linkButtonTarget.title = ok
+            ? 'Navázat pod sebe — spodní blok začne hned pod horním a posouvá se s ním'
+            : `Navázat pod sebe — ${plan ? plan.reason : 'vyberte prvky dvou bloků'}`;
+    }
+
+    /** Attach `container` below `targetId` (null = detach). One undo step. */
+    _linkContainer(container, targetId, gap) {
+        const target = targetId ? this._containers().find((c) => c.id === targetId) : null;
+        if (target) {
+            container.follows = { containerId: target.id, gap: typeof gap === 'number' ? gap : defaultFollowGap(target) };
+        } else {
+            delete container.follows;
+        }
+        this._afterStructureChange();
+    }
+
+    _afterStructureChange() {
+        const canvas = this._canvas();
+        if (!canvas) return;
+        this._dropDegenerate();
+        this._normalizeDesign();
+        this.renderZones();
+        canvas.requestRenderAll();
+        canvas.fire('object:modified', {});
+        this.canvasEditorOutlet.dispatchSelectionChanged();
+    }
+
+    /**
+     * Unlinked top-level container → the rows root it most likely belongs
+     * under: the nearest top-level container ABOVE it holding a repeatable
+     * row whose x-range overlaps (the „Výsledky turnaje" footer case). Map
+     * container id → target id.
+     */
+    _linkSuggestions() {
+        const layout = this._layout();
+        const result = new Map();
+        if (!layout) return result;
+        const containers = this._containers();
+        const links = this._links || followLinks(containers);
+        const roots = layout.rootContainers(containers);
+        const holdsRow = (c, seen = new Set()) => layout.childContainersOf(containers, c).some((child) => {
+            if (seen.has(child.id)) return false;
+            seen.add(child.id);
+            return Boolean(child.repeat) || holdsRow(child, seen);
+        });
+        const box = (c) => {
+            const members = this._deepMemberObjects(c).filter((o) => o.visible !== false);
+            if (!members.length) return null;
+            return {
+                top: Math.min(...members.map((o) => this._absTop(o))),
+                left: Math.min(...members.map((o) => this._absLeft(o))),
+                right: Math.max(...members.map((o) => this._absLeft(o) + o.width * (o.scaleX || 1))),
+            };
+        };
+        const rowRoots = roots.filter((c) => holdsRow(c)).map((c) => ({ c, b: box(c) })).filter((e) => e.b);
+        if (!rowRoots.length) return result;
+        roots.forEach((c) => {
+            if (links.has(c.id) || holdsRow(c)) return;
+            const b = box(c);
+            if (!b) return;
+            const allowed = new Set(followTargets(containers, c).map((t) => t.id));
+            let best = null;
+            rowRoots.forEach((e) => {
+                if (!allowed.has(e.c.id) || e.b.top >= b.top) return;
+                if (Math.min(e.b.right, b.right) - Math.max(e.b.left, b.left) <= 0) return;
+                if (!best || e.b.top > best.b.top) best = e;
+            });
+            if (best) result.set(c.id, best.c.id);
+        });
+        return result;
+    }
+
+    /** The zone's link chip: "⛓ pod Kontejner N · 20 px ×", or the
+     *  one-click suggestion "⛓ Navázat pod řádky". */
+    _buildLinkChip(container, labels, suggestionId) {
+        const links = this._links || new Map();
+        const targetId = links.get(container.id) || null;
+        if (!targetId && !suggestionId) return null;
+
+        const chip = document.createElement('span');
+        // Linked: bottom-left (the top edge sits right under the target's
+        // chrome); suggestion: a call-to-action pill on the top edge.
+        chip.className = targetId ? 'container-link-chip container-link-chip--linked' : 'container-link-chip container-link-chip--suggest';
+        chip.addEventListener('mousedown', (event) => event.stopPropagation());
+
+        const icon = document.createElement('span');
+        icon.className = 'i i-link s12';
+        icon.setAttribute('aria-hidden', 'true');
+        chip.appendChild(icon);
+
+        if (targetId) {
+            const gap = container.follows && typeof container.follows.gap === 'number' ? Math.round(container.follows.gap) : 0;
+            const text = document.createElement('span');
+            text.textContent = `pod ${labels.get(targetId) || 'kontejnerem'} · ${gap} px`;
+            chip.title = 'Navázáno: začíná vždy pod koncem kontejneru nad ním a posouvá se s ním nahoru i dolů. Mezeru změníte v ⚙.';
+            chip.appendChild(text);
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'container-link-chip__remove';
+            remove.title = 'Zrušit navázání';
+            remove.setAttribute('aria-label', 'Zrušit navázání');
+            remove.textContent = '×';
+            remove.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                this._linkContainer(container, null);
+            });
+            chip.appendChild(remove);
+            return chip;
+        }
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'container-link-chip__action';
+        button.textContent = 'Navázat pod řádky';
+        chip.title = 'Kontejner pak začne hned pod posledním řádkem — s přidaným řádkem se posune níž, s odebraným výš.';
+        button.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            this._linkContainer(container, suggestionId);
+        });
+        chip.appendChild(button);
+        return chip;
+    }
+
+    /** "Navázat pod" in the ⚙ popover of a TOP-LEVEL container. */
+    _buildFollowSection(container) {
+        const section = document.createElement('div');
+        section.className = 'container-follow mb-2';
+        const targets = followTargets(this._containers(), container);
+        const linked = this._links ? this._links.get(container.id) : null;
+        if (!targets.length && !linked) return section;
+
+        const label = document.createElement('label');
+        label.className = 'form-label small mb-1';
+        label.textContent = 'Navázat pod kontejner';
+        section.appendChild(label);
+
+        const select = document.createElement('select');
+        select.className = 'form-select form-select-sm mb-1';
+        const none = document.createElement('option');
+        none.value = '';
+        none.textContent = '— nenavázáno —';
+        select.appendChild(none);
+        const labels = this._panelLabels();
+        targets.forEach((target) => {
+            const option = document.createElement('option');
+            option.value = target.id;
+            option.textContent = labels.get(target.id) || 'Kontejner';
+            select.appendChild(option);
+        });
+        select.value = linked && targets.some((t) => t.id === linked) ? linked : '';
+        select.addEventListener('change', () => {
+            this._linkContainer(container, select.value || null);
+            this._closeSettings();
+            if (this._containers().includes(container)) this._openSettings(container);
+        });
+        section.appendChild(select);
+
+        if (linked) {
+            const gapLabel = document.createElement('label');
+            gapLabel.className = 'form-label small mb-1';
+            gapLabel.textContent = 'Mezera pod ním (px)';
+            section.appendChild(gapLabel);
+            const gapInput = document.createElement('input');
+            gapInput.type = 'number';
+            gapInput.min = '0';
+            gapInput.step = '1';
+            gapInput.className = 'form-control form-control-sm mb-1';
+            gapInput.value = String(Math.round(((container.follows && container.follows.gap) || 0) * 10) / 10);
+            gapInput.addEventListener('input', () => {
+                const value = parseFloat(gapInput.value);
+                if (!(value >= 0) || !container.follows) return;
+                // Immutable value (history snapshots share references).
+                container.follows = { containerId: container.follows.containerId, gap: value };
+                this._normalizeDesign();
+                this.renderZones();
+                this.canvasEditorOutlet.markUnsaved();
+            });
+            gapInput.addEventListener('change', () => {
+                const canvas = this._canvas();
+                if (canvas) canvas.fire('object:modified', {});
+            });
+            section.appendChild(gapInput);
+        }
+
+        const hint = document.createElement('div');
+        hint.className = 'form-text small';
+        hint.textContent = linked
+            ? 'Začíná vždy pod koncem vybraného kontejneru — posouvá se s ním nahoru i dolů (přidané či odebrané řádky, delší texty).'
+            : 'Navázaný kontejner začne hned pod vybraným a posouvá se s ním nahoru i dolů.';
+        section.appendChild(hint);
+        if (linked && container.userMove && container.userMove.vertical) {
+            const moveHint = document.createElement('div');
+            moveHint.className = 'form-text small text-warning';
+            moveHint.textContent = 'Svislý posun pro uživatele se u navázaného kontejneru neuplatní — jeho výšku určuje kontejner nad ním.';
+            section.appendChild(moveHint);
+        }
+        return section;
+    }
+
+    /** Text popover of a FREE text: „Dynamické řádky" + „Navázat pod". */
+    _syncFreeSection(active) {
+        if (!this.hasFreeSectionTarget) return;
+        const layout = this._layout();
+        const free = Boolean(active && layout && layout.isTextboxObject(active)
+            && (!active.inputId || !this._containerOf(active.inputId)));
+        this.freeSectionTargets.forEach((el) => el.classList.toggle('d-none', !free));
+        if (!free || !this.hasFreeFollowSelectTarget) return;
+        const roots = layout.rootContainers(this._containers());
+        const labels = this._panelLabels();
+        this.freeFollowSelectTargets.forEach((select) => {
+            select.textContent = '';
+            const none = document.createElement('option');
+            none.value = '';
+            none.textContent = roots.length ? '— vyberte kontejner —' : '— na plátně není kontejner —';
+            select.appendChild(none);
+            roots.forEach((c) => {
+                const option = document.createElement('option');
+                option.value = c.id;
+                option.textContent = labels.get(c.id) || 'Kontejner';
+                select.appendChild(option);
+            });
+            select.value = '';
+            select.disabled = roots.length === 0;
+        });
+    }
+
+    /** Free text → its own single-element container attached below the
+     *  chosen top-level container. */
+    followActiveUnder(event) {
+        const canvas = this._canvas();
+        const targetId = event.target.value;
+        const active = canvas ? canvas.getActiveObject() : null;
+        if (!active || !targetId) return;
+        if (!active.inputId) active.inputId = crypto.randomUUID();
+        if (this._containerOf(active.inputId)) return;
+        const target = this._containers().find((c) => c.id === targetId);
+        if (!target) return;
+        this._containers().push({
+            id: crypto.randomUUID(),
+            maxHeight: Math.max(20, Math.ceil(active.height * (active.scaleY || 1) * 1.5)),
+            memberInputIds: [active.inputId],
+            memberContainerIds: [],
+            follows: { containerId: target.id, gap: defaultFollowGap(target) },
+        });
+        this._afterStructureChange();
     }
 
     // --- "Sloučit do opakovaného řádku" (container-rows P6) -----------------
@@ -628,11 +1016,15 @@ export default class extends Controller {
         // Repeatable-row structure first (a dissolve / re-parent can leave a
         // row on a root or a second row in one parent) — the minimum below
         // depends on which rows survive.
-        let defs = applyRepeatRules(this._containers());
+        let defs = applyFollowRules(applyRepeatRules(this._containers()));
         for (;;) {
+            // "Navázat pod" links can break when a container drops — re-run.
+            applyFollowRules(defs);
+            const linked = this._linkedIds(defs);
             const valid = new Set(
                 defs
-                    .filter((c) => this._memberObjects(c).length + layout.childContainersOf(defs, c).length >= this._minItems(c, defs))
+                    .filter((c) => this._memberObjects(c).length + layout.childContainersOf(defs, c).length >= this._minItems(c, defs, linked))
+                    .filter((c) => this._memberObjects(c).length + layout.childContainersOf(defs, c).length >= 1)
                     .map((c) => c.id),
             );
             if (valid.size === defs.length) break;
@@ -651,10 +1043,19 @@ export default class extends Controller {
      * (a column of single scorers) and a parent may hold nothing but its
      * repeatable row (≡ sanitizedContainers / PHP CanvasContainer).
      */
-    _minItems(container, defs = this._containers()) {
+    _minItems(container, defs = this._containers(), linked = null) {
         if (container.repeat) return 1;
+        // Either end of a "Navázat pod" link may be a single element.
+        const links = linked || (defs === this._containers() && this._linkedCache) || this._linkedIds(defs);
+        if (links.has(container.id)) return 1;
         const byId = new Map(defs.map((c) => [c.id, c]));
         return (container.memberContainerIds || []).some((id) => byId.get(id) && byId.get(id).repeat) ? 1 : 2;
+    }
+
+    /** Ids at either end of a valid "Navázat pod" link. */
+    _linkedIds(defs) {
+        const links = followLinks(defs);
+        return new Set([...links.keys(), ...links.values()]);
     }
 
     // --- reflow + design snapshots ------------------------------------------
@@ -785,6 +1186,12 @@ export default class extends Controller {
         const ordered = [...this._containers()].sort((a, b) => this._depthOf(a) - this._depthOf(b));
 
         this._refreshRowInfo();
+        // "Navázat pod": the valid links of this pass (cached — _minItems
+        // runs on every render frame through _positionZones).
+        this._links = followLinks(this._containers());
+        this._linkedCache = new Set([...this._links.keys(), ...this._links.values()]);
+        const labels = this._panelLabels();
+        const suggestions = this._linkSuggestions();
 
         ordered.forEach((container) => {
             const members = this._deepMemberObjects(container);
@@ -887,6 +1294,11 @@ export default class extends Controller {
                 sideHandle.addEventListener('mousedown', (event) => this._beginSideDrag(event, container, side));
                 zone.appendChild(sideHandle);
             });
+
+            if (!nested) {
+                const chip = this._buildLinkChip(container, labels, suggestions.get(container.id) || null);
+                if (chip) zone.appendChild(chip);
+            }
 
             this.layerTarget.appendChild(zone);
             // Repeatable row: dashed ghosts of rows 2…max (where the extra
@@ -1171,6 +1583,15 @@ export default class extends Controller {
             row.appendChild(badge);
         }
 
+        const followsId = this._links ? this._links.get(container.id) : null;
+        if (followsId) {
+            const linkBadge = document.createElement('span');
+            linkBadge.className = 'container-panel-row__badge';
+            linkBadge.title = 'Navázáno pod kontejnerem nad ním — posouvá se s ním';
+            linkBadge.innerHTML = '<span class="i i-link s12" aria-hidden="true"></span>';
+            row.appendChild(linkBadge);
+        }
+
         row.addEventListener('mouseenter', () => this._setPanelFocus(container, true));
         row.addEventListener('mouseleave', () => this._setPanelFocus(container, false));
         // One click, the Vrstvy pattern: focus the container (select its
@@ -1247,7 +1668,7 @@ export default class extends Controller {
                 ? `Vnořený kontejner${gapBadge}${hideBadge}`
                 : (overflowing
                     ? `Kontejner · obsah přesahuje o ${Math.ceil(overflowPx)} px`
-                    : `Kontejner · max ${Math.round(container.maxHeight)} px${gapBadge}${hideBadge}`);
+                    : `${this._links && this._links.has(container.id) ? 'Navázaný kontejner' : 'Kontejner'} · max ${Math.round(container.maxHeight)} px${gapBadge}${hideBadge}`);
 
             // Skip the DOM writes when nothing changed — this runs on EVERY
             // Fabric render frame via after:render.
@@ -1609,6 +2030,18 @@ export default class extends Controller {
             );
         }
 
+        // "Navázat pod": containers attached below a dissolved one move up
+        // the chain (to what it was attached to) or become free.
+        containers.forEach((c) => {
+            if (c.follows && c.follows.containerId === container.id) {
+                if (container.follows && container.follows.containerId !== c.id) {
+                    c.follows = { containerId: container.follows.containerId, gap: c.follows.gap };
+                } else {
+                    delete c.follows;
+                }
+            }
+        });
+
         const index = containers.indexOf(container);
         if (index !== -1) {
             containers.splice(index, 1);
@@ -1867,6 +2300,9 @@ export default class extends Controller {
             el.appendChild(nestHint);
         }
 
+        if (!nested) {
+            el.appendChild(this._buildFollowSection(container));
+        }
         el.appendChild(this._buildRepeatSection(container));
 
         if (!nested) {
@@ -2274,6 +2710,7 @@ export default class extends Controller {
             : null;
 
         this.sectionTargets.forEach((el) => el.classList.toggle('d-none', !container));
+        this._syncFreeSection(active);
         // "Opakovat jako řádek": texts only, and only where a row may live.
         const canRow = Boolean(container) && layout.isTextboxObject(active) && this._rowBlockReason(active) === null;
         this.rowButtonTargets.forEach((el) => el.classList.toggle('d-none', !canRow));

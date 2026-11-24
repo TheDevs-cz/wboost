@@ -799,6 +799,56 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     background: #fa5c7c;
 }
 
+/* "Navázat pod" (2026-11-24): the link chip on the top edge of an attached
+   container's zone ("⛓ pod Kontejner 1 · 20 px ×"), or the one-click
+   suggestion under a rows container ("⛓ Navázat pod řádky"). */
+.container-link-chip {
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 4px 1px 6px;
+    font-size: 11px;
+    line-height: 1.4;
+    white-space: nowrap;
+    color: #fff;
+    background: var(--zone-color, #39afd1);
+    border-radius: 3px 3px 0 0;
+    pointer-events: auto;
+    user-select: none;
+}
+.container-link-chip .i { background-color: currentColor; }
+.container-link-chip--linked {
+    top: auto;
+    bottom: -20px;
+    left: -1.5px;
+    transform: none;
+    border-radius: 0 0 3px 3px;
+}
+.container-link-chip--suggest {
+    color: var(--on-a);
+    background: var(--a);
+    border-radius: 999px;
+    top: -24px;
+    padding: 2px 4px 2px 8px;
+    box-shadow: var(--shadow-2);
+}
+.container-link-chip__remove,
+.container-link-chip__action {
+    border: none;
+    padding: 0 4px;
+    font: inherit;
+    color: inherit;
+    background: transparent;
+    cursor: pointer;
+}
+.container-link-chip__action { font-weight: 600; }
+.container-link-chip__remove:hover,
+.container-link-chip__action:hover { text-decoration: underline; }
+
 /* Removes the container definition (texts stay). Sits next to the label. */
 .container-zone__delete {
     position: absolute;
