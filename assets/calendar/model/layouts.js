@@ -68,7 +68,7 @@ export function defaultStyles(env = {}) {
         specialPhoto: { effects: [] },
         cal: {
             bg: { color: null, opacity: 100 },
-            numBg: { color: null, opacity: 100 },
+            numBg: { color: null, opacity: 100, grow: 0 },
             satColor: sat,
             sunColor: red,
             numberSide: 'end',

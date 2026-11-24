@@ -556,7 +556,17 @@ module.exports = {
             // ---- 14 days ------------------------------------------------------------------------
             await check('14-day calendar: page count = page list, print size, month and week number per column', async () => {
                 const two = await buildCalendar(page, h, { type: 'fortnight', photos: 2, bigWidth: 3600, width: 2400, name: 'Čtrnáctidenní' });
+                // K5 / K5b: Pozadí čísel, widened by 12 mm — into the bleed at both outer page edges
+                const layout = (await h.state(page)).design.layout;
+                layout.styles.cal.numBg = { color: '#CBC7D1', opacity: 100, grow: 12 };
+                await h.seed(page, { design: { layout } });
                 const d = (await h.state(page)).design;
+                const bands = await page.$$eval('.cal-ws[data-cal-shown-step="5"] svg[data-page]', (svgs) => {
+                    const week = svgs.find((svg) => svg.querySelector('rect[data-band="numbers"]'));
+                    return week ? [...week.querySelectorAll('[data-el="cal"] rect[data-band="numbers"]')].map((r) => ['x', 'y', 'width', 'height'].map((a) => Number(r.getAttribute(a)))) : [];
+                });
+                assert.equal(bands.length, 2, 'step 5 draws a band per column of a week page');
+                await h.shot(page, 'pdf-fortnight-step5-number-band');
                 const watch = await watchDownloads(page);
                 await openDialog(page);
                 const result = await exportThrough(page, watch, 'print');
@@ -576,6 +586,16 @@ module.exports = {
                 for (const expected of [...pages[0].weeks]) assert.ok(flat.includes(expected), `„${expected}“ is on the first 14-day page: ${flat.slice(0, 300)}`);
                 assert.equal((text.match(/Pondělí/g) || []).length, 2, 'two week columns');
                 png(file, first, 'pdf-fortnight-print-first', 110);
+                // the bands in the print file: in the outer bleed and up to their widened inner edge
+                const inset = d.print.bleedMm + 8;
+                const grey = (rgb) => rgb.split(',').map(Number).every((v, i) => Math.abs(v - [203, 199, 209][i]) <= 6);
+                const bandAt = (xMm, b) => grey(pixelAt(file, first, inset + xMm, inset + b[1] + 0.4));
+                assert.ok(bandAt(-d.print.bleedMm / 2, bands[0]), 'week 1: the band in the left bleed');
+                assert.ok(bandAt(bands[0][0] + bands[0][2] - 0.6, bands[0]), 'week 1: the band up to its widened inner edge');
+                assert.ok(!bandAt(bands[0][0] + bands[0][2] + 0.6, bands[0]), 'week 1: paper past the inner edge');
+                assert.ok(bandAt(d.page.width + d.print.bleedMm / 2, bands[1]), 'week 2: the band in the right bleed');
+                assert.ok(bandAt(bands[1][0] + 0.6, bands[1]), 'week 2: the band from its widened inner edge');
+                assert.ok(!bandAt(bands[1][0] - 0.6, bands[1]), 'week 2: paper before the inner edge');
                 png(file, two.pages.findIndex((p) => p.key === two.big) + 1, 'pdf-fortnight-print-photo', 110);
                 await h.deleteCalendar(page, two.id);
             });

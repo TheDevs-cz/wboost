@@ -596,6 +596,39 @@ export default async function (t, load) {
         assert.deepEqual([fc.numberBand.y, fc.numberBand.h], [27, 60]);
     });
 
+    t.test('Pozadí čísel › Rozšíření: the band grows inwards only, the outer edge stays in the bleed', async () => {
+        const frames = async (o, grow) => geo(await makeDoc(load, { ...o, styles: (l) => { if (o.styles) o.styles(l); l.styles.cal.numBg = { color: '#EEEEEE', opacity: 100, grow }; } })).frames;
+        // an old calendar (no grow stored) normalises to 0 = the K5 band
+        const old = await makeDoc(load, { styles: (l) => { l.styles.cal.numBg = { color: '#EEEEEE', opacity: 100 }; } });
+        assert.equal(old.design.layout.styles.cal.numBg.grow, 0);
+        const [f0] = geo(old).frames;
+        const [f12] = await frames({}, 12);
+        near(assert, f12.numberBand.x, f0.numberBand.x - 12, 'numbers right: the inner edge moves 12 mm left', 1e-9);
+        near(assert, f12.numberBand.x + f12.numberBand.w, 315, 'the outer edge stays on the bleed edge', 1e-9);
+        // never past the frame's other edge
+        const narrow = (l) => { l.boxes.cal = { ...l.boxes.cal, x: l.boxes.cal.x + 70, w: l.boxes.cal.w - 70 }; };
+        const [fMax] = await frames({ styles: narrow }, 60);
+        near(assert, fMax.numberBand.x, fMax.box.x, 'clamped at the frame edge', 1e-9);
+        // numbers left
+        const [r0] = await frames({ preset: 'photoRight' }, 0);
+        const [r8] = await frames({ preset: 'photoRight' }, 8);
+        near(assert, r8.numberBand.x, -5, 'left bleed edge kept', 1e-9);
+        near(assert, r8.numberBand.w, r0.numberBand.w + 8, '8 mm wider to the right', 1e-9);
+        // numbers in the middle: half on each side
+        const [m0] = await frames({ styles: (l) => { l.styles.cal.numberSide = 'middle'; } }, 0);
+        const [m6] = await frames({ styles: (l) => { l.styles.cal.numberSide = 'middle'; } }, 6);
+        near(assert, m6.numberBand.x, m0.numberBand.x - 3, 'middle: 3 mm to the left', 1e-9);
+        near(assert, m6.numberBand.w, m0.numberBand.w + 6, 'middle: 6 mm wider', 1e-9);
+        // 14 days: one value, both columns grow towards the middle and still mirror
+        const [a1, a2] = await frames({ type: 'fortnight' }, 0);
+        const [b1, b2] = await frames({ type: 'fortnight' }, 10);
+        near(assert, b1.numberBand.x, -5, 'frame 1 keeps the left bleed edge', 1e-9);
+        near(assert, b1.numberBand.w, a1.numberBand.w + 10, 'frame 1 10 mm wider', 1e-9);
+        near(assert, b2.numberBand.x + b2.numberBand.w, 315, 'frame 2 keeps the right bleed edge', 1e-9);
+        near(assert, b2.numberBand.x, a2.numberBand.x - 10, 'frame 2 grows to the left', 1e-9);
+        near(assert, b2.numberBand.x, 310 - (b1.numberBand.x + b1.numberBand.w), 'the bands still mirror', 1e-6);
+    });
+
     t.test('weekday colours, time texts with the text or on their own', async () => {
         const doc = await makeDoc(load, { features: { timeChange: true, seasons: true } });
         const g = geo(doc, '2027-03-28');

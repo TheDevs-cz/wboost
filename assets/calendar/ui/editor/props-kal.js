@@ -594,14 +594,15 @@ export function mountKalProps(root, ctx) {
 
     // ---- panels -------------------------------------------------------------------------------
 
-    /** „Pozadí čísel“ — the band behind the number column (`cal.numBg`, `numberBandOf`). */
+    /** „Pozadí čísel“ — the band behind the number column (`cal.numBg`, `numberBandOf`); Rozšíření = `grow` (K5b). */
     function numberBand(kit) {
         const on = (st) => Boolean(st.cal.numBg.color);
         return section(
             'Pozadí čísel',
             kit.color('cal.numBg.color', 'Pozadí čísel', true),
             kit.when(kit.slider('cal.numBg.opacity', 'percent', '%', 'Krytí'), on),
-            kit.when(note('Pruh za čísly vede přes celou výšku kalendária. U okraje stránky sahá až do spadávky.'), on),
+            kit.when(kit.slider('cal.numBg.grow', 'numBandGrow', 'mm', 'Rozšíření'), on),
+            kit.when(note('Pruh za čísly vede přes celou výšku kalendária. U okraje stránky sahá až do spadávky. Rozšířením ho protáhnete dovnitř, k názvům dnů — texty zůstanou nad ním.'), on),
         );
     }
 

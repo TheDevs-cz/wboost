@@ -85,6 +85,8 @@ export const LIMITS = Object.freeze({
     photoBorder: { min: 0.1, max: 10, step: 0.1 },
     shadowOffset: { min: -10, max: 10, step: 0.5 },
     pad: { min: 0, max: 20, step: 0.5 },
+    // „Pozadí čísel“ › Rozšíření (K5b): mm the band reaches further in than the number column
+    numBandGrow: { min: 0, max: 60, step: 0.5 },
     percent: { min: 0, max: 100, step: 5 },
     generic: { min: 0, max: 30, step: 0.5 },
     bleedMm: { min: 0, max: 10, step: 0.5 },

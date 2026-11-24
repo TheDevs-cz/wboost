@@ -1075,7 +1075,7 @@ Waste rhythms follow ISO week parity (so they shift across a 53-week year).
   labels). Coordinates are computed on a **flow axis** from the zone edge, so
   the mirrored frame is the same code. Holiday names are **never truncated** —
   they wrap; a compact row first drops the name day, then widens the wrap.
-- **Pozadí čísel** (`cal.numBg {color|null, opacity}`, `numberBandOf` →
+- **Pozadí čísel** (`cal.numBg {color|null, opacity, grow}`, `numberBandOf` →
   `frame.numberBand`, drawn first in the frame as `rect[data-band="numbers"]`,
   above `cal.bg`, below the rows; off = `color: null`, the default). A band over the
   whole frame height (`box.y … box.y + box.h`) from `K.NUM_BAND_PAD` (2 mm)
@@ -1105,6 +1105,18 @@ Waste rhythms follow ISO week parity (so they shift across a 53-week year).
   (numbers the Czech way: `1 200 × 800 px`, `37 %`, nbsp). `warning.message`
   (= `warningMessage`: title. facts. fix — designer wording) is what MCP's
   `render_calendar_page` returns and the step-4 panel's change signature.
+  **Rozšíření** (`grow`, K5b; mm, `LIMITS.numBandGrow` 0–60, step 0.5,
+  default 0 = the K5 band exactly — stored calendars without the key
+  normalise to 0 and draw as before) moves only the INNER edge that far
+  towards the day names; the outer edge stays on the frame / bleed edge. It
+  never passes the frame's other edge (clamped to `box.x` / `box.x + box.w`).
+  Numbers in the middle: half of it on each side. One value for the layout —
+  the 14-day frames share their styles, so both columns widen towards the
+  middle and still mirror. A relative width on purpose: the band keeps
+  covering the numbers when their size changes, and its minimum is always the
+  K5 width. The band stays a BACKGROUND — the day names, name days and holiday
+  texts are drawn over it (the designer picks the colour + Krytí for contrast);
+  slider „Rozšíření“ under Krytí in both panels.
   Every surface renders the same card (`ui/warnings.js` `warningCard`): the
   badge on the step-5 photo / day row, the thumbnail badge (a button BESIDE
   the thumbnail button, in `.cal-thw`), the Upozornění list (cards under a

@@ -92,15 +92,24 @@ function union(a, b) {
  * from `K.NUM_BAND_PAD` before the column to the frame edge on the number side — and, when that edge
  * lies on the trim (or in the bleed), on to the bleed edge, so the band runs off the printed page.
  * Numbers in the middle: the column plus the pad on both sides. `side` is the drawn (flipped) side.
+ * `grow` (mm, `cal.numBg.grow`, K5b) moves the inner edge that much further in, towards the day
+ * names — never past the frame's other edge; in the middle it widens both sides by half. 0 = the
+ * band of K5 exactly.
  */
-export function numberBandOf(box, numCol, side, W, B) {
+export function numberBandOf(box, numCol, side, W, B, grow = 0) {
+    const g = Math.max(0, Number(grow) || 0);
     let x0 = numCol.x - K.NUM_BAND_PAD;
     let x1 = numCol.x + numCol.w + K.NUM_BAND_PAD;
     if (side === 'end') {
         const edge = box.x + box.w;
         x1 = edge >= W - K.LINK_TOL ? W + B : edge;
+        if (g > 0) x0 = Math.max(Math.min(x0, box.x), x0 - g);
     } else if (side === 'start') {
         x0 = box.x <= K.LINK_TOL ? 0 - B : box.x;
+        if (g > 0) x1 = Math.min(Math.max(x1, box.x + box.w), x1 + g);
+    } else if (g > 0) {
+        x0 = Math.max(Math.min(x0, box.x), x0 - g / 2);
+        x1 = Math.min(Math.max(x1, box.x + box.w), x1 + g / 2);
     }
     return { x: x0, y: box.y, w: Math.max(0, x1 - x0), h: box.h };
 }
@@ -614,7 +623,7 @@ function layoutFrame(c, f) {
         holWrap,
         iconZone: keys.length ? { x: zoneSpan.x + iconOffset.x, w: iconsW, cols, cellW } : null,
         numberColumn: { x: numCol.x, w: numCol.w },
-        numberBand: numberBandOf(box, numCol, side, W, bleedOf(design.print)),
+        numberBand: numberBandOf(box, numCol, side, W, bleedOf(design.print), S.cal.numBg.grow),
         evOffset: { ...offsetOf('ev') },
         textWidest,
         namesWidest,

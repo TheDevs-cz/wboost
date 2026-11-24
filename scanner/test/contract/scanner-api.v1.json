@@ -3387,7 +3387,8 @@
             },
             "numBg": {
              "color": null,
-             "opacity": 100
+             "opacity": 100,
+             "grow": 0
             },
             "satColor": "#2F78B7",
             "sunColor": "#BE3A2E",
@@ -3879,7 +3880,8 @@
         },
         "numBg": {
          "color": null,
-         "opacity": 100
+         "opacity": 100,
+         "grow": 0
         },
         "satColor": "#2F78B7",
         "sunColor": "#BE3A2E",

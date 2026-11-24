@@ -54,6 +54,21 @@ module.exports = {
             await h.sleep(40);
         }
 
+        /** A range input set like a drag: input events, then change (one undo step). */
+        async function slide(selector, value) {
+            await page.$eval(
+                selector,
+                (el, v) => {
+                    el.scrollIntoView({ block: 'center' });
+                    el.value = String(v);
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                },
+                value,
+            );
+            await h.sleep(60);
+        }
+
         async function click(selector) {
             await page.$eval(selector, (el) => el.scrollIntoView({ block: 'center' }));
             await page.click(selector);
@@ -326,12 +341,29 @@ module.exports = {
             assert.ok(near(Number(band[1]), f.box.y, 0.05) && near(Number(band[3]), f.box.h, 0.05), 'the whole frame height');
             assert.equal(band[4], '#CBC7D1');
             await h.shot(page, 'kal-05-number-band');
+            // K5b Rozšíření: the inner edge moves in, the outer edge stays in the bleed
+            assert.equal(await shown(prop('cal.numBg.grow')), true, 'Rozšíření beside Krytí');
+            assert.equal(Number(await page.$eval(prop('cal.numBg.grow'), (el) => el.value)), 0, 'an old calendar keeps the K5 width');
+            await slide(prop('cal.numBg.grow'), 15);
+            assert.equal((await styles()).cal.numBg.grow, 15);
+            const [wide] = await bands();
+            assert.ok(near(Number(wide[0]), Number(band[0]) - 15, 0.05), '15 mm further in');
+            assert.ok(near(Number(wide[0]) + Number(wide[2]), d.design.page.width + B, 0.05), 'still into the bleed on the right');
+            await h.shot(page, 'kal-05b-number-band-wide');
+            // numbers on the left: the band grows to the right
+            await click(`${prop('cal.numberSide')} [data-value="start"]`);
+            const fl = (await geometry()).frames[0];
+            const [left] = await bands();
+            assert.ok(near(Number(left[0]) + Number(left[2]), Math.min(fl.box.x + fl.box.w, fl.numberColumn.x + fl.numberColumn.w + 2 + 15), 0.05), 'numbers left: 15 mm to the right');
+            await h.shot(page, 'kal-05b-number-band-wide-left');
+            await click(`${prop('cal.numberSide')} [data-value="end"]`);
             // the same band from the number part panel
             await selectPart('num');
             assert.ok(await exists(prop('cal.numBg.color')), 'also under Číslo dne');
             await h.save(page);
             await h.reload(page);
             assert.equal((await styles()).cal.numBg.color, '#CBC7D1', 'saved');
+            assert.equal((await styles()).cal.numBg.grow, 15, 'Rozšíření saved');
         });
 
         await check('Velikosti: one slider per enabled text kind; the Čísla slider sets all four number styles and is ONE undo step', async () => {
@@ -1118,6 +1150,13 @@ module.exports = {
             assert.ok(near(bands[1][0] + bands[1][1], W + B, 0.05), 'week 2 → right bleed edge');
             assert.ok(near(bands[1][0], W - (bands[0][0] + bands[0][1]), 0.1), 'mirrored');
             await h.shot(page, 'kal-14-number-band-fortnight');
+            // K5b: one Rozšíření for both columns, each grows towards the middle
+            await slide(prop('cal.numBg.grow'), 10);
+            const wide = await page.$$eval('.cal-cv svg[data-page] [data-el="cal"] rect[data-band="numbers"]', (n) => n.map((r) => ['x', 'width'].map((a) => Number(r.getAttribute(a)))));
+            assert.ok(near(wide[0][0], -B, 0.05) && near(wide[0][1], bands[0][1] + 10, 0.05), 'week 1: left bleed edge kept, 10 mm wider');
+            assert.ok(near(wide[1][0] + wide[1][1], W + B, 0.05) && near(wide[1][0], bands[1][0] - 10, 0.05), 'week 2: right bleed edge kept, 10 mm wider');
+            assert.ok(near(wide[1][0], W - (wide[0][0] + wide[0][1]), 0.1), 'still mirrored');
+            await h.shot(page, 'kal-14b-number-band-fortnight-wide');
         });
 
         await check('step 4 › Styl stránek: the same panels and part chrome (same module, same undo stack)', async () => {

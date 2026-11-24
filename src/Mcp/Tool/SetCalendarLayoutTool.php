@@ -107,8 +107,10 @@ readonly final class SetCalendarLayoutTool
      * - cal: numberSide "start"|"end" (day number left / right of the row),
      *   numAlign, dayFormat "full"|"short"|"auto" (auto = full where they fit, else short), dayPosition "side"|"above",
      *   dayAlign, satColor, sunColor, bg {color|null, opacity}, numBg
-     *   {color|null, opacity} (a band behind the day numbers over the frame
-     *   height; at a frame edge on the trim it runs into the bleed), iconSize (mm
+     *   {color|null, opacity, grow} (a band behind the day numbers over the
+     *   frame height; at a frame edge on the trim it runs into the bleed;
+     *   grow = mm 0–60 it reaches further in towards the day names, 0 = just
+     *   the number column), iconSize (mm
      *   1.5–12), iconGrid "4"|"2x2"|"1+2"|"2+1", iconCellW (mm|null),
      *   iconCells (per grid, per cell), placeLabels, emptyIconSlot.
      * - lines: {on, width (pt 0.1–5), style "solid"|"dash"|"dot", color} —
