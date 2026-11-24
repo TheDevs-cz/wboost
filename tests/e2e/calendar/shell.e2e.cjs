@@ -87,7 +87,14 @@ module.exports = {
             assert.equal(s.design.preset, 'twoSided');
             assert.equal(s.design.step, 2, 'the step is not skipped');
             assert.ok(s.design.layout.boxes.cal2, 'second frame exists');
-            assert.doesNotMatch(await text(page, '.cal-ws'), /Naskenovat|AI|Premium/);
+            // the layout choice itself carries no AI / Premium promise; the calendar scan's own card (ui/scan.js —
+            // on when the runtime offers AI sken, also for 14 days) is a separate action under it
+            const layoutText = await page.$eval('.cal-ws', (el) => {
+                const copy = el.cloneNode(true);
+                copy.querySelectorAll('script, [data-cal-scan-card], [data-cal-scan-panel]').forEach((n) => n.remove());
+                return copy.textContent.replace(/\s+/g, ' ');
+            });
+            assert.doesNotMatch(layoutText, /Naskenovat|AI|Premium/);
             for (const n of [3, 4, 5]) assert.equal(await page.$eval(`[data-cal-step="${n}"]`, (el) => el.getAttribute('aria-disabled')), null);
         });
 
@@ -258,7 +265,7 @@ module.exports = {
             assert.equal(await text(page, '.cal-dialog .modal-body'), 'Kalendář má neuložené změny.');
             assert.deepEqual(await page.$$eval('.cal-dialog [data-cal-choice]', (nodes) => nodes.map((n) => n.textContent.trim()).sort()), ['Odejít bez uložení', 'Uložit a odejít', 'Zůstat']);
             await h.answerDialog(page, 'stay');
-            assert.match(page.url(), new RegExp(`/calendar/${id}(\\?krok=\\d)?$`), 'still on the calendar (the address carries the step)');
+            assert.match(page.url(), new RegExp(`/calendar/${id}(\\?krok=\\d(&strana=[^&]+)?)?$`), 'still on the calendar (the address carries the step and, in steps 4–5, the page — K9)');
             await page.click('[data-cal-action="back-to-list"]');
             await h.sleep(100);
             await Promise.all([page.waitForNavigation({ waitUntil: 'networkidle2' }), h.answerDialog(page, 'discard').catch(() => null)]);

@@ -190,7 +190,8 @@ module.exports = {
             assert.ok(await client.$('[data-cal-action="history"]'), 'Historie stays');
             const b = await boot(client);
             assert.equal(b.mode, 'client');
-            assert.deepEqual(Object.keys(b.env.urls).sort(), ['asset', 'export', 'history', 'save']);
+            // the Excel import (K10b) reads a table for the client's content too — docs/architecture/calendars.md
+            assert.deepEqual(Object.keys(b.env.urls).sort(), ['asset', 'export', 'history', 'importTable', 'importTemplateEvents', 'importTemplateWaste', 'save']);
             assert.equal(b.env.clientUrl, undefined);
             assert.equal(b.env.siblings, undefined);
             assert.equal(await client.$eval('meta[name="robots"]', (el) => el.content), 'noindex, nofollow');
