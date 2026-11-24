@@ -720,6 +720,19 @@ no new content contract, nothing stored).
   undoable — the preview is the safety) → toast, the first imported kind is
   selected. Hotovo / Esc / Zrušit discard the review. e2e
   `content-tools` (K10b checks, 390 px fit).
+- **Events** (Akce a spolky, same bar and review): columns by header words
+  (`detectEventColumns`: datum / název·akce / pořadatel·spolek / zkratka;
+  without a header the text column with most different values is the name,
+  the next the organiser) — changeable in the review. A multi-day `12.–14. 6.`
+  goes on its FIRST day (noted); extra columns (čas, místo) are ignored; the
+  per-event icon is never imported. Organisers: one group per code column /
+  all-caps first word (`SDH Testov` and `SDH` are one) / name, matched to a
+  club by code, then name (case + accents ignored), else „Nový spolek“ with
+  a proposed code (its own, the caps word, else initials; unique, ≤ 6,
+  editable) or „Bez pořadatele“. `planEvents` only ADDS; an exact duplicate
+  (date + normalised name + club) of a stored event or of an earlier row is
+  skipped and listed; a new club no imported event uses is not created.
+  Ops carry the usual `czDate` labels. Client link: e2e `client-tools`.
 
 ### Budgets of the public client link
 
@@ -2173,7 +2186,6 @@ Deliberately not built (handoff §2), with the room left for them:
   the two rule-based items only. (The AI design scan of step 2 exists since
   2026-11-13 — § "Scanned layouts"; a PDF's first page and 14-day calendars
   are part of it since the same day.)
-- **Excel import** for Odpady and Akce a spolky (rule-based, postponed).
 - **CMYK print file — what is left** (the variant exists since 2026-11-12,
   "CMYK variant"): no overprint is set (K 100 text KNOCKS OUT what lies under
   it — most RIPs overprint 100 % black themselves, ours does not ask for it);

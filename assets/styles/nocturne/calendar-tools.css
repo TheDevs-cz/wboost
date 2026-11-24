@@ -184,8 +184,9 @@
 
 /* „Nahrát z Excelu“ (K10b) — ui/tools/import.js: the bar on top of Odpady / Akce a spolky and the
    review that takes the tool's place until „Načíst …“ or „Zrušit“ */
-.cal-wt[hidden], .cal-evt[hidden] { display: none; }
+.cal-wt[hidden], .cal-et[hidden] { display: none; }
 .cal-imp-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.cal-et > .cal-imp-bar { grid-column: 1 / -1; } /* Akce a spolky is a two-column grid */
 .cal-imp-btn { gap: 10px; height: auto; min-height: 40px; padding: 6px 14px 6px 12px; border: 1px dashed var(--line-3); border-radius: 12px; text-align: left; }
 .cal-imp-btn > span { display: flex; flex-direction: column; line-height: 1.25; }
 .cal-imp-btn .cap { font-weight: 400; }

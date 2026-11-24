@@ -8,6 +8,7 @@
 // tool's body: sheet, shape / columns, mapping, a preview of what the write does and the skipped
 // rows — and writes nothing until „Načíst …“. Then ONE `store.applyOps` (content ops are not
 // undoable, hence the preview) and `onClose({ imported: [ids…] })`; „Zrušit“ → `onClose(null)`.
+// While the review is shown the modal's „Hotovo“ is hidden (one primary); Esc / × still close.
 // The plan comes from `model/import.js`, the same function for the preview and the write.
 //
 // DOM hooks: `[data-import-file]` (input), `[data-import-template]` (a), `[data-import-review]`,
@@ -76,6 +77,10 @@ export function mountImportReview(root, ctx, { kind, table, selected, onClose })
         h('div', { class: 'cal-imp-foot' }, cancel, apply),
     );
     root.append(el);
+    // one primary at a time (design-system §7): the modal's „Hotovo“ waits until the review is gone
+    const modal = root.closest('.modal');
+    const done = modal ? modal.querySelector('[data-cal-action="modal-done"]') : null;
+    if (done) done.style.display = 'none';
 
     let plan = null;
     apply.addEventListener('click', () => {
@@ -310,6 +315,7 @@ export function mountImportReview(root, ctx, { kind, table, selected, onClose })
     return {
         destroy() {
             el.remove();
+            if (done) done.style.display = '';
         },
     };
 }

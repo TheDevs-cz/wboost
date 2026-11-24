@@ -1384,7 +1384,8 @@ store, same undo stack. In step 3 the handle (`[data-cal-action="panel-toggle"]`
   `localeCompare(…, 'cs', { numeric: true })`, the first `weekPages.length` files, uploaded with at
   most three requests in parallel; each sets `pagePhotos[key] = { asset, zoom: 1, px: 0.5, py: 0.5 }`
   and, when the asset has a `description`, `pageCaptions[key] = { text: description.slice(0, 80) }`.
-  No Excel import control exists.
+  „Nahrát z Excelu“ in Odpady and Akce a spolky since K10b (2026-11-24) — docs/architecture/calendars.md
+  § "Import from a spreadsheet".
 - **Step 5** (`ui/step5.js`): toolbar (designer: all seven tools, disabled ones dimmed; client: the
   four allowed tools whose feature is on), **Odkaz pro klienta** (designer), warning chip, **Historie**.
   Large page: designer → `renderPage(…, { marks: print.marks, bleed: B > 0, quality: 'full', placeholders: 'frames' })`,
@@ -1958,7 +1959,7 @@ Shared test infrastructure:
 | Goal | Odpady, Akce a spolky, Jména navíc, Fáze měsíce, Šichtovnice dialogs with the shared date picker (map §8.11), feature-off notice + Zapnout. |
 | Owns | `ui/tools/waste.js`, `events.js`, `names.js`, `moon.js`, `shifts.js`, `datepicker.js`, `calendar-tools.css`, `tests/e2e/calendar/content-tools.e2e.cjs`. |
 | Depends on | P3. |
-| Tests | e2e: C4, C5, C6 (no Excel control), C7, C8, G9 through the UI, end-before-start rejected, last weekday rejected, moon edit + Přepočítat, shift presets; all persisted after reload. |
+| Tests | e2e: C4, C5, C6 („Nahrát z Excelu“ shown since K10b), C7, C8, G9 through the UI, end-before-start rejected, last weekday rejected, moon edit + Přepočítat, shift presets; all persisted after reload. |
 | Handoff checks | C4–C8, G9. |
 
 ### P7a — step 5 preview and floating editors

@@ -444,6 +444,25 @@ module.exports = {
             await closeHistory(page);
         });
 
+        await check('client · Akce a spolky: „Nahrát z Excelu“ (K10b) — a Windows-1250 CSV, organisers become clubs, saved', async () => {
+            const year = (await h.state(client)).design.year;
+            if (year !== 2027) throw new Error(`SKIPPED — the import fixtures are 2027 tables, this calendar is ${year}`);
+            await openTool(client, 'events');
+            const before = (await h.state(client)).content;
+            const input = await client.$(`${M} [data-import-file="events"]`);
+            await input.uploadFile(path.join(__dirname, '../../Fixtures/calendar/import/akce-1250.csv'));
+            await client.waitForSelector(`${M} [data-import-review="events"]`, { timeout: 15000 });
+            assert.equal(await client.$eval(`${M} [data-import-apply]`, (el) => el.textContent), 'Načíst 3 akce');
+            await client.click(`${M} [data-import-apply]`);
+            await client.waitForFunction((sel) => !document.querySelector(`${sel} [data-import-review]`), { timeout: 5000 }, M);
+            await closeTool(client);
+            await client.click('[data-cal-action="save"]');
+            await h.waitStatus(client, 'clean');
+            const after = (await h.state(client)).content;
+            const names = Object.values(after.events).filter((e) => !Object.values(before.events).some((b) => b.name === e.name)).map((e) => `${e.date}|${e.name}|${e.club ? after.clubs[e.club].code : ''}`).sort();
+            assert.deepEqual(names, ['2027-03-06|Maškarní ples; pro děti|ZŠ', '2027-12-24|Zpívání u stromu|', '2028-01-01|Novoroční výšlap|KČT']);
+        });
+
         if (client.problems.length) await check('console of the client page is free of errors', async () => assert.deepEqual(client.problems, []));
         await anonymous.close().catch(() => null);
         await h.deleteCalendar(page, id);

@@ -9,6 +9,9 @@
 // the list but never printed. View state (`ui.toolState.events`): `{ filter, view, ym }` —
 // `filter` is `'*'` (all), a club id, or `''` (events without an organiser).
 //
+// „Nahrát z Excelu“ (K10b, both roles): the bar + review of `ui/tools/import.js` (date · name ·
+// organiser; organisers matched to clubs or created; exact duplicates skipped).
+//
 // DOM hooks: `[data-ev-filter]` (select), `[data-club-add]`, `[data-club-code]`, `[data-club-name]`,
 // `[data-club-remove]`, `[data-ev-view] button[data-value="m|y"]`, `[data-month]`,
 // `[data-event-row="<id>"]` with `[data-event-club]`, `[data-event-date]`, `[data-event-name]`,
@@ -18,6 +21,7 @@
 import { iso } from '../../generate/dates.js';
 import { dateLimits, newId, nextPos, sorted } from '../../model/content.js';
 import { h, icon, segmented, selectField } from '../dom.js';
+import { importBar, mountImportReview } from './import.js';
 import { addButton, clampYm, czDate, dateField, keyedList, monthNav, readToolState, removeButton, textField, writeToolState, ymOf, ymPrefix } from './datepicker.js';
 
 const NOUN = ['akce', 'akce', 'akcí'];
@@ -271,9 +275,31 @@ export function mountEventsTool(root, ctx) {
         renderList();
     }
 
+    // „Nahrát z Excelu“ (K10b): the review replaces the tool until it is applied or cancelled; then the
+    // list shows the month of the first imported event, all organisers
+    let review = null;
+    const bar = importBar(ctx, 'events', (table) => {
+        if (review) review.destroy();
+        el.hidden = true;
+        review = mountImportReview(root, ctx, {
+            kind: 'events',
+            table,
+            onClose(result) {
+                review.destroy();
+                review = null;
+                el.hidden = false;
+                if (result && result.imported.length) {
+                    remember({ filter: '*', ym: clampYm(ymOf(result.imported[0]), limits()) });
+                    nav.set(view.ym);
+                }
+                render();
+            },
+        });
+    });
     const el = h(
         'div',
         { class: 'cal-et' },
+        bar,
         h('section', { class: 'cal-eclubs', 'aria-label': 'Spolek / pořadatel' }, h('span', { class: 'lbl' }, 'Spolek / pořadatel'), h('div', { class: 'cal-evsel' }, filter, addClub), clubEditor),
         h('section', { class: 'cal-elist' }, h('div', { class: 'cal-s4h' }, heading, viewSeg), nav.el, listEl, empty, addButton('Přidat akci', addEvent, { 'data-event-add': '' })),
     );
@@ -287,6 +313,7 @@ export function mountEventsTool(root, ctx) {
     return {
         destroy() {
             unsubscribe();
+            if (review) review.destroy();
             root.replaceChildren();
         },
     };

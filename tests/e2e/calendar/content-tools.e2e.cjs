@@ -363,10 +363,11 @@ module.exports = {
             await closeTool(page);
         });
 
-        await check('C6 no Excel import in Akce a spolky; C7 an event of club ZŠ prints „ZŠ · název“', async () => {
+        await check('C6 (retired by K10b) Akce a spolky offers „Nahrát z Excelu“ + „Stáhnout vzor“, no AI; C7 an event of club ZŠ prints „ZŠ · název“', async () => {
             await openTool(page, 'events');
-            assert.doesNotMatch(await modalText(page), /Excel|AI /);
-            assert.equal(await exists(page, `${M} input[type="file"]`), false);
+            assert.doesNotMatch(await modalText(page), /AI /);
+            assert.ok(await exists(page, `${M} [data-import-file="events"]`));
+            assert.match(await page.$eval(`${M} [data-import-template="events"]`, (a) => a.href), /\/import\/template\/events$/);
             assert.equal(await page.$eval(`${M} [data-ev-empty]`, (el) => el.textContent), 'V tomto měsíci žádné akce.');
             await page.click(`${M} [data-club-add]`);
             await page.waitForSelector(`${M} [data-club-code]`);
@@ -700,6 +701,48 @@ module.exports = {
             assert.deepEqual(s.content.shiftOps[kept.opId], kept.op);
         });
 
+        await check('K10b events: „Nahrát z Excelu“ — columns by header, organisers become clubs (code editable), duplicates skipped, a second import adds nothing', async () => {
+            if (Y !== 2027) throw new Error(`SKIPPED — the import fixtures are 2027 tables, this calendar is ${Y}`);
+            if ((await h.state(page)).design.step !== 4) await h.gotoStep(page, 4);
+            await page.waitForSelector('[data-tool="events"]');
+            await openTool(page, 'events');
+            const before = (await h.state(page)).content;
+            const upload = async () => {
+                const input = await page.$(`${M} [data-import-file="events"]`);
+                await input.uploadFile(path.join(__dirname, '../../Fixtures/calendar/import/akce.xlsx'));
+                await page.waitForSelector(`${M} [data-import-review="events"]`, { timeout: 15000 });
+            };
+            await upload();
+            assert.equal(await page.$eval(`${M} .cal-et`, (el) => el.hidden), true);
+            assert.equal(await page.$eval(`${M} [data-cal-action="modal-done"]`, (el) => getComputedStyle(el).display), 'none', 'one primary: Hotovo waits');
+            assert.deepEqual(await page.$$eval(`${M} select[data-import-col]`, (els) => els.map((el) => `${el.dataset.importCol}=${el.value}`)), ['date=0', 'name=1', 'club=2']);
+            assert.deepEqual(await page.$$eval(`${M} select[data-import-map]`, (els) => els.map((el) => `${el.dataset.importMap}=${el.value}`)), ['obec testov=new', 'sdh=new', 'tj=new']);
+            assert.equal(await page.$eval(`${M} [data-import-code="tj"]`, (el) => el.value), 'TJ');
+            await page.$eval(`${M} [data-import-code="tj"]`, (el) => {
+                el.value = 'SOKOL';
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+            assert.deepEqual(await page.$$eval(`${M} [data-import-issues="skipped"] [data-import-issue]`, (els) => els.map((el) => el.dataset.importIssue)), ['8', '9']);
+            assert.deepEqual(await page.$$eval(`${M} [data-import-issues="notes"] [data-import-issue]`, (els) => els.map((el) => el.dataset.importIssue)), ['4', '5']);
+            assert.equal(await page.$eval(`${M} [data-import-apply]`, (el) => el.textContent), 'Načíst 5 akcí');
+            await h.shot(page, 'import-events-review-1440-dark');
+            await page.click(`${M} [data-import-apply]`);
+            await page.waitForFunction((sel) => !document.querySelector(`${sel} [data-import-review]`), { timeout: 5000 }, M);
+            const s = (await h.state(page)).content;
+            const added = Object.entries(s.clubs).filter(([id]) => !before.clubs[id]).map(([, c]) => `${c.code}|${c.name}`).sort();
+            assert.deepEqual(added, ['OT|Obec Testov', 'SDH|SDH Testov', 'SOKOL|TJ Sokol Testov']);
+            const sokol = Object.keys(s.clubs).find((id) => s.clubs[id].code === 'SOKOL');
+            const fresh = Object.values(s.events).filter((e) => !Object.values(before.events).some((b) => b.date === e.date && b.name === e.name));
+            assert.equal(fresh.length, 5);
+            assert.deepEqual(fresh.find((e) => e.name === 'Pouťové oslavy'), { date: '2027-06-12', name: 'Pouťové oslavy', club: sokol, icon: null });
+            assert.ok((await dayData(h, page))['2027-02-14'].events.includes('SDH · Hasičský ples'), 'printed with the club code');
+            // the same file again: everything is there already
+            await upload();
+            assert.equal(await page.$eval(`${M} [data-import-apply]`, (el) => `${el.disabled}|${el.textContent}`), 'true|Není co načíst');
+            await page.click(`${M} [data-import-cancel]`);
+            await closeTool(page);
+        });
+
         await check('390 px: every dialog fits the phone width (no sideways scroll)', async () => {
             const phone = await h.newPage(browser, { width: 390, height: 780 });
             try {
@@ -725,7 +768,7 @@ module.exports = {
                             await h.shot(phone, `waste-dates-390-${theme}`);
                         }
                         // K10b: the import review fits the phone too (cancelled — nothing written)
-                        const table = { waste: 'odpady-radky.xlsx' }[key];
+                        const table = { waste: 'odpady-radky.xlsx', events: 'akce.xlsx' }[key];
                         if (table && Y === 2027) {
                             const input = await phone.$(`${M} [data-import-file="${key}"]`);
                             await input.uploadFile(path.join(__dirname, '../../Fixtures/calendar/import', table));

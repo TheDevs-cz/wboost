@@ -1,10 +1,12 @@
-# Kalendáře — import from a spreadsheet (K10b) — PLAN, awaiting approval
+# Kalendáře — import from a spreadsheet (K10b) — APPROVED 2026-11-24, built
 
 Feedback K10 (b): „navíc chybí nahrání souboru, excel“. Jan confirmed
 (2026-11-23) that the import belongs in **both** step-4 tools — Odpady and
 Akce a spolky — as one feature: one parser, one upload, one preview, one
-„Stáhnout vzor“, and a mapping per tool. Nothing is built before this plan is
-approved.
+„Stáhnout vzor“, and a mapping per tool. Jan approved D2–D10 as recommended on 2026-11-24; D1 (real files) was not
+available — built against the shapes below with crafted fixtures
+(`tests/Fixtures/calendar/import/`). The current truth is
+`docs/architecture/calendars.md` § "Import from a spreadsheet".
 
 ## What the original spec said
 
