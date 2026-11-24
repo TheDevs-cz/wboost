@@ -35,10 +35,10 @@ use WBoost\Web\Mcp\Response\SkillVersionResponse;
  */
 final class SkillRelease
 {
-    public const string VERSION = '0.12.0';
+    public const string VERSION = '0.13.0';
 
     /** One or two lines: what the CURRENT version adds over the previous one. */
-    public const string WHATS_NEW = 'Shadows for designs: `set_design` text, image and shape elements take `shadow` — a Photoshop drop shadow (`kind: dropShadow`, colour, opacity, light angle, distance, size) or an outer glow (`kind: outerGlow`).';
+    public const string WHATS_NEW = 'Rounded, bordered images: `set_design` image elements take `cornerRadius` and `border: {color, width}` — along the visible frame, so a fillable slot keeps them for the user\'s picture.';
 
     /** A stable download of the latest released skill folder, built by `.github/workflows/plugin-release.yml`. */
     public const string ZIP_URL = 'https://github.com/TheDevs-cz/wboost/releases/latest/download/wboost-skill.zip';

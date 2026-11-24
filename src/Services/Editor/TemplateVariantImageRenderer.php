@@ -97,6 +97,10 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
         // Last + defaulted so the positional test constructions stay valid.
         #[Autowire('%kernel.project_dir%/assets/editor/fabric_line_style.js')]
         private readonly string $lineStyleScriptPath = __DIR__ . '/../../../assets/editor/fabric_line_style.js',
+        // "Styl vrstvy" › image Zaoblení rohů + Tah — same patch as the
+        // editor and the fill page.
+        #[Autowire('%kernel.project_dir%/assets/editor/fabric_image_frame.js')]
+        private readonly string $imageFrameScriptPath = __DIR__ . '/../../../assets/editor/fabric_image_frame.js',
     ) {
     }
 
@@ -500,6 +504,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
             $this->fabricUmdBundlePath,
             $this->breakWordScriptPath,
             $this->lineStyleScriptPath,
+            $this->imageFrameScriptPath,
             $this->containerLayoutScriptPath,
             $this->richTextRunsScriptPath,
             $this->richTextBlocksScriptPath,
@@ -649,6 +654,7 @@ final class TemplateVariantImageRenderer implements TemplateVariantImageRenderer
                 'fabric_inline_script' => $this->getInlineScript($this->fabricUmdBundlePath),
                 'break_word_inline_script' => $this->getInlineScript($this->breakWordScriptPath),
                 'line_style_inline_script' => $this->getInlineScript($this->lineStyleScriptPath),
+                'image_frame_inline_script' => $this->getInlineScript($this->imageFrameScriptPath),
                 'container_layout_inline_script' => $this->getInlineScript($this->containerLayoutScriptPath),
                 'rich_text_runs_inline_script' => $this->getInlineScript($this->richTextRunsScriptPath),
                 'rich_text_blocks_inline_script' => $this->getInlineScript($this->richTextBlocksScriptPath),

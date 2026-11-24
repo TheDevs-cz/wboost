@@ -13,6 +13,31 @@
         <select id="layer-blend-{{ s }}" class="form-select form-select-sm" data-canvas-layer-style-target="blend" data-action="change->canvas-layer-style#updateBlend"></select>
     </div>
 
+    {# Images only (not the background): rounded corners + an inside border
+       along the visible frame — for a fillable slot that is the slot's frame,
+       whatever picture the client puts in (assets/editor/fabric_image_frame.js). #}
+    <div class="row g-1 mb-2 d-none" data-canvas-layer-style-target="frameBlock">
+        <div class="col-4">
+            <label for="layer-frame-radius-{{ s }}" class="form-label small mb-1" title="Zaoblení rohů rámečku obrázku (px plátna)">Zaoblení</label>
+            <input type="number" id="layer-frame-radius-{{ s }}" class="form-control form-control-sm" min="0" step="1" placeholder="0"
+                   data-canvas-layer-style-target="frameRadius"
+                   data-action="input->canvas-layer-style#previewFrame change->canvas-layer-style#commitFrame keydown->canvas-layer-style#frameKeydown">
+        </div>
+        <div class="col-auto">
+            <label class="form-label small mb-1 d-block" title="Barva tahu (obrys uvnitř rámečku)">Tah</label>
+            <input type="button" class="color-picker-trigger ed-lstyle__color" aria-label="Barva tahu" value="#ffffff"
+                   data-controller="color-picker" data-color-picker-paint-value="true"
+                   data-canvas-layer-style-target="frameBorderColor"
+                   data-action="input->canvas-layer-style#previewFrame change->canvas-layer-style#commitFrame">
+        </div>
+        <div class="col">
+            <label for="layer-frame-border-{{ s }}" class="form-label small mb-1" title="Šířka tahu uvnitř rámečku (px plátna); 0 = bez tahu">Šířka tahu</label>
+            <input type="number" id="layer-frame-border-{{ s }}" class="form-control form-control-sm" min="0" step="1" placeholder="0"
+                   data-canvas-layer-style-target="frameBorderWidth"
+                   data-action="input->canvas-layer-style#previewFrame change->canvas-layer-style#commitFrame keydown->canvas-layer-style#frameKeydown">
+        </div>
+    </div>
+
     <div class="mb-2" data-canvas-layer-style-target="shadowBlock">
         <label for="layer-shadow-{{ s }}" class="form-label small mb-1">Stín a záře <i class="i i-info s12 ed-tip" title="Vržený stín nebo vnější záře kolem vrstvy. Jeden prvek má jeden z nich; stín přebírá průhlednost a režim prolnutí vrstvy."></i></label>
         <select id="layer-shadow-{{ s }}" class="form-select form-select-sm" data-canvas-layer-style-target="shadowKind" data-action="change->canvas-layer-style#updateShadowKind">

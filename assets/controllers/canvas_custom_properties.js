@@ -66,6 +66,8 @@ export const CANVAS_CUSTOM_PROPERTIES = [
     'imagePlaceholder', 'allowMove', 'allowResize', 'allowRotate', 'allowedDirectoryIds',
     'assetPath', 'assetId', 'editorLocked', 'isBackground', 'shapeKind', 'missingSrc',
     'colorChoice', 'colorFree', 'userMove',
+    // "Styl vrstvy" › image Zaoblení rohů + Tah (assets/editor/fabric_image_frame.js).
+    'frameRadius', 'frameBorder',
 ];
 
 /**

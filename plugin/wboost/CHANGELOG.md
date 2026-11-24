@@ -5,6 +5,17 @@ every deploy. When the server is newer than your skill, Claude tells you once
 per session how to update (see the README). Versions follow `x.y.z`: a new or
 changed tool or parameter is at least a minor bump.
 
+## 0.13.0 — 2026-11-24
+
+**Rounded corners and a border for images (Styl vrstvy).**
+
+New parameters and behaviour
+- `set_design` `image` elements take `cornerRadius` (canvas px) and
+  `border: {color, width}` (an inside border, canvas px). Both follow the
+  image's visible frame — for a fillable placeholder that is the slot's
+  frame, so they stay as designed whatever picture the user puts in.
+  `get_design` reads them back; the group editor scales them with each size.
+
 ## 0.12.0 — 2026-11-24
 
 **Shadows and glows in designs (Styl vrstvy).**

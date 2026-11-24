@@ -43,6 +43,7 @@ use WBoost\Web\Value\CanvasShadow;
 use WBoost\Web\Value\CanvasSlice;
 use WBoost\Web\Value\ElementMoveAllowance;
 use WBoost\Web\Value\FileSource;
+use WBoost\Web\Value\ImageFrameStyle;
 use WBoost\Web\Value\RenderImageFormat;
 use WBoost\Web\Value\ResolvedImageOverrides;
 use WBoost\Web\Value\RichTextOptions;
@@ -674,6 +675,8 @@ abstract class AbstractVariantFiller extends AbstractController
      *     opacity: float,
      *     blendMode: string,
      *     shadow: null|array{color: string, blur: float, offsetX: float, offsetY: float, affectStroke: false, nonScaling: true},
+     *     frameRadius: float,
+     *     frameBorder: null|array{color: string, width: float},
      *     seed: null|array<string, mixed>
      * }>
      */
@@ -768,6 +771,9 @@ abstract class AbstractVariantFiller extends AbstractController
                 'blendMode' => CanvasBlendMode::fromObject($object ?? [])->value,
                 // Stín / záře: Fabric's native shadow (nonScaling px), or null.
                 'shadow' => CanvasShadow::fromObject($object ?? [])?->toFabric(),
+                // Zaoblení rohů + Tah along the slot's frame (fabric_image_frame.js).
+                'frameRadius' => ImageFrameStyle::fromObject($object ?? [])->radius,
+                'frameBorder' => ImageFrameStyle::fromObject($object ?? [])->toCanvas()['frameBorder'] ?? null,
                 // Loaded-version state for this slot (see the LiveProp).
                 'seed' => $this->seedImageValues[$input->inputId] ?? null,
             ];

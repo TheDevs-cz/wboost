@@ -233,7 +233,7 @@ within the document. Slugs carry input identity across saves.
 | `at` | `area`, `col`, `marginX`, `marginY`, `offsetX`, `offsetY` |
 | `text` element | `kind`, `id`, `text`, `font`, `size`, `color`, `align`, `lineHeight`, `letterSpacing`, `opacity`, `blend`, `shadow`, `at`, `x`, `y`, `width`, `input`, `userMove` |
 | `text` input block | `name`, `maxLength`, `uppercase`, `hidable`, `locked`, `richText`, `sampleValue`, `allowedFonts`, `fontChoice`, `allowedColors` |
-| `image` element | `kind`, `id`, `asset`, `at`, `x`, `y`, `width`, `height`, `input`, `mirror`, `opacity`, `blend`, `shadow`, `userMove` |
+| `image` element | `kind`, `id`, `asset`, `at`, `x`, `y`, `width`, `height`, `input`, `mirror`, `opacity`, `blend`, `shadow`, `cornerRadius`, `border`, `userMove` |
 | `image` input block | `name`, `placeholder`, `allowMove`, `allowResize`, `allowRotate`, `hidable`, `allowedDirectories` |
 | `shape` element | `kind`, `id`, `shape`, `fill`, `stroke`, `strokeWidth`, `strokeStyle`, `cornerRadius`, `opacity`, `blend`, `shadow`, `name`, `locked`, `userColor`, `at`, `x`, `y`, `width`, `height`, `userMove` |
 | `shape` gradient fill | `type`, `angle`, `from`, `to`, `stops` |
@@ -242,6 +242,7 @@ within the document. Slugs carry input identity across saves.
 | `background` element | `kind`, `id`, `asset`, `fill`, `fillable`, `opacity`, `blend` |
 | `container` element | `kind`, `id`, `members`, `children`, `maxHeight`, `gap`, `spaceAfter`, `hidable`, `name`, `userMove`, `repeat` |
 | `repeat` block | `max`, `min`, `default`, `slots` |
+| `image` border block | `color`, `width` |
 | `shadow` block | `kind`, `color`, `opacity`, `angle`, `distance`, `size` |
 | `userMove` block | `vertical`, `horizontal`, `maxUp`, `maxDown`, `maxLeft`, `maxRight` |
 
@@ -340,6 +341,12 @@ within the document. Slugs carry input identity across saves.
   The shadow takes the element's own `opacity` and `blend`; the group editor
   scales its px with each size. A filled placeholder keeps it for the user's
   picture.
+- **`image` `cornerRadius` / `border`** ("Zaoblení rohů" / "Tah"): rounded
+  corners (canvas px) and an INSIDE border `{"color": "#ffffff", "width": 8}`
+  (canvas px) along the image's visible frame — for a fillable placeholder
+  that is the slot's frame, so they stay whatever picture the user puts in
+  (and survive panning / zooming inside it). Both default to none; a border's
+  `width` must be > 0. The group editor scales them with each size.
 - **`image` `mirror`**: `true` flips a **decorative** image horizontally (default
   `false`). Rejected on a fillable placeholder — filling re-places the picture
   and resets any mirroring.

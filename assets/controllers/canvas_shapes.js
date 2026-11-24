@@ -1,4 +1,4 @@
-import { Circle, Color, Ellipse, Gradient, Polygon, Rect, Triangle } from "fabric";
+import { Circle, Color, Ellipse, FabricImage, Gradient, Polygon, Rect, Triangle } from "fabric";
 
 /**
  * Vector SHAPES for the admin canvas editor — the third "put something on the
@@ -29,6 +29,11 @@ import { Circle, Color, Ellipse, Gradient, Polygon, Rect, Triangle } from "fabri
 // thumbnails) gets it before the first canvas loads.
 if (typeof window !== 'undefined' && window.WBoostFabricLineStyle) {
     window.WBoostFabricLineStyle.enable(Rect);
+}
+// Image Zaoblení rohů + Tah ("Styl vrstvy", assets/editor/fabric_image_frame.js,
+// loaded by _editor_scripts): same patch as the render template + fill page.
+if (typeof window !== 'undefined' && window.WBoostFabricImageFrame) {
+    window.WBoostFabricImageFrame.enable(FabricImage);
 }
 
 /** Fabric type names (lower-cased) that count as a shape. */

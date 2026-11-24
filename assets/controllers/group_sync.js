@@ -74,7 +74,8 @@ const META_KEYS = [
 // to know the sibling it came from.
 // `shadow` ("Styl vrstvy"): its blur + offsets are canvas px, projected by
 // the width ratio like a shape's strokeWidth (CanvasDesignProjector mirrors it).
-const PROJECTED_META_KEYS = ['userMove', 'shadow'];
+// `frameRadius` / `frameBorder.width` (image Zaoblení + Tah) likewise.
+const PROJECTED_META_KEYS = ['userMove', 'shadow', 'frameRadius', 'frameBorder'];
 
 /** Per-target value of a propagated prop: projected for PROJECTED_META_KEYS,
  *  a deep-enough copy otherwise. */
@@ -84,6 +85,14 @@ function propValueFor(key, value, rx, ry) {
     }
     if (key === 'shadow') {
         return scaleShadow(value, rx);
+    }
+    if (key === 'frameRadius') {
+        return typeof value === 'number' && value > 0 ? Math.round(value * rx * 100) / 100 : undefined;
+    }
+    if (key === 'frameBorder') {
+        return value && typeof value === 'object'
+            ? { ...value, width: Math.round((Number(value.width) || 0) * rx * 100) / 100 }
+            : undefined;
     }
     return clonePaintValue(value);
 }
@@ -268,9 +277,13 @@ function snapshotProps(obj) {
 
     [...STYLE_KEYS, ...META_KEYS, ...PROJECTED_META_KEYS].forEach((key) => {
         // A Fabric Shadow is a live object (not a paint) — snapshot it plain.
-        props[key] = key === 'shadow'
-            ? (obj.shadow && typeof obj.shadow.toObject === 'function' ? obj.shadow.toObject() : (obj.shadow || null))
-            : clonePaintValue(obj[key]);
+        if (key === 'shadow') {
+            props[key] = obj.shadow && typeof obj.shadow.toObject === 'function' ? obj.shadow.toObject() : (obj.shadow || null);
+        } else if (key === 'frameBorder') {
+            props[key] = obj.frameBorder ? { ...obj.frameBorder } : undefined;
+        } else {
+            props[key] = clonePaintValue(obj[key]);
+        }
     });
 
     return props;
@@ -499,10 +512,14 @@ export class GroupSync {
                 if (obj.userMove !== undefined) {
                     clone.userMove = projectUserMove(obj.userMove, rx, ry);
                 }
-                // Same for the shadow's px (blur + offsets).
+                // Same for the shadow's px (blur + offsets) and the image
+                // frame's radius / border width.
                 if (obj.shadow) {
                     clone.set('shadow', scaleShadow(obj.shadow, rx));
                 }
+                ['frameRadius', 'frameBorder'].forEach((key) => {
+                    if (obj[key] !== undefined) clone[key] = propValueFor(key, obj[key], rx, ry);
+                });
 
                 if (isTextboxObject(clone) && typeof clone.initDimensions === 'function') {
                     clone.initDimensions();

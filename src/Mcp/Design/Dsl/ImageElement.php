@@ -7,6 +7,7 @@ namespace WBoost\Web\Mcp\Design\Dsl;
 use WBoost\Web\Value\CanvasBlendMode;
 use WBoost\Web\Value\CanvasShadow;
 use WBoost\Web\Value\ElementMoveAllowance;
+use WBoost\Web\Value\ImageFrameStyle;
 
 /**
  * An image element — a Fabric image object, either decorative or a fillable
@@ -58,6 +59,8 @@ readonly final class ImageElement implements DesignElement
         public CanvasBlendMode $blend = CanvasBlendMode::Normal,
         /** "Styl vrstvy" › Vržený stín / Vnější záře (Fabric `shadow`), or none. */
         public null|CanvasShadow $shadow = null,
+        /** "Styl vrstvy" › Zaoblení rohů + Tah along the visible frame. */
+        public ImageFrameStyle $frame = new ImageFrameStyle(),
     ) {
     }
 
@@ -108,6 +111,14 @@ readonly final class ImageElement implements DesignElement
 
         if ($this->shadow !== null) {
             $data['shadow'] = $this->shadow->toDsl();
+        }
+
+        if ($this->frame->radius > 0.0) {
+            $data['cornerRadius'] = $this->frame->radius;
+        }
+
+        if ($this->frame->borderColor !== null && $this->frame->borderWidth > 0.0) {
+            $data['border'] = ['color' => $this->frame->borderColor, 'width' => $this->frame->borderWidth];
         }
 
         return $data;

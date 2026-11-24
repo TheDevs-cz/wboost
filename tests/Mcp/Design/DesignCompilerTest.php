@@ -592,6 +592,24 @@ final class DesignCompilerTest extends TestCase
         self::assertArrayNotHasKey('shadow', $byName['Plain']);
     }
 
+    public function testAnImageCornerRadiusAndBorderCompileToTheFrameProps(): void
+    {
+        $compiled = $this->compile([
+            'canvas' => ['width' => 1080, 'height' => 1080],
+            'elements' => [
+                ['kind' => 'image', 'id' => 'photo', 'asset' => self::ASSET_PHOTO, 'x' => 80, 'y' => 80, 'width' => 400, 'height' => 300, 'cornerRadius' => 24, 'border' => ['color' => '#FFFFFF', 'width' => 8], 'input' => ['name' => 'Foto', 'placeholder' => true]],
+                ['kind' => 'image', 'id' => 'logo', 'asset' => self::ASSET_PHOTO, 'x' => 600, 'y' => 80, 'width' => 400, 'height' => 300],
+            ],
+        ]);
+
+        $images = array_values(array_filter($compiled->objects(), static fn (array $object): bool => ($object['type'] ?? null) === 'Image'));
+        self::assertCount(2, $images);
+        self::assertSame(24.0, $images[0]['frameRadius']);
+        self::assertSame(['color' => '#ffffff', 'width' => 8.0], $images[0]['frameBorder']);
+        self::assertArrayNotHasKey('frameRadius', $images[1]);
+        self::assertArrayNotHasKey('frameBorder', $images[1]);
+    }
+
     public function testADottedStrokeScalesItsDashPatternWithTheStrokeWidth(): void
     {
         // The gradient panel is the second `rectangle`; compiledShapes() keeps

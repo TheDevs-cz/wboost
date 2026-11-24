@@ -289,6 +289,14 @@ readonly final class CanvasDesignProjector
             $object['shadow'] = CanvasShadow::scaleFabric($object['shadow'], $rx);
         }
 
+        // Image Zaoblení rohů + Tah: canvas px too (fabric_image_frame.js).
+        $this->scaleKey($object, 'frameRadius', $rx);
+        if (is_array($object['frameBorder'] ?? null)) {
+            $border = $object['frameBorder'];
+            $this->scaleKey($border, 'width', $rx);
+            $object['frameBorder'] = $border;
+        }
+
         $this->scaleUserMove($object, $rx, $ry);
 
         return $object;

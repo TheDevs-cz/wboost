@@ -21,6 +21,7 @@ use WBoost\Web\Value\CanvasShapeGradient;
 use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\ElementMoveAllowance;
+use WBoost\Web\Value\ImageFrameStyle;
 
 /**
  * DSL → Fabric canvas + `inputs[]` + `imageInputs[]`. The heart of the design
@@ -112,6 +113,8 @@ readonly final class DesignCompiler
         'imagePlaceholder', 'allowMove', 'allowResize', 'allowRotate', 'allowedDirectoryIds',
         'assetPath', 'assetId', 'editorLocked', 'isBackground', 'shapeKind', 'missingSrc',
         'colorChoice', 'colorFree', 'userMove',
+        // "Styl vrstvy" › image Zaoblení rohů + Tah (assets/editor/fabric_image_frame.js).
+        'frameRadius', 'frameBorder',
     ];
 
     /**
@@ -145,6 +148,7 @@ readonly final class DesignCompiler
         'inputId', 'name', 'description', 'imagePlaceholder', 'hidable',
         'allowMove', 'allowResize', 'allowRotate', 'allowedDirectoryIds',
         'assetPath', 'assetId', 'isBackground', 'editorLocked', 'userMove',
+        'frameRadius', 'frameBorder',
     ];
 
     /**
@@ -807,6 +811,8 @@ readonly final class DesignCompiler
             $object['allowRotate'] = $element->input->allowRotate;
             $object['allowedDirectoryIds'] = $element->input->allowedDirectories;
         }
+
+        $object = array_merge($object, $element->frame->toCanvas());
 
         return self::withUserMove(self::withShadow(self::withBlend(self::withOpacity($object, $element->opacity), $element->blend), $element->shadow), $element->userMove);
     }

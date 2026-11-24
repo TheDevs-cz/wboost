@@ -112,6 +112,7 @@ final class SkillDocumentationTest extends KernelTestCase
         '`background` element' => DslParser::BACKGROUND_KEYS,
         '`container` element' => DslParser::CONTAINER_KEYS,
         '`shadow` block' => DslParser::SHADOW_KEYS,
+        '`image` border block' => DslParser::IMAGE_BORDER_KEYS,
         '`userMove` block' => DslParser::USER_MOVE_KEYS,
         '`repeat` block' => DslParser::REPEAT_KEYS,
     ];

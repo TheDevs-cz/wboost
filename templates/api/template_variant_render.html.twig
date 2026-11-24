@@ -25,6 +25,10 @@
        dashes (Fabric would dash the outline around the thin bar) — the same
        patch the admin editor applies, so the export matches the editor. #}
     <script>{{ line_style_inline_script|default('')|raw }}</script>
+    {# fabric_image_frame.js: an image's rounded corners + inside border
+       ("Styl vrstvy"), following the placeholder frame — same patch as the
+       editor and the fill page. #}
+    <script>{{ image_frame_inline_script|default('')|raw }}</script>
     <script>{{ container_layout_inline_script|raw }}</script>
     {# rich_text_runs.js converts rich-text overrides (runs) into Fabric
        per-character styles — grapheme-indexed, styles-before-text ordering.
@@ -98,6 +102,9 @@
                     // Dotted / dashed čára = dots along the line (see
                     // assets/editor/fabric_line_style.js, same as the editor).
                     WBoostFabricLineStyle.enable(fabric.Rect);
+                }
+                if (window.WBoostFabricImageFrame) {
+                    WBoostFabricImageFrame.enable(fabric.FabricImage || fabric.Image);
                 }
 
                 const designWidth = {{ variant.dimension.width }};

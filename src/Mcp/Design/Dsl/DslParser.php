@@ -15,6 +15,7 @@ use WBoost\Web\Value\CanvasShapeKind;
 use WBoost\Web\Value\CanvasShapeStroke;
 use WBoost\Web\Value\ContainerRepeat;
 use WBoost\Web\Value\ElementMoveAllowance;
+use WBoost\Web\Value\ImageFrameStyle;
 use WBoost\Web\Value\RichText;
 use WBoost\Web\Value\ShapeColorTarget;
 
@@ -81,7 +82,7 @@ final class DslParser
     public const array TEXT_INPUT_KEYS = ['name', 'maxLength', 'uppercase', 'hidable', 'locked', 'richText', 'sampleValue', 'allowedFonts', 'fontChoice', 'allowedColors'];
 
     /** @var list<string> */
-    public const array IMAGE_KEYS = ['kind', 'id', 'asset', 'at', 'x', 'y', 'width', 'height', 'input', 'mirror', 'opacity', 'blend', 'shadow', 'userMove'];
+    public const array IMAGE_KEYS = ['kind', 'id', 'asset', 'at', 'x', 'y', 'width', 'height', 'input', 'mirror', 'opacity', 'blend', 'shadow', 'cornerRadius', 'border', 'userMove'];
 
     /** @var list<string> */
     public const array IMAGE_INPUT_KEYS = ['name', 'placeholder', 'allowMove', 'allowResize', 'allowRotate', 'hidable', 'allowedDirectories'];
@@ -133,6 +134,9 @@ final class DslParser
 
     /** "Styl vrstvy" › stín / záře block on text, image and shape. */
     public const array SHADOW_KEYS = ['kind', 'color', 'opacity', 'angle', 'distance', 'size'];
+
+    /** "Styl vrstvy" › an image's Tah (inside border along its frame). */
+    public const array IMAGE_BORDER_KEYS = ['color', 'width'];
 
     /**
      * Slug shape: lowercase only, so two ids can never differ by case alone —
@@ -453,6 +457,7 @@ final class DslParser
         $opacity = $this->readOpacity($path, $raw);
         $blend = $this->readBlend($path, $raw);
         $shadow = $this->readShadow($path, $raw);
+        $frame = $this->readImageFrame($path, $raw);
         $userMove = $this->readUserMove($path, $raw);
 
         // A fill re-places a placeholder's picture and resets its flip
@@ -480,7 +485,7 @@ final class DslParser
             return null;
         }
 
-        return new ImageElement($id, $assetId, $placement, $input, $mirror, $opacity, $userMove, $blend, $shadow);
+        return new ImageElement($id, $assetId, $placement, $input, $mirror, $opacity, $userMove, $blend, $shadow, $frame);
     }
 
     /**
@@ -885,6 +890,45 @@ final class DslParser
         }
 
         return $mode;
+    }
+
+    /**
+     * An image's `cornerRadius` (px) and `border: {color, width}` (px, an
+     * INSIDE border) — both along the visible frame, so a fillable slot keeps
+     * them for whatever picture the user puts in.
+     *
+     * @param array<array-key, mixed> $raw
+     */
+    private function readImageFrame(string $path, array $raw): ImageFrameStyle
+    {
+        $radius = $this->readNonNegativeNumber($path, $raw, 'cornerRadius') ?? 0.0;
+        if ($radius > ImageFrameStyle::MAX_PX) {
+            $this->invalidValue($path, 'cornerRadius', sprintf('is at most %d canvas px', (int) ImageFrameStyle::MAX_PX));
+            $radius = ImageFrameStyle::MAX_PX;
+        }
+
+        $border = $raw['border'] ?? null;
+        $color = null;
+        $width = 0.0;
+
+        if ($border !== null) {
+            $blockPath = self::join($path, 'border');
+
+            if (!is_array($border) || array_is_list($border)) {
+                $this->wrongType($path, 'border', sprintf('an object {%s} (or null)', implode(', ', self::IMAGE_BORDER_KEYS)), $border);
+            } else {
+                $this->checkKeys($blockPath, $border, self::IMAGE_BORDER_KEYS, 'a border block');
+                $color = $this->readHexColor($blockPath, $border, 'color') ?? '#ffffff';
+                $width = $this->readNonNegativeNumber($blockPath, $border, 'width') ?? 0.0;
+
+                if ($width <= 0.0) {
+                    $this->invalidValue($blockPath, 'width', 'must be a positive number of canvas px — leave the border out for none');
+                }
+                $width = min($width, ImageFrameStyle::MAX_PX);
+            }
+        }
+
+        return new ImageFrameStyle($radius, $width > 0.0 ? $color : null, $width > 0.0 ? $width : 0.0);
     }
 
     /**

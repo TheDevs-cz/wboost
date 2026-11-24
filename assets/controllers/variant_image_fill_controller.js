@@ -5,6 +5,13 @@ import { ImageAdjustHandles } from "./image_adjust_handles.js";
 import { ADJUST_SCALE_MIN, adjustScaleMax, clamp } from "./image_placement.js";
 import { intrinsicSizedImageUrl } from "./svg_intrinsic_size.js";
 
+// The slot picture's rounded corners + inside border ("Styl vrstvy",
+// assets/editor/fabric_image_frame.js, loaded by the page) — the same patch
+// the editor and the render template apply.
+if (typeof window !== 'undefined' && window.WBoostFabricImageFrame) {
+    window.WBoostFabricImageFrame.enable(FabricImage);
+}
+
 const HISTORY_FIELDS = ['imageId', 'scale', 'offsetX', 'offsetY', 'rotation', 'hide'];
 
 /**
@@ -421,6 +428,11 @@ export default class extends Controller {
             fabricObject.set('globalCompositeOperation', slot && typeof slot.blendMode === 'string' ? slot.blendMode : 'source-over');
             // Stín / záře (nonScaling: the pick's own scale never resizes it).
             fabricObject.set('shadow', slot && slot.shadow ? { ...slot.shadow } : null);
+            // Zaoblení rohů + Tah follow the slot's frame (fabric_image_frame.js).
+            fabricObject.set({
+                frameRadius: slot && slot.frameRadius ? slot.frameRadius : 0,
+                frameBorder: slot && slot.frameBorder ? { ...slot.frameBorder } : null,
+            });
             this.canvas.add(fabricObject);
         }
         // Every slot change repaints in the designed z-order (this also puts

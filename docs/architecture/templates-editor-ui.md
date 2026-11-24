@@ -143,6 +143,34 @@ orchestrator dispatches on Fabric's selection lifecycle:
   image / shape (`DslParser::SHADOW_KEYS`); the decompiler reads it back (it
   used to be a `style_dropped` loss — still one on the background).
 
+**Styl vrstvy — image Zaoblení rohů + Tah (2026-11-24, phase 3)**
+
+- **Custom props on images**: `frameRadius` (px) and `frameBorder` (`{color,
+  width}`, px) — in `CANVAS_CUSTOM_PROPERTIES` and the PHP mirror, read by
+  `Value/ImageFrameStyle`. Not on the background layer.
+- **Drawn by a classic-script Fabric patch, `assets/editor/fabric_image_frame.js`**
+  (`WBoostFabricImageFrame.enable(FabricImage)`), on THREE surfaces: the
+  editor (`_editor_scripts`, enabled in `canvas_shapes.js` at import), the
+  fill page (`template_variant_export.html.twig`, enabled in
+  `variant_image_fill_controller.js`) and the render template (inlined by
+  `TemplateVariantImageRenderer::$imageFrameScriptPath`, part of the asset
+  fingerprint). It wraps `drawObject`: the rounding clips the original draw,
+  the border is an INSIDE stroke drawn AFTER Fabric's own frame clip, both in
+  FRAME space — the image's own box, or for an image with an ABSOLUTE
+  clipPath (a filled / stand-in placeholder: `ImagePlacement`, `_frameClip`)
+  that frame, one unit = one canvas px. Why not Fabric's stroke + a rounded
+  clipPath: a placeholder's stroke would trace the client's (bigger, panned)
+  picture and be cut by the frame clip, and the server's frame clip
+  (`ImagePlacement`) would replace a designed clipPath. Both props are cache
+  properties.
+- Fill page: `imagePlaceholders()` → `frameRadius` / `frameBorder`, applied in
+  `_replaceObject`. Group editor: both ∈ `PROJECTED_META_KEYS`, projected by
+  the width ratio (JS + `CanvasDesignProjector`).
+- **MCP**: image `cornerRadius` + `border: {color, width}`
+  (`DslParser::IMAGE_BORDER_KEYS`).
+- `ImageFrameRenderTest` (gotenberg) pins a scaled decorative image and a
+  filled placeholder whose picture overflows its frame, at 1× and 2×.
+
 **User-movable elements — "Uživatel může posunout" (2026-11-09, M1 of the axis-move plan)**
 
 The ADMIN half of letting the end user move a text (locked ones too), a shape, a

@@ -36,6 +36,7 @@ use WBoost\Web\Value\ContainerRepeat;
 use WBoost\Web\Value\EditorImageInput;
 use WBoost\Web\Value\EditorTextInput;
 use WBoost\Web\Value\ElementMoveAllowance;
+use WBoost\Web\Value\ImageFrameStyle;
 use WBoost\Web\Value\RichText;
 use WBoost\Web\Value\ShapeColorTarget;
 
@@ -1051,6 +1052,7 @@ readonly final class DesignDecompiler
             userMove: self::imageUserMove($object, $placeholder, $path, $losses),
             blend: CanvasBlendMode::fromObject($object),
             shadow: CanvasShadow::fromObject($object),
+            frame: ImageFrameStyle::fromObject($object),
         );
     }
 

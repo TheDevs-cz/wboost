@@ -105,6 +105,24 @@ final class CanvasDesignProjectorTest extends TestCase
         self::assertEqualsWithDelta(12.0, $text['shadow']['offsetY'], 0.001, 'offsets follow the WIDTH ratio on both axes, like the blur');
     }
 
+    public function testImageFrameRadiusAndBorderProjectByWidthRatio(): void
+    {
+        $canvas = json_encode([
+            'version' => '5.2.4',
+            'objects' => [[
+                'type' => 'Image', 'inputId' => 'i-1', 'left' => 0, 'top' => 0, 'scaleX' => 1, 'scaleY' => 1,
+                'frameRadius' => 12, 'frameBorder' => ['color' => '#ffffff', 'width' => 4],
+            ]],
+        ], JSON_THROW_ON_ERROR);
+
+        $image = $this->objectAt($this->decode($this->projector->project($canvas, 1000, 1000, 2000, 3000, 'https://assets/bg.png')), 0);
+
+        self::assertEqualsWithDelta(24.0, $image['frameRadius'], 0.001);
+        self::assertIsArray($image['frameBorder']);
+        self::assertSame('#ffffff', $image['frameBorder']['color']);
+        self::assertEqualsWithDelta(8.0, $image['frameBorder']['width'], 0.001);
+    }
+
     public function testContainersScaleMaxHeightByHeightRatio(): void
     {
         $canvas = json_encode([

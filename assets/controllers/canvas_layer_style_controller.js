@@ -30,6 +30,7 @@ export default class extends Controller {
         "section", "blend",
         "shadowBlock", "shadowKind", "shadowFields", "shadowColor", "shadowOpacity", "shadowOpacityValue",
         "shadowAngle", "shadowAngleRow", "shadowDistance", "shadowDistanceRow", "shadowSize",
+        "frameBlock", "frameRadius", "frameBorderColor", "frameBorderWidth",
     ];
 
     connect() {
@@ -52,6 +53,10 @@ export default class extends Controller {
 
         const mode = blendModeOf(active);
         this.blendTargets.forEach((select) => { select.value = mode; });
+
+        const framable = active.isBackground !== true && String(active.type || '').toLowerCase() === 'image';
+        this.frameBlockTargets.forEach((block) => block.classList.toggle('d-none', !framable));
+        if (framable) this._showFrame(active);
 
         const shadowable = active.isBackground !== true;
         this.shadowBlockTargets.forEach((block) => block.classList.toggle('d-none', !shadowable));
@@ -105,6 +110,62 @@ export default class extends Controller {
         canvas.requestRenderAll();
         this.canvasEditorOutlet.markUnsaved();
         if (commit) canvas.fire('object:modified', { target: obj });
+    }
+
+    // --- Zaoblení rohů + Tah (images; fabric_image_frame.js draws them) ----
+
+    previewFrame(event) {
+        this._applyFrameFields(event, false);
+    }
+
+    commitFrame(event) {
+        this._applyFrameFields(event, true);
+    }
+
+    frameKeydown(event) {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        this.commitFrame(event);
+    }
+
+    _applyFrameFields(event, commit) {
+        const obj = this._active();
+        if (!obj || obj.isBackground === true || String(obj.type || '').toLowerCase() !== 'image') return;
+        const section = event.target.closest('[data-canvas-layer-style-target="section"]');
+        if (!section) return;
+        const pick = (name) => section.querySelector(`[data-canvas-layer-style-target="${name}"]`);
+        const radius = Math.max(0, Number(pick('frameRadius').value) || 0);
+        let width = Math.max(0, Number(pick('frameBorderWidth').value) || 0);
+        const color = pick('frameBorderColor').value || '#ffffff';
+        // Picking a colour with no width yet switches the border on, the way
+        // the shape popover's Obrys does.
+        if (width === 0 && event.target === pick('frameBorderColor')) {
+            width = Math.max(1, Math.round(designWidth(this.canvasEditorOutlet.canvas) / 200));
+            pick('frameBorderWidth').value = String(width);
+        }
+        obj.set({
+            frameRadius: radius > 0 ? radius : undefined,
+            frameBorder: width > 0 ? { color, width } : undefined,
+        });
+        obj.dirty = true;
+        this._showFrame(obj);
+        const canvas = this.canvasEditorOutlet.canvas;
+        canvas.requestRenderAll();
+        this.canvasEditorOutlet.markUnsaved();
+        if (commit) canvas.fire('object:modified', { target: obj });
+    }
+
+    _showFrame(obj) {
+        const radius = Number(obj.frameRadius) > 0 ? Number(obj.frameRadius) : 0;
+        const border = obj.frameBorder && Number(obj.frameBorder.width) > 0 ? obj.frameBorder : null;
+        const setValue = (targets, value) => targets.forEach((input) => {
+            if (document.activeElement !== input) input.value = value;
+        });
+        setValue(this.frameRadiusTargets, radius ? String(radius) : '');
+        setValue(this.frameBorderWidthTargets, border ? String(border.width) : '');
+        if (border) {
+            this.frameBorderColorTargets.forEach((input) => { if (input.value !== border.color) input.value = border.color; });
+        }
     }
 
     /** Enter commits the field and never submits the editor form the
