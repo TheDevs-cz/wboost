@@ -1,4 +1,7 @@
 // Element / part vocabulary and visibility rules (architecture §A.1, §B.5, §D.2).
+// Own layers (`u:<id>`, model/layers.js) are elements too: one box, one row, one entry in `order`.
+
+import { isLayerKey, layerIdOf, layerLabel } from './layers.js';
 
 export const ELEMENTS = Object.freeze([
     { key: 'photo', label: 'Fotografie', icon: 'image', hideable: false, hasBox: true },
@@ -58,7 +61,9 @@ export const ICON_CATEGORIES = Object.freeze([
     { key: 'season', label: 'Změna ročního období', feature: 'seasons' },
 ]);
 
-export function elementLabel(key) {
+/** The name of an element; an own layer's (`u:<id>`) needs the layout it lives in. */
+export function elementLabel(key, layout) {
+    if (isLayerKey(key)) return layerLabel(layout, key);
     const found = ELEMENTS.find((e) => e.key === key);
     return found ? found.label : key;
 }
@@ -70,6 +75,7 @@ export function partLabel(key) {
 
 export function boxKeysOf(elementKey, design) {
     if (elementKey === 'bg') return [];
+    if (isLayerKey(elementKey)) return [elementKey];
     if (FRAMED_ELEMENTS.includes(elementKey) && design && design.type === 'fortnight') return [elementKey, `${elementKey}2`];
     return [elementKey];
 }
@@ -108,13 +114,29 @@ export function isElementVisible(design, elementKey) {
             return Boolean(features.weekNumbers) && !hidden('wk');
         case 'qr':
             return Boolean(features.qr) && !hidden('qr');
-        default:
-            return false;
+        default: {
+            // an own layer: it exists and its eye is open (the page it is on is the renderer's business)
+            const layers = design.layout && design.layout.layers;
+            const id = layerIdOf(elementKey);
+            return Boolean(id !== null && layers && layers[id] && boxes[elementKey]) && !hidden(elementKey);
+        }
     }
 }
 
-/** Box keys of the drawn elements, in BOX_KEYS order (second frames with their first one on a fortnight). */
+/**
+ * Box keys of the drawn elements, in BOX_KEYS order (second frames with their first one on a
+ * fortnight), then the visible own layers in stacking order — the snap targets.
+ */
 export function visibleBoxKeys(design) {
+    return [...linkBoxKeys(design), ...((design.layout && design.layout.order) || []).filter((k) => isLayerKey(k) && isElementVisible(design, k))];
+}
+
+/**
+ * The visible built-in boxes — what Propojit prvky may take along. Own layers never link, neither
+ * as the resized box nor as a follower: they are decoration (a frame round the photo must not drag
+ * the photo).
+ */
+export function linkBoxKeys(design) {
     const boxes = (design.layout && design.layout.boxes) || {};
     return BOX_KEYS.filter((k) => {
         if (!boxes[k]) return false;

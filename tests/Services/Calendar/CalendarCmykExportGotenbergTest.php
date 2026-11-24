@@ -163,6 +163,11 @@ final class CalendarCmykExportGotenbergTest extends WebTestCase
         self::assertGreaterThan(1500, $solid, 'the day numbers are K 100');
         self::assertSame(0, $rich, 'no dark pixel of the text carries cyan, magenta or yellow');
 
+        // own layers (K20): a palette colour prints with the palette's CMYK to the digit, black as K only
+        self::assertSame(self::BRAND_CMYK, $ink->at(100.0, 136.5), 'the stripe layer in the brand colour');
+        self::assertSame(self::BRAND_CMYK, $ink->at(165.0, 55.0), 'the ellipse layer in the brand colour');
+        self::assertSame([0, 0, 0, 100], $ink->at(100.0, 30.5), 'the black line layer: K only');
+
         // the photo is a four-colour picture
         [$c, $m, $y, $k] = $ink->at(60.0, 80.0);
         self::assertGreaterThan(60, $c + $m + $y, 'the photo prints in colour');
@@ -252,6 +257,22 @@ final class CalendarCmykExportGotenbergTest extends WebTestCase
         $boxes->photo = ['x' => 8, 'y' => 34, 'w' => 180, 'h' => 100];
         $boxes->qr = ['x' => 170, 'y' => 110, 'w' => 20, 'h' => 20];
         $boxes->logo = ['x' => 14, 'y' => 40, 'w' => 20, 'h' => 20];
+        // own layers (K20), on top of everything: a stripe and an ellipse in the palette's red, a black
+        // line, a picture (the QR PNG again) — vector shapes, the picture its own pixels
+        $common = ['name' => '', 'pages' => 'weeks', 'except' => [], 'opacity' => 100, 'blend' => 'normal'];
+        $noStroke = ['on' => false, 'color' => '#000000', 'width' => 1, 'style' => 'solid'];
+        $layout->layers = (object) [
+            'stripe' => [...$common, 'kind' => 'rect', 'fill' => ['on' => true, 'color' => '#C8102E', 'opacity' => 100], 'stroke' => $noStroke, 'radius' => 1],
+            'dot' => [...$common, 'kind' => 'ellipse', 'fill' => ['on' => true, 'color' => '#C8102E', 'opacity' => 100], 'stroke' => ['on' => true, 'color' => '#004E7C', 'width' => 2, 'style' => 'dash']],
+            'rule' => [...$common, 'kind' => 'line', 'stroke' => ['color' => '#000000', 'width' => 2, 'style' => 'solid', 'cap' => 'butt']],
+            'pic' => [...$common, 'kind' => 'image', 'asset' => $qr['id'], 'fit' => 'contain', 'radius' => 2],
+        ];
+        $boxes->{'u:stripe'} = ['x' => 8, 'y' => 135, 'w' => 180, 'h' => 3];
+        $boxes->{'u:dot'} = ['x' => 150, 'y' => 40, 'w' => 30, 'h' => 30];
+        $boxes->{'u:rule'} = ['x' => 8, 'y' => 28.5, 'w' => 180, 'h' => 4];
+        $boxes->{'u:pic'} = ['x' => 120, 'y' => 100, 'w' => 20, 'h' => 20];
+        \assert(is_array($layout->order));
+        $layout->order = ['u:stripe', 'u:dot', 'u:rule', 'u:pic', ...$layout->order];
 
         self::save($browser, self::WORKSPACE_URL . '/save', [
             'design' => [

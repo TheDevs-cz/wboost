@@ -468,6 +468,39 @@ final class CalendarScanTest extends WebTestCase
         self::assertSame($after['revision'], self::calInt(self::DESIGNED, 'revision'));
     }
 
+    /**
+     * K20: the scan does not know the calendar's own layers — they stay on
+     * top of the scanned layout, and a restore brings back the stored layout
+     * with its own.
+     */
+    public function testOwnLayersStayOverAnAcceptedScanAndComeBackWithARestore(): void
+    {
+        $scanId = self::calendarReady($this->client, self::DESIGNED);
+        TestingLogin::logInAsUser($this->client, TestDataFixture::USER_1_EMAIL);
+
+        $layout = self::calJson(self::DESIGNED, 'layout');
+        /** @var array<string, mixed> $boxes */
+        $boxes = $layout['boxes'];
+        /** @var list<string> $order */
+        $order = $layout['order'];
+        $stripe = ['kind' => 'rect', 'name' => 'Pruh', 'pages' => 'weeks', 'except' => [], 'opacity' => 100, 'blend' => 'normal', 'fill' => ['on' => true, 'color' => '#E5DDF7', 'opacity' => 100], 'stroke' => ['on' => false, 'color' => '#2B2830', 'width' => 1, 'style' => 'solid'], 'radius' => 0];
+        $layout = [...$layout, 'boxes' => [...$boxes, 'u:stripe' => ['x' => -5, 'y' => 60, 'w' => 320, 'h' => 10]], 'order' => ['u:stripe', ...$order], 'layers' => ['stripe' => $stripe]];
+        self::connection()->executeStatement('UPDATE calendar SET layout = CAST(:layout AS JSONB) WHERE id = :id', ['layout' => json_encode($layout, JSON_THROW_ON_ERROR), 'id' => self::DESIGNED]);
+        $before = self::state(self::DESIGNED);
+
+        $this->hold($scanId, self::DESIGNED, 'logo', self::png(240, 120));
+        self::assertTrue($this->post(self::DESIGNED, $scanId, 'accept', ['features' => []])['ok']);
+
+        $after = self::state(self::DESIGNED);
+        self::assertSame('start', self::dig($after['layout'], 'styles', 'cal', 'numberSide'), 'the scanned layout is applied');
+        self::assertEquals($stripe, self::dig($after['layout'], 'layers', 'stripe'));
+        self::assertEquals(['x' => -5, 'y' => 60, 'w' => 320, 'h' => 10], self::dig($after['layout'], 'boxes', 'u:stripe'));
+        self::assertSame('u:stripe', self::dig($after['layout'], 'order', 0));
+
+        self::assertTrue($this->post(self::DESIGNED, $scanId, 'restore')['ok']);
+        self::assertEquals($before['layout'], self::state(self::DESIGNED)['layout']);
+    }
+
     public function testTheLanguagesOfThePageAreOfferedTickedAppliedAndRestored(): void
     {
         // a page in Czech, Polish and English: the calendar prints all of them —

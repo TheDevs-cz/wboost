@@ -202,6 +202,11 @@ final class SaveCalendarControllerTest extends WebTestCase
         /** @var array<string, mixed> $layout */
         $layout = json_decode(TestDataFixture::CALENDAR_LAYOUT_JSON, true, 64, JSON_THROW_ON_ERROR);
 
+        /** @var array<string, mixed> $boxes */
+        $boxes = $layout['boxes'];
+        /** @var list<string> $order */
+        $order = $layout['order'];
+
         yield 'empty name' => [['design' => ['name' => '   ']]];
         yield 'name too long' => [['design' => ['name' => str_repeat('a', 61)]]];
         yield 'year out of range' => [['design' => ['year' => 1999]]];
@@ -221,6 +226,14 @@ final class SaveCalendarControllerTest extends WebTestCase
         yield 'layout order with bg' => [['design' => ['layout' => [...$layout, 'order' => ['bg']]]]];
         yield 'layout style string too long' => [['design' => ['layout' => [...$layout, 'styles' => ['month' => ['family' => str_repeat('x', 256)]]]]]];
         yield 'layout with an unknown asset' => [['design' => ['layout' => [...$layout, 'styles' => ['logo' => ['asset' => '0196f000-0000-7000-8000-000000000001']]]]]];
+        // K20: a picture layer refers to an asset of THIS calendar like every layout picture
+        yield 'own layer with an unknown asset' => [['design' => ['layout' => [
+            ...$layout,
+            'boxes' => [...$boxes, 'u:pic' => ['x' => 10, 'y' => 10, 'w' => 40, 'h' => 20]],
+            'order' => ['u:pic', ...$order],
+            'layers' => ['pic' => ['kind' => 'image', 'name' => '', 'pages' => 'weeks', 'except' => [], 'opacity' => 100, 'blend' => 'normal', 'asset' => '0196f000-0000-7000-8000-000000000001', 'fit' => 'contain', 'radius' => 0]],
+        ]]]];
+        yield 'own layer without its box' => [['design' => ['layout' => [...$layout, 'order' => ['u:a', ...$order], 'layers' => ['a' => ['kind' => 'rect']]]]]];
         yield 'unknown collection' => [['content' => [['c' => 'secrets', 'id' => 'abcdefgh', 'v' => ['a' => 1]]]]];
         yield 'bad item id' => [['content' => [['c' => 'events', 'id' => 'no spaces!', 'v' => self::event('X')]]]];
         yield 'bad page key' => [['content' => [['c' => 'pageCaptions', 'id' => 'week5', 'v' => ['text' => 'x']]]]];

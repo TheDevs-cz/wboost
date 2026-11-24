@@ -113,7 +113,7 @@ final class CalendarToolsTest extends WebTestCase
 
         // The layout as the browser sees it: where things are AND how they
         // look — the tree set_calendar_layout patches.
-        self::assertSame(['v', 'boxes', 'order', 'styles'], array_keys(self::arr($calendar['layout'])));
+        self::assertSame(['v', 'boxes', 'order', 'styles', 'layers'], array_keys(self::arr($calendar['layout'])));
         self::assertArrayHasKey('photo', self::arr(self::dig($calendar, 'layout', 'boxes')));
         self::assertIsNumeric(self::dig($calendar, 'layout', 'styles', 'num', 'size'));
         self::assertArrayHasKey('order', self::arr(self::dig($calendar, 'layout', 'styles', 'icons')));

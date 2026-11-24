@@ -21,6 +21,9 @@ export function beginDrag(input) {
         page: input.page,
         bleedMm: Number(input.bleedMm) || 0,
         visibleKeys: input.visibleKeys.slice(),
+        // what Propojit prvky may take along (own layers never link — elements.js linkBoxKeys);
+        // the snap targets are every visible box
+        linkKeys: (input.linkKeys || input.visibleKeys).slice(),
         link: Boolean(input.link),
         bounds: pageBounds(input.page, input.bleedMm),
         targets: snapTargets(base, input.key, input.visibleKeys, input.page, input.bleedMm),
@@ -44,7 +47,7 @@ export function dragTo(session, dxMm, dyMm, o = {}) {
         b = enforceMinimum(b, mode, start);
     }
     b = roundBox(clampResize(b, bounds));
-    const boxes = session.link ? applyLink(base, key, start, b, session.visibleKeys, session.page) : { ...copyBoxes(base), [key]: b };
+    const boxes = session.link ? applyLink(base, key, start, b, session.linkKeys, session.page) : { ...copyBoxes(base), [key]: b };
     return { boxes, guides: keptGuides(guides, b, mode) };
 }
 

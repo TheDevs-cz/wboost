@@ -98,6 +98,9 @@ export const LIMITS = Object.freeze({
     fxAngle: { min: -180, max: 180, step: 1 },
     fxScale: { min: 10, max: 150, step: 1 },
     fxCentre: { min: -50, max: 150, step: 1 },
+    // own layers (model/layers.js, K20): corner radius mm, stroke / line width pt — CalendarLayerRules mirrors them
+    layerRadius: { min: 0, max: 100, step: 0.5 },
+    layerStroke: { min: 0.1, max: 20, step: 0.1 },
 });
 
 /** Wireframe colours of the prototype (`CK`). */

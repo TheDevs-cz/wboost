@@ -9,6 +9,8 @@ import { iconFragment } from './icons.js';
 import { wrapText } from './measure.js';
 import { fillIsOn, placeMonthText } from './week-layout.js';
 import { printLanguages } from '../generate/languages.js';
+import { isLayerKey, layerIdOf, layerOnPage } from '../model/layers.js';
+import { renderLayer } from './layers.js';
 
 const SAMPLE_CAPTION = 'Popisek fotografie, autor';
 
@@ -190,7 +192,7 @@ function renderQr(doc, page, opts) {
     return `${out}</g>`;
 }
 
-/** Inner markup of a week page: the visible elements in reverse `layout.order` (bottom layer first). */
+/** Inner markup of a week page: the visible elements and own layers in reverse `layout.order` (bottom layer first). */
 export function renderWeekPage(doc, page, geometry, opts) {
     const design = doc.design;
     const order = design.layout.order.slice().reverse();
@@ -205,6 +207,7 @@ export function renderWeekPage(doc, page, geometry, opts) {
         else if (el === 'wk') out += renderWk(doc, page, opts);
         else if (el === 'logo') out += renderLogo(doc, page, opts);
         else if (el === 'qr') out += renderQr(doc, page, opts);
+        else if (isLayerKey(el) && layerOnPage(design.layout.layers[layerIdOf(el)], page)) out += renderLayer(doc, page, el, opts);
     }
     return out;
 }

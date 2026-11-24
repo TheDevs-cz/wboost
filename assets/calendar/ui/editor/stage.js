@@ -27,7 +27,7 @@
 //   - the stage probe (`scale()`, `toClient()`, `page()`) is registered while mounted
 
 import { K, bleedOf } from '../../model/defaults.js';
-import { boxKeysOf, frameOfBox, visibleBoxKeys } from '../../model/elements.js';
+import { boxKeysOf, frameOfBox, linkBoxKeys, visibleBoxKeys } from '../../model/elements.js';
 import { samplePage } from '../../generate/pages.js';
 import { renderPage } from '../../render/page.js';
 import { beginDrag, dragTo } from '../../editor/drag.js';
@@ -329,6 +329,7 @@ export function mountStage(root, ctx, opts = {}) {
             page: design.page,
             bleedMm: bleedOf(design.print),
             visibleKeys: visibleBoxKeys(design),
+            linkKeys: linkBoxKeys(design),
             link: design.linkElements !== false,
         });
         g.last = JSON.stringify(g.session.base);

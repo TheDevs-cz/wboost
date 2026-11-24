@@ -132,7 +132,9 @@ readonly final class AcceptCalendarScanHandler
             $commands[] = $configure;
         }
 
-        $commands[] = ['op' => 'replace_layout', 'layout' => $plan['layout']];
+        // The scan does not know the calendar's own layers (K20): they stay on
+        // top of the scanned layout; a restore brings back the stored layout's own.
+        $commands[] = ['op' => 'replace_layout', 'layout' => $plan['layout'], 'keepLayers' => true];
 
         try {
             $model = $this->model->run($calendar, $commands);

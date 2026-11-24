@@ -65,7 +65,8 @@ are `K` and the control ranges `LIMITS`, both in `model/defaults.js`.
 
 ### Layout (`calendar.layout`) — defined by `model/layouts.js`, `model/normalize.js`
 
-`{ v: 1, boxes, order, styles }`.
+`{ v: 1, boxes, order, styles, layers }` — `layers` and their `u:<id>` boxes /
+order entries are the own layers (§ "Own layers").
 
 - `boxes`: `photo cap logo head month cal wk qr` (+ the **second frames**
   `cal2 month2 wk2` iff the type is `fortnight`) — `{ x, y, w, h, hidden? }`.
@@ -157,8 +158,8 @@ are `K` and the control ranges `LIMITS`, both in `model/defaults.js`.
   however asymmetric.
 
 The server validates the layout **structurally only**
-(`Services/Calendar/CalendarDesignRules`): exact top-level keys, known box
-keys with finite numbers (`month2` / `wk2` only beside `cal2`, and like `cal2`
+(`Services/Calendar/CalendarDesignRules`): exact top-level keys (+ the own
+layers of `CalendarLayerRules`), known box keys with finite numbers (`month2` / `wk2` only beside `cal2`, and like `cal2`
 never with `hidden`), `order` without duplicates, `styles` any JSON with
 strings ≤ 255, depth ≤ 8, ≤ 200 000 bytes, every asset id it mentions
 (`CalendarLayoutAssets::ids`) uploaded to *this* calendar. It does not
@@ -433,6 +434,82 @@ measurements behind it: `docs/calendar/effects-plan.md`). Model
 - Performance (dev stack, 2026-11-24, e2e `effects`): a slider step on the
   stage redraws within the same two frames with or without effects (median
   16.7 ms); step 4 with 55 thumbnails mounts in < 0.1 s (thumbnails are lazy).
+
+### Own layers („Vlastní vrstvy“, feedback K20 P1, 2026-11-24)
+
+Pictures and shapes the designer adds on top of (or under) the built-in
+elements. Plan, phases and Jan's decisions D1–D5 (all approved as
+recommended): `docs/calendar/custom-layers-plan.md`. P1 is built — own
+layers on every week page; page sets („Na stránkách“, cover / back / special
+pages, „Prázdná strana“) are P2, effects / gradient / crop / lock P3, a
+static text layer P4.
+
+- **Where (D1 — design, never a per-page override)**: `layout.layers` =
+  `{ "<id>": Layer }`, the geometry is the box `layout.boxes["u:<id>"]`
+  (`{x, y, w, h, hidden?}` — every box-generic function takes it for free:
+  drag, snap, clamp, nudge, bleed adaptation, `mirrorBoxes`, layout-file
+  scaling), the z-position is the entry `"u:<id>"` in `layout.order` — one list
+  with the built-ins. **Invariant** (normalize repairs, the server refuses):
+  every layer id has exactly one `u:` box and one `u:` order entry, nothing
+  else starts with `u:`; at most 50 layers; ids `[A-Za-z0-9_-]{1,40}` minus
+  the `Object.prototype` names (`newId()` in the browser). `normalizeLayout`
+  always materialises `layers` (`{}` for a calendar without any); a layout
+  without them renders **byte for byte** as before (suite `layers`).
+- **The item** (`model/layers.js`, `normalizeLayer` — pure, idempotent,
+  clamps, drops unknown keys): `{kind: image | rect | ellipse | line, name ≤ 60
+  ('' = „Obdélník 2“, numbered per kind from the bottom of the stack), pages:
+  'weeks' | 'all' | [pageKey…] (D2: new layers 'weeks'; P1 never writes
+  anything else), except: [pageKey…] (only beside a set), opacity 0–100,
+  blend (the 16 PDF modes)}` + per kind: image `{asset, fit contain | cover,
+  radius mm}`, rect `{fill {on, color, opacity}, stroke {on, color, width pt,
+  style solid | dash | dot}, radius mm}` (a „Zaoblený obdélník“ is a rect with
+  a radius, not a kind), ellipse `{fill, stroke}`, line `{stroke {color, width,
+  style, cap butt | round}}` — a line is a BOX drawn through its middle
+  (horizontal when `w ≥ h`), so it snaps and resizes like everything else; no
+  diagonals. Ranges `LIMITS.layerRadius` (0–100 mm), `layerStroke` (0.1–20 pt),
+  `percent`. `layerOnPage(layer, page)` is the page-set rule (a key without a
+  page is simply not shown).
+- **Render** (`render/layers.js`, dispatched from `renderWeekPage`'s `order`
+  loop): `<g data-el="layer" data-layer="<id>" opacity mix-blend-mode>`;
+  rect / ellipse / line are plain vector elements (`re` / Béziers in the
+  PDF), strokes sit INSIDE the box, dashes are the Kalendárium lines' (`4w
+  3w`, dots `0.01 2.6w` round-capped); a picture is one `<image>` with its own
+  bytes, clipped (cover always, contain only for a radius) — never a `filter`
+  or `mask`. An image layer without a picture shows the grey slot only with
+  `placeholders: 'all'` (the editor) and prints nothing. **CMYK**: nothing new
+  for the pass — a palette colour prints with the palette's CMYK to the digit,
+  black as K only (`CalendarCmykExportGotenbergTest` reads both back). P1 draws
+  layers on WEEK pages only; the cover / back / special pages (under / over
+  bands) come with P2.
+- **Editor rules**: `elements.js` knows `u:` keys (`boxKeysOf`,
+  `isElementVisible` = the layer exists and its eye is open, `elementLabel(key,
+  layout)`); `visibleBoxKeys` = the built-ins + the visible own layers (the
+  snap targets: own layers snap to everything and everything snaps to them);
+  **`linkBoxKeys` = the built-ins only — Propojit prvky never moves an own
+  layer and an own layer never drags a neighbour** (`beginDrag({ linkKeys })`,
+  `positionSection`). The hit test walks `order`, so a layer above the photo
+  is hit first.
+- **Layout operations**: Fotka vlevo ↔ vpravo mirrors the boxes (the layers
+  follow the composition); a type change (`rebaseLayoutForType`) and a preset
+  card over a scanned layout KEEP them (`carryLayers` — they are not part of a
+  preset); „Nahrát layout“ (file / sibling) and MCP `import_layout` REPLACE
+  them with the file's (the file is the design; its picture assets are copied
+  as every layout asset — `CalendarLayoutAssets` walks `layers[*].asset`);
+  **the AI scan's accept keeps them** (`replace_layout` with `keepLayers` —
+  `AcceptCalendarScanHandler`), its restore brings back the stored layout with
+  its own. An old browser tab (pre-K20 JS) drops `layers` on its next layout
+  save — the accepted risk of every new layout key.
+- **Server** (`CalendarDesignRules` + `CalendarLayerRules`, the PHP mirror of
+  `model/layers.js` — `CalendarLayerContractTest` pins kinds, keys, enums,
+  caps and ranges via `tests/Fixtures/calendar/dump-layers.mjs`): top-level
+  `layers` allowed (an empty list `[]` = none — a map that went through PHP
+  arrays), `u:<id>` boxes (`hidden` allowed) and order entries only for
+  existing layers, the invariant, ≤ 50, per item: `kind` required, only that
+  kind's keys, `#RRGGBB`, enums, ranges, page keys by pattern, a one-line
+  clean name ≤ 60. Keys of later phases (effects, crop, gradient) are refused
+  until the rules know them. **A client never writes a layer** (D3): any
+  `design` key from a client is 403 (`CalendarClientTest` „own layers“); the
+  client sees them drawn in step 5, `/k/{token}`, thumbnails and PDFs.
 
 ### Page list — adding and arranging pages (feedback K13, 2026-11-23)
 

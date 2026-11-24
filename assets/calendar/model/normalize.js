@@ -5,6 +5,7 @@ import { BOX_KEYS, DEFAULT_ORDER, HIDEABLE_BOXES, SECOND_FRAMES, frameAlign } fr
 import { COLLECTIONS } from './content.js';
 import { EFFECT_PATHS, normalizeEffects, shadowToEffects } from './effects.js';
 import { defaultBoxes, defaultStyles, presetsForType } from './layouts.js';
+import { defaultLayerBox, isLayerKey, layerIdOf, layerKey, normalizeLayers } from './layers.js';
 import { normalizeLanguages } from '../generate/languages.js';
 import { adaptBoxesToBleed, clampBoxesToBounds } from '../editor/bleed.js';
 
@@ -196,15 +197,22 @@ export function normalizeLayout(layout, type, page, env) {
             if (derived.flipped) flipAlignOf.push(first);
         }
     }
+    // own layers (model/layers.js): each id has exactly one `u:` box and one `u:` order entry
+    const layers = normalizeLayers(raw.layers);
+    for (const id of Object.keys(layers)) {
+        const key = layerKey(id);
+        boxes[key] = normalizeBox(storedBoxes[key], defaultLayerBox(layers[id].kind, page), true);
+    }
     const order = [];
     for (const key of Array.isArray(raw.order) ? raw.order : []) {
-        if (DEFAULT_ORDER.includes(key) && !order.includes(key)) order.push(key);
+        const known = DEFAULT_ORDER.includes(key) || (isLayerKey(key) && Object.prototype.hasOwnProperty.call(layers, layerIdOf(key)));
+        if (known && !order.includes(key)) order.push(key);
     }
-    // missing element keys go on top, in the default stacking order
-    const missing = DEFAULT_ORDER.filter((key) => !order.includes(key));
+    // missing element keys go on top, in the default stacking order; missing layers above them
+    const missing = [...Object.keys(layers).map(layerKey), ...DEFAULT_ORDER].filter((key) => !order.includes(key));
     const styles = clampStyles(mergeDefaults(defaults, isObject(raw.styles) ? migrateStyles(raw.styles) : {}, ''), defaults);
     for (const key of flipAlignOf) styles[key] = { ...styles[key], align: frameAlign(styles[key].align, 1) };
-    return { v: SCHEMA_VERSION, boxes, order: [...missing, ...order], styles };
+    return { v: SCHEMA_VERSION, boxes, order: [...missing, ...order], styles, layers };
 }
 
 export function normalizeContent(content) {

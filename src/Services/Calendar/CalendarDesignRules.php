@@ -153,8 +153,9 @@ readonly final class CalendarDesignRules
     }
 
     /**
-     * A Layout document `{ v: 1, boxes, order, styles }` (§B.2) as an object
-     * tree, returned untouched once it passes.
+     * A Layout document `{ v: 1, boxes, order, styles, layers? }` (§B.2; the
+     * own layers of K20 — {@see CalendarLayerRules}) as an object tree,
+     * returned untouched once it passes.
      *
      * @throws InvalidCalendarChange
      */
@@ -171,10 +172,13 @@ readonly final class CalendarDesignRules
         $raw = get_object_vars($layout);
 
         foreach (array_keys($raw) as $key) {
-            if (!in_array($key, ['v', 'boxes', 'order', 'styles'], true)) {
+            if (!in_array($key, ['v', 'boxes', 'order', 'styles', 'layers'], true)) {
                 throw self::invalid('layout.' . $key);
             }
         }
+
+        // Own layers (K20): the items here, their boxes and order entries below.
+        $layerIds = array_key_exists('layers', $raw) ? CalendarLayerRules::layers($raw['layers']) : [];
 
         if (($raw['v'] ?? null) !== 1) {
             throw self::invalid('layout.v');
@@ -187,7 +191,10 @@ readonly final class CalendarDesignRules
         }
 
         foreach (get_object_vars($boxes) as $key => $box) {
-            if (!in_array($key, self::BOX_KEYS, true)) {
+            $key = (string) $key;
+            $layerId = CalendarLayerRules::idOfKey($key);
+
+            if (!in_array($key, self::BOX_KEYS, true) && ($layerId === null || !in_array($layerId, $layerIds, true))) {
                 throw self::invalid('layout.boxes.' . $key);
             }
 
@@ -207,8 +214,23 @@ readonly final class CalendarDesignRules
         }
 
         foreach ($order as $element) {
-            if (!is_string($element) || !in_array($element, self::ELEMENT_KEYS, true)) {
+            if (!is_string($element)) {
                 throw self::invalid('layout.order');
+            }
+
+            $layerId = CalendarLayerRules::idOfKey($element);
+
+            if (!in_array($element, self::ELEMENT_KEYS, true) && ($layerId === null || !in_array($layerId, $layerIds, true))) {
+                throw self::invalid('layout.order');
+            }
+        }
+
+        // Every own layer has exactly one box and one place in the stack.
+        foreach ($layerIds as $id) {
+            $key = CalendarLayerRules::BOX_PREFIX . $id;
+
+            if (!property_exists($boxes, $key) || !in_array($key, $order, true)) {
+                throw self::invalid('layout.layers.' . $id);
             }
         }
 
@@ -364,7 +386,9 @@ readonly final class CalendarDesignRules
             }
         }
 
-        if (array_key_exists('hidden', $raw) && ($raw['hidden'] !== true || !in_array($key, self::HIDEABLE_BOX_KEYS, true))) {
+        $hideable = in_array($key, self::HIDEABLE_BOX_KEYS, true) || CalendarLayerRules::idOfKey($key) !== null;
+
+        if (array_key_exists('hidden', $raw) && ($raw['hidden'] !== true || !$hideable)) {
             throw self::invalid(sprintf('layout.boxes.%s.hidden', $key));
         }
     }

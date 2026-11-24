@@ -4,6 +4,7 @@ import { COLORS, DEFAULT_PAGE, roundMm } from './defaults.js';
 import { DEFAULT_ORDER, HIDEABLE_BOXES } from './elements.js';
 import { fontNames, nearestFace } from './fonts.js';
 import { mirrorEffects } from './effects.js';
+import { carryLayers } from './layers.js';
 
 export const FALLBACK_ACCENT = '#2E5A8C';
 
@@ -259,7 +260,10 @@ export function mirrorLayout(layout, page) {
     };
 }
 
-/** Type change (§E.8): positions reset to the default of the new type, styles kept. */
+/**
+ * Type change (§E.8): positions reset to the default of the new type, styles kept. Own layers
+ * (model/layers.js) keep their boxes and places in the stack — they are not part of a preset.
+ */
 export function rebaseLayoutForType(layout, newType, page, bleedMm) {
     const preset = newType === 'fortnight' ? 'twoSided' : 'photoLeft';
     const boxes = defaultBoxes(preset, page, bleedMm);
@@ -272,5 +276,5 @@ export function rebaseLayoutForType(layout, newType, page, bleedMm) {
     styles.hol = { ...styles.hol, wrapWidth: null };
     styles.cal = { ...styles.cal, iconCellW: null };
     styles.offsets = {};
-    return { layout: { v: 1, boxes, order: layout.order.slice(), styles }, preset };
+    return { layout: carryLayers({ v: 1, boxes, order: layout.order.slice(), styles }, layout), preset };
 }

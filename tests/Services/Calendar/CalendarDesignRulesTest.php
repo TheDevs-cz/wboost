@@ -201,6 +201,111 @@ final class CalendarDesignRulesTest extends TestCase
         yield 'styles nine levels deep' => [['styles' => ['a' => ['b' => ['c' => ['d' => ['e' => ['f' => ['g' => ['h' => ['i' => 1]]]]]]]]]]];
     }
 
+    /**
+     * Own layers (K20): the items in `layers`, each with exactly one `u:<id>`
+     * box (which may be hidden) and one `u:<id>` entry in `order`.
+     */
+    public function testOwnLayersAreAccepted(): void
+    {
+        $layout = self::withLayers([
+            'stripe' => ['kind' => 'rect', 'name' => 'Pruh', 'pages' => 'weeks', 'except' => [], 'opacity' => 60, 'blend' => 'multiply', 'fill' => ['on' => true, 'color' => '#E5DDF7', 'opacity' => 100], 'stroke' => ['on' => false, 'color' => '#2B2830', 'width' => 1, 'style' => 'dash'], 'radius' => 3],
+            'logos' => ['kind' => 'image', 'name' => '', 'pages' => ['w05', 'cover', 'sp:intro'], 'except' => [], 'opacity' => 100, 'blend' => 'normal', 'asset' => '0196f000-0000-7000-8000-00000000000a', 'fit' => 'contain', 'radius' => 0],
+            'dot' => ['kind' => 'ellipse', 'name' => 'Kruh', 'pages' => 'all', 'except' => ['back'], 'opacity' => 0, 'blend' => 'normal', 'fill' => ['on' => true, 'color' => '#c84b55', 'opacity' => 50], 'stroke' => ['on' => true, 'color' => '#000000', 'width' => 20, 'style' => 'dot']],
+            'rule' => ['kind' => 'line', 'stroke' => ['color' => '#2B2830', 'width' => 0.1, 'style' => 'solid', 'cap' => 'round']],
+        ], hidden: 'rule');
+
+        self::assertSame($layout, (new CalendarDesignRules())->layout($layout));
+        self::assertSame(['0196f000-0000-7000-8000-00000000000a'], CalendarLayoutAssets::ids($layout));
+
+        // an empty map that went through PHP arrays comes back as a list
+        $empty = self::withLayers([]);
+        $empty->layers = [];
+        self::assertSame($empty, (new CalendarDesignRules())->layout($empty));
+    }
+
+    /**
+     * @param array<string, mixed> $layers
+     * @param array<string, mixed> $change replaces top-level keys after the layers were added
+     */
+    #[DataProvider('provideInvalidLayers')]
+    public function testInvalidOwnLayersAreRefused(array $layers, array $change = []): void
+    {
+        $layout = self::withLayers($layers);
+
+        foreach ($change as $key => $value) {
+            $layout->{$key} = json_decode(json_encode($value, JSON_THROW_ON_ERROR));
+        }
+
+        $this->expectException(InvalidCalendarChange::class);
+
+        (new CalendarDesignRules())->layout($layout);
+    }
+
+    /**
+     * @return iterable<string, array{0: array<string, mixed>, 1?: array<string, mixed>}>
+     */
+    public static function provideInvalidLayers(): iterable
+    {
+        $rect = ['kind' => 'rect'];
+
+        yield 'unknown kind' => [['a' => ['kind' => 'text']]];
+        yield 'no kind' => [['a' => ['name' => 'x']]];
+        yield 'key of another kind' => [['a' => ['kind' => 'line', 'radius' => 3]]];
+        yield 'a later key (effects come in P3)' => [['a' => ['kind' => 'rect', 'effects' => []]]];
+        yield 'bad id' => [['a b' => $rect]];
+        yield 'reserved id' => [['constructor' => $rect]];
+        yield 'name too long' => [['a' => ['kind' => 'rect', 'name' => str_repeat('x', 61)]]];
+        yield 'name with a line break' => [['a' => ['kind' => 'rect', 'name' => "a\nb"]]];
+        yield 'opacity over 100' => [['a' => ['kind' => 'rect', 'opacity' => 101]]];
+        yield 'blend outside the 16' => [['a' => ['kind' => 'rect', 'blend' => 'dissolve']]];
+        yield 'page set unknown' => [['a' => ['kind' => 'rect', 'pages' => 'odd']]];
+        yield 'page key unknown' => [['a' => ['kind' => 'rect', 'pages' => ['w5']]]];
+        yield 'page key twice' => [['a' => ['kind' => 'rect', 'pages' => ['w05', 'w05']]]];
+        yield 'except beside a list' => [['a' => ['kind' => 'rect', 'pages' => ['w05'], 'except' => ['w05']]]];
+        yield 'fill colour' => [['a' => ['kind' => 'rect', 'fill' => ['color' => 'red']]]];
+        yield 'fill extra key' => [['a' => ['kind' => 'rect', 'fill' => ['gradient' => []]]]];
+        yield 'stroke too thick' => [['a' => ['kind' => 'rect', 'stroke' => ['width' => 21]]]];
+        yield 'stroke cap on a rect' => [['a' => ['kind' => 'rect', 'stroke' => ['cap' => 'round']]]];
+        yield 'line cap unknown' => [['a' => ['kind' => 'line', 'stroke' => ['cap' => 'square']]]];
+        yield 'image fit unknown' => [['a' => ['kind' => 'image', 'fit' => 'fill']]];
+        yield 'image asset a number' => [['a' => ['kind' => 'image', 'asset' => 5]]];
+        yield 'layers a list' => [[], ['layers' => [$rect]]];
+        yield 'box of an unknown layer' => [['a' => $rect], ['boxes' => ['u:a' => ['x' => 0, 'y' => 0, 'w' => 10, 'h' => 10], 'u:b' => ['x' => 0, 'y' => 0, 'w' => 10, 'h' => 10]]]];
+        yield 'layer without a box' => [['a' => $rect], ['boxes' => new \stdClass()]];
+        yield 'layer without an order entry' => [['a' => $rect], ['order' => ['photo']]];
+        yield 'order entry of an unknown layer' => [['a' => $rect], ['order' => ['u:a', 'u:b']]];
+        yield 'too many layers' => [array_fill_keys(array_map(static fn (int $i): string => 'l' . $i, range(1, 51)), $rect)];
+    }
+
+    /**
+     * The fixture layout plus `layers`, a box and an order entry per layer.
+     *
+     * @param array<string, mixed> $layers
+     */
+    private static function withLayers(array $layers, null|string $hidden = null): \stdClass
+    {
+        /** @var array<string, mixed> $layout */
+        $layout = json_decode(TestDataFixture::CALENDAR_LAYOUT_JSON, true, 64, JSON_THROW_ON_ERROR);
+        /** @var array<string, mixed> $boxes */
+        $boxes = $layout['boxes'];
+        /** @var list<string> $order */
+        $order = $layout['order'];
+
+        foreach (array_keys($layers) as $id) {
+            $boxes['u:' . $id] = ['x' => -5, 'y' => 60, 'w' => 320, 'h' => 10] + ($hidden === $id ? ['hidden' => true] : []);
+            $order[] = 'u:' . $id;
+        }
+
+        $layout['boxes'] = $boxes;
+        $layout['order'] = $order;
+        $layout['layers'] = $layers === [] ? new \stdClass() : $layers;
+
+        $object = json_decode(json_encode($layout, JSON_THROW_ON_ERROR));
+        \assert($object instanceof \stdClass);
+
+        return $object;
+    }
+
     public function testLayoutSizeCapAndDepth(): void
     {
         /** @var array<string, mixed> $layout */

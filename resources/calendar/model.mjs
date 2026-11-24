@@ -17,7 +17,7 @@
 //   { op: 'configure', name?, year?, type?, features?: {…}, languages?: [...], print?: {…}, linkElements? }
 //   { op: 'preset', preset, reset? }
 //   { op: 'layout', boxes?: {…}, order?: [...], styles?: {…} }
-//   { op: 'replace_layout', layout, assets? }
+//   { op: 'replace_layout', layout, assets?, keepLayers? }   keepLayers: the current own layers stay (AI scan)
 //   { op: 'step', step }
 //
 // Text is measured with the deterministic estimator (there are no fonts here): the auto-grow of
@@ -440,7 +440,8 @@ async function main(input) {
 
     function replaceLayout(cmd) {
         if (!isObject(cmd.layout)) refuse('invalid_design', 'There is no layout to apply.');
-        store.replaceLayout(cmd.layout, isObject(cmd.assets) ? cmd.assets : {});
+        // keepLayers: the AI scan's accept — the scan does not know the own layers, they stay on top
+        store.replaceLayout(cmd.layout, isObject(cmd.assets) ? cmd.assets : {}, { keepLayers: cmd.keepLayers === true });
         if (design().step < 3) store.setStep(3);
     }
 

@@ -25,6 +25,7 @@ import { DEFAULT_PRINT, K, bleedOf, clampLimit } from '../model/defaults.js';
 import { COLLECTIONS, shiftContentYear } from '../model/content.js';
 import { availableParts, isElementVisible } from '../model/elements.js';
 import { defaultLayout, mirrorLayout, presetsForType, rebaseLayoutForType } from '../model/layouts.js';
+import { carryLayers } from '../model/layers.js';
 import { normalizeDocument, normalizeLayout } from '../model/normalize.js';
 import { buildPages } from '../generate/pages.js';
 import { normalizeLanguages } from '../generate/languages.js';
@@ -445,9 +446,10 @@ export function createStore({ doc, env, api, measurer }) {
             layoutChanged = true;
         } else if (state.layoutOrigin === 'scan') {
             // over a scanned layout a preset card REPLACES it with the preset's default (never a
-            // mirror of the scan) and the marker goes — one undo step brings both back
+            // mirror of the scan) and the marker goes — one undo step brings both back; the own
+            // layers stay (they are not part of a preset)
             const before = snapshot();
-            const layout = grown(normalizeLayout(defaultLayout(preset, design.page, bleedOf(design.print), env), design.type, design.page, env), { ...design, preset });
+            const layout = grown(normalizeLayout(carryLayers(defaultLayout(preset, design.page, bleedOf(design.print), env), design.layout), design.type, design.page, env), { ...design, preset });
             undoStack.push(before);
             state.layoutOrigin = null;
             writeDesign({ preset, layout });
@@ -544,14 +546,20 @@ export function createStore({ doc, env, api, measurer }) {
         assetsVersion++;
     }
 
-    function replaceLayout(layout, assets) {
+    /**
+     * A whole layout from elsewhere (a layout file, a sibling, an AI scan): one undo step.
+     * `opts.keepLayers` keeps the current own layers on top of it (the AI scan does not know them);
+     * otherwise the new layout's own layers replace them (a layout file IS the design).
+     */
+    function replaceLayout(layout, assets, opts = {}) {
         assertDesigner();
         const { design } = state.doc;
         mergeAssets(assets);
         const before = snapshot();
         const hadLayout = Boolean(design.layout);
         const preset = presetsForType(design.type).includes(design.preset) ? design.preset : presetsForType(design.type)[0];
-        const normalised = normalizeLayout(layout, design.type, design.page, env);
+        const incoming = opts.keepLayers === true && design.layout && layout && typeof layout === 'object' ? carryLayers({ ...layout, boxes: layout.boxes || {}, order: Array.isArray(layout.order) ? layout.order : [] }, design.layout) : layout;
+        const normalised = normalizeLayout(incoming, design.type, design.page, env);
         const clamped = { ...normalised, boxes: clampBoxesToBounds(normalised.boxes, design.page, bleedOf(design.print)) };
         writeDesign({ layout: grown(clamped, { ...design, preset }), preset });
         if (hadLayout) undoStack.push(before);

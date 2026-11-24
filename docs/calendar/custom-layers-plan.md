@@ -1,7 +1,10 @@
 # K20 — own layers on calendar pages (plan)
 
-Status: **plan, nothing built** (2026-11-24). Decisions for Jan are in §8; the
-rest of the plan assumes the recommended option of each.
+Status: **P1 built** (2026-11-24) — own pictures and shapes on every week
+page; P2 (page sets, the other pages, „Prázdná strana“) and P3 (effects,
+gradient, crop, dpi warning, lock) are open. Jan approved every decision of §8
+as recommended (D1–D5, 2026-11-24). The current truth is
+`docs/architecture/calendars.md` § "Own layers".
 
 ## 0. What Jan asked for
 
@@ -466,6 +469,10 @@ P2 answers "some / one page / a page with it".
   such a page.
 
 ## 8. Decisions for Jan (recommendation first)
+
+**Approved 2026-11-24: D1–D5 exactly as recommended** — page-limited layers
+live in the design, new layers go on all week pages, the client sees layers
+read-only, text comes later (P4), „Prázdná strana“ comes in P2.
 
 | # | Question | Recommended | Alternative |
 |---|---|---|---|

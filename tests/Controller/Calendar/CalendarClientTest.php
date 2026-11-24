@@ -180,6 +180,8 @@ final class CalendarClientTest extends WebTestCase
     {
         yield 'layout' => [['design' => ['layout' => json_decode(TestDataFixture::CALENDAR_LAYOUT_JSON)]]];
         yield 'layout removed' => [['design' => ['layout' => null]]];
+        // K20 (decision D3): a client sees the own layers and never changes one
+        yield 'own layers' => [['design' => ['layout' => self::layoutWithOwnLayer()]]];
         yield 'name' => [['design' => ['name' => 'Přejmenováno']]];
         yield 'step only' => [['design' => ['step' => 3]]];
         yield 'empty design object' => [['design' => new \stdClass()]];
@@ -198,6 +200,27 @@ final class CalendarClientTest extends WebTestCase
         yield 'shift operations' => [['content' => [['c' => 'shiftOps', 'id' => 'shiftOpId', 'v' => null]]]];
         yield 'moon edits' => [['content' => [['c' => 'moonEdits', 'id' => 'moonEditId', 'v' => null]]]];
         yield 'unknown collection' => [['content' => [['c' => 'layout', 'id' => 'abcdefgh', 'v' => null]]]];
+    }
+
+    /**
+     * The fixture layout with one own layer (a stripe) — what a client would
+     * have to send to add, move or restyle a layer.
+     */
+    private static function layoutWithOwnLayer(): \stdClass
+    {
+        $layout = json_decode(TestDataFixture::CALENDAR_LAYOUT_JSON);
+        $boxes = $layout->boxes;
+        \assert($boxes instanceof \stdClass && is_array($layout->order));
+        $boxes->{'u:stripe'} = (object) ['x' => -5, 'y' => 60, 'w' => 320, 'h' => 10];
+        $layout->order = ['u:stripe', ...$layout->order];
+        $layout->layers = (object) ['stripe' => (object) [
+            'kind' => 'rect', 'name' => '', 'pages' => 'weeks', 'except' => [], 'opacity' => 100, 'blend' => 'normal',
+            'fill' => (object) ['on' => true, 'color' => '#E5DDF7', 'opacity' => 100],
+            'stroke' => (object) ['on' => false, 'color' => '#2B2830', 'width' => 1, 'style' => 'solid'],
+            'radius' => 0,
+        ]];
+
+        return $layout;
     }
 
     public function testReadOnlyMemberGetsTheClientModeInsideTheApp(): void

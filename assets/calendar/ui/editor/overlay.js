@@ -74,7 +74,7 @@ export function mountOverlay(overlayRoot, ctx) {
             // a frame that reaches the lower edge of the canvas carries its tag inside
             frame.classList.toggle('tag-in', (box.y + box.h) * scale + TAG_ROOM > (design.page.height + B) * scale + 12);
             const keys = boxKeysOf(selection.el, design);
-            let text = elementLabel(selection.el);
+            let text = elementLabel(selection.el, design.layout);
             if (part) text += ` › ${partLabel(part)}`;
             else if (keys.length > 1) text += ` · ${FRAME_LABELS[keys.indexOf(key)]}`;
             if (tag.textContent !== text) tag.textContent = text;

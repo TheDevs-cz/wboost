@@ -4,7 +4,8 @@
 //
 //   positionSection(ctx, elementKey) → { el: HTMLElement, refresh(): void }
 //
-//   elementKey  'photo' | 'cap' | 'logo' | 'head' | 'month' | 'wk' | 'qr' | 'cal' (never 'bg' — it has no box)
+//   elementKey  'photo' | 'cap' | 'logo' | 'head' | 'month' | 'wk' | 'qr' | 'cal' | 'u:<id>' (an own layer;
+//               never 'bg' — it has no box)
 //   el          the `.cal-psec` to place into the panel; inputs carry `data-field="x|y|w|h"`
 //   refresh()   re-reads the box from the store — call it on every `layout` event (a drag on the
 //               page, undo, auto-grow) — a focused field is left alone while the user types
@@ -21,7 +22,7 @@
 // on that change). The fields then show and edit that frame's box (`cal2`, `month2`, `wk2`).
 
 import { K, bleedOf } from '../../model/defaults.js';
-import { FRAME_LABELS, boxKeysOf, visibleBoxKeys } from '../../model/elements.js';
+import { FRAME_LABELS, boxKeysOf, linkBoxKeys } from '../../model/elements.js';
 import { setField } from '../../editor/drag.js';
 import { numberField, segmented } from '../dom.js';
 import { labelled, pair, section } from './panel.js';
@@ -73,7 +74,7 @@ export function positionSection(ctx, elementKey) {
                 const target = boxKey();
                 store.change((layout) => ({
                     ...layout,
-                    boxes: setField(layout.boxes, target, key, value, { page: d.page, bleedMm: bleedOf(d.print), visibleKeys: visibleBoxKeys(d), link: d.linkElements }),
+                    boxes: setField(layout.boxes, target, key, value, { page: d.page, bleedMm: bleedOf(d.print), visibleKeys: linkBoxKeys(d), link: d.linkElements }),
                 }));
                 // the store may have corrected the value (limits, minimum size): show what is stored
                 sync(true);
