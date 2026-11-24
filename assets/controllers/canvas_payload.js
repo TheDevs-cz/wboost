@@ -418,6 +418,70 @@ export function applyRepeatRules(containers) {
 }
 
 /**
+ * "Navázat pod" (2026-11-24) — the valid links of a container list, follower
+ * id → target id (≡ PHP CanvasContainer::validFollowLinks + the engine's
+ * cycle cut): both ends top-level, the target exists, a chain that loops
+ * back loses the link closing the loop (walked in list order).
+ *
+ * @param {Array} containers definitions ({id, memberContainerIds, follows?})
+ * @returns {Map<string, string>}
+ */
+export function followLinks(containers) {
+    const nested = new Set();
+    const ids = new Set();
+    containers.forEach((c) => {
+        ids.add(c.id);
+        (c.memberContainerIds || []).forEach((id) => nested.add(id));
+    });
+    const links = new Map();
+    containers.forEach((c) => {
+        const target = c.follows && typeof c.follows.containerId === 'string' ? c.follows.containerId : null;
+        if (!target || target === c.id || nested.has(c.id) || links.has(c.id)) return;
+        if (!ids.has(target) || nested.has(target)) return;
+        links.set(c.id, target);
+    });
+    containers.forEach((c) => {
+        const seen = new Set([c.id]);
+        let current = c.id;
+        while (links.has(current)) {
+            const next = links.get(current);
+            if (seen.has(next)) {
+                links.delete(current);
+                break;
+            }
+            seen.add(next);
+            current = next;
+        }
+    });
+    return links;
+}
+
+/**
+ * The `follows` value as persisted (≡ PHP ContainerFollow::fromArray):
+ * {containerId, gap finite ≥ 0 rounded to 0.1} or null.
+ */
+export function normalizeFollows(raw, selfId) {
+    if (!raw || typeof raw !== 'object') return null;
+    const containerId = raw.containerId;
+    if (typeof containerId !== 'string' || containerId === '' || containerId === selfId) return null;
+    const gap = (typeof raw.gap === 'number' && Number.isFinite(raw.gap) && raw.gap >= 0) ? Math.round(raw.gap * 10) / 10 : 0;
+    return { containerId, gap };
+}
+
+/**
+ * Drop every `follows` that is not a valid link, IN PLACE (the editor runs
+ * it after each structural edit — nesting a follower or its target breaks
+ * the link at once; undo restores it).
+ */
+export function applyFollowRules(containers) {
+    const links = followLinks(containers);
+    containers.forEach((c) => {
+        if (c.follows && !links.has(c.id)) delete c.follows;
+    });
+    return containers;
+}
+
+/**
  * Why `container` may NOT become a repeatable row right now — a Czech hint
  * for the ⚙ popover — or null when it may (the rules of applyRepeatRules,
  * asked before the designer ticks the box).
@@ -539,6 +603,11 @@ export function sanitizedContainers(canvas, objects) {
             if (repeat) {
                 entry.repeat = repeat;
             }
+            // "Navázat pod" — validated against the whole list below.
+            const follows = normalizeFollows(container.follows, container.id);
+            if (follows) {
+                entry.follows = follows;
+            }
             return entry;
         })
         .filter((container) => container.id && container.maxHeight > 0);
@@ -581,12 +650,17 @@ export function sanitizedContainers(canvas, objects) {
     // repeatable row 1+ — the single-text rows), and dropping one can
     // invalidate a parent that counted it.
     for (;;) {
+        // Either end of a valid "Navázat pod" link may be a single element.
+        applyFollowRules(result);
+        const links = followLinks(result);
+        const linked = new Set([...links.keys(), ...links.values()]);
         const valid = new Set(result
             .filter((c) => c.memberInputIds.length + c.memberContainerIds.length >= (
                 // A repeatable row may be one text; a parent may hold only
                 // its repeatable row (≡ PHP CanvasContainer).
-                c.repeat || c.memberContainerIds.some((id) => repeatById.get(id) && repeatById.get(id).repeat) ? 1 : 2
+                c.repeat || linked.has(c.id) || c.memberContainerIds.some((id) => repeatById.get(id) && repeatById.get(id).repeat) ? 1 : 2
             ))
+            .filter((c) => c.memberInputIds.length + c.memberContainerIds.length >= 1)
             .map((c) => c.id));
         if (valid.size === result.length) {
             break;

@@ -112,6 +112,10 @@ final readonly class DocumentPageView
                 if (is_string($container['repeatSlotOf'] ?? null) && $container['repeatSlotOf'] !== '') {
                     $container['repeatSlotOf'] = $key($container['repeatSlotOf']);
                 }
+                // "Navázat pod" points at another container of the same page.
+                if (is_array($container['follows'] ?? null) && is_string($container['follows']['containerId'] ?? null) && $container['follows']['containerId'] !== '') {
+                    $container['follows']['containerId'] = $key($container['follows']['containerId']);
+                }
                 $containers[$index] = $container;
             }
             $decoded['containers'] = $containers;

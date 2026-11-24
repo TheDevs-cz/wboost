@@ -26,7 +26,8 @@ namespace WBoost\Web\Api\Templates;
  * walked in designed-top order, a container whose content would run into a
  * lower, horizontally-overlapping container pushes it (and everything under
  * it, chained) down by the excess — designed whitespace absorbs growth first
- * and there is no pull-up. `spaceAfter` (canvas px, null = 0) is the
+ * and there is no pull-up (an attached container — `follows` — is the
+ * exception). `spaceAfter` (canvas px, null = 0) is the
  * container's guaranteed clearance below: the landing distance when it
  * pushes, and its margin against the canvas bottom — content ending below
  * `variant.height − spaceAfter` is a `container_overflow` 400 too.
@@ -59,6 +60,13 @@ namespace WBoost\Web\Api\Templates;
  * how many fit by designed geometry. Only the template row is listed here;
  * `variants[].repeatableRows[]` names its fillable members and the ids of
  * every row, and the render bodies fill it through `rows`.
+ *
+ * `follows: {containerId, gap}` (null when not set, 2026-11) — this TOP-LEVEL
+ * container is ATTACHED below another top-level container: at render time it
+ * starts `gap` px below that container's actual content bottom — pulled UP
+ * as well as pushed down (rows removed / added, texts wrapping, members
+ * hidden); a fully collapsed target hands over its own top. Chains are
+ * possible. Collision-push from other containers still applies on top.
  */
 final readonly class TemplateVariantContainerResponse
 {
@@ -84,6 +92,12 @@ final readonly class TemplateVariantContainerResponse
          */
         public null|array $repeat = null,
         public null|int $fitsRows = null,
+        /**
+         * "Navázat pod": attached below another top-level container.
+         *
+         * @var null|array{containerId: string, gap: float}
+         */
+        public null|array $follows = null,
     ) {
     }
 }

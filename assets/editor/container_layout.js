@@ -45,10 +45,18 @@
  *    pushes that root (its whole tree) down by the excess — chained. Designed
  *    whitespace between them absorbs growth first (no movement until they
  *    would actually collide) and there is no pull-up; full document flow
- *    (gap-preserving, pull-up) is what NESTING is for. Side-by-side columns
- *    (disjoint x-ranges) never interact. With opts.canvasHeight set, content
+ *    (gap-preserving, pull-up) is what NESTING or a `follows` link (below)
+ *    is for. Side-by-side columns (disjoint x-ranges) never interact. With opts.canvasHeight set, content
  *    ending below the canvas bottom counts toward the root's overflowPx too —
  *    a pushed section cannot silently fall off the canvas.
+ *  - `follows` ("Navázat pod", nullable {containerId, gap}): a ROOT
+ *    container ATTACHED below another root — it lands `gap` px below the
+ *    target's actual content bottom whatever happens above (rows added or
+ *    removed, texts wrapping, members hidden): pulled up AND pushed down,
+ *    chains allowed (C below B below A), cycles cut. A fully collapsed
+ *    target hands over its own top. This is the explicit "document flow
+ *    without nesting": both keep their own maxHeight / settings. Ignored on
+ *    a nested container (it already flows in its parent).
  *  - `spaceAfter` (nullable, canvas px): the guaranteed minimum clearance
  *    BELOW a container. A pushing root places the pushed sibling at
  *    contentBottom + its own spaceAfter (and the minimum is enforced even at
@@ -217,6 +225,19 @@
 
     function normalizeGap(gap) {
         return (typeof gap === 'number' && isFinite(gap) && gap >= 0) ? gap : null;
+    }
+
+    /**
+     * `follows` ("Navázat pod", 2026-11-24): {containerId, gap} — a ROOT
+     * container attached below another ROOT container. Normalized to
+     * {containerId: string, gap: finite ≥ 0} or null (≡ PHP ContainerFollow).
+     */
+    function normalizeFollows(follows, selfId) {
+        if (!follows || typeof follows !== 'object') return null;
+        const containerId = follows.containerId;
+        if (typeof containerId !== 'string' || containerId === '' || containerId === selfId) return null;
+        const gap = (typeof follows.gap === 'number' && isFinite(follows.gap) && follows.gap >= 0) ? follows.gap : 0;
+        return { containerId, gap };
     }
 
     function setObjectProps(object, props) {
@@ -501,6 +522,9 @@
                 maxHeight: def.maxHeight,
                 gap: normalizeGap(def.gap),
                 spaceAfter: normalizeGap(def.spaceAfter),
+                // Only meaningful on a ROOT (applyFabricLayout ignores it on
+                // nested nodes — a nested container already flows).
+                follows: normalizeFollows(def.follows, def.id),
                 canvasHeight,
                 items,
                 gaps,
@@ -664,21 +688,67 @@
         const roots = (prepared || []).slice();
         roots.forEach((root) => measureNode(root));
 
-        // Sibling collision-push over the measured (design-space) flows.
+        // Root placement over the measured (design-space) flows, in
+        // designed-top order — a FOLLOWER right after its target (links
+        // resolved first, cycles / unknown targets = no link):
+        //  - "Navázat pod" (`follows`): the follower lands `gap` below its
+        //    target's ACTUAL content bottom — pulled up AND pushed down; a
+        //    fully collapsed target hands over its own top (no gap).
+        //  - Sibling collision-push: a root never runs into the content of a
+        //    root designed above it (x-overlapping) — push-down only, the
+        //    pushing root's spaceAfter as clearance (min enforced at
+        //    designed positions too). A follower ignores its own target here
+        //    (the link's gap governs) but is still pushed by the others.
+        const rootById = new Map(roots.map((root) => [root.id, root]));
+        const targetOf = new Map();
+        roots.forEach((root) => {
+            const target = root.follows ? rootById.get(root.follows.containerId) : null;
+            if (target && target !== root) targetOf.set(root, target);
+        });
+        // Break cycles: walk each chain, cut the link that closes a loop.
+        roots.forEach((root) => {
+            const seen = new Set([root]);
+            let current = root;
+            while (targetOf.has(current)) {
+                const next = targetOf.get(current);
+                if (seen.has(next)) {
+                    targetOf.delete(current);
+                    break;
+                }
+                seen.add(next);
+                current = next;
+            }
+        });
+
         const placed = [];
-        [...roots].sort((a, b) => a.anchorTop - b.anchorTop).forEach((root) => {
-            let delta = 0;
+        const placedSet = new Set();
+        const place = (root) => {
+            if (placedSet.has(root)) return;
+            placedSet.add(root);
+            const target = targetOf.get(root) || null;
+            if (target) place(target);
+
+            let delta = target ? -Infinity : 0;
             placed.forEach((other) => {
+                if (other === target || other.anchorTop > root.anchorTop) return;
                 const xOverlap = Math.min(other.extRight, root.extRight) - Math.max(other.extLeft, root.extLeft);
                 if (!(xOverlap > 0)) return;
                 const clearance = other.spaceAfter !== null ? other.spaceAfter : 0;
                 delta = Math.max(delta, (other._pushedBottom + clearance) - root.anchorTop);
             });
-            delta = Math.max(0, delta);
+            if (target) {
+                const landing = target._hidden
+                    ? target.anchorTop + target._rootDelta
+                    : target._pushedBottom + root.follows.gap;
+                delta = Math.max(delta, landing - root.anchorTop);
+            } else {
+                delta = Math.max(0, delta);
+            }
             root._rootDelta = delta;
             root._pushedBottom = root._contentBottom + delta;
             placed.push(root);
-        });
+        };
+        [...roots].sort((a, b) => a.anchorTop - b.anchorTop).forEach(place);
 
         const results = [];
         roots.forEach((root) => {
@@ -694,7 +764,7 @@
                 overflowPx = Math.max(overflowPx, finalBottom - (root.canvasHeight - clearance));
             }
 
-            results.push({
+            const rootResult = {
                 id: root.id,
                 maxHeight: root.maxHeight,
                 containerTop: finalTop,
@@ -702,7 +772,10 @@
                 overflowPx,
                 nested: false,
                 textFlow,
-            });
+            };
+            // The resolved link — emitted only on a follower.
+            if (targetOf.has(root)) rootResult.follows = targetOf.get(root).id;
+            results.push(rootResult);
 
             const walkChildren = (node) => {
                 node.items.forEach((item) => {
@@ -758,5 +831,6 @@
         prepareFabricContainers,
         applyFabricLayout,
         sortMemberIdsByTop,
+        normalizeFollows,
     };
 })(typeof window !== 'undefined' ? window : globalThis);

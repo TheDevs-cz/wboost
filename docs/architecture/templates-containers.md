@@ -34,6 +34,10 @@ member stays an ordinary independent input. Since the 2026-08 nesting rework:
   first, no pull-up; side-by-side columns (disjoint x-ranges) never interact.
   This is what makes two independent section containers interact WITHOUT
   explicit nesting.
+- **"Navázat pod" — `follows`** (2026-11-24, Jan's "Výsledky turnaje"
+  report): a TOP-LEVEL container attached below another top-level one — it
+  starts `gap` px below the target's ACTUAL content bottom, pulled up AND
+  pushed down. See the section "Navázat pod" below.
 - **`spaceAfter`** (nullable px, per container): guaranteed clearance BELOW —
   the landing distance when pushing (enforced as a minimum even at designed
   positions), the floor of the following gap when nested, and the page-bottom
@@ -145,6 +149,61 @@ member stays an ordinary independent input. Since the 2026-08 nesting rework:
   server preview is authoritative for them); `frame` stays the DESIGNED
   position. The mfkfm backoffice consumes this (zones + structured-400
   highlighting, no client reflow — its preview IS the server render).
+
+**"Navázat pod" — attached containers (`follows`, 2026-11-24)** — the
+explicit document flow BETWEEN top-level containers, without nesting them
+(Jan: "connecting/joining" sections; the footer under repeatable rows must
+start right after the last row and move with it both ways — plain
+collision-push never pulls up, nesting made the root's maxHeight bound the
+footer too).
+
+- **Data model**: `"follows": {"containerId": "<target>", "gap": 20}` on the
+  FOLLOWER's definition, emitted only when set (`ContainerFollow` VO,
+  `CanvasContainer::$follows`; JS `normalizeFollows` / `followLinks` /
+  `applyFollowRules` in `canvas_payload.js`). Valid only between two
+  TOP-LEVEL containers that exist; a chain that loops back loses the link
+  closing the loop (walked in list order — `CanvasContainer::
+  validFollowLinks` ≡ `followLinks` ≡ the engine's cut). Invalid links are
+  dropped, never crash. Several followers may share one target; chains are
+  fine. Either END of a valid link may hold a SINGLE member (a lone text
+  attached under the rows) — the 2-member rule's third exception after
+  rows and list roots, settled per collection to a fixpoint
+  (`collectionFromCanvas`, `sanitizedContainers`, editor `_dropDegenerate`).
+- **Engine** (`applyFabricLayout`): roots are placed in designed-top order,
+  a follower right after its target; the follower's delta = target's pushed
+  content bottom + gap − its own designed top (NEGATIVE = pulled up); a fully
+  collapsed target hands over its own top (no gap). Collision-push still
+  applies on top: a follower is pushed below every x-overlapping root
+  designed above it EXCEPT its target (the link's gap replaces the target's
+  `spaceAfter`), and a pushed follower pushes the roots below it. A follower
+  drawn above its target never pushes the target. Link binds regardless of
+  x-overlap. Root results carry `follows: <targetId>` (only on a follower).
+  PHP twin: `DesignedContainerFlow::overflowByRoot` (same order, a separate
+  visiting set — parity pinned).
+- **Capacity**: rows fit only while neither the root NOR any container
+  attached below it (transitively) overflows — `RepeatableRows::
+  designedCapacity` checks the whole chain; the editor's `rowCapacity`
+  (`container_rows.js`) caps the root by each follower's page margin
+  (`limitKind: 'follower'`, red line "Navázaný kontejner by vyjel z
+  plátna"). The fill page's "+ Řádek" probe already takes the worst
+  overflow of every root on the surface.
+- **Everything else**: group projector + `GroupSync._syncFollows` (link =
+  shared topology on EVERY size like `repeat`, gap scaled by the height
+  ratio; the target keeps its own gap until the active canvas changes it);
+  `DocumentPageView` re-keys `follows.containerId`; the text echo
+  (`EchoCapableTextInputs`) judges linked trees as ONE unit (the echo engine
+  must see the target to place the follower); user moves (`userMove`) are
+  baked BEFORE layout, so a vertical move of a follower snaps back (inert —
+  the ⚙ says so), moving the target moves its followers; ⧉ duplicate never
+  copies `follows`. API listing + MCP `describe_variant`: `containers[].
+  follows` (only a link to a listed container).
+- Tests: `ContainerFollowsLayoutTest` (prod fixture `turnaj-follows.json`:
+  footer 20 px under the last row at 1…7 rows, hidden target, PHP ≡ engine
+  overflow at 1…8 rows on a 950 px page, editor fits ≡ server capacity),
+  `ContainerFollowsEngineEdgeTest` (unlinked root between, follower drawn
+  above its target, chains, cycle, no x-overlap), `ContainerFollowsRenderTest`
+  (Gotenberg: linked ≡ hand-placed footer at 1 and 3 rows),
+  `CanvasContainerTest` (validation).
 
 **Image slots as members (2026-11-09, container-rows plan P2a)** — a fillable
 image placeholder can join a container (Jan: a club logo per result row, the

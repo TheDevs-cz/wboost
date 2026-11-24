@@ -247,4 +247,47 @@ final class CanvasContainerTest extends TestCase
         // A hidable PARENT hides its non-hidable child's members too.
         self::assertSame(['z', 'x', 'y'], CanvasContainer::hiddenMemberInputIds($containers, ['outer']));
     }
+
+    public function testFollowsRoundTripsAndKeepsSingleMemberEnds(): void
+    {
+        $containers = CanvasContainer::collectionFromCanvas(['containers' => [
+            ['id' => 'a', 'maxHeight' => 100, 'memberInputIds' => ['t1']],
+            ['id' => 'b', 'maxHeight' => 100, 'memberInputIds' => ['t2'], 'follows' => ['containerId' => 'a', 'gap' => 20]],
+            ['id' => 'lonely', 'maxHeight' => 100, 'memberInputIds' => ['t3']],
+        ]]);
+
+        self::assertSame(['a', 'b'], array_map(static fn (CanvasContainer $c): string => $c->id, $containers));
+        self::assertSame(['containerId' => 'a', 'gap' => 20.0], $containers[1]->toArray()['follows'] ?? null);
+        self::assertArrayNotHasKey('follows', $containers[0]->toArray());
+        self::assertSame(['b' => 'a'], CanvasContainer::validFollowLinks($containers));
+    }
+
+    public function testInvalidFollowsAreDroppedWithTheirSingleMemberEnds(): void
+    {
+        $containers = CanvasContainer::collectionFromCanvas(['containers' => [
+            // Unknown target → link dropped → the lone text no longer stands.
+            ['id' => 'ghost-follower', 'maxHeight' => 100, 'memberInputIds' => ['t1'], 'follows' => ['containerId' => 'nope']],
+            // Two-member follower of a NESTED container → link dropped, container kept.
+            ['id' => 'parent', 'maxHeight' => 300, 'memberInputIds' => ['t2'], 'memberContainerIds' => ['child']],
+            ['id' => 'child', 'maxHeight' => 100, 'memberInputIds' => ['t3', 't4']],
+            ['id' => 'f', 'maxHeight' => 100, 'memberInputIds' => ['t5', 't6'], 'follows' => ['containerId' => 'child', 'gap' => -4]],
+            // A cycle: the link closing the loop (y → x, walked from x) is cut.
+            ['id' => 'x', 'maxHeight' => 100, 'memberInputIds' => ['t7', 't8'], 'follows' => ['containerId' => 'y']],
+            ['id' => 'y', 'maxHeight' => 100, 'memberInputIds' => ['t9', 't10'], 'follows' => ['containerId' => 'x']],
+        ]]);
+
+        $ids = array_map(static fn (CanvasContainer $c): string => $c->id, $containers);
+        self::assertSame(['parent', 'child', 'f', 'x', 'y'], $ids);
+        self::assertNull(CanvasContainer::findById($containers, 'f')?->follows);
+        self::assertSame(['x' => 'y'], CanvasContainer::validFollowLinks($containers));
+        self::assertNull(CanvasContainer::findById($containers, 'y')?->follows);
+    }
+
+    public function testFollowsGapIsSanitized(): void
+    {
+        $container = CanvasContainer::fromArray(['id' => 'b', 'maxHeight' => 50, 'memberInputIds' => ['t'], 'follows' => ['containerId' => 'a', 'gap' => -3]]);
+        self::assertNotNull($container);
+        self::assertSame(0.0, $container->follows?->gap);
+        self::assertNull(CanvasContainer::fromArray(['id' => 'b', 'maxHeight' => 50, 'memberInputIds' => ['t'], 'follows' => ['containerId' => 'b']]));
+    }
 }

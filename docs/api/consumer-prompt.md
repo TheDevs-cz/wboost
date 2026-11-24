@@ -219,7 +219,8 @@ Returns a **plain JSON array** (no pagination; null fields are kept on purpose):
             "name": "Bublina s citací",                  // label for that toggle; absent/null = unnamed (fall back to "Skupina prvků N")
             "memberImageInputIds": [],                   // fillable IMAGE slots flowing in it
             "repeat": null,                              // non-null { "max": 8, "min": 1, "default": 2 } → a REPEATABLE ROW (see "Repeatable rows")
-            "fitsRows": null                             // repeatable rows only: how many rows fit by designed geometry (within min…max)
+            "fitsRows": null,                            // repeatable rows only: how many rows fit by designed geometry (within min…max)
+            "follows": null                              // non-null { "containerId": "…", "gap": 20 } → ATTACHED below that container (see "Attached containers")
           }
         ],
         "repeatableRows": [                              // rows the user may REPEAT (may be empty) — see "Repeatable rows"
@@ -788,6 +789,17 @@ a minimum at designed positions), the floor of the gap after it when nested,
 and its margin against the canvas bottom — content that would end below
 `variant.height − spaceAfter` fails the export with the same
 `container_overflow` 400 (reported on the container that fell off).
+
+**Attached containers (`follows`, 2026-11).** A top-level container with
+`follows: {containerId, gap}` is attached below another top-level container:
+it always starts `gap` px below that container's ACTUAL content bottom —
+pulled UP when the content above shrinks (rows removed, members hidden) and
+pushed down when it grows; a fully hidden target hands over its own `y`.
+Chains are possible (C attached below B below A). The link binds regardless
+of horizontal overlap; the target's `spaceAfter` does not apply between the
+two (the link's `gap` does), but collision-push from other containers drawn
+above still does. Its `y` / member `frame`s stay the DESIGNED position —
+the server preview shows where it really lands.
 
 Containers may also hold DECORATIVE images (checklist icons, separators) the
 designer added: an icon overlapping a text rides along with it and disappears

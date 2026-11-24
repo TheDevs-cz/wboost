@@ -208,6 +208,31 @@ final class EchoCapableTextInputsTest extends TestCase
         self::assertSame([self::ID_1, self::ID_2], $result);
     }
 
+    public function testAnAttachedContainerIsCleanOnlyTogetherWithItsTarget(): void
+    {
+        // "Navázat pod": the follower moves with its target both ways, so the
+        // echo engine must see the target — linked trees are ONE unit.
+        $decorId = '44444444-4444-4444-8444-444444444444';
+        $canvas = [
+            'objects' => [
+                $this->textbox(0, 0, 100, 40),
+                ['type' => 'Image', 'left' => 0, 'top' => 50, 'width' => 20, 'height' => 20, 'inputId' => $decorId, 'src' => 'icon.png'],
+                $this->textbox(0, 600, 100, 40),
+            ],
+            'containers' => [
+                ['id' => 'target', 'maxHeight' => 300.0, 'memberInputIds' => [self::ID_1, $decorId]],
+                ['id' => 'follower', 'maxHeight' => 100.0, 'memberInputIds' => [self::ID_2], 'follows' => ['containerId' => 'target', 'gap' => 10]],
+            ],
+        ];
+
+        self::assertSame([], $this->resolver()->resolve($canvas, [$this->input(self::ID_1), $this->input(self::ID_2)]));
+
+        unset($canvas['containers'][1]['follows']);
+        $canvas['containers'][1]['memberInputIds'] = [self::ID_2, self::ID_3];
+        $canvas['objects'][] = $this->textbox(0, 700, 100, 40);
+        self::assertSame([self::ID_2, self::ID_3], $this->resolver()->resolve($canvas, [$this->input(self::ID_1), $this->input(self::ID_2), $this->input(self::ID_3)]), 'unlinked, the follower tree stands alone');
+    }
+
     public function testNestedDirtyChildDemotesTheWholeRootTree(): void
     {
         $decorId = '44444444-4444-4444-8444-444444444444';

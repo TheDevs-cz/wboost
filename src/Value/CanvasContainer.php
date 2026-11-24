@@ -105,6 +105,14 @@ readonly final class CanvasContainer
          * the degenerate-container rule exactly like its template row.
          */
         public null|string $repeatSlotOf = null,
+        /**
+         * "Navázat pod" (2026-11-24): this TOP-LEVEL container is attached
+         * below another top-level one ({@see ContainerFollow}). Null on every
+         * other container — and dropped by {@see self::collectionFromCanvas()}
+         * wherever the structural rules are broken (nested follower or
+         * target, unknown target, a cycle).
+         */
+        public null|ContainerFollow $follows = null,
     ) {
     }
 
@@ -122,7 +130,9 @@ readonly final class CanvasContainer
      * `repeat` / `repeatSlots` / `repeatSlotOf` follow the same rule — only a
      * repeatable row (and, on an expanded variant, its slots) carries them.
      *
-     * @return array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap: null|float, spaceAfter: null|float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int}, repeatSlots?: list<string>, repeatSlotOf?: string}
+     * `follows` likewise — only an attached container carries it.
+     *
+     * @return array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap: null|float, spaceAfter: null|float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int}, repeatSlots?: list<string>, repeatSlotOf?: string, follows?: array{containerId: string, gap: float}}
      */
     public function toArray(): array
     {
@@ -159,6 +169,10 @@ readonly final class CanvasContainer
             $data['repeatSlotOf'] = $this->repeatSlotOf;
         }
 
+        if ($this->follows !== null) {
+            $data['follows'] = $this->follows->toArray();
+        }
+
         return $data;
     }
 
@@ -171,9 +185,13 @@ readonly final class CanvasContainer
      * lightly (strings) — cycle/one-parent enforcement happens at save time in
      * the editor and defensively in the shared layout engine.
      *
+     * `$singleMember` (collection parsing only): accept ANY single member
+     * too — whether a lone text may stand (an end of a "Navázat pod" link)
+     * needs the whole collection and is settled there.
+     *
      * @param array<array-key, mixed> $data
      */
-    public static function fromArray(array $data): null|self
+    public static function fromArray(array $data, bool $singleMember = false): null|self
     {
         $id = $data['id'] ?? null;
         if (!is_string($id) || $id === '') {
@@ -222,11 +240,14 @@ readonly final class CanvasContainer
         }
 
         // A repeatable row (and each of its materialised slots) may be a
-        // SINGLE text — the Výsledek scorer columns — and a parent may hold
-        // NOTHING but its repeatable row (a list of results). Every other
-        // container needs two members to reflow anything; the one-child
-        // case is settled per collection ({@see self::withValidRepeats()}).
-        $minimumMembers = ($repeat !== null || $repeatSlotOf !== null || $memberContainerIds !== []) ? 1 : 2;
+        // SINGLE text — the Výsledek scorer columns — a parent may hold
+        // NOTHING but its repeatable row (a list of results), and either end
+        // of a "Navázat pod" link may be a single element (a lone text that
+        // follows the rows). Every other container needs two members to
+        // reflow anything — the one-member cases need the whole collection
+        // and are settled there ({@see self::collectionFromCanvas()}).
+        $follows = ContainerFollow::fromArray($data['follows'] ?? null, $id);
+        $minimumMembers = ($singleMember || $repeat !== null || $repeatSlotOf !== null || $memberContainerIds !== [] || $follows !== null) ? 1 : 2;
         if (count($memberInputIds) + count($memberContainerIds) < $minimumMembers) {
             return null;
         }
@@ -244,6 +265,7 @@ readonly final class CanvasContainer
             $repeat,
             $repeatSlotIds,
             $repeatSlotOf,
+            $follows,
         );
     }
 
@@ -286,13 +308,116 @@ readonly final class CanvasContainer
             if (!is_array($rawContainer)) {
                 continue;
             }
-            $container = self::fromArray($rawContainer);
+            $container = self::fromArray($rawContainer, singleMember: true);
             if ($container !== null) {
                 $collection[] = $container;
             }
         }
 
-        return self::withValidRepeats($collection);
+        // Fixpoint: dropping a degenerate container can break a link, and a
+        // broken link can make its single-member ends degenerate.
+        for ($pass = 0; $pass < 8; $pass++) {
+            $linked = self::validFollowLinks($collection);
+            $next = self::withoutInvalidFollows(self::withValidRepeats($collection, $linked));
+            if (count($next) === count($collection) && self::followsCount($next) === self::followsCount($collection)) {
+                return $next;
+            }
+            $collection = $next;
+        }
+
+        return $collection;
+    }
+
+    /**
+     * The valid "Navázat pod" links of a collection, follower id → target id
+     * (≡ JS `applyFollowRules` + the engine's cycle cut): both ends
+     * top-level, the target exists, and a chain that loops back loses the
+     * link that closes the loop (walked in collection order).
+     *
+     * @param list<self> $collection
+     * @return array<string, string>
+     */
+    public static function validFollowLinks(array $collection): array
+    {
+        $nested = [];
+        $byId = [];
+        foreach ($collection as $container) {
+            $byId[$container->id] ??= $container;
+            foreach ($container->memberContainerIds as $childId) {
+                $nested[$childId] = true;
+            }
+        }
+
+        $links = [];
+        foreach ($collection as $container) {
+            $follows = $container->follows;
+            if ($follows === null || isset($nested[$container->id]) || isset($links[$container->id])) {
+                continue;
+            }
+            if (!isset($byId[$follows->containerId]) || isset($nested[$follows->containerId])) {
+                continue;
+            }
+            $links[$container->id] = $follows->containerId;
+        }
+
+        foreach ($collection as $container) {
+            $seen = [$container->id => true];
+            $current = $container->id;
+            while (isset($links[$current])) {
+                $next = $links[$current];
+                if (isset($seen[$next])) {
+                    unset($links[$current]);
+                    break;
+                }
+                $seen[$next] = true;
+                $current = $next;
+            }
+        }
+
+        return $links;
+    }
+
+    /**
+     * @param list<self> $collection
+     */
+    private static function followsCount(array $collection): int
+    {
+        return count(array_filter($collection, static fn (self $container): bool => $container->follows !== null));
+    }
+
+    /**
+     * @param list<self> $collection
+     * @return list<self>
+     */
+    private static function withoutInvalidFollows(array $collection): array
+    {
+        $links = self::validFollowLinks($collection);
+
+        return array_map(
+            static fn (self $container): self => $container->follows === null || isset($links[$container->id])
+                ? $container
+                : $container->withFollows(null),
+            $collection,
+        );
+    }
+
+    public function withFollows(null|ContainerFollow $follows): self
+    {
+        return new self(
+            $this->id,
+            $this->maxHeight,
+            $this->memberInputIds,
+            $this->memberContainerIds,
+            $this->gap,
+            $this->spaceAfter,
+            $this->hidable,
+            $this->name,
+            $this->userMove,
+            $this->repeat,
+            $this->repeatSlotIds,
+            $this->repeatSlotOf,
+            $follows,
+        );
     }
 
     /**
@@ -305,11 +430,17 @@ readonly final class CanvasContainer
      * container whose ONLY member is a child container survives only when
      * that child is a valid repeatable row.
      *
+     * Either end of a valid "Navázat pod" link (`$links`, follower →
+     * target) may be a single member too.
+     *
      * @param list<self> $collection
+     * @param array<string, string> $links
      * @return list<self>
      */
-    private static function withValidRepeats(array $collection): array
+    private static function withValidRepeats(array $collection, array $links = []): array
     {
+        $linked = array_fill_keys([...array_keys($links), ...array_values($links)], true);
+
         $hasRepeat = false;
         foreach ($collection as $container) {
             if ($container->repeat !== null) {
@@ -324,6 +455,7 @@ readonly final class CanvasContainer
             return array_values(array_filter(
                 $collection,
                 static fn (self $container): bool => $container->repeatSlotOf !== null
+                    || isset($linked[$container->id])
                     || count($container->memberInputIds) + count($container->memberContainerIds) >= 2,
             ));
         }
@@ -377,9 +509,10 @@ readonly final class CanvasContainer
             $memberCount = count($container->memberInputIds) + count($container->memberContainerIds);
 
             if ($container->repeat === null && $container->repeatSlotOf === null && $memberCount < 2) {
-                // A lone member is a flow only when it is a repeatable row.
+                // A lone member is a flow only when it is a repeatable row
+                // (or an end of a "Navázat pod" link).
                 $holdsRow = array_any($container->memberContainerIds, static fn (string $childId): bool => isset($valid[$childId]));
-                if ($holdsRow) {
+                if ($holdsRow || isset($linked[$container->id])) {
                     $result[] = $container;
                 }
                 continue;
@@ -404,6 +537,7 @@ readonly final class CanvasContainer
                 $container->hidable,
                 $container->name,
                 $container->userMove,
+                follows: $container->follows,
             );
         }
 

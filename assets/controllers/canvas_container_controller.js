@@ -1048,7 +1048,9 @@ export default class extends Controller {
         limitTag.className = 'container-row-limit__label';
         limitTag.textContent = info.limitKind === 'page'
             ? 'Spodní okraj plátna (− mezera za kontejnerem)'
-            : 'Max. výška nadřazeného kontejneru';
+            : info.limitKind === 'follower'
+                ? 'Navázaný kontejner by vyjel z plátna'
+                : 'Max. výška nadřazeného kontejneru';
         limit.appendChild(limitTag);
         limit.setAttribute('aria-hidden', 'true');
         layer.appendChild(limit);

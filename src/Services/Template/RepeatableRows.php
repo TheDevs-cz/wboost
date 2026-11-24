@@ -321,9 +321,28 @@ final readonly class RepeatableRows
             $root = $parent;
         }
 
+        // The root and every container attached below it ("Navázat pod",
+        // transitively) — they move with the rows, so a row fits only while
+        // none of them overflows (the page bottom, their own maxHeight).
+        $links = CanvasContainer::validFollowLinks($containers);
+        $affected = [$root->id => true];
+        do {
+            $grew = false;
+            foreach ($links as $followerId => $targetId) {
+                if (isset($affected[$targetId]) && !isset($affected[$followerId])) {
+                    $affected[$followerId] = true;
+                    $grew = true;
+                }
+            }
+        } while ($grew);
+
         for ($count = $row->repeat->max; $count > $row->repeat->min; $count--) {
             $hidden = array_fill_keys(CanvasContainer::inactiveRowMemberIds($containers, [$rowId => $count] + $otherCounts), true);
-            $overflow = DesignedContainerFlow::overflowByRoot($canvas, $hidden, (float) $variant->dimension->height())[$root->id] ?? 0.0;
+            $overflowByRoot = DesignedContainerFlow::overflowByRoot($canvas, $hidden, (float) $variant->dimension->height());
+            $overflow = max(0.0, ...array_map(
+                static fn (string $id): float => $overflowByRoot[$id] ?? 0.0,
+                array_map(strval(...), array_keys($affected)),
+            ));
             if ($overflow <= self::FIT_TOLERANCE_PX) {
                 return $count;
             }

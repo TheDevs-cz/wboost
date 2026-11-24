@@ -142,6 +142,22 @@ function withUserMove(entry, userMove) {
     return entry;
 }
 
+/**
+ * "Navázat pod" for a target size: the link (which container) is topology and
+ * follows the active canvas absolutely; its gap is vertical px — the target
+ * keeps its own (already scaled) gap while the active link + gap match the
+ * baseline, otherwise the active gap is projected. Undefined = no link.
+ */
+function projectedFollows(current, base, existing, ry) {
+    if (!current || typeof current.containerId !== 'string') return undefined;
+    const gap = typeof current.gap === 'number' && isFinite(current.gap) ? current.gap : 0;
+    const unchanged = base && JSON.stringify(base) === JSON.stringify(current);
+    if (unchanged && existing && existing.containerId === current.containerId && typeof existing.gap === 'number') {
+        return { containerId: current.containerId, gap: existing.gap };
+    }
+    return { containerId: current.containerId, gap: gap * ry };
+}
+
 /** Vertical-spacing projection (gap / spaceAfter): scale when set, keep the
  *  key absent when not. */
 function projectedSpacing(value, ry) {
@@ -474,6 +490,7 @@ export class GroupSync {
         this._syncZOrder(targets, touched);
         this._syncContainers(activeDims, targets, touched);
         this._syncRepeat(touched);
+        this._syncFollows(touched);
 
         this.rebaseline();
 
@@ -905,6 +922,44 @@ export class GroupSync {
         });
     }
 
+    /**
+     * "Navázat pod" links are structure shared by the group (like `repeat`):
+     * a link change on the active canvas reaches EVERY size carrying both
+     * containers, regardless of the multi-edit switches; the gap is scaled
+     * per size.
+     */
+    _syncFollows(touched) {
+        const canvas = this.activeCanvas();
+        const current = Array.isArray(canvas.wboostContainers) ? canvas.wboostContainers : [];
+        const baselineById = new Map(this.baselineContainers.map((c) => [c.id, c]));
+        const changed = current.filter((c) => {
+            const base = baselineById.get(c.id);
+            return JSON.stringify(c.follows ?? null) !== JSON.stringify(base ? (base.follows ?? null) : null);
+        });
+        if (!changed.length) return;
+
+        const activeDims = this.activeDims ? this.activeDims() : null;
+        this.allTargets().forEach((target) => {
+            const shadowContainers = Array.isArray(target.shadow.wboostContainers) ? target.shadow.wboostContainers : [];
+            const ry = activeDims ? ratios(activeDims, target).ry : 1;
+            let hit = false;
+            changed.forEach((container) => {
+                const match = shadowContainers.find((c) => c.id === container.id);
+                if (!match) return;
+                const base = baselineById.get(container.id);
+                const next = projectedFollows(container.follows, base ? base.follows : null, match.follows, ry);
+                if (JSON.stringify(match.follows ?? null) === JSON.stringify(next ?? null)) return;
+                if (next && shadowContainers.some((c) => c.id === next.containerId)) {
+                    match.follows = next;
+                } else {
+                    delete match.follows;
+                }
+                hit = true;
+            });
+            if (hit) touched.add(target.id);
+        });
+    }
+
     _syncContainers(activeDims, targets, touched) {
         const canvas = this.activeCanvas();
         const current = Array.isArray(canvas.wboostContainers) ? canvas.wboostContainers : [];
@@ -952,6 +1007,10 @@ export class GroupSync {
                 // "Opakovatelný řádek" — METADATA too: max / min / default are
                 // SHARED by every size (one row count on the group fill page).
                 if (container.repeat) hideMeta.repeat = { ...container.repeat };
+
+                // "Navázat pod": the link is topology, the gap vertical px.
+                const follows = projectedFollows(container.follows, base ? base.follows : null, existing ? existing.follows : null, ry);
+                if (follows && currentIds.has(follows.containerId)) hideMeta.follows = follows;
 
                 if (!existing) {
                     // New container → absolute projection of maxHeight/spacing.

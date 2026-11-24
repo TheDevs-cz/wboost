@@ -230,6 +230,23 @@ final readonly class EchoCapableTextInputs
             $byId[$container->id] = $container;
         }
 
+        // "Navázat pod": a follower moves with its target in BOTH directions,
+        // so roots joined by a link are ONE unit — clean only together (the
+        // echo engine must see the target to place the follower).
+        $links = CanvasContainer::validFollowLinks($containers);
+        // Links are acyclic (validFollowLinks cuts loops): a chain's group
+        // is the container at its top end.
+        $find = static function (string $id) use ($links): string {
+            $seen = [];
+            while (isset($links[$id]) && !isset($seen[$id])) {
+                $seen[$id] = true;
+                $id = $links[$id];
+            }
+
+            return $id;
+        };
+
+        /** @var array<string, array{containers: list<CanvasContainer>, memberIds: list<string>}> $trees */
         $trees = [];
         foreach ($containers as $container) {
             if ($container->isNestedIn($containers)) {
@@ -242,13 +259,13 @@ final readonly class EchoCapableTextInputs
             // (container-rows P4) — the painters hide the unused rows from
             // the payload's `repeatRows` + the `rowCounts` mirrors exactly
             // like the render (hidden row ≡ absent row).
-            $trees[] = [
-                'containers' => $treeContainers,
-                'memberIds' => array_values(array_unique($memberIds)),
-            ];
+            $group = $find($container->id);
+            $trees[$group] ??= ['containers' => [], 'memberIds' => []];
+            $trees[$group]['containers'] = [...$trees[$group]['containers'], ...$treeContainers];
+            $trees[$group]['memberIds'] = array_values(array_unique([...$trees[$group]['memberIds'], ...$memberIds]));
         }
 
-        return $trees;
+        return array_values($trees);
     }
 
     /**

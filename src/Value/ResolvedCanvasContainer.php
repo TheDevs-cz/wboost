@@ -57,6 +57,13 @@ readonly final class ResolvedCanvasContainer
         public null|string $name = null,
         /** Direct fillable image-slot members, in stored flow order. */
         public array $memberImageInputIds = [],
+        /**
+         * "Navázat pod" — this top-level container is attached below another
+         * listed one (see {@see ContainerFollow}). Null = not attached.
+         *
+         * @var null|array{containerId: string, gap: float}
+         */
+        public null|array $follows = null,
     ) {
     }
 
@@ -159,6 +166,8 @@ readonly final class ResolvedCanvasContainer
             return $candidates === [] ? null : min($candidates);
         };
 
+        $links = CanvasContainer::validFollowLinks($containers);
+
         $result = [];
         foreach ($containers as $container) {
             $y = $anchors[$container->id] ?? null;
@@ -194,6 +203,10 @@ readonly final class ResolvedCanvasContainer
                 hidable: $container->hidable,
                 name: $container->name,
                 memberImageInputIds: $memberImageInputIds,
+                // Only a VALID link to a container a consumer can look up.
+                follows: $container->follows !== null && isset($links[$container->id]) && isset($resolvable[$container->follows->containerId])
+                    ? $container->follows->toArray()
+                    : null,
             );
         }
 

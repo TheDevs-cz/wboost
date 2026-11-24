@@ -73,6 +73,8 @@ const results = engine.applyFabricLayout(prepared).map((result) => ({
     containerTop: round(result.containerTop),
     contentBottom: round(result.contentBottom),
     overflowPx: round(result.overflowPx),
+    // "Navázat pod": set only on a follower's root result (undefined → omitted).
+    follows: result.follows,
     textFlow: result.textFlow
         ? result.textFlow.map((entry) => ({ inputId: entry.inputId, top: round(entry.top) }))
         : undefined,

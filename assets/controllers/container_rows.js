@@ -15,7 +15,9 @@
  *
  *     rows fit  ⇔  contentBottom + extra + (n − 1) × pitch ≤ limit
  *
- * where `limit` = min(root top + maxHeight, canvasHeight − spaceAfter) and
+ * where `limit` = min(root top + maxHeight, canvasHeight − spaceAfter, and per
+ * container attached below the root — "Navázat pod", transitively — the
+ * page bottom minus its spaceAfter minus how far below the root it ends) and
  * `extra` = the OTHER repeatable rows of the same root at their default.
  * Parity with RepeatableRows::designedCapacity is pinned by
  * tests/Golden/ContainerRowsEditorGeometryTest (node, both prod fixtures).
@@ -156,6 +158,30 @@ export function rowCapacity(objects, containers, rowId, opts) {
         if (canvasHeight - spaceAfter < limitBottom) {
             limitBottom = canvasHeight - spaceAfter;
             limitKind = 'page';
+        }
+    }
+
+    // Containers attached below the root ("Navázat pod", transitively — the
+    // engine marks a follower's root result with `follows`) move 1:1 with
+    // the rows: each one's page margin caps how far the root may grow.
+    if (typeof canvasHeight === 'number' && canvasHeight > 0) {
+        const chain = new Set([root.id]);
+        let grew = true;
+        while (grew) {
+            grew = false;
+            results.forEach((r) => {
+                if (r && !r.nested && r.follows && chain.has(r.follows) && !chain.has(r.id)) {
+                    chain.add(r.id);
+                    grew = true;
+                    const def = containers.find((c) => c.id === r.id);
+                    const spaceAfter = def && typeof def.spaceAfter === 'number' && isFinite(def.spaceAfter) ? def.spaceAfter : 0;
+                    const tail = r.contentBottom - rootResult.contentBottom;
+                    if (canvasHeight - spaceAfter - tail < limitBottom) {
+                        limitBottom = canvasHeight - spaceAfter - tail;
+                        limitKind = 'follower';
+                    }
+                }
+            });
         }
     }
 

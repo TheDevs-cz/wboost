@@ -554,6 +554,7 @@ final readonly class TemplatesProvider implements ProviderInterface
                 memberImageInputIds: $container->memberImageInputIds,
                 repeat: $repeats[$container->id] ?? null,
                 fitsRows: isset($repeats[$container->id]) ? ($fitsRows[$container->id] ?? null) : null,
+                follows: $container->follows,
             ),
             ResolvedCanvasContainer::collection($containers, $frames, $inputs, $decorationTops, $imageFrames),
         );

@@ -22,7 +22,8 @@ use WBoost\Web\Value\CanvasContainer;
  * before an item is the container's uniform `gap` or the DESIGNED gap to its
  * designed predecessor (hidden or not), floored by a preceding child's
  * `spaceAfter`; hidden items take no space; a container whose items are all
- * hidden collapses; roots collision-push lower x-overlapping roots; a root
+ * hidden collapses; roots collision-push lower x-overlapping roots, a
+ * "Navázat pod" follower lands its gap below its target's actual bottom; a root
  * overflows past `maxHeight` from its anchor or past `canvasHeight −
  * spaceAfter`. Parity with the engine is pinned by `DesignedContainerFlowTest`
  * (node harness).
@@ -74,23 +75,62 @@ final readonly class DesignedContainerFlow
             self::measure($root);
         }
 
-        // Sibling collision-push (designed-top order, x-overlap only).
+        // Root placement (≡ the engine's applyFabricLayout): designed-top
+        // order, a follower right after its target; a follower lands `gap`
+        // below its target's actual content bottom (a collapsed target hands
+        // over its own top), every root is pushed down by the x-overlapping
+        // roots designed above it (a follower ignores its own target there).
+        $rootById = [];
+        foreach ($roots as $root) {
+            $rootById[$root->id] = $root;
+        }
+        $links = CanvasContainer::validFollowLinks($containers);
+        /** @var array<string, array{target: DesignedFlowNode, gap: float}> $targetOf */
+        $targetOf = [];
+        foreach ($containers as $container) {
+            $targetId = $links[$container->id] ?? null;
+            if ($targetId !== null && $container->follows !== null && isset($rootById[$container->id], $rootById[$targetId])) {
+                $targetOf[$container->id] = ['target' => $rootById[$targetId], 'gap' => $container->follows->gap];
+            }
+        }
+
         $ordered = $roots;
         usort($ordered, static fn (DesignedFlowNode $a, DesignedFlowNode $b): int => $a->anchorTop <=> $b->anchorTop);
-        /** @var list<array{node: DesignedFlowNode, pushedBottom: float}> $placed */
+        /** @var array<string, array{node: DesignedFlowNode, pushedBottom: float, delta: float}> $placed */
         $placed = [];
         $result = [];
-        foreach ($ordered as $root) {
-            $delta = 0.0;
+        $visiting = [];
+        $place = static function (DesignedFlowNode $root) use (&$place, &$placed, &$visiting, &$result, $targetOf, $canvasHeight): void {
+            if (isset($placed[$root->id]) || isset($visiting[$root->id])) {
+                return;
+            }
+            $visiting[$root->id] = true;
+            $link = $targetOf[$root->id] ?? null;
+            if ($link !== null) {
+                $place($link['target']);
+            }
+
+            $delta = $link !== null ? -INF : 0.0;
             foreach ($placed as $other) {
+                if (($link !== null && $other['node'] === $link['target']) || $other['node']->anchorTop > $root->anchorTop) {
+                    continue;
+                }
                 $xOverlap = min($other['node']->extRight, $root->extRight) - max($other['node']->extLeft, $root->extLeft);
                 if (!($xOverlap > 0)) {
                     continue;
                 }
                 $delta = max($delta, ($other['pushedBottom'] + ($other['node']->spaceAfter ?? 0.0)) - $root->anchorTop);
             }
-            $delta = max(0.0, $delta);
-            $placed[] = ['node' => $root, 'pushedBottom' => $root->contentBottom + $delta];
+            if ($link !== null) {
+                $target = $placed[$link['target']->id];
+                $landing = $link['target']->hidden
+                    ? $link['target']->anchorTop + $target['delta']
+                    : $target['pushedBottom'] + $link['gap'];
+                $delta = max($delta, $landing - $root->anchorTop);
+            } else {
+                $delta = max(0.0, $delta);
+            }
+            $placed[$root->id] = ['node' => $root, 'pushedBottom' => $root->contentBottom + $delta, 'delta' => $delta];
 
             $finalTop = $root->anchorTop + $delta;
             $finalBottom = $root->contentBottom + $delta;
@@ -99,6 +139,9 @@ final readonly class DesignedContainerFlow
                 $overflow = max($overflow, $finalBottom - ($canvasHeight - ($root->spaceAfter ?? 0.0)));
             }
             $result[$root->id] = $overflow;
+        };
+        foreach ($ordered as $root) {
+            $place($root);
         }
 
         return $result;
