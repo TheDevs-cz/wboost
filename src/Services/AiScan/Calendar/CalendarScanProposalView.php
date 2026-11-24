@@ -7,6 +7,7 @@ namespace WBoost\Web\Services\AiScan\Calendar;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use WBoost\Web\Entity\AiScan;
+use WBoost\Web\Entity\Calendar;
 use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Value\AiScan\AiScanKind;
 use WBoost\Web\Value\AiScan\AiScanStatus;
@@ -27,7 +28,8 @@ use WBoost\Web\Value\AiScan\AiScanStatus;
  * - `fonts[]`, `notExpressible[]` (code + source-pixel box), `notes[]`;
  * - `languages[]` — ISO 639-1 codes of the languages the page prints its
  *   month / weekday / week-label names in BESIDE Czech, in printed order
- *   (the calendar cannot print them yet — K15b switches them on);
+ *   (those the calendar prints — sk, pl, de, en — are offered in
+ *   `features[]` as `{key: "languages", languages}`, K15b);
  * - `pageBox` / `photoBox` — where the page and its photo are in the
  *   uploaded picture (source pixels), for the browser's preview only;
  * - `builtFor` (`week` | `fortnight`), `typeChanged` — the calendar was
@@ -134,11 +136,11 @@ final readonly class CalendarScanProposalView
             'preset' => $plan['preset'],
             'layout' => $plan['layout'],
             'recognised' => $recognised,
-            'features' => array_map(static fn (string $key): array => ['key' => $key], CalendarScanProposal::featuresOffered($scan, $ready ? $calendar : null)),
+            'features' => self::features($scan, $ready ? $calendar : null),
             'pictures' => $pictures,
             'fonts' => self::fonts($report['fonts'] ?? null),
             'projectFaces' => $faces,
-            'notExpressible' => self::coded($report['notExpressible'] ?? null, CalendarScanProposal::NOT_EXPRESSIBLE, true),
+            'notExpressible' => self::notExpressible($scan, $report['notExpressible'] ?? null),
             'notes' => self::coded($report['notes'] ?? null, CalendarScanProposal::NOTES, false),
             'languages' => self::languages($report['languages'] ?? null),
             'approximate' => $scan->approximate,
@@ -202,6 +204,44 @@ final readonly class CalendarScanProposalView
         }
 
         return $out;
+    }
+
+    /**
+     * The switches the page shows and the calendar has off, then — K15b — the
+     * languages the page prints beside Czech that the calendar can print and
+     * does not yet: `{key: "languages", languages: ["pl", "en"]}`, ticked and
+     * accepted like a switch.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private static function features(AiScan $scan, null|Calendar $calendar): array
+    {
+        $features = array_map(static fn (string $key): array => ['key' => $key], CalendarScanProposal::featuresOffered($scan, $calendar));
+        $languages = CalendarScanProposal::languagesOffered($scan, $calendar);
+
+        if ($languages !== []) {
+            $features[] = ['key' => CalendarScanProposal::LANGUAGES_KEY, 'languages' => $languages];
+        }
+
+        return $features;
+    }
+
+    /**
+     * The report's `notExpressible`; `multilingual_names` goes when every
+     * language of the page is one the calendar prints (K15b) — it is offered
+     * as a switch instead. A language the calendar does not offer keeps it.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private static function notExpressible(AiScan $scan, mixed $items): array
+    {
+        $coded = self::coded($items, CalendarScanProposal::NOT_EXPRESSIBLE, true);
+
+        if (!CalendarScanProposal::languagesAllSupported($scan)) {
+            return $coded;
+        }
+
+        return array_values(array_filter($coded, static fn (array $row): bool => ($row['code'] ?? null) !== 'multilingual_names'));
     }
 
     /**

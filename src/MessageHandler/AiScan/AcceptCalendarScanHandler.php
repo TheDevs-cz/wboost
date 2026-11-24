@@ -114,10 +114,22 @@ readonly final class AcceptCalendarScanHandler
         assert($plan !== null);
 
         $features = array_values(array_intersect(CalendarScanProposal::featuresOffered($scan, $calendar), $message->features));
+        // K15b: the page's further languages, ticked like a switch
+        $languages = in_array(CalendarScanProposal::LANGUAGES_KEY, $message->features, true) ? CalendarScanProposal::languagesOffered($scan, $calendar) : [];
         $commands = [];
+        $configure = ['op' => 'configure'];
 
         if ($features !== []) {
-            $commands[] = ['op' => 'configure', 'features' => array_fill_keys($features, true)];
+            $configure['features'] = array_fill_keys($features, true);
+        }
+
+        if ($languages !== []) {
+            $configure['languages'] = array_values(array_unique([...$calendar->languages, ...$languages]));
+            $features[] = CalendarScanProposal::LANGUAGES_KEY;
+        }
+
+        if (count($configure) > 1) {
+            $commands[] = $configure;
         }
 
         $commands[] = ['op' => 'replace_layout', 'layout' => $plan['layout']];

@@ -266,7 +266,8 @@ final class ScanDesignTest extends WebTestCase
         $result = $this->payload($this->call(['action' => 'result', 'scanId' => $scanId]));
         self::assertSame(['calendar', $calendarId, true, 'photoRight'], [$result['kind'], $result['calendarId'], $result['hasLayout'], $result['preset']]);
         self::assertSame('start', $result['layout']['styles']['cal']['numberSide']);
-        self::assertSame(['qr', 'events'], $result['featuresOffered']);
+        // the page's further languages (K15b) are offered like a switch
+        self::assertSame(['qr', 'events', 'languages'], $result['featuresOffered']);
         self::assertSame(['logo', 'header'], array_column($result['pictures'], 'slot'));
         self::assertNull($result['applied']);
 

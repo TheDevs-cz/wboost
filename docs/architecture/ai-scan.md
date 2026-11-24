@@ -1541,11 +1541,16 @@ off and never touches content.
 `unfinished`, `expiresAt`, `candidate`, `source {width, height}`, `pageBox` /
 `photoBox` (source px — the browser's preview only), `page`, `view`,
 `hasLayout`, `preset`, `layout`, `recognised[{element, state, kept}]`,
-`features[{key}]`, `pictures[{slot, picture {url, name, width, height} | null,
+`features[{key}]` (+ K15b: `{key: "languages", languages: ["pl", "en"]}` — the
+reported languages the calendar prints (`CalendarDesignRules::LANGUAGES`) and
+does not yet; accepted like a switch: `features: ["languages"]` adds them to
+`calendar.languages`, the snapshot keeps the old list and „Vrátit původní“ puts
+it back), `pictures[{slot, picture {url, name, width, height} | null,
 current}]`, `fonts[{group, pattern, face, closeness}]`, `projectFaces`,
 `notExpressible[{code, box}]`, `notes[{code, w?, h?}]`, `languages` (ISO 639-1
-codes beside Czech, `[]` when none — the calendar cannot print them yet; K15b
-switches them on), `approximate`,
+codes beside Czech, `[]` when none; when every one is a language the calendar
+prints, `multilingual_names` is left out of `notExpressible` — a language it does
+not print keeps that row), `approximate`,
 `rating` (null | 1 | -1 — „Jak se sken povedl?“), `applied` (null until accepted: `{restoreUntil, restorable, restored, superseded, changed,
 features}` — `restorable`: this scan is the one its calendar can restore now; `superseded`: a scan applied later goes first).
 

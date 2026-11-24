@@ -899,7 +899,10 @@ disabled, then the four extras as checkboxes, no cap; `store.setLanguages` —
 design patch `languages` + `layout`, re-runs the auto-grow, no undo step like
 the feature switches) and by MCP `manage_calendar` `languages` (`model.mjs`
 refuses `cs` / unknown codes with `unknown_language`, notes a reordering);
-`get_calendar` / `manage_calendar` answer `languages`. Step 3 › Kalendárium
+`get_calendar` / `manage_calendar` answer `languages`. An AI scan that reads further
+languages on the page offers the printable ones in its review („Vícejazyčné názvy:
+polština, angličtina — zapneme je“, pre-ticked) and its accept adds them
+(`ai-scan.md` § the proposal's `features`). Step 3 › Kalendárium
 „Názvy dnů“: Celé · Zkrácené · Automaticky (+ a note under Automaticky).
 Rules — load-bearing:
 

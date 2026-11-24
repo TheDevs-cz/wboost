@@ -77,6 +77,9 @@ export function startHint(code, entry) {
     }
 }
 
+/** Czech names of the languages a calendar page may print beside Czech (K15b) — the scanner's closed list. */
+const LANGUAGE_NAMES = { sk: 'slovenština', pl: 'polština', de: 'němčina', en: 'angličtina', hu: 'maďarština', uk: 'ukrajinština', ru: 'ruština', fr: 'francouzština', it: 'italština', es: 'španělština' };
+
 const STOP = { tone: 'neutral', icon: 'image-off', stop: true };
 const FAIL = { tone: '', icon: 'alert' };
 /** S5 — the result card per status + code: title, text, which actions. */
@@ -189,7 +192,7 @@ export const CAL = {
     states: { found: ['ok', 'check', 'rozpoznáno'], approximate: ['ap', 'help', 'přibližně'], absent: ['no', 'minus', 'nenalezeno'] },
     absent: 'na stránce jsme nenašli',
     kept: 'na stránce jsme nenašli — zůstane jako dosud',
-    features: { weekNumbers: 'Zapnout čísla týdnů', captions: 'Zapnout popisek fotky', moon: 'Zapnout fáze měsíce', qr: 'Zapnout QR kód', events: 'Zapnout akce', waste: 'Zapnout svoz odpadů', timeChange: 'Zapnout změnu času', seasons: 'Zapnout roční období', shifts: 'Zapnout směny' },
+    features: { languages: (codes) => `Vícejazyčné názvy: ${(codes || []).map((c) => LANGUAGE_NAMES[c] || c).join(', ')} — zapneme je`, weekNumbers: 'Zapnout čísla týdnů', captions: 'Zapnout popisek fotky', moon: 'Zapnout fáze měsíce', qr: 'Zapnout QR kód', events: 'Zapnout akce', waste: 'Zapnout svoz odpadů', timeChange: 'Zapnout změnu času', seasons: 'Zapnout roční období', shifts: 'Zapnout směny' },
     /**
      * „Co kalendář nepřevezme“ of the review (K15a): per code of the report's `notExpressible` a
      * name and one sentence — what it is on the picture and what to do with it. Information, never
@@ -203,8 +206,9 @@ export const CAL = {
         days_in_grid: { title: 'Dny v mřížce', text: 'Kalendář řadí dny pod sebe do řádků — návrh je postavený s řádky. Mřížku dnů vedle sebe kalendář neumí.' },
         rotated_text: { title: 'Svislý nebo otočený text', text: 'Kalendář píše texty jen vodorovně; otočený text z obrázku nevykreslí.' },
         month_colours: { title: 'Jiné barvy pro každý měsíc', text: 'Barvy platí pro celý rok — převzali jsme je z naskenované stránky. Jinou barvu pro jednotlivé měsíce kalendář nemá.' },
-        // ONE place for the language wording — changes when „Jazyky názvů“ (K15b) ships
-        multilingual_names: { title: 'Názvy ve více jazycích', text: 'Kalendář tiskne názvy měsíců, dnů a týdnů česky; další jazyky ze stránky nepřevezme.' },
+        // ONE place for the language wording. Since K15b the row stays only for a language the
+        // calendar does not print (sk, pl, de, en are offered as „Vícejazyčné názvy“ instead)
+        multilingual_names: { title: 'Názvy ve více jazycích', text: 'Kalendář tiskne názvy měsíců, dnů a týdnů česky a k tomu slovensky, polsky, německy nebo anglicky (Typ › Jazyky názvů); jiný jazyk ze stránky nepřevezme.' },
     },
     notExpressibleHead: 'Co kalendář nepřevezme',
     notExpressibleLead: 'Pro informaci — návrh je i bez toho použitelný. U každé položky je, co s ní můžete udělat.',

@@ -126,6 +126,12 @@ readonly final class RestoreCalendarScanHandler
             $design->features = (object) $switches;
         }
 
+        // K15b: the languages the accept switched on go (a snapshot from before
+        // languages existed has none — then nothing to put back)
+        if (is_array($restore['languages'] ?? null) && $restore['languages'] !== $calendar->languages) {
+            $design->languages = array_values(array_filter($restore['languages'], is_string(...)));
+        }
+
         if ($layout === null && $calendar->step > 2) {
             // Without a layout there is nothing behind step 2.
             $design->step = 2;

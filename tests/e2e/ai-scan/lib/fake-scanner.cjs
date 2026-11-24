@@ -165,6 +165,8 @@ function calendarReport(candidate, rendered, overrides = {}) {
         ],
         needsUpload: [{ slot: 'logo' }, { slot: 'header' }],
         featuresOffered: [{ key: 'qr' }, { key: 'events' }],
+        // K16 / K15b: the page prints its names in Polish and English beside Czech
+        languages: [{ code: 'pl' }, { code: 'en' }],
         fonts: [{ group: 'num', pattern: 'nearest_available', face: null, closeness: 0.61 }, { group: 'month', pattern: 'undetermined', face: null }],
         notExpressible: [{ code: 'ornament', box: [0, Math.round(h * 0.86), Math.round(w * 0.3), Math.round(h * 0.08)] }],
         notes: [{ code: 'ratio_adapted', w: 297, h: 150 }],

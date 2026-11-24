@@ -505,7 +505,9 @@ module.exports = {
                 assert.match(await text('[data-cal-scan-attn="fonts"]'), /Písma neodpovídají předloze: 1 nerozpoznané, 1 nahrazené\. Zobrazit písma/);
                 assert.match(body, /Stránka má jiný poměr stran než váš kalendář \(297 × 150 mm\)/);
                 assert.match(body, /Kalendář se nezmění, dokud rozvržení nepoužijete\. Návrh uchováme do \d+\. \d+\. \d{4}/);
-                assert.deepEqual(await page.$$eval('[data-chg="feature"]', (els) => els.map((el) => [el.dataset.key, el.checked])), [['qr', true], ['events', true]]);
+                // K15b: the page's further languages are one more switch, ticked like the others
+                assert.deepEqual(await page.$$eval('[data-chg="feature"]', (els) => els.map((el) => [el.dataset.key, el.checked])), [['qr', true], ['events', true], ['languages', true]]);
+                assert.match(body, /Vícejazyčné názvy: polština, angličtina — zapneme je/);
                 assert.equal(await nextClass(), 'tertiary');
                 assert.equal(await page.$$eval('[data-cal-scan-panel] .btn-primary', (els) => els.length), 1);
                 // the proposal is drawn by the calendar's renderer: the header is navy
@@ -520,7 +522,7 @@ module.exports = {
                 await page.waitForFunction(() => document.querySelector('[data-proposal] svg'));
                 // a switch left unticked is not applied
                 await page.click('label:has([data-key="events"])');
-                assert.deepEqual(await page.evaluate(() => [...window.__calendarScan.proposal().features.map((f) => f.key)]), ['qr', 'events']);
+                assert.deepEqual(await page.evaluate(() => [...window.__calendarScan.proposal().features.map((f) => f.key)]), ['qr', 'events', 'languages']);
             });
 
             await check('C4 „Ukázat vrstvy“: outlines with letter tags and a legend; a recognised row lights its box', async () => {
@@ -659,6 +661,7 @@ module.exports = {
                 assert.equal(applied.design.layout.styles.head.bg.color, '#1F3A5F');
                 assert.equal(applied.design.features.qr, true);
                 assert.equal(applied.design.features.events, false);
+                assert.deepEqual(applied.design.languages, ['pl', 'en'], 'the ticked languages of the page (K15b)');
                 assert.match(applied.design.layout.styles.logo.asset, /^[0-9a-f-]{36}$/);
                 assert.equal(applied.status, 'clean');
                 assert.equal(applied.canUndo, false); // the step history starts again

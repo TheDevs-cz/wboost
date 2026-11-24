@@ -163,6 +163,62 @@ final readonly class CalendarScanProposal
     }
 
     /**
+     * The pseudo feature key of the accept / the review's offers: the
+     * languages the page prints its names in beside Czech (K15b), switched on
+     * together.
+     */
+    public const string LANGUAGES_KEY = 'languages';
+
+    /**
+     * The report's `languages` (codes beside Czech, as printed) inside the
+     * scanner's closed list ({@see CalendarScanProposalView::LANGUAGES}), once each.
+     *
+     * @return list<string>
+     */
+    public static function languagesReported(AiScan $scan): array
+    {
+        $codes = [];
+
+        foreach (self::items($scan->report['languages'] ?? null) as $item) {
+            $code = $item['code'] ?? null;
+
+            if (is_string($code) && in_array($code, CalendarScanProposalView::LANGUAGES, true) && !in_array($code, $codes, true)) {
+                $codes[] = $code;
+            }
+        }
+
+        return $codes;
+    }
+
+    /**
+     * Reported languages the calendar can print ({@see CalendarDesignRules::LANGUAGES})
+     * and — with a calendar — does not print yet, in the calendar's print order.
+     *
+     * @return list<string>
+     */
+    public static function languagesOffered(AiScan $scan, null|Calendar $calendar = null): array
+    {
+        $reported = self::languagesReported($scan);
+
+        return array_values(array_filter(
+            CalendarDesignRules::LANGUAGES,
+            static fn (string $code): bool => in_array($code, $reported, true) && ($calendar === null || !in_array($code, $calendar->languages, true)),
+        ));
+    }
+
+    /**
+     * Every language the page prints is one the calendar can print — the
+     * report's `multilingual_names` is then no longer a thing the calendar
+     * cannot take over.
+     */
+    public static function languagesAllSupported(AiScan $scan): bool
+    {
+        $reported = self::languagesReported($scan);
+
+        return $reported !== [] && array_diff($reported, CalendarDesignRules::LANGUAGES) === [];
+    }
+
+    /**
      * Element → `found` | `approximate` | `absent`, for every element the
      * report names.
      *
@@ -287,6 +343,7 @@ final readonly class CalendarScanProposal
             'layoutJson' => $calendar->layout === null ? null : self::encodeLayout($calendar->layout),
             'preset' => $calendar->layoutPreset,
             'featuresJson' => (string) json_encode((object) $calendar->features),
+            'languages' => $calendar->languages,
             'layoutOrigin' => $calendar->layoutOrigin,
             'step' => $calendar->step,
             'revision' => $calendar->revision,

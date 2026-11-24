@@ -201,7 +201,8 @@ final class CalendarScanTest extends WebTestCase
         );
 
         // Week numbers are on already (the default): only what is off is offered.
-        self::assertSame([['key' => 'qr'], ['key' => 'events']], $proposal['features']);
+        // … and the page's further languages the calendar prints (K15b), as one more switch.
+        self::assertSame([['key' => 'qr'], ['key' => 'events'], ['key' => 'languages', 'languages' => ['pl', 'en']]], $proposal['features']);
         self::assertSame(['logo', 'header'], array_column(self::listOf($proposal['pictures']), 'slot'));
         self::assertSame([['code' => 'ornament', 'box' => [10, 600, 300, 40]]], $proposal['notExpressible']);
         self::assertSame([['code' => 'ratio_adapted', 'w' => 297, 'h' => 150]], $proposal['notes']);
@@ -465,6 +466,48 @@ final class CalendarScanTest extends WebTestCase
         self::assertTrue($again['ok']);
         self::assertFalse($again['restored']);
         self::assertSame($after['revision'], self::calInt(self::DESIGNED, 'revision'));
+    }
+
+    public function testTheLanguagesOfThePageAreOfferedTickedAppliedAndRestored(): void
+    {
+        // a page in Czech, Polish and English: the calendar prints all of them —
+        // the „nepřevezme“ row goes, the languages are offered as a switch
+        $scanId = self::calendarReady($this->client, self::DESIGNED, report: [
+            'notExpressible' => [['code' => 'multilingual_names', 'box' => [900, 20, 600, 40]], ['code' => 'ornament', 'box' => [10, 600, 300, 40]]],
+        ]);
+        TestingLogin::logInAsUser($this->client, TestDataFixture::USER_1_EMAIL);
+        $this->client->request('GET', sprintf('/ai-scan/%s/proposal', $scanId));
+        $proposal = self::dig(self::json($this->client), 'proposal');
+        self::assertIsArray($proposal);
+        self::assertSame(['ornament'], array_column(self::listOf($proposal['notExpressible']), 'code'));
+        self::assertContains(['key' => 'languages', 'languages' => ['pl', 'en']], self::listOf($proposal['features']));
+
+        $answer = $this->post(self::DESIGNED, $scanId, 'accept', ['features' => ['languages']]);
+        self::assertTrue($answer['ok'], (string) json_encode($answer));
+        self::assertSame(['languages'], $answer['features']);
+        self::assertSame(['pl', 'en'], self::calJson(self::DESIGNED, 'languages'));
+        self::assertSame([], self::dig(self::scanJson($scanId, 'restore'), 'languages'), 'the snapshot: Czech only before');
+
+        self::assertTrue($this->post(self::DESIGNED, $scanId, 'restore')['ok']);
+        self::assertSame([], self::calJson(self::DESIGNED, 'languages'));
+    }
+
+    public function testALanguageTheCalendarDoesNotPrintStaysInTheNotTakenOverRow(): void
+    {
+        $scanId = self::calendarReady($this->client, self::DESIGNED, report: [
+            'languages' => [['code' => 'pl'], ['code' => 'hu']],
+            'notExpressible' => [['code' => 'multilingual_names', 'box' => [900, 20, 600, 40]]],
+        ]);
+        TestingLogin::logInAsUser($this->client, TestDataFixture::USER_1_EMAIL);
+        $this->client->request('GET', sprintf('/ai-scan/%s/proposal', $scanId));
+        $proposal = self::dig(self::json($this->client), 'proposal');
+        self::assertIsArray($proposal);
+        self::assertSame(['multilingual_names'], array_column(self::listOf($proposal['notExpressible']), 'code'));
+        self::assertContains(['key' => 'languages', 'languages' => ['pl']], self::listOf($proposal['features']));
+
+        // not ticked: the calendar stays Czech only
+        self::assertTrue($this->post(self::DESIGNED, $scanId, 'accept', ['features' => ['qr']])['ok']);
+        self::assertSame([], self::calJson(self::DESIGNED, 'languages'));
     }
 
     public function testRestoreAsksBeforeItOverwritesEditsMadeSinceTheAccept(): void

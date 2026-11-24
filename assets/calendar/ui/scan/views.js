@@ -599,7 +599,7 @@ function cantCard(scan) {
         const count = items.length > 1 ? ` <span class="cal-cant-n">· ${CAL.notExpressiblePlaces(items.length)}</span>` : '';
         return `<li data-cant="${esc(code)}"><span class="cal-cantcs">${crops}</span><span class="cal-cant-b"><b>${copy.title}${count}</b><span>${copy.text}</span></span></li>`;
     }).join('');
-    const features = (p.features || []).filter((f) => CAL.features[f.key]).map((f) => `<label class="as-check"><input type="checkbox" class="sr" data-chg="feature" data-key="${esc(f.key)}" data-k="feat${esc(f.key)}"${scan.ticked.has(f.key) ? ' checked' : ''}><span class="cb" aria-hidden="true">${ic('check', 's14')}</span><span>${CAL.features[f.key]}</span></label>`).join('');
+    const features = (p.features || []).filter((f) => CAL.features[f.key]).map((f) => `<label class="as-check"><input type="checkbox" class="sr" data-chg="feature" data-key="${esc(f.key)}" data-k="feat${esc(f.key)}"${scan.ticked.has(f.key) ? ' checked' : ''}><span class="cb" aria-hidden="true">${ic('check', 's14')}</span><span>${esc(typeof CAL.features[f.key] === 'function' ? CAL.features[f.key](f.languages) : CAL.features[f.key])}</span></label>`).join('');
     if (!cant && !features) return '';
     return `<div class="as-card" data-region="cant">${cant ? `<h3>${CAL.notExpressibleHead}</h3><p class="cap" style="margin:0">${CAL.notExpressibleLead}</p><ul class="as-cantl">${cant}</ul>` : ''}${features ? `<h3>Co stránka ukazuje a kalendář má vypnuté</h3>${features}<p class="cap" style="margin:0">Bez zaškrtnutí převezmeme jen polohy, písma a barvy.</p>` : ''}</div>`;
 }

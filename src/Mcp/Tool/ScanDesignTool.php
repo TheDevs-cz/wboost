@@ -210,7 +210,9 @@ readonly final class ScanDesignTool
      * ({element, state: found | approximate | absent, kept: true when the
      * calendar keeps its current setting for an element the page does not
      * show}), featuresOffered[] (switches the page shows and the calendar
-     * has off — pass the ones to turn on to "apply"), pictures[] ({slot: logo
+     * has off — pass the ones to turn on to "apply"; "languages" = the
+     * further languages the page prints its month / weekday / week names in,
+     * see manage_calendar languages), pictures[] ({slot: logo
      * | header | background, current}: places whose picture was not taken
      * from the image), fonts[], notExpressible[] ({code, box}: things on the
      * page a wboost calendar cannot draw), notes[], expiresAt, applied.
