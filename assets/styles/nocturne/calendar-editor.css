@@ -60,6 +60,29 @@
 .cal-eli.cal-el-drag { background: var(--surface-3); border-radius: 10px; box-shadow: var(--shadow-3); opacity: .95; }
 .cal-eli.cal-el-drag .cal-parts { display: none; }
 
+/* own layers (K20): „Přidat“ + its menu, the row menu, the in-place rename, the panel's actions */
+.cal-layb { display: flex; align-items: center; gap: 2px; }
+.cal-ladd { gap: 4px; padding: 0 10px 0 6px; font-weight: 600; }
+.cal-ladd[aria-busy="true"] { opacity: .6; pointer-events: none; }
+.cal-laym.cal-addm { left: 0; right: 0; }
+.cal-laym-i.danger { color: var(--rose-ink); }
+.cal-laym-i.danger > .i { color: var(--rose-ink); }
+.cal-laym-i.danger:hover, .cal-laym-i.danger:focus-visible { background: var(--rose-deep); }
+.cal-laym-i > span { min-width: 0; }
+.cal-laym .menu-sep { height: 1px; margin: 4px 6px; background: var(--line); }
+.cal-elr.cal-own { position: relative; }
+.cal-laym.cal-rowm { top: calc(100% + 2px); left: auto; right: 0; min-width: 200px; }
+.cal-elr .cal-lmenu { opacity: .55; }
+.cal-elr:hover .cal-lmenu, .cal-elr:focus-within .cal-lmenu, .cal-elr .cal-lmenu[aria-expanded="true"] { opacity: 1; }
+.cal-eln-edit { cursor: default; }
+.cal-lren { flex: 1; min-width: 0; height: 28px; padding: 0 8px; border: 1px solid var(--lav); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; font-size: 13px; }
+.cal-lren:focus { outline: 2px solid var(--lav-ink); outline-offset: 0; }
+.cal-lacts { display: flex; flex-wrap: wrap; gap: 6px; }
+.cal-lacts .btn { flex: 0 0 auto; width: auto; }
+.cal-lacts .cal-ldel { color: var(--rose-ink); }
+.cal-lacts .cal-ldel:hover { background: var(--rose-deep); color: var(--rose-ink); }
+.cal-lname { width: 100%; }
+
 /* ---- Stage ---------------------------------------------------------------- */
 .cal-stage { position: relative; display: flex; flex-direction: column; align-items: stretch; min-width: 0; min-height: 0; overflow: hidden; background: var(--bg); }
 .cal-stage-bar { display: flex; flex-wrap: nowrap; align-items: center; justify-content: center; gap: 12px; flex: none; min-height: 44px; padding: 6px 48px 0; font-size: 13px; }

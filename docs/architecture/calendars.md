@@ -499,6 +499,32 @@ static text layer P4.
   `AcceptCalendarScanHandler`), its restore brings back the stored layout with
   its own. An old browser tab (pre-K20 JS) drops `layers` on its next layout
   save — the accepted risk of every new layout key.
+- **UI — step 3 › Vrstvy** (`ui/editor/layers.js`, also in step 4 „Styl
+  stránek“): „Přidat“ `[data-cal-action="layer-add"]` → menu
+  `[data-layer-add="image|gallery|rect|rounded|ellipse|line"]` (Obrázek —
+  nahrát = kind `image` upload, Z galerie only with the gallery modal). A new
+  layer is centred on the page, ON TOP of the stack, selected, one undo step;
+  sizes are page relative (`defaultLayerBox`: a shape ¼ of the short trim
+  edge, a line ½ of the width, a picture ⅓ of the height with its own aspect);
+  a shape takes `env.accent` (the project's first brand colour). A picture
+  layer appears only when its upload / gallery copy answered — no empty
+  picture layers from the UI. Rows `[data-layer="u:<id>"]` (kind icon, name or
+  the numbered fallback, dimmed while hidden), the eye
+  `[data-layer-eye="u:<id>"]`, the row menu `[data-layer-menu-of="u:<id>"]` →
+  `[data-layer-action="rename|duplicate|delete"]` (rename in place:
+  `input[data-layer-name]`, Enter / blur saves, Esc cancels; duplicate = right
+  above, 3 mm right / down, selected); reorder with the built-ins by the same
+  SortableJS list. Delete / Backspace on the stage deletes the selected own
+  layer (`ui/editor/keys.js`; undoable, so no confirm — a built-in is never
+  deleted). The properties (`ui/editor/props-layer.js`, mounted by
+  `props.js` for `u:` selections; `[data-props="u:<id>"]`, controls
+  `[data-prop="layer.<path>"]`): Název, Pozice a velikost, per kind Obrázek
+  (upload / Z galerie / Odebrat, Přizpůsobit | Vyplnit, Zaoblení) · Výplň
+  (on, colour, Krytí) + Obrys (on, colour, pt, Plná | Čárkovaná | Tečkovaná)
+  + Zaoblení rohů (rect) · Barva, Tloušťka, Styl, Zakončení (line); Vrstva:
+  Krytí vrstvy, Prolnutí; Duplikovat, Smazat vrstvu. Every write goes through
+  `normalizeLayer`. The panel says „na všech týdenních stranách“ — the page
+  set control comes with P2. e2e `user-layers.e2e.cjs`.
 - **Server** (`CalendarDesignRules` + `CalendarLayerRules`, the PHP mirror of
   `model/layers.js` — `CalendarLayerContractTest` pins kinds, keys, enums,
   caps and ranges via `tests/Fixtures/calendar/dump-layers.mjs`): top-level

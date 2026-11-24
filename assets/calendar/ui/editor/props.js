@@ -7,6 +7,7 @@
 //     re-mounted whenever the selection changes (element, frame or part), after an undo / redo, after
 //     a `features` / `type` change, and after a save response that really changed the layout. Between
 //     those moments the Kalendárium panel keeps its own values fresh (subscribe to `layout`).
+//   - an own layer (`u:<id>`, K20) → `layerPanel` of props-layer.js, by the same rules
 //   - any other element → its panel, built ONCE per selection from `ui/controls/*`. Values coming
 //     from elsewhere (a drag on the page, undo, auto-grow, a save response) are written into the
 //     existing controls through `setValue` — the panel is never rebuilt for a value, so a field keeps
@@ -34,6 +35,8 @@ import { textProps } from '../controls/text.js';
 import { uploadTile } from '../controls/upload.js';
 import { pictureSize } from '../picture-size.js';
 import { mountKalProps } from './props-kal.js';
+import { layerPanel } from './props-layer.js';
+import { isLayerKey } from '../../model/layers.js';
 
 const ALL_PAGES = 'Platí pro všechny strany kalendáře';
 
@@ -255,6 +258,13 @@ export function mountProps(root, ctx) {
             const sub = h('div', { class: 'cal-props-kal', 'data-props': 'cal' });
             root.replaceChildren(sub);
             kal = mountKalProps(sub, ctx);
+            return;
+        }
+        if (isLayerKey(key)) {
+            // an own layer (K20): its panel lives in props-layer.js
+            const panel = layerPanel(ctx, key, refresher);
+            position = { refresh: panel.refresh };
+            root.replaceChildren(panel.el);
             return;
         }
         const builder = PANELS[key];

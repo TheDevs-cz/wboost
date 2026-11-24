@@ -6,6 +6,8 @@
 //                     Kalendárium part or Pozadí is selected
 //   Esc               the open Nahrát layout menu → the part → the element → nothing
 //   Ctrl/⌘+Z          undo;  Ctrl/⌘+Shift+Z and Ctrl/⌘+Y  redo
+//   Delete, Backspace  deletes the selected OWN layer (K20; one undo step, so no confirm); built-in
+//                     elements are never deleted
 // Everything is ignored while focus is in `input, select, textarea, [contenteditable]` or a dialog
 // is open — there the keys belong to the field or the dialog. Ctrl+S is NOT handled here: the
 // workspace controller owns it.
@@ -13,6 +15,7 @@
 import { K, bleedOf } from '../../model/defaults.js';
 import { nudge } from '../../editor/drag.js';
 import { selectedBoxKey } from './overlay.js';
+import { isLayerKey, layerIdOf, removeLayer } from '../../model/layers.js';
 
 const ARROWS = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
 
@@ -48,6 +51,15 @@ export function mountKeys(ctx) {
             else if (selection) store.setUi({ selection: null });
             else return;
             event.preventDefault();
+            return;
+        }
+
+        if (key === 'Delete' || key === 'Backspace') {
+            const selection = state.ui.selection;
+            if (!selection || !isLayerKey(selection.el)) return;
+            event.preventDefault();
+            store.change((layout) => removeLayer(layout, layerIdOf(selection.el)));
+            ctx.toast('Vrstva smazána — Ctrl+Z ji vrátí');
             return;
         }
 
