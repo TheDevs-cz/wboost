@@ -494,6 +494,7 @@ trait AiScanTesting
      * Upload → intake → build → one calendar candidate → `ready`.
      *
      * @param array<string, mixed> $report overrides of {@see calendarReport()}
+     * @param null|list<array<string, mixed>> $commands the candidate's model commands, default {@see calendarCommands()}
      *
      * @phpstan-impure
      */
@@ -504,12 +505,13 @@ trait AiScanTesting
         string $email = TestDataFixture::USER_1_EMAIL,
         array $report = [],
         string $preset = 'photoRight',
+        ?array $commands = null,
     ): string {
         $scanId = self::start($projectId, $email, kind: AiScanKind::Calendar, calendarId: $calendarId)->toString();
         self::passIntake($client, $scanId);
         $build = self::claim($client, 'build');
 
-        $render = self::scanner($client, 'POST', $scanId . '/render', ['run' => $build['run'], 'seq' => 1, 'commands' => self::calendarCommands($preset)], $build['lease']);
+        $render = self::scanner($client, 'POST', $scanId . '/render', ['run' => $build['run'], 'seq' => 1, 'commands' => $commands ?? self::calendarCommands($preset)], $build['lease']);
 
         if (($render['json']['candidate'] ?? null) !== 1) {
             throw new \LogicException('The calendar candidate was not rendered: ' . $render['raw']);

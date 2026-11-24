@@ -122,3 +122,20 @@ jsme vynechali.“) and a round photo as a square place.
 - **Templates (2T)**: `scanner/eval/run.mjs` on the easy set (7) and B1–B5 (headline shadows), one
   run each, against their stored earlier runs; adopted only when the easy set's text IoU and size
   accuracy stay within their earlier spread.
+
+## 7. Results — Phase 2 calendar (2026-11-24)
+
+Built as planned (instructions + review facts + the Vrstvy wording; no scanner image). Measured through
+the real job core (`scanner serve` on the plan, `scanner/eval/calendar.mjs`), the same 7-day eval
+calendar, one run per page before (definition as on main) and after:
+
+| page | F1 before → after | MAE | box IoU | what the proposal says now |
+|---|---|---|---|---|
+| `k21fx` (synthetic: photo shadow 55 % / 2.5 / 3.5 mm, white logo with shadow 70 % / 0.8 / 1.5 mm) | 0.965 → 0.965 | 0.010 → 0.008 | 0.983 → 0.985 | photo `dropShadow` 40 / 2 / 3 (before: the old example's 35 / 2 / 3 copied); **logo `dropShadow` 40 / 0.7 / 1.5 — before none** |
+| `k21band` (synthetic: number band, `grow` 18 mm) | 0.963 → 0.964 | 0.005 → 0.005 | 0.999 → 0.999 | `grow` 17.5 → **18** (the model already read the key off `defaultLayout`) |
+| `chotebuz` (client page, trilingual names, band, soft shadow right of the photo) | 0.593 → **0.649** | 0.034 → 0.031 | – | `dayFormat` full → **auto** (trilingual names no longer forced full); photo shadow now falls to the right (angle 180) as on the page |
+| `markvartovice` (no effects; white logo on the photo without shadow) | 0.941 → 0.939 | 0.026 → 0.026 | – | still no effect anywhere — nothing invented; `dayFormat` full → auto |
+| `s01` (default layout, no effects) | 0.964 → 0.967 | 0.005 → 0.006 | 0.999 → 0.990 | no effect; within run noise (K16: F1 ± 0.01) |
+
+Not changed by the round: `icons.order` (no page shows both icon kinds), the number band of
+chotebuz stays `grow` 0 (its band hugs the numbers). One run per page — the spread is not measured.

@@ -501,6 +501,74 @@ final class CalendarScanTest extends WebTestCase
         self::assertEquals($before['layout'], self::state(self::DESIGNED)['layout']);
     }
 
+    /**
+     * K21: what the scan reads of the pictures' layer effects (K2) and of the
+     * band behind the day numbers (K5b „Rozšíření“) is a style patch like any
+     * other — rendered, proposed and written by accept exactly as the model
+     * sent it; a blend mode the print cannot keep is the model's refusal.
+     */
+    public function testPictureEffectsAndTheNumberBandWidthOfACandidateAreProposedAndAppliedAsSent(): void
+    {
+        $shadow = ['kind' => 'dropShadow', 'color' => '#000000', 'opacity' => 40, 'angle' => 120, 'distance' => 2, 'size' => 3];
+        $glow = ['kind' => 'outerGlow', 'color' => '#FFFFFF', 'opacity' => 60, 'size' => 2];
+        $band = ['kind' => 'gradient', 'type' => 'linear', 'angle' => 90, 'stops' => [
+            ['color' => '#000000', 'opacity' => 0, 'pos' => 0],
+            ['color' => '#000000', 'opacity' => 55, 'pos' => 100],
+        ]];
+        $commands = [
+            ['op' => 'preset', 'preset' => 'photoRight'],
+            ['op' => 'layout', 'styles' => [
+                'photo' => ['effects' => [$shadow, $band]],
+                'logo' => ['effects' => [$glow + ['blend' => 'screen']]],
+                'cal' => ['numBg' => ['color' => '#E4E5E4', 'opacity' => 100, 'grow' => 18]],
+            ]],
+        ];
+
+        $scanId = self::calendarReady($this->client, self::DESIGNED, commands: $commands);
+        TestingLogin::logInAsUser($this->client, TestDataFixture::USER_1_EMAIL);
+
+        $this->client->request('GET', sprintf('/ai-scan/%s/proposal', $scanId));
+        self::assertResponseIsSuccessful();
+        $layout = self::dig(self::json($this->client), 'proposal', 'layout');
+        self::assertIsArray($layout);
+        self::assertSame(['dropShadow', 'gradient'], array_column(self::listOf(self::dig($layout, 'styles', 'photo', 'effects')), 'kind'));
+        self::assertSame(['outerGlow'], array_column(self::listOf(self::dig($layout, 'styles', 'logo', 'effects')), 'kind'));
+        self::assertSame(18, self::dig($layout, 'styles', 'cal', 'numBg', 'grow'));
+
+        $answer = $this->post(self::DESIGNED, $scanId, 'accept', ['features' => []]);
+        self::assertTrue($answer['ok'], (string) json_encode($answer));
+
+        $stored = self::state(self::DESIGNED)['layout'];
+        $photo = self::listOf(self::dig($stored, 'styles', 'photo', 'effects'));
+        self::assertCount(2, $photo);
+        // the model's values, the kind's defaults for what it left out
+        self::assertSame(['dropShadow', 'multiply', 40, 120, 2, 3], array_map(
+            static fn (string $key): mixed => self::dig($photo, 0, $key),
+            ['kind', 'blend', 'opacity', 'angle', 'distance', 'size'],
+        ));
+        self::assertSame(55, self::dig($photo, 1, 'stops', 1, 'opacity'));
+        self::assertSame(['outerGlow', 'screen', '#FFFFFF', 60, 2], [
+            self::dig($stored, 'styles', 'logo', 'effects', 0, 'kind'),
+            self::dig($stored, 'styles', 'logo', 'effects', 0, 'blend'),
+            self::dig($stored, 'styles', 'logo', 'effects', 0, 'color'),
+            self::dig($stored, 'styles', 'logo', 'effects', 0, 'opacity'),
+            self::dig($stored, 'styles', 'logo', 'effects', 0, 'size'),
+        ]);
+        self::assertEquals(['color' => '#E4E5E4', 'opacity' => 100, 'grow' => 18], self::dig($stored, 'styles', 'cal', 'numBg'));
+
+        // A blend mode a PDF cannot keep is refused by the model: no candidate.
+        $refusedScan = self::start(self::PROJECT, kind: AiScanKind::Calendar, calendarId: self::EMPTY)->toString();
+        self::passIntake($this->client, $refusedScan);
+        $build = self::claim($this->client, 'build');
+        $refused = self::scanner($this->client, 'POST', $refusedScan . '/render', ['run' => $build['run'], 'seq' => 1, 'commands' => [
+            ['op' => 'preset', 'preset' => 'photoLeft'],
+            ['op' => 'layout', 'styles' => ['photo' => ['effects' => [$shadow + ['blend' => 'dissolve']]]]],
+        ]], $build['lease']);
+        self::assertSame(200, $refused['status'], $refused['raw']);
+        self::assertNull($refused['json']['candidate']);
+        self::assertSame('invalid_effect', self::dig($refused['json'], 'issues', 0, 'code'));
+    }
+
     public function testTheLanguagesOfThePageAreOfferedTickedAppliedAndRestored(): void
     {
         // a page in Czech, Polish and English: the calendar prints all of them —

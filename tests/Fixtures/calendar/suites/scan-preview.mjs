@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict';
 
 export default async function (t, load) {
-    const { photoCutBox } = await load('ui/scan/preview.js');
+    const { photoCutBox, elementFact } = await load('ui/scan/preview.js');
 
     // the Chotěbuz scan of 2026-11-16 (prod 01a1e350-…): a 310 × 145 mm page in a 3661 × 1713 px picture
     const page = { width: 310, height: 145 };
@@ -43,5 +43,28 @@ export default async function (t, load) {
         assert.deepEqual(photoCutBox({ ...proposal, pageBox: null }, page), proposal.photoBox);
         assert.deepEqual(photoCutBox({ ...proposal, layout: { boxes: {} } }, page), proposal.photoBox);
         assert.equal(photoCutBox({ photoBox: null, layout: { boxes: {} } }, page), null);
+    });
+
+    // K21: „Co jsme rozpoznali“ says what the scan took of the picture effects, the corners and the number band
+    t.test('the facts name the effects, corners and frame of the photo, the logo\'s effects and the number band', () => {
+        const layout = {
+            boxes: { photo: { x: 10, y: 33, w: 172, h: 100 }, logo: { x: 16, y: 118, w: 46, h: 12 }, cal: { x: 197, y: 27, w: 118, h: 112 } },
+            styles: {
+                photo: { radius: 4, border: { on: true }, effects: [{ kind: 'dropShadow' }, { kind: 'gradient', on: true }, { kind: 'outerGlow', on: false }] },
+                logo: { effects: [{ kind: 'outerGlow' }] },
+                cal: { numberSide: 'end', numBg: { color: '#E4E5E4', opacity: 100, grow: 18 } },
+            },
+        };
+        assert.equal(elementFact('photo', layout, page), 'vlevo, zaoblené rohy, rámeček, stín, ztmavení');
+        assert.equal(elementFact('logo', layout, page), 'vlevo dole, záře');
+        assert.equal(elementFact('cal', layout, page), 'vpravo, čísla vpravo, pozadí čísel');
+    });
+
+    t.test('a proposal without them says only where things are', () => {
+        const layout = { boxes: { photo: { x: 0, y: 27, w: 197, h: 118 }, logo: { x: 16, y: 118, w: 46, h: 12 }, cal: { x: 197, y: 27, w: 118, h: 112 } },
+            styles: { photo: { radius: 0, border: { on: false }, effects: [] }, logo: { effects: [] }, cal: { numberSide: 'end', numBg: { color: null, opacity: 100, grow: 0 } } } };
+        assert.equal(elementFact('photo', layout, page), 'vlevo, do okraje');
+        assert.equal(elementFact('logo', layout, page), 'vlevo dole');
+        assert.equal(elementFact('cal', layout, page), 'vpravo, čísla vpravo');
     });
 }

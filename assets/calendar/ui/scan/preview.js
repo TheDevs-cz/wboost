@@ -157,12 +157,28 @@ function corner(box, page) {
     return [side(box, page), vertical].filter(Boolean).join(' ');
 }
 
+/** „Pozadí čísel“ (K5 / K5b) when the proposal has a band behind the day numbers. */
+function numberBand(styles) {
+    const band = styles.cal && styles.cal.numBg;
+    return band && HEX.test(band.color || '') ? 'pozadí čísel' : '';
+}
+
 function fillFact(fill) {
     if (!fill) return '';
     if (fill.imageOn && fill.asset) return 'obrázek';
     if (fill.gradient && fill.gradient.on) return 'barevný přechod';
     if (fill.colorOn !== false && HEX.test(fill.color || '')) return `barva ${String(fill.color).toUpperCase()}`;
     return '';
+}
+
+/**
+ * The picture effects (K2) the scan proposed, as review words (K21): what lies around the picture
+ * (stín, záře) and over it (ztmavení). Switched-off effects say nothing.
+ */
+function effectFacts(effects) {
+    const on = Array.isArray(effects) ? effects.filter((e) => e && e.on !== false) : [];
+    const has = (...kinds) => on.some((e) => kinds.includes(e.kind));
+    return [has('dropShadow') ? 'stín' : '', has('outerGlow') ? 'záře' : '', has('gradient', 'innerShadow', 'innerGlow') ? 'ztmavení' : ''].filter(Boolean);
 }
 
 /**
@@ -180,16 +196,22 @@ export function elementFact(element, layout, page) {
         case 'photo': {
             if (!box) return '';
             const bleed = box.x <= 0 || box.x + box.w >= page.width || box.y + box.h >= page.height;
-            return `${side(box, page)}${bleed ? ', do okraje' : ''}`;
+            const photo = styles.photo || {};
+            return [
+                `${side(box, page)}${bleed ? ', do okraje' : ''}`,
+                photo.radius > 0 ? 'zaoblené rohy' : '',
+                photo.border && photo.border.on ? 'rámeček' : '',
+                ...effectFacts(photo.effects),
+            ].filter(Boolean).join(', ');
         }
         case 'cal': {
             // 14 days: two week columns, the second drawn mirrored — numbers at the outer page edges or beside the photo
             if (boxes.cal2) {
                 const number = { start: 'čísla u okrajů stránky', middle: 'čísla uprostřed', end: 'čísla u fotografie' }[styles.cal && styles.cal.numberSide] || '';
-                return ['dva sloupce', number].filter(Boolean).join(', ');
+                return ['dva sloupce', number, numberBand(styles)].filter(Boolean).join(', ');
             }
             const number = { start: 'čísla vlevo', middle: 'čísla uprostřed', end: 'čísla vpravo' }[styles.cal && styles.cal.numberSide] || '';
-            return [box ? side(box, page) : '', number].filter(Boolean).join(', ');
+            return [box ? side(box, page) : '', number, numberBand(styles)].filter(Boolean).join(', ');
         }
         case 'head': {
             const fill = fillFact(styles.head && styles.head.bg);
@@ -201,8 +223,9 @@ export function elementFact(element, layout, page) {
             return fillFact(styles.bg);
         case 'wk':
             return box ? (boxes.wk2 ? 'u obou sloupců' : corner(box, page)) : '';
-        case 'cap':
         case 'logo':
+            return box ? [corner(box, page), ...effectFacts(styles.logo && styles.logo.effects)].join(', ') : '';
+        case 'cap':
         case 'qr':
             return box ? corner(box, page) : '';
         default:

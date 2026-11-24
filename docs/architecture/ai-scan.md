@@ -1427,6 +1427,18 @@ in node, the browser draws the proposal with the calendar's own renderer.
   named in `languages`. These are prompt + schema only (they travel in the
   claim's definition and deploy with the app); `languages` reaches the
   report only from a scanner built with the K16 `calendar-report.mjs`.
+  **K21 (2026-11-24, `docs/ai-scan/round-k21-plan.md`)** — prompt only, no
+  scanner image: the pictures' layer effects (K2) — a `dropShadow` /
+  `outerGlow` of the photo or the logo, measured in a strip OUTSIDE the box
+  (the boxes themselves are masked out of every measurement), the inside
+  kinds only for a darkened band behind a label on the photo, never on the
+  header / background fills; the number band's width `cal.numBg.grow`
+  (K5b, from its inner edge); `cal.dayFormat` stays `auto` on a
+  multilingual page; `styles.icons.order` (K19) when moon glyphs and waste
+  pictograms stand in the other order. Style keys pass the scanner
+  untouched (`#candidateOf` merges the model's `styles`), so they reach
+  production with the app. Test:
+  `CalendarScanTest::testPictureEffectsAndTheNumberBandWidthOfACandidateAreProposedAndAppliedAsSent`.
 - Tools of a kind may be per-kind variants: an entry of `tools.json` with an
   `id` (`scan_crop.calendar`) named in `kinds.calendar.tools`; the scanner
   resolves by `id`, then by name. Template entries are unchanged.

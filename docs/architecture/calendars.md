@@ -1277,7 +1277,7 @@ targets the calendar's own type), designers only.
 |---|---|
 | `ui/scan.js` | `createScan(ctx)` → ONE `CalendarScan` per workspace (`ctx.scan`; null for a client or without `env.scan`). Owns the entry facts, the current scan and its proposal; polls `status` while a scan is on its way **in any step** (2 s with the panel on screen, 10 s otherwise); `mount(root)` draws the action card or the panel into step 2's `.cal-scan`. Apply / restore, pictures, cancel / discard / retry |
 | `ui/scan/views.js` | markup strings of the card and of the panel's screens (`upload`, `chosen`, `wait`, `fail`, `gone`, `review`, `pictures`), the comparison slider, the outlines of `Ukázat vrstvy` (`layerBoxes`), the numbered places and their crops (`sourceBox`), the rating block, the privacy, access-request and „Naskenovat znovu“ dialogs |
-| `ui/scan/preview.js` | the live render of the proposal (`previewDocument` / `previewMarkup`: the calendar's own renderer on a document that exists only for the preview), `cropPicture` (the one canvas), `elementFact` — the phrase beside a recognised element, derived from the layout |
+| `ui/scan/preview.js` | the live render of the proposal (`previewDocument` / `previewMarkup`: the calendar's own renderer on a document that exists only for the preview), `cropPicture` (the one canvas), `elementFact` — the phrase beside a recognised element, derived from the layout (since K21 also the photo's „zaoblené rohy“ / „rámeček“, the picture effects of the photo and the logo — „stín“ dropShadow, „záře“ outerGlow, „ztmavení“ an overlay / inner kind — and the Kalendárium's „pozadí čísel“) |
 | `ui/step2.js` | mounts `ctx.scan` under the cards — of a 7-day and of a 14-day calendar; the radio `[data-preset="scan"]` „Naskenovaný design“ (the third card for 7 days; for 14 days the static card „Dvoustranné rozvržení“ becomes a radio group of two once the layout came from a scan — the layout card then puts the default two-sided layout back, one undo returns the scan) |
 | `ui/topbar.js` | the peach dot on step 2 (`[data-cal-scan-dot]`), tertiary `Pokračovat` |
 | `assets/ai-scan/copy.js` `CAL` | every Czech sentence of the calendar scan |
@@ -1338,8 +1338,10 @@ targets the calendar's own type), designers only.
   kalendář neumí“): the report's `notExpressible` grouped by CODE — one row
   per code with all its crops (≤ 3), the name, „· 3 místa“ when repeated,
   and one sentence what it is and what to do (`CAL.notExpressible[code] =
-  {title, text}`: ornament / header_text / second_photo / more_logos → part
-  of the header or background picture (or the caption, the logo picture);
+  {title, text}`: ornament / second_photo / more_logos → an own layer,
+  „Úpravy prvků › Vrstvy › Přidat“ (since K21 — the K20 layers; the scan
+  does not build them yet, `docs/ai-scan/round-k21-plan.md` Phase 3);
+  header_text → part of the header picture or the caption;
   days_in_grid, rotated_text, month_colours → what the calendar does
   instead; multilingual_names → kept only for a language the calendar
   cannot print — sk / pl / de / en are offered as „Vícejazyčné názvy“

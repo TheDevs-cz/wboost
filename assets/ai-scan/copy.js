@@ -199,10 +199,10 @@ export const CAL = {
      * an error: the proposal is usable without them.
      */
     notExpressible: {
-        ornament: { title: 'Ozdobný pruh, rámeček nebo ornament', text: 'Dekoraci mimo prvky kalendáře — pruh přes stránku, rámeček kolem fotky, dělicí čáru — kalendář nevykreslí. Chcete-li ji mít, udělejte ji součástí obrázku v hlavičce nebo na pozadí (Úpravy prvků › Hlavička / Pozadí).' },
+        ornament: { title: 'Ozdobný pruh, rámeček nebo ornament', text: 'Dekoraci mimo prvky kalendáře — pruh přes stránku, rámeček kolem fotky, dělicí čáru — sken nepřevezme. Přidejte si ji jako vlastní vrstvu: Úpravy prvků › Vrstvy › Přidat (obdélník, elipsa, čára nebo obrázek).' },
         header_text: { title: 'Vlastní text v hlavičce', text: 'Volný text (slogan, název obce…) kalendář do hlavičky nepíše. Může být součástí obrázku v hlavičce, nebo ho napište do popisku fotky.' },
-        second_photo: { title: 'Druhá fotografie', text: 'Stránka kalendáře má jednu fotografii týdne. Dvě fotky spojte do jednoho obrázku, nebo druhou dejte do obrázku v hlavičce.' },
-        more_logos: { title: 'Další loga', text: 'Kalendář má jedno místo pro logo. Víc log (třeba partnerů) spojte do jednoho obrázku loga, nebo je dejte do obrázku v hlavičce.' },
+        second_photo: { title: 'Druhá fotografie', text: 'Stránka kalendáře má jednu fotografii týdne, která se mění s týdnem. Obrázek, který má být na každé straně stejný, přidejte jako vlastní vrstvu: Úpravy prvků › Vrstvy › Přidat › Obrázek.' },
+        more_logos: { title: 'Další loga', text: 'Sken převezme jedno logo. Další loga (třeba partnerů) přidejte jako vlastní vrstvy: Úpravy prvků › Vrstvy › Přidat › Obrázek.' },
         days_in_grid: { title: 'Dny v mřížce', text: 'Kalendář řadí dny pod sebe do řádků — návrh je postavený s řádky. Mřížku dnů vedle sebe kalendář neumí.' },
         rotated_text: { title: 'Svislý nebo otočený text', text: 'Kalendář píše texty jen vodorovně; otočený text z obrázku nevykreslí.' },
         month_colours: { title: 'Jiné barvy pro každý měsíc', text: 'Barvy platí pro celý rok — převzali jsme je z naskenované stránky. Jinou barvu pro jednotlivé měsíce kalendář nemá.' },
