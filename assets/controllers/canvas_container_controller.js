@@ -84,6 +84,11 @@ export default class extends Controller {
         // limitKind, groupFits} from the last _refreshRowInfo() pass — what
         // the ghost outlines, the zone badge and the ⚙ popover read.
         this._rowInfo = new Map();
+        // „Náhled: ‹ N řádků ›" (2026-11-24): row id → how many rows the
+        // editor previews (ghost outlines 2…N + where attached containers
+        // land). Display only — never saved; starts at the row's default.
+        this._rowPreview = new Map();
+        this._followPreviews = [];
     }
 
     connect() {
@@ -1313,6 +1318,7 @@ export default class extends Controller {
             this._zones.push({ container, zone, label, nested, members, css: '', rowChrome });
         });
 
+        this._buildFollowPreviews();
         this._positionZones();
         this._syncSettings();
         // The panel mirrors the zone STRUCTURE, so it re-renders exactly when
@@ -1411,7 +1417,14 @@ export default class extends Controller {
                 if (other) perSize.push({ label: surface.label, fits: other.fits, active: false });
             });
 
+            const rootResult = run.results.find((r) => r && r.id === capacity.geometry.root.id && !r.nested);
             this._rowInfo.set(row.id, {
+                rootId: capacity.geometry.root.id,
+                // Where the root's content ends now (min-height floor
+                // included) and where its flow really ends — how far an
+                // attached container moves with N rows.
+                rootContentBottom: rootResult ? rootResult.contentBottom : null,
+                rootFlowBottom: rootResult ? (typeof rootResult.flowBottom === 'number' ? rootResult.flowBottom : rootResult.contentBottom) : null,
                 pitch: capacity.geometry.pitch,
                 // One row's flow height — what a ghost outline is tall.
                 rowHeight: Math.max(1, capacity.geometry.pitch - capacity.geometry.gap),
@@ -1438,7 +1451,8 @@ export default class extends Controller {
         const color = this._zoneColor(this._depthOf(container));
         const ghosts = [];
         const max = Math.min(MAX_ROWS, container.repeat.max);
-        for (let k = 1; k < max; k++) {
+        const preview = this._previewCount(container);
+        for (let k = 1; k < preview; k++) {
             const ghost = document.createElement('div');
             ghost.className = 'container-row-ghost';
             ghost.style.setProperty('--zone-color', color);
@@ -1467,7 +1481,39 @@ export default class extends Controller {
         limit.setAttribute('aria-hidden', 'true');
         layer.appendChild(limit);
 
-        const all = [...ghosts, limit];
+        // „Náhled: ‹ N řádků ›" — try the row counts; the ghosts and the
+        // attached containers' landing spots follow (display only).
+        const stepper = document.createElement('div');
+        stepper.className = 'container-row-stepper';
+        stepper.style.setProperty('--zone-color', color);
+        stepper.addEventListener('mousedown', (event) => event.stopPropagation());
+        const stepLabel = document.createElement('span');
+        stepLabel.textContent = 'Náhled:';
+        const less = document.createElement('button');
+        less.type = 'button';
+        less.textContent = '‹';
+        less.title = 'Méně řádků v náhledu';
+        less.disabled = preview <= 1;
+        const count = document.createElement('strong');
+        count.textContent = this._rowsLabel(preview);
+        const more = document.createElement('button');
+        more.type = 'button';
+        more.textContent = '›';
+        more.title = 'Více řádků v náhledu';
+        more.disabled = preview >= max;
+        const step = (delta) => (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            this._rowPreview.set(container.id, Math.max(1, Math.min(max, preview + delta)));
+            this.renderZones();
+        };
+        less.addEventListener('click', step(-1));
+        more.addEventListener('click', step(1));
+        stepper.append(stepLabel, less, count, more);
+        stepper.title = 'Jen náhled v editoru — kolik řádků si klient vyplní, se neukládá. Navázané kontejnery ukazují, kam se při tolika řádcích posunou.';
+        layer.appendChild(stepper);
+
+        const all = [...ghosts, limit, stepper];
         return {
             place: ({ left, right, top, g, offX, offY, PAD }) => {
                 const pitch = info.pitch;
@@ -1480,6 +1526,9 @@ export default class extends Controller {
                     ghost.style.top = `${offY + (top + k * pitch) * g.scale}px`;
                     ghost.style.height = `${rowHeight * g.scale}px`;
                 });
+                stepper.style.display = '';
+                stepper.style.left = `${offX + (left - PAD) * g.scale}px`;
+                stepper.style.top = `${offY + (top + (preview - 1) * pitch + rowHeight) * g.scale + 6}px`;
                 limit.style.display = '';
                 limit.style.left = `${offX + (left - PAD - 12) * g.scale}px`;
                 limit.style.width = `${(right - left + 2 * PAD + 24) * g.scale}px`;
@@ -1488,6 +1537,113 @@ export default class extends Controller {
             hide: () => all.forEach((el) => { el.style.display = 'none'; }),
             remove: () => all.forEach((el) => el.remove()),
         };
+    }
+
+    _previewCount(row) {
+        const max = Math.min(MAX_ROWS, row.repeat.max);
+        const stored = this._rowPreview.get(row.id);
+        const value = Number.isInteger(stored) ? stored : row.repeat.default;
+        return Math.max(1, Math.min(max, value));
+    }
+
+    _rowsLabel(n) {
+        if (n === 1) return '1 řádek';
+        return n >= 2 && n <= 4 ? `${n} řádky` : `${n} řádků`;
+    }
+
+    /**
+     * Attached containers under a previewed rows root: a dashed ghost where
+     * each lands with the previewed row count, a track from where it is
+     * drawn, and a veil over the drawn copy (all DOM in the zone layer,
+     * never on the bitmap). Built per renderZones, placed per frame.
+     */
+    _buildFollowPreviews() {
+        (this._followPreviews || []).forEach((p) => p.els.forEach((el) => el.remove()));
+        this._followPreviews = [];
+        if (!this.hasLayerTarget) return;
+        const links = this._links || new Map();
+        if (!links.size) return;
+        const labels = this._panelLabels();
+        this._containers().forEach((row) => {
+            if (!row.repeat) return;
+            const info = this._rowInfo.get(row.id);
+            if (!info || info.rootContentBottom === null) return;
+            const n = this._previewCount(row);
+            const shift = Math.max(info.rootFlowBottom + (n - 1) * info.pitch, info.rootContentBottom) - info.rootContentBottom;
+            if (!(shift > 0.5)) return;
+            // Every container attached below the root, transitively.
+            const chain = new Set([info.rootId]);
+            let grew = true;
+            while (grew) {
+                grew = false;
+                links.forEach((targetId, followerId) => {
+                    if (chain.has(targetId) && !chain.has(followerId)) {
+                        chain.add(followerId);
+                        grew = true;
+                    }
+                });
+            }
+            chain.delete(info.rootId);
+            chain.forEach((followerId) => {
+                const entry = this._zones.find((z) => z.container.id === followerId);
+                if (!entry) return;
+                const color = this._zoneColor(0);
+                const veil = document.createElement('div');
+                veil.className = 'container-follow-veil';
+                const track = document.createElement('div');
+                track.className = 'container-follow-track';
+                track.style.setProperty('--zone-color', color);
+                const ghost = document.createElement('div');
+                ghost.className = 'container-follow-ghost';
+                ghost.style.setProperty('--zone-color', color);
+                const tag = document.createElement('span');
+                tag.className = 'container-follow-ghost__label';
+                tag.textContent = `${labels.get(followerId) || 'Navázaný kontejner'} · při ${n === 1 ? '1 řádku' : `${n} řádcích`}`;
+                ghost.appendChild(tag);
+                [veil, track, ghost].forEach((el) => {
+                    el.setAttribute('aria-hidden', 'true');
+                    this.layerTarget.appendChild(el);
+                });
+                // The drawn copy's chrome steps back while the preview moves it.
+                entry.zone.classList.add('container-zone--previewed');
+                this._followPreviews.push({ entry, shift, els: [veil, track, ghost], veil, track, ghost });
+            });
+        });
+    }
+
+    _positionFollowPreviews(g, offX, offY, PAD) {
+        (this._followPreviews || []).forEach((p) => {
+            const members = p.entry.members.filter((o) => o.visible !== false);
+            if (!members.length) {
+                p.els.forEach((el) => { el.style.display = 'none'; });
+                return;
+            }
+            let top = Infinity;
+            let bottom = -Infinity;
+            let left = Infinity;
+            let right = -Infinity;
+            members.forEach((o) => {
+                const oTop = this._absTop(o);
+                const oLeft = this._absLeft(o);
+                top = Math.min(top, oTop);
+                bottom = Math.max(bottom, oTop + o.height * (o.scaleY || 1));
+                left = Math.min(left, oLeft);
+                right = Math.max(right, oLeft + o.width * (o.scaleX || 1));
+            });
+            const box = (el, t, h) => {
+                el.style.display = '';
+                el.style.left = `${offX + (left - PAD) * g.scale}px`;
+                el.style.width = `${(right - left + 2 * PAD) * g.scale}px`;
+                el.style.top = `${offY + t * g.scale}px`;
+                el.style.height = `${h * g.scale}px`;
+            };
+            box(p.veil, top - 2, bottom - top + 4);
+            box(p.ghost, top + p.shift, bottom - top);
+            p.track.style.display = '';
+            p.track.style.left = `${offX + (left + 14) * g.scale}px`;
+            p.track.style.top = `${offY + bottom * g.scale}px`;
+            p.track.style.height = `${Math.max(0, (top + p.shift - bottom) * g.scale)}px`;
+        });
     }
 
     // --- containers panel (left panel, the Vrstvy pattern) -------------------
@@ -1692,6 +1848,7 @@ export default class extends Controller {
             label.textContent = text;
         });
 
+        this._positionFollowPreviews(g, offX, offY, PAD);
         this._positionSettings();
     }
 
@@ -1700,6 +1857,8 @@ export default class extends Controller {
             zone.remove();
             if (rowChrome) rowChrome.remove();
         });
+        (this._followPreviews || []).forEach((p) => p.els.forEach((el) => el.remove()));
+        this._followPreviews = [];
         this._zones = [];
         // A re-render mid-hover must not leave the stage dimmed forever.
         if (this.hasLayerTarget) {

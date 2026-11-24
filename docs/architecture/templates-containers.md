@@ -236,6 +236,16 @@ footer too).
     pill "⛓ Navázat pod řádky" (`_linkSuggestions`) — one click links it.
     Panel rows get a ⛓ badge. The free text's popover offers "Navázat pod
     kontejner" (wraps it into a single-element follower).
+  - Row-count preview (Jan, 2026-11-24: "not clear the container slides
+    with the rows"): a stepper „Náhled: ‹ N řádků ›" under the last
+    previewed row (starts at the row's `default`, 1…max, display only,
+    `_rowPreview`, never saved); ghost outlines are drawn for rows 2…N only;
+    every container attached below that root (transitively) gets a dashed
+    ghost where it lands with N rows (shift = max(flowBottom + (N−1)·pitch,
+    contentBottom) − contentBottom, so a min-height floor absorbs the first
+    rows), a dotted track + arrow from its drawn copy, a veil over the drawn
+    copy and its zone chrome faded (`container-zone--previewed`) —
+    `_buildFollowPreviews` / `_positionFollowPreviews`.
   - Structure upkeep: `_dropDegenerate` runs `applyFollowRules` to a
     fixpoint (single-member ends allowed while linked); dissolving a target
     re-attaches its followers to the target's own target (or frees them);

@@ -1112,6 +1112,85 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     background: #fa5c7c;
 }
 
+/* „Náhled: ‹ N řádků ›" under the last previewed row (display only). */
+.container-row-stepper {
+    position: absolute;
+    z-index: 901;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 4px 1px 8px;
+    font-size: 11px;
+    line-height: 1.4;
+    white-space: nowrap;
+    color: #fff;
+    background: var(--zone-color, #9d71f7);
+    border-radius: 999px;
+    box-shadow: var(--shadow-2);
+    pointer-events: auto;
+    user-select: none;
+}
+.container-row-stepper button {
+    border: none;
+    padding: 0 6px;
+    font: inherit;
+    font-size: 14px;
+    line-height: 1.1;
+    color: inherit;
+    background: rgba(255, 255, 255, .18);
+    border-radius: 999px;
+    cursor: pointer;
+}
+.container-row-stepper button:disabled { opacity: .35; cursor: default; }
+
+/* An attached container under a previewed rows root: the drawn copy is
+   veiled, a track runs down to a dashed ghost where it lands with N rows. */
+.container-zone.container-zone--previewed { opacity: .28; }
+.container-zone.container-zone--previewed:hover { opacity: 1; }
+.container-follow-veil {
+    position: absolute;
+    z-index: 897;
+    pointer-events: none;
+    background: rgba(11, 10, 13, .62);
+    border-radius: 3px;
+}
+.container-follow-track {
+    position: absolute;
+    z-index: 899;
+    width: 0;
+    pointer-events: none;
+    border-left: 2px dotted var(--zone-color, #39afd1);
+}
+.container-follow-track::after {
+    content: "";
+    position: absolute;
+    left: -6px;
+    bottom: -1px;
+    border: 5px solid transparent;
+    border-top: 7px solid var(--zone-color, #39afd1);
+    border-bottom: 0;
+}
+.container-follow-ghost {
+    position: absolute;
+    z-index: 899;
+    pointer-events: none;
+    border: 1.5px dashed var(--zone-color, #39afd1);
+    border-radius: 3px;
+    background: rgba(57, 175, 209, .08);
+}
+.container-follow-ghost__label {
+    position: absolute;
+    top: -18px;
+    left: -1.5px;
+    padding: 0 6px;
+    font-size: 10px;
+    line-height: 1.6;
+    white-space: nowrap;
+    color: #fff;
+    background: var(--zone-color, #39afd1);
+    border-radius: 3px 3px 0 0;
+}
+
 /* The bound the rows run into: the root's max height (or the page bottom
    less spaceAfter), drawn across the row. */
 .container-row-limit {
