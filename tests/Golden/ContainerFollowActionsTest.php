@@ -69,7 +69,8 @@ final class ContainerFollowActionsTest extends TestCase
         self::assertSame(30.0, $root->spaceAfter);
         self::assertTrue($root->hidable);
         self::assertSame('Výsledky', $root->name);
-        self::assertSame('title', $root->follows?->containerId);
+        self::assertNotNull($root->follows);
+        self::assertSame('title', $root->follows->containerId);
         self::assertNull($row->follows);
         self::assertNull($row->spaceAfter);
         // The footer now follows the new root.
@@ -106,8 +107,10 @@ final class ContainerFollowActionsTest extends TestCase
         // A member stands for its whole ROOT; the free text got its own
         // single-member container, attached at the root's uniform gap.
         self::assertSame(['new-1' => 'list'], CanvasContainer::validFollowLinks($saved));
-        self::assertSame(20.0, CanvasContainer::findById($saved, 'new-1')?->follows?->gap);
-        self::assertSame(['lineup'], CanvasContainer::findById($saved, 'new-1')?->memberInputIds);
+        $single = CanvasContainer::findById($saved, 'new-1');
+        self::assertNotNull($single);
+        self::assertSame(20.0, $single->follows?->gap);
+        self::assertSame(['lineup'], $single->memberInputIds);
     }
 
     public function testLinkNeverClosesALoopAndNeedsTwoBlocks(): void
@@ -157,7 +160,7 @@ final class ContainerFollowActionsTest extends TestCase
     /**
      * @param list<array<string, mixed>> $containers
      * @param list<array<string, mixed>> $selection
-     * @return array{ok?: bool, reason?: string, mode?: null|string, result?: array<string, mixed>, containers: list<array<string, mixed>>, ids?: list<string>}
+     * @return array{ok: bool, reason: null|string, mode: null|string, result: array<string, mixed>, containers: list<array<string, mixed>>, ids: list<string>}
      */
     private function plan(string $op, array $containers, array $selection, null|string $containerId = null): array
     {
@@ -181,6 +184,13 @@ final class ContainerFollowActionsTest extends TestCase
         /** @var array{ok?: bool, reason?: string, mode?: null|string, result?: array<string, mixed>, containers?: list<array<string, mixed>>, ids?: list<string>} $out */
         $out = json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR);
 
-        return $out + ['containers' => []];
+        return [
+            'ok' => $out['ok'] ?? false,
+            'reason' => $out['reason'] ?? null,
+            'mode' => $out['mode'] ?? null,
+            'result' => $out['result'] ?? [],
+            'containers' => $out['containers'] ?? [],
+            'ids' => $out['ids'] ?? [],
+        ];
     }
 }
