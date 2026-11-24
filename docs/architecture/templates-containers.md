@@ -47,6 +47,11 @@ member stays an ordinary independent input. Since the 2026-08 nesting rework:
   floors `_contentBottom` and keeps the raw `_flowBottom` (root results carry
   `flowBottom` when set — the editor's row fit grows from it, not from the
   floor); PHP twin `DesignedContainerFlow::measure` ≡. ⚙ „Minimální výška";
+  MCP DSL `minHeight` on a container (non-negative number, 0 / null = none,
+  compiled only when > 0, rounded to 0.1); the linter's flow estimate applies
+  the floor (`flowOf` → `height` floored, `rawHeight` what rows grow;
+  `repeat_max_overflows` checks the floored bottom fits too) and WARNS
+  `min_height_exceeds_max` on a root; `ApplyFixes::scaled` scales it;
   group sync / projector scale it like `spaceAfter`; REST + describe_variant
   `containers[].minHeight`. Tests: `ContainerFollowsLayoutTest::
   testMinHeightKeepsTheAttachedFooterBelowTheFloor` (+ the editor-fit case).

@@ -119,7 +119,7 @@ final class DslParser
     public const array BACKGROUND_KEYS = ['kind', 'id', 'asset', 'fill', 'fillable', 'opacity', 'blend', 'adjust'];
 
     /** @var list<string> */
-    public const array CONTAINER_KEYS = ['kind', 'id', 'members', 'children', 'maxHeight', 'gap', 'spaceAfter', 'hidable', 'name', 'userMove', 'repeat', 'follows'];
+    public const array CONTAINER_KEYS = ['kind', 'id', 'members', 'children', 'maxHeight', 'gap', 'spaceAfter', 'hidable', 'name', 'userMove', 'repeat', 'follows', 'minHeight'];
 
     /** @var list<string> */
     public const array REPEAT_KEYS = ['max', 'min', 'default', 'slots'];
@@ -1385,6 +1385,7 @@ final class DslParser
         $maxHeight = $this->readPositiveNumber($path, $raw, 'maxHeight');
         $gap = $this->readNonNegativeNumber($path, $raw, 'gap');
         $spaceAfter = $this->readNonNegativeNumber($path, $raw, 'spaceAfter');
+        $minHeight = $this->readNonNegativeNumber($path, $raw, 'minHeight');
         $hidable = $this->readBool($path, $raw, 'hidable', false);
         $name = $this->readString($path, $raw, 'name');
         $name = $name === null || trim($name) === '' ? null : trim($name);
@@ -1396,7 +1397,7 @@ final class DslParser
             return null;
         }
 
-        return new ContainerElement($id, $members, $children, $maxHeight, $gap, $spaceAfter, $hidable, $name, $userMove, $repeat, $follows);
+        return new ContainerElement($id, $members, $children, $maxHeight, $gap, $spaceAfter, $hidable, $name, $userMove, $repeat, $follows, $minHeight);
     }
 
     // -----------------------------------------------------------------

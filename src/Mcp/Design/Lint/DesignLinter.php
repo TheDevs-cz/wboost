@@ -882,6 +882,26 @@ readonly final class DesignLinter
                 continue;
             }
 
+            if ($container->minHeight !== null && $container->maxHeight !== null && $container->minHeight > $container->maxHeight + self::OVERFLOW_TOLERANCE) {
+                // The floor alone overflows the bound — say that, not a
+                // generic overflow prediction of the same cause.
+                $findings[] = new LintFinding(
+                    LintCode::MinHeightExceedsMax,
+                    $container->id,
+                    $path . '.minHeight',
+                    sprintf(
+                        '%s.minHeight: "%s" takes at least %s px but its "maxHeight" allows only %s px, so it overflows on every fill and a strict API export answers 400 container_overflow. Lower "minHeight" to at most %s or raise "maxHeight".',
+                        $path,
+                        $container->id,
+                        self::number($container->minHeight),
+                        self::number($container->maxHeight),
+                        self::number($container->maxHeight),
+                    ),
+                );
+
+                continue;
+            }
+
             $overflow = $this->checkOverflow($document, $container, $byId, $rects, $heights, $lineCounts, $path);
 
             if ($overflow !== null) {
@@ -1029,9 +1049,12 @@ readonly final class DesignLinter
             $gap = $parent->gap ?? self::designedGapBelow($document, $parent, $row, $rowFlow, $byId, $rects, $heights, $lineCounts) ?? 0.0;
             $pitch = max(1.0, $rowFlow['height'] + $gap);
 
-            $room = (float) $document->canvas->height - ($root->spaceAfter ?? 0.0) - ($rootFlow['top'] + $rootFlow['height']);
+            // Rows grow the root's RAW flow; its `minHeight` floor only
+            // decides where the content ends while the rows are shorter.
+            $rawBottom = $rootFlow['top'] + $rootFlow['rawHeight'];
+            $room = (float) $document->canvas->height - ($root->spaceAfter ?? 0.0) - $rawBottom;
             if ($root->maxHeight !== null) {
-                $room = min($room, $root->maxHeight - $rootFlow['height']);
+                $room = min($room, $root->maxHeight - $rootFlow['rawHeight']);
             }
 
             // Containers attached below the root ("follows", transitively)
@@ -1039,10 +1062,15 @@ readonly final class DesignLinter
             // bottom less its own spaceAfter (≡ RepeatableRows::designedCapacity).
             $followers ??= self::followerChain($document, $root, $byId, $rects, $heights, $lineCounts, $links);
             foreach ($followers as $below) {
-                $room = min($room, (float) $document->canvas->height - $below['spaceAfter'] - ($rootFlow['top'] + $rootFlow['height'] + $below['extra']));
+                $room = min($room, (float) $document->canvas->height - $below['spaceAfter'] - ($rawBottom + $below['extra']));
             }
 
-            $fits = $room < -self::OVERFLOW_TOLERANCE ? 0 : 1 + (int) floor(($room + self::OVERFLOW_TOLERANCE) / $pitch);
+            // The floored bottom must fit too, however few rows there are.
+            $floorExcess = $rootFlow['height'] - $rootFlow['rawHeight'];
+
+            $fits = $room < -self::OVERFLOW_TOLERANCE || $floorExcess > $room + self::OVERFLOW_TOLERANCE
+                ? 0
+                : 1 + (int) floor(($room + self::OVERFLOW_TOLERANCE) / $pitch);
 
             if ($fits >= $row->repeat->max) {
                 continue;
@@ -1294,7 +1322,7 @@ readonly final class DesignLinter
      * The designed gap from the row to the nearest item below it in its
      * parent — null when the row is the last item (≡ RepeatableRows).
      *
-     * @param array{top: float, height: float, items: int} $rowFlow
+     * @param array{top: float, height: float, rawHeight: float, items: int} $rowFlow
      * @param array<string, ContainerElement> $byId
      * @param array<string, Rect> $rects
      * @param array<string, float> $heights
@@ -1495,7 +1523,7 @@ readonly final class DesignLinter
      * @param array<string, float> $heights
      * @param array<string, null|int> $lineCounts
      * @param array<string, true> $seen guards the cycle a hand-built document can carry
-     * @return null|array{top: float, height: float, items: int}
+     * @return null|array{top: float, height: float, rawHeight: float, items: int}
      */
     private static function flowOf(
         DesignDocument $document,
@@ -1566,7 +1594,7 @@ readonly final class DesignLinter
                 $bottom = max($bottom, $item['top'] + $item['height']);
             }
 
-            return ['top' => $top, 'height' => $bottom - $top, 'items' => count($items)];
+            return self::floored($container, $top, $bottom - $top, count($items));
         }
 
         $height = $container->gap * (count($items) - 1);
@@ -1575,7 +1603,21 @@ readonly final class DesignLinter
             $height += $item['height'];
         }
 
-        return ['top' => $top, 'height' => $height, 'items' => count($items)];
+        return self::floored($container, $top, $height, count($items));
+    }
+
+    /**
+     * A flow with the container's `minHeight` floor applied (≡ the engine's
+     * `measureNode`): `height` is what the container takes, `rawHeight`
+     * where its items really end (what repeatable rows grow).
+     *
+     * @return array{top: float, height: float, rawHeight: float, items: int}
+     */
+    private static function floored(ContainerElement $container, float $top, float $height, int $items): array
+    {
+        $minHeight = $container->minHeight !== null && $container->minHeight > 0.0 ? $container->minHeight : 0.0;
+
+        return ['top' => $top, 'height' => max($height, $minHeight), 'rawHeight' => $height, 'items' => $items];
     }
 
     /**

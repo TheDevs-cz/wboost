@@ -114,7 +114,7 @@ final readonly class ApplyFixes
         $elements = [];
 
         foreach ($document['elements'] as $element) {
-            foreach (['x', 'y', 'width', 'height', 'size', 'strokeWidth', 'cornerRadius', 'maxHeight', 'gap', 'spaceAfter'] as $key) {
+            foreach (['x', 'y', 'width', 'height', 'size', 'strokeWidth', 'cornerRadius', 'maxHeight', 'gap', 'spaceAfter', 'minHeight'] as $key) {
                 $value = self::number($element[$key] ?? null);
 
                 if ($value !== null) {

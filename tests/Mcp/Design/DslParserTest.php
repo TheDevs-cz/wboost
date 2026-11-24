@@ -636,6 +636,36 @@ final class DslParserTest extends TestCase
         ));
     }
 
+    public function testParsesAContainerMinHeight(): void
+    {
+        $document = DslParser::parse(self::documentWith(
+            self::textElement(['id' => 'a']),
+            self::textElement(['id' => 'b']),
+            ['kind' => 'container', 'id' => 'box', 'members' => ['a', 'b'], 'maxHeight' => 400, 'minHeight' => 180],
+        ));
+
+        $box = $document->element('box');
+        self::assertInstanceOf(ContainerElement::class, $box);
+        self::assertSame(180.0, $box->minHeight);
+        self::assertSame(180.0, $document->toArray()['elements'][2]['minHeight'] ?? null);
+        self::assertSame($document->toArray(), DslParser::parse($document->toArray())->toArray());
+
+        $none = DslParser::parse(self::documentWith(
+            self::textElement(['id' => 'a']),
+            self::textElement(['id' => 'b']),
+            ['kind' => 'container', 'id' => 'box', 'members' => ['a', 'b'], 'maxHeight' => 400, 'minHeight' => null],
+        ));
+        self::assertArrayNotHasKey('minHeight', $none->toArray()['elements'][2], 'absent when not set');
+
+        foreach ([-10, '180', true] as $invalid) {
+            self::reject(self::documentWith(
+                self::textElement(['id' => 'a']),
+                self::textElement(['id' => 'b']),
+                ['kind' => 'container', 'id' => 'box', 'members' => ['a', 'b'], 'maxHeight' => 400, 'minHeight' => $invalid],
+            ));
+        }
+    }
+
     public function testAContainerHidableFlagMustBeABoolean(): void
     {
         self::reject(self::documentWith(
@@ -1171,7 +1201,7 @@ final class DslParserTest extends TestCase
             self::documentWith(['kind' => 'container', 'id' => 'body', 'padding' => 4]),
             'elements[0].padding',
             DslErrorCode::UnknownKey,
-            'Allowed keys: kind, id, members, children, maxHeight, gap, spaceAfter, hidable, name, userMove, repeat, follows.',
+            'Allowed keys: kind, id, members, children, maxHeight, gap, spaceAfter, hidable, name, userMove, repeat, follows, minHeight.',
         ];
         yield 'unknown at key (row is deliberately not v1)' => [
             self::documentWith(self::textElement(['at' => ['area' => 'top', 'row' => [1, 2]]])),

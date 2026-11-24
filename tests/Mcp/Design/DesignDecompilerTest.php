@@ -716,6 +716,29 @@ final class DesignDecompilerTest extends TestCase
         );
     }
 
+    public function testAContainerMinHeightRoundTrips(): void
+    {
+        $canvas = [
+            'objects' => [self::textbox(['top' => 0]), self::textbox(['top' => 100])],
+            'containers' => [
+                ['id' => 'box', 'maxHeight' => 400, 'memberInputIds' => ['t1', 't2'], 'memberContainerIds' => [], 'minHeight' => 250],
+            ],
+        ];
+
+        $decompiled = self::decompile($canvas, [self::textInput('t1', 'A'), self::textInput('t2', 'B')], []);
+        $box = $decompiled->document->containerElements()[0];
+        self::assertSame(250.0, $box->minHeight);
+        self::assertSame([], $decompiled->losses);
+
+        $document = DslParser::parse($decompiled->document->toArray());
+        $compiled = (new DesignCompiler(new BackgroundLayer()))->compile(
+            $document,
+            CanvasComparison::compilationContext($document, []),
+            $decompiled->identity(),
+        );
+        self::assertSame(250.0, $compiled->canvas['containers'][0]['minHeight'] ?? null);
+    }
+
     public function testAFollowsTargetWithARemappedIdFollowsItsNewSlug(): void
     {
         $canvas = [

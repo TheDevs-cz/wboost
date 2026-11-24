@@ -241,7 +241,7 @@ within the document. Slugs carry input identity across saves.
 | `shape` gradient stop | `at`, `color`, `opacity` |
 | `shape` userColor block | `target`, `colors`, `free` |
 | `background` element | `kind`, `id`, `asset`, `fill`, `fillable`, `opacity`, `blend`, `adjust` |
-| `container` element | `kind`, `id`, `members`, `children`, `maxHeight`, `gap`, `spaceAfter`, `hidable`, `name`, `userMove`, `repeat`, `follows` |
+| `container` element | `kind`, `id`, `members`, `children`, `maxHeight`, `gap`, `spaceAfter`, `hidable`, `name`, `userMove`, `repeat`, `follows`, `minHeight` |
 | `repeat` block | `max`, `min`, `default`, `slots` |
 | `follows` block | `container`, `gap` |
 | `image` border block | `color`, `width` |
@@ -383,7 +383,11 @@ within the document. Slugs carry input identity across saves.
   a tree. **A top-level container must carry `maxHeight`**; a nested one may omit
   it, because only the root's bound gates overflow. `gap` replaces every designed
   inter-item gap with a uniform spacing; `spaceAfter` is guaranteed clearance
-  below. `hidable: true` lets the user (fill page) and API/MCP callers hide the
+  below. `minHeight` (px, „Minimální výška") makes a visible container take at
+  least that much from its first item's top, so what follows it starts no
+  higher — e.g. a block attached below repeatable rows does not slide under a
+  logo when there are few rows; it is never a bound (keep it ≤ `maxHeight`,
+  lint `min_height_exceeds_max`), and a hidden container still takes no space. `hidable: true` lets the user (fill page) and API/MCP callers hide the
   WHOLE container with one toggle — give it a `name` (the toggle's label, e.g.
   `"Bublina s citací"`).
 - **`repeat`** ("Opakovatelný řádek") on a **nested** `container` makes it a

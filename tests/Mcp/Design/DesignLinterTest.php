@@ -220,6 +220,41 @@ final class DesignLinterTest extends KernelTestCase
     }
 
     /**
+     * `minHeight` floors the flow like the engine: a root whose floor ends
+     * below the page is predicted to overflow, and a container attached
+     * below it starts under the floor — fewer rows fit.
+     */
+    public function testTheMinHeightFloorEntersTheFlowEstimates(): void
+    {
+        // Two ~111 px texts from y 200 (≈ 211 px), floored to 900 px: ends
+        // at 1100 on a 1080 page.
+        $tall = $this->lint(self::document([
+            self::text('headline', 80.0, 200.0, 920.0),
+            self::text('subhead', 80.0, 300.0, 920.0),
+            new ContainerElement('body', ['headline', 'subhead'], [], 950.0, null, null, minHeight: 900.0),
+        ]));
+        self::assertSame(['container_overflow_predicted'], array_map(static fn (LintFinding $finding): string => $finding->code->value, $tall->findings));
+
+        $elements = static fn (null|float $minHeight): array => [
+            self::text('headline', 80.0, 200.0, 920.0),
+            self::text('first', 80.0, 700.0, 920.0),
+            self::text('second', 80.0, 811.0, 920.0),
+            new ContainerElement('row', ['headline'], [], null, null, null, repeat: ContainerRepeat::fromArray(['max' => 3])),
+            new ContainerElement('list', [], ['row'], 700.0, null, null, minHeight: $minHeight),
+            new ContainerElement('footer', ['first', 'second'], [], 300.0, null, null, follows: new ContainerFollowSpec('list', 20.0)),
+        ];
+
+        // Without a floor 3 rows fit; a floor the rows grow into changes
+        // nothing; a 650 px floor puts the ~222 px footer at 200 + 650 + 20
+        // → ends ≈ 1092 on a 1080 page, so not even one row fits.
+        self::assertSame([], $this->lint(self::document($elements(null)))->withCode(LintCode::RepeatMaxOverflows));
+        self::assertSame([], $this->lint(self::document($elements(300.0)))->withCode(LintCode::RepeatMaxOverflows));
+        $floored = $this->lint(self::document($elements(650.0)))->withCode(LintCode::RepeatMaxOverflows)[0] ?? null;
+        self::assertNotNull($floored);
+        self::assertStringContainsString('only 0 fit', $floored->message);
+    }
+
+    /**
      * @return iterable<string, array{LintCode}>
      */
     public static function codes(): iterable
@@ -311,6 +346,11 @@ final class DesignLinterTest extends KernelTestCase
                 self::text('subhead', 80.0, 300.0, 920.0),
                 new ContainerElement('row', ['headline'], [], null, null, null, repeat: ContainerRepeat::fromArray(['max' => 8])),
                 self::container('list', ['subhead'], ['row'], maxHeight: 400.0),
+            ]),
+            LintCode::MinHeightExceedsMax => self::document([
+                self::text('headline', 80.0, 200.0, 920.0),
+                self::text('subhead', 80.0, 300.0, 920.0),
+                new ContainerElement('body', ['headline', 'subhead'], [], 400.0, null, null, minHeight: 500.0),
             ]),
             LintCode::FollowsUnknownContainer => self::document([
                 self::text('headline', 80.0, 200.0, 920.0),

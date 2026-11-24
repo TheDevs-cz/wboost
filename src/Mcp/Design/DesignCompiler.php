@@ -1025,7 +1025,7 @@ readonly final class DesignCompiler
      *
      * @param array<string, string> $inputIds
      * @param array<string, array<string, mixed>> $objectByInputId
-     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}, follows?: array{containerId: string, gap: float}}>
+     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}, follows?: array{containerId: string, gap: float}, minHeight?: float}>
      */
     private function compileContainers(
         DesignDocument $document,
@@ -1048,7 +1048,7 @@ readonly final class DesignCompiler
             $containerById[$container->id] ??= $container;
         }
 
-        /** @var list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}, follows?: array{containerId: string, gap: float}}> $result */
+        /** @var list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}, follows?: array{containerId: string, gap: float}, minHeight?: float}> $result */
         $result = [];
 
         foreach ($containers as $container) {
@@ -1097,6 +1097,14 @@ readonly final class DesignCompiler
 
             if ($spaceAfter !== null) {
                 $entry['spaceAfter'] = $spaceAfter;
+            }
+
+            // „Minimální výška" — emitted only when > 0, rounded like the
+            // editor's sanitizedContainers() (0 = none).
+            $minHeight = self::spacing($container->minHeight);
+
+            if ($minHeight !== null && $minHeight > 0.0) {
+                $entry['minHeight'] = $minHeight;
             }
 
             // Whole-container hide — emitted only when set, exactly like the
@@ -1212,8 +1220,8 @@ readonly final class DesignCompiler
      * itself, and must have exactly one parent — the first that claims them in
      * list order.
      *
-     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}, follows?: array{containerId: string, gap: float}}> $containers
-     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}, follows?: array{containerId: string, gap: float}}>
+     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}, follows?: array{containerId: string, gap: float}, minHeight?: float}> $containers
+     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}, follows?: array{containerId: string, gap: float}, minHeight?: float}>
      */
     private static function pruneChildReferences(array $containers): array
     {
@@ -1258,8 +1266,8 @@ readonly final class DesignCompiler
      * editor matters more than symmetry — a design saved from the browser and
      * the same design compiled here must produce the same `containers`.
      *
-     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}, follows?: array{containerId: string, gap: float}}> $containers
-     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}, follows?: array{containerId: string, gap: float}}>
+     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}, follows?: array{containerId: string, gap: float}, minHeight?: float}> $containers
+     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}, follows?: array{containerId: string, gap: float}, minHeight?: float}>
      */
     private static function dropCyclicChildReferences(array $containers): array
     {
@@ -1321,8 +1329,8 @@ readonly final class DesignCompiler
      * The linter reports each of these as an error before set_design gets
      * here, so this pass only keeps a hand-built canvas consistent.
      *
-     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}, follows?: array{containerId: string, gap: float}}> $containers
-     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}, follows?: array{containerId: string, gap: float}}>
+     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}, follows?: array{containerId: string, gap: float}, minHeight?: float}> $containers
+     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}, follows?: array{containerId: string, gap: float}, minHeight?: float}>
      */
     private static function applyRepeatRules(array $containers): array
     {
@@ -1383,7 +1391,7 @@ readonly final class DesignCompiler
      * ends top-level, the target exists, and a chain that loops back loses
      * the link closing the loop (walked in list order).
      *
-     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}, follows?: array{containerId: string, gap: float}}> $containers
+     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}, follows?: array{containerId: string, gap: float}, minHeight?: float}> $containers
      * @return array<string, string>
      */
     private static function followLinks(array $containers): array
@@ -1440,8 +1448,8 @@ readonly final class DesignCompiler
      * `applyFollowRules()`). The linter reports each such link as an error
      * before set_design gets here.
      *
-     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}, follows?: array{containerId: string, gap: float}}> $containers
-     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}, follows?: array{containerId: string, gap: float}}>
+     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}, follows?: array{containerId: string, gap: float}, minHeight?: float}> $containers
+     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}, follows?: array{containerId: string, gap: float}, minHeight?: float}>
      */
     private static function applyFollowRules(array $containers): array
     {
@@ -1463,8 +1471,8 @@ readonly final class DesignCompiler
      * definitions behind, which `CanvasContainer` would then drop silently and
      * asymmetrically from the design the agent was shown.
      *
-     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}, follows?: array{containerId: string, gap: float}}> $containers
-     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}, follows?: array{containerId: string, gap: float}}>
+     * @param list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}, follows?: array{containerId: string, gap: float}, minHeight?: float}> $containers
+     * @return list<array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap?: float, spaceAfter?: float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int, slots?: list<array<string, string>>}, follows?: array{containerId: string, gap: float}, minHeight?: float}>
      */
     private static function dropDegenerateToFixpoint(array $containers): array
     {

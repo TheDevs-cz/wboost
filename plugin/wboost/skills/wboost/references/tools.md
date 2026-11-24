@@ -70,7 +70,7 @@ with a message saying exactly that.
 
 ## `get_context(skillVersion?)`
 
-`skillVersion`: the version your wboost skill states (`"0.17.1"`); omit it when
+`skillVersion`: the version your wboost skill states (`"0.18.0"`); omit it when
 you have no wboost skill. Changes nothing. Returns:
 
 ```jsonc
@@ -94,7 +94,7 @@ you have no wboost skill. Changes nothing. Returns:
     }]
   }],
   "skill": {                                        // the version check — see SKILL.md
-    "latestVersion": "0.17.1", "installedVersion",   // null when no skillVersion was sent
+    "latestVersion": "0.18.0", "installedVersion",   // null when no skillVersion was sent
     "status",                                       // "current" | "outdated" | "unknown"
     "message", "whatsNew",                          // null when current; tell the user once
     "updateClaudeCode", "updateClaudeAi"            // the update routes; null when current
@@ -202,6 +202,7 @@ of the canvas size a design must be authored at.
     "memberInputIds", "memberContainerIds",
     "memberImageInputIds", // image slots flowing in it (texts stay in memberInputIds)
     "gap", "spaceAfter",   // nullable px
+    "minHeight",           // nullable px — takes at least this much when visible (never a bound)
     "nested",              // true = it flows inside another container
     "hidable",             // true = the WHOLE container may be hidden (see below)
     "name",                // nullable label of that hide toggle
@@ -825,7 +826,7 @@ and `repeat_inside_repeat` (the saved design would silently lose that
 `font_size_too_small`, `container_overflow_predicted`, `container_too_few_items`,
 `container_hidable_without_name`, `image_without_asset_or_placeholder`,
 `max_length_below_stand_in`, `user_move_on_container_member`,
-`user_move_on_nested_container`, `repeat_max_overflows`, `missing_background`,
+`user_move_on_nested_container`, `repeat_max_overflows`, `min_height_exceeds_max`, `missing_background`,
 `background_drawn_as_element`, `canvas_color_under_background`) are warnings.
 
 ---

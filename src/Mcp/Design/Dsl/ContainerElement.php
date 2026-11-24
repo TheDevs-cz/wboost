@@ -97,6 +97,14 @@ readonly final class ContainerElement implements DesignElement
          * not attached. See {@see ContainerFollowSpec}.
          */
         public null|ContainerFollowSpec $follows = null,
+        /**
+         * „Minimální výška" (canvas `minHeight`): a VISIBLE container's flow
+         * takes at least this many px from its first item's top, so what
+         * follows it (the parent's next item, a pushed or attached root)
+         * starts no higher. Never a bound — `maxHeight` is; a fully hidden
+         * container still takes no space. Null / 0 = none.
+         */
+        public null|float $minHeight = null,
     ) {
     }
 
@@ -142,6 +150,10 @@ readonly final class ContainerElement implements DesignElement
 
         if ($this->follows !== null) {
             $data['follows'] = $this->follows->toArray();
+        }
+
+        if ($this->minHeight !== null) {
+            $data['minHeight'] = $this->minHeight;
         }
 
         return $data;

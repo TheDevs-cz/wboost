@@ -1094,6 +1094,21 @@ final class DesignCompilerTest extends TestCase
         return $byId['bottom']['follows'] ?? null;
     }
 
+    public function testAContainerMinHeightCompilesOnlyWhenPositiveAndRounded(): void
+    {
+        $compiled = static fn (DesignCompilerTest $test, mixed $minHeight): array => array_column($test->compile(self::rowsDesign([
+            ['kind' => 'container', 'id' => 'box', 'members' => ['score', 'team'], 'maxHeight' => 400, 'minHeight' => $minHeight],
+        ]))->canvas['containers'], null, 'id')['box'];
+
+        $box = $compiled($this, 180.04);
+        self::assertSame(180.0, $box['minHeight'] ?? null);
+        self::assertArrayNotHasKey('minHeight', $compiled($this, 0), '0 = none');
+        self::assertArrayNotHasKey('minHeight', $compiled($this, null));
+
+        // …and the PHP side reads it back.
+        self::assertSame(180.0, \WBoost\Web\Value\CanvasContainer::fromArray($box)?->minHeight);
+    }
+
     public function testEitherEndOfAFollowsLinkMayHoldASingleMember(): void
     {
         $compiled = $this->compile(self::rowsDesign([

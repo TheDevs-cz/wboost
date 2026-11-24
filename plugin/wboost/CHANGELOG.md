@@ -5,6 +5,20 @@ every deploy. When the server is newer than your skill, Claude tells you once
 per session how to update (see the README). Versions follow `x.y.z`: a new or
 changed tool or parameter is at least a minor bump.
 
+## 0.18.0 — 2026-11-24
+
+**„Minimální výška“ in the design DSL (templates).**
+
+New parameters and behaviour
+- A `container` element takes `minHeight` (px, 0 / null = none): a visible
+  container takes at least that much from its first item's top, so what
+  follows it — the parent's next item, a container attached below — starts
+  no higher (e.g. a block under few repeatable rows stays clear of a logo).
+  Never a bound; a hidden container takes no space.
+- New lint warning `min_height_exceeds_max`; the overflow and
+  `repeat_max_overflows` estimates apply the floor.
+- `describe_variant` `containers[].minHeight`.
+
 ## 0.17.1 — 2026-11-24
 
 **The calendar AI scan builds own layers.**

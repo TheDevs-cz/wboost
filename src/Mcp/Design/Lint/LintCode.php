@@ -153,6 +153,13 @@ enum LintCode: string
     case RepeatMaxOverflows = 'repeat_max_overflows';
 
     /**
+     * `minHeight` above `maxHeight` on a top-level container: the floor alone
+     * overflows the bound, so every fill overflows (a strict API export
+     * answers 400). A WARNING — the design still saves and renders.
+     */
+    case MinHeightExceedsMax = 'min_height_exceeds_max';
+
+    /**
      * `follows.container` names no container (a missing slug, or a text /
      * image / shape). The canvas sanitizer drops a link to a container that
      * does not exist, so the agent's "Navázat pod" would silently vanish. An

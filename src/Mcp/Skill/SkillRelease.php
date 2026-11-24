@@ -35,10 +35,10 @@ use WBoost\Web\Mcp\Response\SkillVersionResponse;
  */
 final class SkillRelease
 {
-    public const string VERSION = '0.17.1';
+    public const string VERSION = '0.18.0';
 
     /** One or two lines: what the CURRENT version adds over the previous one. */
-    public const string WHATS_NEW = 'Calendar AI scan builds own layers: stripes, frames, lines, circles and empty picture places (ids `scan_<name>`); `scan_design result` lists a picture layer as a `pictures[]` slot `scan_<name>`, `apply` keeps your own layers and replaces an earlier scan\'s.';
+    public const string WHATS_NEW = 'Design DSL „Minimální výška“: a container takes `minHeight` (px) — when visible it takes at least that much, so what follows or is attached below it starts no higher; lint warning `min_height_exceeds_max`; `describe_variant` containers report `minHeight`.';
 
     /** A stable download of the latest released skill folder, built by `.github/workflows/plugin-release.yml`. */
     public const string ZIP_URL = 'https://github.com/TheDevs-cz/wboost/releases/latest/download/wboost-skill.zip';
