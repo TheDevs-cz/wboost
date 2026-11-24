@@ -849,8 +849,14 @@ module.exports = {
             await e.restore(page, h, week.design);
             // Fáze měsíce
             await selectPart('moon');
-            assert.deepEqual(await page.$$eval('.cal-props-kal .cal-psec', (n) => n.filter((x) => !x.hidden).map((x) => x.querySelector(':scope > .lbl').textContent)), ['Pozice', 'Velikost ikonky', 'Svislé zarovnání', 'Barva', 'Fáze']);
-            assert.equal(await page.$eval('[data-icon-order="moon"]', (el) => el.classList.contains('hl')), true, 'the moon row is marked in Pozice');
+            assert.deepEqual(await page.$$eval('.cal-props-kal .cal-psec', (n) => n.filter((x) => !x.hidden).map((x) => x.querySelector(':scope > .lbl').textContent)), ['Velikost ikonky', 'Svislé zarovnání', 'Barva', 'Fáze']);
+            // K19: the icon order lives only in Kalendárium › Ikony — here just a pointer that opens it
+            assert.equal(await page.$('.cal-props-kal [data-icon-order]'), null, 'no icon order list in Fáze měsíce');
+            assert.equal(await shown('[data-cal-action="icon-order-open"]'), true, 'the moon shares the row with other icons → the pointer shows');
+            await click('[data-cal-action="icon-order-open"]');
+            assert.equal(await panel(), 'icon', 'the pointer opens Kalendárium › Ikony');
+            assert.equal(await shown('[data-icon-order="moon"]'), true, 'the order list there holds the moon');
+            await selectPart('moon');
             await page.click(`.cal-szr .cal-num button[aria-label="Více"]`);
             assert.equal((await styles()).moon.size, 5.2, 'the stepper moves by 0.2 mm');
             assert.equal(Number(await page.$eval('[data-size-slider="moon"]', (el) => el.value)), 5.2, 'the slider follows');
@@ -1194,7 +1200,10 @@ module.exports = {
             await h.shot(page, 'kal-20-block-1440-light');
             await selectPart('ev');
             await h.shot(page, 'kal-21-akce-1440-light');
+            await selectPart('moon');
+            await h.shot(page, 'kal-21b-moon-1440-light'); // K19: no Pozice, a pointer to Ikony
             await selectPart('icon');
+            await h.shot(page, 'kal-21c-ikony-order-1440-light');
             await click('[data-icon-open="moon"]');
             await page.$eval('[data-icon-open="moon"]', (el) => el.scrollIntoView({ block: 'start' }));
             await h.shot(page, 'kal-22-ikony-moon-1440-light');
@@ -1216,6 +1225,14 @@ module.exports = {
             await selectPart('num');
             await page.$eval('[data-kal-panel]', (el) => el.scrollIntoView({ block: 'start' }));
             await h.shot(page, 'kal-26-number-390-light');
+            await selectPart('moon');
+            await h.sleep(800); // the layers list scrolls its selected row into view first
+            await page.$eval('[data-cal-action="icon-order-open"]', (el) => window.scrollBy(0, el.getBoundingClientRect().top - window.innerHeight / 2));
+            await h.sleep(200);
+            await h.shot(page, 'kal-27-moon-390-light');
+            await click('[data-cal-action="icon-order-open"]');
+            await page.$eval('[data-icon-order]', (el) => el.scrollIntoView({ block: 'center' }));
+            await h.shot(page, 'kal-28-ikony-390-light');
             await theme('dark');
             await page.setViewport({ width: 1440, height: 900 });
             await h.sleep(200);

@@ -28,6 +28,10 @@
 .cal-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-items: end; }
 .cal-ml { display: flex; flex-direction: column; gap: 6px; min-width: 0; font-size: 12px; font-weight: 600; color: var(--subtle); }
 .cal-note { margin: 0; line-height: 1.5; }
+/* an inline jump to another panel inside a note („Kalendárium › Ikony“, K19) */
+.cal-goto { display: inline; padding: 0; border: 0; background: none; color: var(--lav-ink); font: inherit; font-weight: 600; cursor: pointer; }
+.cal-goto:hover { text-decoration: underline; }
+.cal-goto:focus-visible { outline: 2px solid var(--lav-ink); outline-offset: 1px; border-radius: 3px; }
 /* the size a place's picture should have — mm with the bleed, px for print (ui/picture-size.js, K7) */
 .cal-psize { margin: 0; font-size: 12px; line-height: 1.5; color: var(--muted); }
 
@@ -174,11 +178,9 @@
 .cal-ordr.drg { padding-left: 2px; cursor: grab; }
 .cal-ordr.drg:hover .cal-grip, .cal-ordr.drg:focus-visible .cal-grip { opacity: 1; }
 .cal-ordr:focus-visible { outline: 2px solid var(--lav-ink); outline-offset: 2px; }
-.cal-ordr.hl { background: var(--lav-deep); color: var(--lav-ink); font-weight: 600; }
 .cal-ordr > .inp { flex: 1; min-width: 0; height: 32px; }
 .cal-ordr > .btn.icon.xs { flex: none; width: 28px; min-height: 28px; height: 28px; }
 .cal-ordn { flex: none; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--lav-deep); color: var(--lav-ink); font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.cal-ordr.hl .cal-ordn { background: var(--lav); color: var(--on-accent); }
 .cal-ordt { flex: 1; min-width: 0; }
 .cal-ordb { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 4px 2px; border: 0; border-radius: 6px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .cal-ordb:focus-visible { outline: 2px solid var(--lav-ink); outline-offset: 1px; }

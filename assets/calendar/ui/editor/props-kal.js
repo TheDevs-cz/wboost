@@ -25,7 +25,8 @@
 // `[data-cal-action="icon-add"]` + menu items `[data-icon-add="<category>"]`,
 // `[data-icon-remove="<category>"]`, layout buttons `[data-prop="cal.iconGrid"] [data-value]`, the
 // cell diagram `[data-icon-cell="<n>"]`, the cell size `input[data-cell-size]` and alignment
-// `[data-cell-align]`. Akce: `[data-cal-action="evbox-reset"]`. Šichtovnice: `[data-shift-col="<id>"]`,
+// `[data-cell-align]`; the order is edited only there — Fáze měsíce and Odpady carry the pointer
+// `[data-cal-action="icon-order-open"]` that selects the Ikony part (K19). Akce: `[data-cal-action="evbox-reset"]`. Šichtovnice: `[data-shift-col="<id>"]`,
 // `[data-shift-col-name]`, `[data-shift-col-remove]`, `[data-cal-action="shift-col-add"]`. Odpady:
 // `[data-waste-kind="<id>"]`, `[data-waste-kind-name]`, `[data-waste-kind-remove]`,
 // `[data-cal-action="waste-kind-add"]` + `[data-waste-add="<kind id> | own"]`. Custom icon tiles:
@@ -324,7 +325,7 @@ export function mountKalProps(root, ctx) {
         return el;
     }
 
-    // ---- icon order (Ikony v řádku, Fáze měsíce › Pozice) -----------------------------------------
+    // ---- icon order (Ikony › Ikony v řádku — the only place it is edited, K19) ----------------------
 
     const activeOrder = () => activeIconCategories(getDesign());
 
@@ -349,7 +350,7 @@ export function mountKalProps(root, ctx) {
      * The ordered list of icon categories. Drag a row (SortableJS) or press Alt+↑ / Alt+↓ on a
      * focused row. `expand(key, kit)` (optional) gives the settings shown under an opened row.
      */
-    function orderList(sc, { highlight = null, expand = null } = {}) {
+    function orderList(sc, { expand = null } = {}) {
         let opened = null;
         let sortable = null;
         const list = h('div', { class: 'cal-ord', 'data-prop': 'icons.order' });
@@ -388,7 +389,7 @@ export function mountKalProps(root, ctx) {
                     const row = h(
                         'div',
                         {
-                            class: `cal-ordr drg${highlight === key ? ' hl' : ''}`,
+                            class: 'cal-ordr drg',
                             tabindex: '0',
                             role: 'group',
                             'aria-label': `${index + 1}. ${categoryName(key)}`,
@@ -450,6 +451,22 @@ export function mountKalProps(root, ctx) {
 
         return h('div', { class: 'cal-sub' }, empty, list, note('1 = nejblíž ke kraji řádku, na druhé straně než čísla.'));
     }
+
+    /**
+     * The pointer of an icon group's own panel (Fáze měsíce, Odpady) to where the order of all
+     * icons is set — shown while the group shares the row with another icon (K19).
+     */
+    const orderPointer = (kit, key) =>
+        kit.when(
+            h(
+                'p',
+                { class: 'cap cal-note' },
+                'Pořadí ikon v řádku nastavíte v ',
+                h('button', { type: 'button', class: 'cal-goto', 'data-cal-action': 'icon-order-open', onClick: () => store.setUi({ selection: { ...store.getState().ui.selection, part: 'icon' } }) }, 'Kalendárium › Ikony'),
+                '.',
+            ),
+            () => activeOrder().length > 1 && activeOrder().includes(key),
+        );
 
     const removeFromIcons = (key) =>
         h(
@@ -685,11 +702,11 @@ export function mountKalProps(root, ctx) {
         ],
 
         moon: (kit) => [
-            kit.when(section('Pozice', orderList(kit.scope, { highlight: 'moon' })), () => activeOrder().length > 1 && activeOrder().includes('moon')),
             section('Velikost ikonky', moonSize(kit)),
             section('Svislé zarovnání', kit.valign('moon.valign', 'Svislé zarovnání')),
             section('Barva', kit.color('moon.color', 'Barva')),
             section('Fáze', moonPhases(kit)),
+            orderPointer(kit, 'moon'),
         ],
 
         time(kit) {
@@ -824,6 +841,7 @@ export function mountKalProps(root, ctx) {
                     ),
                     shown,
                 ),
+                orderPointer(kit, 'waste'),
             ];
         },
 
