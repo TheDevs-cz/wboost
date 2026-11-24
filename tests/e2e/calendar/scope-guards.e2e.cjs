@@ -6,8 +6,9 @@
  *    menu, the panel of every element and Kalendárium part, every content tool, the special-page
  *    menu, the day popover, Historie, Odkaz pro klienta, the client view — and after each stop
  *    scans the visible text AND the attributes (title, aria-label, placeholder, alt, value) of the
- *    whole document. The scan fails on: Naskenovat (design), Použít ukázkový kalendář, Z PDF nebo
- *    obrázku, Nahrát z Excelu / Excel, Simulovat kolize, Premium.
+ *    whole document. The scan fails on: Použít ukázkový kalendář, Z PDF nebo obrázku, Simulovat
+ *    kolize. (Naskenovat design / Premium — the calendar scan, docs/architecture/ai-scan.md — and
+ *    Nahrát z Excelu — feedback K10b — have shipped since and are no longer out of scope.)
  * 2. A 14-day calendar never shows the Fotka vlevo / Fotka vpravo choice — in step 2, and nowhere
  *    else either (the same walk).
  * 3. Dimensions: the node suite `dimensions` greps the code for the literals; here a calendar whose
@@ -18,7 +19,7 @@
 const assert = require('assert/strict');
 const ed = require('./lib/editor.cjs');
 
-const FORBIDDEN = [/Naskenovat/i, /Použít ukázkový/i, /ukázkový kalendář/i, /Z PDF nebo obrázku/i, /Nahrát z Excelu/i, /Excel/i, /Simulovat/i, /Premium/i];
+const FORBIDDEN = [/Použít ukázkový/i, /ukázkový kalendář/i, /Z PDF nebo obrázku/i, /Simulovat/i];
 // (the bare word „AI“ is not scanned for: the app shell links to „AI (MCP server)“ on every page)
 const PRESET_CHOICE = [/Fotka vlevo/, /Fotka vpravo/];
 
@@ -42,7 +43,7 @@ const readable = (page) =>
 
 module.exports = {
     name: 'scope-guards',
-    checks: ['§9.6 no AI / import control', '§9.6 14-day no left / right choice', '§9.6 dimensions'],
+    checks: ['§9.6 no out-of-scope control', '§9.6 14-day no left / right choice', '§9.6 dimensions'],
     async run({ browser, page, h, check }) {
         const stops = [];
         const hits = [];
@@ -131,11 +132,6 @@ module.exports = {
                 await page.waitForSelector(`.cal-tool-modal.show[data-tool-modal="${tool}"]`, { timeout: 5000 });
                 await h.sleep(350);
                 await scan(`${type} step 4 › tool ${tool}`, extra);
-                if (tool === 'waste' || tool === 'events') {
-                    // every file input of the two tools the prototype gave an Excel import
-                    const accepts = await page.$$eval('.cal-tool-modal.show input[type="file"]', (n) => n.map((x) => x.accept));
-                    for (const accept of accepts) assert.doesNotMatch(accept, /xls|sheet|csv/i, `${tool}: no spreadsheet input`);
-                }
                 await closeModal();
             }
             await click('[data-content-view="special"]');
@@ -221,7 +217,7 @@ module.exports = {
             });
         }
 
-        await check('§9.6 no AI / import control (Naskenovat design, Použít ukázkový kalendář, Z PDF nebo obrázku, Nahrát z Excelu, Simulovat kolize) at any stop', async () => {
+        await check('§9.6 no out-of-scope control (Použít ukázkový kalendář, Z PDF nebo obrázku, Simulovat kolize) at any stop', async () => {
             assert.ok(stops.length >= 80, `the walk made ${stops.length} stops`);
             for (const needed of ['week step 2', 'week step 3 › Nahrát layout', 'week step 4 › tool waste', 'week step 4 › tool events', 'week step 5', 'fortnight step 2', 'fortnight step 5', 'week client view']) assert.ok(stops.includes(needed), `stop "${needed}" was scanned`);
             assert.deepEqual(hits.filter((hit) => !/Fotka v(levo|pravo)/.test(hit)), []);

@@ -120,7 +120,9 @@ async function buildCalendar(page, h, opts = {}) {
             { c: 'events', id: 'evMasopust01', v: { date: `${year}-02-13`, name: 'Masopustní průvod obcí', club: 'clubSDH0001', icon: null } },
             { c: 'events', id: 'evPout000001', v: { date: `${year}-08-15`, name: 'Pouť a žehnání úrody', club: null, icon: null } },
             { c: 'events', id: 'evVanoce0001', v: { date: `${year}-12-05`, name: 'Rozsvícení vánočního stromu', club: null, icon: null } },
-            ...(opts.special !== false ? [{ c: 'specialPages', id: 'intro', v: { kind: 'intro', on: true, layout: 0, position: 'front', nextYear: false, name: '', asset: null, text: 'Vážení spoluobčané, přejeme vám klidný a úspěšný rok. Žluťoučký kůň úpěl ďábelské ódy.', fileName: null, pos: 0 } }] : []),
+            ...(opts.special !== false ? [{ c: 'specialPages', id: 'intro', v: { kind: 'intro', on: true, layout: 0, position: 'front', nextYear: false, name: '', asset: null, text: 'Vážení spoluobčané, přejeme vám klidný a úspěšný rok. Žluťoučký kůň úpěl ďábelské ódy.', fileName: null, pos: 0 } },
+                // the intro's words live in pageContent since K11 (the `text` above is no longer drawn)
+                { c: 'pageContent', id: 'sp:intro', v: { heading: '', salutation: 'Vážení spoluobčané,', body: 'přejeme vám klidný a úspěšný rok. Žluťoučký kůň úpěl ďábelské ódy.', signName: '', signRole: '', photo: null } }] : []),
         ],
     });
 
