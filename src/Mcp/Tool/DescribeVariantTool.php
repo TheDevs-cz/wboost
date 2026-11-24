@@ -528,6 +528,7 @@ readonly final class DescribeVariantTool
                 repeat: $repeatInfo[$container->id]['repeat'] ?? null,
                 fitsRows: $repeatInfo[$container->id]['fitsRows'] ?? null,
                 follows: $container->follows,
+                minHeight: $container->minHeight,
             ),
             ResolvedCanvasContainer::collection($definitions, $frames, $inputs, $decorationTops, $imageFrames),
         );

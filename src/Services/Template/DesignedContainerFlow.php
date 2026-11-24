@@ -292,6 +292,7 @@ final readonly class DesignedContainerFlow
             max(array_map(static fn (DesignedFlowItem $item): float => $item->designedExtBottom, $items)),
             $extLeft,
             $extRight,
+            $def->minHeight,
         );
     }
 
@@ -325,8 +326,12 @@ final readonly class DesignedContainerFlow
         }
 
         $node->contentBottom = $previousBottom ?? $node->anchorTop;
-        $node->height = $node->contentBottom - $node->anchorTop;
         $node->hidden = array_all($node->items, static fn (DesignedFlowItem $item): bool => $item->hiddenNow);
+        // `minHeight` (≡ the engine): a visible container takes at least that much.
+        if (!$node->hidden && $node->minHeight !== null) {
+            $node->contentBottom = max($node->contentBottom, $node->anchorTop + $node->minHeight);
+        }
+        $node->height = $node->contentBottom - $node->anchorTop;
     }
 }
 
@@ -354,6 +359,7 @@ final class DesignedFlowNode
         public readonly float $designedExtBottom,
         public readonly float $extLeft,
         public readonly float $extRight,
+        public readonly null|float $minHeight = null,
     ) {
     }
 

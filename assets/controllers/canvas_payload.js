@@ -582,6 +582,10 @@ export function sanitizedContainers(canvas, objects) {
             if (typeof container.spaceAfter === 'number' && Number.isFinite(container.spaceAfter) && container.spaceAfter >= 0) {
                 entry.spaceAfter = Math.round(container.spaceAfter * 10) / 10;
             }
+            // Min. výška (≡ PHP CanvasContainer::$minHeight) — emitted only when set.
+            if (typeof container.minHeight === 'number' && Number.isFinite(container.minHeight) && container.minHeight > 0) {
+                entry.minHeight = Math.round(container.minHeight * 10) / 10;
+            }
             // Whole-container hide (opt-in) + its fill-page label; emitted
             // only when set, so untouched containers keep their exact JSON.
             if (container.hidable === true) {

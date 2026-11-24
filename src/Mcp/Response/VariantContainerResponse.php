@@ -76,6 +76,8 @@ readonly final class VariantContainerResponse
          * @var null|array{containerId: string, gap: float}
          */
         public null|array $follows = null,
+        /** Min. výška in px: the flow takes at least this much from `y` (null = none). */
+        public null|float $minHeight = null,
     ) {
     }
 }

@@ -38,6 +38,18 @@ member stays an ordinary independent input. Since the 2026-08 nesting rework:
   report): a TOP-LEVEL container attached below another top-level one — it
   starts `gap` px below the target's ACTUAL content bottom, pulled up AND
   pushed down. See the section "Navázat pod" below.
+- **`minHeight`** (nullable px, per container, 2026-11-24): a VISIBLE
+  container's flow takes at least that much from its anchor even with fewer
+  / shorter items, so what follows it (the parent's next item, a pushed or
+  attached root) starts no higher — Jan: „Sestava" attached under the rows
+  must clear the club logo with 1–2 rows. Never a bound (`maxHeight` is); a
+  fully collapsed container still takes no space. Engine: `measureNode`
+  floors `_contentBottom` and keeps the raw `_flowBottom` (root results carry
+  `flowBottom` when set — the editor's row fit grows from it, not from the
+  floor); PHP twin `DesignedContainerFlow::measure` ≡. ⚙ „Minimální výška";
+  group sync / projector scale it like `spaceAfter`; REST + describe_variant
+  `containers[].minHeight`. Tests: `ContainerFollowsLayoutTest::
+  testMinHeightKeepsTheAttachedFooterBelowTheFloor` (+ the editor-fit case).
 - **`spaceAfter`** (nullable px, per container): guaranteed clearance BELOW —
   the landing distance when pushing (enforced as a minimum even at designed
   positions), the floor of the following gap when nested, and the page-bottom

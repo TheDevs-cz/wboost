@@ -2210,6 +2210,46 @@ export default class extends Controller {
         });
         el.appendChild(afterInput);
 
+        // Min. výška (2026-11-24): the container takes at least this much
+        // space even with fewer / shorter items — what follows it (the
+        // next item, an attached container) starts no higher.
+        const minLabel = document.createElement('label');
+        minLabel.className = 'form-label small mb-1';
+        minLabel.textContent = 'Minimální výška (px)';
+        el.appendChild(minLabel);
+
+        const minInput = document.createElement('input');
+        minInput.type = 'number';
+        minInput.min = '0';
+        minInput.step = '1';
+        minInput.placeholder = 'podle obsahu';
+        minInput.className = 'form-control form-control-sm mb-1';
+        minInput.value = (typeof container.minHeight === 'number' && isFinite(container.minHeight))
+            ? String(Math.round(container.minHeight * 10) / 10)
+            : '';
+        minInput.addEventListener('input', () => {
+            const raw = minInput.value.trim();
+            if (raw === '' || parseFloat(raw) === 0) {
+                delete container.minHeight;
+            } else {
+                const value = parseFloat(raw);
+                if (!(value > 0)) return;
+                container.minHeight = value;
+            }
+            this._normalizeDesign();
+            this.renderZones();
+            this.canvasEditorOutlet.markUnsaved();
+        });
+        minInput.addEventListener('change', () => {
+            const canvas = this._canvas();
+            if (canvas) canvas.fire('object:modified', {});
+        });
+        el.appendChild(minInput);
+        const minHint = document.createElement('div');
+        minHint.className = 'form-text small mb-2';
+        minHint.textContent = 'Kontejner zabere aspoň tolik místa, i když má méně obsahu — co je pod ním (navázaný kontejner), nezačne výš.';
+        el.appendChild(minHint);
+
         // Whole-container hide ("Lze skrýt"): the fill pages + API then offer
         // ONE toggle that hides the container with everything inside it
         // (texts, images, shapes, nested containers). The label is what the

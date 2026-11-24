@@ -64,6 +64,8 @@ readonly final class ResolvedCanvasContainer
          * @var null|array{containerId: string, gap: float}
          */
         public null|array $follows = null,
+        /** Min. výška in canvas px (see {@see CanvasContainer::$minHeight}); null = none. */
+        public null|float $minHeight = null,
     ) {
     }
 
@@ -207,6 +209,7 @@ readonly final class ResolvedCanvasContainer
                 follows: $container->follows !== null && isset($links[$container->id]) && isset($resolvable[$container->follows->containerId])
                     ? $container->follows->toArray()
                     : null,
+                minHeight: $container->minHeight,
             );
         }
 

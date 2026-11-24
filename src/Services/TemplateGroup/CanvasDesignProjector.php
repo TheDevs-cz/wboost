@@ -158,6 +158,7 @@ readonly final class CanvasDesignProjector
                     // (designed gaps / zero clearance) stay put.
                     $this->scaleKey($container, 'gap', $ry);
                     $this->scaleKey($container, 'spaceAfter', $ry);
+                    $this->scaleKey($container, 'minHeight', $ry);
                     // "Navázat pod" gap — vertical px as well.
                     if (isset($container['follows']) && is_array($container['follows'])) {
                         $follows = $container['follows'];

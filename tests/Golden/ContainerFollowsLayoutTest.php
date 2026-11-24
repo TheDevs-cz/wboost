@@ -132,8 +132,17 @@ final class ContainerFollowsLayoutTest extends KernelTestCase
     public function testTheEditorsFitEstimateCountsTheAttachedFooter(): void
     {
         $raw = ContainerFixtures::raw('turnaj-follows');
-        foreach ([950 => 7, 1350 => 8] as $height => $expected) {
-            $authored = ContainerFixtures::variantFromRaw(['canvas' => $raw['canvas'], 'inputs' => $raw['inputs'], 'imageInputs' => $raw['imageInputs']], $this->template(), $raw['width'], $height);
+        $withFloor = $raw;
+        /** @var list<array<string, mixed>> $floorContainers */
+        $floorContainers = $withFloor['canvas']['containers'];
+        foreach ($floorContainers as $i => $container) {
+            if ($container['id'] === self::ROOT) {
+                $floorContainers[$i]['minHeight'] = 115.0;
+            }
+        }
+        $withFloor['canvas']['containers'] = $floorContainers;
+        foreach ([[950, 7, $raw], [1350, 8, $raw], [950, 7, $withFloor]] as [$height, $expected, $source]) {
+            $authored = ContainerFixtures::variantFromRaw(['canvas' => $source['canvas'], 'inputs' => $source['inputs'], 'imageInputs' => $source['imageInputs']], $this->template(), $raw['width'], $height);
             $node = (new ExecutableFinder())->find('node');
             if ($node === null) {
                 self::markTestSkipped('node is not installed');
@@ -156,9 +165,50 @@ final class ContainerFollowsLayoutTest extends KernelTestCase
         }
     }
 
-    private function variant(null|int $height = null): TemplateVariant
+    /**
+     * „Min. výška" on the rows root (Jan, 2026-11-24: „Sestava" must clear
+     * the club logo with 1–2 rows): the attached footer starts no higher
+     * than root top + minHeight + gap, and rows past the floor push it as
+     * before. Engine ≡ PHP twin; the editor fit grows from the real flow.
+     */
+    public function testMinHeightKeepsTheAttachedFooterBelowTheFloor(): void
+    {
+        $variant = $this->variant(null, 115.0);
+        $layout = $this->layoutData($variant);
+        $expected = [1 => 345.578 + 115.0 + 20.0, 2 => 345.578 + 115.0 + 20.0, 3 => 539.483];
+        foreach ($expected as $count => $top) {
+            $run = $this->runEngine($layout, $this->inactive($layout, $count));
+            self::assertEqualsWithDelta($top, (float) $run['tops'][self::FOOTER_TITLE], 0.01, 'footer at ' . $count . ' rows');
+        }
+
+        $canvas = json_decode(RepeatableRows::expand($variant)->canvas, true, flags: JSON_THROW_ON_ERROR);
+        self::assertIsArray($canvas);
+        foreach ([1, 3, 8] as $count) {
+            $run = $this->runEngine($layout, $this->inactive($layout, $count));
+            $php = DesignedContainerFlow::overflowByRoot($canvas, array_fill_keys($this->inactive($layout, $count), true), 1350.0);
+            self::assertEqualsWithDelta((float) $run['roots'][self::FOOTER]['overflowPx'], $php[self::FOOTER] ?? 0.0, 0.01);
+        }
+
+        // The fit is unchanged by a floor the rows exceed anyway.
+        self::assertSame(
+            RepeatableRows::designedCapacity($this->variant(950, 115.0), self::ROW),
+            RepeatableRows::designedCapacity($this->variant(950), self::ROW),
+        );
+    }
+
+    private function variant(null|int $height = null, null|float $rootMinHeight = null): TemplateVariant
     {
         $raw = ContainerFixtures::raw('turnaj-follows');
+        if ($rootMinHeight !== null) {
+            /** @var list<array<string, mixed>> $containers */
+            $containers = $raw['canvas']['containers'];
+            foreach ($containers as $i => $container) {
+                if ($container['id'] === self::ROOT) {
+                    $containers[$i]['minHeight'] = $rootMinHeight;
+                }
+            }
+            $raw['canvas']['containers'] = $containers;
+        }
 
         return RepeatableRows::expand(ContainerFixtures::variantFromRaw(['canvas' => $raw['canvas'], 'inputs' => $raw['inputs'], 'imageInputs' => $raw['imageInputs']], $this->template(), $raw['width'], $height ?? $raw['height']));
     }

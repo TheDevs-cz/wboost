@@ -220,7 +220,8 @@ Returns a **plain JSON array** (no pagination; null fields are kept on purpose):
             "memberImageInputIds": [],                   // fillable IMAGE slots flowing in it
             "repeat": null,                              // non-null { "max": 8, "min": 1, "default": 2 } → a REPEATABLE ROW (see "Repeatable rows")
             "fitsRows": null,                            // repeatable rows only: how many rows fit by designed geometry (within min…max)
-            "follows": null                              // non-null { "containerId": "…", "gap": 20 } → ATTACHED below that container (see "Attached containers")
+            "follows": null,                             // non-null { "containerId": "…", "gap": 20 } → ATTACHED below that container (see "Attached containers")
+            "minHeight": null                            // non-null px → the flow takes at least this much from y (what follows starts no higher)
           }
         ],
         "repeatableRows": [                              // rows the user may REPEAT (may be empty) — see "Repeatable rows"
@@ -789,6 +790,12 @@ a minimum at designed positions), the floor of the gap after it when nested,
 and its margin against the canvas bottom — content that would end below
 `variant.height − spaceAfter` fails the export with the same
 `container_overflow` 400 (reported on the container that fell off).
+
+**Minimum height (`minHeight`, 2026-11).** A visible container's flow takes at
+least `minHeight` px from its `y` even with fewer or shorter items, so what
+follows it (the parent's next item, a pushed or attached container) starts no
+higher. It is never a bound (`maxHeight` is) and a fully hidden container
+still collapses.
 
 **Attached containers (`follows`, 2026-11).** A top-level container with
 `follows: {containerId, gap}` is attached below another top-level container:

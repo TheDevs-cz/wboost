@@ -223,6 +223,7 @@ final class DescribeVariantTest extends WebTestCase
                 'repeat' => null,
                 'fitsRows' => null,
                 'follows' => null,
+                'minHeight' => null,
             ],
             $containers[TestDataFixture::ORIENTATION_ROOT_CONTAINER_ID],
         );
@@ -246,6 +247,7 @@ final class DescribeVariantTest extends WebTestCase
                 'repeat' => null,
                 'fitsRows' => null,
                 'follows' => null,
+                'minHeight' => null,
             ],
             $containers[TestDataFixture::ORIENTATION_NESTED_CONTAINER_ID],
         );

@@ -113,6 +113,13 @@ readonly final class CanvasContainer
          * target, unknown target, a cycle).
          */
         public null|ContainerFollow $follows = null,
+        /**
+         * Minimum flow height in canvas px (2026-11-24): a visible container
+         * takes at least this much space from its top even with fewer /
+         * shorter items, so what follows starts no higher. Not a bound.
+         * Null = none.
+         */
+        public null|float $minHeight = null,
     ) {
     }
 
@@ -132,7 +139,7 @@ readonly final class CanvasContainer
      *
      * `follows` likewise — only an attached container carries it.
      *
-     * @return array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap: null|float, spaceAfter: null|float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int}, repeatSlots?: list<string>, repeatSlotOf?: string, follows?: array{containerId: string, gap: float}}
+     * @return array{id: string, maxHeight: float, memberInputIds: list<string>, memberContainerIds: list<string>, gap: null|float, spaceAfter: null|float, hidable?: true, name?: string, userMove?: array{vertical: bool, horizontal: bool, maxUp: null|float, maxDown: null|float, maxLeft: null|float, maxRight: null|float}, repeat?: array{max: int, min: int, default: int}, repeatSlots?: list<string>, repeatSlotOf?: string, follows?: array{containerId: string, gap: float}, minHeight?: float}
      */
     public function toArray(): array
     {
@@ -171,6 +178,10 @@ readonly final class CanvasContainer
 
         if ($this->follows !== null) {
             $data['follows'] = $this->follows->toArray();
+        }
+
+        if ($this->minHeight !== null) {
+            $data['minHeight'] = $this->minHeight;
         }
 
         return $data;
@@ -266,6 +277,7 @@ readonly final class CanvasContainer
             $repeatSlotIds,
             $repeatSlotOf,
             $follows,
+            self::nonNegativeFloatOrNull($data['minHeight'] ?? null),
         );
     }
 
@@ -417,6 +429,7 @@ readonly final class CanvasContainer
             $this->repeatSlotIds,
             $this->repeatSlotOf,
             $follows,
+            $this->minHeight,
         );
     }
 
@@ -538,6 +551,7 @@ readonly final class CanvasContainer
                 $container->name,
                 $container->userMove,
                 follows: $container->follows,
+                minHeight: $container->minHeight,
             );
         }
 

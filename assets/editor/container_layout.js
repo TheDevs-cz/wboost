@@ -57,6 +57,11 @@
  *    target hands over its own top. This is the explicit "document flow
  *    without nesting": both keep their own maxHeight / settings. Ignored on
  *    a nested container (it already flows in its parent).
+ *  - `minHeight` (nullable, canvas px, 2026-11-24): a visible container
+ *    takes at least that much space from its top even with fewer / shorter
+ *    items — what follows it (the parent's next item, a pushed or attached
+ *    root) starts no higher. Never a bound (maxHeight is); a fully collapsed
+ *    container still takes no space. Null = none.
  *  - `spaceAfter` (nullable, canvas px): the guaranteed minimum clearance
  *    BELOW a container. A pushing root places the pushed sibling at
  *    contentBottom + its own spaceAfter (and the minimum is enforced even at
@@ -522,6 +527,7 @@
                 maxHeight: def.maxHeight,
                 gap: normalizeGap(def.gap),
                 spaceAfter: normalizeGap(def.spaceAfter),
+                minHeight: normalizeGap(def.minHeight),
                 // Only meaningful on a ROOT (applyFabricLayout ignores it on
                 // nested nodes — a nested container already flows).
                 follows: normalizeFollows(def.follows, def.id),
@@ -598,8 +604,17 @@
         });
 
         node._contentBottom = previousBottom === null ? node.anchorTop : previousBottom;
-        node._height = node._contentBottom - node.anchorTop;
         node._hidden = node.items.every((item) => item._hidden);
+        // The raw end of the flow (before the min-height floor) — what the
+        // editor's row fit grows from.
+        node._flowBottom = node._contentBottom;
+        // `minHeight`: a visible container takes at least that much space
+        // from its anchor, so what follows (the parent's next item, a pushed
+        // or attached root) starts no higher. A collapsed one stays collapsed.
+        if (!node._hidden && node.minHeight !== null) {
+            node._contentBottom = Math.max(node._contentBottom, node.anchorTop + node.minHeight);
+        }
+        node._height = node._contentBottom - node.anchorTop;
     }
 
     /**
@@ -773,6 +788,8 @@
                 nested: false,
                 textFlow,
             };
+            // Only on a root with a min-height: where its content really ends.
+            if (root.minHeight !== null) rootResult.flowBottom = root._flowBottom + delta;
             // The resolved link — emitted only on a follower.
             if (targetOf.has(root)) rootResult.follows = targetOf.get(root).id;
             results.push(rootResult);

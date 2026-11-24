@@ -185,9 +185,12 @@ export function rowCapacity(objects, containers, rowId, opts) {
         }
     }
 
-    const contentBottom = rootResult.contentBottom + extra;
+    // Rows grow from where the content really ends; a min-height floor
+    // (`flowBottom` < `contentBottom`) only has to fit itself.
+    const flowBottom = typeof rootResult.flowBottom === 'number' ? rootResult.flowBottom : rootResult.contentBottom;
+    const contentBottom = flowBottom + extra;
     const room = limitBottom + FIT_TOLERANCE - contentBottom;
-    const fits = room < 0
+    const fits = room < 0 || rootResult.contentBottom > limitBottom + FIT_TOLERANCE
         ? 0
         : Math.min(MAX_ROWS, 1 + Math.floor(room / geometry.pitch));
 

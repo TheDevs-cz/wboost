@@ -67,6 +67,11 @@ namespace WBoost\Web\Api\Templates;
  * as well as pushed down (rows removed / added, texts wrapping, members
  * hidden); a fully collapsed target hands over its own top. Chains are
  * possible. Collision-push from other containers still applies on top.
+ *
+ * `minHeight` (canvas px, null when not set, 2026-11): a visible container's
+ * flow takes at least this much space from its `y`, so whatever follows it
+ * (its parent's next item, a pushed or attached container) starts no higher.
+ * Never a bound — `maxHeight` is; a fully hidden container still collapses.
  */
 final readonly class TemplateVariantContainerResponse
 {
@@ -98,6 +103,8 @@ final readonly class TemplateVariantContainerResponse
          * @var null|array{containerId: string, gap: float}
          */
         public null|array $follows = null,
+        /** Min. výška in canvas px — the flow takes at least this much from `y`; null = none. */
+        public null|float $minHeight = null,
     ) {
     }
 }
