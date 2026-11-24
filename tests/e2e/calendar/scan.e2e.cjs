@@ -154,7 +154,8 @@ module.exports = {
 
         /** card → panel → file → (consent) → start; resolves on the waiting screen. */
         async function startScan(file) {
-            if (!(await page.$('[data-cal-scan-panel]'))) await page.click('[data-cal-action="scan-open"]');
+            // (a toast of the previous apply may still lie over the card's button — clicked on the element, not on its spot)
+            if (!(await page.$('[data-cal-scan-panel]'))) await page.$eval('[data-cal-action="scan-open"]', (el) => el.click());
             await page.waitForSelector('[data-cal-scan-panel] #calScanFile');
             await (await page.$('#calScanFile')).uploadFile(file);
             await waitPanel('chosen');
@@ -572,6 +573,40 @@ module.exports = {
                 assert.equal(psql(`SELECT rating || ':' || rating_note FROM ai_scan WHERE id = ${quote(scanId)}`), '-1:Hlavička je moc nízká');
             });
 
+            await check('K7b the review encourages the header picture: a card under the summary with size + dropzone, the logo under „Další obrázky“, apply never blocked', async () => {
+                const card = '[data-cal-scan-backdrop="header"]';
+                await page.waitForSelector(card);
+                // right under the summary, before „Co jsme rozpoznali“
+                assert.equal(await page.$eval(card, (el) => { const sum = document.querySelector('[data-cal-scan-panel] [data-region="sum"]'); const rec = document.querySelector('[data-cal-scan-panel] .as-rec'); return Boolean(sum.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING) && Boolean(el.compareDocumentPosition(rec) & Node.DOCUMENT_POSITION_FOLLOWING); }), true);
+                assert.match(await text(card), /Obrázek v hlavičce\s*Doporučujeme\s*Doporučujeme nahrát pozadí — bez něj bude záhlaví prázdné\./);
+                assert.match(await text(`${card} [data-place-size="header"]`), /^Rozměr [\d,]+ × [\d,]+ mm včetně spadávky 5 mm · ideálně \d+ × \d+ px, nejméně \d+ × \d+ px$/);
+                assert.equal(await page.$eval(`${card} .crop`, (el) => /image\/working/.test(el.style.backgroundImage)), true, 'the card shows the place on the page');
+                assert.equal(await page.$$eval(`${card} [data-k="bddropheader"]`, (els) => els.length), 1, 'a dropzone');
+                // the logo is secondary: a compact row, still uploadable
+                assert.match(await text('[data-cal-scan-more]'), /^Další obrázky \(1\) — můžete doplnit i později\s*Logo\s*zatím prázdné/);
+                assert.equal(await page.$$eval('[data-cal-scan-more] [data-k="piclogo"]', (els) => els.length), 1);
+                // never a stop: apply enabled, a gentle line under it
+                assert.equal(await page.$eval('[data-cal-action="scan-apply"]', (el) => el.disabled), false);
+                assert.match(await text('[data-cal-action="scan-apply"]'), /^Použít rozvržení · 2 obrázky doplníte později$/);
+                assert.match(await text('[data-cal-scan-bd-note="header"]'), /Bez obrázku zůstane v hlavičce jen barva — nahrajete ho i později v Úpravách prvků\./);
+                assert.equal(await page.$$eval('[data-cal-scan-panel] .btn-primary', (els) => els.length), 1);
+                await shot('scan-05c-review-backdrop');
+                // uploaded right here (the dropzone opens the file chooser)
+                const [chooser] = await Promise.all([page.waitForFileChooser(), page.click('[data-k="bddropheader"]')]);
+                await chooser.accept([backdrop]);
+                await page.waitForFunction((sel) => /pozadi\.png/.test(document.querySelector(sel).textContent), { timeout: 15000 }, card);
+                assert.equal(await page.$eval(`${card} [data-cal-scan-bd-state]`, (el) => el.dataset.calScanBdState), 'done');
+                assert.equal(await page.$(`${card} [data-k="bddropheader"]`), null);
+                assert.equal(await page.$('[data-cal-scan-bd-note]'), null);
+                assert.match(await text('[data-cal-action="scan-apply"]'), /^Použít rozvržení · 1 obrázek doplníte později$/);
+                await page.waitForFunction(() => /image\/picture\?slot=header/.test(document.querySelector('[data-proposal]').innerHTML), { timeout: 10000 });
+                await shot('scan-05d-review-backdrop-done');
+                // …and removed again: what the next checks expect (no picture held)
+                await page.click('[data-k="picdropheader"]');
+                await page.waitForSelector(`${card} [data-k="bddropheader"]`, { timeout: 15000 });
+                assert.match(await text('[data-cal-action="scan-apply"]'), /^Použít rozvržení · 2 obrázky doplníte později$/);
+            });
+
             await check('C4b pictures: a picture is held with the scan, the button counts what stays empty', async () => {
                 await page.click('[data-cal-action="scan-pictures"]');
                 await waitPanel('pictures');
@@ -661,11 +696,13 @@ module.exports = {
             await check('„Použít rozvržení“ saves at once, reloads the calendar and opens step 3', async () => {
                 await page.click('[data-cal-action="scan-apply"]');
                 await page.waitForSelector('.cal-ws[data-cal-shown-step="3"]', { timeout: 20000 });
-                // K7: the empty place is named in the toast and selected in step 3
-                await h.waitToast(page, 'Rozvržení převzato ze skenu · 1 obrázek doplníte v Úpravách prvků');
+                // K7 / K7b: the empty header place is named in the toast and selected in step 3
+                await h.waitToast(page, 'Rozvržení převzato ze skenu · nahrajte obrázek do hlavičky v Úpravách prvků');
                 applied = await state();
                 assert.deepEqual(applied.selection, { el: 'head' });
                 await page.waitForSelector('[data-props="head"] [data-picture-size="head"]');
+                // K7b: the header fill keeps the guessed colour — the size line says how to add the picture
+                assert.match(await text('[data-props="head"] [data-picture-size="head"]'), /^Obrázek do hlavičky: zaškrtněte Obrázek a nahrajte ho · Rozměr [\d,]+ × [\d,]+ mm včetně spadávky/);
                 assert.equal(applied.layoutOrigin, 'scan');
                 assert.equal(applied.design.preset, 'photoRight');
                 assert.equal(applied.design.layout.styles.cal.numberSide, 'start');

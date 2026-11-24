@@ -250,6 +250,32 @@ export const CAL = {
     picturesNoneEmpty: 'Všechna místa už mají obrázek — obrázek vyměníte tlačítkem Změnit u místa, nebo ho přetáhněte přímo na místo.',
     saveAndApply: 'Kalendář má neuložené změny — uložíme je a hned potom použijeme rozvržení.',
     appliedLater: (n) => `Rozvržení převzato ze skenu · ${n} ${n === 1 ? 'obrázek doplníte' : n <= 4 ? 'obrázky doplníte' : 'obrázků doplníte'} v Úpravách prvků`,
+    /**
+     * K7b: the backdrop place (the header fill / the page background) is encouraged in the review —
+     * a card with its size and a dropzone, never a stop. `noteApply` sits under „Použít rozvržení“
+     * while it is empty; `appliedBackdrop` is the toast after an apply that left it empty.
+     */
+    backdrop: {
+        header: {
+            title: 'Obrázek v hlavičce',
+            why: 'Doporučujeme nahrát pozadí — bez něj bude záhlaví prázdné.',
+            drop: 'Přetáhněte sem obrázek do hlavičky',
+            tap: 'Klepněte a vyberte obrázek do hlavičky',
+            noteApply: 'Bez obrázku zůstane v hlavičce jen barva — nahrajete ho i později v Úpravách prvků.',
+            applied: 'nahrajte obrázek do hlavičky v Úpravách prvků',
+        },
+        background: {
+            title: 'Obrázek na pozadí',
+            why: 'Doporučujeme nahrát pozadí — bez něj bude stránka prázdná.',
+            drop: 'Přetáhněte sem obrázek na pozadí',
+            tap: 'Klepněte a vyberte obrázek na pozadí',
+            noteApply: 'Bez obrázku zůstane na pozadí jen barva — nahrajete ho i později v Úpravách prvků.',
+            applied: 'nahrajte obrázek na pozadí v Úpravách prvků',
+        },
+    },
+    morePictures: (n) => `Další obrázky (${n}) — můžete doplnit i později`,
+    /** As short as `appliedLater`: a longer toast covers the step-2 card's button (the place is selected anyway). */
+    appliedBackdrop: (slot) => `Rozvržení převzato ze skenu · ${CAL.backdrop[slot].applied}`,
     /** Style groups of the report's `fonts[]` → the genitive of `Písmo {…}`. */
     fontGroups: { num: 'čísel dnů', numSat: 'čísel sobot', numSun: 'čísel nedělí', numHol: 'čísel svátků', day: 'názvů dnů', name: 'jmenin', hol: 'svátků', ev: 'akcí', month: 'měsíce', wk: 'čísla týdne', cap: 'popisku fotky', time: 'časů', shift: 'směn' },
     fontPattern: {

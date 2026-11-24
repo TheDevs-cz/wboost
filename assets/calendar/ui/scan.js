@@ -15,6 +15,10 @@
 // start, status, proposal, image, action, seen, accept, restore, picture; the stateless CSRF of the
 // scan endpoints (kit.js `api`). Accept / restore answer the saved calendar → `store.load()`.
 //
+// K7b: the review shows the backdrop place (header fill / page background) as a card with a
+// dropzone right under the summary, the other places as „Další obrázky“ — uploads there work as in
+// the pictures step; never a stop. An apply that leaves it empty selects it first in step 3.
+//
 // Pictures for the proposal's places come from the disk (a file input, or a file dropped on a card /
 // on the multi-drop zone) or from the project's gallery — the `Project:ImageGallery` modal
 // `#calScanGalleryModal` of workspace.html.twig, which answers with the window event
@@ -23,7 +27,7 @@
 // DOM hooks (e2e contract): [data-cal-scan-card], [data-cal-scan-panel][data-view="upload|chosen|
 // wait|review|pictures|fail|gone|loading"], [data-cal-action="scan-open|scan-start|scan-apply|scan-restore|
 // scan-discard|scan-rescan|scan-pictures|scan-close"], file inputs #calScanFile / #calScanPic (always
-// in the panel's markup — never created on the fly).
+// in the panel's markup — never created on the fly; #calScanPic also in the review with a backdrop place).
 //
 // The upload screen opens with „Nejprve si připravte“ (logo, fonts, palette, the page to scan) — the
 // font and colour counts come from `entry` (`fonts.families`, `palette.colours`), read again when the
@@ -829,6 +833,9 @@ class CalendarScan {
         const scanId = this.scan.id;
         // K7: the places left empty are filled in step 3 — said in the toast, the first one selected there
         const later = this.proposal.pictures.filter((item) => !item.picture && !item.current).map((item) => placeOfSlot(item.slot));
+        // K7b: an empty backdrop place (header / page background) goes first — the page looks empty without it
+        const backdrop = views.emptyBackdrop(this.proposal);
+        if (backdrop) later.sort((a, b) => Number(b === placeOfSlot(backdrop.slot)) - Number(a === placeOfSlot(backdrop.slot)));
         this.notifyShell();
         this.open = false;
         this.another();
@@ -838,7 +845,7 @@ class CalendarScan {
         if (later.length) this.store.setUi({ selection: { el: later[0] } });
         this.entry.applied = answer.restoreUntil ? { scanId, restoreUntil: answer.restoreUntil } : null;
         this.changed();
-        this.ctx.toast(later.length ? CAL.appliedLater(later.length) : 'Rozvržení převzato ze skenu', false, answer.restoreUntil ? { label: 'Vrátit původní', onClick: () => this.restore(scanId) } : null);
+        this.ctx.toast(backdrop ? CAL.appliedBackdrop(backdrop.slot) : later.length ? CAL.appliedLater(later.length) : 'Rozvržení převzato ze skenu', false, answer.restoreUntil ? { label: 'Vrátit původní', onClick: () => this.restore(scanId) } : null);
         this.refreshEntry().then(() => this.changed());
     }
 

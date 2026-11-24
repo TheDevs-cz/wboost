@@ -323,6 +323,33 @@ a.cal-scan-pill:hover { filter: brightness(1.08); }
 /* A file dragged over a place for a picture or over the chosen-file card. */
 .cal-scan .as-ph.over, .cal-scan .as-card.over { outline: 2px dashed var(--lav); outline-offset: 2px; }
 .cal-scan .as-ph-crop > .crop.whole { height: auto; background-position: center; }
+/* K7b — the review encourages the backdrop picture (header fill / page background): a card right
+   under the summary with the place on the page, its size and a dropzone; never a stop. */
+.cal-scan-bd { gap: 10px; padding: 16px 18px; }
+.cal-scan-bd.todo { border-color: var(--lav-line); }
+.cal-scan-bd-h { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.cal-scan-bd-h h3 { display: flex; align-items: center; gap: 8px; flex: 1 1 auto; min-width: 0; }
+.cal-scan-bd-h h3 .i { color: var(--lav-ink); flex: none; }
+.cal-scan-bd-why { margin: 0; font-size: 13px; line-height: 1.5; color: var(--text); }
+.cal-scan-bd-place { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.cal-scan-bd-place .as-ph-note { flex: 1 1 0; min-width: 0; }
+.cal-scan-bd-crop { flex: none; max-width: 45%; }
+.cal-scan-bd-crop > .crop { display: block; height: 56px; width: auto; max-width: 100%; border-radius: 8px; background-color: var(--surface-2); background-repeat: no-repeat; box-shadow: inset 0 0 0 1px var(--line-2); }
+.cal-scan-bd-crop > .crop.cal-scan-nopic { width: 56px; }
+.cal-scan-bd .cal-scan-bd-drop { min-height: 96px; }
+.cal-scan-bd.over { outline: 2px dashed var(--lav); outline-offset: 2px; }
+.cal-scan-bd.over .cal-scan-bd-drop { border-color: var(--lav); background: var(--lav-deep); }
+.cal-scan-more { gap: 10px; padding: 14px 18px; }
+.cal-scan-more h3 { font-size: 13px; font-weight: 600; color: var(--text-2); }
+.cal-scan-more-l { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.cal-scan-more-r { display: flex; flex-direction: column; gap: 6px; padding-top: 10px; border-top: 1px solid var(--line); border-radius: 4px; }
+.cal-scan-more-r:first-child { padding-top: 0; border-top: 0; }
+.cal-scan-more-r.over { outline: 2px dashed var(--lav); outline-offset: 4px; }
+.cal-scan-more-h { display: flex; align-items: baseline; gap: 8px; font-size: 13px; }
+.cal-scan-more-h b { font-weight: 600; }
+.as-foot .cal-scan-bd-note { display: flex; justify-content: flex-end; align-items: center; gap: 6px; }
+.as-foot .cal-scan-bd-note .i { color: var(--lav-ink); flex: none; }
+@media (max-width: 640px) { .as-foot .cal-scan-bd-note { justify-content: flex-start; text-align: left; } }
 .cal-scan .as-legend { margin-top: -4px; }
 /* „Ukázat vrstvy“ over a calendar page: the letter tags sit INSIDE their box (a header at the page's
    top edge would push its tag out of the frame); the header's in the middle, clear of the month. */

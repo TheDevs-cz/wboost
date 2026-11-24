@@ -83,11 +83,14 @@ function createKit(ctx, refresher) {
          * The size the place's picture should have (K7, `ui/picture-size.js`): mm with the bleed and
          * px for print — follows the box while it is moved or resized.
          */
-        size(place, prefix = '') {
+        size(place, prefix = '', fillPath = null) {
             const text = () => {
                 const { design } = store.getState().doc;
                 const size = design.layout ? pictureSize({ boxes: design.layout.boxes, page: design.page, print: design.print, place }) : null;
-                return size ? `${prefix}${size.text}` : '';
+                // K7b: a place whose fill has no picture yet (an applied scan leaves the guessed colour) says how to add one
+                const fill = fillPath ? getPath(stylesOf(store), fillPath) : null;
+                const hint = fill && !fill.imageOn ? 'zaškrtněte Obrázek a nahrajte ho · ' : '';
+                return size ? `${prefix}${hint}${size.text}` : '';
             };
             const el = h('p', { class: 'cal-psize', 'data-picture-size': place }, text());
             refresher.track(text, (value) => { el.textContent = value; });
@@ -192,7 +195,7 @@ const PANELS = {
                     fitLabel: 'Umístění obrázku',
                 },
             }),
-            kit.size('head', 'Obrázek do hlavičky: '),
+            kit.size('head', 'Obrázek do hlavičky: ', 'head.bg'),
             kit.when(section('Efekty obrázku', kit.effects('head.bg.effects')), (styles) => styles.head.bg.imageOn),
         ];
     },
@@ -217,7 +220,7 @@ const PANELS = {
     },
 
     bg(kit) {
-        return [kit.fill('bg', { label: null, image: { captionSet: 'Výchozí fotka — u jednotlivých stran ji lze vyměnit' } }), kit.when(kit.size('bg', 'Obrázek na pozadí: '), (styles) => Boolean(styles.bg.imageOn)), kit.when(section('Efekty obrázku', kit.effects('bg.effects')), (styles) => styles.bg.imageOn)];
+        return [kit.fill('bg', { label: null, image: { captionSet: 'Výchozí fotka — u jednotlivých stran ji lze vyměnit' } }), kit.size('bg', 'Obrázek na pozadí: ', 'bg'), kit.when(section('Efekty obrázku', kit.effects('bg.effects')), (styles) => styles.bg.imageOn)];
     },
 };
 

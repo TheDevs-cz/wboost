@@ -655,7 +655,10 @@ function foot(scan, primary, { back = '', apply = false } = {}) {
         : scan.store.isDirty()
         ? `<p class="as-sub"><span id="calScanApplyHint">${CAL.saveAndApply}</span></p>`
         : `<p class="as-sub">Uloží se hned. Původní rozvržení vrátíte tlačítkem Vrátit původní${until ? ` — do ${until}` : ''}.</p>`;
-    return `<div class="as-foot" data-region="foot"><div class="as-foot-l">${ic('info')}<span>Kalendář se nezmění, dokud rozvržení nepoužijete.${until ? ` Návrh uchováme do ${until}.` : ''}</span></div><div class="as-foot-r">${back}<button type="button" class="btn sm ghost danger" data-act="discard" data-cal-action="scan-discard" data-k="discard"${scan.busy === 'discard' ? ' disabled' : ''}>Zahodit</button><button type="button" class="btn sm btn-tertiary" data-act="rescan" data-cal-action="scan-rescan" data-k="rescan">${ic('refresh')}Naskenovat znovu</button><span class="as-sp"></span>${primary}</div>${sub}</div>`;
+    // K7b: a gentle word under the button while the backdrop place is empty — never a stop, never a dialog
+    const bd = apply && !typeChanged(scan) ? emptyBackdrop(scan.proposal) : null;
+    const note = bd ? `<p class="as-sub cal-scan-bd-note" data-cal-scan-bd-note="${esc(bd.slot)}">${ic('image', 's14')}<span>${CAL.backdrop[bd.slot].noteApply}</span></p>` : '';
+    return `<div class="as-foot" data-region="foot"><div class="as-foot-l">${ic('info')}<span>Kalendář se nezmění, dokud rozvržení nepoužijete.${until ? ` Návrh uchováme do ${until}.` : ''}</span></div><div class="as-foot-r">${back}<button type="button" class="btn sm ghost danger" data-act="discard" data-cal-action="scan-discard" data-k="discard"${scan.busy === 'discard' ? ' disabled' : ''}>Zahodit</button><button type="button" class="btn sm btn-tertiary" data-act="rescan" data-cal-action="scan-rescan" data-k="rescan">${ic('refresh')}Naskenovat znovu</button><span class="as-sp"></span>${primary}</div>${sub}${note}</div>`;
 }
 
 /**
@@ -684,7 +687,7 @@ function reviewView(scan) {
     const primary = `${hasPictures ? `<button type="button" class="btn sm btn-tertiary" data-act="toPictures" data-cal-action="scan-pictures" data-k="topictures">${ic('image')}Doplnit obrázky teď</button>` : ''}${applyButton(scan)}`;
     return `${mismatchAlert(scan)}<div class="as-cgrid" data-region="review" data-deep>
 <div class="as-main" data-region="viewer-${scan.compare}-${scan.layers ? 'l' : 'p'}"><div class="as-viewbar">${seg}<label class="as-switch"><input type="checkbox" class="sr" role="switch" data-chg="toggleLayers" data-k="layers"${scan.layers ? ' checked' : ''}><span class="sw sm" aria-hidden="true"></span><span>Ukázat vrstvy</span></label></div>${compare(scan)}${scan.layers ? layerLegend(scan) : ''}<p class="as-cap">${week ? `Náhled ukazuje týden ${week}. ` : ''}${p.photoBox ? 'Fotka je z vašeho obrázku — do kalendáře se nevloží.' : ''}</p></div>
-<div class="as-main" data-region="side" data-deep><div class="as-card as-sumcard" data-region="sum"><h3 class="as-sum"><b>Návrh rozvržení je připravený.</b></h3><p class="cap" style="margin:0">Tohle je návrh — kalendář se zatím nezměnil.</p>${fontsAttention(scan)}</div>${recognised(scan)}${fontsCard(scan)}${cantCard(scan)}${infoCard(scan)}${feedback(scan)}</div></div>
+<div class="as-main" data-region="side" data-deep><div class="as-card as-sumcard" data-region="sum"><h3 class="as-sum"><b>Návrh rozvržení je připravený.</b></h3><p class="cap" style="margin:0">Tohle je návrh — kalendář se zatím nezměnil.</p>${fontsAttention(scan)}</div>${reviewPictures(scan)}${recognised(scan)}${fontsCard(scan)}${cantCard(scan)}${infoCard(scan)}${feedback(scan)}</div></div>
 ${foot(scan, primary, { apply: true })}`;
 }
 
@@ -708,33 +711,94 @@ export function placeSize(scan, slot) {
     return { ...size, fit };
 }
 
-function pictureCard(scan, item, number) {
-    const p = scan.proposal;
+/** The buttons and the state line of a place (shared by the pictures step and the review's backdrop card, K7b). */
+function pictureBody(scan, item, { drop = true } = {}) {
     const busy = scan.busy === `picture:${item.slot}`;
-    const name = CAL.slots[item.slot] || esc(item.slot);
     const slot = esc(item.slot);
     const dis = busy ? ' disabled' : '';
     const gallery = (label, cls = 'btn-tertiary') => (scan.hasGallery() ? `<button type="button" class="btn xs ${cls}" data-act="pictureGallery" data-slot="${slot}" data-k="picg${slot}"${dis}>${ic('image', 's14')}${label}</button>` : '');
     const upload = (label, cls = 'btn-tertiary') => `<button type="button" class="btn xs ${cls}" data-act="picturePick" data-slot="${slot}" data-k="pic${slot}"${dis}>${ic('upload', 's14')}${label}</button>`;
-    let body;
     if (item.picture) {
         const pic = item.picture;
-        body = `<p class="as-ph-note ok">${ic('check-circle', 's14')}<span class="as-ph-pick" aria-hidden="true"><img src="${esc(pic.url)}" alt="" loading="lazy"></span><span>${esc(pic.name)}${pic.width ? ` · ${pic.width} × ${pic.height} px` : ''}</span></p><div class="as-row">${gallery('Změnit')}${upload(scan.hasGallery() ? 'Nahrát jiný' : 'Změnit', scan.hasGallery() ? 'btn-ghost' : 'btn-tertiary')}<button type="button" class="btn xs btn-ghost" data-act="pictureDrop" data-slot="${slot}" data-k="picdrop${slot}"${dis}>Odebrat obrázek</button></div>`;
-    } else if (item.current) {
-        body = `<p class="as-ph-note ok">${ic('check-circle', 's14')}<span>Zůstane obrázek, který kalendář už má.</span></p><div class="as-row">${gallery('Vybrat z galerie')}${upload('Nahrát jiný')}</div>`;
-    } else {
-        body = `<p class="as-ph-note">${ic('info', 's14')}<span>Můžete ho doplnit i později v kroku Úpravy prvků.</span></p><div class="as-row">${gallery('Vybrat z galerie')}${upload('Nahrát')}</div>`;
+        return `<p class="as-ph-note ok">${ic('check-circle', 's14')}<span class="as-ph-pick" aria-hidden="true"><img src="${esc(pic.url)}" alt="" loading="lazy"></span><span>${esc(pic.name)}${pic.width ? ` · ${pic.width} × ${pic.height} px` : ''}</span></p><div class="as-row">${gallery('Změnit')}${upload(scan.hasGallery() ? 'Nahrát jiný' : 'Změnit', scan.hasGallery() ? 'btn-ghost' : 'btn-tertiary')}<button type="button" class="btn xs btn-ghost" data-act="pictureDrop" data-slot="${slot}" data-k="picdrop${slot}"${dis}>Odebrat obrázek</button></div>`;
     }
+    if (item.current) return `<p class="as-ph-note ok">${ic('check-circle', 's14')}<span>Zůstane obrázek, který kalendář už má.</span></p><div class="as-row">${gallery('Vybrat z galerie')}${upload('Nahrát jiný')}</div>`;
+    if (!drop) return `<div class="as-row">${upload('Nahrát')}${gallery('Vybrat z galerie')}</div>`;
+    return `<p class="as-ph-note">${ic('info', 's14')}<span>Můžete ho doplnit i později v kroku Úpravy prvků.</span></p><div class="as-row">${gallery('Vybrat z galerie')}${upload('Nahrát')}</div>`;
+}
+
+/** The size line of a place (K6) and, for a held picture, the low-dpi warning. */
+function sizeNote(scan, item) {
+    const slot = esc(item.slot);
     const size = placeSize(scan, item.slot);
     const dpi = size && item.picture ? pictureDpi(item.picture, size.box, size.fit) : null;
-    const sizeNote = size ? `<p class="as-ph-note cal-scan-size" data-place-size="${slot}">${ic('fit', 's14')}<span>${esc(size.text)}</span></p>${dpi !== null && dpi < MIN_PRINT_DPI ? `<p class="as-ph-note warn" data-place-dpi="${slot}">${ic('alert', 's14')}<span>Nízká kvalita obrázku — ${dpi} dpi (pro tisk aspoň ${PRINT_DPI} dpi)</span></p>` : ''}` : '';
+    return size ? `<p class="as-ph-note cal-scan-size" data-place-size="${slot}">${ic('fit', 's14')}<span>${esc(size.text)}</span></p>${dpi !== null && dpi < MIN_PRINT_DPI ? `<p class="as-ph-note warn" data-place-dpi="${slot}">${ic('alert', 's14')}<span>Nízká kvalita obrázku — ${dpi} dpi (pro tisk aspoň ${PRINT_DPI} dpi)</span></p>` : ''}` : '';
+}
+
+/** A crop of the uploaded page at the place (the whole page for the background). */
+function placeCrop(scan, item, { maxRatio = 2.2 } = {}) {
+    const p = scan.proposal;
     const source = p.source && p.source.width && p.source.height ? p.source : null;
     const px = sourceBox(scan, slotBox(scan, item.slot));
-    let crop;
-    if (source && px) crop = `<span class="crop" role="img" aria-label="Výřez vaší stránky v tomto místě" style="${cropStyle(scan.image('working'), px, source, { pad: 0.12, minRatio: 0.7, maxRatio: 2.2 })}"></span>`;
-    else if (source) crop = `<span class="crop whole" role="img" aria-label="Vaše stránka — obrázek přes celou stránku" style="aspect-ratio:${pc(source.width / source.height)};background-image:url('${esc(scan.image('working'))}');background-size:cover"></span>`;
-    else crop = `<span class="crop cal-scan-nopic">${ic('image', '')}</span>`;
-    return `<article class="as-ph" data-region="pic-${slot}" data-slot="${slot}" data-hl="pic-${slot}" data-dropzone="slot" aria-label="Místo ${number}: ${name}"><div class="as-ph-crop">${crop}<b class="as-num">${number}</b>${item.picture ? `<span class="chk" role="img" aria-label="Doplněno">${ic('check', 's12')}</span>` : ''}</div><div class="as-ph-b"><div class="as-ph-h"><b>${name}</b>${busy ? '<span class="as-spin" style="width:12px;height:12px"></span>' : ''}</div>${sizeNote}${body}</div></article>`;
+    if (source && px) return `<span class="crop" role="img" aria-label="Výřez vaší stránky v tomto místě" style="${cropStyle(scan.image('working'), px, source, { pad: 0.12, minRatio: 0.7, maxRatio })}"></span>`;
+    if (source) return `<span class="crop whole" role="img" aria-label="Vaše stránka — obrázek přes celou stránku" style="aspect-ratio:${pc(source.width / source.height)};background-image:url('${esc(scan.image('working'))}');background-size:cover"></span>`;
+    return `<span class="crop cal-scan-nopic">${ic('image', '')}</span>`;
+}
+
+function pictureCard(scan, item, number) {
+    const busy = scan.busy === `picture:${item.slot}`;
+    const name = CAL.slots[item.slot] || esc(item.slot);
+    const slot = esc(item.slot);
+    return `<article class="as-ph" data-region="pic-${slot}" data-slot="${slot}" data-hl="pic-${slot}" data-dropzone="slot" aria-label="Místo ${number}: ${name}"><div class="as-ph-crop">${placeCrop(scan, item)}<b class="as-num">${number}</b>${item.picture ? `<span class="chk" role="img" aria-label="Doplněno">${ic('check', 's12')}</span>` : ''}</div><div class="as-ph-b"><div class="as-ph-h"><b>${name}</b>${busy ? '<span class="as-spin" style="width:12px;height:12px"></span>' : ''}</div>${sizeNote(scan, item)}${pictureBody(scan, item)}</div></article>`;
+}
+
+// ---- K7b — the backdrop picture in the review ---------------------------------------------------
+
+/**
+ * The places whose picture makes the page (feedback K7b): the header fill and the page background.
+ * Without it the applied layout shows only the colour the scan guessed — the review encourages it,
+ * never asks for it. The logo and anything else are „Další obrázky“.
+ */
+export const BACKDROP_SLOTS = ['background', 'header'];
+const isBackdrop = (item) => BACKDROP_SLOTS.includes(item.slot);
+/** The backdrop places of the proposal, the page background first. */
+export const backdropPictures = (p) => BACKDROP_SLOTS.flatMap((slot) => p.pictures.filter((item) => item.slot === slot));
+/** A backdrop place that stays empty when the layout is applied now (the first one), or null. */
+export const emptyBackdrop = (p) => backdropPictures(p).find((item) => !item.picture && !item.current) || null;
+
+/** The prominent card of a backdrop place: crop, size, why it matters, a dropzone + the gallery. */
+function backdropCard(scan, item) {
+    const busy = scan.busy === `picture:${item.slot}`;
+    const slot = esc(item.slot);
+    const copy = CAL.backdrop[item.slot];
+    const empty = !item.picture && !item.current;
+    const drop = empty
+        ? `<button type="button" class="gal-drop gal-drop-compact as-drop cal-scan-bd-drop" data-act="picturePick" data-slot="${slot}" data-k="bddrop${slot}"${scan.busy ? ' disabled' : ''}>${ic('upload', '')}<b><span class="dt-only">${copy.drop}</span><span class="ph-only">${copy.tap}</span></b><span class="cap">JPG, PNG, WebP nebo SVG, nejvýše 10 MB</span></button>`
+        : '';
+    const state = empty ? '<span class="pill" data-cal-scan-bd-state="empty">Doporučujeme</span>' : `<span class="pill mint" data-cal-scan-bd-state="done">${ic('check', 's12')}${item.picture ? 'Nahráno' : 'Zůstane'}</span>`;
+    return `<section class="as-card cal-scan-bd${empty ? ' todo' : ''}" data-region="bd-${slot}" data-cal-scan-backdrop="${slot}" data-slot="${slot}" data-hl="pic-${slot}" data-dropzone="slot" aria-labelledby="calScanBd-${slot}">
+<div class="cal-scan-bd-h"><h3 id="calScanBd-${slot}">${ic('image', 's16')}${copy.title}</h3>${busy ? '<span class="as-spin" style="width:12px;height:12px"></span>' : ''}${state}</div>
+${empty ? `<p class="cal-scan-bd-why">${copy.why}</p>` : ''}<div class="cal-scan-bd-place"><span class="cal-scan-bd-crop">${placeCrop(scan, item, { maxRatio: 4 })}</span>${sizeNote(scan, item)}</div>${drop}${empty ? (scan.hasGallery() ? `<div class="as-row"><button type="button" class="btn xs btn-tertiary" data-act="pictureGallery" data-slot="${slot}" data-k="picg${slot}"${busy ? ' disabled' : ''}>${ic('image', 's14')}Vybrat z galerie</button></div>` : '') : pictureBody(scan, item)}</section>`;
+}
+
+/** „Další obrázky (2) — můžete doplnit i později“: the other places as compact rows, still uploadable. */
+function otherPictures(scan) {
+    const rest = scan.proposal.pictures.filter((item) => !isBackdrop(item));
+    if (!rest.length) return '';
+    const rows = rest.map((item) => {
+        const slot = esc(item.slot);
+        const name = CAL.slots[item.slot] || slot;
+        const busy = scan.busy === `picture:${item.slot}`;
+        return `<li class="cal-scan-more-r" data-region="more-${slot}" data-slot="${slot}" data-hl="pic-${slot}" data-dropzone="slot"><div class="cal-scan-more-h"><b>${name}</b>${busy ? '<span class="as-spin" style="width:12px;height:12px"></span>' : ''}${!item.picture && !item.current ? '<span class="cap">zatím prázdné</span>' : ''}</div>${pictureBody(scan, item, { drop: false })}</li>`;
+    }).join('');
+    return `<div class="as-card cal-scan-more" data-region="more" data-cal-scan-more><h3>${CAL.morePictures(rest.length)}</h3><ul class="cal-scan-more-l">${rows}</ul></div>`;
+}
+
+/** The review's pictures (K7b): the backdrop card(s) and the other places — nothing when the scan found no backdrop place. */
+function reviewPictures(scan) {
+    const backdrops = backdropPictures(scan.proposal);
+    if (!backdrops.length) return '';
+    return `<input type="file" class="sr" id="calScanPic" tabindex="-1" aria-hidden="true" accept="${PICTURE_ACCEPT}" data-chg="pictureInput">${backdrops.map((item) => backdropCard(scan, item)).join('')}${otherPictures(scan)}`;
 }
 
 /** The numbers over the proposal: where each picture goes; an empty place shows the page's own pixels. */

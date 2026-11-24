@@ -1318,6 +1318,33 @@ targets the calendar's own type), designers only.
   tlačítkem Změnit…“); a file dropped on one card replaces that card's
   picture; files that find no empty place toast `CAL.picturesNoneEmpty`
   (it used to say „Žádné prázdné místo — obrázky jsme nepřiřadili“).
+- **The backdrop picture is encouraged in the review** (feedback K7b,
+  2026-11-24): after K7 the uploads sat behind „Doplnit obrázky teď“ and got
+  lost — yet without the header / page-background picture the applied layout
+  shows only the colour the scanner guessed (the scanner never sets `imageOn`
+  for a picture it reports, `system.calendar.md`). When the proposal has a
+  `header` or `background` place (`views.BACKDROP_SLOTS`, background first),
+  the review's side column shows right under the summary a card
+  `[data-cal-scan-backdrop="<slot>"]` (`CAL.backdrop[slot]`): the crop of the
+  page at that place, the size line (K6, bleed included), „Doporučujeme
+  nahrát pozadí — bez něj bude záhlaví prázdné.“ (page background: „…stránka
+  prázdná.“), a dropzone `[data-k="bddrop<slot>"]` (click = file chooser, a
+  dropped file = `holdPicture`) and „Vybrat z galerie“; once held, the same
+  state + Změnit / Nahrát jiný / Odebrat as on a picture card. The other
+  places follow as `[data-cal-scan-more]` „Další obrázky (n) — můžete doplnit
+  i později“ — compact rows with Nahrát / Vybrat z galerie. „Použít
+  rozvržení“ stays enabled; while the backdrop place is empty a line under
+  it says so (`[data-cal-scan-bd-note="<slot>"]`, also in the pictures step)
+  — no dialog. An apply that leaves it empty selects THAT place first in
+  step 3 (before the logo) and toasts „Rozvržení převzato ze skenu ·
+  nahrajte obrázek do hlavičky v Úpravách prvků“ (`CAL.appliedBackdrop`;
+  kept as short as K7's toast — a three-line toast covered the step-2
+  card's „Nahrát obrázek“). In step 3 the header / background panel's size line
+  (`kit.size(place, prefix, fillPath)`) then reads „Obrázek do hlavičky:
+  zaškrtněte Obrázek a nahrajte ho · Rozměr …“ while the fill's „Obrázek“ is
+  off (the place has the guessed colour until a picture comes); the page
+  background's size line is shown always now, not only with „Obrázek“ on. A
+  proposal without a backdrop place shows none of this (K7 as before).
 - **Pictures for the places** (`holdPicture(slot, File | {fileId})`): a file
   input, a file dropped on a card (`data-dropzone="slot"`), several files on
   the multi-drop zone or on a card (`holdMany` — the places without a
@@ -1373,8 +1400,8 @@ targets the calendar's own type), designers only.
   (kept in `ui/picture-size.js`: a constant moved into `render/` would change
   the export fingerprint). **Step 3 says the same where the picture is
   actually chosen** (K7): `pictureSize()` of `ui/picture-size.js` under the
-  logo upload, under the header's fill and — while its picture is on — under
-  the page background (`kit.size()` of `ui/editor/props.js`,
+  logo upload, under the header's fill and under the page background (K7b:
+  with „Obrázek“ off it adds „zaškrtněte Obrázek a nahrajte ho“; `kit.size()` of `ui/editor/props.js`,
   `p.cal-psize[data-picture-size="logo|head|bg"]`, follows the box while it
   is moved or resized).
 - **Upload checks**: `inspectFiles(files, {minShortSide: 280, minLongSide:
@@ -1464,6 +1491,8 @@ targets the calendar's own type), designers only.
   `[data-preset="scan"]`, `[data-cal-scan-dot]`, `[data-proposal]`,
   `[data-cal-scan-prep]` with `[data-prep="logo|fonts|palette|page"][data-state="info|ok|todo"]`,
   `[data-place-size="logo|header|background"]` / `[data-place-dpi]` on a picture card,
+  `[data-cal-scan-backdrop="header|background"]` (`[data-cal-scan-bd-state="empty|done"]`),
+  `[data-cal-scan-more]`, `[data-cal-scan-bd-note]` (K7b),
   `[data-cal-scan-fonts="ok|warn|bad"]` (`#calScanFonts`) with rows `[data-font-state]` and pills
   `[data-font-count]`, `[data-cal-scan-attn="fonts"]` in the summary,
   `#calScanFile`, `#calScanPic`, `#calScanPics` (always in the panel's markup), `[data-slot]`
