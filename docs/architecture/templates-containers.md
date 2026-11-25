@@ -239,6 +239,9 @@ footer too).
     bottom-left chip "⛓ pod <Kontejner N> · 20 px ×" (× detaches); an
     UNLINKED root below a rows root (x-overlap, nearest above) shows the
     pill "⛓ Navázat pod řádky" (`_linkSuggestions`) — one click links it.
+    The pill sits centred BELOW the zone (clear of the bottom handle), never
+    on the top edge — there it covered a small container's label/⧉/⚙/×;
+    the top-edge chrome also carries `z-index: 2` over any chip.
     Panel rows get a ⛓ badge. The free text's popover offers "Navázat pod
     kontejner" (wraps it into a single-element follower).
   - Row-count preview (Jan, 2026-11-24: "not clear the container slides

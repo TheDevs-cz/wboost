@@ -828,13 +828,17 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     transform: none;
     border-radius: 0 0 3px 3px;
 }
+/* The suggestion pill sits BELOW the zone (clear of the bottom resize
+   handle), never on the top edge: there it covered the label, duplicate, ⚙
+   and × of a narrow container (2026-11-25). */
 .container-link-chip--suggest {
     color: var(--on-a);
     background: var(--a);
     border-radius: 999px;
-    top: -24px;
+    top: calc(100% + 10px);
     padding: 2px 4px 2px 8px;
     box-shadow: var(--shadow-2);
+    z-index: 1;
 }
 .container-link-chip__remove,
 .container-link-chip__action {
@@ -966,6 +970,14 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
 /* Duplicates the container INCLUDING its objects. Sits left of the ⚙. */
 .container-zone__duplicate {
     right: 46px;
+}
+
+/* The top-edge chrome always stays on top of any chip, so it stays clickable. */
+.container-zone__label,
+.container-zone__delete,
+.container-zone__settings,
+.container-zone__duplicate {
+    z-index: 2;
 }
 
 .container-zone__settings:hover,

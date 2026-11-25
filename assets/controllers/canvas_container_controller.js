@@ -628,7 +628,8 @@ export default class extends Controller {
 
         const chip = document.createElement('span');
         // Linked: bottom-left (the top edge sits right under the target's
-        // chrome); suggestion: a call-to-action pill on the top edge.
+        // chrome); suggestion: a call-to-action pill centred below the zone,
+        // so the top-edge chrome (label, duplicate, ⚙, ×) stays clickable.
         chip.className = targetId ? 'container-link-chip container-link-chip--linked' : 'container-link-chip container-link-chip--suggest';
         chip.addEventListener('mousedown', (event) => event.stopPropagation());
 
