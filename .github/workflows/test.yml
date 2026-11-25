@@ -79,9 +79,21 @@ jobs:
   # transition and one ledger line whoever wins — claims, cancels, the reaper,
   # two starts, a replaced run's usage, accept × 2, accept vs discard / expiry,
   # fix vs accept, two tabs fixing. See docs/architecture/ai-scan.md § "Tests".
+  #
+  # Split in two parallel shards by class (the rounds are what make it slow,
+  # and each shard has its own Postgres); a new race class goes into one of them.
   fault-injection:
+      name: fault-injection (${{ matrix.shard }})
       runs-on: ubuntu-latest
       container: ghcr.io/thedevs-cz/php:8.5-wboost
+      strategy:
+          fail-fast: false
+          matrix:
+              include:
+                  -   shard: ai-scan
+                      paths: tests/FaultInjection/AiScanRaceTest.php
+                  -   shard: review-calendar
+                      paths: tests/FaultInjection/AiScanReviewRaceTest.php tests/FaultInjection/CalendarScanRaceTest.php
 
       services:
           postgres:
@@ -116,7 +128,7 @@ jobs:
               run: |
                   php -r 'exit(function_exists("pcntl_fork") && function_exists("posix_kill") ? 0 : 1);'
 
-          -   run: vendor/bin/phpunit --group fault-injection
+          -   run: vendor/bin/phpunit --group fault-injection ${{ matrix.paths }}
 
 
   # The calendar renders that really go through Gotenberg (headless Chromium):
