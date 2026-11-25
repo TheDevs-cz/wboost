@@ -2319,6 +2319,15 @@ export default class extends Controller {
         close.setAttribute('aria-label', 'Zavřít');
         close.textContent = '×';
         close.addEventListener('click', () => this._closeSettings());
+        // „Uložit" = the same as × (every field already applies on change);
+        // it is there so the user sees the edits are kept (Jan, 2026-11-25),
+        // like the text/image popovers' „Uložit".
+        const save = document.createElement('button');
+        save.type = 'button';
+        save.className = 'btn btn-success btn-sm container-zone-popover__save';
+        save.innerHTML = '<span class="i i-check s14" aria-hidden="true"></span>Uložit';
+        save.addEventListener('click', () => this._closeSettings());
+        title.appendChild(save);
         title.appendChild(close);
         el.appendChild(title);
 
