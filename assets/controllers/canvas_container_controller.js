@@ -9,6 +9,7 @@ import { applyFollowRules, applyRepeatRules, followLinks, normalizeRepeat, repea
 import { MAX_ROWS, rowCapacity } from './container_rows.js';
 import { applyRowMerge, planRowMerge } from './container_row_merge.js';
 import { defaultFollowGap, followTargets, planDynamicRows, planLink } from './container_follow.js';
+import { isDragged, makeDraggable, pinPopover } from './popover_drag.js';
 
 /**
  * Container ("smart text area") authoring for the admin canvas editor.
@@ -703,7 +704,7 @@ export default class extends Controller {
         select.addEventListener('change', () => {
             this._linkContainer(container, select.value || null);
             this._closeSettings();
-            if (this._containers().includes(container)) this._openSettings(container);
+            if (this._containers().includes(container)) this._openSettings(container, { keepPlace: true });
         });
         section.appendChild(select);
 
@@ -2271,7 +2272,14 @@ export default class extends Controller {
         this._openSettings(container);
     }
 
-    _openSettings(container) {
+    /**
+     * `keepPlace`: a rebuild of the same container's popover (its field set
+     * changed) stays where the user dragged it instead of snapping back.
+     */
+    _openSettings(container, { keepPlace = false } = {}) {
+        const place = keepPlace && this._settingsPlace && this._settingsPlace.id === container.id
+            ? this._settingsPlace
+            : null;
         this._closeSettings();
         if (!this.hasLayerTarget) return;
         // Zones hidden: the popover has nothing to anchor to (see
@@ -2289,7 +2297,22 @@ export default class extends Controller {
 
         const title = document.createElement('div');
         title.className = 'container-zone-popover__title';
-        title.textContent = nested ? 'Vnořený kontejner' : 'Kontejner';
+        // The title is the move grip (shared popover_drag.js): a dragged
+        // popover stops re-anchoring to its zone until it closes.
+        const grip = document.createElement('span');
+        grip.className = 'container-zone-popover__grip';
+        grip.setAttribute('data-popover-drag-handle', '');
+        grip.setAttribute('role', 'button');
+        grip.title = 'Přesunout okno';
+        grip.setAttribute('aria-label', 'Přesunout okno');
+        const gripIcon = document.createElement('i');
+        gripIcon.className = 'i i-grip s14';
+        gripIcon.setAttribute('aria-hidden', 'true');
+        const titleText = document.createElement('span');
+        titleText.textContent = nested ? 'Vnořený kontejner' : 'Kontejner';
+        grip.append(gripIcon, titleText);
+        title.appendChild(grip);
+        makeDraggable(grip, el);
         const close = document.createElement('button');
         close.type = 'button';
         close.className = 'container-zone-popover__close';
@@ -2576,7 +2599,13 @@ export default class extends Controller {
         this.layerTarget.appendChild(el);
         this._settingsEl = el;
         this._settingsContainerId = container.id;
-        this._positionSettings();
+        if (place) {
+            el.style.left = `${place.left}px`;
+            el.style.top = `${place.top}px`;
+            pinPopover(el);
+        } else {
+            this._positionSettings();
+        }
         // The range band (canvas-user-move) follows the open popover.
         const canvas = this._canvas();
         if (canvas) canvas.requestRenderAll();
@@ -2773,7 +2802,15 @@ export default class extends Controller {
 
     _closeSettings() {
         const wasOpen = Boolean(this._settingsEl);
+        this._settingsPlace = null;
         if (this._settingsEl) {
+            if (isDragged(this._settingsEl)) {
+                this._settingsPlace = {
+                    id: this._settingsContainerId,
+                    left: parseFloat(this._settingsEl.style.left) || 0,
+                    top: parseFloat(this._settingsEl.style.top) || 0,
+                };
+            }
             this._settingsEl.remove();
         }
         this._settingsEl = null;
@@ -2860,7 +2897,7 @@ export default class extends Controller {
         const stillExists = this._containers().includes(container);
         this._closeSettings();
         if (stillExists) {
-            this._openSettings(container);
+            this._openSettings(container, { keepPlace: true });
         }
     }
 
@@ -2877,6 +2914,8 @@ export default class extends Controller {
 
     _positionSettings() {
         if (!this._settingsEl || !this._settingsContainerId) return;
+        // Moved by the user: stays put until it closes.
+        if (isDragged(this._settingsEl)) return;
         const entry = this._zones.find(({ container }) => container.id === this._settingsContainerId);
         if (!entry) return;
 

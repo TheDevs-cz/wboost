@@ -110,7 +110,10 @@ member stays an ordinary independent input. Since the 2026-08 nesting rework:
   offset copy settles below the original via the normalize pass), a ⚙ button
   opening the per-zone settings popover (gap, spaceAfter, "Vnořit do
   kontejneru" parent select — the discoverable nesting control; maxHeight on
-  top-level; "Zrušit kontejner"), and an × button that drops the
+  top-level; "Zrušit kontejner"; 340 px wide, draggable by its title grip
+  via the shared `popover_drag.js` — a dragged popover stops re-anchoring
+  to its zone and keeps its place across a same-container rebuild
+  (`_openSettings(c, { keepPlace: true })`) until it closes), and an × button that drops the
   definition — members of a nested container are PROMOTED to the parent so
   the flow survives (top-level × frees the members; both undoable). Members
   are dragged INDIVIDUALLY (plain Fabric drag); the whole container (deep)

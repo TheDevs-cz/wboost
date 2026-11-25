@@ -1030,7 +1030,10 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
 .container-zone-popover {
     position: absolute;
     z-index: 1001;
-    width: 260px;
+    /* 340 px (was 260): the labels, hints and selects wrapped into a tall,
+       thin column (Jan, 2026-11-25 — +100 px tested safe). */
+    width: 340px;
+    max-width: calc(100vw - 32px);
     /* The ⚙ popover grew (hide, nesting, repeatable row, move) — scroll
        inside instead of running off a short stage. */
     max-height: calc(100vh - 140px);
@@ -1051,6 +1054,24 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     padding-right: 20px;
     font-size: 13px;
     font-weight: 600;
+    color: var(--text);
+}
+
+.container-zone-popover__grip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: -4px;
+    cursor: move;
+    touch-action: none;
+    user-select: none;
+}
+.container-zone-popover__grip .i {
+    color: var(--subtle);
+    background-color: currentColor;
+}
+.container-zone-popover__grip:hover .i,
+.container-zone-popover__grip.is-dragging .i {
     color: var(--text);
 }
 
