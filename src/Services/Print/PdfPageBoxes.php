@@ -24,7 +24,7 @@ use WBoost\Web\Exceptions\PdfStructureNotSupported;
  *
  * Deliberately narrow: it reads the classic cross-reference TABLE of a file
  * without earlier updates and without encryption — what Skia/PDF (Chromium)
- * and qpdf (Gotenberg's merge) write. Anything else throws
+ * and litho (Gotenberg 9's merge) write. Anything else throws
  * {@see PdfStructureNotSupported} before the file is modified; the caller
  * then ships the file as it is.
  */

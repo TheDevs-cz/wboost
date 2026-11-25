@@ -203,7 +203,9 @@ jobs:
           # is self-contained too — a rectangle and a text, no picture, no font.
           # …and the renderer's isolation itself (RendererIsolationGotenbergTest):
           # a render page reaches no private address and no outside host.
-          -   run: vendor/bin/phpunit --group gotenberg --filter 'CalendarRenderDocumentGotenbergTest|RenderInjectionGotenbergTest|RendererIsolationGotenbergTest'
+          # …and the export's fallback merge through Gotenberg's /forms/pdf/merge
+          # (CalendarPdfMergerGotenbergTest): chunks printed from inline HTML.
+          -   run: vendor/bin/phpunit --group gotenberg --filter 'CalendarRenderDocumentGotenbergTest|RenderInjectionGotenbergTest|RendererIsolationGotenbergTest|CalendarPdfMergerGotenbergTest'
 
 
   # A released skill is immutable: once `wboost-plugin-v<version>` is tagged

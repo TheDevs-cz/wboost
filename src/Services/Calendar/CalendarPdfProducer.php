@@ -208,7 +208,7 @@ readonly final class CalendarPdfProducer implements CalendarPdfProducerInterface
      *
      * {@see PdfChunkMerger} copies the chunks together on the local disk —
      * constant memory, no size limit, a second per 500 MB. Should Chromium
-     * ever write a structure it does not read, Gotenberg's merge route (qpdf)
+     * ever write a structure it does not read, Gotenberg's merge route (litho)
      * + {@see PdfPageBoxes} do the same job for files small enough to travel
      * there and back.
      *

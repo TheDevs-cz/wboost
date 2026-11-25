@@ -1863,7 +1863,9 @@ renderer's default stays `holes: true`).
 5. **Fallback**: if a chunk is not what the merger reads
    (`PdfStructureNotSupported` — a cross-reference stream, an earlier update,
    encryption: a future Chromium), the chunks go through Gotenberg's
-   `/forms/pdfengines/merge` (qpdf; `CalendarPdfMerger`) and
+   `/forms/pdf/merge` (litho, Gotenberg 9 — posted directly by
+   `CalendarPdfMerger`: gotenberg-bundle 1.x knows only Gotenberg 8's
+   `/forms/pdfengines/merge`, which 9 answers with a 404) and
    `PdfPageBoxes::apply` appends the boxes as an incremental update — the
    2026-11-11 first version of this step, good up to roughly 400 MB (the whole
    file twice in Gotenberg's `/tmp`, inside one HTTP call). A warning is

@@ -16,7 +16,7 @@ use WBoost\Web\Tests\TestingLogin;
 use WBoost\Web\Value\Calendar\CalendarExportVariant;
 
 /**
- * The REAL export — node, Gotenberg's Chromium, its qpdf merge, the page
+ * The REAL export — node, Gotenberg's Chromium, its merge route, the page
  * boxes — of a calendar with a photo on one week and a special page. Needs
  * the `gotenberg` service; run with
  * `vendor/bin/phpunit --group gotenberg --filter CalendarPdfProducer`.

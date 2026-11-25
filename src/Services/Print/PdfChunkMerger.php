@@ -15,7 +15,7 @@ use WBoost\Web\Exceptions\PdfStructureNotSupported;
  * new root. Nothing is decoded, so fonts, vector pages and pictures arrive
  * exactly as they were written.
  *
- * Why not Gotenberg's merge route (qpdf), which does the same thing: a print
+ * Why not Gotenberg's merge route (litho), which does the same thing: a print
  * export of a calendar with photos at the upload cap is ~560 MB. Sending it
  * there and back needs the whole file twice in Gotenberg's `/tmp` (a 1 GB
  * tmpfs in production) inside one HTTP call bounded by the 25 s client cap
