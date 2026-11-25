@@ -113,7 +113,9 @@ member stays an ordinary independent input. Since the 2026-08 nesting rework:
   top-level; "Zrušit kontejner"; 340 px wide, draggable by its title grip
   via the shared `popover_drag.js` — a dragged popover stops re-anchoring
   to its zone and keeps its place across a same-container rebuild
-  (`_openSettings(c, { keepPlace: true })`) until it closes), and an × button that drops the
+  (`_openSettings(c, { keepPlace: true })`) until it closes; a „Uložit"
+  button next to × only closes it — fields apply on change, the button is
+  there so the user sees the edits are kept), and an × button that drops the
   definition — members of a nested container are PROMOTED to the parent so
   the flow survives (top-level × frees the members; both undoable). Members
   are dragged INDIVIDUALLY (plain Fabric drag); the whole container (deep)
