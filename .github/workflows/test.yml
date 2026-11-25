@@ -158,9 +158,9 @@ jobs:
           # the same as flags; a service container takes no command, Gotenberg
           # reads every flag from the environment too — a list is comma-separated).
           gotenberg:
-              image: gotenberg/gotenberg:8.34.0@sha256:67097317623a503ba2a6a7e9ae8db6929a1f7e1bbd88077bacf2d325fbdab923
+              image: gotenberg/gotenberg:9.10.1@sha256:7d04e465cc8f700871092c2871c04f1e70d86eb399c9887cbd86a4a809e873ce
               env:
-                  CHROMIUM_DENY_LIST: '^file:(?!///tmp/[0-9a-f-]{36}/[0-9a-f-]{36}/[^/]+$).*,^(?!https://img\.wboost\.cz(:443)?(/|$))(https?|wss?|ftp):'
+                  CHROMIUM_DENY_LIST: '^file:(?!///tmp/[0-9a-f-]{36}/[0-9a-f-]{36}/[^/]+$).*,^(?!(https|wss)://img\.wboost\.cz(:443)?(/|$)|(http|ws)://img\.wboost\.cz:443(/|$))(https?|wss?|ftp):'
                   CHROMIUM_DENY_PRIVATE_IPS: 'true'
 
       steps:

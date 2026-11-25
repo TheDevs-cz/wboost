@@ -31,4 +31,4 @@ sensiolabs_gotenberg:
 # must not need one. A fixed version (production's) answers without a call.
 when@test:
     sensiolabs_gotenberg:
-        version: '8.34.0'
+        version: '9.10.1'

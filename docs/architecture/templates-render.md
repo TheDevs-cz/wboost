@@ -76,7 +76,7 @@ coerce it to its type first, or use `textContent`.
 
 The second layer under the embedding rule: a script that did get into a render
 page finds nothing to talk to. Gotenberg runs **pinned by digest**
-(`gotenberg/gotenberg:8.34.0@sha256:67097317…`) with three flags — the same in
+(`gotenberg/gotenberg:9.10.1@sha256:7d04e465…` since 2026-11-25; 8.34.0 before) with three flags — the same in
 production (`lily.srv/apps/wboost/compose.yaml`, decision D90), in the dev
 `compose.yaml` and in CI's `calendar-render` service (there as environment
 variables: a service container takes no command):
@@ -84,7 +84,7 @@ variables: a service container takes no command):
 | flag | effect |
 |---|---|
 | `--chromium-deny-list=^file:(?!///tmp/[0-9a-f-]{36}/[0-9a-f-]{36}/[^/]+$).*` | `file:` — only the conversion's own files (`/tmp/<request>/<conversion>/<file>`): no directory listing, no other path |
-| `--chromium-deny-list=^(?!https://img\.wboost\.cz(:443)?(/\|$))(https?\|wss?\|ftp):` | no network request at all, except the public picture host (below). Checked twice by Gotenberg: on the page's request (full URL) and on the connection (`https://host:443` — hence the `(:443)?(/\|$)`) |
+| `--chromium-deny-list=^(?!(https\|wss)://img\.wboost\.cz(:443)?(/\|$)\|(http\|ws)://img\.wboost\.cz:443(/\|$))(https?\|wss?\|ftp):` | no network request at all, except the public picture host (below). Checked twice by Gotenberg: on the page's request (full URL) and on the connection (`https://host:443` — hence the `(:443)?(/\|$)`). Since 8.39 the connection (a CONNECT tunnel) is matched against EVERY scheme's root URL (`https://img.wboost.cz/`, `wss://img.wboost.cz/`, `ws://img.wboost.cz:443/`, `http://img.wboost.cz:443/`) and refused if any is denied — an https-only exception silently drops every img.wboost.cz picture (tested on 8.40.0 and 9.10.1, 2026-11-25). So the exception names that one host on :443 for all four schemes; `http://img.wboost.cz/` on :80, look-alike hosts and private addresses stay denied |
 | `--chromium-deny-private-ips` | whatever the list lets through must not resolve to a loopback / private / link-local address (MinIO, the database, Redis, the app, Gotenberg's own API) |
 
 **The rule for every render page: embed everything.** Scripts inline, fonts,
@@ -424,7 +424,7 @@ crop marks, exactly the structure of the Illustrator-exported reference file.
 - **`PdfPageBoxes`** (2026-11-11, used by the calendar PDF export —
   `calendars.md` § "PDF export") is the one class here that works on a PDF it
   did not write: it appends an incremental update that sets MediaBox / CropBox
-  / TrimBox / BleedBox + Info on every page of a Chromium-printed, qpdf-merged
+  / TrimBox / BleedBox + Info on every page of a Chromium-printed, Gotenberg-merged (`/forms/pdf/merge`, litho since Gotenberg 9)
   file. That export is the opposite design of the one above — a **vector RGB**
   file printed by Chromium (live text, embedded fonts, photos at native
   pixels), not a flattened CMYK raster; the CMYK conversion of such a vector

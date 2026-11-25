@@ -440,7 +440,7 @@ anonymous figure is the sign of a leak, and the remedy is a restart of Gotenberg
 
 ## Gotenberg's restriction (renderer isolation)
 
-Since 2026-11-14 the stack's Gotenberg is pinned by digest (8.34.0) and started with a deny list and
+Since 2026-11-14 the stack's Gotenberg is pinned by digest (9.10.1 since 2026-11-25; 8.34.0, then 8.40.0 before) and started with a deny list and
 `--chromium-deny-private-ips` (infra `apps/wboost/compose.yaml`, D90; the rule and the flags:
 `docs/architecture/templates-render.md`, "Renderer isolation"). A render page gets its own file and
 `data:` URLs, plus `https://img.wboost.cz/` for a picture storage could not hand over — nothing else.
@@ -450,11 +450,16 @@ Since 2026-11-14 the stack's Gotenberg is pinned by digest (8.34.0) and started 
   `docker logs --since 1h wboost-gotenberg-1 2>&1 | grep 'denied list' | grep -v -E 'google(apis)?\.com'`
   — every line left is a render page that asked for an address (the excluded ones are Chromium's own
   background calls, `CONNECT blocked for 'www.google.com:443'` and the like, several per render; harmless).
+  On 9.x a refusal is also logged as `outbound request blocked by the Chromium filters` (with `url` and
+  `rule` fields): grep for that too.
 - **A new render page / a new kind of asset** must be embedded (`data:`), never linked. The dev stack
   and CI run the same flags, so it shows there first.
 - **Rollback** (renders only; ~5 s without a renderer): in the infra repo put back
   `image: gotenberg/gotenberg:8` and `command: ["gotenberg", "--chromium-auto-start"]`, push, then
   `cd /srv/wboost && IMAGE_TAG=main REPLICAS=1 flock /run/lily-deploy-runner.lock docker compose up -d --no-deps gotenberg`.
+  Since 2026-11-25 the app calls Gotenberg 9's `/forms/pdf/merge` (`CalendarPdfMerger`, the calendar
+  export's fallback merge); on an 8.x renderer that route answers 404, so a rollback to 8 also needs the
+  app commit before it.
 
 ## Rollback, per phase
 

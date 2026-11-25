@@ -111,7 +111,7 @@ services:
     # isolation"; tests/Services/Editor/RendererIsolationGotenbergTest.php).
     # `$$` is compose's escape for a literal `$`.
     gotenberg:
-        image: gotenberg/gotenberg:8.34.0@sha256:67097317623a503ba2a6a7e9ae8db6929a1f7e1bbd88077bacf2d325fbdab923
+        image: gotenberg/gotenberg:9.10.1@sha256:7d04e465cc8f700871092c2871c04f1e70d86eb399c9887cbd86a4a809e873ce
         command:
             - gotenberg
             - --chromium-auto-start
@@ -119,7 +119,7 @@ services:
             - '--chromium-deny-list=^file:(?!///tmp/[0-9a-f-]{36}/[0-9a-f-]{36}/[^/]+$$).*'
             # network — nothing, except the public picture host (a canvas picture
             # that could not be read from storage keeps its public URL)
-            - '--chromium-deny-list=^(?!https://img\.wboost\.cz(:443)?(/|$$))(https?|wss?|ftp):'
+            - '--chromium-deny-list=^(?!(https|wss)://img\.wboost\.cz(:443)?(/|$$)|(http|ws)://img\.wboost\.cz:443(/|$$))(https?|wss?|ftp):'
             # …and whatever the list lets through must not resolve to a private address
             - --chromium-deny-private-ips
 
