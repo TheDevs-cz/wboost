@@ -8,7 +8,7 @@ import { buildContainerMoveSection } from './canvas_user_move.js';
 import { applyFollowRules, applyRepeatRules, followLinks, normalizeRepeat, repeatBlockReason } from './canvas_payload.js';
 import { MAX_ROWS, rowCapacity } from './container_rows.js';
 import { applyRowMerge, planRowMerge } from './container_row_merge.js';
-import { defaultFollowGap, followTargets, planDynamicRows, planLink, planUnlink } from './container_follow.js';
+import { defaultFollowGap, followTargets, pickTargetAbove, planDynamicRows, planLink, planUnlink, selectionRootId } from './container_follow.js';
 import { isDragged, makeDraggable, pinPopover } from './popover_drag.js';
 
 /**
@@ -55,7 +55,7 @@ import { isDragged, makeDraggable, pinPopover } from './popover_drag.js';
  */
 export default class extends Controller {
     static outlets = ["canvas-editor"];
-    static targets = ["layer", "createButton", "mergeButton", "rowsButton", "linkButton", "section", "freeSection", "freeFollowSelect", "panel", "panelList", "panelCount", "rowButton"];
+    static targets = ["layer", "createButton", "mergeButton", "rowsButton", "linkButton", "linkToggleButton", "section", "freeSection", "freeFollowSelect", "panel", "panelList", "panelCount", "rowButton"];
 
     /** Zone/panel accent per nesting depth — parent and child containers must
      *  read as DIFFERENT colors at a glance (cycled past depth 2). */
@@ -507,79 +507,140 @@ export default class extends Controller {
             : `Dynamické řádky — ${plan ? plan.reason : 'vyberte prvky jednoho řádku'}`;
     }
 
-    _planLink(objects) {
-        return planLink({
-            containers: this._containers(),
-            selection: this._selectionEntries(objects),
-            newId: () => crypto.randomUUID(),
-        });
-    }
-
-    _planUnlink(objects) {
-        return planUnlink({
-            containers: this._containers(),
-            selection: this._selectionEntries(objects),
-        });
+    /**
+     * What ⛓ means for the current selection (Jan, 2026-11-25: one container
+     * is what a designer actually selects — a zone-label click or any of its
+     * elements — so ⛓ is first of all THIS block's link, a toggle):
+     *  - `unlink`: the selection lies in ONE top-level container attached
+     *    below another → toggled on, a click detaches it;
+     *  - `attach`: ONE top-level container, not attached → a click attaches
+     *    it below the nearest valid container above it (`pickTargetAbove`,
+     *    the same picker as the „Navázat pod řádky" pill);
+     *  - `chain`: several blocks (shift-click on zone labels / elements, free
+     *    elements too) → chained top to bottom (`planLink`);
+     *  - `none` + reason otherwise.
+     */
+    _linkAction(objects) {
+        const containers = this._containers();
+        const selection = this._selectionEntries(objects);
+        if (!objects.length) return { mode: 'none', reason: 'vyberte kontejner' };
+        const unlink = planUnlink({ containers, selection });
+        if (unlink) {
+            const container = containers.find((c) => c.id === unlink.containerId);
+            return { mode: 'unlink', container, targetId: unlink.targetId, apply: () => unlink.apply(containers) };
+        }
+        const rootId = selectionRootId({ containers, selection });
+        if (rootId) {
+            const container = containers.find((c) => c.id === rootId);
+            const block = container ? this._followBox(container) : null;
+            const candidates = container
+                ? followTargets(containers, container)
+                    .map((t) => ({ t, b: this._followBox(t) }))
+                    .filter((e) => e.b)
+                    .map((e) => ({ id: e.t.id, ...e.b }))
+                : [];
+            // The „Navázat pod řádky" pill, when shown, is what the button
+            // does too — the designer sees one answer, not two.
+            const targetId = this._linkSuggestions().get(rootId)
+                || (block ? pickTargetAbove(block, candidates) : null);
+            if (!targetId) {
+                return {
+                    mode: 'none',
+                    reason: 'nad tímto kontejnerem žádný není — kontejner, pod který ho navážete, vyberete v jeho ⚙ („Navázat pod kontejner“)',
+                };
+            }
+            return { mode: 'attach', container, targetId };
+        }
+        const plan = planLink({ containers, selection, newId: () => crypto.randomUUID() });
+        return plan.ok ? { mode: 'chain', plan } : { mode: 'none', reason: plan.reason };
     }
 
     /**
-     * „Navázat pod sebe" (multi-select bar): chain the selected blocks top to
-     * bottom — a member stands for its whole top-level container, a free
-     * element is wrapped into its own single-element container. Each lower
-     * block then starts right under the one above (the normalize pass moves
-     * it there) and follows it as it grows or shrinks. One undo step.
+     * ⛓ click (multi-select bar, or the single-element mini toolbar): see
+     * `_linkAction`. One undo step. The selection is restored afterwards, so
+     * the toolbar stays up and shows the flipped state (a second click
+     * flips it back).
      */
     linkSelection() {
         const canvas = this._canvas();
         if (!canvas) return;
         const objects = this._activeObjects();
-        // Toggled on (the selection already is a linked block / chain): the
-        // click detaches it — one undo step like linking.
-        const unlink = this._planUnlink(objects);
-        if (unlink) {
-            canvas.discardActiveObject();
-            unlink.apply(this._containers());
-            this._afterStructureChange();
-            this._mergeToast('Navázání zrušeno', [unlink.count === 1
-                ? 'Kontejner už se neposouvá podle bloku nad ním — zůstane, kde je.'
-                : `${unlink.count} navázání zrušena — bloky zůstanou, kde jsou.`], true);
-            return;
-        }
         const layout = this._layout();
         objects.forEach((o) => {
             if (!o.inputId && layout && layout.isMemberCandidate(o)) o.inputId = crypto.randomUUID();
         });
-        const plan = this._planLink(objects);
-        if (!plan.ok) {
-            this._mergeToast('Navázat nejde', [plan.reason]);
+        const action = this._linkAction(objects);
+        if (action.mode === 'none') {
+            this._mergeToast('Navázat nejde', [action.reason.charAt(0).toUpperCase() + action.reason.slice(1) + '.']);
             return;
         }
+        const labels = this._panelLabels();
+        const name = (id) => `„${labels.get(id) || 'kontejner'}“`;
         canvas.discardActiveObject();
-        plan.apply(this._containers());
-        this._afterStructureChange();
-        this._mergeToast('Navázáno', [`${plan.count} bloky teď jdou pod sebou — spodní se posouvá podle toho, kde horní skončí.`], true);
+        if (action.mode === 'unlink') {
+            action.apply();
+            this._afterStructureChange();
+            this._mergeToast('Navázání zrušeno', [`Kontejner už se neposouvá podle ${name(action.targetId)} — zůstává, kde je.`], true);
+        } else if (action.mode === 'attach') {
+            this._linkContainer(action.container, action.targetId);
+            this._mergeToast('Navázáno', [`Kontejner teď začíná pod ${name(action.targetId)} a posouvá se s ním. Mezeru změníte v ⚙.`], true);
+        } else {
+            action.plan.apply(this._containers());
+            this._afterStructureChange();
+            this._mergeToast('Navázáno', [`${action.plan.count} bloky teď jdou pod sebou — spodní se posouvá podle toho, kde horní skončí.`], true);
+        }
+        this._reselect(objects);
+    }
+
+    /** Select `objects` again (those still on the canvas) after a structure
+     *  change dropped the selection. */
+    _reselect(objects) {
+        const canvas = this._canvas();
+        if (!canvas) return;
+        const alive = this._objects().filter((o) => objects.includes(o) && o.visible !== false && o.selectable !== false);
+        if (!alive.length) return;
+        canvas.setActiveObject(alive.length === 1 ? alive[0] : new ActiveSelection(alive, { canvas }));
+        canvas.requestRenderAll();
+        if (this.hasCanvasEditorOutlet) this.canvasEditorOutlet.dispatchSelectionChanged();
     }
 
     _syncLinkButton(activeObject) {
-        if (!this.hasLinkButtonTarget) return;
-        const isSelection = activeObject && (activeObject.type || '').toLowerCase() === 'activeselection';
-        const objects = isSelection ? activeObject.getObjects() : [];
-        const unlink = isSelection ? this._planUnlink(objects) : null;
-        this.linkButtonTarget.classList.toggle('active', Boolean(unlink));
-        this.linkButtonTarget.setAttribute('aria-pressed', unlink ? 'true' : 'false');
-        if (unlink) {
-            this.linkButtonTarget.setAttribute('aria-disabled', 'false');
-            this.linkButtonTarget.classList.remove('is-unavailable');
-            this.linkButtonTarget.title = 'Navázáno — kliknutím navázání zrušíte (blok zůstane, kde je)';
-            return;
+        if (!this.hasLinkButtonTarget && !this.hasLinkToggleButtonTarget) return;
+        const isSelection = Boolean(activeObject) && (activeObject.type || '').toLowerCase() === 'activeselection';
+        const objects = isSelection ? activeObject.getObjects() : (activeObject ? [activeObject] : []);
+        const action = this._linkAction(objects);
+        const labels = this._panelLabels();
+        const name = (id) => `„${labels.get(id) || 'kontejner'}“`;
+        let title;
+        if (action.mode === 'unlink') {
+            title = `Navázáno pod ${name(action.targetId)} — kliknutím navázání zrušíte (kontejner zůstane, kde je)`;
+        } else if (action.mode === 'attach') {
+            title = `Navázat pod ${name(action.targetId)} — kontejner pak začne hned pod ním a posune se s ním`;
+        } else if (action.mode === 'chain') {
+            title = 'Navázat pod sebe — spodní blok začne hned pod horním a posouvá se s ním';
+        } else {
+            title = `Navázat — ${action.reason}`;
         }
-        const plan = isSelection ? this._planLink(objects) : null;
-        const ok = Boolean(plan && plan.ok);
-        this.linkButtonTarget.setAttribute('aria-disabled', ok ? 'false' : 'true');
-        this.linkButtonTarget.classList.toggle('is-unavailable', !ok);
-        this.linkButtonTarget.title = ok
-            ? 'Navázat pod sebe — spodní blok začne hned pod horním a posouvá se s ním'
-            : `Navázat pod sebe — ${plan ? plan.reason : 'vyberte prvky dvou bloků'}`;
+        const paint = (button) => {
+            const on = action.mode === 'unlink';
+            const ok = action.mode !== 'none';
+            button.classList.toggle('active', on);
+            button.setAttribute('aria-pressed', on ? 'true' : 'false');
+            button.setAttribute('aria-disabled', ok ? 'false' : 'true');
+            button.classList.toggle('is-unavailable', !ok);
+            button.title = title;
+            button.setAttribute('aria-label', on ? 'Zrušit navázání' : 'Navázat');
+        };
+        if (this.hasLinkButtonTarget) paint(this.linkButtonTarget);
+        // Single element: the mini toolbar's ⛓ for an element of a container
+        // (on/off/unavailable like the bar); a free element links from its
+        // popover („Navázat pod kontejner"), so the button stays hidden.
+        if (this.hasLinkToggleButtonTarget) {
+            const inContainer = !isSelection && objects.length === 1
+                && selectionRootId({ containers: this._containers(), selection: this._selectionEntries(objects) }) !== null;
+            this.linkToggleButtonTarget.classList.toggle('d-none', !inContainer);
+            if (inContainer) paint(this.linkToggleButtonTarget);
+        }
     }
 
     /** Attach `container` below `targetId` (null = detach). One undo step. */
@@ -622,15 +683,7 @@ export default class extends Controller {
             seen.add(child.id);
             return Boolean(child.repeat) || holdsRow(child, seen);
         });
-        const box = (c) => {
-            const members = this._deepMemberObjects(c).filter((o) => o.visible !== false);
-            if (!members.length) return null;
-            return {
-                top: Math.min(...members.map((o) => this._absTop(o))),
-                left: Math.min(...members.map((o) => this._absLeft(o))),
-                right: Math.max(...members.map((o) => this._absLeft(o) + o.width * (o.scaleX || 1))),
-            };
-        };
+        const box = (c) => this._followBox(c);
         const rowRoots = roots.filter((c) => holdsRow(c)).map((c) => ({ c, b: box(c) })).filter((e) => e.b);
         if (!rowRoots.length) return result;
         roots.forEach((c) => {
@@ -638,15 +691,22 @@ export default class extends Controller {
             const b = box(c);
             if (!b) return;
             const allowed = new Set(followTargets(containers, c).map((t) => t.id));
-            let best = null;
-            rowRoots.forEach((e) => {
-                if (!allowed.has(e.c.id) || e.b.top >= b.top) return;
-                if (Math.min(e.b.right, b.right) - Math.max(e.b.left, b.left) <= 0) return;
-                if (!best || e.b.top > best.b.top) best = e;
-            });
-            if (best) result.set(c.id, best.c.id);
+            const targetId = pickTargetAbove(b, rowRoots.filter((e) => allowed.has(e.c.id)).map((e) => ({ id: e.c.id, ...e.b })));
+            if (targetId) result.set(c.id, targetId);
         });
         return result;
+    }
+
+    /** A container's visible extent for the "which one is above" pick:
+     *  top + x-range of its visible deep members (absolute design px). */
+    _followBox(container) {
+        const members = this._deepMemberObjects(container).filter((o) => o.visible !== false);
+        if (!members.length) return null;
+        return {
+            top: Math.min(...members.map((o) => this._absTop(o))),
+            left: Math.min(...members.map((o) => this._absLeft(o))),
+            right: Math.max(...members.map((o) => this._absLeft(o) + o.width * (o.scaleX || 1))),
+        };
     }
 
     /** The zone's link chip: "⛓ pod Kontejner N · 20 px ×", or the
@@ -2310,6 +2370,7 @@ export default class extends Controller {
             ? this._settingsPlace
             : null;
         this._closeSettings();
+        this._settingsPlace = null;
         if (!this.hasLayerTarget) return;
         // Zones hidden: the popover has nothing to anchor to (see
         // _applyZoneVisibility). The panel row still selects the container.
@@ -2840,8 +2901,12 @@ export default class extends Controller {
 
     _closeSettings() {
         const wasOpen = Boolean(this._settingsEl);
-        this._settingsPlace = null;
+        // The dragged place is remembered only when a popover is actually
+        // closed — a second, empty close (the select handler closes again
+        // after the selection-change close) must not forget it before the
+        // keepPlace reopen reads it. `_openSettings` consumes it.
         if (this._settingsEl) {
+            this._settingsPlace = null;
             if (isDragged(this._settingsEl)) {
                 this._settingsPlace = {
                     id: this._settingsContainerId,

@@ -44,6 +44,9 @@
         {% if group_mode|default(false) %}
             <button type="button" class="btn btn-sm btn-light" title="Přenést do ostatních variant — poloha, velikost, styl a text tohoto prvku přepíšou jejich úpravy" data-action="group-editor#resyncActiveObject"><i class="i i-refresh s16"></i></button>
         {% endif %}
+        {# 2026-11-25: an element of a container attached below another one
+           („Navázat pod") — toggled on, a click detaches the container. #}
+        <button type="button" class="btn btn-sm btn-light active d-none" aria-pressed="true" title="Navázáno — kliknutím navázání zrušíte (blok zůstane, kde je)" aria-label="Zrušit navázání" data-canvas-container-target="linkToggleButton" data-action="canvas-container#linkSelection"><i class="i i-link s16"></i></button>
         <span class="canvas-mini-toolbar-sep"></span>
         <button type="button" class="btn btn-sm btn-light" title="Do popředí" data-action="canvas-alignment#bringToFront"><i class="i i-front s16"></i></button>
         <button type="button" class="btn btn-sm btn-light" title="Do pozadí" data-action="canvas-alignment#sendToBack"><i class="i i-back s16"></i></button>

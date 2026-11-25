@@ -126,30 +126,45 @@ final class ContainerFollowActionsTest extends TestCase
         self::assertFalse($this->plan('link', $containers, [$this->entry('u1', 100, 120), $this->entry('u2', 130, 150)])['ok']);
     }
 
-    public function testUnlinkDetachesALinkedBlockOrAFullChainOnly(): void
+    public function testUnlinkDetachesTheOneAttachedContainerOfTheSelection(): void
     {
         $containers = [
             ['id' => 'list', 'maxHeight' => 500, 'memberInputIds' => [], 'memberContainerIds' => ['r'], 'gap' => 20],
             ['id' => 'r', 'maxHeight' => 50, 'memberInputIds' => ['score', 'opponent'], 'memberContainerIds' => [], 'repeat' => ['max' => 8]],
             ['id' => 'lineup', 'maxHeight' => 200, 'memberInputIds' => ['l1', 'l2'], 'memberContainerIds' => [], 'follows' => ['containerId' => 'list', 'gap' => 20]],
             ['id' => 'footer', 'maxHeight' => 100, 'memberInputIds' => ['f1', 'f2'], 'memberContainerIds' => [], 'follows' => ['containerId' => 'lineup', 'gap' => 10]],
-            ['id' => 'loose', 'maxHeight' => 100, 'memberInputIds' => ['x1', 'x2'], 'memberContainerIds' => []],
         ];
 
-        // The members of ONE attached container (Jan's „Sestava" case).
+        // The members of ONE attached container (Jan's „Sestava" case) —
+        // only its own link goes, the one attached below it stays.
         $out = $this->plan('unlink', $containers, [$this->entry('l1', 600, 620), $this->entry('l2', 630, 650)]);
         self::assertTrue($out['ok']);
         self::assertSame(['footer' => 'lineup'], CanvasContainer::validFollowLinks($this->saved($out['containers'])));
 
-        // A full chain: only the links inside it go.
-        $out = $this->plan('unlink', $containers, [$this->entry('f1', 900, 920), $this->entry('l1', 600, 620)]);
-        self::assertTrue($out['ok']);
-        self::assertSame(['lineup' => 'list'], CanvasContainer::validFollowLinks($this->saved($out['containers'])));
+        // A single element is enough (the mini toolbar's ⛓).
+        self::assertTrue($this->plan('unlink', $containers, [$this->entry('f1', 900, 920)])['ok']);
 
-        // Not linked → the button keeps its "link" meaning.
-        self::assertFalse($this->plan('unlink', $containers, [$this->entry('x1', 1000, 1020)])['ok'], 'a container that follows nothing');
-        self::assertFalse($this->plan('unlink', $containers, [$this->entry('score', 345, 396), $this->entry('f1', 900, 920)])['ok'], 'a gap in the chain');
+        // Not one attached container → the button keeps its "link" meaning.
+        self::assertFalse($this->plan('unlink', $containers, [$this->entry('score', 345, 396)])['ok'], 'a root that follows nothing (a nested member counts for its root)');
+        self::assertFalse($this->plan('unlink', $containers, [$this->entry('l1', 600, 620), $this->entry('f1', 900, 920)])['ok'], 'elements of two containers');
         self::assertFalse($this->plan('unlink', $containers, [$this->entry('l1', 600, 620), $this->entry('free', 1100, 1120)])['ok'], 'a free element in the selection');
+    }
+
+    public function testTheBlockAttachesBelowTheNearestOverlappingContainerAbove(): void
+    {
+        $block = ['top' => 600, 'left' => 100, 'right' => 500];
+        $pick = fn (array $candidates): mixed => $this->plan('pick', [], [], null, ['block' => $block, 'candidates' => $candidates])['id'];
+
+        self::assertSame('near', $pick([
+            ['id' => 'far', 'top' => 100, 'left' => 100, 'right' => 500],
+            ['id' => 'near', 'top' => 400, 'left' => 300, 'right' => 900],
+        ]));
+        self::assertSame('far', $pick([
+            ['id' => 'far', 'top' => 100, 'left' => 100, 'right' => 500],
+            ['id' => 'beside', 'top' => 450, 'left' => 600, 'right' => 900],
+            ['id' => 'below', 'top' => 700, 'left' => 100, 'right' => 500],
+        ]), 'no x-overlap and below never count');
+        self::assertNull($pick([]));
     }
 
     public function testFollowTargetsExcludeSelfNestedAndLoops(): void
@@ -186,9 +201,10 @@ final class ContainerFollowActionsTest extends TestCase
     /**
      * @param list<array<string, mixed>> $containers
      * @param list<array<string, mixed>> $selection
-     * @return array{ok: bool, reason: null|string, mode: null|string, result: array<string, mixed>, containers: list<array<string, mixed>>, ids: list<string>}
+     * @param array<string, mixed> $extra
+     * @return array{ok: bool, reason: null|string, mode: null|string, result: array<string, mixed>, containers: list<array<string, mixed>>, ids: list<string>, id: null|string}
      */
-    private function plan(string $op, array $containers, array $selection, null|string $containerId = null): array
+    private function plan(string $op, array $containers, array $selection, null|string $containerId = null, array $extra = []): array
     {
         $node = (new ExecutableFinder())->find('node');
         if ($node === null) {
@@ -204,10 +220,11 @@ final class ContainerFollowActionsTest extends TestCase
             'selection' => $selection,
             'canvasHeight' => 1350,
             'containerId' => $containerId,
+            ...$extra,
         ], JSON_THROW_ON_ERROR));
         $process->mustRun();
 
-        /** @var array{ok?: bool, reason?: string, mode?: null|string, result?: array<string, mixed>, containers?: list<array<string, mixed>>, ids?: list<string>} $out */
+        /** @var array{ok?: bool, reason?: string, mode?: null|string, result?: array<string, mixed>, containers?: list<array<string, mixed>>, ids?: list<string>, id?: null|string} $out */
         $out = json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR);
 
         return [
@@ -217,6 +234,7 @@ final class ContainerFollowActionsTest extends TestCase
             'result' => $out['result'] ?? [],
             'containers' => $out['containers'] ?? [],
             'ids' => $out['ids'] ?? [],
+            'id' => $out['id'] ?? null,
         ];
     }
 }

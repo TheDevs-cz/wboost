@@ -230,11 +230,21 @@ footer too).
     its whole ROOT, a free element is wrapped into a single-element
     container; the blocks chain top to bottom, gap = the target's uniform
     `gap` else 20 (`defaultFollowGap`), a link that would close a loop is
-    removed first. TOGGLE (2026-11-25, `planUnlink`): when the selection
-    already IS linked — the members of ONE root that follows another, or
-    roots chained exactly in their top-to-bottom order — the button shows
-    `.active` / `aria-pressed` and a click detaches those links only (one
-    undo step); a free element or a gap in the chain keeps the link meaning.
+    removed first. ONE-BLOCK TOGGLE (Jan, 2026-11-25 — what a designer
+    actually selects is one container: a zone-label click or any of its
+    elements; multi-selecting containers is a shift-click few find), one
+    `_linkAction` drives both the multi bar ⛓ and the single-element mini
+    toolbar ⛓ (`linkToggleButton`, shown for an element of a container,
+    hidden for a free element — its popover links):
+    `unlink` = the selection lies in ONE root (`selectionRootId`) that
+    follows another → `.active` + `aria-pressed`, the tooltip names the
+    target, a click detaches (`planUnlink`); `attach` = one unlinked root →
+    a click attaches it below the „Navázat pod řádky" pill's target when
+    the pill shows, else the nearest x-overlapping root above
+    (`pickTargetAbove` — the pill uses the same picker); `chain` = several
+    blocks → `planLink`; `none` = dimmed with a reason pointing at ⚙. After
+    a click the selection is restored (`_reselect`), so the toolbar stays
+    and shows the flipped state.
   - Multi-select bar ↻ "Dynamické řádky" (`planDynamicRows`; the free text's
     popover button + "Opakovat jako řádek" on a free element call it too):
     free elements → a new row (`repeat`) inside a new list root (gap 20,

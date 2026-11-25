@@ -5,12 +5,13 @@
  * the REAL module on plain definitions.
  *
  * Input (stdin, JSON):
- *   { module: "<container_follow.js>", op: "rows"|"link"|"unlink"|"targets",
+ *   { module: "<container_follow.js>", op: "rows"|"link"|"unlink"|"pick"|"targets",
  *     containers: [...], selection: [{inputId, top, bottom, candidate}],
- *     canvasHeight: px, containerId?: id (targets) }
+ *     canvasHeight: px, containerId?: id (targets),
+ *     block?, candidates? (pick — pickTargetAbove) }
  * Output (stdout, JSON): { ok, reason?, mode?, result?, containers } —
  * `containers` after apply() (ids minted as "new-1", "new-2", …), or for
- * "targets" { ids: [...] }.
+ * "targets" { ids: [...] }, for "pick" { id }.
  */
 'use strict';
 
@@ -33,6 +34,11 @@ const input = JSON.parse(fs.readFileSync(0, 'utf8'));
     if (input.op === 'targets') {
         const container = containers.find((c) => c.id === input.containerId);
         process.stdout.write(JSON.stringify({ ids: mod.followTargets(containers, container).map((c) => c.id) }));
+        return;
+    }
+
+    if (input.op === 'pick') {
+        process.stdout.write(JSON.stringify({ id: mod.pickTargetAbove(input.block, input.candidates || []) }));
         return;
     }
 

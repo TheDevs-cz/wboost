@@ -237,58 +237,74 @@ export function planLink({ containers, selection, newId }) {
 }
 
 /**
- * The toggled-on state of „Navázat pod sebe" (Jan, 2026-11-25: the ⛓ button
- * never showed that the selected block already IS attached, and offered no
- * way out). The selection stands for already-linked blocks when it is
- *  - ONE top-level container (its members) that follows another one, or
- *  - several top-level containers chained exactly in their top-to-bottom
- *    order (each lower one follows the one right above it).
- * Then `apply()` detaches those links (only the ones the selection shows —
- * the single block's own link, or the links inside the chain). Anything
- * else — a free element in the selection, a gap in the chain — is null: the
- * button keeps its "link" meaning (`planLink`).
+ * The ONE top-level container a selection lies in (a member of a nested
+ * container counts for its root), or null — a free element or elements of
+ * two containers. The ⛓ button's single-block meaning hangs on it.
  *
  * @param {Object} args
  * @param {Array} args.containers
  * @param {Array} args.selection [{inputId, top, bottom, candidate}]
- * @returns {{count: number, followerIds: string[], apply: Function}|null}
+ * @returns {?string}
  */
-export function planUnlink({ containers, selection }) {
+export function selectionRootId({ containers, selection }) {
     if (!selection.length) return null;
     const memberOf = memberMap(containers);
     const parentOf = directParentMap(containers);
-    const units = new Map();
+    const roots = new Set();
     for (const entry of selection) {
         const owner = entry.inputId ? memberOf.get(entry.inputId) : null;
         if (!owner) return null;
-        const rootId = rootIdOf(parentOf, owner.id);
-        units.set(rootId, Math.min(units.has(rootId) ? units.get(rootId) : Infinity, entry.top));
+        roots.add(rootIdOf(parentOf, owner.id));
     }
+    return roots.size === 1 ? [...roots][0] : null;
+}
+
+/**
+ * The toggled-on state of ⛓ (Jan, 2026-11-25: the button never showed that
+ * the selected block already IS attached, and offered no way out): the
+ * selection — one element or several — lies in ONE top-level container that
+ * follows another one. `apply()` detaches that link.
+ *
+ * @returns {{containerId: string, targetId: string, apply: Function}|null}
+ */
+export function planUnlink({ containers, selection }) {
+    const rootId = selectionRootId({ containers, selection });
+    if (!rootId) return null;
     const byId = new Map(containers.map((c) => [c.id, c]));
-    const ordered = [...units.entries()].sort((a, b) => a[1] - b[1]).map(([id]) => id);
-    let followerIds;
-    if (ordered.length === 1) {
-        const root = byId.get(ordered[0]);
-        if (!root || !root.follows || !byId.has(root.follows.containerId)) return null;
-        followerIds = [root.id];
-    } else {
-        for (let i = 1; i < ordered.length; i += 1) {
-            const follower = byId.get(ordered[i]);
-            if (!follower || !follower.follows || follower.follows.containerId !== ordered[i - 1]) return null;
-        }
-        followerIds = ordered.slice(1);
-    }
+    const root = byId.get(rootId);
+    if (!root || !root.follows || !byId.has(root.follows.containerId)) return null;
 
     return {
-        count: followerIds.length,
-        followerIds,
+        containerId: root.id,
+        targetId: root.follows.containerId,
         apply(defs) {
-            defs.forEach((c) => {
-                if (followerIds.includes(c.id)) delete c.follows;
-            });
-            return { containerIds: followerIds };
+            const def = defs.find((c) => c.id === root.id);
+            if (def) delete def.follows;
+            return { containerId: root.id };
         },
     };
+}
+
+/**
+ * The container a block most likely belongs under: among `candidates`
+ * (already filtered to valid targets — `followTargets`), the nearest one
+ * whose top lies ABOVE the block's top and whose x-range overlaps it. Shared
+ * by the ⛓ button (one unlinked container selected → attach it here) and the
+ * „Navázat pod řádky" pill (candidates = the rows roots), so the two never
+ * disagree on what "the one above" is.
+ *
+ * @param {{top: number, left: number, right: number}} block
+ * @param {Array<{id: string, top: number, left: number, right: number}>} candidates
+ * @returns {?string}
+ */
+export function pickTargetAbove(block, candidates) {
+    let best = null;
+    candidates.forEach((c) => {
+        if (!(c.top < block.top)) return;
+        if (Math.min(c.right, block.right) - Math.max(c.left, block.left) <= 0) return;
+        if (!best || c.top > best.top) best = c;
+    });
+    return best ? best.id : null;
 }
 
 /**
