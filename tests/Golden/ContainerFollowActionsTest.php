@@ -126,6 +126,32 @@ final class ContainerFollowActionsTest extends TestCase
         self::assertFalse($this->plan('link', $containers, [$this->entry('u1', 100, 120), $this->entry('u2', 130, 150)])['ok']);
     }
 
+    public function testUnlinkDetachesALinkedBlockOrAFullChainOnly(): void
+    {
+        $containers = [
+            ['id' => 'list', 'maxHeight' => 500, 'memberInputIds' => [], 'memberContainerIds' => ['r'], 'gap' => 20],
+            ['id' => 'r', 'maxHeight' => 50, 'memberInputIds' => ['score', 'opponent'], 'memberContainerIds' => [], 'repeat' => ['max' => 8]],
+            ['id' => 'lineup', 'maxHeight' => 200, 'memberInputIds' => ['l1', 'l2'], 'memberContainerIds' => [], 'follows' => ['containerId' => 'list', 'gap' => 20]],
+            ['id' => 'footer', 'maxHeight' => 100, 'memberInputIds' => ['f1', 'f2'], 'memberContainerIds' => [], 'follows' => ['containerId' => 'lineup', 'gap' => 10]],
+            ['id' => 'loose', 'maxHeight' => 100, 'memberInputIds' => ['x1', 'x2'], 'memberContainerIds' => []],
+        ];
+
+        // The members of ONE attached container (Jan's „Sestava" case).
+        $out = $this->plan('unlink', $containers, [$this->entry('l1', 600, 620), $this->entry('l2', 630, 650)]);
+        self::assertTrue($out['ok']);
+        self::assertSame(['footer' => 'lineup'], CanvasContainer::validFollowLinks($this->saved($out['containers'])));
+
+        // A full chain: only the links inside it go.
+        $out = $this->plan('unlink', $containers, [$this->entry('f1', 900, 920), $this->entry('l1', 600, 620)]);
+        self::assertTrue($out['ok']);
+        self::assertSame(['lineup' => 'list'], CanvasContainer::validFollowLinks($this->saved($out['containers'])));
+
+        // Not linked → the button keeps its "link" meaning.
+        self::assertFalse($this->plan('unlink', $containers, [$this->entry('x1', 1000, 1020)])['ok'], 'a container that follows nothing');
+        self::assertFalse($this->plan('unlink', $containers, [$this->entry('score', 345, 396), $this->entry('f1', 900, 920)])['ok'], 'a gap in the chain');
+        self::assertFalse($this->plan('unlink', $containers, [$this->entry('l1', 600, 620), $this->entry('free', 1100, 1120)])['ok'], 'a free element in the selection');
+    }
+
     public function testFollowTargetsExcludeSelfNestedAndLoops(): void
     {
         $containers = [

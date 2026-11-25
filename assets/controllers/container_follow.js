@@ -237,6 +237,61 @@ export function planLink({ containers, selection, newId }) {
 }
 
 /**
+ * The toggled-on state of „Navázat pod sebe" (Jan, 2026-11-25: the ⛓ button
+ * never showed that the selected block already IS attached, and offered no
+ * way out). The selection stands for already-linked blocks when it is
+ *  - ONE top-level container (its members) that follows another one, or
+ *  - several top-level containers chained exactly in their top-to-bottom
+ *    order (each lower one follows the one right above it).
+ * Then `apply()` detaches those links (only the ones the selection shows —
+ * the single block's own link, or the links inside the chain). Anything
+ * else — a free element in the selection, a gap in the chain — is null: the
+ * button keeps its "link" meaning (`planLink`).
+ *
+ * @param {Object} args
+ * @param {Array} args.containers
+ * @param {Array} args.selection [{inputId, top, bottom, candidate}]
+ * @returns {{count: number, followerIds: string[], apply: Function}|null}
+ */
+export function planUnlink({ containers, selection }) {
+    if (!selection.length) return null;
+    const memberOf = memberMap(containers);
+    const parentOf = directParentMap(containers);
+    const units = new Map();
+    for (const entry of selection) {
+        const owner = entry.inputId ? memberOf.get(entry.inputId) : null;
+        if (!owner) return null;
+        const rootId = rootIdOf(parentOf, owner.id);
+        units.set(rootId, Math.min(units.has(rootId) ? units.get(rootId) : Infinity, entry.top));
+    }
+    const byId = new Map(containers.map((c) => [c.id, c]));
+    const ordered = [...units.entries()].sort((a, b) => a[1] - b[1]).map(([id]) => id);
+    let followerIds;
+    if (ordered.length === 1) {
+        const root = byId.get(ordered[0]);
+        if (!root || !root.follows || !byId.has(root.follows.containerId)) return null;
+        followerIds = [root.id];
+    } else {
+        for (let i = 1; i < ordered.length; i += 1) {
+            const follower = byId.get(ordered[i]);
+            if (!follower || !follower.follows || follower.follows.containerId !== ordered[i - 1]) return null;
+        }
+        followerIds = ordered.slice(1);
+    }
+
+    return {
+        count: followerIds.length,
+        followerIds,
+        apply(defs) {
+            defs.forEach((c) => {
+                if (followerIds.includes(c.id)) delete c.follows;
+            });
+            return { containerIds: followerIds };
+        },
+    };
+}
+
+/**
  * Top-level containers a container may be attached below (⚙ "Navázat pod"):
  * every OTHER top-level container whose own chain does not lead back to it.
  *

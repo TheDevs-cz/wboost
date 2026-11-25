@@ -5,7 +5,7 @@
  * the REAL module on plain definitions.
  *
  * Input (stdin, JSON):
- *   { module: "<container_follow.js>", op: "rows"|"link"|"targets",
+ *   { module: "<container_follow.js>", op: "rows"|"link"|"unlink"|"targets",
  *     containers: [...], selection: [{inputId, top, bottom, candidate}],
  *     canvasHeight: px, containerId?: id (targets) }
  * Output (stdout, JSON): { ok, reason?, mode?, result?, containers } —
@@ -33,6 +33,17 @@ const input = JSON.parse(fs.readFileSync(0, 'utf8'));
     if (input.op === 'targets') {
         const container = containers.find((c) => c.id === input.containerId);
         process.stdout.write(JSON.stringify({ ids: mod.followTargets(containers, container).map((c) => c.id) }));
+        return;
+    }
+
+    if (input.op === 'unlink') {
+        const unlink = mod.planUnlink({ containers, selection: input.selection });
+        if (!unlink) {
+            process.stdout.write(JSON.stringify({ ok: false }));
+            return;
+        }
+        const result = unlink.apply(containers);
+        process.stdout.write(JSON.stringify({ ok: true, result, containers }));
         return;
     }
 

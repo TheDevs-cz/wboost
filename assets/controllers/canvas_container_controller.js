@@ -8,7 +8,7 @@ import { buildContainerMoveSection } from './canvas_user_move.js';
 import { applyFollowRules, applyRepeatRules, followLinks, normalizeRepeat, repeatBlockReason } from './canvas_payload.js';
 import { MAX_ROWS, rowCapacity } from './container_rows.js';
 import { applyRowMerge, planRowMerge } from './container_row_merge.js';
-import { defaultFollowGap, followTargets, planDynamicRows, planLink } from './container_follow.js';
+import { defaultFollowGap, followTargets, planDynamicRows, planLink, planUnlink } from './container_follow.js';
 import { isDragged, makeDraggable, pinPopover } from './popover_drag.js';
 
 /**
@@ -515,6 +515,13 @@ export default class extends Controller {
         });
     }
 
+    _planUnlink(objects) {
+        return planUnlink({
+            containers: this._containers(),
+            selection: this._selectionEntries(objects),
+        });
+    }
+
     /**
      * „Navázat pod sebe" (multi-select bar): chain the selected blocks top to
      * bottom — a member stands for its whole top-level container, a free
@@ -526,6 +533,18 @@ export default class extends Controller {
         const canvas = this._canvas();
         if (!canvas) return;
         const objects = this._activeObjects();
+        // Toggled on (the selection already is a linked block / chain): the
+        // click detaches it — one undo step like linking.
+        const unlink = this._planUnlink(objects);
+        if (unlink) {
+            canvas.discardActiveObject();
+            unlink.apply(this._containers());
+            this._afterStructureChange();
+            this._mergeToast('Navázání zrušeno', [unlink.count === 1
+                ? 'Kontejner už se neposouvá podle bloku nad ním — zůstane, kde je.'
+                : `${unlink.count} navázání zrušena — bloky zůstanou, kde jsou.`], true);
+            return;
+        }
         const layout = this._layout();
         objects.forEach((o) => {
             if (!o.inputId && layout && layout.isMemberCandidate(o)) o.inputId = crypto.randomUUID();
@@ -544,7 +563,17 @@ export default class extends Controller {
     _syncLinkButton(activeObject) {
         if (!this.hasLinkButtonTarget) return;
         const isSelection = activeObject && (activeObject.type || '').toLowerCase() === 'activeselection';
-        const plan = isSelection ? this._planLink(activeObject.getObjects()) : null;
+        const objects = isSelection ? activeObject.getObjects() : [];
+        const unlink = isSelection ? this._planUnlink(objects) : null;
+        this.linkButtonTarget.classList.toggle('active', Boolean(unlink));
+        this.linkButtonTarget.setAttribute('aria-pressed', unlink ? 'true' : 'false');
+        if (unlink) {
+            this.linkButtonTarget.setAttribute('aria-disabled', 'false');
+            this.linkButtonTarget.classList.remove('is-unavailable');
+            this.linkButtonTarget.title = 'Navázáno — kliknutím navázání zrušíte (blok zůstane, kde je)';
+            return;
+        }
+        const plan = isSelection ? this._planLink(objects) : null;
         const ok = Boolean(plan && plan.ok);
         this.linkButtonTarget.setAttribute('aria-disabled', ok ? 'false' : 'true');
         this.linkButtonTarget.classList.toggle('is-unavailable', !ok);

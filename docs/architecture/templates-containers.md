@@ -230,7 +230,11 @@ footer too).
     its whole ROOT, a free element is wrapped into a single-element
     container; the blocks chain top to bottom, gap = the target's uniform
     `gap` else 20 (`defaultFollowGap`), a link that would close a loop is
-    removed first.
+    removed first. TOGGLE (2026-11-25, `planUnlink`): when the selection
+    already IS linked — the members of ONE root that follows another, or
+    roots chained exactly in their top-to-bottom order — the button shows
+    `.active` / `aria-pressed` and a click detaches those links only (one
+    undo step); a free element or a gap in the chain keeps the link meaning.
   - Multi-select bar ↻ "Dynamické řádky" (`planDynamicRows`; the free text's
     popover button + "Opakovat jako řádek" on a free element call it too):
     free elements → a new row (`repeat`) inside a new list root (gap 20,
