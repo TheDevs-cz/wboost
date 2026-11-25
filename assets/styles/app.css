@@ -967,9 +967,10 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
     right: 22px;
 }
 
-/* Duplicates the container INCLUDING its objects. Sits left of the ⚙. */
+/* Duplicates the container INCLUDING its objects. Sits left of the ⚙
+   (⚙ spans right 22–46 px; the 3 px gap matches the one between ⚙ and ×). */
 .container-zone__duplicate {
-    right: 46px;
+    right: 49px;
 }
 
 /* The top-edge chrome always stays on top of any chip, so it stays clickable. */
@@ -998,7 +999,7 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
 
 .container-zone--nested .container-zone__duplicate {
     top: 2px;
-    right: 50px;
+    right: 53px;
     border-radius: 3px;
 }
 
