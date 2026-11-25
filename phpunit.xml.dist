@@ -10,8 +10,30 @@
     </php>
 
     <testsuites>
-        <testsuite name="Project Test Suite">
+        <!--
+            Three disjoint suites that together are the whole of tests/ — a
+            plain `vendor/bin/phpunit` runs all of them. CI runs one per
+            parallel job (`(dash dash)testsuite <name>`, .github/workflows/test.yml);
+            the cut is balanced by measured run time, so keep a new slow
+            directory in mind when one shard starts to dominate. Every path
+            excluded from `rest` must be listed in another suite.
+        -->
+        <testsuite name="ai-scan">
+            <directory>tests/Controller/AiScan</directory>
+            <directory>tests/Controller/Internal</directory>
+            <directory>tests/Services</directory>
+        </testsuite>
+        <testsuite name="mcp-api">
+            <directory>tests/Mcp</directory>
+            <directory>tests/Api</directory>
+        </testsuite>
+        <testsuite name="rest">
             <directory>tests</directory>
+            <exclude>tests/Controller/AiScan</exclude>
+            <exclude>tests/Controller/Internal</exclude>
+            <exclude>tests/Services</exclude>
+            <exclude>tests/Mcp</exclude>
+            <exclude>tests/Api</exclude>
         </testsuite>
     </testsuites>
 

@@ -12,11 +12,24 @@ concurrency:
 
 env:
     DATABASE_URL: postgresql://postgres:postgres@postgres:5432/wboost_test?serverVersion=16&charset=utf8
+    # The CI image loads Xdebug in `develop` mode, which slows every PHP call;
+    # nothing here collects coverage or debugs. Together with opcache for the
+    # CLI (the ini step in each PHP job) this halves the phpunit time.
+    XDEBUG_MODE: 'off'
 
 jobs:
+  # The default suite split into three parallel shards (the `<testsuite>`s of
+  # phpunit.xml.dist, balanced by measured run time): each shard has its own
+  # runner and its own Postgres, so nothing is shared between them. A plain
+  # local `vendor/bin/phpunit` still runs all three suites = everything.
   tests:
+    name: tests (${{ matrix.suite }})
     runs-on: ubuntu-latest
     container: ghcr.io/thedevs-cz/php:8.5-wboost
+    strategy:
+        fail-fast: false
+        matrix:
+            suite: [ai-scan, mcp-api, rest]
 
     services:
       postgres:
@@ -32,7 +45,10 @@ jobs:
       # The app's PHP settings (post_max_size, max_input_time, max_input_vars …),
       # as prod (Dockerfile COPY) and dev (compose mount) load them —
       # RequestBodyLimitTest checks the RUNNING PHP has them.
-      -   run: cp .docker/php/wboost.ini "$PHP_INI_DIR/conf.d/zz-wboost.ini"
+      -   run: |
+              cp .docker/php/wboost.ini "$PHP_INI_DIR/conf.d/zz-wboost.ini"
+              # opcache is off for the CLI in the image: every kernel boot of a test recompiled the app.
+              echo "opcache.enable_cli=1" > "$PHP_INI_DIR/conf.d/zz-ci-opcache.ini"
 
       -   uses: actions/cache@v5
           with:
@@ -53,7 +69,7 @@ jobs:
           run: bin/console importmap:install
 
       -   run: bin/console asset-map:compile
-      -   run: vendor/bin/phpunit
+      -   run: vendor/bin/phpunit --testsuite ${{ matrix.suite }}
 
 
   # AI scan fault injection (tests/FaultInjection): REAL races between forked
@@ -81,7 +97,10 @@ jobs:
           # The app's PHP settings (post_max_size, max_input_time, max_input_vars …),
           # as prod (Dockerfile COPY) and dev (compose mount) load them —
           # RequestBodyLimitTest checks the RUNNING PHP has them.
-          -   run: cp .docker/php/wboost.ini "$PHP_INI_DIR/conf.d/zz-wboost.ini"
+          -   run: |
+                  cp .docker/php/wboost.ini "$PHP_INI_DIR/conf.d/zz-wboost.ini"
+                  # opcache is off for the CLI in the image: every kernel boot of a test recompiled the app.
+                  echo "opcache.enable_cli=1" > "$PHP_INI_DIR/conf.d/zz-ci-opcache.ini"
 
           -   uses: actions/cache@v5
               with:
@@ -137,7 +156,10 @@ jobs:
           # The app's PHP settings (post_max_size, max_input_time, max_input_vars …),
           # as prod (Dockerfile COPY) and dev (compose mount) load them —
           # RequestBodyLimitTest checks the RUNNING PHP has them.
-          -   run: cp .docker/php/wboost.ini "$PHP_INI_DIR/conf.d/zz-wboost.ini"
+          -   run: |
+                  cp .docker/php/wboost.ini "$PHP_INI_DIR/conf.d/zz-wboost.ini"
+                  # opcache is off for the CLI in the image: every kernel boot of a test recompiled the app.
+                  echo "opcache.enable_cli=1" > "$PHP_INI_DIR/conf.d/zz-ci-opcache.ini"
 
           -   uses: actions/cache@v5
               with:
