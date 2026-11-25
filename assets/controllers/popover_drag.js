@@ -48,8 +48,16 @@ export function makeDraggable(handle, popover) {
         const startY = event.clientY;
 
         const move = (e) => {
-            popover.style.left = `${baseLeft + (e.clientX - startX)}px`;
-            popover.style.top = `${baseTop + (e.clientY - startY)}px`;
+            let left = baseLeft + (e.clientX - startX);
+            let top = baseTop + (e.clientY - startY);
+            if (fixed) {
+                // Keep the grip reachable: the title row never leaves the
+                // window (a popover dragged off-screen could not come back).
+                top = Math.min(Math.max(top, 0), window.innerHeight - 40);
+                left = Math.min(Math.max(left, 60 - rect.width), window.innerWidth - 60);
+            }
+            popover.style.left = `${left}px`;
+            popover.style.top = `${top}px`;
             popover[DRAGGED] = true;
             handle.classList.add("is-dragging");
         };
@@ -83,4 +91,43 @@ export function resetDrag(popover) {
  */
 export function pinPopover(popover) {
     if (popover) popover[DRAGGED] = true;
+}
+
+/**
+ * Place an anchored, position:fixed editor popover (client px). It prefers to
+ * start at `preferredTop` and to stay BELOW `safeTop` (the editor header),
+ * shrinking to fit there (inline max-height, it scrolls inside); only when
+ * the space under the header is too short (< MIN_FIT px) does it rise over
+ * the header — fixed + z-index above the editor chrome, so it is never cut
+ * off (2026-11-25, Jan: popovers hid under the top bar). Returns the top.
+ */
+const MIN_FIT = 320;
+export function placeFixedPopover(el, left, preferredTop, safeTop) {
+    const MARGIN = 8;
+    // The full content height WITHOUT touching max-height: clearing it would
+    // reset the popover's own scroll position on every re-place (it re-places
+    // on each canvas change while the user edits inside it).
+    const natural = el.scrollHeight + (el.offsetHeight - el.clientHeight);
+    const below = window.innerHeight - safeTop - MARGIN;
+    let top;
+    let maxHeight = '';
+    if (natural <= below) {
+        top = Math.min(Math.max(preferredTop, safeTop), window.innerHeight - natural - MARGIN);
+    } else if (below >= MIN_FIT) {
+        top = safeTop;
+        maxHeight = `${below}px`;
+    } else {
+        top = Math.min(Math.max(preferredTop, MARGIN), Math.max(MARGIN, window.innerHeight - natural - MARGIN));
+    }
+    if (el.style.maxHeight !== maxHeight) el.style.maxHeight = maxHeight;
+    el.style.left = `${left}px`;
+    el.style.top = `${top}px`;
+    return top;
+}
+
+/** A scroll event that happened INSIDE a floating popover (its own content
+ *  scrolling) — the scroll-follow listeners ignore it. */
+export function isPopoverScroll(event) {
+    const t = event && event.target;
+    return Boolean(t && t.closest && t.closest('.canvas-floating-popover, .container-zone-popover'));
 }

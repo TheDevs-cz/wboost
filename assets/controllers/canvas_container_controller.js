@@ -9,7 +9,7 @@ import { applyFollowRules, applyRepeatRules, followLinks, normalizeRepeat, repea
 import { MAX_ROWS, rowCapacity } from './container_rows.js';
 import { applyRowMerge, planRowMerge } from './container_row_merge.js';
 import { defaultFollowGap, followTargets, pickTargetAbove, planDynamicRows, planLink, planUnlink, selectionRootId } from './container_follow.js';
-import { isDragged, makeDraggable, pinPopover } from './popover_drag.js';
+import { isDragged, isPopoverScroll, makeDraggable, pinPopover, placeFixedPopover } from './popover_drag.js';
 
 /**
  * Container ("smart text area") authoring for the admin canvas editor.
@@ -95,6 +95,10 @@ export default class extends Controller {
     connect() {
         this._boundReposition = () => this.repositionZones();
         window.addEventListener('resize', this._boundReposition);
+        // The ⚙ popover is position:fixed — follow its zone when the canvas
+        // viewport scrolls (capture: scroll does not bubble).
+        this._boundScroll = (event) => { if (!isPopoverScroll(event)) this._syncSettings(); };
+        document.addEventListener('scroll', this._boundScroll, true);
 
         const toggle = this.element.querySelector('#container-zones-control');
         this._zonesVisible = toggle ? toggle.checked : true;
@@ -103,6 +107,7 @@ export default class extends Controller {
 
     disconnect() {
         window.removeEventListener('resize', this._boundReposition);
+        document.removeEventListener('scroll', this._boundScroll, true);
         this._closeSettings();
         this._clearZones();
     }
@@ -3022,19 +3027,20 @@ export default class extends Controller {
         const entry = this._zones.find(({ container }) => container.id === this._settingsContainerId);
         if (!entry) return;
 
-        const zone = entry.zone;
-        const layerRect = this.layerTarget.getBoundingClientRect();
-        const zoneRect = zone.getBoundingClientRect();
+        // position:fixed above the editor chrome (2026-11-25 — inside the
+        // canvas viewport its overflow cut the popover off): client px,
+        // beside the zone, clamped to the WINDOW.
+        const MARGIN = 8;
+        const zoneRect = entry.zone.getBoundingClientRect();
         const popRect = this._settingsEl.getBoundingClientRect();
 
-        let left = zoneRect.right - layerRect.left + 10;
-        if (left + popRect.width > layerRect.width - 4) {
-            left = Math.max(4, zoneRect.left - layerRect.left - popRect.width - 10);
+        let left = zoneRect.right + 10;
+        if (left + popRect.width > window.innerWidth - MARGIN) {
+            left = Math.max(MARGIN, zoneRect.left - popRect.width - 10);
         }
-        const top = Math.max(4, zoneRect.top - layerRect.top);
-
-        this._settingsEl.style.left = `${left}px`;
-        this._settingsEl.style.top = `${top}px`;
+        const header = document.querySelector('[data-editor-header]');
+        const safeTop = header ? header.getBoundingClientRect().bottom + MARGIN : MARGIN;
+        placeFixedPopover(this._settingsEl, left, zoneRect.top, safeTop);
     }
 
     // --- popover section (active member) ------------------------------------

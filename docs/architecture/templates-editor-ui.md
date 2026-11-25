@@ -536,7 +536,19 @@ the property controllers above only populate/mutate their (relocated) fields.
   is canvas height the designer loses) — the
   navigator pans by scrolling it, and floating chrome must clamp within the
   viewport box (`_chromeBounds()`), because anything positioned past its edges
-  is clipped by the overflow. The `.canvas-wrapper` carries `vertical-align:
+  is clipped by the overflow. EXCEPT the popovers (2026-11-25, Jan: "hides
+  under the top navbar"): the text / image / shape popovers
+  (`.canvas-floating-popover`) and the container ⚙ popover are
+  `position: fixed`, z-index 1030 (above `.ed-head` 1001 and the phone top
+  bar 1020, below the phone drawer/scrim 1055+ and modals), placed in client
+  px by `placeFixedPopover` (popover_drag.js): beside their element, BELOW
+  the header when they fit (else shrunk there with an inline max-height,
+  scrolling inside — its natural height is read from `scrollHeight` so a
+  re-place never resets the inner scroll), over the header only when the
+  space under it is < 320 px or the user drags them there. A capture
+  `scroll` listener re-places them when the viewport scrolls (scrolls
+  inside a popover ignored, `isPopoverScroll`); a fixed-popover drag keeps
+  the title row inside the window. The bars stay absolute in the stage. The `.canvas-wrapper` carries `vertical-align:
   top` — baseline-aligned, the stage's line box would grow to the wrapper's
   internal baseline (Fabric's in-flow lower-canvas puts it at the UNSCALED
   canvas bottom) and the zoom controller's negative-margin compensation only

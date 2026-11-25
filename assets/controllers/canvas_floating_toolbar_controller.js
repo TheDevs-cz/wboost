@@ -1,5 +1,5 @@
 import { Controller } from "@hotwired/stimulus";
-import { makeDraggable, isDragged, resetDrag } from "./popover_drag.js";
+import { makeDraggable, isDragged, isPopoverScroll, placeFixedPopover, resetDrag } from "./popover_drag.js";
 import { isShapeObject } from "./canvas_shapes.js";
 import { trimOriginRect } from './canvas_viewport.js';
 
@@ -47,6 +47,11 @@ export default class extends Controller {
         this._boundReposition = () => this.reposition();
         this._boundKeydown = (event) => { if (event.key === 'Escape') this.closePopovers(); };
         window.addEventListener('resize', this._boundReposition);
+        // The popovers are position:fixed (window px) — a scroll of the canvas
+        // viewport moves the element under them, so re-place them (capture:
+        // scroll does not bubble).
+        this._boundScroll = (event) => { if (!isPopoverScroll(event)) this.reposition(); };
+        document.addEventListener('scroll', this._boundScroll, true);
         document.addEventListener('keydown', this._boundKeydown);
         this._labelIconButtons();
         this._setupPopoverDrag();
@@ -74,6 +79,7 @@ export default class extends Controller {
 
     disconnect() {
         window.removeEventListener('resize', this._boundReposition);
+        document.removeEventListener('scroll', this._boundScroll, true);
         document.removeEventListener('keydown', this._boundKeydown);
         this._clearOutlines();
     }
@@ -455,7 +461,7 @@ export default class extends Controller {
             // and the popover never covers what it is changing. The image one
             // used to drop straight down from the toolbar — fine while it held
             // only placeholder metadata, not since it resizes the picture.
-            this._placePopover(popover, box, g);
+            this._placePopover(popover, box);
         }
     }
 
@@ -482,14 +488,16 @@ export default class extends Controller {
     }
 
     /** Popover: BESIDE the element — right, else left, else below — so it never
-     *  covers the element or the mini-toolbar. Top aligns with the element,
-     *  clamped to the chrome bounds (below the sticky header). */
-    _placePopover(el, box, g) {
+     *  covers the element or the mini-toolbar. Top aligns with the element.
+     *  The popover is position:fixed ABOVE the editor chrome (2026-11-25), so
+     *  it is clamped to the WINDOW, not to the clipping canvas viewport; it
+     *  stays under the header when it fits there (placeFixedPopover). */
+    _placePopover(el, box) {
         const GAP = 10;
         const MARGIN = 8;
         const eh = el.offsetHeight;
         const ew = el.offsetWidth;
-        const b = this._chromeBounds();
+        const b = { left: 0, top: MARGIN, right: window.innerWidth, bottom: window.innerHeight };
 
         let left;
         let top = box.top;
@@ -503,9 +511,7 @@ export default class extends Controller {
         }
 
         left = Math.min(Math.max(left, b.left + MARGIN), b.right - ew - MARGIN);
-        top = Math.min(Math.max(top, b.top), Math.max(b.top, b.bottom - eh - MARGIN));
-
-        this._setPos(el, left, top, g);
+        placeFixedPopover(el, left, top, this._safeTop());
     }
 
     /** Screen-space box the chrome must stay inside: the stage's scroll

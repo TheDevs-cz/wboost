@@ -263,16 +263,20 @@ html.canvas-transforming * {
     color: #727cf5;
 }
 
-/* Scoped under .canvas-stage so `position: absolute` outranks the Hyper theme's
-   `.card { position: relative }` (the popover is also a .card, and the theme CSS
-   loads AFTER app.css — equal specificity would let the theme win and drop the
-   popover to its static position at the bottom of the page). */
+/* Scoped under .canvas-stage so the position outranks Bootstrap's
+   `.card { position: relative }` (the popover is also a .card).
+   FIXED, in window coordinates (2026-11-25, Jan: a popover was cut off under
+   the editor header): an absolute popover lived inside .canvas-viewport,
+   whose `overflow: auto` clipped everything past its edges. Fixed escapes
+   that clip; z-index 1030 = above the editor header (1001) and the phone top
+   bar (1020), below the phone drawer/scrim (1055+) and modals. The
+   controllers place it in client px and re-place it when the canvas scrolls. */
 .canvas-stage .canvas-floating-popover {
-    position: absolute;
-    z-index: 1006;
+    position: fixed;
+    z-index: 1030;
     width: 360px;
     max-width: 92vw;
-    max-height: 80vh;
+    max-height: calc(100vh - 16px);
     overflow-y: auto;
     /* Never scroll horizontally — a long <option> label (e.g. a verbose font
        family name) sizes the <select> to its widest option and would otherwise
@@ -1028,15 +1032,17 @@ body.is-dragging-guide-h * { cursor: row-resize !important; }
 }
 
 .container-zone-popover {
-    position: absolute;
-    z-index: 1001;
+    /* Fixed + above the editor header, like .canvas-floating-popover (same
+       reason: the canvas viewport's overflow clipped it). */
+    position: fixed;
+    z-index: 1030;
     /* 340 px (was 260): the labels, hints and selects wrapped into a tall,
        thin column (Jan, 2026-11-25 — +100 px tested safe). */
     width: 340px;
     max-width: calc(100vw - 32px);
     /* The ⚙ popover grew (hide, nesting, repeatable row, move) — scroll
        inside instead of running off a short stage. */
-    max-height: calc(100vh - 140px);
+    max-height: calc(100vh - 16px);
     overflow-y: auto;
     padding: 14px 16px;
     /* Nocturne surface like the editor inspector popovers (F19: it kept the
