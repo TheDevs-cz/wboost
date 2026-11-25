@@ -39,9 +39,9 @@
 import { clearPageOverrides, pageHasOverrides } from '../model/content.js';
 import { h, icon } from './dom.js';
 import { hasPageContent, mountPageContent } from './pagecontent.js';
+import { mountPageEffects } from './page-effects.js';
 import { hasGallery, pickGalleryAsset } from './gallery-pick.js';
 import { closePhotoEditor, openPhotoEditor, weekPhotoEditing } from './photo-editor.js';
-import { mountPageEffects } from './page-effects.js';
 import { CAPTION_MAX, fileTile, setPageCaption, setPagePhoto, uploadAsset } from './tools/photos.js';
 import { QR_ACCEPT } from './tools/qr.js';
 import { pageWarnings, warningCard } from './warnings.js';
