@@ -29,7 +29,9 @@ filled picture straight to it, with a caption. Meta setup (the manual part):
 - **Publish**: anyone who can fill the variant (`TemplateVariantVoter::VIEW`)
   — the connection belongs to the project, shared members included.
 - **Rollout gate** (`Services/Instagram/InstagramPublishing`): off without
-  `INSTAGRAM_APP_ID` / `INSTAGRAM_APP_SECRET`; `INSTAGRAM_ROLLOUT=admins`
+  `INSTAGRAM_APP_ID` / `INSTAGRAM_APP_SECRET`, and in prod also off while
+  `SOCIAL_TOKEN_ENCRYPTION_KEY` is empty or still the dev key committed in
+  `.env` (the image ships `.env`); `INSTAGRAM_ROLLOUT=admins`
   (default) = ROLE_ADMIN only, `everyone` = all signed-in users. Outside the
   gate the project page says "připravujeme", the fill page's Instagram item
   opens the fake door (`_social_publish_fake_door.html.twig`), connect and
@@ -47,7 +49,8 @@ a random `state` stored in the session together with the project id.
 redirect URI registered in the Meta app (must match exactly, so it cannot
 carry the project): pops the state (single use, `hash_equals`), re-checks
 `project_edit`, handles `error=access_denied`, refuses when
-`instagram_business_content_publish` is not among the granted permissions,
+`instagram_business_content_publish` is missing from a returned permissions
+list (a response WITHOUT the list proceeds and logs a warning),
 then code → short-lived token (api.instagram.com) → long-lived 60-day token
 (graph.instagram.com `ig_exchange_token`) → `/me` → `ConnectProjectInstagram`
 (insert, or reconnect the existing row in place).
@@ -140,5 +143,7 @@ the project account in the publish controller. Separate env vars
 round trip, state, permissions, disconnect, callbacks, refresh command, fill
 chrome), `tests/Controller/Template/TemplateVariantPublishControllerTest.php`
 (feed, story, shared member, not connected, lazy refresh, 190 flag, caption
-length), `tests/Services/Instagram/InstagramPublishingTest.php` (rollout).
+length), `tests/Services/Instagram/InstagramPublishingTest.php` (rollout, prod key),
+`tests/Services/Instagram/InstagramApiTest.php` (the real client vs Meta's
+documented shapes on a MockHttpClient).
 Not verifiable without a Meta app: the real OAuth dance and real publishing.

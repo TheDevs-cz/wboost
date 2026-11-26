@@ -28,12 +28,28 @@ readonly final class InstagramPublishing
         private string $appSecret,
         #[Autowire('%env(INSTAGRAM_ROLLOUT)%')]
         private string $rollout,
+        #[Autowire('%env(SOCIAL_TOKEN_ENCRYPTION_KEY)%')]
+        #[\SensitiveParameter]
+        private string $encryptionKey = '',
+        #[Autowire('%kernel.environment%')]
+        private string $environment = 'prod',
     ) {
     }
 
+    /** The development key committed in `.env` — public, so never good enough in prod. */
+    private const string DEV_ENCRYPTION_KEY = 'Oe9omNp9iaQgTR3NVOzC+CfqmgVnIgEUrd75mEIXOoA=';
+
     public function isConfigured(): bool
     {
-        return $this->appId !== '' && $this->appSecret !== '';
+        if ($this->appId === '' || $this->appSecret === '') {
+            return false;
+        }
+
+        if ($this->environment === 'prod') {
+            return $this->encryptionKey !== '' && $this->encryptionKey !== self::DEV_ENCRYPTION_KEY;
+        }
+
+        return true;
     }
 
     public function isAvailable(): bool

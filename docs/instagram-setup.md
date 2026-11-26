@@ -112,12 +112,13 @@ Fill in (needed for testing and for review):
 ## Step 5: Add yourself as a tester
 
 1. **App roles → Roles → Add people** → role **Instagram Tester** → enter the
-   Instagram username of the test account from step 1. On some dashboards this
-   lives under *Instagram → API setup with Instagram login → Add account*.
-2. Accept the invite **in Instagram**: on the web, open
+   Instagram username of the test account from step 1. Meta's docs only say
+   accounts are added under *App Roles → Roles* or *Instagram → API setup with
+   Instagram login*, so the exact role label may differ.
+2. Accept the invite **in Instagram**. Usually: on the web open
    <https://www.instagram.com/accounts/manage_access/> → *Tester invites* →
-   **Accept**. (Mobile app: Settings → Website permissions / Apps and websites
-   → Tester invites.)
+   **Accept** (mobile: Settings → Apps and websites → Tester invites). This
+   path comes from experience, not the current docs, so it may have moved.
 3. Repeat for every account you want to try before App Review (one per client
    pilot, for example).
 
@@ -134,9 +135,11 @@ Add these to the wboost production secrets in Infisical (they render into
 | `INSTAGRAM_ROLLOUT` | optional; default `admins`. Set `everyone` after step 8 |
 
 ⚠️ **`SOCIAL_TOKEN_ENCRYPTION_KEY` is required.** Production doesn't have it
-today (checked 2026-11-26), so it would fall back to the publicly committed
-development key from `.env`. Generate it once and never commit it. Changing it
-later only means connected projects have to reconnect.
+today (checked 2026-11-26). The image ships the committed `.env`, so prod would
+otherwise use the public development key. The feature stays switched off in
+prod until a real key is set (`InstagramPublishing::isConfigured()`).
+Generate it once and never commit it. Changing it later only means connected
+projects have to reconnect.
 
 Then redeploy (push to main, or tell Claude "deploy"). Without these values
 nothing breaks: the page just keeps saying "připravujeme".
@@ -204,11 +207,13 @@ Sentry with details.
 
 ## Local development note
 
-Meta must reach both the redirect URI (HTTPS, registered exactly) and the
-picture (Instagram downloads the JPEG from `UPLOADS_BASE_URL`). A laptop with
-Minio on localhost can do neither, so real publishing is tested on
-production with an admin account plus a tester Instagram account. Local tests
-use `FakeInstagramApi`.
+The OAuth redirect happens in the browser, so connecting locally would work if
+a local redirect URI were registered (whether Meta accepts a non-HTTPS
+`localhost` URI is not stated in its docs). Publishing can't work locally:
+Instagram downloads the JPEG from `UPLOADS_BASE_URL` itself, and local Minio
+isn't reachable from the internet. Test the real flow on production with an
+admin account plus a tester Instagram account. Local tests use
+`FakeInstagramApi`, and `InstagramApiTest` checks the wire format.
 
 ## Troubleshooting
 

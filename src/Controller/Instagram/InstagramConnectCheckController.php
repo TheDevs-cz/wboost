@@ -84,7 +84,12 @@ final class InstagramConnectCheckController extends AbstractController
                 $this->generateUrl('oauth_instagram_check', [], UrlGeneratorInterface::ABSOLUTE_URL),
             );
 
-            if (!in_array('instagram_business_content_publish', $shortLived->permissions, true)) {
+            // Refuse only on a permissions list that LACKS publishing; a
+            // response without the list (shape change) proceeds — the
+            // publish call would then report a missing permission itself.
+            if ($shortLived->permissions === []) {
+                $this->logger->warning('Instagram code exchange returned no permissions list.');
+            } elseif (!in_array('instagram_business_content_publish', $shortLived->permissions, true)) {
                 $this->addFlash('danger', 'Instagram nepovolil publikování příspěvků. Propojte účet znovu a v okně Instagramu povolte všechna oprávnění.');
 
                 return $back;
