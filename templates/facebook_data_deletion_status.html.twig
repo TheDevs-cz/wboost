@@ -7,8 +7,13 @@
         <span class="ico-c">{{ icon('check-circle') }}</span>
         <h1>Žádost o smazání dat</h1>
         <p>
-            Propojení vašeho facebookového účtu s aplikací WBoost bylo smazáno,
-            včetně uloženého přístupového tokenu.
+            {% if network|default('facebook') == 'instagram' %}
+                Propojení vašeho instagramového účtu s aplikací WBoost bylo smazáno
+                ze všech projektů, včetně uloženého přístupového tokenu.
+            {% else %}
+                Propojení vašeho facebookového účtu s aplikací WBoost bylo smazáno,
+                včetně uloženého přístupového tokenu.
+            {% endif %}
         </p>
     </div>
     {% if confirmationCode %}

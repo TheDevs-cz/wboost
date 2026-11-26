@@ -30,6 +30,15 @@ return static function (ContainerConfigurator $container): void {
         ->set('env(FACEBOOK_APP_SECRET)', '')
         ->set('env(META_GRAPH_BASE_URL)', 'https://graph.facebook.com/v23.0/')
         ->set('env(SOCIAL_TOKEN_ENCRYPTION_KEY)', '')
+        // Instagram (project publishing, Instagram Login) — same reasoning:
+        // without credentials the feature stays behind its "coming soon"
+        // door (InstagramPublishing::isConfigured()), never a boot failure.
+        // INSTAGRAM_ROLLOUT: `admins` (default — Meta's Dev mode / before App
+        // Review only app testers can authorise) or `everyone`.
+        ->set('env(INSTAGRAM_APP_ID)', '')
+        ->set('env(INSTAGRAM_APP_SECRET)', '')
+        ->set('env(INSTAGRAM_GRAPH_BASE_URL)', 'https://graph.instagram.com/v24.0/')
+        ->set('env(INSTAGRAM_ROLLOUT)', 'admins')
         // RFC 7591 dynamic client registration (S8-T4) — OFF unless explicitly
         // turned on. The default lives here as well as in `.env` because prod's
         // `.env` is rendered from Infisical: a deploy made before the variable

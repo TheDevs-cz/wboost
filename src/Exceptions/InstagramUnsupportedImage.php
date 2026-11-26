@@ -13,6 +13,6 @@ final class InstagramUnsupportedImage extends MetaApiError
 {
     public function userMessage(): string
     {
-        return 'Instagram tento formát obrázku nepodporuje — příspěvky povolují poměr stran mezi 4:5 a 1,91:1 (šablony na výšku 9:16 publikovat nelze).';
+        return 'Instagram tento formát obrázku nepodporuje — příspěvky povolují poměr stran mezi 4:5 a 1,91:1.';
     }
 }

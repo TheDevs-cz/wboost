@@ -256,6 +256,14 @@ return App::config([
                 'path' => '^/oauth/facebook/',
                 'roles' => [AuthenticatedVoter::PUBLIC_ACCESS],
             ],
+            // Instagram (project publishing): Meta's server-to-server
+            // deauthorize + data-deletion callbacks and the deletion status
+            // page. The connect callback (/oauth/instagram/check) stays behind
+            // the login like every other page.
+            [
+                'path' => '^/oauth/instagram/(deauthorize|data-deletion)',
+                'roles' => [AuthenticatedVoter::PUBLIC_ACCESS],
+            ],
             [
                 'path' => '^/',
                 'roles' => [AuthenticatedVoter::IS_AUTHENTICATED_FULLY],

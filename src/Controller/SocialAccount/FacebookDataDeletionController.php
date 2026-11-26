@@ -14,6 +14,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use WBoost\Web\Message\SocialAccount\DeleteSocialAccountByProviderUserId;
+use WBoost\Web\Services\Meta\MetaSignedRequest;
 use WBoost\Web\Value\SocialProvider;
 
 /**
@@ -39,7 +40,7 @@ final class FacebookDataDeletionController extends AbstractController
     {
         $signedRequest = $request->request->getString('signed_request');
 
-        $providerUserId = $this->parseSignedRequestUserId($signedRequest);
+        $providerUserId = MetaSignedRequest::userId($signedRequest, $this->appSecret);
 
         if ($providerUserId === null) {
             return new JsonResponse(['error' => 'Invalid signed_request.'], Response::HTTP_BAD_REQUEST);
@@ -58,46 +59,5 @@ final class FacebookDataDeletionController extends AbstractController
             ),
             'confirmation_code' => $confirmationCode,
         ]);
-    }
-
-    private function parseSignedRequestUserId(string $signedRequest): null|string
-    {
-        $parts = explode('.', $signedRequest, 2);
-
-        if (count($parts) !== 2) {
-            return null;
-        }
-
-        [$encodedSignature, $encodedPayload] = $parts;
-
-        $signature = self::base64UrlDecode($encodedSignature);
-        $payload = self::base64UrlDecode($encodedPayload);
-
-        if ($signature === null || $payload === null) {
-            return null;
-        }
-
-        $expected = hash_hmac('sha256', $encodedPayload, $this->appSecret, true);
-
-        if (!hash_equals($expected, $signature)) {
-            return null;
-        }
-
-        $data = json_decode($payload, true);
-
-        if (!is_array($data)) {
-            return null;
-        }
-
-        $userId = $data['user_id'] ?? null;
-
-        return is_string($userId) && $userId !== '' ? $userId : null;
-    }
-
-    private static function base64UrlDecode(string $input): null|string
-    {
-        $decoded = base64_decode(strtr($input, '-_', '+/'), true);
-
-        return $decoded === false ? null : $decoded;
     }
 }

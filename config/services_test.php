@@ -70,6 +70,12 @@ return static function (ContainerConfigurator $container): void {
     // …the real one stays reachable for the `gotenberg` group.
     $services->set(\WBoost\Web\Services\AiScan\Calendar\CalendarCandidatePicture::class);
 
+    // Instagram Login double — project Instagram tests never talk to Instagram.
+    $services->alias(
+        \WBoost\Web\Services\Instagram\InstagramApiInterface::class,
+        \WBoost\Web\Tests\Fakes\FakeInstagramApi::class,
+    );
+
     // Meta Graph API double — publish tests never talk to graph.facebook.com.
     $services->alias(
         \WBoost\Web\Services\Meta\MetaGraphApiInterface::class,

@@ -97,6 +97,20 @@ abstract class AbstractVariantFiller extends AbstractController
     public bool $facebookConnected = false;
 
     /**
+     * Whether the current user gets the real project-Instagram publish flow
+     * (InstagramPublishing) — set by the page controller.
+     */
+    #[LiveProp]
+    public bool $instagramAvailable = false;
+
+    /**
+     * The project's usable Instagram handle (without @), '' = not connected
+     * (the publish modal then points to the project's social page).
+     */
+    #[LiveProp]
+    public string $instagramAccount = '';
+
+    /**
      * Map of inputId UUID → text value the user has typed.
      *
      * `writable: true` lets Live Components write into any sub-key of this

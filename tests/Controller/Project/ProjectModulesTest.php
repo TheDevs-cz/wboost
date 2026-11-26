@@ -48,7 +48,8 @@ final class ProjectModulesTest extends WebTestCase
     /**
      * F6 (2026-11-05): "Facebook a Instagram" is the project menu's last item
      * (no module key, so it shows for every project) — no longer in the
-     * global Propojení section.
+     * global Propojení section. Since 2026-11-26 it opens the project's
+     * social connections page (Instagram per project).
      */
     public function testFacebookInstagramIsTheLastProjectMenuItem(): void
     {
@@ -63,15 +64,8 @@ final class ProjectModulesTest extends WebTestCase
         );
         self::assertSame(['Přehled', 'Manuály', 'Šablony', 'Galerie', 'Fonty', 'Paleta barev', 'E-maily', 'Jídelníčky', 'Kalendáře', 'Facebook a Instagram'], $items);
         self::assertSelectorNotExists('.sb nav[aria-label="Propojení"] [title="Facebook a Instagram"]');
-        // User 1 has Facebook connected → the item leads to the profile.
-        self::assertSelectorExists('.sb nav[aria-label="Moduly projektu"] a[title="Facebook a Instagram"][href="/user-profile"]');
-
-        // Not connected → the fake door opens the in-page modal.
-        TestingLogin::logInAsUser($client, TestDataFixture::USER_2_EMAIL);
-        $client->request('GET', '/project/' . self::PROJECT_2);
-        self::assertResponseIsSuccessful();
-        self::assertSelectorExists('.sb nav[aria-label="Moduly projektu"] a[title="Facebook a Instagram"][data-bs-target="#social-publish-fake-door"]');
-        self::assertSelectorExists('#social-publish-fake-door');
+        // 2026-11-26: the item leads to the project's social connections page.
+        self::assertSelectorExists(sprintf('.sb nav[aria-label="Moduly projektu"] a[title="Facebook a Instagram"][href="/project/%s/social"]', TestDataFixture::PROJECT_1_ID));
     }
 
     public function testProjectUsingEveryModuleHasNothingToDiscover(): void

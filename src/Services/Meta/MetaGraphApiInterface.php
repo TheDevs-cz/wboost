@@ -9,7 +9,9 @@ use WBoost\Web\Value\FacebookLongLivedToken;
 use WBoost\Web\Value\FacebookPage;
 
 /**
- * Thin wrapper over the Meta Graph API (graph.facebook.com). Faked in tests
+ * Thin wrapper over the Meta Graph API (graph.facebook.com) — the user's
+ * personal Facebook link + publishing to their Facebook Pages. (Instagram
+ * publishing is per project: InstagramApiInterface.) Faked in tests
  * via config/services_test.php — keep every outbound Graph call behind it.
  */
 interface MetaGraphApiInterface
@@ -46,28 +48,4 @@ interface MetaGraphApiInterface
      * @throws MetaApiError
      */
     public function publishPagePhoto(string $pageId, string $pageAccessToken, string $imageBytes, string $caption): string;
-
-    /**
-     * Step 1 of IG publishing: create a media container. Meta fetches the
-     * image itself — `$imageUrl` must be a PUBLIC JPEG URL. Returns the
-     * container (creation) id.
-     *
-     * @throws MetaApiError
-     */
-    public function createInstagramContainer(string $igUserId, string $accessToken, string $imageUrl, string $caption): string;
-
-    /**
-     * Container processing status: IN_PROGRESS | FINISHED | ERROR | EXPIRED | PUBLISHED.
-     *
-     * @throws MetaApiError
-     */
-    public function getInstagramContainerStatus(string $containerId, string $accessToken): string;
-
-    /**
-     * Step 2 of IG publishing: publish a FINISHED container. Returns the IG
-     * media id.
-     *
-     * @throws MetaApiError
-     */
-    public function publishInstagramContainer(string $igUserId, string $accessToken, string $creationId): string;
 }

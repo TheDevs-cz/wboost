@@ -97,6 +97,8 @@
 .pu-tags { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 .pd-empty { margin: -6px 0 0; }
 .pd-foot { display: flex; align-items: center; gap: 6px; margin: 0; }
+/* „Facebook a Instagram“ (project_social): the stacked connection boxes. */
+.soc-page { display: flex; flex-direction: column; gap: 20px; }
 
 /* Module rows (overview, project settings, "Objevte další moduly") */
 .pd-mods { display: flex; flex-direction: column; gap: 8px; }

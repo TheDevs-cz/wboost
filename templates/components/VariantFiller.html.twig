@@ -88,7 +88,7 @@
            so the busy label is spelled here. #}
         data-busy-label="Generuji…"
         class="fill-form fill-highlight-on fill-captions-on"
-        data-controller="{% if ai_scan_unfilled([this.variant]) > 0 %}ai-scan-export-guard {% endif %}variant-fill-overlay{% if hasImages %} variant-image-fill{% endif %}{% if echoPayload %} variant-text-echo{% endif %}{% if this.canPublish() and this.facebookConnected %} variant-publish{% endif %}"
+        data-controller="{% if ai_scan_unfilled([this.variant]) > 0 %}ai-scan-export-guard {% endif %}variant-fill-overlay{% if hasImages %} variant-image-fill{% endif %}{% if echoPayload %} variant-text-echo{% endif %}{% if this.canPublish() and (this.facebookConnected or this.instagramAvailable) %} variant-publish{% endif %}"
         data-variant-fill-overlay-fonts-value="{{ fontFaces|map(face => face.family)|json_encode }}"
         data-action="rich-text-editor:changed->variant-fill-overlay#richTextChanged checklist-editor:changed->variant-fill-overlay#richTextChanged variant-image-fill:frame-changed->variant-fill-overlay#imageFrameChanged variant-image-fill:picked->variant-fill-overlay#imagePicked variant-image-fill:view-bounds->variant-fill-overlay#viewBoundsChanged{% if echoPayload and hasImages %} variant-text-echo:mode->variant-image-fill#echoModeChanged{% endif %}"
         {% if echoPayload %}
@@ -103,10 +103,13 @@
             data-variant-image-fill-overlays-id-value="variant-overlay-sources"
             data-variant-image-fill-unit-value="{{ variant.dimension.unit.value }}"
         {% endif %}
-        {% if this.canPublish() and this.facebookConnected %}
+        {% if this.canPublish() and (this.facebookConnected or this.instagramAvailable) %}
             data-variant-publish-publish-url-value="{{ this.publishPath() }}"
             data-variant-publish-destinations-url-value="{{ path('social_facebook_destinations') }}"
             data-variant-publish-profile-url-value="{{ path('user_profile') }}"
+            data-variant-publish-instagram-account-value="{{ this.instagramAccount }}"
+            data-variant-publish-instagram-story-value="{{ variant.dimension.preset and variant.dimension.preset.value == '9:16' ? 'true' : 'false' }}"
+            data-variant-publish-social-url-value="{{ path('project_social', {'projectId': variant.template.project.id}) }}"
         {% endif %}
     >
         {# ---- Toolbar (prototype `.fi-bar`) ---------------------------------
@@ -357,12 +360,20 @@
                        and opens the publish modal, anyone else gets the
                        "coming soon" fake door (base.html.twig). type="button"
                        everywhere — an unsaved fill is never lost. #}
-                    {% if this.facebookConnected %}
+                    {% if this.facebookConnected or this.instagramAvailable %}
                         <div class="dropdown">
                             <button type="button" class="btn btn-tertiary xs dropdown-toggle fi-share" data-bs-toggle="dropdown" aria-expanded="false">{{ icon('share', 's14') }}Sdílet na sítě</button>
                             <ul class="dropdown-menu dropdown-menu-end">
-                                <li><button type="button" class="dropdown-item" data-action="variant-publish#open" data-variant-publish-platform-param="facebook">{{ icon('facebook', 's16') }}Publikovat na Facebook</button></li>
-                                <li><button type="button" class="dropdown-item" data-action="variant-publish#open" data-variant-publish-platform-param="instagram">{{ icon('instagram', 's16') }}Publikovat na Instagram</button></li>
+                                {% if this.instagramAvailable %}
+                                    <li><button type="button" class="dropdown-item" data-action="variant-publish#open" data-variant-publish-platform-param="instagram">{{ icon('instagram', 's16') }}{{ variant.dimension.preset and variant.dimension.preset.value == '9:16' ? 'Publikovat na Instagram (story)' : 'Publikovat na Instagram' }}</button></li>
+                                {% else %}
+                                    <li><button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#social-publish-fake-door">{{ icon('instagram', 's16') }}Publikovat na Instagram</button></li>
+                                {% endif %}
+                                {% if this.facebookConnected %}
+                                    <li><button type="button" class="dropdown-item" data-action="variant-publish#open" data-variant-publish-platform-param="facebook">{{ icon('facebook', 's16') }}Publikovat na Facebook</button></li>
+                                {% else %}
+                                    <li><button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#social-publish-fake-door">{{ icon('facebook', 's16') }}Publikovat na Facebook</button></li>
+                                {% endif %}
                             </ul>
                         </div>
                     {% else %}
@@ -630,7 +641,7 @@
            typed caption must survive Live re-renders. All inputs inside are
            deliberately UNNAMED so they never leak into the form's FormData —
            the controller appends platform/targetId/caption explicitly. #}
-        {% if this.canPublish() and this.facebookConnected %}
+        {% if this.canPublish() and (this.facebookConnected or this.instagramAvailable) %}
             <div data-live-ignore>
                 <div class="fill-modal" data-variant-publish-target="modal" data-action="click->variant-publish#closeBackdrop">
                     <div class="fill-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="publish-modal-title" tabindex="-1">
@@ -644,15 +655,20 @@
                             <p class="text-muted small mb-0">Načítám…</p>
                         </div>
 
-                        <label class="form-label small text-muted mb-1" for="publish-caption">Text příspěvku</label>
-                        <textarea
-                            id="publish-caption"
-                            class="form-control form-control-sm mb-2"
-                            rows="3"
-                            maxlength="2200"
-                            placeholder="Popisek příspěvku (nepovinné)"
-                            data-variant-publish-target="caption"
-                        ></textarea>
+                        <div data-variant-publish-target="captionBox">
+                            <label class="form-label small text-muted mb-1" for="publish-caption">Text příspěvku</label>
+                            <textarea
+                                id="publish-caption"
+                                class="form-control form-control-sm mb-1"
+                                rows="5"
+                                maxlength="2200"
+                                placeholder="Popisek příspěvku — text, emoji, #hashtagy (nepovinné)"
+                                data-variant-publish-target="caption"
+                                data-action="input->variant-publish#countCaption"
+                            ></textarea>
+                            <div class="small text-muted text-end mb-2" data-variant-publish-target="captionCount">0 / 2200</div>
+                        </div>
+                        <p class="small text-muted mb-2" data-variant-publish-target="storyNote" hidden>Story se na Instagramu zveřejní bez popisku — text napište přímo do šablony.</p>
 
                         <div class="small mb-2" data-variant-publish-target="status" aria-live="polite"></div>
 

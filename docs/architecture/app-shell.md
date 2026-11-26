@@ -149,11 +149,13 @@ webu, Statistiky),
   `icon('palette')`, `active_menu_item = 'palette'`; like Fonty always shown,
   not a module — read-only for members without `project_edit`), E-maily,
   Jídelníčky (+ sub items), Kalendáře, **Facebook a Instagram** — always last (before only the "Objevte
-  další moduly" CTA), shown in EVERY project (no module key): links to
-  `user_profile` when `facebook_connected()`, otherwise opens the fake-door
-  modal `#social-publish-fake-door` (`_social_publish_fake_door.html.twig`,
-  included once by `base.html.twig`). With no current or remembered
-  project there is no PROJEKT section, so no FB item.
+  další moduly" CTA), shown in EVERY project (no module key): links to the
+  project's social connections page `project_social`
+  (`/project/{projectId}/social`, `active_menu_item = 'social'`, icon
+  `instagram`; since 2026-11-26 — before it opened the fake-door modal or the
+  profile). The page itself shows "připravujeme" outside the Instagram rollout
+  (`docs/architecture/social-publishing.md`). With no current or remembered
+  project there is no PROJEKT section, so no item.
   Pinned by `ProjectModulesTest::testFacebookInstagramIsTheLastProjectMenuItem`.
 
 ### Page header blocks

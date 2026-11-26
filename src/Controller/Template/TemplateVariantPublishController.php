@@ -19,7 +19,10 @@ use WBoost\Web\Entity\User;
 use WBoost\Web\Exceptions\FacebookNotConnected;
 use WBoost\Web\Exceptions\FacebookPermissionMissing;
 use WBoost\Web\Exceptions\FacebookTokenExpired;
+use WBoost\Web\Exceptions\InstagramNotConnected;
+use WBoost\Web\Exceptions\InstagramPermissionMissing;
 use WBoost\Web\Exceptions\InstagramRateLimited;
+use WBoost\Web\Exceptions\InstagramTokenExpired;
 use WBoost\Web\Exceptions\MetaApiError;
 use WBoost\Web\Message\SocialAccount\MarkSocialAccountNeedsReconnect;
 use WBoost\Web\Services\AiScan\Template\UnfilledExportGuard;
@@ -27,7 +30,9 @@ use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Services\Meta\GetFacebookDestinations;
 use WBoost\Web\Services\ReleaseSessionLock;
 use WBoost\Web\Services\Meta\PublishToFacebookPage;
-use WBoost\Web\Services\Meta\PublishToInstagram;
+use WBoost\Web\Services\Instagram\InstagramPublishing;
+use WBoost\Web\Services\Instagram\ProjectInstagramConnection;
+use WBoost\Web\Services\Instagram\PublishToProjectInstagram;
 use WBoost\Web\Services\Security\TemplateVariantVoter;
 use WBoost\Web\Services\SocialNetwork\FillFormRequestParser;
 use WBoost\Web\Services\Template\RepeatableRows;
@@ -39,13 +44,17 @@ use WBoost\Web\Services\Template\RecordExportVersion;
 use WBoost\Web\Services\Usage\RecordExportUsage;
 use WBoost\Web\Value\ExportChannel;
 use WBoost\Web\Value\ExportFillValues;
+use WBoost\Web\Value\InstagramPostKind;
 
 /**
- * Direct publish of a filled variant to a Facebook Page or the Instagram
- * professional account linked to one. Same POST body as the download
+ * Direct publish of a filled variant to the PROJECT's Instagram account
+ * (project_social_account, Instagram Login) or to one of the user's own
+ * Facebook Pages (personal Facebook link). Same POST body as the download
  * endpoint (the JS re-posts the fill form via fetch) plus `platform`,
- * `targetId` (page id, validated against the user's OWN pages) and
- * `caption`. Responds JSON — the fill page stays put, no state is lost.
+ * `caption` and — Facebook only — `targetId` (page id, validated against the
+ * user's OWN pages). Instagram's destination is never posted: it is resolved
+ * from the variant's project. A 9:16 variant goes to Instagram as a story.
+ * Responds JSON — the fill page stays put, no state is lost.
  *
  * Only variants in a social-network format (dimension preset set) can be
  * published — a free-form print/px variant has no social destination.
@@ -64,7 +73,9 @@ final class TemplateVariantPublishController extends AbstractController
         private readonly FillFormRequestParser $fillFormParser,
         private readonly GetFacebookDestinations $destinations,
         private readonly PublishToFacebookPage $publishToFacebookPage,
-        private readonly PublishToInstagram $publishToInstagram,
+        private readonly PublishToProjectInstagram $publishToProjectInstagram,
+        private readonly ProjectInstagramConnection $instagram,
+        private readonly InstagramPublishing $instagramPublishing,
         private readonly RecordExportUsage $recordExportUsage,
         private readonly RecordExportVersion $recordExportVersion,
         private readonly MessageBusInterface $bus,
@@ -98,7 +109,7 @@ final class TemplateVariantPublishController extends AbstractController
         $targetId = $request->request->getString('targetId');
         $caption = trim($request->request->getString('caption'));
 
-        if (!in_array($platform, ['facebook', 'instagram'], true) || $targetId === '') {
+        if (!in_array($platform, ['facebook', 'instagram'], true) || ($platform === 'facebook' && $targetId === '')) {
             return new JsonResponse(['error' => 'Neplatný požadavek na publikování.'], Response::HTTP_BAD_REQUEST);
         }
 
@@ -122,6 +133,10 @@ final class TemplateVariantPublishController extends AbstractController
         // Gotenberg render); the session is done once the voter has run.
         $this->releaseSessionLock->release($request);
 
+        if ($platform === 'instagram') {
+            return $this->publishToInstagram($variant, $request, $caption);
+        }
+
         $account = $this->destinations->connectedAccount($user);
 
         if ($account === null) {
@@ -142,18 +157,7 @@ final class TemplateVariantPublishController extends AbstractController
                 );
             }
 
-            if ($platform === 'instagram' && !$page->hasInstagram()) {
-                return new JsonResponse(
-                    ['error' => 'Vybraná stránka nemá propojený instagramový profesionální účet.'],
-                    Response::HTTP_BAD_REQUEST,
-                );
-            }
-
-            $pngBytes = $this->renderVariant($variant, $request);
-
-            $postId = $platform === 'facebook'
-                ? $this->publishToFacebookPage->publish($page, $pngBytes, $caption)
-                : $this->publishToInstagram->publish($page, $pngBytes, $caption);
+            $postId = $this->publishToFacebookPage->publish($page, $this->renderVariant($variant, $request), $caption);
         } catch (FacebookNotConnected $exception) {
             return new JsonResponse(['error' => $exception->userMessage(), 'reconnect' => true], Response::HTTP_CONFLICT);
         } catch (FacebookTokenExpired $exception) {
@@ -162,8 +166,6 @@ final class TemplateVariantPublishController extends AbstractController
             return new JsonResponse(['error' => $exception->userMessage(), 'reconnect' => true], Response::HTTP_CONFLICT);
         } catch (FacebookPermissionMissing $exception) {
             return new JsonResponse(['error' => $exception->userMessage(), 'reconnect' => true], Response::HTTP_CONFLICT);
-        } catch (InstagramRateLimited $exception) {
-            return new JsonResponse(['error' => $exception->userMessage()], Response::HTTP_TOO_MANY_REQUESTS);
         } catch (MetaApiError $exception) {
             $this->logger->error('Publishing to a social network failed.', [
                 'exception' => $exception,
@@ -174,8 +176,64 @@ final class TemplateVariantPublishController extends AbstractController
             return new JsonResponse(['error' => $exception->userMessage()], Response::HTTP_BAD_GATEWAY);
         }
 
-        $channel = $platform === 'facebook' ? ExportChannel::Facebook : ExportChannel::Instagram;
+        $this->recordPublish($variant, $request, ExportChannel::Facebook);
 
+        return new JsonResponse(['ok' => true, 'platform' => $platform, 'postId' => $postId]);
+    }
+
+    private function publishToInstagram(TemplateVariant $variant, Request $request, string $caption): Response
+    {
+        if (!$this->instagramPublishing->isAvailable()) {
+            return new JsonResponse(['error' => 'Publikování na Instagram zatím není k dispozici.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $preset = $variant->dimension->preset;
+        assert($preset !== null);
+        $kind = InstagramPostKind::forPreset($preset);
+
+        if (mb_strlen($caption) > 2200) {
+            return new JsonResponse(['error' => 'Popisek může mít nejvýš 2 200 znaků.'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $account = $this->instagram->usable($variant->template->project);
+
+        if ($account === null) {
+            return new JsonResponse(
+                ['error' => 'Projekt nemá propojený Instagram (nebo propojení vypršelo).', 'reconnect' => true],
+                Response::HTTP_CONFLICT,
+            );
+        }
+
+        try {
+            $publication = $this->publishToProjectInstagram->publish($account, $this->renderVariant($variant, $request), $caption, $kind);
+        } catch (InstagramNotConnected | InstagramTokenExpired | InstagramPermissionMissing $exception) {
+            return new JsonResponse(['error' => $exception->userMessage(), 'reconnect' => true], Response::HTTP_CONFLICT);
+        } catch (InstagramRateLimited $exception) {
+            return new JsonResponse(['error' => $exception->userMessage()], Response::HTTP_TOO_MANY_REQUESTS);
+        } catch (MetaApiError $exception) {
+            $this->logger->error('Publishing to Instagram failed.', [
+                'exception' => $exception,
+                'variantId' => $variant->id->toString(),
+                'projectId' => $variant->template->project->id->toString(),
+            ]);
+
+            return new JsonResponse(['error' => $exception->userMessage()], Response::HTTP_BAD_GATEWAY);
+        }
+
+        $this->recordPublish($variant, $request, ExportChannel::Instagram);
+
+        return new JsonResponse([
+            'ok' => true,
+            'platform' => 'instagram',
+            'postId' => $publication->mediaId,
+            'permalink' => $publication->permalink,
+            'kind' => $publication->kind->value,
+            'account' => $account->username,
+        ]);
+    }
+
+    private function recordPublish(TemplateVariant $variant, Request $request, ExportChannel $channel): void
+    {
         $this->recordExportUsage->record($variant, $channel);
         $this->recordExportVersion->recordVariant($variant, $channel, ExportFillValues::fromVariantWebForm(
             $request->request->all('textValues'),
@@ -185,8 +243,6 @@ final class TemplateVariantPublishController extends AbstractController
             $request->request->all('shapeColorValues'),
         )->withRows($this->fillFormParser->parseRowCounts($request, $variant))
             ->withOffsets([$variant->id->toString() => $this->fillFormParser->parseOffsets($request, RepeatableRows::expand($variant))]), $request->request->getString('draftVersionId'));
-
-        return new JsonResponse(['ok' => true, 'platform' => $platform, 'postId' => $postId]);
     }
 
     /**

@@ -155,55 +155,6 @@ readonly final class MetaGraphApi implements MetaGraphApiInterface
         return $postId;
     }
 
-    public function createInstagramContainer(string $igUserId, string $accessToken, string $imageUrl, string $caption): string
-    {
-        $data = $this->request('POST', $igUserId . '/media', [
-            'body' => [
-                'image_url' => $imageUrl,
-                'caption' => $caption,
-                'access_token' => $accessToken,
-            ],
-        ]);
-
-        $containerId = self::stringValue($data, 'id');
-
-        if ($containerId === null) {
-            throw new MetaApiError('Instagram container response is missing an id.');
-        }
-
-        return $containerId;
-    }
-
-    public function getInstagramContainerStatus(string $containerId, string $accessToken): string
-    {
-        $data = $this->request('GET', $containerId, [
-            'query' => [
-                'fields' => 'status_code',
-                'access_token' => $accessToken,
-            ],
-        ]);
-
-        return self::stringValue($data, 'status_code') ?? 'IN_PROGRESS';
-    }
-
-    public function publishInstagramContainer(string $igUserId, string $accessToken, string $creationId): string
-    {
-        $data = $this->request('POST', $igUserId . '/media_publish', [
-            'body' => [
-                'creation_id' => $creationId,
-                'access_token' => $accessToken,
-            ],
-        ]);
-
-        $mediaId = self::stringValue($data, 'id');
-
-        if ($mediaId === null) {
-            throw new MetaApiError('Instagram publish response is missing an id.');
-        }
-
-        return $mediaId;
-    }
-
     /**
      * @param array<string, mixed> $options
      * @return array<mixed>

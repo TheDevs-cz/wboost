@@ -112,20 +112,13 @@
                     </a>
                 {% endif %}
 
-                {# Facebook / Instagram (F6, 2026-11-05: moved here from the
-                   global Propojení section) — the project menu's LAST item, no
-                   module key. A fake door for now (publishing isn't finished):
-                   unless already connected, it opens the "coming soon" modal
-                   in place, never leaving the page. #}
-                {% if facebook_connected() %}
-                    <a href="{{ path('user_profile') }}" class="nav-i" title="Facebook a Instagram">
-                        {{ icon('facebook') }}<span class="nm hide-c">Facebook a Instagram</span>
-                    </a>
-                {% else %}
-                    <a href="#" class="nav-i" title="Facebook a Instagram" data-bs-toggle="modal" data-bs-target="#social-publish-fake-door" role="button">
-                        {{ icon('facebook') }}<span class="nm hide-c">Facebook a Instagram</span>
-                    </a>
-                {% endif %}
+                {# Facebook a Instagram (F6, 2026-11-05: the project menu's LAST
+                   item, no module key) — the project's social connections page
+                   (project_social: connect Instagram; for users outside the
+                   Instagram rollout it shows the "připravujeme" copy). #}
+                <a href="{{ path('project_social', {'projectId': nav_project.id}) }}" class="nav-i" title="Facebook a Instagram" aria-current="{{ project_active == 'social' ? 'page' : 'false' }}">
+                    {{ icon('instagram') }}<span class="nm hide-c">Facebook a Instagram</span>
+                </a>
 
                 {% if nav_project.disabledModules is not empty %}
                     <a href="{{ path('project_modules', {'projectId': nav_project.id}) }}" class="nav-i discover side-nav-discover" title="Objevte další moduly" aria-current="{{ project_active == 'project_modules' ? 'page' : 'false' }}">

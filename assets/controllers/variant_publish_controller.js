@@ -5,6 +5,12 @@ import { askUnfilled, UNFILLED, CONFIRM_FIELD } from "../ai-scan/export-guard.js
 /**
  * Direct publish to Facebook / Instagram from the user-fill page.
  *
+ * Instagram publishes to the PROJECT's connected account (one per project,
+ * docs/architecture/social-publishing.md): the destination is fixed (the
+ * server resolves it from the variant's project — no `targetId`), a 9:16
+ * template goes out as a story (no caption). Facebook still publishes to the
+ * user's own Pages via their personal Facebook link (destination picker).
+ *
  * Attached to the fill FORM (alongside variant-fill-overlay), so `this.element`
  * IS the form: submitting re-posts the exact current fill state via
  * `new FormData(this.element)` — the same fields the PNG download sends — plus
@@ -22,11 +28,14 @@ import { askUnfilled, UNFILLED, CONFIRM_FIELD } from "../ai-scan/export-guard.js
  * coupling the two controllers.
  */
 export default class extends Controller {
-    static targets = ["modal", "title", "destinations", "caption", "submit", "status"];
+    static targets = ["modal", "title", "destinations", "caption", "captionBox", "captionCount", "storyNote", "submit", "status"];
     static values = {
         publishUrl: String,
         destinationsUrl: String,
         profileUrl: String,
+        instagramAccount: String,
+        instagramStory: Boolean,
+        socialUrl: String,
     };
 
     connect() {
@@ -47,9 +56,14 @@ export default class extends Controller {
 
     open(event) {
         this.platform = event.params.platform === "instagram" ? "instagram" : "facebook";
+        const story = this.platform === "instagram" && this.instagramStoryValue;
         this.titleTarget.textContent = this.platform === "instagram"
-            ? "Publikovat na Instagram"
+            ? (story ? "Publikovat story na Instagram" : "Publikovat na Instagram")
             : "Publikovat na Facebook";
+
+        this.captionBoxTarget.hidden = story;
+        this.storyNoteTarget.hidden = !story;
+        this.countCaption();
 
         this._setStatus("", "muted");
         this.submitTarget.disabled = false;
@@ -61,7 +75,18 @@ export default class extends Controller {
 
         this.modalTarget.classList.add("is-open");
         document.addEventListener("keydown", this._onKeydown);
-        this._loadDestinations();
+
+        if (this.platform === "instagram") {
+            this._renderInstagramDestination();
+        } else {
+            this._loadDestinations();
+        }
+    }
+
+    countCaption() {
+        if (this.hasCaptionCountTarget) {
+            this.captionCountTarget.textContent = `${this.captionTarget.value.length} / 2200`;
+        }
     }
 
     close() {
@@ -83,16 +108,24 @@ export default class extends Controller {
             return;
         }
 
-        const selected = this.destinationsTarget.querySelector("input[type=radio]:checked");
-        if (!selected) {
+        const instagram = this.platform === "instagram";
+        if (instagram && !this.instagramAccountValue) {
+            this._renderInstagramDestination();
+            return;
+        }
+
+        const selected = instagram ? null : this.destinationsTarget.querySelector("input[type=radio]:checked");
+        if (!instagram && !selected) {
             this._setStatus("Vyberte, kam chcete příspěvek publikovat.", "error");
             return;
         }
 
         const formData = new FormData(this.element);
         formData.append("platform", this.platform);
-        formData.append("targetId", selected.dataset.pageId);
-        formData.append("caption", this.captionTarget.value);
+        if (selected) {
+            formData.append("targetId", selected.dataset.pageId);
+        }
+        formData.append("caption", instagram && this.instagramStoryValue ? "" : this.captionTarget.value);
         if (this._allowUnfilled) {
             formData.append(CONFIRM_FIELD, "1");
             this._allowUnfilled = false;
@@ -120,7 +153,10 @@ export default class extends Controller {
                 this._setStatus("", "");
                 again = await askUnfilled(data);
             } else if (response.ok && data && data.ok) {
-                this._setStatus("Hotovo — příspěvek byl publikován.", "ok");
+                this._setStatus(data.kind === "story" ? "Hotovo — story je na Instagramu." : "Hotovo — příspěvek byl publikován.", "ok");
+                if (data.permalink) {
+                    this._appendLink(data.permalink, "Zobrazit příspěvek", true);
+                }
             } else {
                 const message = (data && data.error) || "Publikování se nepovedlo. Zkuste to prosím znovu.";
                 this._setStatus(message, "error", data && data.reconnect);
@@ -137,6 +173,30 @@ export default class extends Controller {
             this._allowUnfilled = true;
             await this.submit();
         }
+    }
+
+    _renderInstagramDestination() {
+        const p = document.createElement("p");
+        p.className = "small mb-0";
+
+        if (this.instagramAccountValue) {
+            const b = document.createElement("b");
+            b.textContent = `@${this.instagramAccountValue}`;
+            p.append(b, document.createTextNode(" — instagramový účet projektu"));
+        } else {
+            p.className = "text-danger small mb-0";
+            p.append(document.createTextNode("Projekt nemá propojený Instagram. "));
+            const link = document.createElement("a");
+            link.href = this.socialUrlValue;
+            // A new tab: the unsaved fill on this page must survive.
+            link.target = "_blank";
+            link.rel = "noopener";
+            link.textContent = "Propojit Instagram (nová karta)";
+            p.append(link);
+            this.submitTarget.disabled = true;
+        }
+
+        this.destinationsTarget.replaceChildren(p);
     }
 
     async _loadDestinations() {
@@ -161,16 +221,12 @@ export default class extends Controller {
     }
 
     _renderDestinations() {
-        const pages = this.platform === "instagram"
-            ? this.pages.filter((page) => page.instagram)
-            : this.pages;
+        const pages = this.pages;
 
         this.destinationsTarget.replaceChildren();
 
         if (pages.length === 0) {
-            this._renderMessage(this.platform === "instagram"
-                ? "Žádný instagramový profesionální účet — propojte Instagram s vaší facebookovou stránkou (nastavení stránky → propojené účty)."
-                : "Nemáte žádnou facebookovou stránku, na kterou by šlo publikovat.");
+            this._renderMessage("Nemáte žádnou facebookovou stránku, na kterou by šlo publikovat.");
             return;
         }
 
@@ -196,9 +252,7 @@ export default class extends Controller {
             const label = document.createElement("label");
             label.className = "form-check-label small";
             label.htmlFor = id;
-            label.textContent = this.platform === "instagram"
-                ? `@${page.instagram.username || page.name} (přes stránku ${page.name})`
-                : page.name;
+            label.textContent = page.name;
 
             wrapper.append(radio, label);
             this.destinationsTarget.append(wrapper);
@@ -239,13 +293,25 @@ export default class extends Controller {
         }
 
         if (reconnect) {
-            status.append(document.createTextNode(" "));
-            const link = document.createElement("a");
-            link.href = this.profileUrlValue;
-            link.textContent = "Přejít na propojení účtu";
-            status.append(link);
+            if (this.platform === "instagram") {
+                this._appendLink(this.socialUrlValue, "Otevřít propojení Instagramu (nová karta)", true);
+            } else {
+                this._appendLink(this.profileUrlValue, "Přejít na propojení účtu", false);
+            }
         }
 
         status.setAttribute("role", kind === "error" ? "alert" : "status");
+    }
+
+    _appendLink(href, text, newTab) {
+        this.statusTarget.append(document.createTextNode(" "));
+        const link = document.createElement("a");
+        link.href = href;
+        link.textContent = text;
+        if (newTab) {
+            link.target = "_blank";
+            link.rel = "noopener";
+        }
+        this.statusTarget.append(link);
     }
 }

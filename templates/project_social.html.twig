@@ -1,0 +1,108 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Facebook a Instagram{% endblock %}
+{% set active_menu_item = 'social' %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
+    </ol>
+{% endblock %}
+
+{% block page_lead %}
+    Propojte projekt {{ project.name }} se sociálními sítěmi a publikujte vyplněné šablony přímo z WBoostu — bez stahování obrázků.
+{% endblock %}
+
+{#
+    The project's social connections (docs/architecture/social-publishing.md):
+    Instagram (Instagram Login, one account per project) + the Facebook slot,
+    still "připravujeme". Connect / disconnect = project_edit; publishing =
+    anyone who can fill the project's templates.
+#}
+{% block content %}
+    {% set can_manage = is_granted('project_edit', project) %}
+
+    <div class="soc-page">
+    <section class="pd-box" aria-labelledby="socIgH">
+        <div class="pd-box-h">
+            <div>
+                <h2 id="socIgH">Instagram</h2>
+                <span class="cap">Příspěvky (formáty 1:1 a 4:5) a stories (9:16) na instagramový profesionální účet projektu.</span>
+            </div>
+        </div>
+
+        {% if not instagramAvailable %}
+            <div class="acc-row">
+                <span class="acc-ico">{{ icon('instagram', 's16') }}</span>
+                <span class="who"><b>Publikování na Instagram připravujeme</b><span>Brzy budete moci propojit instagramový účet projektu a publikovat na něj vyplněné šablony jedním kliknutím.</span></span>
+            </div>
+        {% elseif instagram %}
+            {% if instagram.needsReconnect or not instagramUsable %}
+                <div class="alert alert-warning">
+                    {{ icon('alert', 's16') }}
+                    Propojení s Instagramem vypršelo nebo bylo zrušeno — publikovat půjde až po novém propojení.
+                    {% if not can_manage %}Propojit ho může správce projektu.{% endif %}
+                </div>
+            {% endif %}
+            <div class="acc-row" data-instagram-account="{{ instagram.username }}">
+                <span class="acc-ico">{{ icon('instagram', 's16') }}</span>
+                <span class="who">
+                    <b>@{{ instagram.username }}</b>
+                    <span>
+                        {%- if instagram.name %}{{ instagram.name }} · {% endif -%}
+                        propojeno {{ instagram.connectedAt|date('j. n. Y') }}
+                        {%- if instagram.connectedBy %} ({{ instagram.connectedBy.email }}){% endif -%}
+                    </span>
+                </span>
+                {% if can_manage %}
+                    <span class="acc-acts">
+                        {% if instagram.needsReconnect or not instagramUsable %}
+                            <a href="{{ path('project_instagram_connect', {'projectId': project.id}) }}" class="btn btn-primary sm">{{ icon('refresh', 's16') }}Znovu propojit</a>
+                        {% else %}
+                            <a href="{{ path('project_instagram_connect', {'projectId': project.id}) }}" class="btn btn-secondary sm" title="Propojit znovu nebo vybrat jiný účet">{{ icon('refresh', 's16') }}Změnit účet</a>
+                        {% endif %}
+                        <form method="post" action="{{ path('project_instagram_disconnect', {'projectId': project.id}) }}" class="d-inline">
+                            <input type="hidden" name="_token" value="{{ csrf_token('project_instagram_disconnect') }}">
+                            <button type="submit" class="btn btn-ghost-danger sm">Odpojit</button>
+                        </form>
+                    </span>
+                {% endif %}
+            </div>
+            <p class="cap pd-foot">{{ icon('info', 's14') }}<span>Publikujete na stránce vyplnění šablony přes „Sdílet na sítě → Publikovat na Instagram“. Publikovat může každý, kdo s projektem pracuje.</span></p>
+        {% else %}
+            <div class="acc-row">
+                <span class="acc-ico">{{ icon('instagram', 's16') }}</span>
+                <span class="who">
+                    <b>Instagram není propojen</b>
+                    <span>Propojit lze jen profesionální účet (firemní nebo autorský). Osobní účet přepnete v aplikaci Instagram: Nastavení → Typ účtu a nástroje → Přepnout na profesionální účet.</span>
+                </span>
+                {% if can_manage %}
+                    <a href="{{ path('project_instagram_connect', {'projectId': project.id}) }}" class="btn btn-primary sm">{{ icon('instagram', 's16') }}Propojit Instagram</a>
+                {% else %}
+                    <span class="pd-st pd-st-ro">{{ icon('lock', 's14') }}Propojí správce projektu</span>
+                {% endif %}
+            </div>
+            {% if can_manage %}
+                <p class="cap pd-foot">{{ icon('info', 's14') }}<span>Otevře se přihlášení do Instagramu — přihlaste se účtem, na který má projekt publikovat, a povolte všechna oprávnění.</span></p>
+            {% endif %}
+        {% endif %}
+    </section>
+
+    <section class="pd-box" aria-labelledby="socFbH">
+        <div class="pd-box-h">
+            <div>
+                <h2 id="socFbH">Facebook</h2>
+                <span class="cap">Publikování na facebookovou stránku projektu.</span>
+            </div>
+        </div>
+        <div class="acc-row">
+            <span class="acc-ico">{{ icon('facebook', 's16') }}</span>
+            <span class="who"><b>Připravujeme</b><span>Propojení facebookové stránky s projektem přidáme brzy.</span></span>
+        </div>
+        {% if facebook_connected() %}
+            <p class="cap pd-foot">{{ icon('info', 's14') }}<span>Na své facebookové stránky můžete publikovat přes osobní propojení ve&nbsp;<a href="{{ path('user_profile') }}">svém profilu</a>.</span></p>
+        {% endif %}
+    </section>
+    </div>
+{% endblock %}

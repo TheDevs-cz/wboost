@@ -19,6 +19,8 @@ use WBoost\Web\Query\GetExportVersions;
 use WBoost\Web\Query\GetFonts;
 use WBoost\Web\Repository\TemplateExportVersionRepository;
 use WBoost\Web\Services\Meta\GetFacebookDestinations;
+use WBoost\Web\Services\Instagram\InstagramPublishing;
+use WBoost\Web\Services\Instagram\ProjectInstagramConnection;
 use WBoost\Web\Services\Security\TemplateVariantVoter;
 use WBoost\Web\Services\Template\ExportVersionSeeder;
 use WBoost\Web\Services\UploaderHelper;
@@ -32,6 +34,8 @@ final class TemplateVariantExportController extends AbstractController
         readonly private GetExportVersions $getExportVersions,
         readonly private TemplateExportVersionRepository $versionRepository,
         readonly private ExportVersionSeeder $versionSeeder,
+        readonly private InstagramPublishing $instagramPublishing,
+        readonly private ProjectInstagramConnection $instagram,
     ) {
     }
 
@@ -47,6 +51,7 @@ final class TemplateVariantExportController extends AbstractController
         // preview renders server-side through the same Gotenberg pipeline as
         // the API export endpoint.
         $template = $variant->template;
+        $instagramAvailable = $this->instagramPublishing->isAvailable();
 
         // `?version=<id>` loads a stored export version ("Historie exportů"):
         // the whole fill state seeds from its snapshot. An id that is invalid,
@@ -62,6 +67,8 @@ final class TemplateVariantExportController extends AbstractController
             'template' => $template,
             'variant' => $variant,
             'facebookConnected' => $this->destinations->connectedAccount($user) !== null,
+            'instagramAvailable' => $instagramAvailable,
+            'instagramAccount' => $instagramAvailable ? ($this->instagram->usable($template->project)->username ?? '') : '',
             // The shared classic scripts + @font-face declarations load on
             // THIS page (the deferred Live component cannot execute scripts).
             'font_faces' => $this->fontFaces($variant),

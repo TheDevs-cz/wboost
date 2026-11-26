@@ -21,14 +21,12 @@ final class FakeMetaGraphApi implements MetaGraphApiInterface
     public const string PAGE_WITH_IG_ID = 'fb-page-2';
     public const string IG_USER_ID = 'ig-user-1';
     public const string PUBLISHED_POST_ID = 'fb-page-2_post-1';
-    public const string PUBLISHED_MEDIA_ID = 'ig-media-1';
 
     /** @var list<array{method: string, args: array<string, mixed>}> */
     public array $calls = [];
 
     public null|MetaApiError $throwOnFetchAccounts = null;
     public null|MetaApiError $throwOnPublish = null;
-    public string $containerStatus = 'FINISHED';
 
     public function exchangeLongLivedUserToken(string $shortLivedToken): FacebookLongLivedToken
     {
@@ -80,38 +78,6 @@ final class FakeMetaGraphApi implements MetaGraphApiInterface
         }
 
         return self::PUBLISHED_POST_ID;
-    }
-
-    public function createInstagramContainer(string $igUserId, string $accessToken, string $imageUrl, string $caption): string
-    {
-        $this->calls[] = ['method' => 'createInstagramContainer', 'args' => [
-            'igUserId' => $igUserId,
-            'imageUrl' => $imageUrl,
-            'caption' => $caption,
-        ]];
-
-        if ($this->throwOnPublish !== null) {
-            throw $this->throwOnPublish;
-        }
-
-        return 'ig-container-1';
-    }
-
-    public function getInstagramContainerStatus(string $containerId, string $accessToken): string
-    {
-        $this->calls[] = ['method' => 'getInstagramContainerStatus', 'args' => ['containerId' => $containerId]];
-
-        return $this->containerStatus;
-    }
-
-    public function publishInstagramContainer(string $igUserId, string $accessToken, string $creationId): string
-    {
-        $this->calls[] = ['method' => 'publishInstagramContainer', 'args' => [
-            'igUserId' => $igUserId,
-            'creationId' => $creationId,
-        ]];
-
-        return self::PUBLISHED_MEDIA_ID;
     }
 
     /**

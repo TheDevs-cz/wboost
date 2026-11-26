@@ -69,6 +69,11 @@ entry (`facebook_connected()` Twig fn) — open the in-page "coming soon" modal
 `_social_publish_fake_door.html.twig` (included by `base.html.twig`). Every
 publish entry stays on the page (type="button", modals only) so an unsaved fill
 is never lost; a connected account still gets the real `variant-publish` modal.
+**Since 2026-11-26 Instagram publishes to the PROJECT's connected account**
+(Instagram Login, 9:16 → story) for users inside the Instagram rollout; the
+left-nav entry leads to the project's „Facebook a Instagram“ page. Facebook
+items keep the personal-link / fake-door behaviour. See
+`docs/architecture/social-publishing.md`.
 
 **Template groups — "synchronized templates".** A `TemplateGroup` maps 1:1 to
 ONE `Template` whose variants span multiple dimensions; membership is a

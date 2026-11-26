@@ -12,6 +12,7 @@ use WBoost\Web\Entity\User;
 use WBoost\Web\Query\GetProjectAvatars;
 use WBoost\Web\Repository\RegistrationRequestRepository;
 use WBoost\Web\Services\FormatFileSize;
+use WBoost\Web\Services\Instagram\InstagramPublishing;
 use WBoost\Web\Services\Meta\GetFacebookDestinations;
 use WBoost\Web\Services\SvgColorsMapper;
 use WBoost\Web\Services\SocialNetwork\FillRepeatableRows;
@@ -30,6 +31,7 @@ final class TwigExtension extends AbstractExtension
         readonly private FillFieldOrder $fillFieldOrder,
         readonly private GetFacebookDestinations $facebookDestinations,
         readonly private Security $security,
+        readonly private InstagramPublishing $instagramPublishing,
     ) {
     }
 
@@ -48,9 +50,12 @@ final class TwigExtension extends AbstractExtension
             new TwigFunction('manual_page', ManualPage::from(...)),
             // The page a logo variant gets when it is shown on its own.
             new TwigFunction('manual_logo_page', ManualPage::forLogoVariant(...)),
-            // The left navigation's Facebook / Instagram entry: a connected
-            // user goes to the profile, anyone else gets the "coming soon" modal.
+            // The user's PERSONAL Facebook link (profile page; publishing to
+            // their own Facebook Pages from the fill page).
             new TwigFunction('facebook_connected', $this->facebookConnected(...)),
+            // Whether this user gets the real project Instagram flow (credentials
+            // set + INSTAGRAM_ROLLOUT) — InstagramPublishing.
+            new TwigFunction('instagram_publishing', $this->instagramPublishing->isAvailable(...)),
         ];
     }
 
