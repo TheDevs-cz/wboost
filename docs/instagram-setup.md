@@ -131,15 +131,13 @@ Add these to the wboost production secrets in Infisical (they render into
 |---|---|
 | `INSTAGRAM_APP_ID` | Instagram App ID from step 3 |
 | `INSTAGRAM_APP_SECRET` | Instagram app secret from step 3 |
-| `SOCIAL_TOKEN_ENCRYPTION_KEY` | **new random key**: `openssl rand -base64 32` |
 | `INSTAGRAM_ROLLOUT` | optional; default `admins`. Set `everyone` after step 8 |
 
-⚠️ **`SOCIAL_TOKEN_ENCRYPTION_KEY` is required.** Production doesn't have it
-today (checked 2026-11-26). The image ships the committed `.env`, so prod would
-otherwise use the public development key. The feature stays switched off in
-prod until a real key is set (`InstagramPublishing::isConfigured()`).
-Generate it once and never commit it. Changing it later only means connected
-projects have to reconnect.
+✅ **`SOCIAL_TOKEN_ENCRYPTION_KEY` is already set** (generated on the box and
+stored in Infisical on 2026-11-26, never printed). Before that, prod fell back
+to the public development key from the committed `.env`; the feature refuses
+to switch on in prod with that key (`InstagramPublishing::isConfigured()`).
+Don't rotate it casually: connected projects would have to reconnect.
 
 Then redeploy (push to main, or tell Claude "deploy"). Without these values
 nothing breaks: the page just keeps saying "připravujeme".
