@@ -15,7 +15,7 @@ use WBoost\Web\Entity\User;
  * - No credentials (`INSTAGRAM_META_APP_ID` / `INSTAGRAM_META_APP_SECRET` /
  *   `INSTAGRAM_LOGIN_CONFIG_ID` empty) → off; in prod also off while
  *   `SOCIAL_TOKEN_ENCRYPTION_KEY` is empty or the committed dev key.
- * - `INSTAGRAM_ROLLOUT=admins` (default) → ROLE_ADMIN only. Until Meta's App
+ * - `INSTAGRAM_ROLLOUT=admins` (default) → ROLE_ADMIN + ROLE_SOCIAL_BETA (Meta's reviewer, pilots). Until Meta's App
  *   Review approves the app, only Instagram accounts added as testers can
  *   authorise it anyway.
  * - `INSTAGRAM_ROLLOUT=everyone` → every signed-in user.
@@ -63,6 +63,8 @@ readonly final class InstagramPublishing
             return false;
         }
 
-        return $this->rollout === 'everyone' || $this->security->isGranted(User::ROLE_ADMIN);
+        return $this->rollout === 'everyone'
+            || $this->security->isGranted(User::ROLE_ADMIN)
+            || $this->security->isGranted(User::ROLE_SOCIAL_BETA);
     }
 }
