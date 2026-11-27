@@ -49,6 +49,7 @@ final class InstagramApiTest extends TestCase
             'config_id' => 'cfg-1',
             'redirect_uri' => 'https://wboost.cz/oauth/instagram/check',
             'response_type' => 'code',
+            'override_default_response_type' => 'true',
             'state' => 'st',
             'prompt' => 'login',
         ], $query);

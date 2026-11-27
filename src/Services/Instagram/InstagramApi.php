@@ -57,6 +57,9 @@ readonly final class InstagramApi implements InstagramApiInterface
             'config_id' => $this->configId,
             'redirect_uri' => $redirectUri,
             'response_type' => 'code',
+            // Part of the Login URL the App Dashboard generates for a
+            // config_id: without it the dialog may ignore response_type=code.
+            'override_default_response_type' => 'true',
             'state' => $state,
             // Someone already logged in to Facebook would otherwise continue
             // as that account — an agency person must pick deliberately.
