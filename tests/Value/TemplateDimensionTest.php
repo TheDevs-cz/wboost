@@ -7,6 +7,7 @@ namespace WBoost\Web\Tests\Value;
 use PHPUnit\Framework\TestCase;
 use WBoost\Web\Value\DimensionPreset;
 use WBoost\Web\Value\DimensionUnit;
+use WBoost\Web\Value\InstagramPostKind;
 use WBoost\Web\Value\TemplateDimension;
 
 /**
@@ -108,5 +109,22 @@ final class TemplateDimensionTest extends TestCase
         $dimension = (new TemplateDimension(DimensionUnit::Mm, 210, 297))->withPrintSettings(-2, false);
 
         self::assertSame(0.0, $dimension->bleedMm);
+    }
+
+    public function testInstagramPostKindForFreeFormPixelSizes(): void
+    {
+        self::assertSame(InstagramPostKind::Feed, (new TemplateDimension(DimensionUnit::Px, 1080, 1350))->instagramPostKind());
+        self::assertSame(InstagramPostKind::Feed, (new TemplateDimension(DimensionUnit::Px, 1200, 628))->instagramPostKind());
+        self::assertSame(InstagramPostKind::Story, (new TemplateDimension(DimensionUnit::Px, 1080, 1920))->instagramPostKind());
+        self::assertNull((new TemplateDimension(DimensionUnit::Px, 1000, 2000))->instagramPostKind());
+        self::assertNull((new TemplateDimension(DimensionUnit::Px, 3000, 1000))->instagramPostKind());
+        self::assertNull((new TemplateDimension(DimensionUnit::Mm, 100, 100))->instagramPostKind());
+        self::assertTrue((new TemplateDimension(DimensionUnit::Px, 1080, 1080))->isSocialFormat());
+        self::assertFalse((new TemplateDimension(DimensionUnit::Mm, 210, 297))->isSocialFormat());
+    }
+
+    public function testPresetDecidesInstagramPostKind(): void
+    {
+        self::assertSame(InstagramPostKind::Story, TemplateDimension::fromPreset(DimensionPreset::InstagramStory)->instagramPostKind());
     }
 }

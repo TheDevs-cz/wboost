@@ -108,7 +108,7 @@
             data-variant-publish-destinations-url-value="{{ path('social_facebook_destinations') }}"
             data-variant-publish-profile-url-value="{{ path('user_profile') }}"
             data-variant-publish-instagram-account-value="{{ this.instagramAccount }}"
-            data-variant-publish-instagram-story-value="{{ variant.dimension.preset and variant.dimension.preset.value == '9:16' ? 'true' : 'false' }}"
+            data-variant-publish-instagram-story-value="{{ variant.dimension.instagramPostKind() and variant.dimension.instagramPostKind().value == 'story' ? 'true' : 'false' }}"
             data-variant-publish-social-url-value="{{ path('project_social', {'projectId': variant.template.project.id}) }}"
         {% endif %}
     >
@@ -365,7 +365,7 @@
                             <button type="button" class="btn btn-tertiary xs dropdown-toggle fi-share" data-bs-toggle="dropdown" aria-expanded="false">{{ icon('share', 's14') }}Sdílet na sítě</button>
                             <ul class="dropdown-menu dropdown-menu-end">
                                 {% if this.instagramAvailable %}
-                                    <li><button type="button" class="dropdown-item" data-action="variant-publish#open" data-variant-publish-platform-param="instagram">{{ icon('instagram', 's16') }}{{ variant.dimension.preset and variant.dimension.preset.value == '9:16' ? 'Publikovat na Instagram (story)' : 'Publikovat na Instagram' }}</button></li>
+                                    <li><button type="button" class="dropdown-item" data-action="variant-publish#open" data-variant-publish-platform-param="instagram">{{ icon('instagram', 's16') }}{{ variant.dimension.instagramPostKind() and variant.dimension.instagramPostKind().value == 'story' ? 'Publikovat na Instagram (story)' : 'Publikovat na Instagram' }}</button></li>
                                 {% else %}
                                     <li><button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#social-publish-fake-door">{{ icon('instagram', 's16') }}Publikovat na Instagram</button></li>
                                 {% endif %}

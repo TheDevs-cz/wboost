@@ -91,6 +91,40 @@ final class TemplateDimension
         return $this->unit !== DimensionUnit::Px;
     }
 
+    /**
+     * Where this format lands on Instagram, or null when it can't be posted:
+     * a preset decides directly; a free-form px size qualifies by its ratio
+     * (feed accepts 4:5 – 1.91:1, an exact 9:16 goes out as a story). Print
+     * sizes (mm / cm) never publish.
+     */
+    public function instagramPostKind(): null|InstagramPostKind
+    {
+        if ($this->preset !== null) {
+            return InstagramPostKind::forPreset($this->preset);
+        }
+
+        if ($this->isPrintFormat() || $this->height() <= 0) {
+            return null;
+        }
+
+        $ratio = $this->width() / $this->height();
+
+        if (abs($ratio - 9 / 16) < 0.005) {
+            return InstagramPostKind::Story;
+        }
+
+        return $ratio >= 0.8 - 0.005 && $ratio <= 1.91 + 0.005 ? InstagramPostKind::Feed : null;
+    }
+
+    /**
+     * A social-network format: a preset, or a free-form px size Instagram
+     * accepts as-is.
+     */
+    public function isSocialFormat(): bool
+    {
+        return $this->instagramPostKind() !== null;
+    }
+
     public function hasBleed(): bool
     {
         return $this->bleedPixels() > 0;

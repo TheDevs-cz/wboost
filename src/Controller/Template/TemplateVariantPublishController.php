@@ -44,7 +44,6 @@ use WBoost\Web\Services\Template\RecordExportVersion;
 use WBoost\Web\Services\Usage\RecordExportUsage;
 use WBoost\Web\Value\ExportChannel;
 use WBoost\Web\Value\ExportFillValues;
-use WBoost\Web\Value\InstagramPostKind;
 
 /**
  * Direct publish of a filled variant to the PROJECT's Instagram account
@@ -56,8 +55,8 @@ use WBoost\Web\Value\InstagramPostKind;
  * from the variant's project. A 9:16 variant goes to Instagram as a story.
  * Responds JSON — the fill page stays put, no state is lost.
  *
- * Only variants in a social-network format (dimension preset set) can be
- * published — a free-form print/px variant has no social destination.
+ * Only variants in a social-network format can be published: a preset, or a
+ * free-form px size whose ratio Instagram accepts (`isSocialFormat()`).
  *
  * Deliberately synchronous: the user needs actionable feedback (expired
  * token → reconnect CTA), and Messenger's retrying async transport could
@@ -98,7 +97,7 @@ final class TemplateVariantPublishController extends AbstractController
         Request $request,
         #[CurrentUser] User $user,
     ): Response {
-        if ($variant->dimension->preset === null) {
+        if (!$variant->dimension->isSocialFormat()) {
             return new JsonResponse(
                 ['error' => 'Publikovat na sociální sítě lze pouze varianty ve formátu pro sociální sítě.'],
                 Response::HTTP_BAD_REQUEST,
@@ -187,9 +186,8 @@ final class TemplateVariantPublishController extends AbstractController
             return new JsonResponse(['error' => 'Publikování na Instagram zatím není k dispozici.'], Response::HTTP_FORBIDDEN);
         }
 
-        $preset = $variant->dimension->preset;
-        assert($preset !== null);
-        $kind = InstagramPostKind::forPreset($preset);
+        $kind = $variant->dimension->instagramPostKind();
+        assert($kind !== null);
 
         if (mb_strlen($caption) > 2200) {
             return new JsonResponse(['error' => 'Popisek může mít nejvýš 2 200 znaků.'], Response::HTTP_BAD_REQUEST);

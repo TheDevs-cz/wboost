@@ -99,7 +99,9 @@ both flat and wrapped in `data: [ … ]`.
 
 - Destination is resolved from `variant.template.project` — a posted
   `targetId` is ignored for Instagram.
-- Preset-gated like before (`dimension.preset` required). `InstagramPostKind`:
+- Gated by `TemplateDimension::isSocialFormat()` (since 2026-11-27): a preset,
+  or a free-form **px** size whose ratio Instagram takes (4:5 – 1.91:1 → feed,
+  exactly 9:16 → story; `instagramPostKind()`); print sizes never. `InstagramPostKind`:
   1:1 / 4:5 → **feed post** with caption (≤ 2 200 chars, checked server-side);
   **9:16 → story** (`media_type=STORIES`, no caption — Instagram stories have
   none; the modal hides the caption box and says so).
