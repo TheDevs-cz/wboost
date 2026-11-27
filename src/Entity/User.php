@@ -23,12 +23,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public const string ROLE_DESIGNER = 'ROLE_DESIGNER';
     public const string ROLE_ADMIN = 'ROLE_ADMIN';
 
-    /**
-     * Sees social publishing (Instagram / Facebook Page) while its rollout is
-     * still `admins` — Meta's App Review reviewer account, pilot clients.
-     */
-    public const string ROLE_SOCIAL_BETA = 'ROLE_SOCIAL_BETA';
-
     /** Browse, fill and download — designing and gallery uploads need an admin. */
     public const array DEFAULT_MCP_SCOPES = ['templates:read', 'templates:export'];
 

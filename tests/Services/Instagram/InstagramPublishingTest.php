@@ -26,15 +26,6 @@ final class InstagramPublishingTest extends TestCase
         self::assertFalse($this->publishing(admin: false)->isAvailable());
     }
 
-    public function testSocialBetaRoleSeesItDuringAdminsRollout(): void
-    {
-        $security = $this->createStub(Security::class);
-        $security->method('getUser')->willReturn((new \ReflectionClass(User::class))->newInstanceWithoutConstructor());
-        $security->method('isGranted')->willReturnCallback(static fn (string $role): bool => $role === User::ROLE_SOCIAL_BETA);
-
-        self::assertTrue((new InstagramPublishing($security, 'id', 'secret', 'cfg', 'admins', 'cHJvZC1rZXk=', 'prod'))->isAvailable());
-    }
-
     public function testEveryoneRollout(): void
     {
         self::assertTrue($this->publishing(admin: false, rollout: 'everyone')->isAvailable());

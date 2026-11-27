@@ -14,7 +14,7 @@ use WBoost\Web\Entity\User;
  * - Off without `INSTAGRAM_META_APP_ID` / `INSTAGRAM_META_APP_SECRET` (the one
  *   Meta app) or `FACEBOOK_PAGES_LOGIN_CONFIG_ID`; in prod also off while
  *   `SOCIAL_TOKEN_ENCRYPTION_KEY` is empty or the committed dev key.
- * - `FACEBOOK_PAGES_ROLLOUT=admins` (default) → ROLE_ADMIN + ROLE_SOCIAL_BETA (Meta's reviewer, pilots);
+ * - `FACEBOOK_PAGES_ROLLOUT=admins` (default) → ROLE_ADMIN only;
  *   `everyone` → every signed-in user (after Meta's App Review).
  *
  * Outside the gate the fill page keeps the older personal Facebook link
@@ -63,8 +63,6 @@ readonly final class FacebookPagePublishing
             return false;
         }
 
-        return $this->rollout === 'everyone'
-            || $this->security->isGranted(User::ROLE_ADMIN)
-            || $this->security->isGranted(User::ROLE_SOCIAL_BETA);
+        return $this->rollout === 'everyone' || $this->security->isGranted(User::ROLE_ADMIN);
     }
 }

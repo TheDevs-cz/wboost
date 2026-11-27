@@ -12,7 +12,6 @@ dashboard setup: `docs/instagram-setup.md`.
 - [x] **Privacy policy** (`https://wboost.cz/ochrana-osobnich-udaju`) covers Meta data, including an English paragraph (2026-11-27).
 - [x] **App settings → Basic**: privacy policy URL, terms URL, data deletion URL, app domain. Also add a 1024 × 1024 **app icon** and a **category** if missing.
 - [ ] **Testing**: every permission needs ≥ 1 successful API call in the last 30 days (Testing page). Real publishes from wboost.cz count. Publish once to Instagram and once to Facebook within 30 days before submitting, then wait up to 24 h for the counters.
-- [ ] **Reviewer login** on wboost.cz (see below).
 - [ ] **Screencasts** recorded (scripts below).
 
 ## Permissions to request (Advanced Access)
@@ -47,16 +46,15 @@ honestly as "included by the configuration template, not used".
 
 ## Reviewer access
 
-- WBoost login for the reviewer: a user with role `ROLE_SOCIAL_BETA` (sees social
-  publishing while the rollout is still `admins`) and a project with a filled
-  template in 4:5 and 9:16. Credentials go into the App Review form's
-  "testing instructions". Do not give the reviewer an admin account.
-- The reviewer connects **their own** test Instagram professional account /
-  Facebook Page. The app is in Development mode until approval, so the form's
-  instructions should say: "Log in at https://wboost.cz/login with the
-  credentials below → open project 'Meta Review' → Facebook a Instagram →
-  Propojit Instagram / Propojit Facebook → open template 'Review post' → Sdílet
-  na sítě → Publikovat na Instagram / Facebook."
+Publishing stays admins-only until approval (`*_ROLLOUT=admins`); we test as
+admins and switch both rollouts to `everyone` right after approval. If the
+review form insists on a working login, either give the reviewer a temporary
+admin account on an empty "Meta Review" project (delete it after the review)
+or switch the rollouts to `everyone` for the review period — decide then.
+Testing instructions for the form: "Log in at https://wboost.cz/login →
+project 'Meta Review' → Facebook a Instagram → Propojit Instagram / Propojit
+Facebook → open template 'Review post' → Sdílet na sítě → Publikovat na
+Instagram / Facebook." The reviewer connects their own test accounts.
 
 ## Screencast scripts (English subtitles or English narration, about 2 min each)
 
@@ -93,5 +91,5 @@ language explanations into captions ("Connect Instagram" = "Propojit Instagram")
 
 1. App dashboard → switch to **Live**.
 2. Infisical (wboost / prod): `INSTAGRAM_ROLLOUT=everyone`, `FACEBOOK_PAGES_ROLLOUT=everyone`, redeploy.
-3. Remove `ROLE_SOCIAL_BETA` from the reviewer account (or delete it).
+3. Delete any temporary reviewer account.
 4. Calendar: Meta's yearly **Data Use Checkup**.
