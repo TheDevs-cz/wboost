@@ -18,58 +18,60 @@ use WBoost\Web\Value\InstagramProfile;
 use WBoost\Web\Value\InstagramToken;
 
 /**
- * "Instagram API with Instagram Login". Three hosts:
- *  - www.instagram.com/oauth/authorize — the consent screen,
- *  - api.instagram.com/oauth/access_token — code → short-lived token,
- *  - graph.instagram.com — long-lived token, refresh, profile, publishing
- *    (versioned base URL in `INSTAGRAM_GRAPH_BASE_URL`; the token endpoints
- *    are unversioned, so they are called by absolute URL).
+ * "Instagram API with Unified Login" (Meta, 2026-11: newly created apps can
+ * no longer set up the older Instagram Login). Two hosts:
+ *  - www.facebook.com/dialog/oauth — the Login URL (Facebook Login for
+ *    Business with the Unified Login `config_id`; permissions come from the
+ *    configuration, never a `scope` parameter),
+ *  - graph.facebook.com (versioned base URL in `INSTAGRAM_GRAPH_BASE_URL`) —
+ *    code exchange, the shared accounts, publishing.
+ *
+ * Credentials are the META app id / secret (App settings → Basic), not the
+ * Instagram app id / secret. Every call that carries a token also carries
+ * `appsecret_proof` (works whether or not "Require app secret" is on).
  *
  * Meta's docs show some responses both flat and wrapped in `data: [ … ]`;
- * every reader here accepts both.
+ * the single-object readers here accept both.
  */
 readonly final class InstagramApi implements InstagramApiInterface
 {
-    private const string AUTHORIZE_URL = 'https://www.instagram.com/oauth/authorize';
-    private const string CODE_EXCHANGE_URL = 'https://api.instagram.com/oauth/access_token';
-    private const string LONG_LIVED_URL = 'https://graph.instagram.com/access_token';
-    private const string REFRESH_URL = 'https://graph.instagram.com/refresh_access_token';
+    private const string LOGIN_URL = 'https://www.facebook.com/dialog/oauth';
 
     public function __construct(
         #[Autowire(service: 'instagram.client')]
         private HttpClientInterface $client,
-        #[Autowire('%env(INSTAGRAM_APP_ID)%')]
+        #[Autowire('%env(INSTAGRAM_META_APP_ID)%')]
         private string $appId,
-        #[Autowire('%env(INSTAGRAM_APP_SECRET)%')]
+        #[Autowire('%env(INSTAGRAM_META_APP_SECRET)%')]
         #[SensitiveParameter]
         private string $appSecret,
+        #[Autowire('%env(INSTAGRAM_LOGIN_CONFIG_ID)%')]
+        private string $configId,
     ) {
     }
 
-    public function authorizationUrl(string $redirectUri, string $state, array $scopes): string
+    public function authorizationUrl(string $redirectUri, string $state): string
     {
-        return self::AUTHORIZE_URL . '?' . http_build_query([
+        return self::LOGIN_URL . '?' . http_build_query([
             'client_id' => $this->appId,
+            'config_id' => $this->configId,
             'redirect_uri' => $redirectUri,
             'response_type' => 'code',
-            'scope' => implode(',', $scopes),
             'state' => $state,
-            // An agency person logged into one Instagram account must not
-            // silently attach that same account to every project.
-            'force_reauth' => 'true',
+            // Someone already logged in to Facebook would otherwise continue
+            // as that account — an agency person must pick deliberately.
+            'prompt' => 'login',
         ], '', '&', PHP_QUERY_RFC3986);
     }
 
     public function exchangeCode(string $code, string $redirectUri): InstagramToken
     {
-        $data = self::unwrap($this->request('POST', self::CODE_EXCHANGE_URL, [
-            'body' => [
+        $data = self::unwrap($this->request('GET', 'oauth/access_token', [
+            'query' => [
                 'client_id' => $this->appId,
                 'client_secret' => $this->appSecret,
-                'grant_type' => 'authorization_code',
                 'redirect_uri' => $redirectUri,
-                // The redirect appends `#_`; browsers drop fragments, but a
-                // pasted code may still carry it.
+                // A pasted code may still carry the `#_` fragment.
                 'code' => preg_replace('/#_$/', '', $code),
             ],
         ]));
@@ -80,72 +82,52 @@ readonly final class InstagramApi implements InstagramApiInterface
             throw new MetaApiError('Instagram code exchange response is missing access_token.');
         }
 
-        $permissions = $data['permissions'] ?? [];
-        $permissions = is_string($permissions) ? explode(',', $permissions) : (is_array($permissions) ? $permissions : []);
+        // No `expires_in` (or 0) = a token that never expires.
+        $expiresIn = $data['expires_in'] ?? null;
 
         return new InstagramToken(
             $token,
-            time() + 3600,
-            self::scalarString($data, 'user_id'),
-            array_values(array_filter(array_map(
-                static fn (mixed $permission): string => is_string($permission) ? trim($permission) : '',
-                $permissions,
-            ), static fn (string $permission): bool => $permission !== '')),
+            is_int($expiresIn) && $expiresIn > 0 ? time() + $expiresIn : null,
         );
     }
 
-    public function exchangeLongLivedToken(string $shortLivedToken): InstagramToken
-    {
-        return $this->longLived($this->request('GET', self::LONG_LIVED_URL, [
-            'query' => [
-                'grant_type' => 'ig_exchange_token',
-                'client_secret' => $this->appSecret,
-                'access_token' => $shortLivedToken,
-            ],
-        ]));
-    }
-
-    public function refreshToken(string $longLivedToken): InstagramToken
-    {
-        return $this->longLived($this->request('GET', self::REFRESH_URL, [
-            'query' => [
-                'grant_type' => 'ig_refresh_token',
-                'access_token' => $longLivedToken,
-            ],
-        ]));
-    }
-
-    public function fetchProfile(string $accessToken): InstagramProfile
+    public function tokenOwnerId(string $accessToken): null|string
     {
         $data = self::unwrap($this->request('GET', 'me', [
-            'query' => [
-                'fields' => 'id,user_id,username,name,account_type',
-                'access_token' => $accessToken,
-            ],
+            'query' => ['fields' => 'id'] + $this->auth($accessToken),
         ]));
 
-        $userId = self::scalarString($data, 'user_id') ?? self::scalarString($data, 'id');
-        $username = self::stringValue($data, 'username');
+        return self::scalarString($data, 'id');
+    }
 
-        if ($userId === null || $username === null) {
-            throw new MetaApiError('Instagram profile response is missing user_id / username.');
+    public function assignedAccounts(string $accessToken): array
+    {
+        $data = $this->request('GET', 'me/assigned_instagram_accounts', [
+            'query' => ['fields' => 'id,username,name'] + $this->auth($accessToken),
+        ]);
+
+        $rows = $data['data'] ?? [];
+        $accounts = [];
+
+        foreach (is_array($rows) ? $rows : [] as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+
+            $id = self::scalarString($row, 'id');
+            $username = self::stringValue($row, 'username');
+
+            if ($id !== null && $username !== null) {
+                $accounts[] = new InstagramProfile($id, $username, self::stringValue($row, 'name'));
+            }
         }
 
-        return new InstagramProfile(
-            $userId,
-            self::scalarString($data, 'id'),
-            $username,
-            self::stringValue($data, 'name'),
-            self::stringValue($data, 'account_type'),
-        );
+        return $accounts;
     }
 
     public function createImageContainer(string $igUserId, string $accessToken, string $imageUrl, null|string $caption, bool $story): string
     {
-        $body = [
-            'image_url' => $imageUrl,
-            'access_token' => $accessToken,
-        ];
+        $body = ['image_url' => $imageUrl] + $this->auth($accessToken);
 
         if ($story) {
             $body['media_type'] = 'STORIES';
@@ -165,10 +147,7 @@ readonly final class InstagramApi implements InstagramApiInterface
     public function containerStatus(string $containerId, string $accessToken): string
     {
         $data = self::unwrap($this->request('GET', $containerId, [
-            'query' => [
-                'fields' => 'status_code',
-                'access_token' => $accessToken,
-            ],
+            'query' => ['fields' => 'status_code'] + $this->auth($accessToken),
         ]));
 
         return self::stringValue($data, 'status_code') ?? 'IN_PROGRESS';
@@ -177,10 +156,7 @@ readonly final class InstagramApi implements InstagramApiInterface
     public function publishContainer(string $igUserId, string $accessToken, string $containerId): string
     {
         $mediaId = self::scalarString(self::unwrap($this->request('POST', $igUserId . '/media_publish', [
-            'body' => [
-                'creation_id' => $containerId,
-                'access_token' => $accessToken,
-            ],
+            'body' => ['creation_id' => $containerId] + $this->auth($accessToken),
         ])), 'id');
 
         if ($mediaId === null) {
@@ -193,34 +169,21 @@ readonly final class InstagramApi implements InstagramApiInterface
     public function fetchPermalink(string $mediaId, string $accessToken): null|string
     {
         $data = self::unwrap($this->request('GET', $mediaId, [
-            'query' => [
-                'fields' => 'permalink',
-                'access_token' => $accessToken,
-            ],
+            'query' => ['fields' => 'permalink'] + $this->auth($accessToken),
         ]));
 
         return self::stringValue($data, 'permalink');
     }
 
     /**
-     * @param array<mixed> $data
-     * @throws MetaApiError
+     * @return array{access_token: string, appsecret_proof: string}
      */
-    private function longLived(array $data): InstagramToken
+    private function auth(string $accessToken): array
     {
-        $data = self::unwrap($data);
-        $token = self::stringValue($data, 'access_token');
-
-        if ($token === null) {
-            throw new MetaApiError('Instagram token response is missing access_token.');
-        }
-
-        $expiresIn = $data['expires_in'] ?? null;
-
-        return new InstagramToken(
-            $token,
-            is_int($expiresIn) && $expiresIn > 0 ? time() + $expiresIn : null,
-        );
+        return [
+            'access_token' => $accessToken,
+            'appsecret_proof' => hash_hmac('sha256', $accessToken, $this->appSecret),
+        ];
     }
 
     /**
@@ -241,7 +204,8 @@ readonly final class InstagramApi implements InstagramApiInterface
 
     /**
      * Graph errors: {"error": {message, type, code, error_subcode}}; the
-     * api.instagram.com token endpoint: {"error_type", "code", "error_message"}.
+     * older Instagram token endpoint shape {"error_type", "code",
+     * "error_message"} is still read, just in case.
      * 190 = invalid/expired token, 10 + 200-299 = permission, 4/17/32/613
      * (+ subcode 2207042) = rate limit, 36003 / 2207009 = unsupported ratio.
      */

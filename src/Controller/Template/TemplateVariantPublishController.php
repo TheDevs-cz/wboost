@@ -48,7 +48,7 @@ use WBoost\Web\Value\InstagramPostKind;
 
 /**
  * Direct publish of a filled variant to the PROJECT's Instagram account
- * (project_social_account, Instagram Login) or to one of the user's own
+ * (project_social_account, Unified Login) or to one of the user's own
  * Facebook Pages (personal Facebook link). Same POST body as the download
  * endpoint (the JS re-posts the fill form via fetch) plus `platform`,
  * `caption` and — Facebook only — `targetId` (page id, validated against the

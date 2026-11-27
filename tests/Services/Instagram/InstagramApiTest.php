@@ -33,88 +33,71 @@ final class InstagramApiTest extends TestCase
             $this->requests[] = ['method' => $method, 'url' => $url, 'body' => is_string($body) ? $body : ''];
 
             return array_shift($responses) ?? new MockResponse('{}');
-        }, 'https://graph.instagram.com/v24.0/');
+        }, 'https://graph.facebook.com/v27.0/');
 
-        return new InstagramApi($client, 'ig-app', 'ig-secret');
+        return new InstagramApi($client, 'meta-app', 'meta-secret', 'cfg-1');
     }
 
     public function testAuthorizationUrl(): void
     {
-        $url = $this->api([])->authorizationUrl('https://wboost.cz/oauth/instagram/check', 'st', ['instagram_business_basic', 'instagram_business_content_publish']);
+        $url = $this->api([])->authorizationUrl('https://wboost.cz/oauth/instagram/check', 'st');
 
-        self::assertStringStartsWith('https://www.instagram.com/oauth/authorize?', $url);
+        self::assertStringStartsWith('https://www.facebook.com/dialog/oauth?', $url);
         parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
         self::assertSame([
-            'client_id' => 'ig-app',
+            'client_id' => 'meta-app',
+            'config_id' => 'cfg-1',
             'redirect_uri' => 'https://wboost.cz/oauth/instagram/check',
             'response_type' => 'code',
-            'scope' => 'instagram_business_basic,instagram_business_content_publish',
             'state' => 'st',
-            'force_reauth' => 'true',
+            'prompt' => 'login',
         ], $query);
     }
 
-    public function testCodeExchangeReadsWrappedResponseWithCommaPermissions(): void
+    public function testCodeExchangeWithoutExpiryMeansNeverExpires(): void
     {
-        $api = $this->api([new MockResponse((string) json_encode(['data' => [[
-            'access_token' => 'short',
-            'user_id' => 17841400000000001,
-            'permissions' => 'instagram_business_basic,instagram_business_content_publish',
-        ]]]))]);
+        $token = $this->api([new MockResponse('{"access_token":"bisu","token_type":"bearer"}')])
+            ->exchangeCode('abc#_', 'https://wboost.cz/oauth/instagram/check');
 
-        $token = $api->exchangeCode('abc#_', 'https://wboost.cz/oauth/instagram/check');
-
-        self::assertSame('short', $token->accessToken);
-        self::assertSame('17841400000000001', $token->userId);
-        self::assertSame(['instagram_business_basic', 'instagram_business_content_publish'], $token->permissions);
-        self::assertSame('POST', $this->requests[0]['method']);
-        self::assertSame('https://api.instagram.com/oauth/access_token', $this->requests[0]['url']);
-        parse_str($this->requests[0]['body'], $form);
-        self::assertSame('abc', $form['code'], 'the trailing #_ is not part of the code');
-        self::assertSame('authorization_code', $form['grant_type']);
-        self::assertSame('ig-secret', $form['client_secret']);
+        self::assertSame('bisu', $token->accessToken);
+        self::assertNull($token->expiresAtTimestamp);
+        self::assertSame('GET', $this->requests[0]['method']);
+        self::assertStringStartsWith('https://graph.facebook.com/v27.0/oauth/access_token?', $this->requests[0]['url']);
+        parse_str((string) parse_url($this->requests[0]['url'], PHP_URL_QUERY), $query);
+        self::assertSame('abc', $query['code'], 'the trailing #_ is not part of the code');
+        self::assertSame('meta-app', $query['client_id']);
+        self::assertSame('meta-secret', $query['client_secret']);
+        self::assertSame('https://wboost.cz/oauth/instagram/check', $query['redirect_uri']);
     }
 
-    public function testCodeExchangeReadsFlatResponseAndPermissionArray(): void
+    public function testCodeExchangeWithExpiry(): void
     {
-        $token = $this->api([new MockResponse((string) json_encode([
-            'access_token' => 'short',
-            'user_id' => '42',
-            'permissions' => ['instagram_business_basic'],
-        ]))])->exchangeCode('abc', 'https://x');
+        $token = $this->api([new MockResponse('{"access_token":"bisu","token_type":"bearer","expires_in":5183944}')])
+            ->exchangeCode('abc', 'https://x');
 
-        self::assertSame('42', $token->userId);
-        self::assertSame(['instagram_business_basic'], $token->permissions);
+        self::assertNotNull($token->expiresAtTimestamp);
+        self::assertGreaterThan(time() + 5_000_000, $token->expiresAtTimestamp);
     }
 
-    public function testLongLivedExchangeAndRefresh(): void
+    public function testAssignedAccountsAndOwnerCarryAppSecretProof(): void
     {
         $api = $this->api([
-            new MockResponse('{"access_token":"long","token_type":"bearer","expires_in":5183944}'),
-            new MockResponse('{"access_token":"renewed","token_type":"bearer","expires_in":5183944}'),
+            new MockResponse('{"data":[{"id":"1784","username":"kavarna"},{"id":"1785","username":"pekarna","name":"Pekárna"},{"id":"x"}],"paging":{"cursors":{}}}'),
+            new MockResponse('{"id":"900","client_business_id":"555"}'),
         ]);
 
-        $long = $api->exchangeLongLivedToken('short');
-        self::assertSame('long', $long->accessToken);
-        self::assertNotNull($long->expiresAtTimestamp);
-        self::assertGreaterThan(time() + 5_000_000, $long->expiresAtTimestamp);
-        self::assertStringStartsWith('https://graph.instagram.com/access_token?', $this->requests[0]['url']);
-        self::assertStringContainsString('grant_type=ig_exchange_token', $this->requests[0]['url']);
+        $accounts = $api->assignedAccounts('tok');
+        self::assertCount(2, $accounts, 'rows without a username are skipped');
+        self::assertSame('1784', $accounts[0]->userId);
+        self::assertSame('kavarna', $accounts[0]->username);
+        self::assertSame('Pekárna', $accounts[1]->name);
+        self::assertStringStartsWith('https://graph.facebook.com/v27.0/me/assigned_instagram_accounts?', $this->requests[0]['url']);
+        parse_str((string) parse_url($this->requests[0]['url'], PHP_URL_QUERY), $query);
+        self::assertSame('tok', $query['access_token']);
+        self::assertSame(hash_hmac('sha256', 'tok', 'meta-secret'), $query['appsecret_proof']);
 
-        self::assertSame('renewed', $api->refreshToken('long')->accessToken);
-        self::assertStringStartsWith('https://graph.instagram.com/refresh_access_token?', $this->requests[1]['url']);
-        self::assertStringContainsString('grant_type=ig_refresh_token', $this->requests[1]['url']);
-    }
-
-    public function testProfileFromWrappedResponse(): void
-    {
-        $profile = $this->api([new MockResponse('{"data":[{"id":"900","user_id":"1784","username":"kavarna","account_type":"BUSINESS"}]}')])
-            ->fetchProfile('t');
-
-        self::assertSame('1784', $profile->userId);
-        self::assertSame('900', $profile->appScopedId);
-        self::assertSame('kavarna', $profile->username);
-        self::assertStringStartsWith('https://graph.instagram.com/v24.0/me?', $this->requests[0]['url']);
+        self::assertSame('900', $api->tokenOwnerId('tok'));
+        self::assertStringStartsWith('https://graph.facebook.com/v27.0/me?', $this->requests[1]['url']);
     }
 
     public function testFeedContainerCarriesCaptionStoryDoesNot(): void
@@ -123,8 +106,9 @@ final class InstagramApiTest extends TestCase
 
         self::assertSame('c1', $api->createImageContainer('1784', 't', 'https://img/x.jpg', 'Ahoj #wboost', false));
         parse_str($this->requests[0]['body'], $feed);
-        self::assertSame('https://graph.instagram.com/v24.0/1784/media', $this->requests[0]['url']);
+        self::assertSame('https://graph.facebook.com/v27.0/1784/media', $this->requests[0]['url']);
         self::assertSame('Ahoj #wboost', $feed['caption']);
+        self::assertSame(hash_hmac('sha256', 't', 'meta-secret'), $feed['appsecret_proof']);
         self::assertArrayNotHasKey('media_type', $feed);
 
         self::assertSame('c2', $api->createImageContainer('1784', 't', 'https://img/x.jpg', 'ignored', true));
@@ -152,12 +136,12 @@ final class InstagramApiTest extends TestCase
         }
     }
 
-    public function testTokenEndpointErrorShape(): void
+    public function testCodeExchangeErrorCarriesMetasMessage(): void
     {
         $this->expectException(MetaApiError::class);
-        $this->expectExceptionMessage('Invalid authorization code');
+        $this->expectExceptionMessage('This authorization code has been used.');
 
-        $this->api([new MockResponse('{"error_type":"OAuthException","code":400,"error_message":"Invalid authorization code"}', ['http_code' => 400])])
+        $this->api([new MockResponse('{"error":{"message":"This authorization code has been used.","type":"OAuthException","code":100}}', ['http_code' => 400])])
             ->exchangeCode('bad', 'https://x');
     }
 }

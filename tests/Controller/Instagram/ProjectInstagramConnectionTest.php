@@ -22,12 +22,14 @@ use WBoost\Web\Services\Security\TokenCrypto;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
 use WBoost\Web\Tests\Fakes\FakeInstagramApi;
 use WBoost\Web\Tests\TestingLogin;
+use WBoost\Web\Value\InstagramProfile;
 use WBoost\Web\Value\SocialPlatform;
 
 /**
  * The project's Instagram connection: the "Facebook a Instagram" page, the
- * connect round trip (state, permissions, project_edit), disconnect, Meta's
- * deauthorize / data-deletion callbacks and the token refresh command.
+ * connect round trip (state, shared accounts, account picker, project_edit),
+ * disconnect, Meta's deauthorize / data-deletion callbacks and the nightly
+ * token check.
  */
 final class ProjectInstagramConnectionTest extends WebTestCase
 {
@@ -55,7 +57,7 @@ final class ProjectInstagramConnectionTest extends WebTestCase
         ]);
     }
 
-    private function seedAccount(string $expiresIn = '+50 days', string $issuedAgo = '-10 days'): ProjectSocialAccount
+    private function seedAccount(null|string $expiresAt = null): ProjectSocialAccount
     {
         $entityManager = self::getContainer()->get(EntityManagerInterface::class);
         $project = $entityManager->find(Project::class, Uuid::fromString(self::PROJECT));
@@ -71,10 +73,10 @@ final class ProjectInstagramConnectionTest extends WebTestCase
             null,
             'BUSINESS',
             self::getContainer()->get(TokenCrypto::class)->encrypt('stored-token'),
-            new DateTimeImmutable($expiresIn),
-            ['instagram_business_basic', 'instagram_business_content_publish'],
+            $expiresAt !== null ? new DateTimeImmutable($expiresAt) : null,
+            [],
             null,
-            new DateTimeImmutable($issuedAgo),
+            new DateTimeImmutable('-10 days'),
         );
         $entityManager->persist($account);
         $entityManager->flush();
@@ -83,18 +85,18 @@ final class ProjectInstagramConnectionTest extends WebTestCase
     }
 
     /**
-     * Start the flow and return the state Instagram would echo back.
+     * Start the flow and return the state Meta would echo back.
      */
     private function startConnect(KernelBrowser $client): string
     {
         $client->request('GET', '/project/' . self::PROJECT . '/instagram/connect');
         self::assertResponseRedirects();
         $location = (string) $client->getResponse()->headers->get('Location');
-        self::assertStringStartsWith('https://www.instagram.com/oauth/authorize?', $location);
+        self::assertStringStartsWith('https://www.facebook.com/dialog/oauth?', $location);
 
         parse_str((string) parse_url($location, PHP_URL_QUERY), $query);
         self::assertSame('http://localhost/oauth/instagram/check', $query['redirect_uri'] ?? null);
-        self::assertSame('instagram_business_basic,instagram_business_content_publish', $query['scope'] ?? null);
+        self::assertSame('test-ig-config-id', $query['config_id'] ?? null);
         $state = $query['state'] ?? null;
         self::assertIsString($state);
 
@@ -143,8 +145,10 @@ final class ProjectInstagramConnectionTest extends WebTestCase
         self::assertSame(FakeInstagramApi::IG_USER_ID, $account->accountId);
         self::assertSame(FakeInstagramApi::APP_SCOPED_ID, $account->accountUserId);
         self::assertSame(FakeInstagramApi::USERNAME, $account->username);
-        self::assertNotSame('long-short-abc', $account->accessToken, 'the token is stored encrypted');
-        self::assertSame('long-short-abc', self::getContainer()->get(TokenCrypto::class)->decrypt($account->accessToken));
+        self::assertSame('Kavárna Test', $account->name);
+        self::assertNull($account->tokenExpiresAt, 'Unified Login tokens never expire');
+        self::assertNotSame('bisu-abc', $account->accessToken, 'the token is stored encrypted');
+        self::assertSame('bisu-abc', self::getContainer()->get(TokenCrypto::class)->decrypt($account->accessToken));
         self::assertNotNull($account->connectedBy);
         self::assertSame(TestDataFixture::USER_1_EMAIL, $account->connectedBy->email);
 
@@ -169,7 +173,7 @@ final class ProjectInstagramConnectionTest extends WebTestCase
         self::assertInstanceOf(ProjectSocialAccount::class, $account);
         self::assertTrue($account->id->equals($existing->id));
         self::assertFalse($account->needsReconnect);
-        self::assertSame('long-short-xyz', self::getContainer()->get(TokenCrypto::class)->decrypt($account->accessToken));
+        self::assertSame('bisu-xyz', self::getContainer()->get(TokenCrypto::class)->decrypt($account->accessToken));
     }
 
     public function testForgedOrReusedStateIsRefused(): void
@@ -201,19 +205,52 @@ final class ProjectInstagramConnectionTest extends WebTestCase
         self::assertNull($this->account());
     }
 
-    public function testMissingPublishPermissionIsRefused(): void
+    public function testNoSharedInstagramAccountIsRefused(): void
     {
         $client = self::createClient();
         TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
         $state = $this->startConnect($client);
         // Configure the fake for the NEXT request (same kernel, no reboot).
         $client->disableReboot();
-        $this->api()->grantedPermissions = ['instagram_business_basic'];
+        $this->api()->accounts = [];
 
         $client->request('GET', '/oauth/instagram/check?code=abc&state=' . $state);
 
         self::assertResponseRedirects('/project/' . self::PROJECT . '/social');
         self::assertNull($this->account());
+    }
+
+    public function testSeveralSharedAccountsLetTheEditorPickOne(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
+        $state = $this->startConnect($client);
+        $client->disableReboot();
+        $this->api()->accounts = [
+            new InstagramProfile('17841400000000002', 'pekarna_test', null),
+            new InstagramProfile(FakeInstagramApi::IG_USER_ID, FakeInstagramApi::USERNAME, 'Kavárna Test'),
+        ];
+
+        $client->request('GET', '/oauth/instagram/check?code=abc&state=' . $state);
+        self::assertResponseRedirects('/project/' . self::PROJECT . '/instagram/pick');
+        self::assertNull($this->account(), 'nothing is stored before the pick');
+
+        $crawler = $client->followRedirect();
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('[data-instagram-pick="pekarna_test"]');
+        $client->submit($crawler->filter('[data-instagram-pick="pekarna_test"] form')->form());
+
+        self::assertResponseRedirects('/project/' . self::PROJECT . '/social');
+        $account = $this->account();
+        self::assertInstanceOf(ProjectSocialAccount::class, $account);
+        self::assertSame('17841400000000002', $account->accountId);
+        self::assertSame('pekarna_test', $account->username);
+        self::assertSame(FakeInstagramApi::APP_SCOPED_ID, $account->accountUserId);
+        self::assertSame('bisu-abc', self::getContainer()->get(TokenCrypto::class)->decrypt($account->accessToken));
+
+        // The pending pick was single-use.
+        $client->request('GET', '/project/' . self::PROJECT . '/instagram/pick');
+        self::assertResponseRedirects('/project/' . self::PROJECT . '/social');
     }
 
     public function testDisconnectDropsTheConnection(): void
@@ -264,36 +301,44 @@ final class ProjectInstagramConnectionTest extends WebTestCase
         self::assertSelectorTextContains('.auth-top', 'instagramového');
     }
 
-    public function testRefreshCommandRenewsDueTokensAndFlagsDeadOnes(): void
+    public function testCheckCommandFlagsDeadAndExpiredTokens(): void
     {
         $kernel = self::bootKernel();
-        $due = $this->seedAccount('+10 days', '-50 days');
+        $this->seedAccount();
 
-        $tester = new CommandTester((new Application($kernel))->find('app:instagram:refresh-tokens'));
+        $tester = new CommandTester((new Application($kernel))->find('app:instagram:check-tokens'));
         $tester->execute([]);
         $tester->assertCommandIsSuccessful();
 
         $account = $this->account();
         self::assertInstanceOf(ProjectSocialAccount::class, $account);
-        self::assertTrue($account->id->equals($due->id));
-        self::assertSame('refreshed-stored-token', self::getContainer()->get(TokenCrypto::class)->decrypt($account->accessToken));
-        self::assertGreaterThan(new DateTimeImmutable('+50 days'), $account->tokenExpiresAt);
+        self::assertFalse($account->needsReconnect, 'a working token stays connected');
+        self::assertSame('stored-token', $this->api()->callsTo('assignedAccounts')[0]['args']['accessToken']);
 
-        // Fresh token now: the next run leaves it alone.
-        $tester->execute([]);
-        self::assertCount(1, $this->api()->callsTo('refreshToken'));
-
-        // A token Instagram rejects flags the connection instead of failing the run.
-        self::getContainer()->get(EntityManagerInterface::class)->getConnection()->executeStatement(
-            "UPDATE project_social_account SET token_issued_at = NOW() - INTERVAL '50 days', token_expires_at = NOW() + INTERVAL '5 days'",
-        );
-        self::getContainer()->get(EntityManagerInterface::class)->clear();
-        $this->api()->throwOnRefresh = new InstagramTokenExpired('Session has expired.', 190);
+        // A token Meta rejects flags the connection instead of failing the run
+        // (the old cron name still works).
+        $this->api()->throwOnAccounts = new InstagramTokenExpired('Session has expired.', 190);
+        $tester = new CommandTester((new Application($kernel))->find('app:instagram:refresh-tokens'));
         $tester->execute([]);
         $tester->assertCommandIsSuccessful();
         $account = $this->account();
         self::assertInstanceOf(ProjectSocialAccount::class, $account);
         self::assertTrue($account->needsReconnect);
+    }
+
+    public function testCheckCommandFlagsATokenPastItsExpiry(): void
+    {
+        $kernel = self::bootKernel();
+        $this->seedAccount('-1 day');
+
+        $tester = new CommandTester((new Application($kernel))->find('app:instagram:check-tokens'));
+        $tester->execute([]);
+        $tester->assertCommandIsSuccessful();
+
+        $account = $this->account();
+        self::assertInstanceOf(ProjectSocialAccount::class, $account);
+        self::assertTrue($account->needsReconnect);
+        self::assertSame([], $this->api()->callsTo('assignedAccounts'));
     }
 
     public function testFillPagePassesTheProjectAccountToTheFiller(): void

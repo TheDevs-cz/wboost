@@ -1,0 +1,42 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Vyberte instagramový účet{% endblock %}
+{% set active_menu_item = 'social' %}
+
+{% block breadcrumb %}
+    <ol class="breadcrumb m-0 pt-0">
+        <li class="breadcrumb-item"><a href="{{ path('project_dashboard', {'id': project.id}) }}">{{ project.name }}</a></li>
+        <li class="breadcrumb-item"><a href="{{ path('project_social', {'projectId': project.id}) }}">Facebook a Instagram</a></li>
+        <li class="breadcrumb-item active">{{ block('title') }}</li>
+    </ol>
+{% endblock %}
+
+{% block page_lead %}
+    Při propojení jste sdíleli víc instagramových účtů. Vyberte ten, na který má projekt {{ project.name }} publikovat.
+{% endblock %}
+
+{# InstagramConnectPickController — one POST form per account (no nesting). #}
+{% block content %}
+    <section class="pd-box" aria-labelledby="socPickH">
+        <div class="pd-box-h">
+            <div>
+                <h2 id="socPickH">Instagramové účty</h2>
+                <span class="cap">Ostatní účty zůstanou nepropojené; změnit účet můžete kdykoli později.</span>
+            </div>
+        </div>
+        {% for account in accounts %}
+            <div class="acc-row" data-instagram-pick="{{ account.username }}">
+                <span class="acc-ico">{{ icon('instagram', 's16') }}</span>
+                <span class="who">
+                    <b>@{{ account.username }}</b>
+                    {% if account.name %}<span>{{ account.name }}</span>{% endif %}
+                </span>
+                <form method="post" action="{{ path('project_instagram_pick', {'projectId': project.id}) }}" class="acc-acts">
+                    <input type="hidden" name="_token" value="{{ csrf_token('project_instagram_pick') }}">
+                    <input type="hidden" name="account" value="{{ account.id }}">
+                    <button type="submit" class="btn btn-primary sm">Propojit</button>
+                </form>
+            </div>
+        {% endfor %}
+    </section>
+{% endblock %}

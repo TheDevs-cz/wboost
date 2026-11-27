@@ -12,7 +12,9 @@ use WBoost\Web\Entity\User;
  * Who gets the REAL Instagram connect + publish flow; everyone else keeps the
  * "coming soon" door (`_social_publish_fake_door.html.twig`).
  *
- * - No credentials (`INSTAGRAM_APP_ID` / `INSTAGRAM_APP_SECRET` empty) → off.
+ * - No credentials (`INSTAGRAM_META_APP_ID` / `INSTAGRAM_META_APP_SECRET` /
+ *   `INSTAGRAM_LOGIN_CONFIG_ID` empty) → off; in prod also off while
+ *   `SOCIAL_TOKEN_ENCRYPTION_KEY` is empty or the committed dev key.
  * - `INSTAGRAM_ROLLOUT=admins` (default) → ROLE_ADMIN only. Until Meta's App
  *   Review approves the app, only Instagram accounts added as testers can
  *   authorise it anyway.
@@ -22,10 +24,13 @@ readonly final class InstagramPublishing
 {
     public function __construct(
         private Security $security,
-        #[Autowire('%env(INSTAGRAM_APP_ID)%')]
+        #[Autowire('%env(INSTAGRAM_META_APP_ID)%')]
         private string $appId,
-        #[Autowire('%env(INSTAGRAM_APP_SECRET)%')]
+        #[Autowire('%env(INSTAGRAM_META_APP_SECRET)%')]
+        #[\SensitiveParameter]
         private string $appSecret,
+        #[Autowire('%env(INSTAGRAM_LOGIN_CONFIG_ID)%')]
+        private string $configId,
         #[Autowire('%env(INSTAGRAM_ROLLOUT)%')]
         private string $rollout,
         #[Autowire('%env(SOCIAL_TOKEN_ENCRYPTION_KEY)%')]
@@ -41,7 +46,7 @@ readonly final class InstagramPublishing
 
     public function isConfigured(): bool
     {
-        if ($this->appId === '' || $this->appSecret === '') {
+        if ($this->appId === '' || $this->appSecret === '' || $this->configId === '') {
             return false;
         }
 

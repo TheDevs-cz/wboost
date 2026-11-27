@@ -18,19 +18,16 @@ use WBoost\Web\Services\Security\ProjectVoter;
 
 /**
  * "Propojit Instagram" on the project's Facebook a Instagram page: sends the
- * project editor to Instagram's consent screen (Business Login for
- * Instagram). The project travels in a session-bound, single-use `state` —
+ * project editor to Meta's Unified Login (log in with Instagram or Facebook,
+ * pick the business portfolio + Instagram account). Permissions come from
+ * the Unified Login configuration (`INSTAGRAM_LOGIN_CONFIG_ID`). The project
+ * travels in a session-bound, single-use `state` —
  * the redirect URI itself is ONE fixed URL (it must match the app settings
  * exactly), so it cannot carry the project.
  */
 final class InstagramConnectStartController extends AbstractController
 {
     public const string SESSION_KEY = 'instagram_connect_state';
-
-    public const array SCOPES = [
-        'instagram_business_basic',
-        'instagram_business_content_publish',
-    ];
 
     public function __construct(
         readonly private InstagramApiInterface $instagramApi,
@@ -58,7 +55,6 @@ final class InstagramConnectStartController extends AbstractController
         return $this->redirect($this->instagramApi->authorizationUrl(
             $this->generateUrl('oauth_instagram_check', [], UrlGeneratorInterface::ABSOLUTE_URL),
             $state,
-            self::SCOPES,
         ));
     }
 }

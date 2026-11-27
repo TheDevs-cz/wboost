@@ -6,9 +6,8 @@ framework:
             meta.client:
                 base_uri: '%env(META_GRAPH_BASE_URL)%'
                 timeout: 20
-            # Instagram API with Instagram Login (project Instagram publishing).
-            # graph.instagram.com, versioned; the OAuth token endpoints are
-            # called by absolute URL (InstagramApi).
+            # Instagram API with Unified Login (project Instagram publishing).
+            # graph.facebook.com, versioned (InstagramApi).
             instagram.client:
                 base_uri: '%env(INSTAGRAM_GRAPH_BASE_URL)%'
                 timeout: 20

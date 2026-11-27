@@ -9,44 +9,42 @@ use WBoost\Web\Value\InstagramProfile;
 use WBoost\Web\Value\InstagramToken;
 
 /**
- * Thin wrapper over "Instagram API with Instagram Login" (api.instagram.com +
- * graph.instagram.com). Faked in tests via config/services_test.php — keep
- * every outbound Instagram call behind it.
+ * Thin wrapper over "Instagram API with Unified Login" (Facebook Login for
+ * Business with a `config_id` + graph.facebook.com). Faked in tests via
+ * config/services_test.php — keep every outbound Instagram call behind it.
  */
 interface InstagramApiInterface
 {
     /**
-     * The consent URL people are sent to (Business Login for Instagram).
-     *
-     * @param list<string> $scopes
+     * The Login URL people are sent to (www.facebook.com/dialog/oauth with
+     * the Unified Login configuration id).
      */
-    public function authorizationUrl(string $redirectUri, string $state, array $scopes): string;
+    public function authorizationUrl(string $redirectUri, string $state): string;
 
     /**
-     * Authorization code → short-lived token (1 hour) + the granted permissions.
+     * Authorization code → Business Integration System User access token
+     * (belongs to the client's business portfolio, not to the person).
      *
      * @throws MetaApiError
      */
     public function exchangeCode(string $code, string $redirectUri): InstagramToken;
 
     /**
-     * Short-lived → long-lived (~60 days) token.
+     * The id of the token's owner (`GET /me` — the app-scoped system user).
      *
      * @throws MetaApiError
      */
-    public function exchangeLongLivedToken(string $shortLivedToken): InstagramToken;
+    public function tokenOwnerId(string $accessToken): null|string;
 
     /**
-     * Long-lived token at least 24 h old → a new one valid 60 days from now.
+     * The Instagram professional accounts the client shared with the app
+     * (`GET /me/assigned_instagram_accounts`). Their `id` is what publishing
+     * addresses.
      *
+     * @return list<InstagramProfile>
      * @throws MetaApiError
      */
-    public function refreshToken(string $longLivedToken): InstagramToken;
-
-    /**
-     * @throws MetaApiError
-     */
-    public function fetchProfile(string $accessToken): InstagramProfile;
+    public function assignedAccounts(string $accessToken): array;
 
     /**
      * Step 1: a media container. Instagram downloads `$imageUrl` itself, so

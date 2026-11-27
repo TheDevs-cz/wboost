@@ -16,7 +16,7 @@
 
 {#
     The project's social connections (docs/architecture/social-publishing.md):
-    Instagram (Instagram Login, one account per project) + the Facebook slot,
+    Instagram (Unified Login, one account per project) + the Facebook slot,
     still "připravujeme". Connect / disconnect = project_edit; publishing =
     anyone who can fill the project's templates.
 #}
@@ -84,7 +84,7 @@
                 {% endif %}
             </div>
             {% if can_manage %}
-                <p class="cap pd-foot">{{ icon('info', 's14') }}<span>Otevře se přihlášení do Instagramu — přihlaste se účtem, na který má projekt publikovat, a povolte všechna oprávnění.</span></p>
+                <p class="cap pd-foot">{{ icon('info', 's14') }}<span>Otevře se přihlášení Mety (přes Instagram nebo Facebook) — vyberte firemní portfolio a instagramový účet, na který má projekt publikovat, a povolte všechna oprávnění.</span></p>
             {% endif %}
         {% endif %}
     </section>

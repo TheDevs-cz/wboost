@@ -10,8 +10,8 @@ use WBoost\Web\Value\InstagramProfile;
 use WBoost\Web\Value\InstagramToken;
 
 /**
- * Deterministic Instagram Login double: canned tokens + profile, recorded
- * calls, settable failures. Configure per test via
+ * Deterministic Unified Login double: canned token + shared accounts,
+ * recorded calls, settable failures. Configure per test via
  * `self::getContainer()->get(InstagramApiInterface::class)`.
  */
 final class FakeInstagramApi implements InstagramApiInterface
@@ -25,20 +25,26 @@ final class FakeInstagramApi implements InstagramApiInterface
     /** @var list<array{method: string, args: array<string, mixed>}> */
     public array $calls = [];
 
-    /** @var list<string> */
-    public array $grantedPermissions = ['instagram_business_basic', 'instagram_business_content_publish'];
+    /** @var list<InstagramProfile> */
+    public array $accounts;
 
     public null|MetaApiError $throwOnExchange = null;
     public null|MetaApiError $throwOnPublish = null;
-    public null|MetaApiError $throwOnRefresh = null;
+    public null|MetaApiError $throwOnAccounts = null;
     public string $containerStatus = 'FINISHED';
+    public null|string $permalink = self::PERMALINK;
 
-    public function authorizationUrl(string $redirectUri, string $state, array $scopes): string
+    public function __construct()
     {
-        return 'https://www.instagram.com/oauth/authorize?' . http_build_query([
+        $this->accounts = [new InstagramProfile(self::IG_USER_ID, self::USERNAME, 'Kavárna Test')];
+    }
+
+    public function authorizationUrl(string $redirectUri, string $state): string
+    {
+        return 'https://www.facebook.com/dialog/oauth?' . http_build_query([
+            'config_id' => 'test-ig-config-id',
             'redirect_uri' => $redirectUri,
             'state' => $state,
-            'scope' => implode(',', $scopes),
         ]);
     }
 
@@ -50,32 +56,27 @@ final class FakeInstagramApi implements InstagramApiInterface
             throw $this->throwOnExchange;
         }
 
-        return new InstagramToken('short-' . $code, time() + 3600, self::IG_USER_ID, $this->grantedPermissions);
+        return new InstagramToken('bisu-' . $code, null);
     }
 
-    public function exchangeLongLivedToken(string $shortLivedToken): InstagramToken
-    {
-        $this->calls[] = ['method' => 'exchangeLongLivedToken', 'args' => []];
+    public null|string $ownerId = self::APP_SCOPED_ID;
 
-        return new InstagramToken('long-' . $shortLivedToken, time() + 5_184_000);
+    public function tokenOwnerId(string $accessToken): null|string
+    {
+        $this->calls[] = ['method' => 'tokenOwnerId', 'args' => []];
+
+        return $this->ownerId;
     }
 
-    public function refreshToken(string $longLivedToken): InstagramToken
+    public function assignedAccounts(string $accessToken): array
     {
-        $this->calls[] = ['method' => 'refreshToken', 'args' => ['token' => $longLivedToken]];
+        $this->calls[] = ['method' => 'assignedAccounts', 'args' => ['accessToken' => $accessToken]];
 
-        if ($this->throwOnRefresh !== null) {
-            throw $this->throwOnRefresh;
+        if ($this->throwOnAccounts !== null) {
+            throw $this->throwOnAccounts;
         }
 
-        return new InstagramToken('refreshed-' . $longLivedToken, time() + 5_184_000);
-    }
-
-    public function fetchProfile(string $accessToken): InstagramProfile
-    {
-        $this->calls[] = ['method' => 'fetchProfile', 'args' => []];
-
-        return new InstagramProfile(self::IG_USER_ID, self::APP_SCOPED_ID, self::USERNAME, 'Kavárna Test', 'BUSINESS');
+        return $this->accounts;
     }
 
     public function createImageContainer(string $igUserId, string $accessToken, string $imageUrl, null|string $caption, bool $story): string
@@ -108,8 +109,6 @@ final class FakeInstagramApi implements InstagramApiInterface
 
         return self::MEDIA_ID;
     }
-
-    public null|string $permalink = self::PERMALINK;
 
     public function fetchPermalink(string $mediaId, string $accessToken): null|string
     {

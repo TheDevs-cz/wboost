@@ -1,7 +1,8 @@
 # Facebook + Instagram integration — Meta setup guide
 
-> **2026-11-26: Instagram moved to a per-project connection via "Instagram API
-> with Instagram Login" — follow `docs/instagram-setup.md` for Instagram.** The
+> **2026-11-26: Instagram moved to a per-project connection (since
+> 2026-11-27 via "Instagram API with Unified Login") — follow
+> `docs/instagram-setup.md` for Instagram.** The
 > personal Facebook link below (sign-in + publishing to the user's own
 > Facebook Pages) still exists but no longer offers Instagram; the
 > Instagram-through-a-Page parts of this guide are obsolete.

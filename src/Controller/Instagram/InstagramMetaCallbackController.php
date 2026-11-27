@@ -17,9 +17,13 @@ use WBoost\Web\Message\Instagram\DeleteInstagramConnections;
 use WBoost\Web\Services\Meta\MetaSignedRequest;
 
 /**
- * Meta's server-to-server callbacks for the Instagram product (App Dashboard
- * → Instagram → API setup with Instagram login → Business login settings).
- * Both POST a `signed_request` signed with the INSTAGRAM app secret:
+ * Meta's server-to-server callbacks for the WBoost Meta app that hosts
+ * Instagram Unified Login (App settings → Basic → data deletion callback;
+ * Facebook Login for Business → Settings → deauthorize callback). Both POST
+ * a `signed_request` signed with the META app secret
+ * (`INSTAGRAM_META_APP_SECRET`). Its `user_id` is matched against both the
+ * stored Instagram account id and the token owner id — which one Meta sends
+ * for a Unified Login connection is not documented.
  *
  * - Deauthorize: the person removed WBoost from their Instagram account →
  *   every project connection to it is dropped (the token is dead anyway).
@@ -30,7 +34,7 @@ final class InstagramMetaCallbackController extends AbstractController
 {
     public function __construct(
         readonly private MessageBusInterface $bus,
-        #[Autowire('%env(INSTAGRAM_APP_SECRET)%')]
+        #[Autowire('%env(INSTAGRAM_META_APP_SECRET)%')]
         #[SensitiveParameter]
         readonly private string $appSecret,
     ) {

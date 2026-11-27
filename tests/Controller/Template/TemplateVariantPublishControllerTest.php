@@ -117,9 +117,9 @@ final class TemplateVariantPublishControllerTest extends WebTestCase
 
     /**
      * Connects PROJECT_1 to the fake Instagram account (as the connect flow
-     * would) — token valid for `$expiresIn`, issued `$issuedAgo` ago.
+     * would) — a never-expiring token unless `$expiresAt` is given.
      */
-    private function connectInstagram(string $expiresIn = '+50 days', string $issuedAgo = '-10 days'): ProjectSocialAccount
+    private function connectInstagram(null|string $expiresAt = null): ProjectSocialAccount
     {
         $entityManager = self::getContainer()->get(EntityManagerInterface::class);
         $project = $entityManager->find(Project::class, Uuid::fromString(TestDataFixture::PROJECT_1_ID));
@@ -135,10 +135,10 @@ final class TemplateVariantPublishControllerTest extends WebTestCase
             'Kavárna Test',
             'BUSINESS',
             self::getContainer()->get(TokenCrypto::class)->encrypt('ig-long-token'),
-            new \DateTimeImmutable($expiresIn),
-            ['instagram_business_basic', 'instagram_business_content_publish'],
+            $expiresAt !== null ? new \DateTimeImmutable($expiresAt) : null,
+            [],
             null,
-            new \DateTimeImmutable($issuedAgo),
+            new \DateTimeImmutable('-10 days'),
         );
         $entityManager->persist($account);
         $entityManager->flush();
@@ -186,8 +186,7 @@ final class TemplateVariantPublishControllerTest extends WebTestCase
         self::assertStringContainsString('social-publish/', $containerCalls[0]['args']['imageUrl']);
         self::assertStringEndsWith('.jpg', $containerCalls[0]['args']['imageUrl']);
         self::assertCount(1, $api->callsTo('publishContainer'));
-        // Token far from expiry: no refresh on the way.
-        self::assertCount(0, $api->callsTo('refreshToken'));
+        self::assertSame('ig-long-token', $containerCalls[0]['args']['accessToken']);
         // The Facebook side is never touched.
         self::assertSame([], $this->fakeApi()->calls);
 
@@ -246,26 +245,17 @@ final class TemplateVariantPublishControllerTest extends WebTestCase
         self::assertSame([], $this->instagramApi()->calls);
     }
 
-    public function testTokenCloseToExpiryIsRefreshedBeforePublishing(): void
+    public function testExpiredTokenAsksForReconnectWithoutCallingInstagram(): void
     {
         $client = self::createClient();
         TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
-        $account = $this->connectInstagram('+3 days', '-57 days');
+        $this->connectInstagram('-1 day');
 
-        $this->publish($client, ['platform' => 'instagram', 'caption' => 'x']);
+        $data = $this->publish($client, ['platform' => 'instagram', 'caption' => 'x']);
 
-        self::assertResponseIsSuccessful();
-        $api = $this->instagramApi();
-        self::assertCount(1, $api->callsTo('refreshToken'));
-        // The publish already uses the refreshed token.
-        self::assertSame('refreshed-ig-long-token', $api->callsTo('createImageContainer')[0]['args']['accessToken']);
-
-        $entityManager = self::getContainer()->get(EntityManagerInterface::class);
-        $entityManager->clear();
-        $stored = $entityManager->find(ProjectSocialAccount::class, $account->id);
-        self::assertInstanceOf(ProjectSocialAccount::class, $stored);
-        self::assertNotNull($stored->tokenExpiresAt);
-        self::assertGreaterThan(new \DateTimeImmutable('+50 days'), $stored->tokenExpiresAt);
+        self::assertResponseStatusCodeSame(409);
+        self::assertTrue($data['reconnect']);
+        self::assertSame([], $this->instagramApi()->callsTo('createImageContainer'));
     }
 
     public function testRejectedInstagramTokenFlagsTheConnection(): void

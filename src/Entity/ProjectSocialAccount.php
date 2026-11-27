@@ -22,21 +22,22 @@ use WBoost\Web\Value\SocialPlatform;
 /**
  * The social account a PROJECT publishes to — one per project and platform.
  * Today: an Instagram professional account connected through "Instagram API
- * with Instagram Login" (no Facebook Page involved). The same account may be
+ * with Unified Login" (no Facebook Page involved). The same account may be
  * connected to several projects.
  *
- * - `accountId`: the id publishing addresses (Instagram: `/me` `user_id`;
- *   a Facebook Page: the page id).
+ * - `accountId`: the id publishing addresses (Instagram: the `id` from
+ *   `/me/assigned_instagram_accounts`; a Facebook Page: the page id).
  * - `accountUserId`: the id Meta's deauthorize / data-deletion callbacks may
- *   carry (Instagram: the app-scoped `/me` `id`; Facebook: the person's id).
+ *   carry (Instagram: the token owner's app-scoped `/me` `id`; Facebook: the
+ *   person's id).
  *
  * Whoever can fill the project's templates may publish; connecting and
  * disconnecting needs `project_edit` (docs/architecture/social-publishing.md).
  *
- * `accessToken` is encrypted via TokenCrypto — never plaintext. Instagram
- * tokens live ~60 days and must be refreshed before they expire
- * (`app:instagram:refresh-tokens`, daily cron); an unrefreshed token dies for
- * good and the project has to reconnect.
+ * `accessToken` is encrypted via TokenCrypto — never plaintext. Unified
+ * Login tokens are configured to never expire (`tokenExpiresAt` null); the
+ * nightly `app:instagram:check-tokens` flags connections whose token Meta no
+ * longer accepts.
  */
 #[Entity]
 #[Table(name: 'project_social_account')]
@@ -73,7 +74,7 @@ class ProjectSocialAccount
     #[Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
     public null|DateTimeImmutable $tokenExpiresAt;
 
-    /** When the current token was issued (connect or refresh) — Instagram refreshes only tokens ≥ 24 h old. */
+    /** When the current token was issued (= connected). */
     #[Immutable(Immutable::PRIVATE_WRITE_SCOPE)]
     #[Column(type: Types::DATETIME_IMMUTABLE)]
     public DateTimeImmutable $tokenIssuedAt;
@@ -174,13 +175,6 @@ class ProjectSocialAccount
         $this->needsReconnect = false;
     }
 
-    public function refreshToken(string $encryptedAccessToken, null|DateTimeImmutable $tokenExpiresAt, DateTimeImmutable $now): void
-    {
-        $this->accessToken = $encryptedAccessToken;
-        $this->tokenExpiresAt = $tokenExpiresAt;
-        $this->tokenIssuedAt = $now;
-    }
-
     public function markNeedsReconnect(): void
     {
         $this->needsReconnect = true;
@@ -196,20 +190,5 @@ class ProjectSocialAccount
     public function displayName(): string
     {
         return $this->username !== null ? '@' . $this->username : ($this->name ?? $this->accountId);
-    }
-
-    /**
-     * Instagram refreshes only tokens at least 24 hours old; refresh once the
-     * token is within `$window` of its expiry. Tokens without an expiry
-     * (Facebook Page tokens) are never due.
-     */
-    public function isDueForRefresh(DateTimeImmutable $now, string $window = '+30 days'): bool
-    {
-        if ($this->needsReconnect || $this->tokenExpiresAt === null || $this->tokenExpiresAt <= $now) {
-            return false;
-        }
-
-        return $this->tokenIssuedAt <= $now->modify('-24 hours')
-            && $this->tokenExpiresAt <= $now->modify($window);
     }
 }

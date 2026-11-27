@@ -20,12 +20,16 @@ use WBoost\Web\Repository\ProjectRepository;
 use WBoost\Web\Services\Instagram\InstagramApiInterface;
 use WBoost\Web\Services\Instagram\InstagramPublishing;
 use WBoost\Web\Services\Security\ProjectVoter;
+use WBoost\Web\Services\Security\TokenCrypto;
+use WBoost\Web\Value\InstagramProfile;
 
 /**
- * Return leg of "Propojit Instagram" — the ONE redirect URI registered in the
- * Meta app (`/oauth/instagram/check`). Checks the single-use state, re-checks
- * `project_edit` on the project it names, swaps the code for a short-lived
- * token, then a ~60-day one, reads the profile and stores the connection.
+ * Return leg of "Propojit Instagram" — the ONE redirect URL saved in the
+ * Unified Login configuration (`/oauth/instagram/check`). Checks the
+ * single-use state, re-checks `project_edit` on the project it names, swaps
+ * the code for the (Business Integration System User) token and reads the
+ * Instagram accounts the client shared: one → connected right away, several
+ * → the editor picks one (InstagramConnectPickController), none → error.
  */
 final class InstagramConnectCheckController extends AbstractController
 {
@@ -33,6 +37,7 @@ final class InstagramConnectCheckController extends AbstractController
         readonly private InstagramApiInterface $instagramApi,
         readonly private InstagramPublishing $publishing,
         readonly private ProjectRepository $projectRepository,
+        readonly private TokenCrypto $tokenCrypto,
         readonly private MessageBusInterface $bus,
         readonly private LoggerInterface $logger,
     ) {
@@ -72,31 +77,18 @@ final class InstagramConnectCheckController extends AbstractController
         $code = $request->query->getString('code');
 
         if ($code === '') {
-            // error=access_denied (the person pressed "Not now" / cancel).
+            // error=access_denied (the person cancelled the login).
             $this->addFlash('info', 'Propojení s Instagramem bylo zrušeno.');
 
             return $back;
         }
 
         try {
-            $shortLived = $this->instagramApi->exchangeCode(
+            $token = $this->instagramApi->exchangeCode(
                 $code,
                 $this->generateUrl('oauth_instagram_check', [], UrlGeneratorInterface::ABSOLUTE_URL),
             );
-
-            // Refuse only on a permissions list that LACKS publishing; a
-            // response without the list (shape change) proceeds — the
-            // publish call would then report a missing permission itself.
-            if ($shortLived->permissions === []) {
-                $this->logger->warning('Instagram code exchange returned no permissions list.');
-            } elseif (!in_array('instagram_business_content_publish', $shortLived->permissions, true)) {
-                $this->addFlash('danger', 'Instagram nepovolil publikování příspěvků. Propojte účet znovu a v okně Instagramu povolte všechna oprávnění.');
-
-                return $back;
-            }
-
-            $longLived = $this->instagramApi->exchangeLongLivedToken($shortLived->accessToken);
-            $profile = $this->instagramApi->fetchProfile($longLived->accessToken);
+            $accounts = $this->instagramApi->assignedAccounts($token->accessToken);
         } catch (MetaApiError $exception) {
             $this->logger->warning('Instagram connect failed.', ['exception' => $exception]);
             $this->addFlash('danger', 'Propojení s Instagramem se nezdařilo. Zkuste to prosím znovu.');
@@ -104,21 +96,60 @@ final class InstagramConnectCheckController extends AbstractController
             return $back;
         }
 
+        if ($accounts === []) {
+            $this->addFlash('danger', 'Meta nesdílela žádný instagramový účet. Propojte to znovu a v okně Mety zaškrtněte instagramový účet, na který má projekt publikovat.');
+
+            return $back;
+        }
+
+        $ownerId = $this->tokenOwnerId($token->accessToken);
+
+        if (count($accounts) > 1) {
+            $session->set(InstagramConnectPickController::SESSION_KEY, [
+                'projectId' => $project->id->toString(),
+                'token' => $this->tokenCrypto->encrypt($token->accessToken),
+                'expiresAt' => $token->expiresAtTimestamp,
+                'ownerId' => $ownerId,
+                'accounts' => array_map(
+                    static fn (InstagramProfile $account): array => ['id' => $account->userId, 'username' => $account->username, 'name' => $account->name],
+                    $accounts,
+                ),
+            ]);
+
+            return $this->redirectToRoute('project_instagram_pick', ['projectId' => $project->id]);
+        }
+
+        $account = $accounts[0];
         $this->bus->dispatch(new ConnectProjectInstagram(
             $project->id->toString(),
             $user->id->toString(),
-            $profile->userId,
-            $profile->appScopedId ?? $shortLived->userId,
-            $profile->username,
-            $profile->name,
-            $profile->accountType,
-            $longLived->accessToken,
-            $longLived->expiresAtTimestamp,
-            $shortLived->permissions,
+            $account->userId,
+            $ownerId,
+            $account->username,
+            $account->name,
+            null,
+            $token->accessToken,
+            $token->expiresAtTimestamp,
+            [],
         ));
 
-        $this->addFlash('success', sprintf('Instagram @%s je propojen s projektem.', $profile->username));
+        $this->addFlash('success', sprintf('Instagram @%s je propojen s projektem.', $account->username));
 
         return $back;
+    }
+
+    /**
+     * Informational only (matched by Meta's callbacks) — a failure here must
+     * not block connecting.
+     */
+    private function tokenOwnerId(string $accessToken): null|string
+    {
+        try {
+            return $this->instagramApi->tokenOwnerId($accessToken);
+        } catch (MetaApiError $exception) {
+            $this->logger->warning('Instagram token owner lookup failed.', ['exception' => $exception]);
+
+            return null;
+        }
     }
 }

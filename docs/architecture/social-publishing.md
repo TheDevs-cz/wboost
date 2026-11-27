@@ -5,18 +5,28 @@ account, and everybody who fills that project's templates can publish the
 filled picture straight to it, with a caption. Meta setup (the manual part):
 `docs/instagram-setup.md`.
 
+**2026-11-27: moved from "Instagram API with Instagram Login" to "Instagram
+API with Unified Login"** — Meta's migration guide: "Newly created apps can't
+set up the Instagram API with Instagram Login", and new features ship only on
+Unified Login. Nothing was ever connected in prod with the old flow.
+
 ## Model
 
 - **`project_social_account`** (`Entity/ProjectSocialAccount`): one row per
   project **and platform** (`SocialPlatform`: `instagram` today). Shaped for a
   second platform on purpose: a Facebook Page connection is the planned next
   case (see "Adding Facebook" below).
-  - `accountId` = the id publishing addresses (Instagram: `/me` `user_id`),
-    `accountUserId` = the app-scoped id Meta's callbacks may carry
-    (Instagram: `/me` `id`); deauthorize / deletion match EITHER.
+  - `accountId` = the id publishing addresses (Instagram: `id` from
+    `/me/assigned_instagram_accounts`), `accountUserId` = the token owner's
+    app-scoped `/me` `id` (the Business Integration System User). Meta's
+    callbacks match EITHER — which id a Unified Login callback carries is not
+    documented (unverified).
   - `accessToken` encrypted with `TokenCrypto` (`SOCIAL_TOKEN_ENCRYPTION_KEY`),
-    `tokenExpiresAt`, `tokenIssuedAt` (Instagram refreshes only tokens ≥ 24 h
-    old), `scopes`, `needsReconnect`, `connectedBy` (`SET NULL`), `connectedAt`.
+    `tokenExpiresAt` (null = never expires — the configuration is set up
+    that way), `tokenIssuedAt` (= connected), `scopes` (empty: permissions
+    live in the Unified Login configuration), `needsReconnect`, `connectedBy`
+    (`SET NULL`), `connectedAt`. `accountType` stays null (the shared-accounts
+    edge doesn't return it).
   - Project deleted → row cascades. The same Instagram account may be
     connected to several projects (no uniqueness on `accountId`).
 - Not to be confused with `social_account` (`SocialProvider`): the USER's
@@ -29,7 +39,8 @@ filled picture straight to it, with a caption. Meta setup (the manual part):
 - **Publish**: anyone who can fill the variant (`TemplateVariantVoter::VIEW`)
   — the connection belongs to the project, shared members included.
 - **Rollout gate** (`Services/Instagram/InstagramPublishing`): off without
-  `INSTAGRAM_APP_ID` / `INSTAGRAM_APP_SECRET`, and in prod also off while
+  `INSTAGRAM_META_APP_ID` / `INSTAGRAM_META_APP_SECRET` /
+  `INSTAGRAM_LOGIN_CONFIG_ID`, and in prod also off while
   `SOCIAL_TOKEN_ENCRYPTION_KEY` is empty or still the dev key committed in
   `.env` (the image ships `.env`); `INSTAGRAM_ROLLOUT=admins`
   (default) = ROLE_ADMIN only, `everyone` = all signed-in users. Outside the
@@ -37,29 +48,49 @@ filled picture straight to it, with a caption. Meta setup (the manual part):
   opens the fake door (`_social_publish_fake_door.html.twig`), connect and
   publish refuse. Switch to `everyone` only after Meta's App Review.
 
-## Connect flow (Instagram Login = "Business Login for Instagram")
+## Connect flow (Unified Login = Facebook Login for Business + `config_id`)
+
+Env: `INSTAGRAM_META_APP_ID` / `INSTAGRAM_META_APP_SECRET` = the WBoost Meta
+app's own credentials (App settings → Basic — NOT an "Instagram app id";
+kept apart from `FACEBOOK_APP_*`, the personal sign-in app),
+`INSTAGRAM_LOGIN_CONFIG_ID` = the Unified Login configuration (its Login
+URL's `config_id`; permissions + token expiry are chosen there, so no
+`scope` parameter is ever sent).
 
 `InstagramConnectStartController` (`GET /project/{projectId}/instagram/connect`)
-→ `www.instagram.com/oauth/authorize` with scopes `instagram_business_basic,
-instagram_business_content_publish`, `force_reauth=true` (an agency person
-logged into one IG account must not silently attach it to every project) and
-a random `state` stored in the session together with the project id.
+→ `www.facebook.com/dialog/oauth?client_id&config_id&redirect_uri&response_type=code&state&prompt=login`
+(`prompt=login`: an agency person logged into Facebook must not silently
+continue as that account) with a random `state` stored in the session
+together with the project id.
 
 `InstagramConnectCheckController` (`GET /oauth/instagram/check`) is the ONE
-redirect URI registered in the Meta app (must match exactly, so it cannot
+redirect URL saved in the configuration (must match exactly, so it cannot
 carry the project): pops the state (single use, `hash_equals`), re-checks
-`project_edit`, handles `error=access_denied`, refuses when
-`instagram_business_content_publish` is missing from a returned permissions
-list (a response WITHOUT the list proceeds and logs a warning),
-then code → short-lived token (api.instagram.com) → long-lived 60-day token
-(graph.instagram.com `ig_exchange_token`) → `/me` → `ConnectProjectInstagram`
-(insert, or reconnect the existing row in place).
+`project_edit`, handles `error=access_denied`, then code →
+`GET graph.facebook.com/v27.0/oauth/access_token` (Meta app id + secret +
+redirect_uri) → a Business Integration System User token (belongs to the
+client's business portfolio; `expires_in` absent = never expires) →
+`GET /me/assigned_instagram_accounts?fields=id,username,name`:
+
+- none → flash „Meta nesdílela žádný instagramový účet…“, nothing stored;
+- one → `ConnectProjectInstagram` (insert, or reconnect the existing row in
+  place);
+- several → the pending grant (token ENCRYPTED, accounts, owner id) goes to
+  the session and `InstagramConnectPickController`
+  (`GET|POST /project/{projectId}/instagram/pick`, `project_edit`, CSRF
+  `project_instagram_pick`, `templates/project_instagram_pick.html.twig`, one
+  form per account) connects the chosen one; single use.
+
+`GET /me?fields=id` (token owner id → `accountUserId`) is informational: a
+failure there is logged, never blocks connecting.
 
 All Instagram HTTP goes through `Services/Instagram/InstagramApi`
 (`InstagramApiInterface`, faked by `tests/Fakes/FakeInstagramApi`). Base URL
-`INSTAGRAM_GRAPH_BASE_URL` (versioned, default `https://graph.instagram.com/v24.0/`);
-the token endpoints are unversioned absolute URLs. Responses are read both
-flat and wrapped in `data: [ … ]` (Meta's docs show both).
+`INSTAGRAM_GRAPH_BASE_URL` (versioned, default
+`https://graph.facebook.com/v27.0/`). Every token-bearing call also sends
+`appsecret_proof` (HMAC-SHA256 of the token with the app secret), so the
+app's "Require app secret" switch may be on. Single-object responses are read
+both flat and wrapped in `data: [ … ]`.
 
 ## Publishing
 
@@ -90,20 +121,31 @@ flat and wrapped in `data: [ … ]` (Meta's docs show both).
 
 ## Token lifetime
 
-Long-lived tokens last 60 days and die for good unless refreshed.
+The Unified Login configuration is set to **never-expiring** tokens
+(docs/instagram-setup.md step 3), so there is no refresh code. A token still
+dies when the client removes the app from their portfolio or moves the
+Instagram account to another portfolio → 190 → reconnect.
 
-- **Daily cron** `app:instagram:refresh-tokens` (lily.srv
-  `apps/wboost/cron.d/wboost`, 03:30): refreshes every connection expiring
-  within 30 days (`isDueForRefresh`), `--force` refreshes all ≥ 24 h old.
-  A 190 on refresh flags the row instead of failing the run.
-- **Safety net at publish time** (`ProjectInstagramConnection::accessToken`):
-  a token within 7 days of expiry is refreshed before publishing; a failed
-  refresh is logged and the still-valid token is used.
+- **Nightly check** `app:instagram:check-tokens` (alias
+  `app:instagram:refresh-tokens` — the name the lily.srv cron line
+  `apps/wboost/cron.d/wboost`, 03:30, still uses): for every connection not
+  yet flagged, a token past a stored `tokenExpiresAt` or one Meta rejects
+  (`/me/assigned_instagram_accounts` → 190) or one that can't be decrypted
+  flags `needsReconnect`; other API errors fail the run (Sentry monitor) and
+  retry tomorrow.
+- If a configuration with EXPIRING tokens is ever chosen, the stored
+  `tokenExpiresAt` makes the connection unusable after expiry (reconnect);
+  renewing would need the BISU token management API
+  (`/{client-business-id}/system_user_access_tokens`) — not built.
 
 ## Meta's callbacks (public routes, `security.php` carve-out)
 
-Signed with the **Instagram app secret** (`Services/Meta/MetaSignedRequest`,
-shared with the Facebook data-deletion callback):
+Signed with the **Meta app secret** (`INSTAGRAM_META_APP_SECRET`;
+`Services/Meta/MetaSignedRequest`, shared with the Facebook data-deletion
+callback). Configured in App settings → Basic (data deletion callback) and,
+if the field exists, Facebook Login for Business → Settings (deauthorize).
+Meta's Unified Login docs don't describe these callbacks — the `user_id`
+they carry is matched against both stored ids:
 
 - `POST /oauth/instagram/deauthorize` — the person removed WBoost in Instagram
   → all project rows with that id are deleted.
@@ -117,6 +159,8 @@ shared with the Facebook data-deletion callback):
   `templates/project_social.html.twig`): Instagram box (status, connect /
   change / disconnect for editors, "Propojí správce projektu" for members,
   "připravujeme" outside the rollout) + the Facebook box ("připravujeme").
+  `project_instagram_pick` = the account picker after a login that shared
+  several Instagram accounts.
 - Fill page (`VariantFiller.html.twig`, Live props `instagramAvailable`,
   `instagramAccount`, set by `TemplateVariantExportController`): "Sdílet na
   sítě" menu → "Publikovat na Instagram" ("(story)" on 9:16) opens the
@@ -129,21 +173,28 @@ shared with the Facebook data-deletion callback):
 ## Adding Facebook (planned)
 
 The table, page and modal are ready for it: add `SocialPlatform::Facebook`,
-a connect flow (Facebook Login → pick ONE Page → store page id in
-`accountId`, the Page token — non-expiring when derived from a long-lived user
-token, so `isDueForRefresh` is false — and the person's id in
+a connect flow (most likely Facebook Login for Business on the SAME Meta app
+with a second configuration that asks for a Page — the WBoost app already
+uses FLB for Instagram; pick ONE Page → store page id in `accountId`, a
+non-expiring Page / system-user token, and the owner id in
 `accountUserId`), a publisher (`/{page-id}/photos`, see `MetaGraphApi`), the
 Facebook box on `project_social.html.twig`, and route `platform=facebook` to
-the project account in the publish controller. Separate env vars
-(`FACEBOOK_APP_*` vs `INSTAGRAM_APP_*`) allow either one Meta app or two.
+the project account in the publish controller. `FACEBOOK_APP_*` (personal
+sign-in app) and `INSTAGRAM_META_APP_*` are separate env vars, so either one
+Meta app or two works.
 
 ## Tests
 
 `tests/Controller/Instagram/ProjectInstagramConnectionTest.php` (page, connect
-round trip, state, permissions, disconnect, callbacks, refresh command, fill
-chrome), `tests/Controller/Template/TemplateVariantPublishControllerTest.php`
-(feed, story, shared member, not connected, lazy refresh, 190 flag, caption
-length), `tests/Services/Instagram/InstagramPublishingTest.php` (rollout, prod key),
-`tests/Services/Instagram/InstagramApiTest.php` (the real client vs Meta's
-documented shapes on a MockHttpClient).
-Not verifiable without a Meta app: the real OAuth dance and real publishing.
+round trip, state, no shared account, account picker, disconnect, callbacks,
+check command, fill chrome),
+`tests/Controller/Template/TemplateVariantPublishControllerTest.php` (feed,
+story, shared member, not connected, expired token, 190 flag, caption
+length), `tests/Services/Instagram/InstagramPublishingTest.php` (rollout,
+config id, prod key), `tests/Services/Instagram/InstagramApiTest.php` (the
+real client vs Meta's documented shapes on a MockHttpClient, incl.
+`appsecret_proof`).
+Not verifiable without a Meta app: the real login, whether the code exchange
+wants `redirect_uri` (sent; Facebook Login normally requires it), the token
+expiry options the dashboard offers, which id the callbacks carry, and real
+publishing.

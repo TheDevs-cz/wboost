@@ -5,18 +5,15 @@ declare(strict_types=1);
 namespace WBoost\Web\Value;
 
 /**
- * `GET graph.instagram.com/me`: `userId` is the professional account id
- * (`user_id`, the one publishing addresses), `appScopedId` the app-scoped
- * `id`.
+ * One entry of `GET /me/assigned_instagram_accounts`: `userId` is the
+ * Instagram professional account id publishing addresses.
  */
 readonly final class InstagramProfile
 {
     public function __construct(
         public string $userId,
-        public null|string $appScopedId,
         public string $username,
-        public null|string $name,
-        public null|string $accountType,
+        public null|string $name = null,
     ) {
     }
 }
