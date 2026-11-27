@@ -154,5 +154,51 @@
             {% endif %}
         {% endif %}
     </section>
+
+    <section class="pd-box" id="prispevky" aria-labelledby="socPostsH">
+        <div class="pd-box-h">
+            <div>
+                <h2 id="socPostsH">Publikované příspěvky</h2>
+                <span class="cap">Všechno, co se z projektu publikovalo na Instagram a Facebook — s odkazem na příspěvek.</span>
+            </div>
+        </div>
+
+        {% if posts is empty %}
+            <div class="sp-empty">
+                <span class="acc-ico">{{ icon('share', 's16') }}</span>
+                <span>Zatím nic. Příspěvky se tu objeví, jakmile někdo publikuje vyplněnou šablonu přes „Sdílet na sítě“.</span>
+            </div>
+        {% else %}
+            <ul class="sp-list">
+                {% for post in posts %}
+                    <li class="sp-row" data-social-post="{{ post.externalId }}">
+                        <span class="acc-ico sp-ico sp-{{ post.platform.value }}" title="{{ post.platform.label }}">{{ icon(post.platform.value, 's16') }}</span>
+                        <span class="sp-main">
+                            <span class="sp-title">
+                                {% if post.templateVariant %}
+                                    <a href="{{ path('template_variant_export', {'variantId': post.templateVariant.id}) }}">{{ post.templateName }}</a>
+                                {% else %}
+                                    <b>{{ post.templateName }}</b>
+                                {% endif %}
+                                {% if post.isStory %}<span class="pill">Story</span>{% endif %}
+                            </span>
+                            {% if post.caption %}<span class="sp-caption">{{ post.caption|u.truncate(140, '…', false) }}</span>{% endif %}
+                            <span class="sp-meta">
+                                {{ post.platform.label }} · {{ post.accountName }}
+                                · {{ post.publishedAt|date('j. n. Y H:i', 'Europe/Prague') }}
+                                {%- if post.publishedBy %} · {{ post.publishedBy.email }}{% endif %}
+                            </span>
+                        </span>
+                        {% if post.permalink %}
+                            <a href="{{ post.permalink }}" class="btn btn-secondary sm sp-open" target="_blank" rel="noopener">{{ icon('link', 's14') }}<span>Zobrazit příspěvek</span></a>
+                        {% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+            {% if morePosts %}
+                <a href="{{ path('project_social', {'projectId': project.id, 'vse': 1}) }}#prispevky" class="btn btn-tertiary sm sp-more">Zobrazit starší příspěvky</a>
+            {% endif %}
+        {% endif %}
+    </section>
     </div>
 {% endblock %}

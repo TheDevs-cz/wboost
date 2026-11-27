@@ -224,7 +224,38 @@ Mirrors Instagram, `Services/FacebookPage/*`, `Controller/FacebookPage/*`:
 - **Token check**: `app:instagram:check-tokens` also checks every Facebook
   row (`GET /{page-id}?fields=id` with the Page token).
 
+## Publikované příspěvky (`social_post`, 2026-11-27)
+
+Every SUCCESSFUL publish — Instagram, the project Facebook Page and the older
+personal-link Page path — is remembered (`Entity/SocialPost`, message
+`RecordSocialPost`, dispatched from `TemplateVariantPublishController::
+recordSocialPost` right after the export is recorded; a failure there is
+logged, never fails the publish). A failed publish records nothing.
+
+- Columns: project (CASCADE), template variant (SET NULL) + template id /
+  name snapshot, platform, kind (`feed` / `story`), account id + name
+  snapshot (`@handle` / Page name), `externalId` (Instagram media id /
+  Facebook post id), `permalink`, caption (empty for stories), `publishedBy`
+  (SET NULL), `publishedAt`, `fillValuesHash`, `response` (JSON of the ids
+  Meta returned: Instagram `igUserId`, `containerId`, `mediaId`, `permalink`;
+  Facebook `pageId`, `postId`, `permalink`). The ids are what later features
+  (comments, insights, deleting a post) will address — add the permission
+  then, not before (App Review rejects unused permissions).
+- Shown on the „Facebook a Instagram“ page, section „Publikované příspěvky“
+  (`#prispevky`, newest 50, `?vse=1` shows up to 1000), to everyone who can
+  view the project.
+- Export history (`template_export_history.html.twig`): a version whose
+  `fillValuesHash` matches a post of that variant gets a green platform pill
+  linking to the post (`SocialPostRepository::byFillHashForVariant`; a hash,
+  not an FK — versions deduplicate, prune and promote drafts). Group history
+  pages pass no posts (group fills aren't published).
+- No storage paths: nothing to add to `BuildStorageReferenceIndex`.
+
 ## Tests
+
+`tests/Controller/Project/ProjectSocialPostsTest.php` (the posts section,
+order, empty state, access); the publish controller test asserts the recorded
+post for both platforms, none on failure, and the export-history pill.
 
 `tests/Controller/Instagram/ProjectInstagramConnectionTest.php` (page, connect
 round trip, state, no shared account, account picker, disconnect, callbacks,

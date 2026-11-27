@@ -47,6 +47,10 @@ readonly final class PublishToProjectFacebookPage
             $permalink = null;
         }
 
-        return new FacebookPagePublication($postId, $permalink ?? 'https://www.facebook.com/' . $postId);
+        return new FacebookPagePublication($postId, $permalink ?? 'https://www.facebook.com/' . $postId, [
+            'pageId' => $account->accountId,
+            'postId' => $postId,
+            'permalink' => $permalink,
+        ]);
     }
 }

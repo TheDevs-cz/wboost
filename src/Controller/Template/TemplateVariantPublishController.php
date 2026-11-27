@@ -29,6 +29,7 @@ use WBoost\Web\Exceptions\InstagramRateLimited;
 use WBoost\Web\Exceptions\InstagramTokenExpired;
 use WBoost\Web\Exceptions\MetaApiError;
 use WBoost\Web\Message\SocialAccount\MarkSocialAccountNeedsReconnect;
+use WBoost\Web\Message\SocialPost\RecordSocialPost;
 use WBoost\Web\Services\AiScan\Template\UnfilledExportGuard;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Services\Meta\GetFacebookDestinations;
@@ -51,6 +52,7 @@ use WBoost\Web\Services\Template\RecordExportVersion;
 use WBoost\Web\Services\Usage\RecordExportUsage;
 use WBoost\Web\Value\ExportChannel;
 use WBoost\Web\Value\ExportFillValues;
+use WBoost\Web\Value\SocialPlatform;
 
 /**
  * Direct publish of a filled variant to the PROJECT's Instagram account or
@@ -140,11 +142,11 @@ final class TemplateVariantPublishController extends AbstractController
         $this->releaseSessionLock->release($request);
 
         if ($platform === 'instagram') {
-            return $this->publishToInstagram($variant, $request, $caption);
+            return $this->publishToInstagram($variant, $request, $caption, $user);
         }
 
         if ($projectPage) {
-            return $this->publishToProjectPage($variant, $request, $caption);
+            return $this->publishToProjectPage($variant, $request, $caption, $user);
         }
 
         $account = $this->destinations->connectedAccount($user);
@@ -186,12 +188,15 @@ final class TemplateVariantPublishController extends AbstractController
             return new JsonResponse(['error' => $exception->userMessage()], Response::HTTP_BAD_GATEWAY);
         }
 
-        $this->recordPublish($variant, $request, ExportChannel::Facebook);
+        $fillValues = $this->recordPublish($variant, $request, ExportChannel::Facebook);
+        // The personal-link path posts to the user's own Page — still a post
+        // of this project's template, so it is remembered too.
+        $this->recordSocialPost($variant, $user, SocialPlatform::Facebook, 'feed', $page->id, $page->name, $postId, 'https://www.facebook.com/' . $postId, $caption, $fillValues, ['pageId' => $page->id, 'postId' => $postId]);
 
-        return new JsonResponse(['ok' => true, 'platform' => $platform, 'postId' => $postId]);
+        return new JsonResponse(['ok' => true, 'platform' => $platform, 'postId' => $postId, 'account' => $page->name]);
     }
 
-    private function publishToInstagram(TemplateVariant $variant, Request $request, string $caption): Response
+    private function publishToInstagram(TemplateVariant $variant, Request $request, string $caption, User $user): Response
     {
         if (!$this->instagramPublishing->isAvailable()) {
             return new JsonResponse(['error' => 'Publikování na Instagram zatím není k dispozici.'], Response::HTTP_FORBIDDEN);
@@ -228,7 +233,8 @@ final class TemplateVariantPublishController extends AbstractController
             return new JsonResponse(['error' => $exception->userMessage()], Response::HTTP_BAD_GATEWAY);
         }
 
-        $this->recordPublish($variant, $request, ExportChannel::Instagram);
+        $fillValues = $this->recordPublish($variant, $request, ExportChannel::Instagram);
+        $this->recordSocialPost($variant, $user, SocialPlatform::Instagram, $publication->kind->value, $account->accountId, '@' . ($account->username ?? $account->accountId), $publication->mediaId, $publication->permalink, $kind->supportsCaption() ? $caption : '', $fillValues, $publication->response);
 
         return new JsonResponse([
             'ok' => true,
@@ -240,7 +246,7 @@ final class TemplateVariantPublishController extends AbstractController
         ]);
     }
 
-    private function publishToProjectPage(TemplateVariant $variant, Request $request, string $caption): Response
+    private function publishToProjectPage(TemplateVariant $variant, Request $request, string $caption, User $user): Response
     {
         $account = $this->facebookPage->usable($variant->template->project);
 
@@ -267,7 +273,8 @@ final class TemplateVariantPublishController extends AbstractController
             return new JsonResponse(['error' => $exception->userMessage()], Response::HTTP_BAD_GATEWAY);
         }
 
-        $this->recordPublish($variant, $request, ExportChannel::Facebook);
+        $fillValues = $this->recordPublish($variant, $request, ExportChannel::Facebook);
+        $this->recordSocialPost($variant, $user, SocialPlatform::Facebook, 'feed', $account->accountId, $account->name ?? $account->accountId, $publication->postId, $publication->permalink, $caption, $fillValues, $publication->response);
 
         return new JsonResponse([
             'ok' => true,
@@ -279,17 +286,67 @@ final class TemplateVariantPublishController extends AbstractController
         ]);
     }
 
-    private function recordPublish(TemplateVariant $variant, Request $request, ExportChannel $channel): void
+    /**
+     * Usage event + export version, like every export. Returns the fill
+     * values so the social post can point at the same version (its hash).
+     */
+    private function recordPublish(TemplateVariant $variant, Request $request, ExportChannel $channel): ExportFillValues
     {
         $this->recordExportUsage->record($variant, $channel);
-        $this->recordExportVersion->recordVariant($variant, $channel, ExportFillValues::fromVariantWebForm(
+        $fillValues = ExportFillValues::fromVariantWebForm(
             $request->request->all('textValues'),
             $request->request->all('hiddenValues'),
             $request->request->all('images'),
             $request->request->all('fontValues'),
             $request->request->all('shapeColorValues'),
         )->withRows($this->fillFormParser->parseRowCounts($request, $variant))
-            ->withOffsets([$variant->id->toString() => $this->fillFormParser->parseOffsets($request, RepeatableRows::expand($variant))]), $request->request->getString('draftVersionId'));
+            ->withOffsets([$variant->id->toString() => $this->fillFormParser->parseOffsets($request, RepeatableRows::expand($variant))]);
+        $this->recordExportVersion->recordVariant($variant, $channel, $fillValues, $request->request->getString('draftVersionId'));
+
+        return $fillValues;
+    }
+
+    /**
+     * "Publikované příspěvky": the post with the ids Meta returned. Never
+     * fails the publish — the post is live either way.
+     *
+     * @param array<string, scalar|null> $response
+     */
+    private function recordSocialPost(
+        TemplateVariant $variant,
+        User $user,
+        SocialPlatform $platform,
+        string $kind,
+        string $accountId,
+        string $accountName,
+        string $externalId,
+        null|string $permalink,
+        string $caption,
+        ExportFillValues $fillValues,
+        array $response,
+    ): void {
+        try {
+            $this->bus->dispatch(new RecordSocialPost(
+                $variant->id,
+                $user->id,
+                $platform,
+                $kind,
+                $accountId,
+                $accountName,
+                $externalId,
+                $permalink,
+                $caption,
+                $fillValues->hash(),
+                $response,
+            ));
+        } catch (\Throwable $exception) {
+            $this->logger->error('Recording a published social post failed.', [
+                'exception' => $exception,
+                'variantId' => $variant->id->toString(),
+                'platform' => $platform->value,
+                'externalId' => $externalId,
+            ]);
+        }
     }
 
     /**

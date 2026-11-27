@@ -76,7 +76,12 @@ readonly final class PublishToProjectInstagram
             $permalink = null;
         }
 
-        return new InstagramPublication($mediaId, $permalink, $kind);
+        return new InstagramPublication($mediaId, $permalink, $kind, [
+            'igUserId' => $account->accountId,
+            'containerId' => $containerId,
+            'mediaId' => $mediaId,
+            'permalink' => $permalink,
+        ]);
     }
 
     /**

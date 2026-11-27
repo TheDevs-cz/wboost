@@ -11,6 +11,7 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use WBoost\Web\Entity\ExportEvent;
 use WBoost\Web\Entity\Project;
 use WBoost\Web\Entity\ProjectSocialAccount;
+use WBoost\Web\Entity\SocialPost;
 use WBoost\Web\Entity\SocialAccount;
 use WBoost\Web\Exceptions\FacebookPageTokenExpired;
 use WBoost\Web\Exceptions\FacebookTokenExpired;
@@ -55,6 +56,20 @@ final class TemplateVariantPublishControllerTest extends WebTestCase
         $data = json_decode((string) $client->getResponse()->getContent(), true);
 
         return is_array($data) ? $data : [];
+    }
+
+    /**
+     * @return list<SocialPost>
+     */
+    private function socialPosts(): array
+    {
+        $entityManager = self::getContainer()->get(EntityManagerInterface::class);
+        $entityManager->clear();
+
+        /** @var list<SocialPost> $posts */
+        $posts = $entityManager->getRepository(SocialPost::class)->findAll();
+
+        return $posts;
     }
 
     private function getRendererFake(): FakeTemplateVariantImageRenderer
@@ -203,6 +218,40 @@ final class TemplateVariantPublishControllerTest extends WebTestCase
         ]);
         self::assertInstanceOf(ExportEvent::class, $event);
         self::assertSame(ExportChannel::Instagram, $event->channel);
+
+        // "Publikované příspěvky": the post with Meta's ids.
+        $posts = $this->socialPosts();
+        self::assertCount(1, $posts);
+        self::assertSame(SocialPlatform::Instagram, $posts[0]->platform);
+        self::assertSame('feed', $posts[0]->kind);
+        self::assertSame(FakeInstagramApi::MEDIA_ID, $posts[0]->externalId);
+        self::assertSame(FakeInstagramApi::PERMALINK, $posts[0]->permalink);
+        self::assertSame('@' . FakeInstagramApi::USERNAME, $posts[0]->accountName);
+        self::assertSame('IG post #wboost', $posts[0]->caption);
+        self::assertSame(TestDataFixture::PROJECT_1_ID, $posts[0]->project->id->toString());
+        self::assertSame(TestDataFixture::USER_1_EMAIL, $posts[0]->publishedBy?->email);
+        self::assertSame(FakeInstagramApi::MEDIA_ID, $posts[0]->response['mediaId']);
+        self::assertArrayHasKey('containerId', $posts[0]->response);
+        self::assertNotNull($posts[0]->fillValuesHash);
+    }
+
+    public function testExportHistoryLinksThePublishedVersionToItsPost(): void
+    {
+        $client = self::createClient();
+        $client->disableReboot();
+        TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
+        $this->connectInstagram();
+
+        $this->publish($client, ['platform' => 'instagram', 'caption' => 'Pill']);
+        self::assertResponseIsSuccessful();
+
+        $crawler = $client->request('GET', '/template-variant/' . TestDataFixture::GROUPED_PRESET_VARIANT_ID . '/export-history');
+
+        self::assertResponseIsSuccessful();
+        $pill = $crawler->filter('a.tp-hist-post');
+        self::assertCount(1, $pill);
+        self::assertSame(FakeInstagramApi::PERMALINK, $pill->attr('href'));
+        self::assertStringContainsString('Instagram', $pill->text());
     }
 
     public function testNineBySixteenVariantGoesOutAsStoryWithoutCaption(): void
@@ -272,6 +321,7 @@ final class TemplateVariantPublishControllerTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(409);
         self::assertTrue($data['reconnect']);
+        self::assertSame([], $this->socialPosts(), 'a failed publish leaves no post');
 
         $entityManager = self::getContainer()->get(EntityManagerInterface::class);
         $entityManager->clear();
@@ -465,6 +515,14 @@ final class TemplateVariantPublishControllerTest extends WebTestCase
         ]);
         self::assertNotNull($event);
         self::assertSame(ExportChannel::Facebook, $event->channel);
+
+        $posts = $this->socialPosts();
+        self::assertCount(1, $posts);
+        self::assertSame(SocialPlatform::Facebook, $posts[0]->platform);
+        self::assertSame(FakeFacebookPageApi::POST_ID, $posts[0]->externalId);
+        self::assertSame(FakeFacebookPageApi::PAGE_NAME, $posts[0]->accountName);
+        self::assertSame(FakeFacebookPageApi::PAGE_ID, $posts[0]->accountId);
+        self::assertSame(TestDataFixture::SHARED_USER_EMAIL, $posts[0]->publishedBy?->email);
     }
 
     public function testProjectFacebookPageNotConnected(): void

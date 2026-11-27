@@ -210,3 +210,9 @@ version.
   export" menu item. The template listing cards dropped that line on
   2026-11-05 (feedback F22) — only "Nejpoužívanější" cards keep their
   30-day export count.
+
+**Published versions (2026-11-27).** On the variant history page a version
+whose `fillValuesHash` matches a `social_post` of that variant shows a green
+platform pill linking to the post (`social_post`, see `social-publishing.md`
+§ "Publikované příspěvky"). Matched by hash, not an FK: versions dedupe,
+prune and promote drafts.

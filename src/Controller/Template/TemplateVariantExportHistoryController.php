@@ -12,6 +12,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\MessageHandler\Template\RecordTemplateExportVersionHandler;
 use WBoost\Web\Query\GetExportVersions;
+use WBoost\Web\Repository\SocialPostRepository;
 use WBoost\Web\Services\Security\TemplateVariantVoter;
 use WBoost\Web\Services\Template\SummarizeExportVersion;
 
@@ -26,6 +27,7 @@ final class TemplateVariantExportHistoryController extends AbstractController
     public function __construct(
         readonly private GetExportVersions $getExportVersions,
         readonly private SummarizeExportVersion $summarize,
+        readonly private SocialPostRepository $socialPosts,
     ) {
     }
 
@@ -55,6 +57,8 @@ final class TemplateVariantExportHistoryController extends AbstractController
             'load_route_name' => 'template_variant_export',
             'load_route_params' => ['variantId' => $variant->id->toString()],
             'fill_url' => $this->generateUrl('template_variant_export', ['variantId' => $variant->id]),
+            // Versions this fill was published with get a link pill to the post.
+            'social_posts' => $this->socialPosts->byFillHashForVariant($variant->id),
         ]);
     }
 }
