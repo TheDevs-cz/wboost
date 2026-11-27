@@ -81,7 +81,8 @@
                                         <span class="pill neutral" title="Exportováno {{ version.exportCount }}×">{{ version.exportCount }}×</span>
                                     {% endif %}
                                     {# Published with exactly this fill (social_post.fillValuesHash). #}
-                                    {% for post in (social_posts|default({}))[version.fillValuesHash] ?? [] %}
+                                    {# Only the variant page passes posts (document / group histories share this template). #}
+                                    {% for post in social_posts is defined ? (social_posts[version.fillValuesHash] ?? []) : [] %}
                                         {% if post.permalink %}
                                             <a class="pill tp-hist-post" href="{{ post.permalink }}" target="_blank" rel="noopener" title="Publikováno {{ post.publishedAt|date('j. n. Y H:i', 'Europe/Prague') }} na {{ post.accountName }} — zobrazit příspěvek">{{ icon(post.platform.value, 's12') }}{{ post.platform.label }}</a>
                                         {% endif %}
