@@ -23,6 +23,8 @@ use WBoost\Web\Services\Instagram\InstagramPublishing;
 use WBoost\Web\Services\Instagram\ProjectInstagramConnection;
 use WBoost\Web\Services\Security\TemplateVariantVoter;
 use WBoost\Web\Services\Template\ExportVersionSeeder;
+use WBoost\Web\Services\FacebookPage\FacebookPagePublishing;
+use WBoost\Web\Services\FacebookPage\ProjectFacebookPageConnection;
 use WBoost\Web\Services\UploaderHelper;
 
 final class TemplateVariantExportController extends AbstractController
@@ -36,6 +38,8 @@ final class TemplateVariantExportController extends AbstractController
         readonly private ExportVersionSeeder $versionSeeder,
         readonly private InstagramPublishing $instagramPublishing,
         readonly private ProjectInstagramConnection $instagram,
+        readonly private FacebookPagePublishing $facebookPublishing,
+        readonly private ProjectFacebookPageConnection $facebookPage,
     ) {
     }
 
@@ -52,6 +56,7 @@ final class TemplateVariantExportController extends AbstractController
         // the API export endpoint.
         $template = $variant->template;
         $instagramAvailable = $this->instagramPublishing->isAvailable();
+        $facebookAvailable = $this->facebookPublishing->isAvailable();
 
         // `?version=<id>` loads a stored export version ("Historie exportů"):
         // the whole fill state seeds from its snapshot. An id that is invalid,
@@ -69,6 +74,8 @@ final class TemplateVariantExportController extends AbstractController
             'facebookConnected' => $this->destinations->connectedAccount($user) !== null,
             'instagramAvailable' => $instagramAvailable,
             'instagramAccount' => $instagramAvailable ? ($this->instagram->usable($template->project)->username ?? '') : '',
+            'facebookAvailable' => $facebookAvailable,
+            'facebookPage' => $facebookAvailable ? ($this->facebookPage->usable($template->project)->name ?? '') : '',
             // The shared classic scripts + @font-face declarations load on
             // THIS page (the deferred Live component cannot execute scripts).
             'font_faces' => $this->fontFaces($variant),

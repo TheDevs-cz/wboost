@@ -76,6 +76,12 @@ return static function (ContainerConfigurator $container): void {
         \WBoost\Web\Tests\Fakes\FakeInstagramApi::class,
     );
 
+    // Project Facebook Page double.
+    $services->alias(
+        \WBoost\Web\Services\FacebookPage\FacebookPageApiInterface::class,
+        \WBoost\Web\Tests\Fakes\FakeFacebookPageApi::class,
+    );
+
     // Meta Graph API double — publish tests never talk to graph.facebook.com.
     $services->alias(
         \WBoost\Web\Services\Meta\MetaGraphApiInterface::class,

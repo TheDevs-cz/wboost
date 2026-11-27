@@ -40,6 +40,10 @@ return static function (ContainerConfigurator $container): void {
         ->set('env(INSTAGRAM_LOGIN_CONFIG_ID)', '')
         ->set('env(INSTAGRAM_GRAPH_BASE_URL)', 'https://graph.facebook.com/v27.0/')
         ->set('env(INSTAGRAM_ROLLOUT)', 'admins')
+        // Project Facebook Page publishing — same Meta app (INSTAGRAM_META_*),
+        // its own Facebook Login for Business configuration; off without it.
+        ->set('env(FACEBOOK_PAGES_LOGIN_CONFIG_ID)', '')
+        ->set('env(FACEBOOK_PAGES_ROLLOUT)', 'admins')
         // RFC 7591 dynamic client registration (S8-T4) — OFF unless explicitly
         // turned on. The default lives here as well as in `.env` because prod's
         // `.env` is rendered from Infisical: a deploy made before the variable

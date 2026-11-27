@@ -17,6 +17,10 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use WBoost\Web\Entity\TemplateVariant;
 use WBoost\Web\Entity\User;
 use WBoost\Web\Exceptions\FacebookNotConnected;
+use WBoost\Web\Exceptions\FacebookPageNotConnected;
+use WBoost\Web\Exceptions\FacebookPagePermissionMissing;
+use WBoost\Web\Exceptions\FacebookPageRateLimited;
+use WBoost\Web\Exceptions\FacebookPageTokenExpired;
 use WBoost\Web\Exceptions\FacebookPermissionMissing;
 use WBoost\Web\Exceptions\FacebookTokenExpired;
 use WBoost\Web\Exceptions\InstagramNotConnected;
@@ -30,6 +34,9 @@ use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
 use WBoost\Web\Services\Meta\GetFacebookDestinations;
 use WBoost\Web\Services\ReleaseSessionLock;
 use WBoost\Web\Services\Meta\PublishToFacebookPage;
+use WBoost\Web\Services\FacebookPage\FacebookPagePublishing;
+use WBoost\Web\Services\FacebookPage\ProjectFacebookPageConnection;
+use WBoost\Web\Services\FacebookPage\PublishToProjectFacebookPage;
 use WBoost\Web\Services\Instagram\InstagramPublishing;
 use WBoost\Web\Services\Instagram\ProjectInstagramConnection;
 use WBoost\Web\Services\Instagram\PublishToProjectInstagram;
@@ -46,13 +53,15 @@ use WBoost\Web\Value\ExportChannel;
 use WBoost\Web\Value\ExportFillValues;
 
 /**
- * Direct publish of a filled variant to the PROJECT's Instagram account
- * (project_social_account, Unified Login) or to one of the user's own
- * Facebook Pages (personal Facebook link). Same POST body as the download
- * endpoint (the JS re-posts the fill form via fetch) plus `platform`,
- * `caption` and — Facebook only — `targetId` (page id, validated against the
- * user's OWN pages). Instagram's destination is never posted: it is resolved
- * from the variant's project. A 9:16 variant goes to Instagram as a story.
+ * Direct publish of a filled variant to the PROJECT's Instagram account or
+ * Facebook Page (project_social_account, Facebook Login for Business) — or,
+ * the older path, to one of the user's own Facebook Pages (personal Facebook
+ * link, `targetId` validated against the user's OWN pages). Same POST body as
+ * the download endpoint (the JS re-posts the fill form via fetch) plus
+ * `platform`, `caption` and `targetId`. `platform=facebook` WITHOUT a
+ * `targetId` = the project's Page (needs FacebookPagePublishing); the
+ * project destinations are never posted, they are resolved from the variant's
+ * project. A 9:16 variant goes to Instagram as a story.
  * Responds JSON — the fill page stays put, no state is lost.
  *
  * Every format can be published (2026-11-27): Instagram gets a picture outside
@@ -82,6 +91,9 @@ final class TemplateVariantPublishController extends AbstractController
         private readonly ReleaseSessionLock $releaseSessionLock,
         private readonly ResolveShapeColorOverrides $resolveShapeColorOverrides,
         private readonly UnfilledExportGuard $unfilledGuard,
+        private readonly FacebookPagePublishing $facebookPagePublishing,
+        private readonly ProjectFacebookPageConnection $facebookPage,
+        private readonly PublishToProjectFacebookPage $publishToProjectFacebookPage,
     ) {
     }
 
@@ -101,7 +113,9 @@ final class TemplateVariantPublishController extends AbstractController
         $targetId = $request->request->getString('targetId');
         $caption = trim($request->request->getString('caption'));
 
-        if (!in_array($platform, ['facebook', 'instagram'], true) || ($platform === 'facebook' && $targetId === '')) {
+        $projectPage = $platform === 'facebook' && $targetId === '';
+
+        if (!in_array($platform, ['facebook', 'instagram'], true) || ($projectPage && !$this->facebookPagePublishing->isAvailable())) {
             return new JsonResponse(['error' => 'Neplatný požadavek na publikování.'], Response::HTTP_BAD_REQUEST);
         }
 
@@ -127,6 +141,10 @@ final class TemplateVariantPublishController extends AbstractController
 
         if ($platform === 'instagram') {
             return $this->publishToInstagram($variant, $request, $caption);
+        }
+
+        if ($projectPage) {
+            return $this->publishToProjectPage($variant, $request, $caption);
         }
 
         $account = $this->destinations->connectedAccount($user);
@@ -219,6 +237,45 @@ final class TemplateVariantPublishController extends AbstractController
             'permalink' => $publication->permalink,
             'kind' => $publication->kind->value,
             'account' => $account->username,
+        ]);
+    }
+
+    private function publishToProjectPage(TemplateVariant $variant, Request $request, string $caption): Response
+    {
+        $account = $this->facebookPage->usable($variant->template->project);
+
+        if ($account === null) {
+            return new JsonResponse(
+                ['error' => (new FacebookPageNotConnected())->userMessage(), 'reconnect' => true],
+                Response::HTTP_CONFLICT,
+            );
+        }
+
+        try {
+            $publication = $this->publishToProjectFacebookPage->publish($account, $this->renderVariant($variant, $request), $caption);
+        } catch (FacebookPageNotConnected | FacebookPageTokenExpired | FacebookPagePermissionMissing $exception) {
+            return new JsonResponse(['error' => $exception->userMessage(), 'reconnect' => true], Response::HTTP_CONFLICT);
+        } catch (FacebookPageRateLimited $exception) {
+            return new JsonResponse(['error' => $exception->userMessage()], Response::HTTP_TOO_MANY_REQUESTS);
+        } catch (MetaApiError $exception) {
+            $this->logger->error('Publishing to the project Facebook Page failed.', [
+                'exception' => $exception,
+                'variantId' => $variant->id->toString(),
+                'projectId' => $variant->template->project->id->toString(),
+            ]);
+
+            return new JsonResponse(['error' => $exception->userMessage()], Response::HTTP_BAD_GATEWAY);
+        }
+
+        $this->recordPublish($variant, $request, ExportChannel::Facebook);
+
+        return new JsonResponse([
+            'ok' => true,
+            'platform' => 'facebook',
+            'postId' => $publication->postId,
+            'permalink' => $publication->permalink,
+            'kind' => 'feed',
+            'account' => $account->name ?? '',
         ]);
     }
 

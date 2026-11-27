@@ -1,4 +1,4 @@
-# Social publishing — Instagram per project (+ the Facebook slot)
+# Social publishing — Instagram + Facebook Page per project
 
 Since 2026-11-26 a **project** can be connected to one Instagram professional
 account, and everybody who fills that project's templates can publish the
@@ -10,12 +10,14 @@ API with Unified Login"** — Meta's migration guide: "Newly created apps can't
 set up the Instagram API with Instagram Login", and new features ship only on
 Unified Login. Nothing was ever connected in prod with the old flow.
 
+**2026-11-27: Facebook Page per project** — the same model, the same Meta
+app, its own Facebook Login for Business configuration (§ "Facebook Page").
+
 ## Model
 
 - **`project_social_account`** (`Entity/ProjectSocialAccount`): one row per
-  project **and platform** (`SocialPlatform`: `instagram` today). Shaped for a
-  second platform on purpose: a Facebook Page connection is the planned next
-  case (see "Adding Facebook" below).
+  project **and platform** (`SocialPlatform`: `instagram`, `facebook` — a
+  Facebook Page, see § "Facebook Page").
   - `accountId` = the id publishing addresses (Instagram: `id` from
     `/me/assigned_instagram_accounts`), `accountUserId` = the token owner's
     app-scoped `/me` `id` (the Business Integration System User). Meta's
@@ -162,7 +164,9 @@ they carry is matched against both stored ids:
   `project_social` (`/project/{projectId}/social`, `ProjectSocialController`,
   `templates/project_social.html.twig`): Instagram box (status, connect /
   change / disconnect for editors, "Propojí správce projektu" for members,
-  "připravujeme" outside the rollout) + the Facebook box ("připravujeme").
+  "připravujeme" outside the rollout) + the Facebook Page box (same states;
+  "připravujeme" outside `FacebookPagePublishing`).
+  `project_facebook_pick` = the Page picker.
   `project_instagram_pick` = the account picker after a login that shared
   several Instagram accounts.
 - Fill page (`VariantFiller.html.twig`, Live props `instagramAvailable`,
@@ -170,22 +174,55 @@ they carry is matched against both stored ids:
   sítě" menu → "Publikovat na Instagram" ("(story)" on 9:16) opens the
   `variant-publish` modal with the fixed destination `@handle`, caption +
   counter, success view (big tick, „Zobrazit příspěvek“, caption cleared). Not connected → the modal links
-  to the project page in a NEW TAB (the unsaved fill must survive). Facebook
-  items keep the personal-link behaviour / fake door.
+  to the project page in a NEW TAB (the unsaved fill must survive).
+  „Publikovat na Facebook“ does the same for the project Page (Live props
+  `facebookAvailable`, `facebookPage`; caption without the 2 200 cap);
+  outside the Page rollout it keeps the personal-link picker / fake door.
 - Web only: no API / MCP shape change (so no mfkfm port, no skill release).
 
-## Adding Facebook (planned)
+## Facebook Page (2026-11-27)
 
-The table, page and modal are ready for it: add `SocialPlatform::Facebook`,
-a connect flow (most likely Facebook Login for Business on the SAME Meta app
-with a second configuration that asks for a Page — the WBoost app already
-uses FLB for Instagram; pick ONE Page → store page id in `accountId`, a
-non-expiring Page / system-user token, and the owner id in
-`accountUserId`), a publisher (`/{page-id}/photos`, see `MetaGraphApi`), the
-Facebook box on `project_social.html.twig`, and route `platform=facebook` to
-the project account in the publish controller. `FACEBOOK_APP_*` (personal
-sign-in app) and `INSTAGRAM_META_APP_*` are separate env vars, so either one
-Meta app or two works.
+Mirrors Instagram, `Services/FacebookPage/*`, `Controller/FacebookPage/*`:
+
+- **Meta side**: the SAME Meta app (`INSTAGRAM_META_APP_ID` / `_SECRET`) with
+  a second Facebook Login for Business configuration — System-user access
+  token (never expires), asset = Facebook Pages, permissions
+  `pages_show_list`, `pages_manage_posts`, `pages_read_engagement` (+
+  whatever the "Manage everything on your Page" use case forces, e.g.
+  `business_management`). Its id is `FACEBOOK_PAGES_LOGIN_CONFIG_ID`. Setup:
+  `docs/instagram-setup.md` § "Facebook Page".
+- **Gate** `FacebookPagePublishing`: off without the app id/secret or the
+  config id (+ the prod token-key rule); `FACEBOOK_PAGES_ROLLOUT=admins`
+  (default) / `everyone`.
+- **Connect**: `GET /project/{id}/facebook/connect` (`project_edit`) →
+  facebook.com/dialog/oauth with the Pages `config_id` → ONE redirect URI
+  `/oauth/facebook-page/check` (its own — Facebook Login for Business →
+  Settings takes several; the Instagram one stays untouched) → code →
+  system-user token → `GET /me/accounts?fields=id,name,access_token,tasks`
+  (Pages whose `tasks` lack `CREATE_CONTENT` are dropped) → one Page =
+  connected, several → `/project/{id}/facebook/pick` (Page tokens encrypted
+  in the session, single-use), none → error.
+- **Row**: `accountId` = Page id, `accountUserId` = token owner `/me` id,
+  `name` = Page name, `username` null, `accessToken` = the encrypted PAGE
+  token (derived from a never-expiring system-user token, so it doesn't
+  expire either — unverified), `tokenExpiresAt` null.
+- **Publish**: `platform=facebook` WITHOUT `targetId` = the project Page
+  (`publishToProjectPage`): `POST /{page-id}/photos` multipart `source` (the
+  PNG as rendered — any format, no padding) + `message` (no length limit
+  enforced) → `post_id` → `GET /{post-id}?fields=permalink_url` (fallback
+  `https://www.facebook.com/{post-id}`). JSON `{ok, platform: facebook,
+  postId, permalink, kind: feed, account: <Page name>}`; recorded on
+  `ExportChannel::Facebook`. Errors: 190 → `FacebookPageTokenExpired`
+  (row flagged, 409 + reconnect), 10/200-299 → permission (409), 4/17/32/
+  368/613 → rate limit (429).
+- **Personal link fallback**: with `targetId` the older personal path (user
+  profile → own Pages, `GetFacebookDestinations`) still works; the fill page
+  uses it only while `facebookAvailable` is false (outside the Page rollout).
+- **Callbacks**: the `/oauth/instagram/deauthorize|data-deletion` routes are
+  the Meta app's — `DeleteInstagramConnectionsHandler` drops matching rows of
+  BOTH platforms. Configure them once in FLB → Settings / App settings.
+- **Token check**: `app:instagram:check-tokens` also checks every Facebook
+  row (`GET /{page-id}?fields=id` with the Page token).
 
 ## Tests
 
@@ -198,6 +235,11 @@ length), `tests/Services/Instagram/InstagramPublishingTest.php` (rollout,
 config id, prod key), `tests/Services/Instagram/InstagramApiTest.php` (the
 real client vs Meta's documented shapes on a MockHttpClient, incl.
 `appsecret_proof`).
+Facebook Page: `tests/Controller/FacebookPage/ProjectFacebookPageConnectionTest.php`
+(page box, round trip, state, no Page, picker, disconnect, deauthorize,
+check command, fill chrome), `tests/Services/FacebookPage/FacebookPageApiTest.php`
+(wire format: config id, `me/accounts` + `tasks` filter, multipart photo,
+error mapping), publish tests in `TemplateVariantPublishControllerTest`.
 Not verifiable without a Meta app: the real login, whether the code exchange
 wants `redirect_uri` (sent; Facebook Login normally requires it), the token
 expiry options the dashboard offers, which id the callbacks carry, and real

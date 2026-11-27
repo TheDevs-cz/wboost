@@ -12,13 +12,16 @@ use WBoost\Web\Entity\ExportEvent;
 use WBoost\Web\Entity\Project;
 use WBoost\Web\Entity\ProjectSocialAccount;
 use WBoost\Web\Entity\SocialAccount;
+use WBoost\Web\Exceptions\FacebookPageTokenExpired;
 use WBoost\Web\Exceptions\FacebookTokenExpired;
 use WBoost\Web\Exceptions\InstagramTokenExpired;
 use WBoost\Web\Services\Editor\TemplateVariantImageRendererInterface;
+use WBoost\Web\Services\FacebookPage\FacebookPageApiInterface;
 use WBoost\Web\Services\Instagram\InstagramApiInterface;
 use WBoost\Web\Services\Meta\MetaGraphApiInterface;
 use WBoost\Web\Services\Security\TokenCrypto;
 use WBoost\Web\Tests\DataFixtures\TestDataFixture;
+use WBoost\Web\Tests\Fakes\FakeFacebookPageApi;
 use WBoost\Web\Tests\Fakes\FakeInstagramApi;
 use WBoost\Web\Tests\Fakes\FakeMetaGraphApi;
 use WBoost\Web\Tests\Fakes\FakeTemplateVariantImageRenderer;
@@ -27,10 +30,10 @@ use WBoost\Web\Value\ExportChannel;
 use WBoost\Web\Value\SocialPlatform;
 
 /**
- * Unified-module port of the social publish controller test: same flows
- * against `/template-variant/{id}/publish`, plus the ONE unified-only rule —
- * a variant without a social dimension preset (free-form px/mm/cm) cannot
- * be published at all.
+ * The publish endpoint `/template-variant/{id}/publish`: the personal
+ * Facebook link (targetId), the project Instagram account and the project
+ * Facebook Page (`platform=facebook` without targetId). Every format can be
+ * published.
  */
 final class TemplateVariantPublishControllerTest extends WebTestCase
 {
@@ -397,5 +400,100 @@ final class TemplateVariantPublishControllerTest extends WebTestCase
         ]);
 
         self::assertResponseStatusCodeSame(403);
+    }
+
+    private function facebookPageApi(): FakeFacebookPageApi
+    {
+        $api = self::getContainer()->get(FacebookPageApiInterface::class);
+        /** @phpstan-ignore staticMethod.impossibleType */
+        self::assertInstanceOf(FakeFacebookPageApi::class, $api);
+
+        return $api;
+    }
+
+    private function connectFacebookPage(): ProjectSocialAccount
+    {
+        $entityManager = self::getContainer()->get(EntityManagerInterface::class);
+        $project = $entityManager->find(Project::class, Uuid::fromString(TestDataFixture::PROJECT_1_ID));
+        self::assertInstanceOf(Project::class, $project);
+
+        $account = new ProjectSocialAccount(
+            Uuid::uuid7(),
+            $project,
+            SocialPlatform::Facebook,
+            FakeFacebookPageApi::PAGE_ID,
+            FakeFacebookPageApi::OWNER_ID,
+            null,
+            FakeFacebookPageApi::PAGE_NAME,
+            null,
+            self::getContainer()->get(TokenCrypto::class)->encrypt('fb-page-token'),
+            null,
+            [],
+            null,
+            new \DateTimeImmutable('-10 days'),
+        );
+        $entityManager->persist($account);
+        $entityManager->flush();
+
+        return $account;
+    }
+
+    public function testPublishesToTheProjectFacebookPage(): void
+    {
+        $client = self::createClient();
+        $client->disableReboot();
+        TestingLogin::logInAsUser($client, TestDataFixture::SHARED_USER_EMAIL);
+        $this->connectFacebookPage();
+        $caption = str_repeat('Dlouhý text. ', 300); // > 2 200 — fine on Facebook
+
+        $data = $this->publish($client, ['platform' => 'facebook', 'caption' => $caption], TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('facebook', $data['platform']);
+        self::assertSame(FakeFacebookPageApi::POST_ID, $data['postId']);
+        self::assertSame(FakeFacebookPageApi::PERMALINK, $data['permalink']);
+        self::assertSame(FakeFacebookPageApi::PAGE_NAME, $data['account']);
+
+        $call = $this->facebookPageApi()->callsTo('publishPhoto')[0]['args'];
+        self::assertSame(FakeFacebookPageApi::PAGE_ID, $call['pageId']);
+        self::assertSame('fb-page-token', $call['pageAccessToken']);
+        self::assertSame(trim($caption), $call['caption']);
+        self::assertSame([], $this->fakeApi()->calls, 'the personal Facebook link is not used');
+
+        $event = self::getContainer()->get(EntityManagerInterface::class)->getRepository(ExportEvent::class)->findOneBy([
+            'variantId' => Uuid::fromString(TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID),
+        ]);
+        self::assertNotNull($event);
+        self::assertSame(ExportChannel::Facebook, $event->channel);
+    }
+
+    public function testProjectFacebookPageNotConnected(): void
+    {
+        $client = self::createClient();
+        TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
+
+        $data = $this->publish($client, ['platform' => 'facebook', 'caption' => 'x']);
+
+        self::assertResponseStatusCodeSame(409);
+        self::assertTrue($data['reconnect']);
+    }
+
+    public function testRejectedPageTokenFlagsTheConnection(): void
+    {
+        $client = self::createClient();
+        $client->disableReboot();
+        TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
+        $account = $this->connectFacebookPage();
+        $this->facebookPageApi()->throwOnPublish = new FacebookPageTokenExpired('Session has expired.', 190);
+
+        $data = $this->publish($client, ['platform' => 'facebook', 'caption' => 'x']);
+
+        self::assertResponseStatusCodeSame(409);
+        self::assertTrue($data['reconnect']);
+        $entityManager = self::getContainer()->get(EntityManagerInterface::class);
+        $entityManager->clear();
+        $reloaded = $entityManager->find(ProjectSocialAccount::class, $account->id);
+        self::assertNotNull($reloaded);
+        self::assertTrue($reloaded->needsReconnect);
     }
 }

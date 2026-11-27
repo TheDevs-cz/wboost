@@ -6,10 +6,9 @@ namespace WBoost\Web\Value;
 
 /**
  * A network a PROJECT can be connected to for direct publishing
- * (`project_social_account.platform`). Instagram today; a Facebook Page is
- * the planned second case — the table, the project page and the publish
- * modal are shaped for it, only its connect flow + publisher are missing
- * (docs/architecture/social-publishing.md § "Adding Facebook").
+ * (`project_social_account.platform`): an Instagram professional account or a
+ * Facebook Page, both via Facebook Login for Business of the same Meta app
+ * (docs/architecture/social-publishing.md).
  *
  * Not to be confused with SocialProvider: that one is a USER's sign-in /
  * personal Facebook link.
@@ -17,11 +16,13 @@ namespace WBoost\Web\Value;
 enum SocialPlatform: string
 {
     case Instagram = 'instagram';
+    case Facebook = 'facebook';
 
     public function label(): string
     {
         return match ($this) {
             self::Instagram => 'Instagram',
+            self::Facebook => 'Facebook',
         };
     }
 }

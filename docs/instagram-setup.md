@@ -210,6 +210,48 @@ Sentry with details.
    now sees the connect button.
 5. Meta runs a yearly data-use checkup. Put it in the calendar.
 
+## Facebook Page (per project) — added 2026-11-27
+
+Same Meta app (**WBoost**), same business portfolio, a second login
+configuration. The code is on main; it stays off until the configuration id
+is in production.
+
+1. **Add the Pages use case** (if the app doesn't have it): App Dashboard →
+   *Use cases* → **Add use cases** → **Manage everything on your Page** →
+   add. Meta adds `business_management`, `pages_show_list`, `public_profile`
+   on its own; under *Customize* add **`pages_manage_posts`** and
+   **`pages_read_engagement`**.
+2. **Create the configuration**: left menu **Facebook Login for Business →
+   Configurations** → **Create configuration** (or *Create from template*
+   with a Pages template):
+   - name e.g. *WBoost – Facebook stránka*,
+   - **Access token: System-user access token**, **Expiration: Never**,
+   - **Assets: Facebook Pages** only (no ad accounts, no Instagram),
+   - **Permissions**: `pages_show_list`, `pages_manage_posts`,
+     `pages_read_engagement` (+ whatever Meta marks required — leave those),
+   - **Create** → copy the **Configuration ID**.
+3. **Redirect URI**: **Facebook Login for Business → Settings** → *Valid OAuth
+   Redirect URIs* → ADD (keep the Instagram one):
+   ```
+   https://wboost.cz/oauth/facebook-page/check
+   ```
+   The deauthorize / data-deletion URLs already set there stay as they are —
+   they now remove Facebook Page connections too. **Save changes.**
+4. **Send Claude the Configuration ID** → it goes to Infisical as
+   `FACEBOOK_PAGES_LOGIN_CONFIG_ID` (optional `FACEBOOK_PAGES_ROLLOUT`,
+   default `admins`). Nothing else is needed — the app id / secret are the
+   Instagram ones already there.
+5. **Try it**: project → *Facebook a Instagram* → **Propojit stránku** → log
+   in, pick the business portfolio and a Page **you manage** (in Development
+   mode only people with a role on the app can authorise — you are admin)
+   → back in WBoost the Page name is shown. Fill a template → **Sdílet na
+   sítě → Publikovat na Facebook** → caption → **Publikovat** → *Zobrazit
+   příspěvek*.
+6. **Go live**: App Review → Advanced Access for `pages_show_list`,
+   `pages_manage_posts`, `pages_read_engagement` (screencast like step 8,
+   with the Page), then `FACEBOOK_PAGES_ROLLOUT=everyone`. While the rollout
+   is `admins`, everyone else keeps the old personal Facebook link.
+
 ## Local development note
 
 Publishing can't work locally: Instagram downloads the JPEG from

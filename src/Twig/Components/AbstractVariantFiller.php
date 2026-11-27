@@ -111,6 +111,20 @@ abstract class AbstractVariantFiller extends AbstractController
     public string $instagramAccount = '';
 
     /**
+     * Whether the current user gets the project-Facebook-Page publish flow
+     * (FacebookPagePublishing) — set by the page controller. When true it
+     * replaces the personal-link Facebook path on the fill page.
+     */
+    #[LiveProp]
+    public bool $facebookAvailable = false;
+
+    /**
+     * The project's usable Facebook Page name, '' = not connected.
+     */
+    #[LiveProp]
+    public string $facebookPage = '';
+
+    /**
      * Map of inputId UUID → text value the user has typed.
      *
      * `writable: true` lets Live Components write into any sub-key of this

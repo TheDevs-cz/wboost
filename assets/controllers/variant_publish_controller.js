@@ -8,8 +8,10 @@ import { askUnfilled, UNFILLED, CONFIRM_FIELD } from "../ai-scan/export-guard.js
  * Instagram publishes to the PROJECT's connected account (one per project,
  * docs/architecture/social-publishing.md): the destination is fixed (the
  * server resolves it from the variant's project — no `targetId`), a 9:16
- * template goes out as a story (no caption). Facebook still publishes to the
- * user's own Pages via their personal Facebook link (destination picker).
+ * template goes out as a story (no caption). Facebook publishes to the
+ * PROJECT's Page the same way (fixed destination, no `targetId`) when the
+ * Facebook Page rollout is on (`facebookProject`); otherwise it falls back
+ * to the user's own Pages via their personal Facebook link (picker).
  *
  * Attached to the fill FORM (alongside variant-fill-overlay), so `this.element`
  * IS the form: submitting re-posts the exact current fill state via
@@ -34,6 +36,8 @@ export default class extends Controller {
         destinationsUrl: String,
         profileUrl: String,
         instagramAccount: String,
+        facebookProject: Boolean,
+        facebookPage: String,
         instagramStory: Boolean,
         instagramFits: { type: Boolean, default: true },
         socialUrl: String,
@@ -80,8 +84,18 @@ export default class extends Controller {
         this.modalTarget.classList.add("is-open");
         document.addEventListener("keydown", this._onKeydown);
 
+        // Instagram captions stop at 2 200 characters, Facebook's don't.
+        if (this.platform === "instagram") {
+            this.captionTarget.maxLength = 2200;
+        } else {
+            this.captionTarget.removeAttribute("maxlength");
+        }
+        this.countCaption();
+
         if (this.platform === "instagram") {
             this._renderInstagramDestination();
+        } else if (this.facebookProjectValue) {
+            this._renderFacebookPageDestination();
         } else {
             this._loadDestinations();
         }
@@ -89,7 +103,8 @@ export default class extends Controller {
 
     countCaption() {
         if (this.hasCaptionCountTarget) {
-            this.captionCountTarget.textContent = `${this.captionTarget.value.length} / 2200`;
+            const length = this.captionTarget.value.length;
+            this.captionCountTarget.textContent = this.platform === "instagram" ? `${length} / 2200` : `${length} znaků`;
         }
     }
 
@@ -118,8 +133,14 @@ export default class extends Controller {
             return;
         }
 
-        const selected = instagram ? null : this.destinationsTarget.querySelector("input[type=radio]:checked");
-        if (!instagram && !selected) {
+        const projectPage = !instagram && this.facebookProjectValue;
+        if (projectPage && !this.facebookPageValue) {
+            this._renderFacebookPageDestination();
+            return;
+        }
+
+        const selected = instagram || projectPage ? null : this.destinationsTarget.querySelector("input[type=radio]:checked");
+        if (!instagram && !projectPage && !selected) {
             this._setStatus("Vyberte, kam chcete příspěvek publikovat.", "error");
             return;
         }
@@ -186,14 +207,17 @@ export default class extends Controller {
         this.doneTitleTarget.textContent = instagram
             ? (story ? "Story je na Instagramu" : "Publikováno na Instagram")
             : "Publikováno na Facebook";
-        const where = data.account ? `@${data.account}` : (instagram ? "účet projektu" : "vybranou stránku");
+        const where = data.account
+            ? (instagram ? `@${data.account}` : `stránce ${data.account}`)
+            : (instagram ? "účet projektu" : "vybrané stránce");
         this.doneLeadTarget.textContent = story
             ? `Story na ${where} je venku. Na Instagramu vydrží 24 hodin.`
-            : `Příspěvek najdete na ${where}.`;
+            : (instagram ? `Příspěvek najdete na ${where}.` : `Příspěvek je na ${where}.`);
 
         if (data.permalink) {
             this.doneLinkTarget.href = data.permalink;
             this.doneLinkTarget.lastChild.textContent = story ? "Zobrazit na Instagramu" : "Zobrazit příspěvek";
+            this.doneLinkTarget.querySelector(".i")?.classList.replace(instagram ? "i-facebook" : "i-instagram", instagram ? "i-instagram" : "i-facebook");
             this.doneLinkTarget.hidden = false;
         } else {
             this.doneLinkTarget.hidden = true;
@@ -224,6 +248,30 @@ export default class extends Controller {
             link.target = "_blank";
             link.rel = "noopener";
             link.textContent = "Propojit Instagram (nová karta)";
+            p.append(link);
+            this.submitTarget.disabled = true;
+        }
+
+        this.destinationsTarget.replaceChildren(p);
+    }
+
+    _renderFacebookPageDestination() {
+        const p = document.createElement("p");
+        p.className = "small mb-0";
+
+        if (this.facebookPageValue) {
+            const b = document.createElement("b");
+            b.textContent = this.facebookPageValue;
+            p.append(b, document.createTextNode(" — facebooková stránka projektu"));
+        } else {
+            p.className = "text-danger small mb-0";
+            p.append(document.createTextNode("Projekt nemá propojenou facebookovou stránku. "));
+            const link = document.createElement("a");
+            link.href = this.socialUrlValue;
+            // A new tab: the unsaved fill on this page must survive.
+            link.target = "_blank";
+            link.rel = "noopener";
+            link.textContent = "Propojit stránku (nová karta)";
             p.append(link);
             this.submitTarget.disabled = true;
         }
@@ -327,6 +375,8 @@ export default class extends Controller {
         if (reconnect) {
             if (this.platform === "instagram") {
                 this._appendLink(this.socialUrlValue, "Otevřít propojení Instagramu (nová karta)", true);
+            } else if (this.facebookProjectValue) {
+                this._appendLink(this.socialUrlValue, "Otevřít propojení stránky (nová karta)", true);
             } else {
                 this._appendLink(this.profileUrlValue, "Přejít na propojení účtu", false);
             }

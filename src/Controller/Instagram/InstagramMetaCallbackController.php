@@ -25,8 +25,9 @@ use WBoost\Web\Services\Meta\MetaSignedRequest;
  * stored Instagram account id and the token owner id — which one Meta sends
  * for a Unified Login connection is not documented.
  *
- * - Deauthorize: the person removed WBoost from their Instagram account →
- *   every project connection to it is dropped (the token is dead anyway).
+ * - Deauthorize: the person removed WBoost (Instagram, or the business
+ *   portfolio's connected apps) → every project connection matching the id
+ *   is dropped, Instagram AND Facebook Page rows (same Meta app).
  * - Data deletion: the person asked for their data to be deleted → same,
  *   answered with a status URL + confirmation code.
  */

@@ -9,6 +9,10 @@ use WBoost\Web\Message\Instagram\DeleteInstagramConnections;
 use WBoost\Web\Repository\ProjectSocialAccountRepository;
 use WBoost\Web\Value\SocialPlatform;
 
+/**
+ * Meta's deauthorize / data-deletion callbacks of the ONE Meta app: drops the
+ * matching project connections of BOTH platforms (Instagram + Facebook Page).
+ */
 #[AsMessageHandler]
 readonly final class DeleteInstagramConnectionsHandler
 {
@@ -19,8 +23,10 @@ readonly final class DeleteInstagramConnectionsHandler
 
     public function __invoke(DeleteInstagramConnections $message): void
     {
-        foreach ($this->accountRepository->findByExternalId(SocialPlatform::Instagram, $message->instagramUserId) as $account) {
-            $this->accountRepository->remove($account);
+        foreach (SocialPlatform::cases() as $platform) {
+            foreach ($this->accountRepository->findByExternalId($platform, $message->instagramUserId) as $account) {
+                $this->accountRepository->remove($account);
+            }
         }
     }
 }

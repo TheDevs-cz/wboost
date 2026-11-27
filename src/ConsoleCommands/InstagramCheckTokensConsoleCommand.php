@@ -16,15 +16,15 @@ use WBoost\Web\Repository\ProjectSocialAccountRepository;
 use WBoost\Web\Value\SocialPlatform;
 
 /**
- * Nightly health check of project Instagram connections (Unified Login
- * tokens don't expire, so there is nothing to refresh): a token Meta no
+ * Nightly health check of project Instagram AND Facebook Page connections
+ * (their tokens don't expire, so there is nothing to refresh): a token Meta no
  * longer accepts flags the connection for reconnect, so the project page
  * shows "Znovu propojit" before anyone tries to publish. Idempotent.
  *
  * The alias `app:instagram:refresh-tokens` keeps the lily cron line from the
  * Instagram Login era working.
  */
-#[AsCommand('app:instagram:check-tokens|app:instagram:refresh-tokens', 'Instagram: flag project connections whose token Meta no longer accepts')]
+#[AsCommand('app:instagram:check-tokens|app:instagram:refresh-tokens', 'Instagram + Facebook Page: flag project connections whose token Meta no longer accepts')]
 final class InstagramCheckTokensConsoleCommand extends Command
 {
     public function __construct(
@@ -39,19 +39,22 @@ final class InstagramCheckTokensConsoleCommand extends Command
     {
         $io = new SymfonyStyle($input, $output);
         $failed = 0;
-        $ids = $this->accountRepository->connectedIds(SocialPlatform::Instagram);
+        $ids = [
+            ...$this->accountRepository->connectedIds(SocialPlatform::Instagram),
+            ...$this->accountRepository->connectedIds(SocialPlatform::Facebook),
+        ];
 
         foreach ($ids as $id) {
             try {
                 $this->bus->dispatch(new CheckProjectInstagramToken($id->toString()));
             } catch (\Throwable $exception) {
                 $failed++;
-                $this->logger->error('Instagram token check failed.', ['exception' => $exception, 'accountId' => $id->toString()]);
+                $this->logger->error('Project social token check failed.', ['exception' => $exception, 'accountId' => $id->toString()]);
                 $io->warning(sprintf('%s: %s', $id->toString(), $exception->getMessage()));
             }
         }
 
-        $io->success(sprintf('Checked %d Instagram connections, %d failed.', count($ids), $failed));
+        $io->success(sprintf('Checked %d project social connections, %d failed.', count($ids), $failed));
 
         return $failed > 0 ? Command::FAILURE : Command::SUCCESS;
     }
