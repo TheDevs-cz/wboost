@@ -28,13 +28,14 @@ import { askUnfilled, UNFILLED, CONFIRM_FIELD } from "../ai-scan/export-guard.js
  * coupling the two controllers.
  */
 export default class extends Controller {
-    static targets = ["modal", "title", "destinations", "caption", "captionBox", "captionCount", "storyNote", "submit", "status"];
+    static targets = ["modal", "title", "destinations", "caption", "captionBox", "captionCount", "storyNote", "submit", "status", "formPane", "donePane", "doneTitle", "doneLead", "doneLink", "fitNote"];
     static values = {
         publishUrl: String,
         destinationsUrl: String,
         profileUrl: String,
         instagramAccount: String,
         instagramStory: Boolean,
+        instagramFits: { type: Boolean, default: true },
         socialUrl: String,
     };
 
@@ -61,8 +62,11 @@ export default class extends Controller {
             ? (story ? "Publikovat story na Instagram" : "Publikovat na Instagram")
             : "Publikovat na Facebook";
 
+        this.formPaneTarget.hidden = false;
+        this.donePaneTarget.hidden = true;
         this.captionBoxTarget.hidden = story;
         this.storyNoteTarget.hidden = !story;
+        this.fitNoteTarget.hidden = this.platform !== "instagram" || this.instagramFitsValue;
         this.countCaption();
 
         this._setStatus("", "muted");
@@ -153,10 +157,7 @@ export default class extends Controller {
                 this._setStatus("", "");
                 again = await askUnfilled(data);
             } else if (response.ok && data && data.ok) {
-                this._setStatus(data.kind === "story" ? "Hotovo — story je na Instagramu." : "Hotovo — příspěvek byl publikován.", "ok");
-                if (data.permalink) {
-                    this._appendLink(data.permalink, "Zobrazit příspěvek", true);
-                }
+                this._showDone(data);
             } else {
                 const message = (data && data.error) || "Publikování se nepovedlo. Zkuste to prosím znovu.";
                 this._setStatus(message, "error", data && data.reconnect);
@@ -173,6 +174,37 @@ export default class extends Controller {
             this._allowUnfilled = true;
             await this.submit();
         }
+    }
+
+    /**
+     * Swap the form for the success view. The caption is cleared so reopening
+     * the dialog starts a fresh post instead of offering a double publish.
+     */
+    _showDone(data) {
+        const instagram = data.platform === "instagram" || this.platform === "instagram";
+        const story = data.kind === "story";
+        this.doneTitleTarget.textContent = instagram
+            ? (story ? "Story je na Instagramu" : "Publikováno na Instagram")
+            : "Publikováno na Facebook";
+        const where = data.account ? `@${data.account}` : (instagram ? "účet projektu" : "vybranou stránku");
+        this.doneLeadTarget.textContent = story
+            ? `Story na ${where} je venku. Na Instagramu vydrží 24 hodin.`
+            : `Příspěvek najdete na ${where}.`;
+
+        if (data.permalink) {
+            this.doneLinkTarget.href = data.permalink;
+            this.doneLinkTarget.lastChild.textContent = story ? "Zobrazit na Instagramu" : "Zobrazit příspěvek";
+            this.doneLinkTarget.hidden = false;
+        } else {
+            this.doneLinkTarget.hidden = true;
+        }
+
+        this.captionTarget.value = "";
+        this.countCaption();
+        this._setStatus("", "muted");
+        this.formPaneTarget.hidden = true;
+        this.donePaneTarget.hidden = false;
+        (data.permalink ? this.doneLinkTarget : this.donePaneTarget.querySelector("button")).focus();
     }
 
     _renderInstagramDestination() {

@@ -108,7 +108,8 @@
             data-variant-publish-destinations-url-value="{{ path('social_facebook_destinations') }}"
             data-variant-publish-profile-url-value="{{ path('user_profile') }}"
             data-variant-publish-instagram-account-value="{{ this.instagramAccount }}"
-            data-variant-publish-instagram-story-value="{{ variant.dimension.instagramPostKind() and variant.dimension.instagramPostKind().value == 'story' ? 'true' : 'false' }}"
+            data-variant-publish-instagram-fits-value="{{ variant.dimension.fitsInstagramAsIs() ? 'true' : 'false' }}"
+            data-variant-publish-instagram-story-value="{{ variant.dimension.instagramPostKind().value == 'story' ? 'true' : 'false' }}"
             data-variant-publish-social-url-value="{{ path('project_social', {'projectId': variant.template.project.id}) }}"
         {% endif %}
     >
@@ -365,7 +366,7 @@
                             <button type="button" class="btn btn-tertiary xs dropdown-toggle fi-share" data-bs-toggle="dropdown" aria-expanded="false">{{ icon('share', 's14') }}Sdílet na sítě</button>
                             <ul class="dropdown-menu dropdown-menu-end">
                                 {% if this.instagramAvailable %}
-                                    <li><button type="button" class="dropdown-item" data-action="variant-publish#open" data-variant-publish-platform-param="instagram">{{ icon('instagram', 's16') }}{{ variant.dimension.instagramPostKind() and variant.dimension.instagramPostKind().value == 'story' ? 'Publikovat na Instagram (story)' : 'Publikovat na Instagram' }}</button></li>
+                                    <li><button type="button" class="dropdown-item" data-action="variant-publish#open" data-variant-publish-platform-param="instagram">{{ icon('instagram', 's16') }}{{ variant.dimension.instagramPostKind().value == 'story' ? 'Publikovat na Instagram (story)' : 'Publikovat na Instagram' }}</button></li>
                                 {% else %}
                                     <li><button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#social-publish-fake-door">{{ icon('instagram', 's16') }}Publikovat na Instagram</button></li>
                                 {% endif %}
@@ -650,6 +651,7 @@
                             <button type="button" class="btn-close" aria-label="Zavřít" data-action="variant-publish#close"></button>
                         </div>
 
+                        <div data-variant-publish-target="formPane">
                         <label class="form-label small text-muted mb-1">Kam publikovat</label>
                         <div class="mb-2" data-variant-publish-target="destinations">
                             <p class="text-muted small mb-0">Načítám…</p>
@@ -668,6 +670,7 @@
                             ></textarea>
                             <div class="small text-muted text-end mb-2" data-variant-publish-target="captionCount">0 / 2200</div>
                         </div>
+                        <p class="pub-hint" data-variant-publish-target="fitNote" hidden>{{ icon('info', 's16') }}<span>Tento formát Instagram neumí zobrazit celý — obrázek doplníme bílými okraji. Nejlépe vypadají formáty 4:5 (1080 × 1350), 1:1 nebo 9:16 pro story.</span></p>
                         <p class="small text-muted mb-2" data-variant-publish-target="storyNote" hidden>Story se na Instagramu zveřejní bez popisku — text napište přímo do šablony.</p>
 
                         <div class="small mb-2" data-variant-publish-target="status" aria-live="polite"></div>
@@ -676,6 +679,20 @@
                             <button type="button" class="btn btn-primary btn-sm" data-action="variant-publish#submit" data-variant-publish-target="submit">
                                 {{ icon('share', 's16') }}Publikovat
                             </button>
+                        </div>
+                        </div>
+
+                        {# Success replaces the whole form (no caption left to
+                           re-submit by accident): big tick, where it went, the
+                           permalink as the one primary action. #}
+                        <div class="pub-done" data-variant-publish-target="donePane" hidden>
+                            <span class="pub-done__icon c-success">{{ icon('check', 's32') }}</span>
+                            <h6 class="pub-done__title" data-variant-publish-target="doneTitle">Publikováno</h6>
+                            <p class="pub-done__lead" data-variant-publish-target="doneLead"></p>
+                            <div class="pub-done__actions">
+                                <a class="btn btn-primary sm" target="_blank" rel="noopener" data-variant-publish-target="doneLink" hidden>{{ icon('instagram', 's16') }}Zobrazit příspěvek</a>
+                                <button type="button" class="btn btn-tertiary sm" data-action="variant-publish#close">Zavřít</button>
+                            </div>
                         </div>
                     </div>
                 </div>

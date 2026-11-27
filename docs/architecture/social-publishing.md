@@ -99,13 +99,15 @@ both flat and wrapped in `data: [ … ]`.
 
 - Destination is resolved from `variant.template.project` — a posted
   `targetId` is ignored for Instagram.
-- Gated by `TemplateDimension::isSocialFormat()` (since 2026-11-27): a preset,
-  or a free-form **px** size whose ratio Instagram takes (4:5 – 1.91:1 → feed,
-  exactly 9:16 → story; `instagramPostKind()`); print sizes never. `InstagramPostKind`:
+- **Every format publishes** (2026-11-27). `TemplateDimension::instagramPostKind()`:
+  a preset decides, otherwise an exact 9:16 px size is a story and anything
+  else a feed post; `fitsInstagramAsIs()` false → the dialog shows a hint and
+  `InstagramImageFit` pads the JPEG with white to the nearest accepted ratio
+  (4:5 / 1.91:1) and scales it to ≤ 1440 px wide. Facebook takes any size. `InstagramPostKind`:
   1:1 / 4:5 → **feed post** with caption (≤ 2 200 chars, checked server-side);
   **9:16 → story** (`media_type=STORIES`, no caption — Instagram stories have
   none; the modal hides the caption box and says so).
-- `PublishToProjectInstagram`: same render as the PNG download → JPEG →
+- `PublishToProjectInstagram`: same render as the PNG download → `InstagramImageFit` (JPEG, padding, ≤ 1440 px) →
   temp object `social-publish/<uuid>.jpg` on the PUBLIC bucket (Instagram
   downloads it itself, so `UPLOADS_BASE_URL` must be internet-reachable —
   impossible on localhost) → container → poll `status_code` (12 × 1.5 s) →
@@ -167,7 +169,7 @@ they carry is matched against both stored ids:
   `instagramAccount`, set by `TemplateVariantExportController`): "Sdílet na
   sítě" menu → "Publikovat na Instagram" ("(story)" on 9:16) opens the
   `variant-publish` modal with the fixed destination `@handle`, caption +
-  counter, success with "Zobrazit příspěvek". Not connected → the modal links
+  counter, success view (big tick, „Zobrazit příspěvek“, caption cleared). Not connected → the modal links
   to the project page in a NEW TAB (the unsaved fill must survive). Facebook
   items keep the personal-link behaviour / fake door.
 - Web only: no API / MCP shape change (so no mfkfm port, no skill release).

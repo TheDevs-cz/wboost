@@ -289,42 +289,40 @@ final class TemplateVariantPublishControllerTest extends WebTestCase
         self::assertSame([], $this->instagramApi()->calls);
     }
 
-    public function testFreeFormVariantCannotBePublished(): void
+    public function testFreeFormVariantPublishesToFacebook(): void
     {
         $client = self::createClient();
         TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
 
-        // Otherwise perfectly valid request — the preset gate alone refuses it.
+        // Every format can be published since 2026-11-27 — Facebook takes any size.
         $data = $this->publish($client, [
             'platform' => 'facebook',
             'targetId' => FakeMetaGraphApi::PAGE_WITHOUT_IG_ID,
-            'caption' => 'Should never leave the app',
+            'caption' => 'Free-form',
         ], TestDataFixture::GROUPED_FREEFORM_VARIANT_ID);
 
-        self::assertResponseStatusCodeSame(400);
-        self::assertArrayHasKey('error', $data);
-        self::assertSame([], $this->fakeApi()->calls);
-
-        // No usage event either — nothing was exported.
-        $entityManager = self::getContainer()->get(EntityManagerInterface::class);
-        $event = $entityManager->getRepository(ExportEvent::class)->findOneBy([
-            'variantId' => Uuid::fromString(TestDataFixture::GROUPED_FREEFORM_VARIANT_ID),
-        ]);
-        self::assertNull($event);
+        self::assertResponseIsSuccessful();
+        self::assertTrue($data['ok']);
+        self::assertNotSame([], $this->fakeApi()->calls);
     }
 
-    public function testFreeFormPrintVariantCannotBePublishedToInstagramEither(): void
+    public function testFreeFormPrintVariantPublishesToInstagramAsFeedPost(): void
     {
         $client = self::createClient();
+        $client->disableReboot();
         TestingLogin::logInAsUser($client, TestDataFixture::USER_1_EMAIL);
+        $this->connectInstagram();
 
+        // A print size outside Instagram's feed ratios is padded on the way out
+        // (InstagramImageFit), never refused.
         $data = $this->publish($client, [
             'platform' => 'instagram',
+            'caption' => 'A4 leták',
         ], TestDataFixture::CUSTOM_TEMPLATE_VARIANT_1_ID);
 
-        self::assertResponseStatusCodeSame(400);
-        self::assertArrayHasKey('error', $data);
-        self::assertSame([], $this->instagramApi()->calls);
+        self::assertResponseIsSuccessful();
+        self::assertSame('feed', $data['kind']);
+        self::assertNotSame([], $this->instagramApi()->calls);
     }
 
     public function testUnknownTargetPageIsRefused(): void

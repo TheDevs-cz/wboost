@@ -8,7 +8,6 @@ use League\Flysystem\Filesystem;
 use WBoost\Web\Entity\ProjectSocialAccount;
 use WBoost\Web\Exceptions\InstagramContainerFailed;
 use WBoost\Web\Exceptions\MetaApiError;
-use WBoost\Web\Services\PngToJpeg;
 use WBoost\Web\Services\ProvideIdentity;
 use WBoost\Web\Services\UploaderHelper;
 use WBoost\Web\Value\InstagramPostKind;
@@ -30,7 +29,7 @@ readonly final class PublishToProjectInstagram
     public function __construct(
         private InstagramApiInterface $instagramApi,
         private ProjectInstagramConnection $connection,
-        private PngToJpeg $pngToJpeg,
+        private InstagramImageFit $imageFit,
         private Filesystem $filesystem,
         private UploaderHelper $uploaderHelper,
         private ProvideIdentity $provideIdentity,
@@ -46,7 +45,7 @@ readonly final class PublishToProjectInstagram
         $accessToken = $this->connection->accessToken($account);
         $tempPath = sprintf('social-publish/%s.jpg', $this->provideIdentity->next()->toString());
 
-        $this->filesystem->write($tempPath, $this->pngToJpeg->convert($pngBytes));
+        $this->filesystem->write($tempPath, $this->imageFit->toJpeg($pngBytes, $kind));
 
         try {
             $containerId = $this->instagramApi->createImageContainer(

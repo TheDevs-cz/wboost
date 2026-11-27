@@ -55,8 +55,8 @@ use WBoost\Web\Value\ExportFillValues;
  * from the variant's project. A 9:16 variant goes to Instagram as a story.
  * Responds JSON — the fill page stays put, no state is lost.
  *
- * Only variants in a social-network format can be published: a preset, or a
- * free-form px size whose ratio Instagram accepts (`isSocialFormat()`).
+ * Every format can be published (2026-11-27): Instagram gets a picture outside
+ * its feed ratios padded (`InstagramImageFit`), Facebook takes any size.
  *
  * Deliberately synchronous: the user needs actionable feedback (expired
  * token → reconnect CTA), and Messenger's retrying async transport could
@@ -97,13 +97,6 @@ final class TemplateVariantPublishController extends AbstractController
         Request $request,
         #[CurrentUser] User $user,
     ): Response {
-        if (!$variant->dimension->isSocialFormat()) {
-            return new JsonResponse(
-                ['error' => 'Publikovat na sociální sítě lze pouze varianty ve formátu pro sociální sítě.'],
-                Response::HTTP_BAD_REQUEST,
-            );
-        }
-
         $platform = $request->request->getString('platform');
         $targetId = $request->request->getString('targetId');
         $caption = trim($request->request->getString('caption'));
@@ -187,7 +180,6 @@ final class TemplateVariantPublishController extends AbstractController
         }
 
         $kind = $variant->dimension->instagramPostKind();
-        assert($kind !== null);
 
         if (mb_strlen($caption) > 2200) {
             return new JsonResponse(['error' => 'Popisek může mít nejvýš 2 200 znaků.'], Response::HTTP_BAD_REQUEST);

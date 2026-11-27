@@ -544,3 +544,16 @@ html.fill-move-dragging, html.fill-move-dragging * { cursor: grabbing !important
     .fill-move-chip { left: 8px !important; right: 8px; bottom: 8px; top: auto !important; width: auto; max-width: none; padding: 12px 14px 14px; border-radius: 18px; }
     .fill-move-chip__hint { display: none; }
 }
+
+/* ---------- Publish dialog: format hint ---------- */
+.pub-hint { display: flex; gap: 8px; align-items: flex-start; margin: 0 0 12px; padding: 10px 12px; border-radius: 12px; font-size: 13px; background: var(--surface-3); border: 1px solid var(--line-2); color: var(--muted); }
+.pub-hint[hidden] { display: none; }
+.pub-hint .i { flex: none; margin-top: 1px; }
+
+/* ---------- Publish dialog: success state (variant_publish_controller) ---------- */
+.pub-done { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 18px 8px 6px; }
+.pub-done[hidden] { display: none; }
+.pub-done__icon { display: grid; place-items: center; width: 72px; height: 72px; border-radius: 50%; background: var(--a-deep); color: var(--a-ink); border: 1px solid var(--a-line); box-shadow: 0 0 0 8px color-mix(in srgb, var(--a-deep) 45%, transparent); margin-bottom: 18px; }
+.pub-done__title { font-size: 20px; font-weight: 600; margin: 0 0 6px; }
+.pub-done__lead { color: var(--muted); margin: 0 0 22px; max-width: 420px; }
+.pub-done__actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }

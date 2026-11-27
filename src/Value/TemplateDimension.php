@@ -92,37 +92,40 @@ final class TemplateDimension
     }
 
     /**
-     * Where this format lands on Instagram, or null when it can't be posted:
-     * a preset decides directly; a free-form px size qualifies by its ratio
-     * (feed accepts 4:5 – 1.91:1, an exact 9:16 goes out as a story). Print
-     * sizes (mm / cm) never publish.
+     * Where this format lands on Instagram: a preset decides directly; any
+     * other size goes to the feed, except an exact 9:16 px size (a story).
+     * Every format can be published — one outside the feed's 4:5 – 1.91:1
+     * range is padded on the way out (`InstagramImageFit`), see
+     * `fitsInstagramAsIs()`.
      */
-    public function instagramPostKind(): null|InstagramPostKind
+    public function instagramPostKind(): InstagramPostKind
     {
         if ($this->preset !== null) {
             return InstagramPostKind::forPreset($this->preset);
         }
 
-        if ($this->isPrintFormat() || $this->height() <= 0) {
-            return null;
+        return !$this->isPrintFormat() && $this->height() > 0 && abs($this->width() / $this->height() - 9 / 16) < 0.005
+            ? InstagramPostKind::Story
+            : InstagramPostKind::Feed;
+    }
+
+    /**
+     * Whether Instagram takes the picture without added margins — the fill
+     * page suggests a better format otherwise.
+     */
+    public function fitsInstagramAsIs(): bool
+    {
+        if ($this->preset !== null || $this->instagramPostKind() === InstagramPostKind::Story) {
+            return true;
+        }
+
+        if ($this->height() <= 0) {
+            return false;
         }
 
         $ratio = $this->width() / $this->height();
 
-        if (abs($ratio - 9 / 16) < 0.005) {
-            return InstagramPostKind::Story;
-        }
-
-        return $ratio >= 0.8 - 0.005 && $ratio <= 1.91 + 0.005 ? InstagramPostKind::Feed : null;
-    }
-
-    /**
-     * A social-network format: a preset, or a free-form px size Instagram
-     * accepts as-is.
-     */
-    public function isSocialFormat(): bool
-    {
-        return $this->instagramPostKind() !== null;
+        return $ratio >= InstagramPostKind::MIN_FEED_RATIO - 0.005 && $ratio <= InstagramPostKind::MAX_FEED_RATIO + 0.005;
     }
 
     public function hasBleed(): bool

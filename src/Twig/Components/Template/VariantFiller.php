@@ -56,16 +56,12 @@ final class VariantFiller extends AbstractVariantFiller
     }
 
     /**
-     * Only variants in a social-network format can be published (a preset, or
-     * a free-form px size Instagram accepts — `TemplateDimension::isSocialFormat`);
-     * print sizes and odd ratios render no publish chrome.
+     * Every format can be published (Instagram pads one outside its feed
+     * ratios — the dialog suggests a better format then).
      */
     public function canPublish(): bool
     {
-        $variant = $this->variant;
-        assert($variant !== null);
-
-        return $variant->dimension->isSocialFormat();
+        return true;
     }
 
     public function uploadPath(string $inputId): string

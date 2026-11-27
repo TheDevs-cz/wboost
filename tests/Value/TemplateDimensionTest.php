@@ -111,16 +111,18 @@ final class TemplateDimensionTest extends TestCase
         self::assertSame(0.0, $dimension->bleedMm);
     }
 
-    public function testInstagramPostKindForFreeFormPixelSizes(): void
+    public function testInstagramPostKindAndFit(): void
     {
         self::assertSame(InstagramPostKind::Feed, (new TemplateDimension(DimensionUnit::Px, 1080, 1350))->instagramPostKind());
-        self::assertSame(InstagramPostKind::Feed, (new TemplateDimension(DimensionUnit::Px, 1200, 628))->instagramPostKind());
         self::assertSame(InstagramPostKind::Story, (new TemplateDimension(DimensionUnit::Px, 1080, 1920))->instagramPostKind());
-        self::assertNull((new TemplateDimension(DimensionUnit::Px, 1000, 2000))->instagramPostKind());
-        self::assertNull((new TemplateDimension(DimensionUnit::Px, 3000, 1000))->instagramPostKind());
-        self::assertNull((new TemplateDimension(DimensionUnit::Mm, 100, 100))->instagramPostKind());
-        self::assertTrue((new TemplateDimension(DimensionUnit::Px, 1080, 1080))->isSocialFormat());
-        self::assertFalse((new TemplateDimension(DimensionUnit::Mm, 210, 297))->isSocialFormat());
+        self::assertSame(InstagramPostKind::Feed, (new TemplateDimension(DimensionUnit::Mm, 210, 297))->instagramPostKind());
+
+        self::assertTrue((new TemplateDimension(DimensionUnit::Px, 1080, 1350))->fitsInstagramAsIs());
+        self::assertTrue((new TemplateDimension(DimensionUnit::Px, 1200, 628))->fitsInstagramAsIs());
+        self::assertTrue((new TemplateDimension(DimensionUnit::Px, 1080, 1920))->fitsInstagramAsIs());
+        self::assertFalse((new TemplateDimension(DimensionUnit::Px, 1000, 2000))->fitsInstagramAsIs());
+        self::assertFalse((new TemplateDimension(DimensionUnit::Px, 3000, 1000))->fitsInstagramAsIs());
+        self::assertFalse((new TemplateDimension(DimensionUnit::Mm, 210, 297))->fitsInstagramAsIs());
     }
 
     public function testPresetDecidesInstagramPostKind(): void
